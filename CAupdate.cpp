@@ -76,6 +76,7 @@ void TemperatureUpdate(int id, int MyXSlices, int MyYSlices, int MyXOffset, int 
 //void CellCapture(int id, int cycle, int DecompositionStrategy, int &ACount, int &BCount, int &CCount, int &DCount, int &ECount, int &FCount, int &GCount, int &HCount, int MyXSlices, int MyYSlices, const int nz, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI::HostMirror  TriangleIndex, ViewF::HostMirror  CritDiagonalLength, ViewF::HostMirror  DiagonalLength, int* GrainOrientation, ViewC::HostMirror  CellType, ViewF::HostMirror  DOCenter, ViewI::HostMirror  GrainID, int NGrainOrientations, ViewF::HostMirror  UndercoolingCurrent) {
 void CellCapture(int id, int cycle, int DecompositionStrategy, int &ACount, int &BCount, int &CCount, int &DCount, int &ECount, int &FCount, int &GCount, int &HCount, int MyXSlices, int MyYSlices, const int nz, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int* GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, ViewF UndercoolingCurrent) {
 
+    View_a CellType_a = CellType;
     int LocalDomainSize = nz*MyXSlices*MyYSlices;
     // Cell capture - parallel loop over all type Active cells
     Kokkos::parallel_for("CellupdateLoop",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
@@ -157,8 +158,8 @@ void CellCapture(int id, int cycle, int DecompositionStrategy, int &ACount, int 
                     if (DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26*D3D1ConvPosition+l)) {
                         
                         // atomic operation - new cell's state known across GPU
-                        Kokkos::Impl::atomic_store(CellType(NeighborD3D1ConvPosition),Active);
-                        //CellType(NeighborD3D1ConvPosition) = Active;
+                        //Kokkos::Impl::atomic_store(CellType(NeighborD3D1ConvPosition),Active);
+                        CellType_a(NeighborD3D1ConvPosition) = Active;
                         
                         int GlobalX = RankX + MyXOffset;
                         int GlobalY = RankY + MyYOffset;

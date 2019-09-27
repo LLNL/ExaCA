@@ -22,6 +22,7 @@ enum TypeNames { Solid = 0, LiqSol = 1, Liquid = 2,
                  Ghost1 = 6, Ghost2 = 7, Ghost3 = 8 };
 typedef Kokkos::View<float*> ViewF;
 typedef Kokkos::View<int*> ViewI;
+typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Atomic>> View_a;
 
 // Contained in "CAfunctions.cpp"
 double CrossP1(double TestVec1[3], double TestVec2[3]);
