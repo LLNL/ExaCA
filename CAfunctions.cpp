@@ -11,7 +11,7 @@ int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDire
 int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
 int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
 double MaxVal(double TestVec3[6],int NVals);
-void NewGrain(int nx, int ny, int nz, int RankX, int RankY, int RankZ, int MyGrainID, int GlobalX, int GlobalY, ViewC::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror DiagonalLength, ViewF::HostMirror DOCenter);
+void NewGrain(int nx, int ny, int nz, int RankX, int RankY, int RankZ, int MyGrainID, int GlobalX, int GlobalY, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror DiagonalLength, ViewF::HostMirror DOCenter);
 void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int NewCellX, int NewCellY, int NewCellZ, int CellLocation, double cx, double cy, double cz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI::HostMirror TriangleIndex, ViewF::HostMirror CritDiagonalLength);
 void InitialDecomposition(int DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection, int &ProcessorsInYDirection, int id, int np, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut);
 void XYLimitCalc(int &LLX, int &LLY, int &ULX, int &ULY, int MyXSlices, int MyYSlices, int MyLeft, int MyRight, int MyIn, int MyOut);
@@ -236,9 +236,9 @@ double MaxVal(double TestVec3[6], int NVals) {
 }
 
 // Given a CA cell location and grain ID, create a new active cell and octahedron from the liquid
-void NewGrain(int MyXSlices, int MyYSlices, int nz, int RankX, int RankY, int RankZ, int MyGrainID, int GlobalX, int GlobalY, ViewC::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror DiagonalLength, ViewF::HostMirror DOCenter) {
+void NewGrain(int MyXSlices, int MyYSlices, int nz, int RankX, int RankY, int RankZ, int MyGrainID, int GlobalX, int GlobalY, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror DiagonalLength, ViewF::HostMirror DOCenter) {
     int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
-    CellType(CellLocation) = 'A';
+    CellType(CellLocation) = Active;
     GrainID(CellLocation) = MyGrainID;
     DiagonalLength(CellLocation) = 0.01;
     DOCenter(3*CellLocation) = GlobalX + 0.5;
