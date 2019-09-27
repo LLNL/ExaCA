@@ -1,0 +1,9 @@
+Input Parameters for CA code using an analytical solution 
+*****
+Name of file containing times at which cells reach the liquidus:Liq_RobertLayer.csv
+Name of file containing local cooling rates:CR_RobertLayer.csv
+Name of file containing heat transport data and domain size:Data_RobertLayer.txt
+"N", where the time step = deltax/(Beam Velocity * N):50
+Number of layers: 2
+Offset between layers (microns): 19
+

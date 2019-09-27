@@ -1,0 +1,22 @@
+Input Parameters for CA code:
+***
+TemperatureData type:
+"A" for analytical solution
+"C" for unidirectional constrained solidification
+"O" for OpenFOAM
+"T" for Truchas
+"U" for unconstrained equiaxed grain structure generation
+Polynomial representation of interfacial response function, in the form V = A*(Undercooling)^3 + B*(Undercooling)^2 + C*Undercooling: Inconel 718
+*****
+Temperature data source:U
+Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 3
+A: -0.00000010302
+B: 0.00010533
+C: 0.0022196
+Cell size (microns): 1
+Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 0
+Spacing of substrate grains (in microns): 25
+Mean nucleation undercooling (in K): 5
+Standard deviation of nucleation undercooling: 0.5
+Output file base name:Const1
+File of grain orientations:GrainOrientationVectors_Robert.csv
