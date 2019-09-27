@@ -2,7 +2,7 @@
 using namespace std;
 
 // 2D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCount, int ECount, int FCount, int GCount, int HCount, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewC::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
+void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCount, int ECount, int FCount, int GCount, int HCount, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
 
     
     ACount = 0;
@@ -16,7 +16,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
     
     int LocalDomainSize = nz*MyXSlices*MyYSlices;
     for (int D3D1ConvPosition=0; D3D1ConvPosition<LocalDomainSize; D3D1ConvPosition++) {
-        if ((CellType(D3D1ConvPosition) == '1')||(CellType(D3D1ConvPosition) == '2')||(CellType(D3D1ConvPosition) == '3')) {
+        if ((CellType(D3D1ConvPosition) == Ghost1)||(CellType(D3D1ConvPosition) == Ghost2)||(CellType(D3D1ConvPosition) == Ghost3)) {
             // This cell is at (RankZ,RankX,RankY)
             int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
             int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
@@ -119,7 +119,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 for (int RankX=1; RankX<MyXSlices-1; RankX++) {
                     int CellPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + 1;
-                    if ((CellType(CellPosition) == '1')||(CellType(CellPosition) == '2')||(CellType(CellPosition) == '3')) {
+                    if ((CellType(CellPosition) == Ghost1)||(CellType(CellPosition) == Ghost2)||(CellType(CellPosition) == Ghost3)) {
                         // This cell just became active, store its information to send to id = id - 1
                         GhostNodesA[7*BufACount] = (float)(RankX);
                         GhostNodesA[7*BufACount+1] = (float)(RankZ);
@@ -128,9 +128,9 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                         GhostNodesA[7*BufACount+4] = DOCenter(3*CellPosition+1);
                         GhostNodesA[7*BufACount+5] = DOCenter(3*CellPosition+2);
                         GhostNodesA[7*BufACount+6] = DiagonalLength(CellPosition);
-                        if (CellType(CellPosition) == '3') CellType(CellPosition) = '2';
-                        else if (CellType(CellPosition) == '2') CellType(CellPosition) = '1';
-                        else if (CellType(CellPosition) == '1') CellType(CellPosition) = 'A';
+                        if (CellType(CellPosition) == Ghost3) CellType(CellPosition) = Ghost2;
+                        else if (CellType(CellPosition) == Ghost2) CellType(CellPosition) = Ghost1;
+                        else if (CellType(CellPosition) == Ghost1) CellType(CellPosition) = Active;
                         BufACount++;
                     }
                 }
@@ -156,7 +156,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 for (int RankX=1; RankX<MyXSlices-1; RankX++) {
                     int CellPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + MyYSlices-2;
-                    if ((CellType(CellPosition) == '1')||(CellType(CellPosition) == '2')||(CellType(CellPosition) == '3')) {
+                    if ((CellType(CellPosition) == Ghost1)||(CellType(CellPosition) == Ghost2)||(CellType(CellPosition) == Ghost3)) {
                         // This cell just became active, store its information to send to id = id - 1
                         GhostNodesB[7*BufBCount] = (float)(RankX);
                         GhostNodesB[7*BufBCount+1] = (float)(RankZ);
@@ -165,9 +165,9 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                         GhostNodesB[7*BufBCount+4] = DOCenter(3*CellPosition+1);
                         GhostNodesB[7*BufBCount+5] = DOCenter(3*CellPosition+2);
                         GhostNodesB[7*BufBCount+6] = DiagonalLength(CellPosition);
-                        if (CellType(CellPosition) == '3') CellType(CellPosition) = '2';
-                        else if (CellType(CellPosition) == '2') CellType(CellPosition) = '1';
-                        else if (CellType(CellPosition) == '1') CellType(CellPosition) = 'A';
+                        if (CellType(CellPosition) == Ghost3) CellType(CellPosition) = Ghost2;
+                        else if (CellType(CellPosition) == Ghost2) CellType(CellPosition) = Ghost1;
+                        else if (CellType(CellPosition) == Ghost1) CellType(CellPosition) = Active;
                         BufBCount++;
                         //cout << "CT after B: " << CellType[RankZ][RankX][MyYSlices-2] << endl;
                     }
@@ -195,7 +195,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 for (int RankY=1; RankY<MyYSlices-1; RankY++) {
                     int CellLocation = RankZ*MyXSlices*MyYSlices +(MyXSlices-2)*MyYSlices + RankY;
-                    if ((CellType(CellLocation) == '3')||(CellType(CellLocation) == '2') ||(CellType(CellLocation) == '1')) {
+                    if ((CellType(CellLocation) == Ghost3)||(CellType(CellLocation) == Ghost2) ||(CellType(CellLocation) == Ghost1)) {
                         // This cell just became active, store its information
                         GhostNodesC[7*BufCCount] = (float)(RankY);
                         GhostNodesC[7*BufCCount+1] = (float)(RankZ);
@@ -204,9 +204,9 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                         GhostNodesC[7*BufCCount+4] = DOCenter(3*CellLocation+1);
                         GhostNodesC[7*BufCCount+5] = DOCenter(3*CellLocation+2);
                         GhostNodesC[7*BufCCount+6] = DiagonalLength(CellLocation);
-                        if (CellType(CellLocation) == '3') CellType(CellLocation) = '2';
-                        else if (CellType(CellLocation) == '2') CellType(CellLocation) = '1';
-                        else if (CellType(CellLocation) == '1') CellType(CellLocation) = 'A';
+                        if (CellType(CellLocation) == Ghost3) CellType(CellLocation) = Ghost2;
+                        else if (CellType(CellLocation) == Ghost2) CellType(CellLocation) = Ghost1;
+                        else if (CellType(CellLocation) == Ghost1) CellType(CellLocation) = Active;
                         BufCCount++;
                     }
                 }
@@ -233,7 +233,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 for (int RankY=1; RankY<MyYSlices-1; RankY++) {
                     int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices + RankY;
-                    if ((CellType(CellLocation) == '3')||(CellType(CellLocation) == '2')||(CellType(CellLocation) == '1')) {
+                    if ((CellType(CellLocation) == Ghost3)||(CellType(CellLocation) == Ghost2)||(CellType(CellLocation) == Ghost1)) {
                         // This cell just became active, store its information
                         GhostNodesD[7*BufDCount] = (float)(RankY);
                         GhostNodesD[7*BufDCount+1] = (float)(RankZ);
@@ -242,9 +242,9 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                         GhostNodesD[7*BufDCount+4] = DOCenter(3*CellLocation+1);
                         GhostNodesD[7*BufDCount+5] = DOCenter(3*CellLocation+2);
                         GhostNodesD[7*BufDCount+6] = DiagonalLength(CellLocation);
-                        if (CellType(CellLocation) == '3') CellType(CellLocation) = '2';
-                        else if (CellType(CellLocation) == '2') CellType(CellLocation) = '1';
-                        else if (CellType(CellLocation) == '1') CellType(CellLocation) = 'A';
+                        if (CellType(CellLocation) == Ghost3) CellType(CellLocation) = Ghost2;
+                        else if (CellType(CellLocation) == Ghost2) CellType(CellLocation) = Ghost1;
+                        else if (CellType(CellLocation) == Ghost1) CellType(CellLocation) = Active;
                         BufDCount++;
                     }
                 }
@@ -270,7 +270,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
             int BufECount = 0;
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 int CellLocation = RankZ*MyXSlices*MyYSlices + (MyXSlices-2)*(MyYSlices) + 1;
-                if ((CellType(CellLocation) == '3')||(CellType(CellLocation) == '2')||(CellType(CellLocation) == '1')) {
+                if ((CellType(CellLocation) == Ghost3)||(CellType(CellLocation) == Ghost2)||(CellType(CellLocation) == Ghost1)) {
                     // This cell just became active, store its information
                     GhostNodesE[6*BufECount] = (float)(RankZ);
                     GhostNodesE[6*BufECount+1] = (float)(GrainID(CellLocation));
@@ -278,9 +278,9 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                     GhostNodesE[6*BufECount+3] = DOCenter(3*CellLocation+1);
                     GhostNodesE[6*BufECount+4] = DOCenter(3*CellLocation+2);
                     GhostNodesE[6*BufECount+5] = DiagonalLength(CellLocation);
-                    if (CellType(CellLocation) == '3') CellType(CellLocation) = '2';
-                    else if (CellType(CellLocation) == '2') CellType(CellLocation) = '1';
-                    else if (CellType(CellLocation) == '1') CellType(CellLocation) = 'A';
+                    if (CellType(CellLocation) == Ghost3) CellType(CellLocation) = Ghost2;
+                    else if (CellType(CellLocation) == Ghost2) CellType(CellLocation) = Ghost1;
+                    else if (CellType(CellLocation) == Ghost1) CellType(CellLocation) = Active;
                     BufECount++;
                 }
             }
@@ -304,7 +304,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
             int BufHCount = 0;
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices + MyYSlices-2;
-                if ((CellType(CellLocation) == '3')||(CellType(CellLocation) == '2')||(CellType(CellLocation) == '1')) {
+                if ((CellType(CellLocation) == Ghost3)||(CellType(CellLocation) == Ghost2)||(CellType(CellLocation) == Ghost1)) {
                     // This cell just became active, store its information
                     GhostNodesH[6*BufHCount] = (float)(RankZ);
                      GhostNodesH[6*BufHCount+1] = (float)(GrainID(CellLocation));
@@ -312,9 +312,9 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                     GhostNodesH[6*BufHCount+3] = DOCenter(3*CellLocation+1);
                     GhostNodesH[6*BufHCount+4] = DOCenter(3*CellLocation+2);
                     GhostNodesH[6*BufHCount+5] = DiagonalLength(CellLocation);
-                    if (CellType[CellLocation] == '3') CellType(CellLocation) = '2';
-                    else if (CellType[CellLocation] == '2') CellType(CellLocation) = '1';
-                    else if (CellType[CellLocation] == '1') CellType(CellLocation) = 'A';
+                    if (CellType[CellLocation] == Ghost3) CellType(CellLocation) = Ghost2;
+                    else if (CellType[CellLocation] == Ghost2) CellType(CellLocation) = Ghost1;
+                    else if (CellType[CellLocation] == Ghost1) CellType(CellLocation) = Active;
                     BufHCount++;
                 }
             }
@@ -338,7 +338,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
             int BufFCount = 0;
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 int CellLocation = RankZ*MyXSlices*MyYSlices + (MyXSlices-2)*MyYSlices + MyYSlices-2;
-                if ((CellType(CellLocation) == '3')||(CellType(CellLocation) == '2')||(CellType(CellLocation) == '1')) {
+                if ((CellType(CellLocation) == Ghost3)||(CellType(CellLocation) == Ghost2)||(CellType(CellLocation) == Ghost1)) {
                     // This cell just became active, store its information
                     GhostNodesF[6*BufFCount] = (float)(RankZ);
                     GhostNodesF[6*BufFCount+1] = (float)(GrainID(CellLocation));
@@ -346,9 +346,9 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                     GhostNodesF[6*BufFCount+3] = DOCenter(3*CellLocation+1);
                     GhostNodesF[6*BufFCount+4] = DOCenter(3*CellLocation+2);
                     GhostNodesF[6*BufFCount+5] = DiagonalLength(CellLocation);
-                    if (CellType(CellLocation) == '3') CellType(CellLocation) = '2';
-                    else if (CellType(CellLocation) == '2') CellType(CellLocation) = '1';
-                    else if (CellType(CellLocation) == '1') CellType(CellLocation) = 'A';
+                    if (CellType(CellLocation) == Ghost3) CellType(CellLocation) = Ghost2;
+                    else if (CellType(CellLocation) == Ghost2) CellType(CellLocation) = Ghost1;
+                    else if (CellType(CellLocation) == Ghost1) CellType(CellLocation) = Active;
                     BufFCount++;
                 }
             }
@@ -371,7 +371,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
             int BufGCount = 0;
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices + 1;
-                if ((CellType(CellLocation) == '3')||(CellType(CellLocation) == '2')||(CellType(CellLocation) == '1')) {
+                if ((CellType(CellLocation) == Ghost3)||(CellType(CellLocation) == Ghost2)||(CellType(CellLocation) == Ghost1)) {
                     // This cell just became active, store its information
                     GhostNodesG[6*BufGCount] = (float)(RankZ);
                     GhostNodesG[6*BufGCount+1] = (float)(GrainID(CellLocation));
@@ -379,9 +379,9 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                     GhostNodesG[6*BufGCount+3] = DOCenter(3*CellLocation+1);
                     GhostNodesG[6*BufGCount+4] = DOCenter(3*CellLocation+2);
                     GhostNodesG[6*BufGCount+5] = DiagonalLength(CellLocation);
-                    if (CellType(CellLocation) == '3') CellType(CellLocation) = '2';
-                    if (CellType(CellLocation) == '2') CellType(CellLocation) = '1';
-                    if (CellType(CellLocation) == '1') CellType(CellLocation) = 'A';
+                    if (CellType(CellLocation) == Ghost3) CellType(CellLocation) = Ghost2;
+                    if (CellType(CellLocation) == Ghost2) CellType(CellLocation) = Ghost1;
+                    if (CellType(CellLocation) == Ghost1) CellType(CellLocation) = Active;
                     BufGCount++;
                 }
             }
@@ -410,12 +410,12 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                 int RankY = 0;
                 int RankZ = (int)(GhostNodesAR[7*i+1]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     //cout << "ID = " << id << "A" << endl;
                     int GlobalX = RankX + MyXOffset;
                     int GlobalY = RankY + MyYOffset;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesAR[7*i+2]);
                     double cx = GhostNodesAR[7*i+3];
                     double cy = GhostNodesAR[7*i+4];
@@ -445,11 +445,11 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                 int RankY = MyYSlices-1;
                 int RankZ = (int)(GhostNodesBR[7*i+1]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     int GlobalX = MyXOffset + RankX;
                     int GlobalY = MyYOffset + RankY;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesBR[7*i+2]);
                     double cx = GhostNodesBR[7*i+3];
                     double cy = GhostNodesBR[7*i+4];
@@ -481,12 +481,12 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                 int RankZ = (int)(GhostNodesCR[7*i+1]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                 //cout << "ID = " << id << " C checking " << RankX << " " << RankY << " " << RankZ << endl;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     //cout << "ID = " << id << "C" << endl;
                     int GlobalX = MyXOffset + RankX;
                     int GlobalY = MyYOffset + RankY;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesCR[7*i+2]);
                     double cx = GhostNodesCR[7*i+3];
                     double cy = GhostNodesCR[7*i+4];
@@ -516,11 +516,11 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                 int RankZ = (int)(GhostNodesDR[7*i+1]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                 //cout << "ID = " << id << " D checking " << RankX << " " << RankY << " " << RankZ << endl;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     int GlobalX = MyXOffset + RankX;
                     int GlobalY = MyYOffset + RankY;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesDR[7*i+2]);
                     double cx = GhostNodesDR[7*i+3];
                     double cy = GhostNodesDR[7*i+4];
@@ -548,11 +548,11 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                 int RankY = 0;
                 int RankZ = (int)(GhostNodesER[6*i]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     int GlobalX = MyXOffset + RankX;
                     int GlobalY = MyYOffset + RankY;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesER[6*i+1]);
                     double cx = GhostNodesER[6*i+2];
                     double cy = GhostNodesER[6*i+3];
@@ -580,11 +580,11 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                 int RankY = MyYSlices-1;
                 int RankZ = (int)(GhostNodesFR[6*i]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     int GlobalX = MyXOffset + RankX;
                     int GlobalY = MyYOffset + RankY;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesFR[6*i+1]);
                     double cx = GhostNodesFR[6*i+2];
                     double cy = GhostNodesFR[6*i+3];
@@ -612,11 +612,11 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                 int RankY = 0;
                 int RankZ = (int)(GhostNodesGR[6*i]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     int GlobalX = MyXOffset + RankX;
                     int GlobalY = MyYOffset + RankY;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesGR[6*i+1]);
                     double cx = GhostNodesGR[6*i+2];
                     double cy = GhostNodesGR[6*i+3];
@@ -645,11 +645,11 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
                 int RankY = MyYSlices-1;
                 int RankZ = (int)(GhostNodesHR[6*i]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     int GlobalX = MyXOffset + RankX;
                     int GlobalY = MyYOffset + RankY;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesHR[6*i+1]);
                     double cx = GhostNodesHR[6*i+2];
                     double cy = GhostNodesHR[6*i+3];
@@ -672,7 +672,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
 //        for (int k=0; k<nz; k++)   {
 //            for(int i=0; i<MyXSlices; i++)  {
 //                for(int j=0; j<MyYSlices; j++)  {
-//                    if ((CellType[k][i][j] == '1')||(CellType[k][i][j] == '2')||(CellType[k][i][j] == '3'))
+//                    if ((CellType[k][i][j] == Ghost1)||(CellType[k][i][j] == Ghost2)||(CellType[k][i][j] == Ghost3))
 //                        cout << "CellType = " << CellType[k][i][j] << endl;
 //                }
 //            }
@@ -682,7 +682,7 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
 //*****************************************************************************/
 
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewC::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
+void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
     
         // Determine whether or not ghost node information transfer needs to take place
         int ARCount, BRCount;
@@ -707,7 +707,7 @@ void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyR
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 for (int RankX=1; RankX<MyXSlices-1; RankX++) {
                     int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + 1;
-                    if (CellType(CellLocation) == '1') {
+                    if (CellType(CellLocation) == Ghost1) {
                         // This cell just became active, store its information to send to id = id - 1
                         GhostNodesA[7*BufACount] = (float)(RankX);
                         // cout << "A " << BufACount << " " << GhostNodesA[7*BufACount] << endl;
@@ -717,7 +717,7 @@ void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyR
                         GhostNodesA[7*BufACount+4] = DOCenter(3*CellLocation+1);
                         GhostNodesA[7*BufACount+5] = DOCenter(3*CellLocation+2);
                         GhostNodesA[7*BufACount+6] = DiagonalLength(CellLocation);
-                        CellType(CellLocation) = 'A';
+                        CellType(CellLocation) = Active;
                         BufACount++;
                         //cout << "ID = " << id << " Q A at " << RankX << " " << RankZ << endl;
                     }
@@ -745,7 +745,7 @@ void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyR
             for (int RankZ=1; RankZ<nz-1; RankZ++) {
                 for (int RankX=1; RankX<MyXSlices-1; RankX++) {
                     int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + MyYSlices-2;
-                    if (CellType(CellLocation) == '1') {
+                    if (CellType(CellLocation) == Ghost1) {
     
                         // This cell just became active, store its information to send to id = id - 1
                         GhostNodesB[7*BufBCount] = (float)(RankX);
@@ -755,7 +755,7 @@ void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyR
                         GhostNodesB[7*BufBCount+4] = DOCenter(3*CellLocation+1);
                         GhostNodesB[7*BufBCount+5] = DOCenter(3*CellLocation+2);
                         GhostNodesB[7*BufBCount+6] = DiagonalLength(CellLocation);
-                        CellType(CellLocation) = 'A';
+                        CellType(CellLocation) = Active;
                         BufBCount++;
                         //cout << "ID = " << id << " Q B at " << RankX << " " << RankZ << endl;
                     }
@@ -790,11 +790,11 @@ void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyR
                 int RankY = 0;
                 int RankZ = (int)(GhostNodesAR[7*i+1]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     int GlobalX = RankX + MyXOffset;
                     int GlobalY = MyYOffset;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesAR[7*i+2]);
                     double cx = GhostNodesAR[7*i+3];
                     double cy = GhostNodesAR[7*i+4];
@@ -822,12 +822,12 @@ void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyR
                 int RankY = MyYSlices-1;
                 int RankZ = (int)(GhostNodesBR[7*i+1]);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
-                if ((cycle == 0)||((CellType(CellLocation) == 'L')||(CellType(CellLocation) == 'D')||(CellType(CellLocation) == 'N'))) {
+                if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     //if (cycle == 1003) cout << "Cell at " << RankX << " " << RankY << " " <<RankZ << " now active" << endl;
                     int GlobalX = MyXOffset + RankX;
                     int GlobalY = MyYOffset + RankY;
                     // Update this ghost node cell's information with data from other rank
-                    CellType(CellLocation) = 'A';
+                    CellType(CellLocation) = Active;
                     GrainID(CellLocation) = (int)(GhostNodesBR[7*i+2]);
                     double cx = GhostNodesBR[7*i+3];
                     double cy = GhostNodesBR[7*i+4];
@@ -849,7 +849,7 @@ void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyR
                 }
                 //            else if (CellType[RankZ][RankX][RankY] == 'Q') {
                 //                cout << "ID " << id << " competition for cell " << RankX << " " << RankY << " " << RankZ << endl;
-                //                //CellType[RankZ][RankX][RankY] = 'A';
+                //                //CellType[RankZ][RankX][RankY] = Active;
                 //            }
             }
         }

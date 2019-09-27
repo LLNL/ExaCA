@@ -715,7 +715,7 @@ void PrintValuesMultilayer(int NumberOfLayers, int LayerHeight, int id, int np, 
 
 ///*****************************************************************************/
 
-void PrintCT(int id, int np,int nx, int ny,int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewC::HostMirror CellType, string BaseFileName, int DecompositionStrategy) {
+void PrintCT(int id, int np,int nx, int ny,int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI::HostMirror CellType, string BaseFileName, int DecompositionStrategy) {
     // vector <vector <vector <int> > > &GrainID
     string FName = BaseFileName + "_CT.vtk";
     std::ofstream Grainplot;

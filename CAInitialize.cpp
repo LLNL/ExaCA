@@ -957,7 +957,7 @@ void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, floa
 // with a thermal gradient in the direction opposite the surface
 //*/
 
-void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], vector <int> &NucLocI, vector <int> &NucLocJ, vector <int> &NucLocK, vector <int> &NucleationTimes, vector <float> &NucleationUndercooling, int* GrainOrientation, float* GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewC::HostMirror CellType, ViewI::HostMirror TriangleIndex, ViewI::HostMirror GrainID, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, double deltax, double NMax, double dTN, double dTsigma, int &NextLayer_FirstSubstrateGrainID, int &NextLayer_FirstNucleatedGrainID, int &ACount, int &BCount, int &CCount, int &DCount, int &ECount, int &FCount, int &GCount, int &HCount) {
+void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], vector <int> &NucLocI, vector <int> &NucLocJ, vector <int> &NucLocK, vector <int> &NucleationTimes, vector <float> &NucleationUndercooling, int* GrainOrientation, float* GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewI::HostMirror CellType, ViewI::HostMirror TriangleIndex, ViewI::HostMirror GrainID, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, double deltax, double NMax, double dTN, double dTsigma, int &NextLayer_FirstSubstrateGrainID, int &NextLayer_FirstNucleatedGrainID, int &ACount, int &BCount, int &CCount, int &DCount, int &ECount, int &FCount, int &GCount, int &HCount) {
     
     std::seed_seq seed = {765,4,1111};
     std::array<unsigned,5> sequence;
@@ -988,20 +988,20 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                             double R = dis(gen);
                             if (R < WallProb) {
                                 SubstrateGrains++;
-                                CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 'A';
+                                CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = Active;
                             }
                             else {
                                 GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
-                                CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 'L';
+                                CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = Liquid;
                             }
                         }
                         else {
                             GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
-                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 'L';
+                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = Liquid;
                         }
                     }
                     else {
-                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'W';
+                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Wall;
                     }
                 }
             }
@@ -1020,20 +1020,20 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                         double R = dis(gen);
                         if (R < WallProb) {
                             SubstrateGrains++;
-                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 'A';
+                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = Active;
                         }
                         else {
                             GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
-                            CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'D';
+                            CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Delayed;
                         }
                     }
                     else {
                         GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
-                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'D';
+                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Delayed;
                     }
                 }
                 else {
-                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'W';
+                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Wall;
                 }
              }
           }
@@ -1047,7 +1047,7 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                         double R = dis(gen);
                         if (R < BulkProb) {
                             NucleatedGrains++;
-                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 'N';
+                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = LiqSol;
                         }
                     }
                 }
@@ -1067,15 +1067,15 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                     if ((GlobalX > -1)&&(GlobalX < nx)&&(GlobalY > -1)&&(GlobalY < ny)&&(k > 0)&&(k < nz-1)) {
                         
                         if ((i > 0)&&(i < MyXSlices-1)&&(j > 0)&&(j < MyYSlices-1)) {
-                            // Cells that are either 'D' or 'N'
+                            // Cells that are either Delayed or LiqSol
                             if (CritTimeStep(k*MyXSlices*MyYSlices + i*MyYSlices + j) > 0) {
                                 double R = dis(gen);
                                 if (R < BulkProb) {
                                     NucleatedGrains++;
-                                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'N';
+                                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = LiqSol;
                                 }
                                 else {
-                                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'D';
+                                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Delayed;
                                 }
                             }
                             else {
@@ -1112,12 +1112,12 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                                     }
                                     if (LCount == 0) {
                                         // Not at the interface
-                                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'S';
+                                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Solid;
                                         GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
                                     }
                                     else {
                                         // At the interface
-                                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'A';
+                                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Active;
                                         CritTimeStep(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
                                         UndercoolingChange(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0.1;
                                         SubstrateGrains++;
@@ -1127,17 +1127,17 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                         }
                         else {
                             if (CritTimeStep(k*MyXSlices*MyYSlices + i*MyYSlices + j) > 0) {
-                                CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 'D';
+                                CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = Delayed;
                                 GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
                             }
                             else {
-                                CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 'S';
+                                CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = Solid;
                             }
                         }
                     }
                     else {
 
-                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'W';
+                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Wall;
                         //if (id == 0) cout << " W Cell " << i << " " << j << " " << k << endl;
                         GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
                     }
@@ -1218,7 +1218,7 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
         for (int RankX=1; RankX<MyXSlices-1; RankX++) {
             for (int RankY=1; RankY<MyYSlices-1; RankY++) {
                 int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if (CellType(D3D1ConvPosition) == 'A') {
+                if (CellType(D3D1ConvPosition) == Active) {
                     GrainID(D3D1ConvPosition) = GCounter;
                     GCounter++;
                     int GlobalX = RankX + MyXOffset;
@@ -1237,11 +1237,11 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                     if (DecompositionStrategy == 1) {
                         if (RankY == 1) {
                             ACount++;
-                            CellType(D3D1ConvPosition) = '1';
+                            CellType(D3D1ConvPosition) = Ghost1;
                         }
                         else if (RankY == MyYSlices-2) {
                             BCount++;
-                            CellType(D3D1ConvPosition) = '1';
+                            CellType(D3D1ConvPosition) = Ghost1;
                         }
                     }
                     else {
@@ -1251,18 +1251,18 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                                 ECount++;
                                 CCount++;
                                 ACount++;
-                                CellType(D3D1ConvPosition) = '3';
+                                CellType(D3D1ConvPosition) = Ghost3;
                             }
                             else if (RankX == 1) {
                                 GCount++;
                                 DCount++;
                                 ACount++;
-                                CellType(D3D1ConvPosition) = '3';
+                                CellType(D3D1ConvPosition) = Ghost3;
                             }
                             else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
                                 // This is being sent to MyLeft
                                 ACount++;
-                                CellType(D3D1ConvPosition) = '1';
+                                CellType(D3D1ConvPosition) = Ghost1;
                             }
                         }
                         else if (RankY == MyYSlices-2) {
@@ -1271,31 +1271,31 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                                 FCount++;
                                 CCount++;
                                 BCount++;
-                                CellType(D3D1ConvPosition) = '3';
+                                CellType(D3D1ConvPosition) = Ghost3;
                             }
                             else if (RankX == 1) {
                                 HCount++;
                                 DCount++;
                                 BCount++;
-                                CellType(D3D1ConvPosition) = '3';
+                                CellType(D3D1ConvPosition) = Ghost3;
                             }
                             else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
                                 BCount++;
-                                CellType(D3D1ConvPosition) = '1';
+                                CellType(D3D1ConvPosition) = Ghost1;
                             }
                         }
                         else if ((RankX == 1)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
                             DCount++;
-                            CellType(D3D1ConvPosition) = '1';
+                            CellType(D3D1ConvPosition) = Ghost1;
                             //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
                         }
                         else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
                             CCount++;
-                            CellType(D3D1ConvPosition) = '1';
+                            CellType(D3D1ConvPosition) = Ghost1;
                         }
                     }
                 }
-                else if (CellType(D3D1ConvPosition) == 'N') {
+                else if (CellType(D3D1ConvPosition) == LiqSol) {
                     // Each rank places the "possible" nuclei in random locations
                     NucLocI.push_back(RankX);
                     NucLocJ.push_back(RankY);
@@ -1318,7 +1318,7 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
         for (int RankX=1; RankX<MyXSlices-1; RankX++) {
             for (int RankY=1; RankY<MyYSlices-1; RankY++) {
                 int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if (CellType(D3D1ConvPosition) == 'D') {
+                if (CellType(D3D1ConvPosition) == Delayed) {
                     // Check to see if this cell is at the interface
                     int LCount = 0;
                     // Which neighbors should be iterated over?
@@ -1342,13 +1342,13 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
                         int MyNeighborY = RankY + NeighborY[l];
                         int MyNeighborZ = RankZ + NeighborZ[l];
                         int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
-                        if ((CellType(NeighborD3D1ConvPosition) == 'D')||(CellType(NeighborD3D1ConvPosition) == 'A')||(CellType(NeighborD3D1ConvPosition) == 'N')) {
+                        if ((CellType(NeighborD3D1ConvPosition) == Delayed)||(CellType(NeighborD3D1ConvPosition) == Active)||(CellType(NeighborD3D1ConvPosition) == LiqSol)) {
                             LCount++;
                         }
                     }
                     if (LCount == 0) {
                         // This cell is returned to solid type
-                        CellType(D3D1ConvPosition) = 'S';
+                        CellType(D3D1ConvPosition) = Solid;
                         GrainID(D3D1ConvPosition) = 0;
                     }
                 }
@@ -1359,7 +1359,7 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
 }
 
 // After initializing grain structure and filling ghost nodes, calculate ghost nodes' grain data for nucleation events
-void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSlices, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, vector <int> &NucLocI, vector <int> &NucLocJ, vector <int> &NucLocK, vector <int> &NucleationTimes, vector <float> &NucleationUndercooling, int* GrainOrientation, ViewC::HostMirror CellType, ViewI::HostMirror GrainID) {
+void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSlices, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, vector <int> &NucLocI, vector <int> &NucLocJ, vector <int> &NucLocK, vector <int> &NucleationTimes, vector <float> &NucleationUndercooling, int* GrainOrientation, ViewI::HostMirror CellType, ViewI::HostMirror GrainID) {
 
     int ACount = 0;
     int BCount = 0;
@@ -1748,7 +1748,7 @@ void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSl
             NucLocJ.push_back(RankY);
             NucLocK.push_back(RankZ);
             int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-            CellType(CellLocation) = 'N';
+            CellType(CellLocation) = LiqSol;
             GrainID(CellLocation) = (int)(GhostNodesAR[5*i+4]);
         }
     }
@@ -1765,7 +1765,7 @@ void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSl
             NucLocJ.push_back(RankY);
             NucLocK.push_back(RankZ);
             int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-            CellType(CellLocation) = 'N';
+            CellType(CellLocation) = LiqSol;
             GrainID(CellLocation) = (int)(GhostNodesBR[5*i+4]);
         }
     }
@@ -1783,7 +1783,7 @@ void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSl
                 NucLocJ.push_back(RankY);
                 NucLocK.push_back(RankZ);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                CellType(CellLocation) = 'N';
+                CellType(CellLocation) = LiqSol;
                 GrainID(CellLocation) = (int)(GhostNodesCR[5*i+4]);
             }
         }
@@ -1800,7 +1800,7 @@ void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSl
                 NucLocJ.push_back(RankY);
                 NucLocK.push_back(RankZ);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                CellType(CellLocation) = 'N';
+                CellType(CellLocation) = LiqSol;
                 GrainID(CellLocation) = (int)(GhostNodesDR[5*i+4]);
             }
         }
@@ -1817,7 +1817,7 @@ void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSl
                 NucLocJ.push_back(RankY);
                 NucLocK.push_back(RankZ);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                CellType(CellLocation) = 'N';
+                CellType(CellLocation) = LiqSol;
                 GrainID(CellLocation) = (int)(GhostNodesER[4*i+3]);
             }
         }
@@ -1834,7 +1834,7 @@ void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSl
                 NucLocJ.push_back(RankY);
                 NucLocK.push_back(RankZ);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                CellType(CellLocation) = 'N';
+                CellType(CellLocation) = LiqSol;
                 GrainID(CellLocation) = (int)(GhostNodesFR[4*i+3]);
             }
         }
@@ -1851,7 +1851,7 @@ void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSl
                 NucLocJ.push_back(RankY);
                 NucLocK.push_back(RankZ);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                CellType(CellLocation) = 'N';
+                CellType(CellLocation) = LiqSol;
                 GrainID(CellLocation) = (int)(GhostNodesGR[4*i+3]);
             }
         }
@@ -1867,7 +1867,7 @@ void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSl
                 NucLocJ.push_back(RankY);
                 NucLocK.push_back(RankZ);
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                CellType(CellLocation) = 'N';
+                CellType(CellLocation) = LiqSol;
                 GrainID(CellLocation) = (int)(GhostNodesHR[4*i+3]);
             }
         }
@@ -1880,7 +1880,7 @@ void ConstrainedGrainsUpdate(int DecompositionStrategy, int MyXSlices, int MyYSl
 
 
 
-void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, string TemperatureDataType, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int ierr, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyLeftOut, int MyRightIn, int MyRightOut, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], vector <int> &NucLocI, vector <int> &NucLocJ, vector <int> &NucLocK, vector <int> &NucleationTimes, vector <float> &NucleationUndercooling, int* GrainOrientation, float* GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewC::HostMirror CellType, ViewI::HostMirror TriangleIndex, ViewI::HostMirror GrainID, int* GrainID_Stored, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, string tempfile, double deltax, double deltat, double NMax, double dTN, double dTsigma, string FileA1, string FileA2, int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax, int &NextLayer_FirstSubstrateGrainID, int &NextLayer_FirstNucleatedGrainID, int &ACount, int &BCount, int &CCount, int &DCount, int &ECount, int &FCount, int &GCount, int &HCount) {
+void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, string TemperatureDataType, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int ierr, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyLeftOut, int MyRightIn, int MyRightOut, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], vector <int> &NucLocI, vector <int> &NucLocJ, vector <int> &NucLocK, vector <int> &NucleationTimes, vector <float> &NucleationUndercooling, int* GrainOrientation, float* GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewI::HostMirror CellType, ViewI::HostMirror TriangleIndex, ViewI::HostMirror GrainID, int* GrainID_Stored, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, string tempfile, double deltax, double deltat, double NMax, double dTN, double dTsigma, string FileA1, string FileA2, int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax, int &NextLayer_FirstSubstrateGrainID, int &NextLayer_FirstNucleatedGrainID, int &ACount, int &BCount, int &CCount, int &DCount, int &ECount, int &FCount, int &GCount, int &HCount) {
     
     std::seed_seq seed = {765,4,1111};
     std::array<unsigned,5> sequence;
@@ -1941,15 +1941,15 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
                 if ((GlobalX > -1)&&(GlobalX < nx)&&(GlobalY > -1)&&(GlobalY < ny)&&(k > 0)&&(k < nz-1)) {
                     
                     if ((i > 0)&&(i < MyXSlices-1)&&(j > 0)&&(j < MyYSlices-1)) {
-                        // Cells that are either 'D' or 'N'
+                        // Cells that are either Delayed or LiqSol
                         if (CritTimeStep(k*MyXSlices*MyYSlices + i*MyYSlices + j) > 0) {
                             double R = dis(gen);
                             if (R < BulkProb) {
                                 NucleatedGrains++;
-                                CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'N';
+                                CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = LiqSol;
                             }
                             else {
-                                CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'D';
+                                CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Delayed;
                             }
                         }
                         else {
@@ -1986,12 +1986,12 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
                                 }
                                 if (LCount == 0) {
                                     // Not at the interface
-                                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'S';
+                                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Solid;
                                 }
                                 else {
                                     if (k >= nz-LayerHeight) {
                                         // At the interface
-                                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'A';
+                                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Active;
                                         CritTimeStep(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
                                         UndercoolingChange(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0.1;
                                     }
@@ -1999,7 +1999,7 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
                                         double R2 = dis(gen);
                                         if (R2 < WallProb) {
                                             SubstrateGrains++;
-                                            CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'A';
+                                            CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Active;
                                             CritTimeStep(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
                                             UndercoolingChange(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0.1;
                                         }
@@ -2010,16 +2010,16 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
                     }
                     else {
                         if (CritTimeStep(k*MyXSlices*MyYSlices + i*MyYSlices + j) > 0) {
-                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 'D';
+                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = Delayed;
                             GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
                         }
                         else {
-                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 'S';
+                            CellType(k*MyXSlices*MyYSlices + i*MyYSlices + j) = Solid;
                         }
                     }
                 }
                 else {
-                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 'W';
+                    CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Wall;
                     GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
                 }
             }
@@ -2100,7 +2100,7 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
         for (int RankX=1; RankX<MyXSlices-1; RankX++) {
             for (int RankY=1; RankY<MyYSlices-1; RankY++) {
                 int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if (CellType(D3D1ConvPosition) == 'A') {
+                if (CellType(D3D1ConvPosition) == Active) {
                     // Grains in new deposited substrate
                     if (RankZ >= nz-LayerHeight) {
                            GrainID(D3D1ConvPosition) = GCounter;
@@ -2121,11 +2121,11 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
                     if (DecompositionStrategy == 1) {
                         if (RankY == 1) {
                             ACount++;
-                            CellType(D3D1ConvPosition) = '1';
+                            CellType(D3D1ConvPosition) = Ghost1;
                         }
                         else if (RankY == MyYSlices-2) {
                             BCount++;
-                            CellType(D3D1ConvPosition) = '1';
+                            CellType(D3D1ConvPosition) = Ghost1;
                         }
                     }
                     else {
@@ -2135,18 +2135,18 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
                                 ECount++;
                                 CCount++;
                                 ACount++;
-                                CellType(D3D1ConvPosition) = '3';
+                                CellType(D3D1ConvPosition) = Ghost3;
                             }
                             else if (RankX == 1) {
                                 GCount++;
                                 DCount++;
                                 ACount++;
-                                CellType(D3D1ConvPosition) = '3';
+                                CellType(D3D1ConvPosition) = Ghost3;
                             }
                             else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
                                 // This is being sent to MyLeft
                                 ACount++;
-                                CellType(D3D1ConvPosition) = '1';
+                                CellType(D3D1ConvPosition) = Ghost1;
                             }
                         }
                         else if (RankY == MyYSlices-2) {
@@ -2155,31 +2155,31 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
                                 FCount++;
                                 CCount++;
                                 BCount++;
-                                CellType(D3D1ConvPosition) = '3';
+                                CellType(D3D1ConvPosition) = Ghost3;
                             }
                             else if (RankX == 1) {
                                 HCount++;
                                 DCount++;
                                 BCount++;
-                                CellType(D3D1ConvPosition) = '3';
+                                CellType(D3D1ConvPosition) = Ghost3;
                             }
                             else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
                                 BCount++;
-                                CellType(D3D1ConvPosition) = '1';
+                                CellType(D3D1ConvPosition) = Ghost1;
                             }
                         }
                         else if ((RankX == 1)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
                             DCount++;
-                            CellType(D3D1ConvPosition) = '1';
+                            CellType(D3D1ConvPosition) = Ghost1;
                             //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
                         }
                         else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
                             CCount++;
-                            CellType(D3D1ConvPosition) = '1';
+                            CellType(D3D1ConvPosition) = Ghost1;
                         }
                     }
                 }
-                else if (CellType[D3D1ConvPosition] == 'N') {
+                else if (CellType[D3D1ConvPosition] == LiqSol) {
                     // Each rank places the "possible" nuclei in random locations
                     NucLocI.push_back(RankX);
                     NucLocJ.push_back(RankY);
@@ -2202,7 +2202,7 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
         for (int RankX=1; RankX<MyXSlices-1; RankX++) {
             for (int RankY=1; RankY<MyYSlices-1; RankY++) {
                 int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if (CellType(D3D1ConvPosition) == 'D') {
+                if (CellType(D3D1ConvPosition) == Delayed) {
                     // Check to see if this cell is at the interface
                     int LCount = 0;
                     // Which neighbors should be iterated over?
@@ -2226,13 +2226,13 @@ void LayerSetup(int layernumber, int LayerHeight, int InitialGrainWidth, int NGr
                         int MyNeighborY = RankY + NeighborY[l];
                         int MyNeighborZ = RankZ + NeighborZ[l];
                         int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
-                        if ((CellType(NeighborD3D1ConvPosition) == 'D')||(CellType(NeighborD3D1ConvPosition) == 'A')||(CellType(NeighborD3D1ConvPosition) == 'N')) {
+                        if ((CellType(NeighborD3D1ConvPosition) == Delayed)||(CellType(NeighborD3D1ConvPosition) == Active)||(CellType(NeighborD3D1ConvPosition) == LiqSol)) {
                             LCount++;
                         }
                     }
                     if (LCount == 0) {
                         // This cell is returned to solid type
-                        CellType(D3D1ConvPosition) = 'S';
+                        CellType(D3D1ConvPosition) = Solid;
                         GrainID(D3D1ConvPosition) = 0;
                     }
                 }

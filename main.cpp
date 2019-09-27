@@ -49,9 +49,9 @@ void RunProgram(int id, int np, int ierr) {
 //    int* GrainID = new int[LocalDomainSize];
 //    char* CellType = new char[LocalDomainSize];
     ViewI GrainID_G("GrainID_G",LocalDomainSize);
-    ViewC CellType_G("CellType_G",LocalDomainSize);
+    ViewI CellType_G("CellType_G",LocalDomainSize);
     ViewI::HostMirror GrainID_H = Kokkos::create_mirror_view( GrainID_G );
-    ViewC::HostMirror CellType_H = Kokkos::create_mirror_view( CellType_G );
+    ViewI::HostMirror CellType_H = Kokkos::create_mirror_view( CellType_G );
     
 
     // Initialize the temperature fields
