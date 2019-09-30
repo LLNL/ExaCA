@@ -139,24 +139,23 @@ void RunProgram(int id, int np, int ierr) {
                 Time1 = MPI_Wtime();
             }
             
+            // copy to GPU
             Kokkos::deep_copy( GrainID_G, GrainID_H );
             Kokkos::deep_copy( CellType_G, CellType_H );
             Kokkos::deep_copy( DiagonalLength_G, DiagonalLength_H );
             Kokkos::deep_copy( CritDiagonalLength_G, CritDiagonalLength_H );
             Kokkos::deep_copy( DOCenter_G, DOCenter_H );
             Kokkos::deep_copy( TriangleIndex_G, TriangleIndex_H );
-            Kokkos::deep_copy( UndercoolingCurrent_G, UndercoolingCurrent_H );
-
             
             TemperatureUpdate(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, cycle, nn, AConst, BConst, CConst, CritTimeStep_G, CellType_G, UndercoolingCurrent_G, UndercoolingChange_G, NucLocI, NucLocJ, NucLocK, NucleationTimes, NucleationUndercooling, GrainID_G, GrainOrientation, DOCenter_G, NeighborX,  NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, NGrainOrientations);
             
-//            Kokkos::deep_copy( GrainID_H, GrainID_G );
-//            Kokkos::deep_copy( CellType_H, CellType_G );
-//            Kokkos::deep_copy( DiagonalLength_H, DiagonalLength_G );
-//            Kokkos::deep_copy( CritDiagonalLength_H, CritDiagonalLength_G );
-//            Kokkos::deep_copy( DOCenter_H, DOCenter_G );
-//            Kokkos::deep_copy( TriangleIndex_H, TriangleIndex_G );
-//            Kokkos::deep_copy( UndercoolingCurrent_H, UndercoolingCurrent_G );
+            // copy to cpu
+            Kokkos::deep_copy( GrainID_H, GrainID_G );
+            Kokkos::deep_copy( CellType_H, CellType_G );
+            Kokkos::deep_copy( DiagonalLength_H, DiagonalLength_G );
+            Kokkos::deep_copy( CritDiagonalLength_H, CritDiagonalLength_G );
+            Kokkos::deep_copy( DOCenter_H, DOCenter_G );
+            Kokkos::deep_copy( TriangleIndex_H, TriangleIndex_G );
             
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0) {
@@ -164,7 +163,8 @@ void RunProgram(int id, int np, int ierr) {
                 TimeA += (Time2-Time1);
             }
 
-            CellCapture(id, cycle, DecompositionStrategy, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, ItList, NeighborX, NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, UndercoolingCurrent_G);
+            CellCapture_ALT(id, cycle, DecompositionStrategy, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, ItList, NeighborX, NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_H, CritDiagonalLength_H, DiagonalLength_H, GrainOrientation, CellType_H, DOCenter_H, GrainID_H, NGrainOrientations);
+            //CellCapture(id, cycle, DecompositionStrategy, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, ItList, NeighborX, NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, UndercoolingCurrent_G);
 
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0) {
@@ -173,12 +173,12 @@ void RunProgram(int id, int np, int ierr) {
             }
             
             // Copy cell state and octahedron attribute data to CPU
-            Kokkos::deep_copy( GrainID_H, GrainID_G );
-            Kokkos::deep_copy( CellType_H, CellType_G );
-            Kokkos::deep_copy( DiagonalLength_H, DiagonalLength_G );
-            Kokkos::deep_copy( CritDiagonalLength_H, CritDiagonalLength_G );
-            Kokkos::deep_copy( DOCenter_H, DOCenter_G );
-            Kokkos::deep_copy( TriangleIndex_H, TriangleIndex_G );
+//            Kokkos::deep_copy( GrainID_H, GrainID_G );
+//            Kokkos::deep_copy( CellType_H, CellType_G );
+//            Kokkos::deep_copy( DiagonalLength_H, DiagonalLength_G );
+//            Kokkos::deep_copy( CritDiagonalLength_H, CritDiagonalLength_G );
+//            Kokkos::deep_copy( DOCenter_H, DOCenter_G );
+//            Kokkos::deep_copy( TriangleIndex_H, TriangleIndex_G );
             
             // Update ghost nodes on host
             if (DecompositionStrategy == 1) GhostNodes1D(cycle, id, ACount, BCount, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H,GrainID_H, GrainUnitVector,TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
