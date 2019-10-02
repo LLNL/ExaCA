@@ -2,17 +2,17 @@
 using namespace std;
 
 // 2D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCount, int ECount, int FCount, int GCount, int HCount, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
+void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
 
     
-    ACount = 0;
-    BCount = 0;
-    CCount = 0;
-    DCount = 0;
-    ECount = 0;
-    FCount = 0;
-    GCount = 0;
-    HCount = 0;
+    int ACount = 0;
+    int BCount = 0;
+    int CCount = 0;
+    int DCount = 0;
+    int ECount = 0;
+    int FCount = 0;
+    int GCount = 0;
+    int HCount = 0;
     
     int LocalDomainSize = nz*MyXSlices*MyYSlices;
     for (int D3D1ConvPosition=0; D3D1ConvPosition<LocalDomainSize; D3D1ConvPosition++) {
@@ -682,10 +682,12 @@ void GhostNodes2D(int cycle, int id, int ACount, int BCount, int CCount, int DCo
 //*****************************************************************************/
 
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes1D(int cycle, int id, int ACount, int BCount, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
+void GhostNodes1D(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
     
         // Determine whether or not ghost node information transfer needs to take place
-        int ARCount, BRCount;
+    int ACount = 0;
+    int BCount = 0;
+    int ARCount, BRCount;
     
         // Send BCount, Recieve ARCount (send to the right, recieve on the left)
         MPI_Sendrecv(&BCount,1,MPI_INT,MyRight,0,&ARCount,1,MPI_INT,MyLeft,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
