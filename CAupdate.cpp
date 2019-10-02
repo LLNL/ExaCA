@@ -74,7 +74,10 @@ void TemperatureUpdate(int id, int MyXSlices, int MyYSlices, int MyXOffset, int 
 
 // Decentered octahedron algorithm for the capture of new interface cells by grains
 void CellCapture(int id, int cycle, int DecompositionStrategy, int MyXSlices, int MyYSlices, const int nz, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int* GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations) {
-
+ 
+    
+    
+    int LocalDomainSize = nz*MyXSlices*MyYSlices;
     // 0 = cannot be captured, 1 = can be capured
     View_a Locks("Locks",LocalDomainSize);
     for (int i=0; i<LocalDomainSize; i++) {
@@ -82,7 +85,7 @@ void CellCapture(int id, int cycle, int DecompositionStrategy, int MyXSlices, in
         else Locks(i) = 0;
     }
 
-    int LocalDomainSize = nz*MyXSlices*MyYSlices;
+
     // Cell capture - parallel loop over all type Active cells
     Kokkos::parallel_for("CellupdateLoop",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
     //for (int D3D1ConvPosition=0; D3D1ConvPosition<LocalDomainSize; D3D1ConvPosition++) {
@@ -573,8 +576,8 @@ void CellCapture(int id, int cycle, int DecompositionStrategy, int MyXSlices, in
                                 CellType(NeighborD3D1ConvPosition) = Ghost1;
                             }
                         } // End if statement for ghost node marking
-                    } // End if statement for capture event
-                //} // End if statement for neighbors of type L and N
+                    } // End if statement within locked capture loop
+                } // End if statement for outer capture loop
             } // End loop over all neighbors of this active cell
             if (LCount == 0) {
                 // This active cell has no more neighboring cells to be captured, becomes solid
