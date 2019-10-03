@@ -9,7 +9,7 @@ TemperatureData type:
 Polynomial representation of interfacial response function, in the form V = A*(Undercooling)^3 + B*(Undercooling)^2 + C*Undercooling: Inconel 718
 *****
 Temperature data source:U
-Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 3
+Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
 A: -0.00000010302
 B: 0.00010533
 C: 0.0022196

@@ -52,7 +52,6 @@ void RunProgram(int id, int np, int ierr) {
     ViewI CellType_G("CellType_G",LocalDomainSize);
     ViewI::HostMirror GrainID_H = Kokkos::create_mirror_view( GrainID_G );
     ViewI::HostMirror CellType_H = Kokkos::create_mirror_view( CellType_G );
-    
 
     // Initialize the temperature fields
     TempInit(G, R, DecompositionStrategy,NeighborX, NeighborY, NeighborZ, ItList, TemperatureDataType, ierr, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut, deltax, HT_deltax, deltat, nx, ny, nz, ProcessorsInXDirection, ProcessorsInYDirection,  CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, DomUndercooling, tempfile, AFile1, AFile2, XMin, XMax, YMin, YMax, ZMin, ZMax);
@@ -80,14 +79,14 @@ void RunProgram(int id, int np, int ierr) {
     ViewF::HostMirror CritDiagonalLength_H = Kokkos::create_mirror_view( CritDiagonalLength_G );
     ViewF::HostMirror DOCenter_H = Kokkos::create_mirror_view( DOCenter_G );
     ViewI::HostMirror TriangleIndex_H = Kokkos::create_mirror_view( TriangleIndex_G );
-
+    
     // Initialize the grain structure
-    int NextLayer_FirstSubstrateGrainID, NextLayer_FirstNucleatedGrainID, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount;
-    ConstrainedGrains(TemperatureDataType, InitialGrainWidth, NGrainOrientations, DecompositionStrategy, ProcessorsInXDirection, ProcessorsInYDirection, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, ItList, NeighborX, NeighborY, NeighborZ, NucLocI, NucLocJ, NucLocK, NucleationTimes, NucleationUndercooling, GrainOrientation, GrainUnitVector, DiagonalLength_H, CellType_H, TriangleIndex_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, UndercoolingChange_H, deltax, NMax, dTN, dTsigma, NextLayer_FirstSubstrateGrainID, NextLayer_FirstNucleatedGrainID, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount);
+    int NextLayer_FirstSubstrateGrainID, NextLayer_FirstNucleatedGrainID;
+    ConstrainedGrains(TemperatureDataType, InitialGrainWidth, NGrainOrientations, DecompositionStrategy, ProcessorsInXDirection, ProcessorsInYDirection, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, ItList, NeighborX, NeighborY, NeighborZ, NucLocI, NucLocJ, NucLocK, NucleationTimes, NucleationUndercooling, GrainOrientation, GrainUnitVector, DiagonalLength_H, CellType_H, TriangleIndex_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, UndercoolingChange_H, deltax, NMax, dTN, dTsigma, NextLayer_FirstSubstrateGrainID, NextLayer_FirstNucleatedGrainID);
     // Update ghost nodes for grain locations and attributes
     
-    if (DecompositionStrategy == 1) GhostNodes1D(0, id, ACount, BCount, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H, GrainID_H, GrainUnitVector,TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
-    else GhostNodes2D(0, id, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H, GrainID_H, GrainUnitVector, TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
+    if (DecompositionStrategy == 1) GhostNodes1D(0, id, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H, GrainID_H, GrainUnitVector,TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
+    else GhostNodes2D(0, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H, GrainID_H, GrainUnitVector, TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
 
     // Change nuclei back from active type, now that ghost nodes have been updated
     ConstrainedGrainsUpdate(DecompositionStrategy, MyXSlices, MyYSlices, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, NucLocI, NucLocJ, NucLocK, NucleationTimes, NucleationUndercooling, GrainOrientation, CellType_H, GrainID_H);
@@ -116,7 +115,7 @@ void RunProgram(int id, int np, int ierr) {
     Kokkos::deep_copy( CritTimeStep_G, CritTimeStep_H );
     Kokkos::deep_copy( UndercoolingChange_G, UndercoolingChange_H );
     Kokkos::deep_copy( UndercoolingCurrent_G, UndercoolingCurrent_H );
-
+    
     if (id == 0) cout << "Time spent initializing data = " << InitTime2-InitTime << " s" << endl;
 
     
@@ -125,7 +124,7 @@ void RunProgram(int id, int np, int ierr) {
     double TimeC = 0;
     
     for (int layernumber=0; layernumber<NumberOfLayers; layernumber++) {
-        cycle = 0; //3771000;
+        cycle = 0;
         int nn = 0; // Counter for the number of nucleation events
         int XSwitch = 0;
 
@@ -139,24 +138,8 @@ void RunProgram(int id, int np, int ierr) {
                 Time1 = MPI_Wtime();
             }
             
-            Kokkos::deep_copy( GrainID_G, GrainID_H );
-            Kokkos::deep_copy( CellType_G, CellType_H );
-            Kokkos::deep_copy( DiagonalLength_G, DiagonalLength_H );
-            Kokkos::deep_copy( CritDiagonalLength_G, CritDiagonalLength_H );
-            Kokkos::deep_copy( DOCenter_G, DOCenter_H );
-            Kokkos::deep_copy( TriangleIndex_G, TriangleIndex_H );
-            Kokkos::deep_copy( UndercoolingCurrent_G, UndercoolingCurrent_H );
-
-            
+            // Update cells on GPU - undercooling and diagonal length updates, nucleation
             TemperatureUpdate(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, cycle, nn, AConst, BConst, CConst, CritTimeStep_G, CellType_G, UndercoolingCurrent_G, UndercoolingChange_G, NucLocI, NucLocJ, NucLocK, NucleationTimes, NucleationUndercooling, GrainID_G, GrainOrientation, DOCenter_G, NeighborX,  NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, NGrainOrientations);
-            
-//            Kokkos::deep_copy( GrainID_H, GrainID_G );
-//            Kokkos::deep_copy( CellType_H, CellType_G );
-//            Kokkos::deep_copy( DiagonalLength_H, DiagonalLength_G );
-//            Kokkos::deep_copy( CritDiagonalLength_H, CritDiagonalLength_G );
-//            Kokkos::deep_copy( DOCenter_H, DOCenter_G );
-//            Kokkos::deep_copy( TriangleIndex_H, TriangleIndex_G );
-//            Kokkos::deep_copy( UndercoolingCurrent_H, UndercoolingCurrent_G );
             
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0) {
@@ -164,15 +147,16 @@ void RunProgram(int id, int np, int ierr) {
                 TimeA += (Time2-Time1);
             }
 
-            CellCapture(id, cycle, DecompositionStrategy, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, ItList, NeighborX, NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, UndercoolingCurrent_G);
-
+            // Update cells on GPU - new active cells, solidification of old active cells
+            CellCapture(id, cycle, DecompositionStrategy, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, ItList, NeighborX, NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations);
+            
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0) {
                 Time3 = MPI_Wtime();
                 TimeB += (Time3-Time2);
             }
             
-            // Copy cell state and octahedron attribute data to CPU
+            // Use GPU vals on CPU
             Kokkos::deep_copy( GrainID_H, GrainID_G );
             Kokkos::deep_copy( CellType_H, CellType_G );
             Kokkos::deep_copy( DiagonalLength_H, DiagonalLength_G );
@@ -181,10 +165,10 @@ void RunProgram(int id, int np, int ierr) {
             Kokkos::deep_copy( TriangleIndex_H, TriangleIndex_G );
             
             // Update ghost nodes on host
-            if (DecompositionStrategy == 1) GhostNodes1D(cycle, id, ACount, BCount, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H,GrainID_H, GrainUnitVector,TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
-            else GhostNodes2D(cycle, id, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H, GrainID_H, GrainUnitVector, TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
+            if (DecompositionStrategy == 1) GhostNodes1D(cycle, id, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H,GrainID_H, GrainUnitVector,TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
+            else GhostNodes2D(cycle, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H, GrainID_H, GrainUnitVector, TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
 
-            // Copy cell state and octahedron attribute data to GPU
+            // Copy cell state and octahedron attribute data from CPU to GPU
             Kokkos::deep_copy( GrainID_G, GrainID_H );
             Kokkos::deep_copy( CellType_G, CellType_H );
             Kokkos::deep_copy( DiagonalLength_G, DiagonalLength_H );
@@ -198,10 +182,11 @@ void RunProgram(int id, int np, int ierr) {
                 TimeC += (Time4-Time3);
             }
 
-            if (cycle % 1000 == 0) {
+            if (cycle % 500 == 0) {
                 IntermediateOutputAndCheck(id, cycle, MyXSlices, MyYSlices, nz, nn, XSwitch, CellType_H);
             }
 
+            
         } while(XSwitch == 0);
 
        NucLocI.clear();
@@ -212,10 +197,10 @@ void RunProgram(int id, int np, int ierr) {
 
         if (layernumber != NumberOfLayers-1) {
             if (id == 0) cout << "Done with layer " << layernumber+1 << " of " << NumberOfLayers << endl;
-            LayerSetup(layernumber, LayerHeight, InitialGrainWidth, NGrainOrientations, DecompositionStrategy, ProcessorsInXDirection, ProcessorsInYDirection, nx, ny, nz, TemperatureDataType, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, ierr, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut, ItList, NeighborX, NeighborY, NeighborZ, NucLocI, NucLocJ, NucLocK, NucleationTimes, NucleationUndercooling, GrainOrientation, GrainUnitVector, DiagonalLength_H, CellType_H, TriangleIndex_H, GrainID_H, GrainID_Stored, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, tempfile, deltax, deltat, NMax, dTN, dTsigma, AFile1, AFile2, XMin, XMax, YMin, YMax, ZMin, ZMax,NextLayer_FirstSubstrateGrainID, NextLayer_FirstNucleatedGrainID, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount);
+            LayerSetup(layernumber, LayerHeight, InitialGrainWidth, NGrainOrientations, DecompositionStrategy, ProcessorsInXDirection, ProcessorsInYDirection, nx, ny, nz, TemperatureDataType, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, ierr, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut, ItList, NeighborX, NeighborY, NeighborZ, NucLocI, NucLocJ, NucLocK, NucleationTimes, NucleationUndercooling, GrainOrientation, GrainUnitVector, DiagonalLength_H, CellType_H, TriangleIndex_H, GrainID_H, GrainID_Stored, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, tempfile, deltax, deltat, NMax, dTN, dTsigma, AFile1, AFile2, XMin, XMax, YMin, YMax, ZMin, ZMax,NextLayer_FirstSubstrateGrainID, NextLayer_FirstNucleatedGrainID);
             if (id == 0) cout << " Initialized ghost nodes for layer " << layernumber+2 << endl;
-            if (DecompositionStrategy == 1) GhostNodes1D(0, id, ACount, BCount, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H ,GrainID_H , GrainUnitVector,TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
-            else GhostNodes2D(0, id, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H, GrainID_H, GrainUnitVector, TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
+            if (DecompositionStrategy == 1) GhostNodes1D(0, id,MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H ,GrainID_H , GrainUnitVector,TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
+            else GhostNodes2D(0, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_H, DOCenter_H, GrainID_H, GrainUnitVector, TriangleIndex_H, GrainOrientation, DiagonalLength_H, CritDiagonalLength_H, NGrainOrientations);
              if (id == 0) cout << " Initialized nuclei for layer " << layernumber+2 << endl;
             // Change nuclei back from active type, now that ghost nodes have been updated
             ConstrainedGrainsUpdate(DecompositionStrategy, MyXSlices, MyYSlices, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, NucLocI, NucLocJ, NucLocK, NucleationTimes, NucleationUndercooling, GrainOrientation, CellType_H, GrainID_H);
