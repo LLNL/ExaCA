@@ -1205,7 +1205,6 @@ void ConstrainedGrains(string TemperatureDataType, int InitialGrainWidth, int NG
     int GCounter = MyFirstSGrainID;
     int NCounter = MyFirstNGrainID;
     
-    //if (id == 1) {
     for (int RankZ=1; RankZ<nz-1; RankZ++) {
         for (int RankX=1; RankX<MyXSlices-1; RankX++) {
             for (int RankY=1; RankY<MyYSlices-1; RankY++) {

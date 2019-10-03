@@ -689,6 +689,22 @@ void GhostNodes1D(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int
     int BCount = 0;
     int ARCount, BRCount;
     
+    int LocalDomainSize = nz*MyXSlices*MyYSlices;
+    for (int D3D1ConvPosition=0; D3D1ConvPosition<LocalDomainSize; D3D1ConvPosition++) {
+        if (CellType(D3D1ConvPosition) == Ghost1) {
+            // Find Y coordinate of this cell and add to appropriate counter
+            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+            int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
+            int RankY = Rem % MyYSlices;
+            if (RankY == 1) {
+                ACount++;
+            }
+            else if (RankY == MyYSlices-2) {
+                BCount++;
+            }
+        }
+    }
+    
         // Send BCount, Recieve ARCount (send to the right, recieve on the left)
         MPI_Sendrecv(&BCount,1,MPI_INT,MyRight,0,&ARCount,1,MPI_INT,MyLeft,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         // Send ACount, Recieve BRCount (send to the left, recieve on the right)
