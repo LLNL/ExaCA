@@ -1,20 +1,20 @@
 #include "header.h"
 using namespace std;
-
-double CrossP1(double TestVec1[3], double TestVec2[3]);
-double CrossP2(double TestVec1[3], double TestVec2[3]);
-double CrossP3(double TestVec1[3], double TestVec2[3]);
-int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices);
-int MaxIndex(double TestVec3[6]);
-int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy);
-int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy);
-int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
-int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
-double MaxVal(double TestVec3[6],int NVals);
-void NewGrain(int nx, int ny, int nz, int RankX, int RankY, int RankZ, int MyGrainID, int GlobalX, int GlobalY, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror DiagonalLength, ViewF::HostMirror DOCenter);
-void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int NewCellX, int NewCellY, int NewCellZ, int CellLocation, double cx, double cy, double cz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI::HostMirror TriangleIndex, ViewF::HostMirror CritDiagonalLength);
-void InitialDecomposition(int DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection, int &ProcessorsInYDirection, int id, int np, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut);
-void XYLimitCalc(int &LLX, int &LLY, int &ULX, int &ULY, int MyXSlices, int MyYSlices, int MyLeft, int MyRight, int MyIn, int MyOut);
+//
+//double CrossP1(double TestVec1[3], double TestVec2[3]);
+//double CrossP2(double TestVec1[3], double TestVec2[3]);
+//double CrossP3(double TestVec1[3], double TestVec2[3]);
+//int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices);
+//int MaxIndex(double TestVec3[6]);
+//int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy);
+//int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy);
+//int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
+//int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
+//double MaxVal(double TestVec3[6],int NVals);
+//void NewGrain(int nx, int ny, int nz, int RankX, int RankY, int RankZ, int MyGrainID, int GlobalX, int GlobalY, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror DiagonalLength, ViewF::HostMirror DOCenter);
+//void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int NewCellX, int NewCellY, int NewCellZ, int CellLocation, double cx, double cy, double cz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI::HostMirror TriangleIndex, ViewF::HostMirror CritDiagonalLength);
+//void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection, int &ProcessorsInYDirection, int id, int np, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut);
+//void XYLimitCalc(int &LLX, int &LLY, int &ULX, int &ULY, int MyXSlices, int MyYSlices, int MyLeft, int MyRight, int MyIn, int MyOut);
 
 /*************************** FUNCTIONS CALLED THROUGH MAIN SUBROUTINES ***************************/
 
@@ -43,11 +43,11 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
     else if (DecompositionStrategy >= 2) {
         int XSlicesPerP = nx/ProcessorsInXDirection;
         int XRemainder = nx % ProcessorsInXDirection;
+        int XPosition = p/ProcessorsInYDirection;
         if (XRemainder == 0) {
             XRemoteMPSlices = XSlicesPerP;
         }
         else {
-            int XPosition = p/ProcessorsInYDirection;
             if (XPosition < XRemainder) {
                 XRemoteMPSlices = XSlicesPerP + 1;
             }
@@ -55,9 +55,12 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
                 XRemoteMPSlices = XSlicesPerP;
             }
         }
+        if ((XPosition == 0)||(XPosition == ProcessorsInYDirection-1)) XRemoteMPSlices++;
+        else {
+            XRemoteMPSlices++;
+            XRemoteMPSlices++;
+        }
     }
-    // Add "ghost nodes" for other processors
-    XRemoteMPSlices = XRemoteMPSlices+2;
     return XRemoteMPSlices;
 }
 
@@ -81,10 +84,11 @@ int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDire
                 RemoteXOffset = (XSlicesPerP + 1)*(XRemainder-1) + XSlicesPerP + 1 + (XPosition-XRemainder)*XSlicesPerP;
             }
         }
+        if (XPosition != 0) {
+            RemoteXOffset--;
+        }
     }
-    // Account for "ghost nodes" for other processors
-    RemoteXOffset--;
-    // cout << " My ID is " << p << " and my X Offset is " << RemoteXOffset << endl;
+    //cout << " My ID is " << p << " and my X Offset is " << RemoteXOffset << endl;
     return RemoteXOffset;
 }
 
@@ -104,15 +108,24 @@ int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decompo
                 YRemoteMPSlices = YSlicesPerP;
             }
         }
+        // Ghost nodes - exterior ranks have a set, interior ranks have 2 sets
+        if (np > 1) {
+            if ((p == 0)||(p == np-1)) YRemoteMPSlices++;
+            else {
+               YRemoteMPSlices++;
+               YRemoteMPSlices++;
+            }
+        }
     }
     else if (DecompositionStrategy >= 2) {
         int YSlicesPerP = ny/ProcessorsInYDirection;
         int YRemainder = ny % ProcessorsInYDirection;
+        int YPosition = p % ProcessorsInYDirection;
         if (YRemainder == 0) {
             YRemoteMPSlices = YSlicesPerP;
         }
         else {
-            int YPosition = p % ProcessorsInYDirection;
+
             if (YPosition < YRemainder) {
                 YRemoteMPSlices = YSlicesPerP + 1;
             }
@@ -120,9 +133,14 @@ int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decompo
                 YRemoteMPSlices = YSlicesPerP;
             }
         }
+        
+        if ((YPosition == 0)||(YPosition == ProcessorsInYDirection-1)) YRemoteMPSlices++;
+        else {
+            YRemoteMPSlices++;
+            YRemoteMPSlices++;
+        }
+        
     }
-    // Add "ghost nodes" for other processors
-    YRemoteMPSlices = YRemoteMPSlices+2;
 
     return YRemoteMPSlices;
 }
@@ -143,6 +161,9 @@ int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decomposi
                 RemoteYOffset = (YSlicesPerP + 1)*(YRemainder-1) + YSlicesPerP + 1 + (p-YRemainder)*YSlicesPerP;
             }
         }
+        if (p > 0) {
+            RemoteYOffset--;
+        }
     }
     else if (DecompositionStrategy >= 2) {
         int YSlicesPerP = ny/ProcessorsInYDirection;
@@ -159,10 +180,12 @@ int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decomposi
                 RemoteYOffset = (YSlicesPerP + 1)*(YRemainder-1) + YSlicesPerP + 1 + (YPosition-YRemainder)*YSlicesPerP;
             }
         }
+        if (YPosition != 0) {
+            RemoteYOffset--;
+        }
+        
     }
-    // Account for "ghost nodes" for other processors
-    RemoteYOffset--;
-    // cout << " My ID is " << p << " and my Y Offset is " << RemoteYOffset << endl;
+    //cout << " My ID is " << p << " and my Y Offset is " << RemoteYOffset << endl;
     return RemoteYOffset;
 }
 
@@ -354,20 +377,40 @@ void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int 
 /*******************************************************************************************************************/
 
 // Determine the mapping of processors to grid data
-void InitialDecomposition(int DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection, int &ProcessorsInYDirection, int id, int np, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut) {
+void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection, int &ProcessorsInYDirection, int id, int np, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut) {
     
     if (DecompositionStrategy == 1) {
     OneDim:
         ProcessorsInXDirection = 1;
         ProcessorsInYDirection = np;
-        MyLeft = id-1;
-        MyRight = id+1;
-        if (id == 0) MyLeft = MPI_PROC_NULL;
-        if (id == np-1) MyRight = MPI_PROC_NULL;
+        if (np > 1) {
+            MyLeft = id-1;
+            MyRight = id+1;
+            if (id == 0) MyLeft = MPI_PROC_NULL;
+            if (id == np-1) MyRight = MPI_PROC_NULL;
+            MyIn = MPI_PROC_NULL;
+            MyRightIn = MPI_PROC_NULL;
+            MyOut = MPI_PROC_NULL;
+            MyRightOut = MPI_PROC_NULL;
+            MyLeftIn = MPI_PROC_NULL;
+            MyLeftOut = MPI_PROC_NULL;
+        }
+        else {
+            // No MPI communication
+            MyLeft = MPI_PROC_NULL;
+            MyRight = MPI_PROC_NULL;
+            MyIn = MPI_PROC_NULL;
+            MyRightIn = MPI_PROC_NULL;
+            MyOut = MPI_PROC_NULL;
+            MyRightOut = MPI_PROC_NULL;
+            MyLeftIn = MPI_PROC_NULL;
+            MyLeftOut = MPI_PROC_NULL;
+        }
     }
     else if (DecompositionStrategy == 2) {
         if (np % 2 != 0) {
             if (id == 0) cout << "Warning: Number of processors not divisible by two- defaulting to 1D decomposition" << endl;
+            DecompositionStrategy = 1;
             goto OneDim;
         }
         ProcessorsInXDirection = 2;
@@ -390,13 +433,31 @@ void InitialDecomposition(int DecompositionStrategy, int nx, int ny, int &Proces
         if ((MyRight == MPI_PROC_NULL)||(MyOut == MPI_PROC_NULL)) MyRightOut = MPI_PROC_NULL;
     }
     else if (DecompositionStrategy == 3) {
+        
+        // Is the number of ranks a perfect square or divisible by 2?
+        bool DivisibleBy2, PerfectSquare;
         if (np % 2 != 0) {
-            if (id == 0) cout << "Warning: Number of processors not divisible by two- defaulting to 1D decomposition" << endl;
+            DivisibleBy2 = false;
+        }
+        else {
+            DivisibleBy2 = true;
+        }
+        double Square = sqrt(np);
+        if (Square == round(Square)) {
+            PerfectSquare = true;
+        }
+        else {
+            PerfectSquare = false;
+        }
+        
+        if (((!PerfectSquare)&&(!DivisibleBy2))||(np == 2)) {
+            if (id == 0) cout << "Note: Number of processors is either 2, not divisible by two, or not divisible by itself- defaulting to 1D decomposition" << endl;
+            DecompositionStrategy = 1;
             goto OneDim;
         }
         int PX, PY;
-        double Square = sqrt(np);
-        if (Square == round(Square)) {
+
+        if (PerfectSquare) {
             PX = Square;
             PY = Square;
         }
@@ -423,7 +484,7 @@ void InitialDecomposition(int DecompositionStrategy, int nx, int ny, int &Proces
             ProcessorsInXDirection = PX;
             ProcessorsInYDirection = PY;
         }
-        if ((ProcessorsInXDirection == 2)&&(id == 0)) cout << "Warning: 2D decomposition pattern defaulting to 2DA" << endl;
+        if ((ProcessorsInXDirection == 2)&&(id == 0)) cout << "Note: Decomposition pattern 3 is equivalent to 2" << endl;
         if (id == 0) cout << " Processors in X: " << ProcessorsInXDirection << " Processors in Y: " << ProcessorsInYDirection << endl;
         MyLeft = id-1;
         MyRight = id+1;

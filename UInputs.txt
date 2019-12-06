@@ -1,7 +1,0 @@
-Input Parameters for CA code for equiaxed microstructure generation (unconstrained growth)
-*****
-Domain Undercooling (K): 25
-Domain size in x: 150
-Domain size in y: 150
-Domain size in z: 150
-

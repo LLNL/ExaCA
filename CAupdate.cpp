@@ -1,57 +1,67 @@
 #include "header.h"
 using namespace std;
 
+namespace sample {  // namespace helps with name resolution in reduction identity
+    template< class ScalarType, int N >
+    struct array_type {
+        ScalarType the_array[N];
+        
+        KOKKOS_INLINE_FUNCTION   // Default constructor - Initialize to 0's
+        array_type() {
+            for (int i = 0; i < N; i++ ) { the_array[i] = 0; }
+        }
+        KOKKOS_INLINE_FUNCTION   // Copy Constructor
+        array_type(const array_type & rhs) {
+            for (int i = 0; i < N; i++ ){
+                the_array[i] = rhs.the_array[i];
+            }
+        }
+        KOKKOS_INLINE_FUNCTION   // add operator
+        array_type& operator += (const array_type& src) {
+            for ( int i = 0; i < N; i++ ) {
+                the_array[i]+=src.the_array[i];
+            }
+            return *this;
+        }
+        KOKKOS_INLINE_FUNCTION   // volatile add operator
+        void operator += (const volatile array_type& src) volatile {
+            for ( int i = 0; i < N; i++ ) {
+                the_array[i]+=src.the_array[i];
+            }
+        }
+    };
+    typedef array_type<int,8> ValueType;  // used to simplify code below
+}
+namespace Kokkos { //reduction identity must be defined in Kokkos namespace
+    template<>
+    struct reduction_identity< sample::ValueType > {
+        KOKKOS_FORCEINLINE_FUNCTION static sample::ValueType sum() {
+            return sample::ValueType();
+        }
+    };
+}
+    
+void TemperatureUpdate(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, const int nz, int cycle, int &nn, double AConst, double BConst, double CConst, ViewI CritTimeStep, ViewI CellType, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, int* GrainOrientation, ViewF DOCenter, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank) {
 
-void TemperatureUpdate(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, const int nz, int cycle, int &nn, double AConst, double BConst, double CConst, ViewI CritTimeStep, ViewI CellType, ViewF UndercoolingCurrent, ViewF UndercoolingChange, vector <int> NucLocI, vector <int> NucLocJ, vector <int> NucLocK, vector <int> NucleationTimes, vector <float> NucleationUndercooling, ViewI GrainID, int* GrainOrientation, ViewF DOCenter, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int NGrainOrientations) {
-
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    if (id == 0) cout << "Start T update cycle " << cycle << endl;
     int LocalDomainSize = nz*MyXSlices*MyYSlices;
+    
     // Loop through CellType - any delay cells that are now liquid (below the liquidus)?
     // For the liquid and interface cells - update their local undercooling
-    int NucleationThisDT = 0;
-    Kokkos::parallel_reduce("TempUpdateLoop",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, int &update) {
-    //for (int D3D1ConvPosition=0; D3D1ConvPosition<LocalDomainSize; D3D1ConvPosition++) {
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
-        int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
-        int RankY = Rem % MyYSlices;
-        if (cycle > CritTimeStep(D3D1ConvPosition)) {
-
+    Kokkos::parallel_for("TempDiagUpdateLoop",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
+        //if (cycle == 1) printf("CTS = %d \n",CritTimeStep(D3D1ConvPosition));
+        //printf("IN THE FIRST LOOP i = %d \n",D3D1ConvPosition);
+        if ((CellType(D3D1ConvPosition) != Solid)&&(cycle > CritTimeStep(D3D1ConvPosition))) {
+            
+            //printf("cell type %d %d \n",CellType(D3D1ConvPosition),D3D1ConvPosition);
             if (CellType(D3D1ConvPosition) == Delayed) {
                 // This delayed liquid cell is at the liquidus and ready for potential solidification
+                //if (cycle == 2) printf("Liquid cell %d %d \n",id,D3D1ConvPosition);
                 CellType(D3D1ConvPosition) = Liquid;
-                //if (id == 14) cout << RankZ << " liquid at cycle " << cycle << endl;
                 UndercoolingCurrent(D3D1ConvPosition) = 0.0;
             }
-            else if (CellType(D3D1ConvPosition) == LiqSol) {
-                // Update local undercooling - linear cooling between solidus and liquidus
-                UndercoolingCurrent(D3D1ConvPosition) += UndercoolingChange(D3D1ConvPosition);
-                // What is the critical time step for this site to nucleate?
-//                for (int nnumber=0; nnumber<NucLocI.size(); nnumber++) {
-//                    if ((RankX == NucLocI[nnumber])&&(RankY == NucLocJ[nnumber])&&(RankZ == NucLocK[nnumber])) {
-//                        if (cycle >= NucleationTimes[nnumber]) {
-//
-//                            // This undercooled liquid cell is now a nuclei
-//                            update++;
-//                            //cout << "New grain cycle " << cycle << " Rank " << id << " ID = " << GrainID[RankZ][RankX][RankY] << " Orientation " << GrainOrientation[GrainID[RankZ][RankX][RankY]] << endl;
-//                            UndercoolingCurrent[D3D1ConvPosition] = NucleationUndercooling[nnumber];
-//                            int GlobalX = RankX + MyXOffset;
-//                            int GlobalY = RankY + MyYOffset;
-//                            int MyGrainID = GrainID[D3D1ConvPosition];
-//                            //cout << "N " << MyGrainID << endl;
-//                            NewGrain(MyXSlices,MyYSlices,nz,RankX,RankY,RankZ,MyGrainID,GlobalX,GlobalY,CellType,GrainID,DiagonalLength,DOCenter);
-//                            // The orientation for the new grain will depend on its Grain ID
-//                            int MyOrientation = GrainOrientation[((abs(MyGrainID) - 1) % NGrainOrientations)];
-//                            // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-//                            // (xp,yp,zp) is the new cell's center on the global grid
-//                            double xp = GlobalX + 0.5;
-//                            double yp = GlobalY + 0.5;
-//                            double zp = RankZ + 0.5;
-//                        CritDiagLengthCalc(xp,yp,zp,MyOrientation,RankX,RankY,RankZ,D3D1ConvPosition,DOCenter[3*D3D1ConvPosition],DOCenter[3*D3D1ConvPosition+1],DOCenter[3*D3D1ConvPosition+2],NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
-//                        }
-//                    }
-//                }
-            }
-            else if (CellType(D3D1ConvPosition) == Liquid) {
+            else if ((CellType(D3D1ConvPosition) == LiqSol)||(CellType(D3D1ConvPosition) == Liquid)) {
                 // Update local undercooling - linear cooling between solidus and liquidus
                 UndercoolingCurrent(D3D1ConvPosition) += UndercoolingChange(D3D1ConvPosition);
             }
@@ -66,14 +76,173 @@ void TemperatureUpdate(int id, int MyXSlices, int MyYSlices, int MyXOffset, int 
                 DiagonalLength(D3D1ConvPosition) += min(0.045,V); // Max amount the diagonal can grow per time step
             }
         }
+    });
+
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    if (id == 0) cout << "End T update cycle " << cycle << endl;
+    
+    // Loop through local list of nucleation events - has the time step exceeded the time step for nucleation at the sites?
+    int NucleationThisDT = 0;
+    
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    cout << "ID " << id << " Looping over " << PossibleNuclei_ThisRank << endl;
+    
+    Kokkos::parallel_reduce("NucleiUpdateLoop",PossibleNuclei_ThisRank, KOKKOS_LAMBDA (const int& NucCounter, int &update) {
+        //printf("Nucleation Check: rank, cycle, i %d %d %d \n",id,cycle,NucCounter);
+        if ((cycle >= NucleationTimes(NucCounter))&&(CellType(NucleiLocations(NucCounter)) == LiqSol)) {
+            //printf("Nucleation: rank, cycle, NucTime %d %d %d",id,cycle,NucleationTimes(NucCounter));
+            int D3D1ConvPosition = NucleiLocations(NucCounter);
+            // This undercooled liquid cell is now a nuclei (add to count if it isn't in the ghost nodes, to avoid double counting)
+            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+            int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
+            int RankX = floor(Rem/MyYSlices);
+            int RankY = Rem % MyYSlices;
+            if ((RankX > 0)&&(RankX < MyXSlices-1)&&(RankY > 0)&&(RankY < MyYSlices-1)) update++;
+            int GlobalX = RankX + MyXOffset;
+            int GlobalY = RankY + MyYOffset;
+            int MyGrainID = GrainID[D3D1ConvPosition];
+            CellType(D3D1ConvPosition) = Active;
+            GrainID(D3D1ConvPosition) = MyGrainID;
+            DiagonalLength(D3D1ConvPosition) = 0.01;
+            DOCenter(3*D3D1ConvPosition) = GlobalX + 0.5;
+            DOCenter(3*D3D1ConvPosition+1) = GlobalY + 0.5;
+            DOCenter(3*D3D1ConvPosition+2) = RankZ + 0.5;
+            // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative GrainID values)
+            int MyOrientation = GrainOrientation[((abs(MyGrainID) - 1) % NGrainOrientations)];
+
+            // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
+            for (int n=0; n<26; n++)  {
+
+//                int MyNeighborX = RankX + NeighborX[n];
+//                int MyNeighborY = RankY + NeighborY[n];
+//                int MyNeighborZ = RankZ + NeighborZ[n];
+
+                // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of a neighbor cell
+                double x0 = NeighborX[n];
+                double y0 = NeighborY[n];
+                double z0 = NeighborZ[n];
+
+                // mag0 is the magnitude of (x0,y0,z0)
+                double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
+
+                // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
+                double AnglesA[6];
+                for (int aa=0; aa<6; aa++) {
+                    double xd = GrainUnitVector[18*MyOrientation + 3*aa];
+                    double yd = GrainUnitVector[18*MyOrientation + 3*aa + 1];
+                    double zd = GrainUnitVector[18*MyOrientation + 3*aa + 2];
+                    AnglesA[aa] = (xd*x0 + yd*y0 + zd*z0)/mag0;
+                }
+
+                int index1, index2, index3;
+                index1 = 0;
+                for (int ii=1; ii<6; ii++) {
+                    if (AnglesA[index1] < AnglesA[ii]) {
+                        index1 = ii;
+                    }
+                }
+
+                TriangleIndex(78*D3D1ConvPosition + 3*n) = index1;
+                // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
+                double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1 + 0];
+                double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
+                double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
+                AnglesA[index1] = -1;
+                if (index1 % 2 == 0) AnglesA[index1+1] = -1;
+                if (index1 % 2 == 1) AnglesA[index1-1] = -1;
+
+                double MaxA = AnglesA[0];
+                for (int ii=1; ii<6; ii++) {
+                    if (MaxA < AnglesA[ii]) {
+                        MaxA = AnglesA[ii];
+                    }
+                }
+
+
+                double Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                if (MaxA == 0) {
+                    // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
+                    // manually assign other diagonals (one of the 4 possible "capturing" faces)
+                    if ((index1 == 0)||(index1 == 1)) {
+                        index2 = 2;
+                        index3 = 4;
+                    }
+                    else if ((index1 == 2)||(index1 == 3)) {
+                        index2 = 0;
+                        index3 = 4;
+                    }
+                    else if ((index1 == 4)||(index1 == 5)) {
+                        index2 = 0;
+                        index3 = 2;
+                    }
+                }
+                else {
+                    // 2nd and 3rd closest diagonals to x0,y0,z0
+                    // note that if these are the same length, this means that the octahedron edge captures the new cell center
+                    // in this case, either of the 2 possible "capturing" faces will work
+                    index2 = 0;
+                    for (int ii=1; ii<6; ii++) {
+                        if (AnglesA[index2] < AnglesA[ii]) {
+                            index2 = ii;
+                        }
+                    }
+                    AnglesA[index2] = -1;
+                    if (index2 % 2 == 0) AnglesA[index2+1] = -1;
+                    if (index2 % 2 == 1) AnglesA[index2-1] = -1;
+                    // index3 = MaxIndex(AnglesA);
+                    index3 = 0;
+                    for (int ii=1; ii<6; ii++) {
+                        if (AnglesA[index3] < AnglesA[ii]) {
+                            index3 = ii;
+                        }
+                    }
+
+                }
+                TriangleIndex(78*D3D1ConvPosition + 3*n + 1) = index2;
+                Diag2X = GrainUnitVector[18*MyOrientation + 3*index2 + 0];
+                Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
+                Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
+                TriangleIndex(78*D3D1ConvPosition + 3*n + 2) = index3;
+                Diag3X = GrainUnitVector[18*MyOrientation + 3*index3 + 0];
+                Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
+                Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
+                double U1[3], U2[3], UU[3], Norm[3];
+                U1[0] = Diag2X - Diag1X;
+                U1[1] = Diag2Y - Diag1Y;
+                U1[2] = Diag2Z - Diag1Z;
+                U2[0] = Diag3X - Diag1X;
+                U2[1] = Diag3Y - Diag1Y;
+                U2[2] = Diag3Z - Diag1Z;
+                UU[0] = U1[1]*U2[2] - U1[2]*U2[1];
+                UU[1] = U1[2]*U2[0] - U1[0]*U2[2];
+                UU[2] = U1[0]*U2[1] - U1[1]*U2[0];
+                double NDem = sqrt(UU[0]*UU[0] + UU[1]*UU[1] + UU[2]*UU[2]);
+                Norm[0] = UU[0]/NDem;
+                Norm[1] = UU[1]/NDem;
+                Norm[2] = UU[2]/NDem;
+                // normal to capturing plane
+                double normx = Norm[0];
+                double normy = Norm[1];
+                double normz = Norm[2];
+                double ParaT = (normx*x0+normy*y0+normz*z0)/(normx*Diag1X+normy*Diag1Y+normz*Diag1Z);
+                float CDLVal = pow(pow(ParaT*Diag1X,2) + pow(ParaT*Diag1Y,2) + pow(ParaT*Diag1Z,2),0.5);
+                //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
+                //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
+                //                                }
+                CritDiagonalLength(26*D3D1ConvPosition+n) = CDLVal;
+                //printf("CDLVal : %d %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,n,mag0,index1,index2,index3,normx,normy,normz);
+            }
+        }
     },NucleationThisDT);
     nn += NucleationThisDT;
 
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    if (id == 0) cout << "End nucleation " << cycle << endl;
+    
 }
-
-
+    
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int id, int cycle, int DecompositionStrategy, int MyXSlices, int MyYSlices, const int nz, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int* GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations) {
+void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int MyXSlices, int MyYSlices, const int nz, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int* GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, ViewBufCounts ACount, ViewBufCounts BCount, ViewBufCounts CCount, ViewBufCounts DCount, ViewBufCounts ECount, ViewBufCounts FCount, ViewBufCounts GCount, ViewBufCounts HCount) {
  
     int LocalDomainSize = nz*MyXSlices*MyYSlices;
     // 0 = cannot be captured, 1 = can be capured
@@ -84,10 +253,10 @@ void CellCapture(int id, int cycle, int DecompositionStrategy, int MyXSlices, in
         if ((CellType(i) == Delayed)||(CellType(i) == LiqSol)||(CellType(i) == Liquid)) Locks(i) = 1;
         else Locks(i) = 0;
     });
+    sample::ValueType GhostNodeStorage;
 
-    // Cell capture - parallel loop over all type Active cells
-    Kokkos::parallel_for("CellupdateLoop",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
-    //for (int D3D1ConvPosition=0; D3D1ConvPosition<LocalDomainSize; D3D1ConvPosition++) {
+    // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to be accounted for
+    Kokkos::parallel_reduce (  LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, sample::ValueType & upd) {
         int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
         int RankX = floor(Rem/MyYSlices);
@@ -160,7 +329,7 @@ void CellCapture(int id, int cycle, int DecompositionStrategy, int MyXSlices, in
                 int MyNeighborY = RankY + NeighborY[l];
                 int MyNeighborZ = RankZ + NeighborZ[l];
                 int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
-                
+//                printf("Old cell at %d %d %d , CDL for direction %d is %f : \n", RankX,RankY,RankZ,ll,CritDiagonalLength(26*D3D1ConvPosition+l));
                 if ((CellType(NeighborD3D1ConvPosition) == Liquid)||(CellType(NeighborD3D1ConvPosition) == LiqSol)||(CellType(NeighborD3D1ConvPosition) == Delayed)) LCount = 1;
                 // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
                 if ((DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26*D3D1ConvPosition+l))&&(Locks(NeighborD3D1ConvPosition) == 1)) {
@@ -176,7 +345,7 @@ void CellCapture(int id, int cycle, int DecompositionStrategy, int MyXSlices, in
                     // If OldLocksValue is 0, this capture event already happened
                     // Only proceed if OldLocksValue is 1
                     if (OldLocksValue == 1) {
-                        
+                        //printf("Old cell was at %d %d %d , CDL was %f and DL was %f :New cell at %d %d %d captured \n",RankX,RankY,RankZ,CritDiagonalLength(26*D3D1ConvPosition+l),DiagonalLength(D3D1ConvPosition),MyNeighborX,MyNeighborY,MyNeighborZ);
                         int GlobalX = RankX + MyXOffset;
                         int GlobalY = RankY + MyYOffset;
                         int h = GrainID(D3D1ConvPosition);
@@ -484,54 +653,90 @@ void CellCapture(int id, int cycle, int DecompositionStrategy, int MyXSlices, in
 //                                if (CDLVal == 0.0) printf("Zero CDLVal : %d %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,n,mag0,index1,index2,index3,normx,normy,normz);
                             }
                         }
-                        // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and Diagonal Length values have been assigned to it
-                        // Avoids the race condition in which the new cell is activated, and another thread acts on the new active cell before
-                        // the cell's new critical diagonal length/triangle index/diagonal length values are assigned
-                        CellType(NeighborD3D1ConvPosition) = Active;
 
-                        // Collect data for the ghost nodes:
-                        if (DecompositionStrategy == 1) {
-                            if (MyNeighborY == 1) {
-                                CellType(NeighborD3D1ConvPosition) = Ghost1;
+                        if (np > 0) {
+                            // Collect data for the ghost nodes:
+                            if (DecompositionStrategy == 1) {
+                                if (MyNeighborY == 1) {
+                                    CellType(NeighborD3D1ConvPosition) = Ghost1;
+                                    //if (id == 1) printf("CellType Ghost A X = %d Y = %d Z = %d \n",MyNeighborX,MyNeighborY,MyNeighborZ);
+                                    upd.the_array[0] += 1;
+                                }
+                                else if (MyNeighborY == MyYSlices-2) {
+                                    CellType(NeighborD3D1ConvPosition) = Ghost1;
+                                    //printf("Rank %d CellType Ghost B Loc %d \n",id,NeighborD3D1ConvPosition);
+                                    upd.the_array[1] += 1;
+                                }
+                                else {
+                                    CellType(NeighborD3D1ConvPosition) = Active;
+                                }
                             }
-                            else if (MyNeighborY == MyYSlices-2) {
-                                CellType(NeighborD3D1ConvPosition) = Ghost1;
-                            }
+                            else {
+                                if (MyNeighborY == 1) {
+                                    // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                                    if (MyNeighborX == MyXSlices-2) {
+                                        CellType(NeighborD3D1ConvPosition) = Ghost3;
+                                        upd.the_array[0] += 1;
+                                        upd.the_array[2] += 1;
+                                        upd.the_array[4] += 1;
+                                    }
+                                    else if (MyNeighborX == 1) {
+                                        CellType(NeighborD3D1ConvPosition) = Ghost3;
+                                        upd.the_array[0] += 1;
+                                        upd.the_array[3] += 1;
+                                        upd.the_array[6] += 1;
+                                    }
+                                    else if ((MyNeighborX > 1)&&(MyNeighborX < MyXSlices-2)) {
+                                        // This is being sent to MyLeft
+                                        CellType(NeighborD3D1ConvPosition) = Ghost1;
+                                        upd.the_array[0] += 1;
+                                    }
+                                    else {
+                                        CellType(NeighborD3D1ConvPosition) = Active;
+                                    }
+                                }
+                                else if (MyNeighborY == MyYSlices-2) {
+                                    // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                                    if (MyNeighborX == MyXSlices-2) {
+                                        CellType(NeighborD3D1ConvPosition) = Ghost3;
+                                        upd.the_array[1] += 1;
+                                        upd.the_array[2] += 1;
+                                        upd.the_array[5] += 1;
+                                    }
+                                    else if (MyNeighborX == 1) {
+                                        CellType(NeighborD3D1ConvPosition) = Ghost3;
+                                        upd.the_array[1] += 1;
+                                        upd.the_array[3] += 1;
+                                        upd.the_array[7] += 1;
+                                    }
+                                    else if ((MyNeighborX > 1)&&(MyNeighborX < MyXSlices-2)) {
+                                        CellType(NeighborD3D1ConvPosition) = Ghost1;
+                                        upd.the_array[1] += 1;
+                                    }
+                                    else {
+                                        CellType(NeighborD3D1ConvPosition) = Active;
+                                    }
+                                }
+                                else if ((MyNeighborX == 1)&&(MyNeighborY > 1)&&(MyNeighborY < MyYSlices-2)) {
+                                    CellType(NeighborD3D1ConvPosition) = Ghost1;
+                                    upd.the_array[3] += 1;
+                                    //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
+                                }
+                                else if ((MyNeighborX == MyXSlices-2)&&(MyNeighborY > 1)&&(MyNeighborY < MyYSlices-2)) {
+                                    CellType(NeighborD3D1ConvPosition) = Ghost1;
+                                    upd.the_array[2] += 1;
+                                }
+                                else {
+                                    CellType(NeighborD3D1ConvPosition) = Active;
+                                }
+                            } // End if statement for ghost node marking
                         }
                         else {
-                            if (MyNeighborY == 1) {
-                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                                if (MyNeighborX == MyXSlices-2) {
-                                    CellType(NeighborD3D1ConvPosition) = Ghost3;
-                                }
-                                else if (MyNeighborX == 1) {
-                                    CellType(NeighborD3D1ConvPosition) = Ghost3;
-                                }
-                                else if ((MyNeighborX > 1)&&(MyNeighborX < MyXSlices-2)) {
-                                    // This is being sent to MyLeft
-                                    CellType(NeighborD3D1ConvPosition) = Ghost1;
-                                }
-                            }
-                            else if (MyNeighborY == MyYSlices-2) {
-                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                                if (MyNeighborX == MyXSlices-2) {
-                                    CellType(NeighborD3D1ConvPosition) = Ghost3;
-                                }
-                                else if (MyNeighborX == 1) {
-                                    CellType(NeighborD3D1ConvPosition) = Ghost3;
-                                }
-                                else if ((MyNeighborX > 1)&&(MyNeighborX < MyXSlices-2)) {
-                                    CellType(NeighborD3D1ConvPosition) = Ghost1;
-                                }
-                            }
-                            else if ((MyNeighborX == 1)&&(MyNeighborY > 1)&&(MyNeighborY < MyYSlices-2)) {
-                                CellType(NeighborD3D1ConvPosition) = Ghost1;
-                                //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
-                            }
-                            else if ((MyNeighborX == MyXSlices-2)&&(MyNeighborY > 1)&&(MyNeighborY < MyYSlices-2)) {
-                                CellType(NeighborD3D1ConvPosition) = Ghost1;
-                            }
-                        } // End if statement for ghost node marking
+                            // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and Diagonal Length values have been assigned to it
+                            // Avoids the race condition in which the new cell is activated, and another thread acts on the new active cell before
+                            // the cell's new critical diagonal length/triangle index/diagonal length values are assigned
+                            CellType(NeighborD3D1ConvPosition) = Active;
+                        } // End if statement for serial/parallel code
                     } // End if statement within locked capture loop
                 } // End if statement for outer capture loop
             } // End loop over all neighbors of this active cell
@@ -540,65 +745,63 @@ void CellCapture(int id, int cycle, int DecompositionStrategy, int MyXSlices, in
                 CellType(D3D1ConvPosition) = Solid;
             }
         } // end "if" loop for Active type cells
-    }); // end Kokkos parallel for loop over all cells on this MPI rank
+
+    }, Kokkos::Sum<sample::ValueType>(GhostNodeStorage) );
+    
+    ACount(0) = GhostNodeStorage.the_array[0];
+    BCount(0) = GhostNodeStorage.the_array[1];
+    if (DecompositionStrategy != 1) {
+        CCount(0) = GhostNodeStorage.the_array[2];
+        DCount(0) = GhostNodeStorage.the_array[3];
+        ECount(0) = GhostNodeStorage.the_array[4];
+        FCount(0) = GhostNodeStorage.the_array[5];
+        GCount(0) = GhostNodeStorage.the_array[6];
+        HCount(0) = GhostNodeStorage.the_array[7];
+    }
+
 
 }
 
 // Prints intermediate code output to stdout, checks to see if solidification is complete
- void IntermediateOutputAndCheck(int id, int cycle, int MyXSlices, int MyYSlices, int nz, int nn, int &XSwitch, ViewI::HostMirror CellType) {
-
-    signed long int Type_sumL = 0;
-    signed long int Type_sumD = 0;
-    signed long int Type_sumA = 0;
-    signed long int Global_sumL, Global_sumD, Global_sumA, Global_nn;
-    Global_nn = 0;
-    for (int k=1; k<nz-1; k++)   {
+void IntermediateOutputAndCheck(int id, int cycle, int MyXSlices, int MyYSlices, int nz, int nn, int &XSwitch, ViewI CellType) {
+    
+    sample::ValueType CellTypeStorage;
+    Kokkos::parallel_reduce (  nz, KOKKOS_LAMBDA (const int& k, sample::ValueType & upd) {
         for(int i=1; i<MyXSlices-1; i++)  {
             for(int j=1; j<MyYSlices-1; j++)  {
                 int D3D1ConvPosition = k*MyXSlices*MyYSlices + i*MyYSlices + j;
-                if (CellType(D3D1ConvPosition) == Delayed) {
-                    Type_sumD += 1;
-                }
-                else if (CellType(D3D1ConvPosition) == Liquid) {
-                    Type_sumL += 1;
-                }
-                else if (CellType(D3D1ConvPosition) == Active) {
-                    Type_sumA += 1;
-                }
+                if (CellType(D3D1ConvPosition) == Delayed)         upd.the_array[0] += 1;
+                else if (CellType(D3D1ConvPosition) == Liquid)     upd.the_array[1] += 1;
+                else if (CellType(D3D1ConvPosition) == Active)     upd.the_array[2] += 1;
+                else if (CellType(D3D1ConvPosition) == Solid)      upd.the_array[3] += 1;
             }
         }
-    }
-//     if (id == 57) {
-//         cout << "======================================================" << endl;
-//         cout << "On rank 57" << endl;
-//         cout << "Superheated liquid cells remaining = " << Type_sumD << endl;
-//         cout << "Inactive interface cells remaining = " << Type_sumI << endl;
-//         cout << "Undercooled liquid cells remaining = " << Type_sumL << endl;
-//         cout << "Active interface cells remaining = " << Type_sumA << endl;
-//         //        cout << "Liquid cells remaining = " << Global_sumL + Global_sumD << endl;
-//         //        cout << "Number of nucleation events = " << Global_nn << endl;
-//         cout << "======================================================" << endl;
-//     }
-    MPI_Reduce(&Type_sumL,&Global_sumL,1,MPI_LONG_LONG,MPI_SUM,0,MPI_COMM_WORLD);
+    }, Kokkos::Sum<sample::ValueType>(CellTypeStorage) );
+    signed long int Global_nn = 0;
+    signed long int Type_sumD = CellTypeStorage.the_array[0];
+    signed long int Type_sumL = CellTypeStorage.the_array[1];
+    signed long int Type_sumA = CellTypeStorage.the_array[2];
+    signed long int Type_sumS = CellTypeStorage.the_array[3];
+
+    signed long int Global_sumL, Global_sumD, Global_sumA, Global_sumS;
     MPI_Reduce(&Type_sumD,&Global_sumD,1,MPI_LONG_LONG,MPI_SUM,0,MPI_COMM_WORLD);
-    //MPI_Reduce(&Type_sumI,&Global_sumI,1,MPI_LONG_LONG,MPI_SUM,0,MPI_COMM_WORLD);
+    MPI_Reduce(&Type_sumL,&Global_sumL,1,MPI_LONG_LONG,MPI_SUM,0,MPI_COMM_WORLD);
     MPI_Reduce(&Type_sumA,&Global_sumA,1,MPI_LONG_LONG,MPI_SUM,0,MPI_COMM_WORLD);
+    MPI_Reduce(&Type_sumS,&Global_sumS,1,MPI_LONG_LONG,MPI_SUM,0,MPI_COMM_WORLD);
     MPI_Reduce(&nn,&Global_nn,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
+    
     if (id == 0) {
         cout << "======================================================" << endl;
         cout << "cycle = " << cycle << endl;
         cout << "Superheated liquid cells remaining = " << Global_sumD << endl;
-        //cout << "Inactive interface cells remaining = " << Global_sumI << endl;
         cout << "Undercooled liquid cells remaining = " << Global_sumL << endl;
         cout << "Active interface cells remaining = " << Global_sumA << endl;
-//        cout << "Liquid cells remaining = " << Global_sumL + Global_sumD << endl;
+        cout << "Solid cells remaining = " << Global_sumS << endl;
         cout << "Number of nucleation events = " << Global_nn << endl;
         cout << "======================================================" << endl;
         if (Global_sumL + Global_sumD == 0) {
             XSwitch = 1;
         }
     }
-
     MPI_Bcast(&XSwitch,1,MPI_INT,0,MPI_COMM_WORLD);
-
 }
