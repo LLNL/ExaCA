@@ -1,0 +1,9 @@
+Input Parameters for CA code for constrained alloy solidification 
+*****
+Thermal gradient (K/m): 100000
+Cooling rate (K/s): 1000
+Domain size in x: 100
+Domain size in y: 100
+Domain size in z: 100
+"N", where the time step = deltax/(Beam Velocity * N):50
+Fraction of surface sites active: 0.25

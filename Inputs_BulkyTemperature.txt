@@ -1,0 +1,9 @@
+Input Parameters for CA code using Truchas/OpenFOAM input (if "burst buffer != 0, use script parameters to override set input parameters from files): 
+*****
+Name of file containing temperatures:unidir-exaca.dat
+Heat transport data mesh size (microns): 5
+Time step for the CA (microseconds): 0.1
+Number of layers: 1
+Offset between layers (microns): 8
+Burst Buffer: 0
+Use Substrate File?:Y
