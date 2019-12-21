@@ -7,6 +7,11 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
     Kokkos::fence();
     MPI_Barrier(MPI_COMM_WORLD);
     
+    // CudaUVM is slow - cudaspace with extra flag
+    // buffer allocation is slow
+    // kokkos view allocate function
+    // MPI wait any and isend/recv for buffer unpacking/packing
+    // don't use default execution/memory spaces
     // Determine whether or not ghost node information transfer needs to take place
     ViewBufCounts ARCount("ARCount",1);
     ViewBufCounts BRCount("BRCount",1);

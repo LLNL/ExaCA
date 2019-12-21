@@ -141,7 +141,7 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
         int nn = 0; // Counter for the number of nucleation events
         int XSwitch = 0;
 
-        //double Time1, Time2, Time3, Time4;
+        double Time1, Time2, Time3, Time4;
         // Loop continues until all liquid cells claimed by solid grains
         //if (id == 0) cout << "Cycle = " << cycle << endl;
         do {
@@ -177,7 +177,6 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
            // MPI_Barrier(MPI_COMM_WORLD);
            // if (id == 0) cout << " CYCLE " << cycle << endl;
 //            MPI_Barrier(MPI_COMM_WORLD);
-//            if (id == 0) cout << "Cycle = " << cycle << endl;
 //            if (id == 0) {
 //                Time3 = MPI_Wtime();
 //                TimeB += (Time3-Time2);
@@ -207,7 +206,6 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
 //            Kokkos::deep_copy( TriangleIndex_G, TriangleIndex_H );
 
 //            MPI_Barrier(MPI_COMM_WORLD);
-//            if (id == 0) cout << "Cycle = " << cycle << endl;
 //            if (id == 0) {
 //                Time4 = MPI_Wtime();
 //                TimeC += (Time4-Time3);
@@ -277,7 +275,8 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
         cout << "===================================================================================" << endl;
         cout << "Having run with = " << np << " processors" << endl;
         cout << "Output written at cycle = " << cycle << endl;
-        cout << "Time to solution = " << InitTime3-InitTime << " s" << endl;
+        cout << "Total time = " << InitTime4 - InitTime << endl;
+        cout << "Time spent initializing data = " << InitTime2-InitTime << " s" << endl;
         cout << "Time spent in TemperatureUpdate = " << TimeA << " s" << endl;
         cout << "Time spent in CellCapture = " << TimeB << " s" << endl;
         cout << "Time spent in GhostNodes = " << TimeC << " s" << endl;
