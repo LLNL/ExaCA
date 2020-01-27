@@ -243,6 +243,37 @@ void ParallelMeshInit(double &G, double &R, int &DecompositionStrategy, int (&Ne
     NeighborX[24] = 1; NeighborY[24] = 1; NeighborZ[24] = -1;
     NeighborX[25] = -1; NeighborY[25] = 1; NeighborZ[25] = -1;
     
+//    // Opposite neighbors
+//    Opp_Neighbor[0] = 17;
+//    Opp_Neighbor[1] = 19;
+//    Opp_Neighbor[2] = 18;
+//    Opp_Neighbor[3] = 21;
+//    Opp_Neighbor[4] = 20;
+//    Opp_Neighbor[5] = 24;
+//    Opp_Neighbor[6] = 25;
+//    Opp_Neighbor[7] = 22;
+//    Opp_Neighbor[8] = 23;
+//
+//    Opp_Neighbor[9] = 10;
+//    Opp_Neighbor[10] = 9;
+//    Opp_Neighbor[11] = 14;
+//    Opp_Neighbor[12] = 13;
+//    Opp_Neighbor[13] = 12;
+//    Opp_Neighbor[14] = 11;
+//    Opp_Neighbor[15] = 16;
+//    Opp_Neighbor[16] = 15;
+//
+//    Opp_Neighbor[17] = 0;
+//    Opp_Neighbor[18] = 2;
+//    Opp_Neighbor[19] = 1;
+//    Opp_Neighbor[20] = 4;
+//    Opp_Neighbor[21] = 3;
+//    Opp_Neighbor[22] = 7;
+//    Opp_Neighbor[23] = 8;
+//    Opp_Neighbor[24] = 5;
+//    Opp_Neighbor[25] = 6;
+
+    
     // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
     for (int i=0; i<=25; i++) {
         ItList[0][i] = i;
@@ -313,101 +344,116 @@ void ParallelMeshInit(double &G, double &R, int &DecompositionStrategy, int (&Ne
     }
 
     // Mesh initialization for each solidification problem
-        
-    // Determine mesh size needed based on OpenFOAM/Truchas/Analytical model data
-    // Read geometry data from OpenFOAM/Truchas
-    int nx_HT, ny_HT, nz_HT; // OpenFOAM/Truchas mesh limits
+    
+    if (TemperatureDataType == "R") {
+        // Determine mesh size needed based on OpenFOAM/Truchas/Analytical model data
+        // Read geometry data from OpenFOAM/Truchas
+        int nx_HT, ny_HT, nz_HT; // OpenFOAM/Truchas mesh limits
 
-    XMin = 1000000.0;
-    YMin = 1000000.0;
-    ZMin = 1000000.0;
-    XMax = -1000000.0;
-    YMax = -1000000.0;
-    ZMax = -1000000.0;
-    ifstream Geom;
-    Geom.open(tempfile);
-    while (!Geom.eof()) {
-        string s;
-        getline(Geom,s);
-        bool ReadingLine = true;
-        int i = 0;
-        int j = 0;
-        while (ReadingLine) {
+        XMin = 1000000.0;
+        YMin = 1000000.0;
+        ZMin = 1000000.0;
+        XMax = -1000000.0;
+        YMax = -1000000.0;
+        ZMax = -1000000.0;
+        ifstream Geom;
+        Geom.open(tempfile);
+        while (!Geom.eof()) {
+            string s;
+            getline(Geom,s);
+            bool ReadingLine = true;
+            int i = 0;
+            int j = 0;
+            while (ReadingLine) {
 
-            if (s.empty()) break;
-            char C = s.at(i);
-            // If this character is not a space, convert from string
-            if (!isblank(C)) {
-                int FirstChar = i;
-                int LastChar;
-                bool ReadingValue = true;
-                while (ReadingValue) {
-                    i++;
-                    char C2 = s.at(i);
-                    if (isblank(C2)) {
-                        LastChar = i;
-                        ReadingValue = false;
+                if (s.empty()) break;
+                char C = s.at(i);
+                // If this character is not a space, convert from string
+                if (!isblank(C)) {
+                    int FirstChar = i;
+                    int LastChar;
+                    bool ReadingValue = true;
+                    while (ReadingValue) {
+                        i++;
+                        char C2 = s.at(i);
+                        if (isblank(C2)) {
+                            LastChar = i;
+                            ReadingValue = false;
+                        }
                     }
+                    string NewDataS = s.substr(FirstChar,LastChar-FirstChar);
+                    //cout << NewDataS << endl;
+                    float MeshData = atof(NewDataS.c_str());
+                    //if (id == 0) cout << MeshData << endl;
+                    if (j == 0) {
+                        if (XMin > MeshData) XMin = MeshData;
+                        if (XMax < MeshData) XMax = MeshData;
+                    }
+                    else if (j == 1) {
+                        //if (id == 0) cout << "Y " << MeshData << endl;
+                        if (YMin > MeshData) YMin = MeshData;
+                        if (YMax < MeshData) YMax = MeshData;
+                    }
+                    else if (j == 2) {
+                        //if (id == 0) cout << "Z " << MeshData << endl;
+                        if (ZMin > MeshData) ZMin = MeshData;
+                        if (ZMax < MeshData) ZMax = MeshData;
+                        ReadingLine = false;
+                    }
+                    j++;
                 }
-                string NewDataS = s.substr(FirstChar,LastChar-FirstChar);
-                //cout << NewDataS << endl;
-                float MeshData = atof(NewDataS.c_str());
-                //if (id == 0) cout << MeshData << endl;
-                if (j == 0) {
-                    if (XMin > MeshData) XMin = MeshData;
-                    if (XMax < MeshData) XMax = MeshData;
+                // Otherwise advance to the next character
+                else {
+                    i++;
                 }
-                else if (j == 1) {
-                    //if (id == 0) cout << "Y " << MeshData << endl;
-                    if (YMin > MeshData) YMin = MeshData;
-                    if (YMax < MeshData) YMax = MeshData;
-                }
-                else if (j == 2) {
-                    //if (id == 0) cout << "Z " << MeshData << endl;
-                    if (ZMin > MeshData) ZMin = MeshData;
-                    if (ZMax < MeshData) ZMax = MeshData;
-                    ReadingLine = false;
-                }
-                j++;
-            }
-            // Otherwise advance to the next character
-            else {
-                i++;
             }
         }
+
+        Geom.close();
+
+        // Is the input in m (OpenFOAM) or mm (Truchas)?
+        double UnitConversion;
+        if (TemperatureDataSource == "O") UnitConversion = 1;
+        else UnitConversion = 1000;
+        XMin = XMin/UnitConversion;
+        XMax = XMax/UnitConversion;
+        YMin = YMin/UnitConversion;
+        YMax = YMax/UnitConversion;
+        ZMin = ZMin/UnitConversion;
+        ZMax = ZMax/UnitConversion;
+
+        nx_HT = round((XMax-XMin)/HT_deltax);
+        ny_HT = round((YMax-YMin)/HT_deltax);
+        nz_HT = round((ZMax-ZMin)/HT_deltax);
+    
+        nx = round((double)(nx_HT)*(double)(HT_deltax)/(double)(deltax) + 4.0);
+        ny = round((double)(ny_HT)*(double)(HT_deltax)/(double)(deltax) + 4.0);
+        nz = round((double)(nz_HT)*(double)(HT_deltax)/(double)(deltax) + 3.0);
+    
+        if (id == 0) {
+            if (TemperatureDataSource == "O") cout << "CA model of OpenFOAM heat transport problem solidification" << endl;
+            else cout << "CA model of Truchas heat transport problem solidification" << endl;
+            cout << "Cell size (m): " << deltax << endl;
+            cout << "Time step (s): " << deltat << endl;
+            cout << "Domain size: " << nx << " by " << ny << " by " << nz << endl;
+            cout << "X Limits of domain: " << XMin << " and " << XMax << endl;
+            cout << "Y Limits of domain: " << YMin << " and " << YMax << endl;
+            cout << "Z Limits of domain: " << ZMin << " and " << ZMax << endl;
+            cout << "================================================================" << endl;
+        }
     }
-
-    Geom.close();
-
-    // Is the input in m (OpenFOAM) or mm (Truchas)?
-    double UnitConversion;
-    if (TemperatureDataSource == "O") UnitConversion = 1;
-    else UnitConversion = 1000;
-    XMin = XMin/UnitConversion;
-    XMax = XMax/UnitConversion;
-    YMin = YMin/UnitConversion;
-    YMax = YMax/UnitConversion;
-    ZMin = ZMin/UnitConversion;
-    ZMax = ZMax/UnitConversion;
-
-    nx_HT = round((XMax-XMin)/HT_deltax);
-    ny_HT = round((YMax-YMin)/HT_deltax);
-    nz_HT = round((ZMax-ZMin)/HT_deltax);
-    
-    nx = round((double)(nx_HT)*(double)(HT_deltax)/(double)(deltax) + 4.0);
-    ny = round((double)(ny_HT)*(double)(HT_deltax)/(double)(deltax) + 4.0);
-    nz = round((double)(nz_HT)*(double)(HT_deltax)/(double)(deltax) + 3.0);
-    
-    if (id == 0) {
-        if (TemperatureDataSource == "O") cout << "CA model of OpenFOAM heat transport problem solidification" << endl;
-        else cout << "CA model of Truchas heat transport problem solidification" << endl;
-        cout << "Cell size (m): " << deltax << endl;
-        cout << "Time step (s): " << deltat << endl;
-        cout << "Domain size: " << nx << " by " << ny << " by " << nz << endl;
-        cout << "X Limits of domain: " << XMin << " and " << XMax << endl;
-        cout << "Y Limits of domain: " << YMin << " and " << YMax << endl;
-        cout << "Z Limits of domain: " << ZMin << " and " << ZMax << endl;
-        cout << "================================================================" << endl;
+    else {
+        if (id == 0) {
+            cout << "================================================================" << endl;
+            cout << "CA model of fixed temperature field solidification" << endl;
+            cout << "Cell size (m): " << deltax << endl;
+            cout << "Time step (s): " << deltat << endl;
+            cout << "Domain size: " << nx << " by " << ny << " by " << nz << endl;
+            cout << "Thermal gradient: " << G << " K/m, Cooling rate: " << R << " K/s" << endl;
+            cout << "================================================================" << endl;
+        }
+        
+        
     }
 
     InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut);
@@ -1044,50 +1090,50 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
 //                        
 //                        
 //                    }
-                    if (np > 1) {
-                        if (DecompositionStrategy == 1) {
-                            if (RankY == 1) {
-                                CellType(D3D1ConvPosition) = Ghost1;
-                            }
-                            else if (RankY == MyYSlices-2) {
-                                CellType(D3D1ConvPosition) = Ghost1;
-                            }
-                        }
-                        else {
-                            if (RankY == 1) {
-                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                                if (RankX == MyXSlices-2) {
-                                    CellType(D3D1ConvPosition) = Ghost3;
-                                }
-                                else if (RankX == 1) {
-                                    CellType(D3D1ConvPosition) = Ghost3;
-                                }
-                                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
-                                    // This is being sent to MyLeft
-                                    CellType(D3D1ConvPosition) = Ghost1;
-                                }
-                            }
-                            else if (RankY == MyYSlices-2) {
-                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                                if (RankX == MyXSlices-2) {
-                                    CellType(D3D1ConvPosition) = Ghost3;
-                                }
-                                else if (RankX == 1) {
-                                    CellType(D3D1ConvPosition) = Ghost3;
-                                }
-                                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
-                                    CellType(D3D1ConvPosition) = Ghost1;
-                                }
-                            }
-                            else if ((RankX == 1)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
-                                CellType(D3D1ConvPosition) = Ghost1;
-                                //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
-                            }
-                            else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
-                                CellType(D3D1ConvPosition) = Ghost1;
-                            }
-                        }
-                    }
+//                    if (np > 1) {
+//                        if (DecompositionStrategy == 1) {
+//                            if (RankY == 1) {
+//                                CellType(D3D1ConvPosition) = Ghost1;
+//                            }
+//                            else if (RankY == MyYSlices-2) {
+//                                CellType(D3D1ConvPosition) = Ghost1;
+//                            }
+//                        }
+//                        else {
+//                            if (RankY == 1) {
+//                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+//                                if (RankX == MyXSlices-2) {
+//                                    CellType(D3D1ConvPosition) = Ghost3;
+//                                }
+//                                else if (RankX == 1) {
+//                                    CellType(D3D1ConvPosition) = Ghost3;
+//                                }
+//                                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
+//                                    // This is being sent to MyLeft
+//                                    CellType(D3D1ConvPosition) = Ghost1;
+//                                }
+//                            }
+//                            else if (RankY == MyYSlices-2) {
+//                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+//                                if (RankX == MyXSlices-2) {
+//                                    CellType(D3D1ConvPosition) = Ghost3;
+//                                }
+//                                else if (RankX == 1) {
+//                                    CellType(D3D1ConvPosition) = Ghost3;
+//                                }
+//                                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
+//                                    CellType(D3D1ConvPosition) = Ghost1;
+//                                }
+//                            }
+//                            else if ((RankX == 1)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
+//                                CellType(D3D1ConvPosition) = Ghost1;
+//                                //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
+//                            }
+//                            else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
+//                                CellType(D3D1ConvPosition) = Ghost1;
+//                            }
+//                        }
+//                    }
                 }
                 else if (CellType(D3D1ConvPosition) == LiqSol) {
                     // Mark and count the number of nucleation events to be sent to other ranks

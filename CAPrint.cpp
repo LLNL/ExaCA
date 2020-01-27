@@ -69,13 +69,13 @@ void PrintValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYS
             //cout << "DataCounter = " << DataCounter << " of " << RBufSize << endl;
         }
 
-//        cout << "Opening file 1" << endl;
-//        string FName1 = BaseFileName + ".csv";
-//        std::ofstream Grainplot1;
-//        Grainplot1.open(FName1);
-//        Grainplot1 << "Outermost dimension is nz = " << nz-2 << endl;
-//        Grainplot1 << "ny = " << ny-2 << endl;
-//        Grainplot1 << "Innermost dimension is nx = " << nx-2 << endl;
+        string FName1 = "/gpfs/alpine/world-shared/mat190/rolchigo/" + BaseFileName + ".csv";
+        cout << "Opening file " << FName1 << endl;
+        std::ofstream Grainplot1;
+        Grainplot1.open(FName1);
+        Grainplot1 << "Outermost dimension is nz = " << nz-2 << endl;
+        Grainplot1 << "ny = " << ny-2 << endl;
+        Grainplot1 << "Innermost dimension is nx = " << nx-2 << endl;
 //        for (int k=1; k<nz-1; k++) {
 //            for (int j=1; j<ny-1; j++) {
 //                for (int i=1; i<nx-1; i++) {
@@ -83,10 +83,10 @@ void PrintValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYS
 //                }
 //            }
 //        }
-//        Grainplot1.close();
+        Grainplot1.close();
         
 
-        string FName2 = BaseFileName + ".vtk";
+        string FName2 = "/gpfs/alpine/world-shared/mat190/rolchigo/" + BaseFileName + ".vtk";
         cout << "Opening file " << FName2 << endl;
         // Print grain orientations to file
         std::ofstream Grainplot2;

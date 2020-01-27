@@ -12,12 +12,11 @@ EXE = ${EXE_NAME}.cuda
 KOKKOS_ARCH = "Volta70"
 KOKKOS_CUDA_OPTIONS = "enable_lambda"
 
-CXXFLAGS += -ccbin mpixlC 
+CXXFLAGS += -ccbin mpixlC-gpu 
 LINK = ${CXX}
 LINKFLAGS = 
 LINKFLAGS += -ccbin mpixlC
 EXTRA_INC = 
-DEPFLAGS = -M
 
 OBJ = $(SRC:.cpp=.o)
 LIB = 

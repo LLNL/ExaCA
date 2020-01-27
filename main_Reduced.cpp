@@ -116,6 +116,34 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
     bool* MeltedStored = new bool[MyXSlices*MyYSlices*((NumberOfLayers-1)*LayerHeight)];
     int cycle;
     
+    // Buffers for ghost node data (fixed size)
+    int BufSizeX, BufSizeY, BufSizeZ;
+    if (DecompositionStrategy_A == 1) {
+        BufSizeX = MyXSlices;
+        BufSizeY = 0;
+        BufSizeZ = nz;
+    }
+    else {
+        BufSizeX = MyXSlices-2;
+        BufSizeY = MyYSlices-2;
+        BufSizeZ = nz;
+    }
+    Buffer2D BufferA("BufferA",BufSizeX*BufSizeZ,5);
+    Buffer2D BufferB("BufferB",BufSizeX*BufSizeZ,5);
+    Buffer2D BufferC("BufferC",BufSizeY*BufSizeZ,5);
+    Buffer2D BufferD("BufferD",BufSizeY*BufSizeZ,5);
+    Buffer2D BufferE("BufferE",BufSizeZ,5);
+    Buffer2D BufferF("BufferF",BufSizeZ,5);
+    Buffer2D BufferG("BufferG",BufSizeZ,5);
+    Buffer2D BufferH("BufferH",BufSizeZ,5);
+    Buffer2D BufferAR("BufferAR",BufSizeX*BufSizeZ,5);
+    Buffer2D BufferBR("BufferBR",BufSizeX*BufSizeZ,5);
+    Buffer2D BufferCR("BufferCR",BufSizeY*BufSizeZ,5);
+    Buffer2D BufferDR("BufferDR",BufSizeY*BufSizeZ,5);
+    Buffer2D BufferER("BufferER",BufSizeZ,5);
+    Buffer2D BufferFR("BufferFR",BufSizeZ,5);
+    Buffer2D BufferGR("BufferGR",BufSizeZ,5);
+    Buffer2D BufferHR("BufferHR",BufSizeZ,5);
     // Copy view data to GPU
     Kokkos::deep_copy( GrainID_G, GrainID_H );
     Kokkos::deep_copy( CellType_G, CellType_H );
@@ -128,6 +156,13 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
     Kokkos::deep_copy( UndercoolingCurrent_G, UndercoolingCurrent_H );
     Kokkos::deep_copy( NucleiLocation_G, NucleiLocation_H );
     Kokkos::deep_copy( NucleationTimes_G, NucleationTimes_H );
+    
+    // Locks for cell capture
+    // 0 = cannot be captured, 1 = can be capured
+    ViewI Locks("Locks",LocalDomainSize);
+    Kokkos::parallel_for("LockInit",LocalDomainSize, KOKKOS_LAMBDA (const int& i) {
+        if ((CellType_G(i) == Delayed)||(CellType_G(i) == LiqSol)||(CellType_G(i) == Liquid)) Locks(i) = 1;
+    });
     
     if (id == 0) cout << "Time spent initializing data = " << InitTime2-InitTime << " s" << endl;
 
@@ -147,41 +182,35 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
         do {
             cycle++;
 
-//            MPI_Barrier(MPI_COMM_WORLD);
-//            if (id == 0) {
-//                Time1 = MPI_Wtime();
-//            }
-            //MPI_Barrier(MPI_COMM_WORLD);
+            MPI_Barrier(MPI_COMM_WORLD);
+            if (id == 0) {
+                Time1 = MPI_Wtime();
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            
             //if (id == 0) cout << " CYCLE " << cycle << endl;
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
-            TemperatureUpdate(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, cycle, nn, AConst, BConst, CConst, CritTimeStep_G, CellType_G, UndercoolingCurrent_G, UndercoolingChange_G, NucleiLocation_G, NucleationTimes_G, GrainID_G, GrainOrientation, DOCenter_G, NeighborX,  NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, NGrainOrientations, PossibleNuclei_ThisRank);
+            Nucleation(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, cycle, nn, CritTimeStep_G, CellType_G, UndercoolingCurrent_G, UndercoolingChange_G, NucleiLocation_G, NucleationTimes_G, GrainID_G, GrainOrientation, DOCenter_G, NeighborX,  NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, NGrainOrientations, PossibleNuclei_ThisRank);
 
 //            if (id == 0) cout << "Cycle = " << cycle << endl;
-//            MPI_Barrier(MPI_COMM_WORLD);
-//            if (id == 0) {
-//                Time2 = MPI_Wtime();
-//                TimeA += (Time2-Time1);
-//            }
-            //MPI_Barrier(MPI_COMM_WORLD);
+            MPI_Barrier(MPI_COMM_WORLD);
+            if (id == 0) {
+                Time2 = MPI_Wtime();
+                TimeA += (Time2-Time1);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            
             //if (id == 0) cout << " CYCLE " << cycle << endl;
             // Update cells on GPU - new active cells, solidification of old active cells
-            ViewBufCounts ACount("ACount",1);
-            ViewBufCounts BCount("BCount",1);
-            ViewBufCounts CCount("CCount",1);
-            ViewBufCounts DCount("DCount",1);
-            ViewBufCounts ECount("ECount",1);
-            ViewBufCounts FCount("FCount",1);
-            ViewBufCounts GCount("GCount",1);
-            ViewBufCounts HCount("HCount",1);
-            CellCapture(id, np, cycle, DecompositionStrategy_A, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, ItList, NeighborX, NeighborY, NeighborZ, GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount);
-           // MPI_Barrier(MPI_COMM_WORLD);
-           // if (id == 0) cout << " CYCLE " << cycle << endl;
-//            MPI_Barrier(MPI_COMM_WORLD);
-//            if (id == 0) {
-//                Time3 = MPI_Wtime();
-//                TimeB += (Time3-Time2);
-//            }
-//
+            CellCapture(id, np, cycle, DecompositionStrategy_A, LocalDomainSize, MyXSlices, MyYSlices, nz, AConst, BConst, CConst, MyXOffset, MyYOffset, ItList, NeighborX, NeighborY, NeighborZ, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G,  GrainUnitVector, TriangleIndex_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufSizeX, BufSizeY, Locks);
+            
+            //if (id == 0) cout << " CYCLE " << cycle << " starting ghost nodes" << endl;
+            MPI_Barrier(MPI_COMM_WORLD);
+            if (id == 0) {
+                Time3 = MPI_Wtime();
+                TimeB += (Time3-Time2);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
 //            // Use GPU vals on CPU
 //            Kokkos::deep_copy( GrainID_H, GrainID_G );
 //            Kokkos::deep_copy( CellType_H, CellType_G );
@@ -192,11 +221,11 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
 
             if (np > 1) {
             // Update ghost nodes on host
-                if (DecompositionStrategy_A == 1) GhostNodes1D_GPU(cycle, id, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_G, DOCenter_G,GrainID_G, GrainUnitVector,TriangleIndex_G, GrainOrientation, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations, ACount, BCount);
-                else GhostNodes2D_GPU(cycle, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_G, DOCenter_G, GrainID_G, GrainUnitVector, TriangleIndex_G, GrainOrientation, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations, ACount, BCount, CCount, DCount, ECount, FCount, GCount, HCount);
+                if (DecompositionStrategy_A == 1) GhostNodes1D_GPU(cycle, id, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_G, DOCenter_G,GrainID_G, GrainUnitVector,TriangleIndex_G, GrainOrientation, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations, BufferA, BufferB, BufferAR, BufferBR, BufSizeX,  BufSizeY, BufSizeZ);
+                else GhostNodes2D_GPU(cycle, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_G, DOCenter_G, GrainID_G, GrainUnitVector, TriangleIndex_G, GrainOrientation, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR, BufferER, BufferFR, BufferGR, BufferHR, BufSizeX, BufSizeY, BufSizeZ);
             }
-           // MPI_Barrier(MPI_COMM_WORLD);
-            //if (id == 0) cout << " CYCLE " << cycle << endl;
+//            MPI_Barrier(MPI_COMM_WORLD);
+//            if (id == 0) cout << " CYCLE " << cycle << endl;
 //            // Copy cell state and octahedron attribute data from CPU to GPU
 //            Kokkos::deep_copy( GrainID_G, GrainID_H );
 //            Kokkos::deep_copy( CellType_G, CellType_H );
@@ -205,16 +234,17 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
 //            Kokkos::deep_copy( DOCenter_G, DOCenter_H );
 //            Kokkos::deep_copy( TriangleIndex_G, TriangleIndex_H );
 
-//            MPI_Barrier(MPI_COMM_WORLD);
-//            if (id == 0) {
-//                Time4 = MPI_Wtime();
-//                TimeC += (Time4-Time3);
-//            }
-
+            MPI_Barrier(MPI_COMM_WORLD);
+            if (id == 0) {
+                Time4 = MPI_Wtime();
+                TimeC += (Time4-Time3);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            
             if (cycle % 1000 == 0) {
                 IntermediateOutputAndCheck(id, cycle, MyXSlices, MyYSlices, nz, nn, XSwitch, CellType_G);
             }
-
+            //if (cycle == 20000) XSwitch = 1;
 
         } while(XSwitch == 0);
 
@@ -277,7 +307,7 @@ void RunProgram_Reduced(int id, int np, int ierr, int DecompositionStrategy, dou
         cout << "Output written at cycle = " << cycle << endl;
         cout << "Total time = " << InitTime4 - InitTime << endl;
         cout << "Time spent initializing data = " << InitTime2-InitTime << " s" << endl;
-        cout << "Time spent in TemperatureUpdate = " << TimeA << " s" << endl;
+        cout << "Time spent in Nucleation = " << TimeA << " s" << endl;
         cout << "Time spent in CellCapture = " << TimeB << " s" << endl;
         cout << "Time spent in GhostNodes = " << TimeC << " s" << endl;
         cout << "Time spent collecting and printing output data = " << InitTime4-InitTime3 << " s" << endl;
