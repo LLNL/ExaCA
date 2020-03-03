@@ -200,11 +200,15 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
 }
     
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int LocalDomainSize, int MyXSlices, int MyYSlices, const int nz, double AConst, double BConst, double CConst, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int* GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, ViewI Locks) {
+void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int LocalDomainSize, int MyXSlices, int MyYSlices, const int nz, double AConst, double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int* GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, ViewI Locks) {
     
     // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to be accounted for
     Kokkos::parallel_for ("CellCapture",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
         
+        // Test
+//        if ((UndercoolingCurrent(D3D1ConvPosition) < 0)&&(cycle > CritTimeStep(D3D1ConvPosition)+1)&&(CellType(D3D1ConvPosition) != Wall)) {
+//            printf("Superheated cell %d %d %d %f \n",id,D3D1ConvPosition,CellType(D3D1ConvPosition),UndercoolingCurrent(D3D1ConvPosition));
+//        }
         // Cells of interest for the CA
         if ((CellType(D3D1ConvPosition) != Solid)&&(cycle > CritTimeStep(D3D1ConvPosition))) {
 
@@ -219,7 +223,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                 UndercoolingCurrent(D3D1ConvPosition) += UndercoolingChange(D3D1ConvPosition);
             }
             else if (CellType(D3D1ConvPosition) == Active) {
-//            if ((CellType(D3D1ConvPosition) == Active)&&(cycle > CritTimeStep(D3D1ConvPosition)) {
+
                 int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
                 int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
                 int RankX = floor(Rem/MyYSlices);
@@ -230,10 +234,10 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                 // Update local diagonal length of active cell
                 double LocU = UndercoolingCurrent(D3D1ConvPosition);
                 LocU = min(210.0,LocU);
-                double V = AConst*pow(LocU,3) + BConst*pow(LocU,2) + CConst*LocU;
+                double V = AConst*pow(LocU,3) + BConst*pow(LocU,2) + CConst*LocU + DConst;
                 V = max(0.0,V);
                 DiagonalLength(D3D1ConvPosition) += min(0.045,V); // Max amount the diagonal can grow per time step
-                
+                //if (cycle >= 20000) printf("Active cell rank %d with Undercooling %f and UC %f and DL %f \n",id,LocU,UndercoolingChange(D3D1ConvPosition),V);
                 // Cycle through all neigboring cells on this processor to see if they have been captured
                 // Cells in ghost nodes cannot capture cells on other processors
                 int LCount = 0;
@@ -291,6 +295,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                 else {
                     NListLength = 17;
                 }
+                
+                
+                //printf("Rank %d cell %d %d %d \n",id,RankX,RankY,RankZ);
                 // "ll" corresponds to the specific position on the list of neighboring cells
                 for (int ll=0; ll<NListLength; ll++) {
                     // "l" correpsponds to the specific neighboring cell
@@ -646,7 +653,6 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         BufferB(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
                                         //printf("NewDL for B is %f \n",BufferB(GNPosition,4));
                                     }
-                                    CellType(NeighborD3D1ConvPosition) = Active;
                                 }
                                 else {
                                     if (MyNeighborY == 1) {
@@ -772,15 +778,12 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         BufferC(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
                                         BufferC(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
                                     }
-                                    CellType(NeighborD3D1ConvPosition) = Active;
                                 } // End if statement for ghost node marking
-                            }
-                            else {
-                                // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and Diagonal Length values have been assigned to it
-                                // Avoids the race condition in which the new cell is activated, and another thread acts on the new active cell before
-                                // the cell's new critical diagonal length/triangle index/diagonal length values are assigned
-                                CellType(NeighborD3D1ConvPosition) = Active;
                             } // End if statement for serial/parallel code
+                            // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and Diagonal Length values have been assigned to it
+                            // Avoids the race condition in which the new cell is activated, and another thread acts on the new active cell before
+                            // the cell's new critical diagonal length/triangle index/diagonal length values are assigned
+                            CellType(NeighborD3D1ConvPosition) = Active;
                         } // End if statement within locked capture loop
                     } // End if statement for outer capture loop
                 } // End loop over all neighbors of this active cell
@@ -791,26 +794,26 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
             } // end "if" loop for Active type cells
         } // end "if" loop over cells of interest
     });
-                
+
+    Kokkos::fence();
+    // Fix corrupted lock values
+    Kokkos::parallel_for ("CellCapture",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
+        if ((CellType(D3D1ConvPosition) == Liquid)||(CellType(D3D1ConvPosition) == LiqSol)||(CellType(D3D1ConvPosition) == Delayed)) {
+            Kokkos::atomic_compare_exchange(&Locks(D3D1ConvPosition),0,1);
+        }
+    });
+    
 }
 
 // Prints intermediate code output to stdout, checks to see if solidification is complete
-void IntermediateOutputAndCheck(int id, int cycle, int MyXSlices, int MyYSlices, int nz, int nn, int &XSwitch, ViewI CellType) {
+void IntermediateOutputAndCheck(int id, int &cycle, int LocalDomainSize, int nn, int &XSwitch, ViewI CellType, ViewI CritTimeStep, string TemperatureDataType) {
     
     sample::ValueType CellTypeStorage;
-    Kokkos::parallel_reduce (  nz, KOKKOS_LAMBDA (const int& k, sample::ValueType & upd) {
-        for(int i=1; i<MyXSlices-1; i++)  {
-            for(int j=1; j<MyYSlices-1; j++)  {
-                int D3D1ConvPosition = k*MyXSlices*MyYSlices + i*MyYSlices + j;
-                if (CellType(D3D1ConvPosition) == Delayed)         upd.the_array[0] += 1;
-                else if (CellType(D3D1ConvPosition) == Liquid) {
-                    upd.the_array[1] += 1;
-                    //if (cycle == 20000) printf("L Location Rank %d is %d of %d and %d of %d \n",id,i,MyXSlices-1,j,MyYSlices-1);
-                }
-                else if (CellType(D3D1ConvPosition) == Active)     upd.the_array[2] += 1;
-                else if (CellType(D3D1ConvPosition) == Solid)      upd.the_array[3] += 1;
-            }
-        }
+    Kokkos::parallel_reduce (  LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, sample::ValueType & upd) {
+            if (CellType(D3D1ConvPosition) == Delayed) upd.the_array[0] += 1;
+            else if (CellType(D3D1ConvPosition) == Liquid)  upd.the_array[1] += 1;
+            else if (CellType(D3D1ConvPosition) == Active)     upd.the_array[2] += 1;
+            else if (CellType(D3D1ConvPosition) == Solid)      upd.the_array[3] += 1;
     }, Kokkos::Sum<sample::ValueType>(CellTypeStorage) );
     signed long int Global_nn = 0;
     signed long int Type_sumD = CellTypeStorage.the_array[0];
@@ -839,4 +842,27 @@ void IntermediateOutputAndCheck(int id, int cycle, int MyXSlices, int MyYSlices,
         }
     }
     MPI_Bcast(&XSwitch,1,MPI_INT,0,MPI_COMM_WORLD);
+    if (XSwitch == 0) {
+        if (TemperatureDataType == "R") {
+            MPI_Bcast(&Global_sumL,1,MPI_LONG_LONG,0,MPI_COMM_WORLD);
+            if (Global_sumL == 0) {
+                // Check when the next superheated cells go below the liquidus
+                int NextCTS;
+                Kokkos::parallel_reduce("CellCapture",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, int &tempv) {
+                    if (CellType(D3D1ConvPosition) == Delayed) {
+                        //if (CritTimeStep(D3D1ConvPosition) > 20000000) printf("CTS on rank %d is %d \n",id,CritTimeStep(D3D1ConvPosition));
+                        if (CritTimeStep(D3D1ConvPosition) < tempv) tempv = CritTimeStep(D3D1ConvPosition);
+                    }
+                },Kokkos::Min<int>(NextCTS));
+                //cout << "ID " << id << " NextCTS = " << NextCTS << endl;
+                signed long int GlobalNextCTS;
+                MPI_Allreduce(&NextCTS,&GlobalNextCTS,1,MPI_LONG_LONG,MPI_MIN,MPI_COMM_WORLD);
+                if ((GlobalNextCTS - cycle) > 5000) {
+                    // Jump to next time step when solidification starts again
+                    cycle = GlobalNextCTS-1;
+                    if (id == 0) cout << "Jumping to cycle " << cycle+1 << endl;
+                }
+            }
+        }
+    }
 }

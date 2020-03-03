@@ -2,7 +2,7 @@
 using namespace std;
 
 // 2D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CellType, ViewF DOCenter, ViewI GrainID, float* GrainUnitVector, ViewI TriangleIndex, int* GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ) {
+void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CellType, ViewF DOCenter, ViewI GrainID, float* GrainUnitVector, ViewI TriangleIndex, int* GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, ViewI Locks) {
 
     Kokkos::fence();
     MPI_Barrier(MPI_COMM_WORLD);
@@ -188,6 +188,7 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
                     // Update this ghost node cell's information with data from other rank
                     //printf("unpack, X/Y/Z, GID, Center, DL %d %d %d %d %d %f %f %f %f \n",unpack_index,CellLocation,RankX,RankY,RankZ,DOCenterX,DOCenterY,DOCenterZ,NewDiagonalLength);
                     CellType(CellLocation) = Active;
+                    Locks(CellLocation) = 0;
                     GrainID(CellLocation) = NewGrainID;
                     DOCenter(3*CellLocation) = DOCenterX;
                     DOCenter(3*CellLocation+1) = DOCenterY;
@@ -338,7 +339,7 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
 //*****************************************************************************/
 
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CellType, ViewF DOCenter, ViewI GrainID, float* GrainUnitVector, ViewI TriangleIndex, int* GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferAR, Buffer2D BufferBR, int BufSizeX, int BufSizeY, int BufSizeZ) {
+void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CellType, ViewF DOCenter, ViewI GrainID, float* GrainUnitVector, ViewI TriangleIndex, int* GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferAR, Buffer2D BufferBR, int BufSizeX, int BufSizeY, int BufSizeZ, ViewI Locks) {
     
     Kokkos::fence();
     MPI_Barrier(MPI_COMM_WORLD);
@@ -410,6 +411,7 @@ void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices,
                     //printf("ID, X/Y/Z, GID, Center, DL %d %d %d %d %d %f %f %f %f \n",id,CellLocation,RankX,RankY,RankZ,DOCenterX,DOCenterY,DOCenterZ,NewDiagonalLength);
                     // Update this ghost node cell's information with data from other rank
                     GrainID(CellLocation) = NewGrainID;
+                    Locks(CellLocation) = 0;
                     DOCenter(3*CellLocation) = DOCenterX;
                     DOCenter(3*CellLocation+1) = DOCenterY;
                     DOCenter(3*CellLocation+2) = DOCenterZ;

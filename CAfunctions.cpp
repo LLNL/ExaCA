@@ -43,11 +43,11 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
     else if (DecompositionStrategy >= 2) {
         int XSlicesPerP = nx/ProcessorsInXDirection;
         int XRemainder = nx % ProcessorsInXDirection;
-        int XPosition = p/ProcessorsInYDirection;
         if (XRemainder == 0) {
             XRemoteMPSlices = XSlicesPerP;
         }
         else {
+            int XPosition = p/ProcessorsInYDirection;
             if (XPosition < XRemainder) {
                 XRemoteMPSlices = XSlicesPerP + 1;
             }
@@ -55,14 +55,12 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
                 XRemoteMPSlices = XSlicesPerP;
             }
         }
-        if ((XPosition == 0)||(XPosition == ProcessorsInYDirection-1)) XRemoteMPSlices++;
-        else {
-            XRemoteMPSlices++;
-            XRemoteMPSlices++;
-        }
     }
+    // Add "ghost nodes" for other processors
+    XRemoteMPSlices = XRemoteMPSlices+2;
     return XRemoteMPSlices;
 }
+
 
 int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy) {
     int RemoteXOffset;
@@ -84,11 +82,10 @@ int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDire
                 RemoteXOffset = (XSlicesPerP + 1)*(XRemainder-1) + XSlicesPerP + 1 + (XPosition-XRemainder)*XSlicesPerP;
             }
         }
-        if (XPosition != 0) {
-            RemoteXOffset--;
-        }
     }
-    //cout << " My ID is " << p << " and my X Offset is " << RemoteXOffset << endl;
+    // Account for "ghost nodes" for other processors
+    RemoteXOffset--;
+    // cout << " My ID is " << p << " and my X Offset is " << RemoteXOffset << endl;
     return RemoteXOffset;
 }
 
@@ -108,24 +105,15 @@ int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decompo
                 YRemoteMPSlices = YSlicesPerP;
             }
         }
-        // Ghost nodes - exterior ranks have a set, interior ranks have 2 sets
-        if (np > 1) {
-            if ((p == 0)||(p == np-1)) YRemoteMPSlices++;
-            else {
-               YRemoteMPSlices++;
-               YRemoteMPSlices++;
-            }
-        }
     }
     else if (DecompositionStrategy >= 2) {
         int YSlicesPerP = ny/ProcessorsInYDirection;
         int YRemainder = ny % ProcessorsInYDirection;
-        int YPosition = p % ProcessorsInYDirection;
         if (YRemainder == 0) {
             YRemoteMPSlices = YSlicesPerP;
         }
         else {
-
+            int YPosition = p % ProcessorsInYDirection;
             if (YPosition < YRemainder) {
                 YRemoteMPSlices = YSlicesPerP + 1;
             }
@@ -133,15 +121,10 @@ int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decompo
                 YRemoteMPSlices = YSlicesPerP;
             }
         }
-        
-        if ((YPosition == 0)||(YPosition == ProcessorsInYDirection-1)) YRemoteMPSlices++;
-        else {
-            YRemoteMPSlices++;
-            YRemoteMPSlices++;
-        }
-        
     }
-
+    // Add "ghost nodes" for other processors
+    YRemoteMPSlices = YRemoteMPSlices+2;
+    
     return YRemoteMPSlices;
 }
 
@@ -161,9 +144,6 @@ int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decomposi
                 RemoteYOffset = (YSlicesPerP + 1)*(YRemainder-1) + YSlicesPerP + 1 + (p-YRemainder)*YSlicesPerP;
             }
         }
-        if (p > 0) {
-            RemoteYOffset--;
-        }
     }
     else if (DecompositionStrategy >= 2) {
         int YSlicesPerP = ny/ProcessorsInYDirection;
@@ -180,12 +160,10 @@ int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decomposi
                 RemoteYOffset = (YSlicesPerP + 1)*(YRemainder-1) + YSlicesPerP + 1 + (YPosition-YRemainder)*YSlicesPerP;
             }
         }
-        if (YPosition != 0) {
-            RemoteYOffset--;
-        }
-        
     }
-    //cout << " My ID is " << p << " and my Y Offset is " << RemoteYOffset << endl;
+    // Account for "ghost nodes" for other processors
+    RemoteYOffset--;
+    // cout << " My ID is " << p << " and my Y Offset is " << RemoteYOffset << endl;
     return RemoteYOffset;
 }
 
@@ -277,7 +255,9 @@ void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int 
     
     // if ((id == 0)&&(cycle == 588)) cout << " Cell at " << RankX << " " << RankY << " " << RankZ << " has been captured by a grain with orientation " << MyOrientation << endl;
     //    if ((id == 0)&&(cycle > 0)) cout << " cycle " << cycle << " Orientation captured " << MyOrientation << endl;
+
     for (int l=0; l<26; l++)  {
+
         // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of a neighbor cell
         double x0 = xp + NeighborX[l] - cx;
         double y0 = yp + NeighborY[l] - cy;
@@ -299,6 +279,7 @@ void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int 
         }
         int index1, index2, index3;
         index1 = MaxIndex(AnglesA);
+        //cout << 78*CellLocation + 3*l << endl;
         TriangleIndex(78*CellLocation + 3*l) = index1;
         // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
         double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1 + 0];
@@ -368,8 +349,10 @@ void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int 
         //            cout << "Cycle " << cycle << " id = " << id << " NaN CDL for cell " << NewCellX << " " << NewCellY << " " << BoxZ << endl;
         //        }
         float CDLVal = pow(pow(ParaT*Diag1X,2) + pow(ParaT*Diag1Y,2) + pow(ParaT*Diag1Z,2),0.5);
+        //cout << "CDLVal = " << CDLVal << endl;
         if (std::isnan(CDLVal)) CDLVal = 0.0;
         CritDiagonalLength(26*CellLocation+l)  = CDLVal;
+
 
     }
 }
