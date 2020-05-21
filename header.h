@@ -25,7 +25,7 @@ enum TypeNames { Solid = 0, LiqSol = 1, Liquid = 2,
 typedef Kokkos::View<float*> ViewF;
 typedef Kokkos::View<int*> ViewI;
 typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Atomic>> View_a;
-typedef Kokkos::View<float**,Kokkos::CudaSpace> Buffer2D;
+typedef Kokkos::View<float**> Buffer2D;
 typedef Kokkos::View<float*> TestView;
 
 
