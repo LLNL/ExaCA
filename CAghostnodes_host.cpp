@@ -2,7 +2,7 @@
 using namespace std;
 
 // 2D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
+void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
 
     
     int ACount = 0;
@@ -410,7 +410,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
             int RankX = (int)(GhostNodesAR[7*i]);
             int RankY = 0;
             int RankZ = (int)(GhostNodesAR[7*i+1]);
-            int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+            long int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                 //cout << "ID = " << id << "A" << endl;
                 int GlobalX = RankX + MyXOffset;
@@ -430,7 +430,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
                 double yp = GlobalY + 0.5;
                 double zp = RankZ + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
 
             }
         }
@@ -445,7 +445,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
             int RankX = (int)(GhostNodesBR[7*i]);
             int RankY = MyYSlices-1;
             int RankZ = (int)(GhostNodesBR[7*i+1]);
-            int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+            long int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                 int GlobalX = MyXOffset + RankX;
                 int GlobalY = MyYOffset + RankY;
@@ -465,7 +465,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
                 double yp = GlobalY + 0.5;
                 double zp = RankZ + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
             }
         }
     }
@@ -480,7 +480,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
             int RankX = MyXSlices-1;
             int RankY = (int)(GhostNodesCR[7*i]);
             int RankZ = (int)(GhostNodesCR[7*i+1]);
-            int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+            long int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             //cout << "ID = " << id << " C checking " << RankX << " " << RankY << " " << RankZ << endl;
             if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                 //cout << "ID = " << id << "C" << endl;
@@ -501,7 +501,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
                 double yp = GlobalY + 0.5;
                 double zp = RankZ + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
             }
         }
     }
@@ -515,7 +515,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
             int RankX = 0;
             int RankY = (int)(GhostNodesDR[7*i]);
             int RankZ = (int)(GhostNodesDR[7*i+1]);
-            int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+            long int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             //cout << "ID = " << id << " D checking " << RankX << " " << RankY << " " << RankZ << endl;
             if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                 int GlobalX = MyXOffset + RankX;
@@ -535,7 +535,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
                 double yp = GlobalY + 0.5;
                 double zp = RankZ + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
             }
         }
     }
@@ -548,7 +548,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
             int RankX = MyXSlices-1;
             int RankY = 0;
             int RankZ = (int)(GhostNodesER[6*i]);
-            int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+            long int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                 int GlobalX = MyXOffset + RankX;
                 int GlobalY = MyYOffset + RankY;
@@ -567,7 +567,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
                 double yp = GlobalY + 0.5;
                 double zp = RankZ + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
             }
         }
     }
@@ -580,7 +580,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
             int RankX = MyXSlices-1;
             int RankY = MyYSlices-1;
             int RankZ = (int)(GhostNodesFR[6*i]);
-            int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+            long int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                 int GlobalX = MyXOffset + RankX;
                 int GlobalY = MyYOffset + RankY;
@@ -599,7 +599,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
                 double yp = GlobalY + 0.5;
                 double zp = RankZ + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
             }
         }
     }
@@ -612,7 +612,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
             int RankX = 0;
             int RankY = 0;
             int RankZ = (int)(GhostNodesGR[6*i]);
-            int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+            long int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                 int GlobalX = MyXOffset + RankX;
                 int GlobalY = MyYOffset + RankY;
@@ -631,7 +631,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
                 double yp = GlobalY + 0.5;
                 double zp = RankZ + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
             }
         }
     }
@@ -645,7 +645,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
             int RankX = 0;
             int RankY = MyYSlices-1;
             int RankZ = (int)(GhostNodesHR[6*i]);
-            int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+            long int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                 int GlobalX = MyXOffset + RankX;
                 int GlobalY = MyYOffset + RankY;
@@ -664,7 +664,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
                 double yp = GlobalY + 0.5;
                 double zp = RankZ + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
             }
         }
     }
@@ -683,7 +683,7 @@ void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOu
 //*****************************************************************************/
 
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes1D(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, ViewI::HostMirror TriangleIndex, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
+void GhostNodes1D(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI::HostMirror CellType, ViewF::HostMirror DOCenter, ViewI::HostMirror GrainID, float* GrainUnitVector, int* GrainOrientation, ViewF::HostMirror DiagonalLength, ViewF::HostMirror CritDiagonalLength, int NGrainOrientations) {
     
         // Determine whether or not ghost node information transfer needs to take place
     int ACount = 0;
@@ -808,7 +808,7 @@ void GhostNodes1D(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int
                 int RankX = (int)(GhostNodesAR[7*i]);
                 int RankY = 0;
                 int RankZ = (int)(GhostNodesAR[7*i+1]);
-                int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
+                long int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
                 if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     int GlobalX = RankX + MyXOffset;
                     int GlobalY = MyYOffset;
@@ -827,7 +827,7 @@ void GhostNodes1D(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int
                     double yp = GlobalY + 0.5;
                     double zp = RankZ + 0.5;
                     // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                    CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                    CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
                 }
             }
         }
@@ -840,7 +840,7 @@ void GhostNodes1D(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int
                 int RankX = (int)(GhostNodesBR[7*i]);
                 int RankY = MyYSlices-1;
                 int RankZ = (int)(GhostNodesBR[7*i+1]);
-                int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
+                long int CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
                 if ((cycle == 0)||((CellType(CellLocation) == Liquid)||(CellType(CellLocation) == Delayed)||(CellType(CellLocation) == LiqSol))) {
                     //if (cycle == 1003) cout << "Cell at " << RankX << " " << RankY << " " <<RankZ << " now active" << endl;
                     int GlobalX = MyXOffset + RankX;
@@ -861,7 +861,7 @@ void GhostNodes1D(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int
                     double yp = GlobalY + 0.5;
                     double zp = RankZ + 0.5;
                     // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                    CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                    CritDiagLengthCalc(xp, yp, zp, MyOrientation,RankX,RankY,RankZ,CellLocation,cx,cy,cz,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
                     //                for (int l=0; l<26; l++) {
                     //                    cout << "l = " << l << " CDL = " << CritDiagonalLength[BoxZ][RankX][RankY][l] << endl;
                     //                }

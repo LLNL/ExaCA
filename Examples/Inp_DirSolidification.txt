@@ -1,0 +1,18 @@
+Test problem simulating constrained alloy solidification (Problem type 'C')
+*****
+Problem type: 'C'
+Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
+Material:'Inconel'
+Cell size (microns: 1
+Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
+Mean nucleation undercooling (in K): 5
+Standard deviation of nucleation undercooling: 0.5
+Output file base name:'TestProblem1'
+File of grain orientations:'GrainOrientationVectors_Robert.csv'
+Thermal gradient (K/m): 500000
+Cooling rate (K/s): 300000
+Domain size in x: 500
+Domain size in y: 500
+Domain size in z: 500
+"N", where the time step = deltax/(Steady State Velocity * N): 25
+Fraction of surface sites active: 0.08

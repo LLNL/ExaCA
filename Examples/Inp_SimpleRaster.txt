@@ -1,0 +1,21 @@
+Test problem using a simple raster pattern (4 overlapping melt pool tracks): 
+*****
+Problem type: 'R'
+Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
+Material:'Inconel'
+Cell size (microns): 1
+Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
+Mean nucleation undercooling (in K): 5
+Standard deviation of nucleation undercooling: 0.5
+Output file base name:'TestProblem2'
+File of grain orientations:'GrainOrientationVectors_Robert.csv'
+Name of file containing temperatures:'Master-Raster-150um.txt'
+Temperature files in the series: 1
+Number of layers simulated at once (should be divisible by number of layers AND Temperature files in the series): 1
+Is the temperature data in the burst buffer (Y or N)?: 'N'
+Heat transport data mesh size (microns): 5
+Truchas in mm (T) or OpenFOAM (O) in m for input data length units:'O'
+Time step (microseconds): 0.08333333
+Number of layers: 1
+Offset between layers (if Number of layers > 1, in cells): 1
+Substrate file name:'SubstrateFine.csv'

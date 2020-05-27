@@ -27,7 +27,11 @@ and run `make` to build ExaCA-Kokkos and Kokkos together.
 
 
 ## Run
-By default, ExaCA-Kokkos runs with settings in `examples/MasterInputs.txt`.
+ExaCA-Kokkos runs using an input file, the name of which is set by the environmental variable CAINPUT either from the terminal or inside a job script. Three examples problems are given in the `Examples` directory:
+
+`Inp_AMBenchMultilayer` simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds 
+`Inp_SimpleRaster` simulates a single layer consisting of four overlapping melt pools
+`Inp_DirSolidification` does not use a thermal profile for a beam melting problem, but rather simulates grain growth from a surface with a fixed thermal gradient and cooling rate
 
 Run by simply calling the created executable:
 ```

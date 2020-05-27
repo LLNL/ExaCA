@@ -2,11 +2,13 @@
 using namespace std;
 // Initializes input parameters, mesh, temperature field, and grain structures for CA simulations
 
-void MasterInputRead(int &DecompositionStrategy, double &deltax, double &AConst, double &BConst, double &CConst, double &NMax, double &dTN, double &dTsigma, string &BaseFileName, string &GrainOrientationFile, string &TemperatureDataType) {
+void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, int &LayersSimulatedAtOnce, string& BurstBuffer, double &HT_deltax, string &TemperatureDataSource, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive) {
     
-    ifstream InputData;
+    ifstream InputData, MaterialData;
     string Colon = ":";
-    InputData.open("MasterInputs.txt");
+    string Quote = "'";
+    InputData.open(InputFile);
+    if (id == 0) cout << "Input file " << InputFile << " opened" << endl;
     bool SkippingLines = true;
     while(SkippingLines) {
         string dummyline;
@@ -14,200 +16,254 @@ void MasterInputRead(int &DecompositionStrategy, double &deltax, double &AConst,
         if (dummyline == "*****")
             SkippingLines = false;
     }
+    
     string ValueRead;
     // Simulation Type
     getline(InputData,ValueRead);
-    std::size_t found = ValueRead.find(Colon);
-    std::string str2 = ValueRead.substr(found+1,string::npos);
-    TemperatureDataType = str2;
+    std::size_t found = ValueRead.find(Quote);
+    std::string str2 = ValueRead.substr(found+1,1);
+    SimulationType = str2;
+    
     // Decomposition strategy
     getline(InputData,ValueRead);
     found = ValueRead.find(Colon);
     str2 = ValueRead.substr(found+1,string::npos);
     DecompositionStrategy = stoi(str2,nullptr,10);
-    // Interfacial response function A
+    
+    // Material (opening a separate file to obtain values for A, B, C, and D for the interfacial reponse function)
     getline(InputData,ValueRead);
+    std::size_t found1 = ValueRead.find_first_of(Quote);
+    std::size_t found2 = ValueRead.find_last_of(Quote);
+    string MaterialFile = ValueRead.substr(found1+1,found2-found1-1);
+    MaterialData.open("Materials/" + MaterialFile);
+    SkippingLines = true;
+    while(SkippingLines) {
+        string dummyline;
+        getline(MaterialData,dummyline);
+        if (dummyline == "*****")
+            SkippingLines = false;
+    }
+    // Interfacial response function A
+    getline(MaterialData,ValueRead);
     found = ValueRead.find(Colon);
     str2 = ValueRead.substr(found+1,string::npos);
     AConst = atof(str2.c_str());
     // Interfacial response function B
-    getline(InputData,ValueRead);
+    getline(MaterialData,ValueRead);
     found = ValueRead.find(Colon);
     str2 = ValueRead.substr(found+1,string::npos);
     BConst = atof(str2.c_str());
     // Interfacial response function C
-    getline(InputData,ValueRead);
+    getline(MaterialData,ValueRead);
     found = ValueRead.find(Colon);
     str2 = ValueRead.substr(found+1,string::npos);
     CConst = atof(str2.c_str());
+    // Interfacial response function D
+    getline(MaterialData,ValueRead);
+    found = ValueRead.find(Colon);
+    str2 = ValueRead.substr(found+1,string::npos);
+    DConst = atof(str2.c_str());
+    MaterialData.close();
+
     // CA cell size
     getline(InputData,ValueRead);
     found = ValueRead.find(Colon);
     str2 = ValueRead.substr(found+1,string::npos);
     deltax = atof(str2.c_str())*pow(10,-6);
+    
     // Nucleation density
     getline(InputData,ValueRead);
     found = ValueRead.find(Colon);
     str2 = ValueRead.substr(found+1,string::npos);
     double NRead = atof(str2.c_str());
     NMax = NRead*pow(10,12);
+    
     // Mean nucleation undercooling
     getline(InputData,ValueRead);
     found = ValueRead.find(Colon);
     str2 = ValueRead.substr(found+1,string::npos);
     dTN = atof(str2.c_str());
+    
     // Standard deviation of nucleation undercooling
     getline(InputData,ValueRead);
     found = ValueRead.find(Colon);
     str2 = ValueRead.substr(found+1,string::npos);
     dTsigma = atof(str2.c_str());
+    
     // Output base file name
     getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    BaseFileName = ValueRead.substr(found+1,string::npos);
+    found1 = ValueRead.find_first_of(Quote);
+    found2 = ValueRead.find_last_of(Quote);
+    OutputFile = ValueRead.substr(found1+1,found2-found1-1);
+
     // File of grain orientations
     getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    GrainOrientationFile = ValueRead.substr(found+1,string::npos);
+    found1 = ValueRead.find_first_of(Quote);
+    found2 = ValueRead.find_last_of(Quote);
+    GrainOrientationFile = ValueRead.substr(found1+1,found2-found1-1);
+    if (SimulationType == "R") {
+        // Read input arguments for a reduced temperature data format solidification problem
+        if (id == 0) cout << "CA Simulation using reduced temperature data from file(s)" << endl;
+        // File containing temperature data
+        getline(InputData,ValueRead);
+        std::size_t found1 = ValueRead.find_first_of(Quote);
+        std::size_t found2 = ValueRead.find_last_of(Quote);
+        tempfile = ValueRead.substr(found1+1,found2-found1-1);
+
+        // Temperature files in series
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos-found+1);
+        TempFilesInSeries = stoi(str2,nullptr,10);
+
+        // Layers simulated at once without reinitializing and storing grain data
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos-found+1);
+        LayersSimulatedAtOnce = stoi(str2,nullptr,10);
+
+        // Usage of burst buffer for parameters (overwrites temperature data location)
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Quote);
+        string BurstBuffer = ValueRead.substr(found+1,1);
+
+        if (BurstBuffer == "Y") {
+            // tempfile, BaseFileName are altered
+            char* InPath;
+            char* InFileName;
+            char* OutPath;
+            InPath = getenv ("PATH_TO_INPUT");
+            InFileName = getenv ("TRUCHAS_INPUT_FILENAME");
+            OutPath = getenv ("PATH_TO_OUTPUT");
+            string InPathS(InPath);
+            string InFileNameS(InFileName);
+            string OutPathS(OutPath);
+            OutPathS = OutPathS + "/";
+            tempfile.clear();
+            tempfile = InPathS + "/";
+            tempfile += InFileNameS;
+            OutputFile = OutPathS + OutputFile;
+            if (id == 0) cout << "Using burst buffer for temperature data transfer" << endl;
+        }
+        else {
+            if (id == 0) {
+                cout << "Temperature data file(s) is/are " << tempfile << " , and there are " << TempFilesInSeries << " in the series" << endl;
+                cout << LayersSimulatedAtOnce << " will be simulated at once" << endl;
+            }
+        }
+
+        // Heat transport mesh size
+        getline(InputData,ValueRead);
+        std::size_t found = ValueRead.find(Colon);
+        string str2 = ValueRead.substr(found+1,string::npos-found+1);
+        HT_deltax = atof(str2.c_str())*pow(10,-6);
+        if (id == 0) cout << "Mesh size of the temperature data is " << HT_deltax << " microns" << endl;
+        
+        // OpenFOAM or Truchas as temperature data source?
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Quote);
+        TemperatureDataSource = ValueRead.substr(found+1,1);
+        if (id == 0) {
+            if (TemperatureDataSource == "O") cout << "Units of temperature coordinates are meters (OpenFOAM)" << endl;
+            else cout << "Units of temperature coordinates are millimeters (Truchas)" << endl;
+        }
+        
+        // Time step (s)
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos);
+        deltat = atof(str2.c_str())*pow(10,-6);
+        if (id == 0) cout << "The time step is " << str2 << " microseconds" << endl;
+
+        // Number of layers
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos);
+        NumberOfLayers = stoi(str2,nullptr,10);
+        
+        // Layer height
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos);
+        LayerHeight = stoi(str2,nullptr,10);
+        if (id == 0) cout << "A total of " << NumberOfLayers << " of solidification offset by " << LayerHeight << " CA cells will be simulated" << endl;
+
+        // Name of substrate file
+        getline(InputData,ValueRead);
+        found1 = ValueRead.find_first_of(Quote);
+        found2 = ValueRead.find_last_of(Quote);
+        SubstrateFileName = ValueRead.substr(found1+1,found2-found1-1);
+        if (id == 0) cout << "The substrate file used is " << SubstrateFileName << endl;
+        
+    }
+    else if (SimulationType == "C") {
+        // Read input arguments for a constrained growth solidification problem
+        NumberOfLayers = 1;
+        LayerHeight = nz;
+        
+        // Thermal gradient
+        getline(InputData,ValueRead);
+        std::size_t found = ValueRead.find(Colon);
+        std::string str2 = ValueRead.substr(found+1,string::npos);
+        G = atof(str2.c_str());
+        
+        // Cooling rate
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos);
+        R = atof(str2.c_str());
+        if (id == 0) cout << "CA Simulation using a fixed thermal gradient of " << G << " K/m and a cooling rate of " << R << " K/s" << endl;
+        
+        // Domain size in x
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos);
+        nx = stoi(str2,nullptr,10);
+        nx = nx+2;
+        
+        // Domain size in y
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos);
+        ny = stoi(str2,nullptr,10);
+        ny = ny+2;
+        
+        // Domain size in z
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos);
+        nz = stoi(str2,nullptr,10);
+        nz = nz+2;
+        if (id == 0) cout << "The domain size is " << nx << " by " << ny << " by " << nz << " cells" << endl;
+        
+        // delta t (using ratio between cooling rate R, thermal gradient G, and cell size delta x
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos);
+        int NRatio = stoi(str2,nullptr,10);
+        deltat = deltax/(NRatio*(R/G));
+        if (id == 0) cout << "The time step is " << deltat*pow(10,6) << " microseconds" << endl;
+        
+        // Fraction of bottom surface sites active
+        getline(InputData,ValueRead);
+        found = ValueRead.find(Colon);
+        str2 = ValueRead.substr(found+1,string::npos);
+        FractSurfaceSitesActive = atof(str2.c_str());
+        if (id == 0) cout << "The fraction of CA cells at the bottom surface that are active is " << FractSurfaceSitesActive << endl;
+    }
     InputData.close();
-
-}
-
-
-void CInputRead(double &G, double &R, int &nx, int &ny, int &nz, double deltax, double &deltat, double &FractSurfaceSitesActive) {
     
-    ifstream InputData;
-    string Colon = ":";
-    InputData.open("Inputs_ConstrainedSolidification.txt");
-    bool SkippingLines = true;
-    while(SkippingLines) {
-        string dummyline;
-        getline(InputData,dummyline);
-        if (dummyline == "*****")
-            SkippingLines = false;
+    if (id == 0) {
+        cout << "Decomposition Strategy is " << DecompositionStrategy << endl;
+        cout << "Material simulated is " << MaterialFile << ", interfacial response function constants are A = " << AConst << ", B = " << BConst << ", C = " << CConst << ", and D = " << DConst << endl;
+        cout << "CA cell size is " << deltax*pow(10,6) << " microns" << endl;
+        cout << "Nucleation density is " << NRead << " x 10^12 per m^3" << endl;
+        cout << "Mean nucleation undercooling is " << dTN << " K, standard deviation of distribution is " << dTsigma << "K" << endl;
     }
-    string ValueRead;
-    // Thermal gradient
-    getline(InputData,ValueRead);
-    std::size_t found = ValueRead.find(Colon);
-    std::string str2 = ValueRead.substr(found+1,string::npos);
-    G = atof(str2.c_str());
-    // Cooling rate
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    R = atof(str2.c_str());
-    // Domain size in x
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    nx = stoi(str2,nullptr,10);
-    nx = nx+2;
-    // Domain size in y
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    ny = stoi(str2,nullptr,10);
-    ny = ny+2;
-    // Domain size in z
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    nz = stoi(str2,nullptr,10);
-    nz = nz+2;
-    // delta t (using ratio between cooling rate R, thermal gradient G, and cell size delta x
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    int NRatio = stoi(str2,nullptr,10);
-    deltat = NRatio*deltax*R/G;
-    // Fraction of bottom surface sites active
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    FractSurfaceSitesActive = atof(str2.c_str());
-    InputData.close();
-}
-
-
-void RInputRead(string &tempfile, double &HT_deltax, double &deltat, int &NumberOfLayers, int &LayerOffset, string &BaseFileName, string &TemperatureDataSource, string &SubstrateFileName) {
     
-    ifstream InputData;
-    string Colon = ":";
-    string Quote = "'";
-    InputData.open("Inputs_ReducedTemperature.txt");
-    bool SkippingLines = true;
-    while(SkippingLines) {
-        string dummyline;
-        getline(InputData,dummyline);
-        if (dummyline == "*****")
-            SkippingLines = false;
-    }
-    string ValueRead;
-    // File containing temperature data
-    getline(InputData,ValueRead);
-    std::size_t found = ValueRead.find(Colon);
-    tempfile = ValueRead.substr(found+1,string::npos);
-    // Heat transport mesh size
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    string str2 = ValueRead.substr(found+1,string::npos);
-    HT_deltax = atof(str2.c_str())*pow(10,-6);
-    // time step (s)
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    deltat = atof(str2.c_str())*pow(10,-6);
-    // Number of layers
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    NumberOfLayers = stoi(str2,nullptr,10);
-    // Layer height
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    LayerOffset = stoi(str2,nullptr,10);
-    // Usage of burst buffer for parameters
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    int BurstBuffer = stoi(str2,nullptr,10);
-    if (BurstBuffer != 0) {
-        // tempfile, BaseFileName are altered
-        char* InPath;
-        char* InFileName;
-        char* OutPath;
-        InPath = getenv ("PATH_TO_INPUT");
-        InFileName = getenv ("TRUCHAS_INPUT_FILENAME");
-        OutPath = getenv ("PATH_TO_OUTPUT");
-        string InPathS(InPath);
-        string InFileNameS(InFileName);
-        string OutPathS(OutPath);
-        OutPathS = OutPathS + "/";
-        tempfile.clear();
-        tempfile = InPathS + "/";
-        tempfile += InFileNameS;
-        BaseFileName = OutPathS + BaseFileName;
-    }
-    // OpenFOAM or Truchas as temperature data source?
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Quote);
-    TemperatureDataSource = ValueRead.substr(found+1,1);
-    //cout << "T Data Source = " << TemperatureDataSource << endl;
-    // Name of substrate file
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    SubstrateFileName = ValueRead.substr(found+1,string::npos);
-//    std::size_t found1 = ValueRead.find(Quote);
-//    std::size_t found2 = ValueRead.length()-1;
-//    cout << "F1 = " << found1 << " F2 = " << found2 << endl;
-//    SubstrateFileName = ValueRead.substr(found1+1,found2-found1-1);
-//    cout << "Substrate file = " << SubstrateFileName << endl;
-    InputData.close();
 }
 
-void ParallelMeshInit(double &G, double &R, int &DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string TemperatureDataType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, double &deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, string tempfile, float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, string TemperatureDataSource) {
+void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, double &deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, string tempfile, float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, string TemperatureDataSource, int LayerHeight, int NumberOfLayers, int TempFilesInSeries, int LayersSimulatedAtOnce) {
         
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
@@ -272,7 +328,6 @@ void ParallelMeshInit(double &G, double &R, int &DecompositionStrategy, int (&Ne
 //    Opp_Neighbor[23] = 8;
 //    Opp_Neighbor[24] = 5;
 //    Opp_Neighbor[25] = 6;
-
     
     // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
     for (int i=0; i<=25; i++) {
@@ -343,9 +398,8 @@ void ParallelMeshInit(double &G, double &R, int &DecompositionStrategy, int (&Ne
         }
     }
 
-    // Mesh initialization for each solidification problem
-    
-    if (TemperatureDataType == "R") {
+    if (SimulationType == "R") {
+        // nx, ny, and nz are unknown prior to reading the relevant temperature file(s)
         // Determine mesh size needed based on OpenFOAM/Truchas/Analytical model data
         // Read geometry data from OpenFOAM/Truchas
         int nx_HT, ny_HT, nz_HT; // OpenFOAM/Truchas mesh limits
@@ -357,59 +411,92 @@ void ParallelMeshInit(double &G, double &R, int &DecompositionStrategy, int (&Ne
         YMax = -1000000.0;
         ZMax = -1000000.0;
         ifstream Geom;
-        Geom.open(tempfile);
-        while (!Geom.eof()) {
-            string s;
-            getline(Geom,s);
-            bool ReadingLine = true;
-            int i = 0;
-            int j = 0;
-            while (ReadingLine) {
+        
+        // Find bounds of temperature data
+        bool FindingBounds = true;
+        int LayerReadCount = 1;
+        int LayerReadTotal = max(TempFilesInSeries,LayersSimulatedAtOnce);
+        string tempfile_thislayer;
+        if (TempFilesInSeries == 1) tempfile_thislayer = tempfile;
+        else tempfile_thislayer = "1" + tempfile;
+        Geom.open("Temperatures/" + tempfile_thislayer);
+        while (FindingBounds) {
+            if (id == 0) cout << "Layer file " << LayerReadCount << " is " << tempfile_thislayer << endl;
+            while (!Geom.eof()) {
+                string s;
+                getline(Geom,s);
+                bool ReadingLine = true;
+                int i = 0;
+                int j = 0;
+                int FirstChar = 0;
+                int LastChar;
 
-                if (s.empty()) break;
-                char C = s.at(i);
-                // If this character is not a space, convert from string
-                if (!isblank(C)) {
-                    int FirstChar = i;
-                    int LastChar;
-                    bool ReadingValue = true;
-                    while (ReadingValue) {
-                        i++;
-                        char C2 = s.at(i);
-                        if (isblank(C2)) {
-                            LastChar = i;
-                            ReadingValue = false;
+                while (ReadingLine) {
+
+                    if (s.empty()) break;
+                    char C = s.at(i);
+                    // If this character is not a space, convert from string
+                    if (isblank(C)) {
+
+                        LastChar = i;
+                        string NewDataS = s.substr(FirstChar,LastChar-FirstChar);
+                        float MeshData = atof(NewDataS.c_str());
+                        bool Searching = true;
+                        while (Searching) {
+                            i++;
+                            C = s.at(i);
+                            if (!(isblank(C))) {
+                                FirstChar = i;
+                                Searching = false;
+                            }
                         }
+//                        if (id == 0) cout << MeshData << endl;
+                        if (j == 0) {
+                            if (XMin > MeshData) XMin = MeshData;
+                            if (XMax < MeshData) XMax = MeshData;
+                            //cout << XMax << endl;
+                        }
+                        else if (j == 1) {
+                            //if (id == 0) cout << "Y " << MeshData << endl;
+                            if (YMin > MeshData) YMin = MeshData;
+                            if (YMax < MeshData) YMax = MeshData;
+                        }
+                        else if (j == 2) {
+                            if (LayersSimulatedAtOnce > 1) MeshData += deltax*LayerHeight*(LayerReadCount-1);
+                            if (ZMin > MeshData) ZMin = MeshData;
+                            if (ZMax < MeshData) ZMax = MeshData;
+                            //if (id == 0) cout << LayerReadCount << " " << MeshData << endl;
+                            ReadingLine = false;
+                        }
+                        j++;
                     }
-                    string NewDataS = s.substr(FirstChar,LastChar-FirstChar);
-                    //cout << NewDataS << endl;
-                    float MeshData = atof(NewDataS.c_str());
-                    //if (id == 0) cout << MeshData << endl;
-                    if (j == 0) {
-                        if (XMin > MeshData) XMin = MeshData;
-                        if (XMax < MeshData) XMax = MeshData;
-                    }
-                    else if (j == 1) {
-                        //if (id == 0) cout << "Y " << MeshData << endl;
-                        if (YMin > MeshData) YMin = MeshData;
-                        if (YMax < MeshData) YMax = MeshData;
-                    }
-                    else if (j == 2) {
-                        //if (id == 0) cout << "Z " << MeshData << endl;
-                        if (ZMin > MeshData) ZMin = MeshData;
-                        if (ZMax < MeshData) ZMax = MeshData;
-                        ReadingLine = false;
-                    }
-                    j++;
-                }
-                // Otherwise advance to the next character
-                else {
+                    // advance to the next character
                     i++;
                 }
             }
+            Geom.close();
+            //if (id == 0) cout << "ZMax = " << ZMax << endl;
+            if ((TempFilesInSeries == 1)&&(LayersSimulatedAtOnce == 1)) FindingBounds = false;
+            else {
+                LayerReadCount++;
+                if (TempFilesInSeries > 1) {
+                    string NextLayerFileS = to_string(LayerReadCount);
+                    int NextLayerFile = LayerReadCount % TempFilesInSeries;
+                    if (NextLayerFile == 0) NextLayerFile = TempFilesInSeries;
+                    NextLayerFileS = to_string(NextLayerFile);
+                    tempfile_thislayer = NextLayerFileS + tempfile;
+                }
+                else {
+                    tempfile_thislayer = tempfile;
+                }
+                ifstream TemperatureFileRead;
+                Geom.open("Temperatures/" + tempfile_thislayer);
+                if (LayerReadCount > LayerReadTotal) {
+                    FindingBounds = false;
+                    Geom.close();
+                }
+            }
         }
-
-        Geom.close();
 
         // Is the input in m (OpenFOAM) or mm (Truchas)?
         double UnitConversion;
@@ -422,38 +509,26 @@ void ParallelMeshInit(double &G, double &R, int &DecompositionStrategy, int (&Ne
         ZMin = ZMin/UnitConversion;
         ZMax = ZMax/UnitConversion;
 
-        nx_HT = round((XMax-XMin)/HT_deltax);
-        ny_HT = round((YMax-YMin)/HT_deltax);
-        nz_HT = round((ZMax-ZMin)/HT_deltax);
-    
-        nx = round((double)(nx_HT)*(double)(HT_deltax)/(double)(deltax) + 4.0);
-        ny = round((double)(ny_HT)*(double)(HT_deltax)/(double)(deltax) + 4.0);
-        nz = round((double)(nz_HT)*(double)(HT_deltax)/(double)(deltax) + 3.0);
-    
+        // OpenFOAM/Truchas nodes containing temperature data
+        nx_HT = round((XMax-XMin)/HT_deltax) + 1;
+        ny_HT = round((YMax-YMin)/HT_deltax) + 1;
+        nz_HT = round((ZMax-ZMin)/HT_deltax) + 1;
+        
+        // Ratio of temperature-CA grid sizes
+        int HTratio = round(HT_deltax/deltax);
+        
+        // CA nodes in each direction (+2 for wall cells at the boundaries) (+2 for solid cells at X/Y boundaries, +1 for solid cells at lower Z boundary)
+        nx = (nx_HT - 1)*HTratio + 1 + 2 + 2;
+        ny = (ny_HT - 1)*HTratio + 1 + 2 + 2;
+        nz = (nz_HT - 1)*HTratio + 1 + 2 + 1;
+
         if (id == 0) {
-            if (TemperatureDataSource == "O") cout << "CA model of OpenFOAM heat transport problem solidification" << endl;
-            else cout << "CA model of Truchas heat transport problem solidification" << endl;
-            cout << "Cell size (m): " << deltax << endl;
-            cout << "Time step (s): " << deltat << endl;
             cout << "Domain size: " << nx << " by " << ny << " by " << nz << endl;
             cout << "X Limits of domain: " << XMin << " and " << XMax << endl;
             cout << "Y Limits of domain: " << YMin << " and " << YMax << endl;
             cout << "Z Limits of domain: " << ZMin << " and " << ZMax << endl;
             cout << "================================================================" << endl;
         }
-    }
-    else {
-        if (id == 0) {
-            cout << "================================================================" << endl;
-            cout << "CA model of fixed temperature field solidification" << endl;
-            cout << "Cell size (m): " << deltax << endl;
-            cout << "Time step (s): " << deltat << endl;
-            cout << "Domain size: " << nx << " by " << ny << " by " << nz << endl;
-            cout << "Thermal gradient: " << G << " K/m, Cooling rate: " << R << " K/s" << endl;
-            cout << "================================================================" << endl;
-        }
-        
-        
     }
 
     InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut);
@@ -463,20 +538,29 @@ void ParallelMeshInit(double &G, double &R, int &DecompositionStrategy, int (&Ne
 
     MyYOffset = YOffsetCalc(id,ny,ProcessorsInYDirection,np,DecompositionStrategy);
     MyYSlices = YMPSlicesCalc(id,ny,ProcessorsInYDirection,np,DecompositionStrategy);
-    //cout << "ID = " << id << " X RANGE = " << MyXOffset << " TO = " << MyXOffset+MyXSlices-1 << " ; YRANGE = " << MyYOffset << " TO = " << MyYOffset+MyYSlices-1 << endl;
+   // cout << "ID = " << id << " X RANGE = " << MyXOffset << " TO = " << MyXOffset+MyXSlices-1 << " ; YRANGE = " << MyYOffset << " TO = " << MyYOffset+MyYSlices-1 << endl;
 }
 
-void TempInit(double G, double R, int DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string TemperatureDataType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, string tempfile, float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, bool* Melted, string TemperatureDataSource) {
+void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, string tempfile, float XMin, float XMax, float YMin, float YMax, float ZMin, float ZMax, bool* Melted, string TemperatureDataSource, int LayersSimulatedAtOnce, int LayerHeight, int NumberOfLayers) {
 
-    if (TemperatureDataType == "C") {
+    if (SimulationType == "C") {
         
         // Contrained solidification test problem
         // Initialize temperature field in Z direction with thermal gradient G set in input file
         for (int k=0; k<nz; k++) {
             for (int i=0; i<MyXSlices; i++) {
                 for (int j=0; j<MyYSlices; j++) {
+                    UndercoolingCurrent(k*MyXSlices*MyYSlices + i*MyYSlices + j) = 0;
                     UndercoolingChange(k*MyXSlices*MyYSlices + i*MyYSlices + j) = R*deltat;
-                    CritTimeStep(k*MyXSlices*MyYSlices + i*MyYSlices + j) = round(((k-1)*G*deltax)/(R*deltat));
+                    CritTimeStep(k*MyXSlices*MyYSlices + i*MyYSlices + j) = (int)(((k-1)*G*deltax)/(R*deltat));
+                    int GlobalX = i + MyXOffset;
+                    int GlobalY = j + MyYOffset;
+                    if ((GlobalX > -1)&&(GlobalX < nx)&&(GlobalY > -1)&&(GlobalY < ny)&&(k > 0)&&(k < nz-1)) {
+                        Melted[k*MyXSlices*MyYSlices+i*MyYSlices+j] = true;
+                    }
+                    else {
+                        Melted[k*MyXSlices*MyYSlices+i*MyYSlices+j] = false;
+                    }
                 }
             }
         }
@@ -486,225 +570,312 @@ void TempInit(double G, double R, int DecompositionStrategy, int (&NeighborX)[26
         // Temperature data read
         int HTtoCAratio = HT_deltax/deltax; // OpenFOAM/CA cell size ratio
 
-        vector <vector <vector <double> > > CritTS, CritTL;
-        for (int k=0; k<nz; k++) {
-            vector <vector <double> > TemperatureXX;
-            for (int i=0; i<nx; i++) {
-                vector <double> TemperatureX;
-                for (int j=0; j<ny; j++) {
-                    TemperatureX.push_back(-1.0);
-                }
-                TemperatureXX.push_back(TemperatureX);
-            }
-            CritTS.push_back(TemperatureXX);
-            CritTL.push_back(TemperatureXX);
-        }
+       // With row/col 0 being wall cells and row/col 1 being solid cells outside of the melted area, the domain starts at row/col 2
+       // As the wall cells are not part of the physical domain (solid cells at row/col 1 are defined as X = Y = 0,
+       // the melted region domain data starts at X = Y = deltax, with data points at X or Y = deltax + N*HT_deltax through X or Y = nx-3 or ny-3
+       
+       // The X and Y bounds are the region (for this MPI rank) of the physical domain that needs to be read
+       // Extends past the actual spatial extent of the local domain for purposes of interpolating from HT_deltax to deltax
+       int LowerXBound, LowerYBound, UpperXBound, UpperYBound;
+       if (MyXOffset <= 2) LowerXBound = 2;
+       else LowerXBound = MyXOffset - ((MyXOffset-2) % HTtoCAratio);
+       if (MyYOffset <= 2) LowerYBound = 2;
+       else LowerYBound = MyYOffset - ((MyYOffset-2) % HTtoCAratio);
+       
+       if (MyXOffset+MyXSlices-1 >= nx-3) UpperXBound = nx-3;
+       else UpperXBound = MyXOffset + MyXSlices - 1 + HTtoCAratio - ((MyXOffset + (MyXSlices-1) - 2) % HTtoCAratio);
+       if (MyYOffset+MyYSlices-1 >= ny-3) UpperYBound = ny-3;
+       else UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + (MyYSlices-1) - 2) % HTtoCAratio);
 
+       vector <vector <vector <double> > > CritTS, CritTL;
+       for (int k=0; k<nz; k++) {
+           vector <vector <double> > TemperatureXX;
+           for (int i=LowerXBound; i<=UpperXBound; i++) {
+               vector <double> TemperatureX;
+               for (int j=LowerYBound; j<=UpperYBound; j++) {
+                   TemperatureX.push_back(-1.0);
+               }
+               TemperatureXX.push_back(TemperatureX);
+           }
+           CritTS.push_back(TemperatureXX);
+           CritTL.push_back(TemperatureXX);
+       }
+       if (layernumber == -1) {
+           // No sites have melted yet
+           for (int i=0; i<MyXSlices*MyYSlices*nz; i++) {
+               Melted[i] = false;
+           }
+       }
        double UnitConversion;
        if (TemperatureDataSource == "O") UnitConversion = 1;
        else UnitConversion = 1000;
        
-       int SmallestXCoord = nx;
-       int SmallestYCoord = ny;
-       int SmallestZCoord = nz;
+       ifstream Geom;
        
-       int LargestXCoord = 0;
-       int LargestYCoord = 0;
-       int LargestZCoord = 0;
-        ifstream Geom;
-        Geom.open(tempfile);
-        while (!Geom.eof()) {
-            int XInt, YInt, ZInt;
-            double MyX, MyY, MyZ, FirstTime, LastTime;
-            string s;
-            getline(Geom,s);
-            bool ReadingLine = true;
-            int i = 0;
-            int j = 0;
-            while (ReadingLine) {
-                
-                if (s.empty()) break;
-                char C = s.at(i);
-                // If this character is not a space, convert from string
-                if (!isblank(C)) {
-                    int FirstChar = i;
-                    int LastChar;
-                    bool ReadingValue = true;
-                    while (ReadingValue) {
-                        i++;
-                        //cout << i << endl;
-                        char C2 = s.at(i);
-                        if ((isblank(C2))||(i == s.length()-1)) {
-                            LastChar = i;
-                            ReadingValue = false;
-                        }
-                        //cout << i << endl;
-                    }
-                    //cout << FirstChar << " " << LastChar << endl;
-                    string NewDataS = s.substr(FirstChar,LastChar-FirstChar+1);
-                    float MeshData = atof(NewDataS.c_str());
-                    //if (id == 0) cout << MeshData << endl;
-                    if (j == 0) {
-                        MyX = atof(NewDataS.c_str())/UnitConversion; // Only divide by 1000 if from Truchas
-                        XInt = round((MyX-XMin)/deltax) + 2; // + HTtoCAratio;
-                        // cout << XInt << endl;
-                        if (XInt < SmallestXCoord) SmallestXCoord = XInt;
-                        if (XInt > LargestXCoord) LargestXCoord = XInt;
-                    }
-                    else if (j == 1) {
-                        //if (id == 0) cout << "Y " << MeshData << endl;
-                        MyY = atof(NewDataS.c_str())/UnitConversion; // Only divide by 1000 if from Truchas
-                        YInt = round((MyY-YMin)/deltax) + 2;// + HTtoCAratio;
-                        if (YInt < SmallestYCoord) SmallestYCoord = YInt;
-                        if (YInt > LargestYCoord) LargestYCoord = YInt;
-                        // cout << MyY << endl;
-                    }
-                    else if (j == 2) {
-                        //if (id == 0) cout << "Z " << MeshData << endl;
-                        MyZ = atof(NewDataS.c_str())/UnitConversion; // Only divide by 1000 if from Truchas
-                        ZInt = round(abs(MyZ-ZMin)/deltax)+ 2;
-                        if (ZInt < SmallestZCoord) SmallestZCoord = ZInt;
-                        if (ZInt > LargestZCoord) LargestZCoord = ZInt;
-                        // cout << ZInt << endl;
-                    }
-                    else if (j == 3) {
-                        FirstTime = stod(NewDataS.c_str());
-                        //if (id == 0) cout << ZInt << endl;
-                        CritTL[ZInt][XInt][YInt] = FirstTime/UnitConversion; // Truchas in ms
-                        //cout << CritTL[ZInt][XInt][YInt] << endl;
-                    }
-                    else if (j == 4) {
-                        LastTime = stod(NewDataS.c_str());
-                        CritTS[ZInt][XInt][YInt] = LastTime/UnitConversion; // Truchas in ms
-                        // if (id == 0) cout << XInt << " " << YInt << " " << ZInt << " " << FirstTime/UnitConversion << " " << LastTime/UnitConversion << endl;
-                        if (LastTime < FirstTime) {
-                            //cout << "Negative cooling rate! " << endl;
-                            double Temp = FirstTime;
-                            FirstTime = LastTime;
-                            LastTime = Temp;
-                            CritTS[ZInt][XInt][YInt] = LastTime/UnitConversion; // Truchas in ms
-                            CritTL[ZInt][XInt][YInt] = FirstTime/UnitConversion; // Truchas in ms
-                        }
-                        ReadingLine = false;
-                    }
-                    j++;
-                }
-                // Otherwise advance to the next character
-                else {
-                    i++;
-                }
-            }
-        }
-        Geom.close();
+       // Assuming "LayersSimulatedAtOnce" divides evenly into "NumberOfLayers"
+       
+       // If this is the initial temperature file read prior to any layers being simulated, layernumber = -1
+       // Scenario A: A single temperature file is being read from a series of 1
+       // Scenario B: A single temperature file is being read from a series of "TempFilesInSeries" (LayersSimulatedAtOnce = 1)
+       // Scenario C: Multiple temperature files are being read from a series of "TempFilesInSeries" (LayersSimulatedAtOnce > 1)
 
-        // Data interpolation between heat transport and CA grids, if necessary
-        if (HTtoCAratio != 1) {
-            for (int k=SmallestZCoord; k<=LargestZCoord; k++) {
-                
-                int LowZ = k - ((k-SmallestZCoord) % HTtoCAratio);
-                int HighZ = LowZ + HTtoCAratio;
-                //                if (id == 0) cout << " k = " << k << " Bounds " << LowZ << " " << HighZ << endl;
-                double FHighZ = (double)(k - LowZ)/(double)(HTtoCAratio);
-                double FLowZ = 1.0 - FHighZ;
-                if (HighZ > LargestZCoord) HighZ = LargestZCoord;
-                LowZ = max(0,LowZ);
-                
-                for (int i=SmallestXCoord; i<=LargestXCoord; i++) {
-                    int LowX =  i - ((i-SmallestXCoord) % HTtoCAratio);
-                    int HighX = LowX + HTtoCAratio;
-                    double FHighX = (double)(i - LowX)/(double)(HTtoCAratio);
-                    double FLowX = 1.0 - FHighX;
-                    if (HighX > LargestXCoord) HighX = LargestXCoord;
-                    LowX = max(0,LowX);
-                    for (int j=SmallestYCoord; j<=LargestYCoord; j++) {
-                        int LowY = j - ((j-SmallestYCoord) % HTtoCAratio);
-                        int HighY = LowY + HTtoCAratio;
-                        double FHighY = (float)(j - LowY)/(float)(HTtoCAratio);
-                        double FLowY = 1.0 - FHighY;
-                        //cout << LowZ << " " << HighZ << " " << LowX << " " << HighX << " " << LowY << " " << HighY << endl;
-                        double Pt1 = CritTL[LowZ][LowX][LowY];
-                        double Pt2 = CritTL[LowZ][HighX][LowY];
-                        double Pt12 = FLowX*Pt1 + FHighX*Pt2;
-                        double Pt3 = CritTL[LowZ][LowX][HighY];
-                        double Pt4 = CritTL[LowZ][HighX][HighY];
-                        double Pt34 = FLowX*Pt3 + FHighX*Pt4;
-                        double Pt1234 = Pt12*FLowY + Pt34*FHighY;
-                        double Pt5 = CritTL[HighZ][LowX][LowY];
-                        double Pt6 = CritTL[HighZ][HighX][LowY];
-                        double Pt56 = FLowX*Pt5 + FHighX*Pt6;
-                        double Pt7 = CritTL[HighZ][LowX][HighY];
-                        double Pt8 = CritTL[HighZ][HighX][HighY];
-                        double Pt78 = FLowX*Pt7 + FHighX*Pt8;
-                        double Pt5678 = Pt56*FLowY + Pt78*FHighY;
-                        if ((Pt1 > 0)&&(Pt2 > 0)&&(Pt3 > 0)&&(Pt4 > 0)&&(Pt5 > 0)&&(Pt6 > 0)&&(Pt7 > 0)&&(Pt8 > 0)) {
-                            CritTL[k][i][j] = Pt1234*FLowZ + Pt5678*FHighZ;
+       double LargestTime = 0;
+       double LargestTime_Global = 0;
+       double TimeOffset = 0;
+       for (int FileRead=0; FileRead<LayersSimulatedAtOnce; FileRead++) {
+           string thislayertempfile;
+           if (TempFilesInSeries == 1) {
+               thislayertempfile = tempfile;
+               if (id == 0) cout << "Layer " << layernumber+1 << " Temperature file is " << thislayertempfile << " LayerHeight = " << LayerHeight << endl;
+           }
+           else {
+              // "layernumber" is the layer that was just printed
+              // if it is equal to -1, no layers have been printed yet
+              int LayersAlreadySimulated = (layernumber+1)*LayersSimulatedAtOnce+1;
+              int NextLayerFile = LayersAlreadySimulated+FileRead;
+              string NextLayerFileS;
+              NextLayerFile = NextLayerFile % TempFilesInSeries;
+              if (NextLayerFile == 0) NextLayerFile = TempFilesInSeries;
+              NextLayerFileS = to_string(NextLayerFile);
+              thislayertempfile = NextLayerFileS + tempfile;
+              ifstream TemperatureFileRead;
+              TemperatureFileRead.open("Temperatures/" + thislayertempfile);
+              if (!TemperatureFileRead.good()) {
+                    if (id == 0) cout << "Temperature file " << thislayertempfile << " not found" << endl;
+              }
+              TemperatureFileRead.close();
+              if (id == 0) cout << "Layer " << NextLayerFile << " Temperature file is " << thislayertempfile << " LayerHeight = " << LayerHeight << endl;
+          }
+          double MultipleLayersAtOnceOffset = FileRead*LayerHeight*deltax;
+           if (id == 0) cout << "Temperatures/" + thislayertempfile << endl;
+          Geom.open("Temperatures/" + thislayertempfile);
+          //if (id == 0) {
+          while (!Geom.eof()) {
+               string s;
+               getline(Geom,s);
+               //cout << s << endl;
+               bool ReadingLine = true;
+               int i = 0;
+               int j = 0;
+               int XInt, YInt, ZInt;
+               double MyX, MyY, MyZ, FirstTime, LastTime;
+               
+               int FirstChar = 0;
+               int LastChar;
+
+               while (ReadingLine) {
+                   if (s.empty()) break;
+                   char C = s.at(i);
+                   // If this character is not a space, convert from string
+                   if ((isblank(C))||(i == s.length()-1)) {
+                       //cout << "Space at " << i << endl;
+                       string NewDataS;
+                       if (j < 4) {
+                           LastChar = i;
+                           NewDataS = s.substr(FirstChar,LastChar-FirstChar);
+                           if (j < 3) {
+                               bool Searching = true;
+                               while (Searching) {
+                                   //cout << "N searching: Char " << i << " is " << s.at(i) << " of line " << s << endl;
+                                   i++;
+                                   C = s.at(i);
+                                   if (!(isblank(C))) {
+                                       FirstChar = i;
+                                       Searching = false;
+                                   }
+                               }
+                           }
+                       }
+                       else {
+                           i = s.length()-1;
+                           bool Searching = true;
+                           bool SearchingA = true;
+                           if (isblank(s.at(i))) {
+                               while (SearchingA) {
+                                   i--;
+                                   C = s.at(i);
+                                   if (!isblank(C)) {
+                                       SearchingA = false;
+                                   }
+                               }
+                           }
+                           while (Searching) {
+                               //cout << "Space searching: Char " << i << " is " << s.at(i) << " of line " << s << endl;
+                               C = s.at(i);
+                               if (isblank(C)) {
+                                   FirstChar = i;
+                                   Searching = false;
+                               }
+                               i--;
+                           }
+                           //cout << "Chars " << FirstChar << " + " << s.length()-FirstChar << endl;
+                           NewDataS = s.substr(LastChar,s.length()-LastChar);
+                           //cout << NewDataS << endl;
+                       }
+                       //if (id == 0) cout << NewDataS << endl;
+                       if (j == 0) {
+                           MyX = atof(NewDataS.c_str())/UnitConversion; // Only divide by 1000 if from Truchas
+                           XInt = round((MyX-XMin)/deltax) + 2; // + HTtoCAratio;
+                           //if (id == 0) cout << XInt << endl;
+                       }
+                       else if (j == 1) {
+                           //if (id == 0) cout << "Y " << MeshData << endl;
+                           MyY = atof(NewDataS.c_str())/UnitConversion; // Only divide by 1000 if from Truchas
+                           YInt = round((MyY-YMin)/deltax) + 2;// + HTtoCAratio;
+                           //if (id == 0) cout << YInt << endl;
+                       }
+                       else if (j == 2) {
+                           //if (id == 0) cout << "Z " << MeshData << endl;
+                           MyZ = atof(NewDataS.c_str())/UnitConversion + MultipleLayersAtOnceOffset; // Only divide by 1000 if from Truchas
+                           ZInt = round((MyZ-ZMin)/deltax) + 2;
+                       }
+                       else if (j == 3) {
+                           // Determine if this X and Y fall in this rank's range of interest
+                           FirstTime = stod(NewDataS.c_str());
+                           //cout << MultipleLayersAtOnceOffset << " " << ZInt << " " << MyZ << " " << nz-1 << endl;
+                           //cout << XInt-LowerXBound << " " << YInt-LowerYBound << " " << ZInt << " " << FirstTime/UnitConversion << " " << LastTime/UnitConversion << " of " << UpperXBound-LowerXBound+1 << " " << UpperYBound-LowerYBound+1 << " " << nz-1 << endl;
+                           if ((XInt >= LowerXBound)&&(XInt <= UpperXBound)&&(YInt >= LowerYBound)&&(YInt <= UpperYBound)) {
+                               CritTL[ZInt][XInt-LowerXBound][YInt-LowerYBound] = FirstTime/UnitConversion + TimeOffset; // Truchas in ms
+                           }
+
+                       }
+                       else if (j == 4) {
+                           LastTime = stod(NewDataS.c_str());
+                           if ((XInt >= LowerXBound)&&(XInt <= UpperXBound)&&(YInt >= LowerYBound)&&(YInt <= UpperYBound)) {
+                               CritTS[ZInt][XInt-LowerXBound][YInt-LowerYBound] = LastTime/UnitConversion + TimeOffset; // Truchas in ms
+                               // if (id == 0) cout << FileRead << " " << ZInt << " " << LastTime/UnitConversion + TimeOffset << endl;
+                               if ((LastTime/UnitConversion + TimeOffset) > LargestTime) LargestTime = LastTime/UnitConversion + TimeOffset;
+                           }
+                           ReadingLine = false;
+                           //if (FirstTime > LastTime) cout << "FT = " << FirstTime << " LT = " << LastTime << endl;
+                       }
+                       j++;
+                   }
+                   // advance to the next character
+                   i++;
+               }
+           }
+           //}
+           //MPI_Barrier(MPI_COMM_WORLD);
+           Geom.close();
+           MPI_Reduce(&LargestTime, &LargestTime_Global, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+           MPI_Bcast(&LargestTime_Global,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
+           TimeOffset = LargestTime_Global;
+       }
+       MPI_Barrier(MPI_COMM_WORLD);
+       if (id == 0) cout << "Temperature data read " << endl;
+       
+       // Data interpolation between heat transport and CA grids, if necessary
+       if (HTtoCAratio != 1) {
+           for (int k=2; k<=nz-2; k++) {
+               
+               int LowZ = k - ((k-2) % HTtoCAratio);
+               int HighZ = LowZ + HTtoCAratio;
+               double FHighZ = (double)(k - LowZ)/(double)(HTtoCAratio);
+               double FLowZ = 1.0 - FHighZ;
+               if (HighZ >= nz-2) HighZ = LowZ;
+               
+               for (int i=0; i<=UpperXBound-LowerXBound; i++) {
+                   int LowX =  i - (i % HTtoCAratio);
+                   int HighX = LowX + HTtoCAratio;
+                   double FHighX = (double)(i - LowX)/(double)(HTtoCAratio);
+                   double FLowX = 1.0 - FHighX;
+                   if (HighX >= UpperXBound-LowerXBound) HighX = UpperXBound-LowerXBound;
+                   
+                   for (int j=0; j<=UpperYBound-LowerYBound; j++) {
+                       int LowY = j - (j % HTtoCAratio);
+                       int HighY = LowY + HTtoCAratio;
+                       double FHighY = (float)(j - LowY)/(float)(HTtoCAratio);
+                       double FLowY = 1.0 - FHighY;
+                       if (HighY >= UpperYBound-LowerYBound) HighY = UpperYBound-LowerYBound;
+                       //if (id == 0) cout << "i = " << i << " j = " << j << " k = " << k << " Bounds: " << LowX << " " << HighX << " " << LowY << " " << HighY << " " << LowZ << " " << HighZ << endl;
+                       double Pt1 = CritTL[LowZ][LowX][LowY];
+                       double Pt2 = CritTL[LowZ][HighX][LowY];
+                       double Pt12 = FLowX*Pt1 + FHighX*Pt2;
+                       double Pt3 = CritTL[LowZ][LowX][HighY];
+                       double Pt4 = CritTL[LowZ][HighX][HighY];
+                       double Pt34 = FLowX*Pt3 + FHighX*Pt4;
+                       double Pt1234 = Pt12*FLowY + Pt34*FHighY;
+                       double Pt5 = CritTL[HighZ][LowX][LowY];
+                       double Pt6 = CritTL[HighZ][HighX][LowY];
+                       double Pt56 = FLowX*Pt5 + FHighX*Pt6;
+                       double Pt7 = CritTL[HighZ][LowX][HighY];
+                       double Pt8 = CritTL[HighZ][HighX][HighY];
+                       double Pt78 = FLowX*Pt7 + FHighX*Pt8;
+                       double Pt5678 = Pt56*FLowY + Pt78*FHighY;
+                       if ((Pt1 > 0)&&(Pt2 > 0)&&(Pt3 > 0)&&(Pt4 > 0)&&(Pt5 > 0)&&(Pt6 > 0)&&(Pt7 > 0)&&(Pt8 > 0)) {
+                           CritTL[k][i][j] = Pt1234*FLowZ + Pt5678*FHighZ;
                            // cout << CritTL[k][i][j] << endl;
-                        }
-                        Pt1 = CritTS[LowZ][LowX][LowY];
-                        Pt2 = CritTS[LowZ][HighX][LowY];
-                        Pt12 = FLowX*Pt1 + FHighX*Pt2;
-                        Pt3 = CritTS[LowZ][LowX][HighY];
-                        Pt4 = CritTS[LowZ][HighX][HighY];
-                        Pt34 = FLowX*Pt3 + FHighX*Pt4;
-                        Pt1234 = Pt12*FLowY + Pt34*FHighY;
-                        Pt5 = CritTS[HighZ][LowX][LowY];
-                        Pt6 = CritTS[HighZ][HighX][LowY];
-                        Pt56 = FLowX*Pt5 + FHighX*Pt6;
-                        Pt7 = CritTS[HighZ][LowX][HighY];
-                        Pt8 = CritTS[HighZ][HighX][HighY];
-                        Pt78 = FLowX*Pt7 + FHighX*Pt8;
-                        Pt5678 = Pt56*FLowY + Pt78*FHighY;
-                        if ((Pt1 > 0)&&(Pt2 > 0)&&(Pt3 > 0)&&(Pt4 > 0)&&(Pt5 > 0)&&(Pt6 > 0)&&(Pt7 > 0)&&(Pt8 > 0)) {
-                            CritTS[k][i][j] = Pt1234*FLowZ + Pt5678*FHighZ;
-                        }
-                        //cout << LowZ << " " << HighZ << " " << LowX << " " << HighX << " " << LowY << " " << HighY << endl;
-                    }
-                }
-            }
-        }
-
-        // Convert CritTL, CritTS matrices into CritTimeStep and UndercoolingChange (change in undercooling with time step)
-        int MCTS = 0;
-        int MinCTS = 10000000;
-        for (int k=0; k<nz; k++) {
-            for (int ii=0; ii<nx; ii++) {
-                if ((ii >= MyXOffset)&&(ii < MyXOffset+MyXSlices)) {
-                    for (int jj=0; jj<ny; jj++) {
-                        if ((jj >= MyYOffset)&&(jj < MyYOffset+MyYSlices)) {
-                            int Adj_i = ii - MyXOffset;
-                            int Adj_j = jj - MyYOffset;
-                            double CTLiq = CritTL[k][ii][jj];
-                            int Coord3D1D = k*MyXSlices*MyYSlices + Adj_i*MyYSlices + Adj_j;
-                            if (CTLiq > 0)  {
-                                Melted[Coord3D1D] = true;
-                                CritTimeStep(Coord3D1D) = round(CTLiq/deltat);
-                                UndercoolingChange(Coord3D1D) = (1610.0-1420.0)*deltat/(CritTS[k][ii][jj] - CTLiq);
-
-                                if (CritTimeStep(Coord3D1D) > MCTS) MCTS = CritTimeStep(Coord3D1D);
-                                if (CritTimeStep(Coord3D1D) < MinCTS) MinCTS = CritTimeStep(Coord3D1D);
-
-                                if (UndercoolingChange(Coord3D1D) > 0.25) {
-                                    UndercoolingChange(Coord3D1D) = 0.25;
-                                }
-                                UndercoolingCurrent(Coord3D1D) = 0;
-                            }
-                            else {
-                                Melted[Coord3D1D] = false;
-                                CritTimeStep(Coord3D1D) = 0;
-                                UndercoolingChange(Coord3D1D) = 0.0;
-                                UndercoolingCurrent(Coord3D1D) = 0.0;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                       }
+                       Pt1 = CritTS[LowZ][LowX][LowY];
+                       Pt2 = CritTS[LowZ][HighX][LowY];
+                       Pt12 = FLowX*Pt1 + FHighX*Pt2;
+                       Pt3 = CritTS[LowZ][LowX][HighY];
+                       Pt4 = CritTS[LowZ][HighX][HighY];
+                       Pt34 = FLowX*Pt3 + FHighX*Pt4;
+                       Pt1234 = Pt12*FLowY + Pt34*FHighY;
+                       Pt5 = CritTS[HighZ][LowX][LowY];
+                       Pt6 = CritTS[HighZ][HighX][LowY];
+                       Pt56 = FLowX*Pt5 + FHighX*Pt6;
+                       Pt7 = CritTS[HighZ][LowX][HighY];
+                       Pt8 = CritTS[HighZ][HighX][HighY];
+                       Pt78 = FLowX*Pt7 + FHighX*Pt8;
+                       Pt5678 = Pt56*FLowY + Pt78*FHighY;
+                       if ((Pt1 > 0)&&(Pt2 > 0)&&(Pt3 > 0)&&(Pt4 > 0)&&(Pt5 > 0)&&(Pt6 > 0)&&(Pt7 > 0)&&(Pt8 > 0)) {
+                           CritTS[k][i][j] = Pt1234*FLowZ + Pt5678*FHighZ;
+                       }
+                       //if (k == 56) cout << LowZ << " " << HighZ << " " << LowX << " " << HighX << " " << LowY << " " << HighY << endl;
+                   }
+               }
+           }
+       }
+       // }
+       MPI_Barrier(MPI_COMM_WORLD);
+       if (id == 0) cout << "Interpolation done" << endl;
+       
+       //  cout << "ID = " << id << " XStart = " << MyXOffset << " XEnd = " << MyXOffset+MyXSlices-1 << " YStart = " << MyYOffset << " YEnd = " << MyYOffset+MyYSlices-1 << endl;
+       
+       // Convert CritTL, CritTS matrices into CritTimeStep and UndercoolingChange (change in undercooling with time step)
+       int MCTS = 0;
+       int MinCTS = 1000000000;
+       for (int k=0; k<nz; k++) {
+           for (int ii=LowerXBound; ii<=UpperXBound; ii++) {
+               for (int jj=LowerYBound; jj<=UpperYBound; jj++) {
+                   if ((ii >= MyXOffset)&&(ii < MyXOffset+MyXSlices)&&(jj >= MyYOffset)&&(jj < MyYOffset+MyYSlices)) {
+                       int Adj_i = ii - MyXOffset;
+                       int Adj_j = jj - MyYOffset;
+                       double CTLiq = CritTL[k][ii-LowerXBound][jj-LowerYBound];
+                       int Coord3D1D = k*MyXSlices*MyYSlices + Adj_i*MyYSlices + Adj_j;
+                       if (CTLiq > 0)  {
+                           Melted[Coord3D1D] = true;
+                           //if (id == 0) cout << "True" << endl;
+                           CritTimeStep(Coord3D1D) = round(CTLiq/deltat);
+                           //cout << 200*k << endl;
+                           UndercoolingChange(Coord3D1D) = (1610.0-1420.0)*deltat/(CritTS[k][ii-LowerXBound][jj-LowerYBound] - CTLiq);
+                           // cout << CritTimeStep[Coord3D1D] << " " << UndercoolingChange[Coord3D1D] << endl;
+                           if (CritTimeStep(Coord3D1D) > MCTS) MCTS = CritTimeStep(Coord3D1D);
+                           if (CritTimeStep(Coord3D1D) < MinCTS) MinCTS = CritTimeStep(Coord3D1D);
+                           //if (id == 1) cout << CritTimeStep[Coord3D1D] << " " << UndercoolingChange[Coord3D1D] << endl;
+                           if (UndercoolingChange(Coord3D1D) > 0.25) {
+                               UndercoolingChange(Coord3D1D) = 0.25;
+                           }
+                           UndercoolingCurrent(Coord3D1D) = 0;
+                       }
+                       else {
+                           CritTimeStep(Coord3D1D) = 0;
+                           UndercoolingChange(Coord3D1D) = 0.0;
+                           UndercoolingCurrent(Coord3D1D) = 0.0;
+                       }
+                   }
+               }
+           }
+       }
+       
         int GMax, GMin;
-       //cout << "My min ts = " << MinCTS << endl;
         MPI_Reduce(&MCTS, &GMax, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
         MPI_Reduce(&MinCTS, &GMin, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
         MPI_Bcast(&GMin,1,MPI_INT,0,MPI_COMM_WORLD);
-        //cout << "Global min ts = " << GMin << endl;
+        MPI_Bcast(&GMax,1,MPI_INT,0,MPI_COMM_WORLD);
         for (int k=0; k<nz; k++) {
            for (int i=0; i<MyXSlices; i++) {
               for (int j=0; j<MyYSlices; j++) {
@@ -730,7 +901,7 @@ void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, floa
     
     // Read file of grain orientations
     ifstream O;
-    O.open(GrainOrientationFile);
+    O.open("Substrate/" + GrainOrientationFile);
     
     // Line 1 is the number of orientation values to read (if not specified already)
     string ValueRead;
@@ -748,12 +919,16 @@ void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, floa
             if (!getline(ss,s,',')) break;
             float ReadGO = atof(s.c_str());
             // X,Y,Z of a single unit vector
-            GrainUnitVector[18*i + 3*UVNumber + Comp] = ReadGO;
-            GrainUnitVector[18*i + 3*(UVNumber+1) + Comp] = -ReadGO;
+            
+            GrainUnitVector[9*i + 3*UVNumber + Comp] = ReadGO;
+            
+//            GrainUnitVector[18*i + 3*UVNumber + Comp] = ReadGO;
+//            GrainUnitVector[18*i + 3*(UVNumber+1) + Comp] = -ReadGO;
             Comp++;
             if (Comp > 2) {
                 Comp = 0;
-                UVNumber = UVNumber + 2;
+                UVNumber++;
+                //UVNumber = UVNumber + 2;
             }
         }
     }
@@ -783,27 +958,36 @@ void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, floa
 // Initializes cell types where the substrate comes from a file
 //*/
 
-void GrainInit(string TemperatureDataType, string SubstrateFileName, double FractSurfaceSitesActive, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], int* GrainOrientation, float* GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewI::HostMirror CellType, ViewI::HostMirror TriangleIndex, ViewI::HostMirror GrainID, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, bool* Melted, double deltax, double NMax, int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank) {
+void GrainInit(int layernumber, int LayerHeight, string SimulationType, string SubstrateFileName, double FractSurfaceSitesActive, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], int* GrainOrientation, float* GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, bool* Melted, double deltax, double NMax, int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int LayersSimulatedAtOnce, int NumberOfLayers, int TempFilesInSeries, double HT_deltax, double deltat, double XMin, double XMax, double YMin, double YMax, double ZMin, double ZMax, string tempfile, string TemperatureDataSource) {
     
-    std::seed_seq seed = {765,4,1111};
-    std::array<unsigned,5> sequence;
-    seed.generate(sequence.begin(),sequence.end());
-    mt19937_64 gen(id);
+    mt19937_64 gen(id*(layernumber+1));
     uniform_real_distribution<double> dis(0.0, 1.0);
     
     // Convert initial grain spacing to a grain density
     double BulkProb = NMax*deltax*deltax*deltax;
-    if (id == 0) cout << "Fraction of melt pool sites to potentially be activated: " << BulkProb << endl;
-    int SubstrateActCells = 0;
-    int NucleatedGrains = 0;
+    if (id == 0) cout << "Fraction of heterogenous nucleation sites to potentially be activated: " << BulkProb << endl;
+    
+    // Counter for the number of active cells
+    int SubstrateActCells_ThisRank = 0;
     PossibleNuclei_ThisRank = 0;
-    // GrainID for first nucleated grain on this rank
-    int MyFirstNGrainID;
-    for (int i=0; i<200193*id; i++) {
-        double Discard = dis(gen);
+    
+    // Wall cells at global domain boundaries
+    // Other cells are either regions that will melt, or part of the substrate
+    for (int k=0; k<nz; k++)  {
+        for(int i=0; i<MyXSlices; i++) {
+            for(int j=0; j<MyYSlices; j++) {
+                int GlobalX = i + MyXOffset;
+                int GlobalY = j + MyYOffset;
+                if ((GlobalX == -1)||(GlobalX == nx)||(GlobalY == -1)||(GlobalY == ny)||(k == 0)||(k == nz-1)) {
+                    int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+                    CellType(CAGridLocation) = Wall;
+                    GrainID(CAGridLocation) = 0;
+                }
+            }
+        }
     }
     
-    if (TemperatureDataType == "C") {
+    if (SimulationType == "C") {
         
         // Constrained solidification test problem - side surfaces are walls, liquid domain
         for (int k=0; k<nz; k++)  {
@@ -813,39 +997,30 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
                     int GlobalY = j + MyYOffset;
                     int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
                     GrainID(CAGridLocation) = 0;
-                    if ((GlobalX == 0)||(GlobalX == nx-1)||(GlobalY == 0)||(GlobalY == ny-1)||(k == 0)||(k == nz-1)) {
-                        CellType(CAGridLocation) = Wall;
-                        Melted[CAGridLocation] = false;
-                    }
-                    else {
+                    if ((GlobalX != -1)&&(GlobalX != nx)&&(GlobalY != -1)&&(GlobalY != ny)&&(k != 0)&&(k != nz-1)) {
                         Melted[CAGridLocation] = true;
                         CellType(CAGridLocation) = Delayed;
                     }
                 }
             }
         }
-        
+
         // Other cells may be substrate or heterogenous solid sites
-        int ActiveCellCounter_Local = 0;
         for (int k=1; k<nz-1; k++)  {
-            for(int i=1; i<MyXSlices; i++) {
+            for(int i=1; i<MyXSlices-1; i++) {
                 for(int j=1; j<MyYSlices-1; j++) {
                     int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
                     double R = dis(gen);
                     if (k == 1) {
                         // Randomly locate substrate grain seeds
                         if (R < FractSurfaceSitesActive) {
-                            SubstrateActCells++;
+                            SubstrateActCells_ThisRank++;
                             CellType(CAGridLocation) = Active;
-                            // Assign grain IDs later in some way (since they arent read from the file)
-                            // GrainID(CAGridLocation) = something;
-                            ActiveCellCounter_Local++;
                         }
                     }
                     else {
                         // Randomly locate bulk site seeds
                         if (R < BulkProb) {
-                            NucleatedGrains++;
                             PossibleNuclei_ThisRank++;
                             CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = LiqSol;
                             // GrainID for these are assigned later
@@ -854,13 +1029,14 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
                 }
             }
         }
+        
         // Assign grain IDs to bottom surface grains
         int FirstEpitaxialGrainID = 1;
         if (np > 1) {
             // Grains for epitaxial growth - determine GrainIDs on each MPI rank
             if (id == 0) {
                 //cout << " ID 0 sending" << endl;
-                int SBuf = FirstEpitaxialGrainID+ActiveCellCounter_Local;
+                int SBuf = FirstEpitaxialGrainID+SubstrateActCells_ThisRank;
                 MPI_Send(&SBuf,1,MPI_INT,1,0,MPI_COMM_WORLD);
             }
             else if (id == np-1) {
@@ -874,7 +1050,7 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
                 //cout << " ID " << id << " sending/recieving" << endl;
                 MPI_Recv(&RBuf,1,MPI_INT,id-1,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
                 FirstEpitaxialGrainID = RBuf;
-                int SBuf = RBuf + ActiveCellCounter_Local;
+                int SBuf = RBuf + SubstrateActCells_ThisRank;
                 MPI_Send(&SBuf,1,MPI_INT,id+1,0,MPI_COMM_WORLD);
             }
         }
@@ -890,8 +1066,8 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
         // Assign GrainID values to cells that are part of the substrate
         // Cells that border the melted region are type active, others are type solid
         ifstream Substrate;
-        Substrate.open(SubstrateFileName);
-        
+        Substrate.open("Substrate/" + SubstrateFileName);
+        if (id == 0) cout << "Opened substrate file " << "Substrate/" + SubstrateFileName << endl;
         int Substrate_LowX = MyXOffset;
         int Substrate_HighX = MyXOffset+MyXSlices;
         int Substrate_LowY = MyYOffset;
@@ -911,143 +1087,199 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
         str = s.substr(found+1,s.length()-1);
         nxS = stoi(str,nullptr,10);
         
-        if (id == 0) cout << "Initial substrate: reading layers 0 through " << nz-3 << " from file: Substrate file dims are " << nxS << " " << nyS << " " << nzS << endl;
+        // If this is the initial substrate file read prior to any layers being simulated (layernumber = -1),
+        // Read Z = 0 to Z = nz-3
         
-        //cout << "ID = " << id << " XBds = " << Substrate_LowX << " " << Substrate_HighX << " YBds = " << Substrate_LowY << " " << Substrate_HighY << endl;
-        // Wall cells at global domain boundaries
-        // Other cells are either regions that will melt, or part of the substrate
-        for (int k=0; k<nz; k++)  {
-            for(int i=0; i<MyXSlices; i++) {
-                for(int j=0; j<MyYSlices; j++) {
-                    int GlobalX = i + MyXOffset;
-                    int GlobalY = j + MyYOffset;
-                    if ((GlobalX == 0)||(GlobalX == nx-1)||(GlobalY == 0)||(GlobalY == ny-1)||(k == 0)||(k == nz-1)) {
-                        int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
-                        CellType(CAGridLocation) = Wall;
-                        GrainID(CAGridLocation) = 0;
-                    }
-                    else {
-                        if (CritTimeStep(k*MyXSlices*MyYSlices + i*MyYSlices + j) > 0) {
-                            Melted[k*MyXSlices*MyYSlices + i*MyYSlices + j] = true;
-                        }
-                        else {
-                            Melted[k*MyXSlices*MyYSlices + i*MyYSlices + j] = false;
-                        }
-                    }
-                }
+        // If this is the post-layer substrate file read (layernumber == 0 or larger)
+        // Scenario A: Read in "LayersSimulatedAtOnce*(LayerHeight-1)" layers of substrate data
+        
+        int FileLBound, FileHBound;
+        if (layernumber == -1) {
+            FileLBound = 0;
+            FileHBound = nz-3;
+        }
+        else {
+            FileLBound = nz - 2 + layernumber*LayersSimulatedAtOnce*LayerHeight;
+            FileHBound = FileLBound + (LayersSimulatedAtOnce-1)*LayerHeight + (LayerHeight-1);
+            if (id == 0) cout << "LayersSimulatedAtOnce = " << LayersSimulatedAtOnce << " LayerHeight = " << LayerHeight << endl;
+            if (id == 0) cout << FileLBound << " + " << (LayersSimulatedAtOnce-1)*LayerHeight << " + " << LayerHeight-1 << " = " << FileHBound << endl;
+        }
+
+        if (id == 0) {
+            if (layernumber == -1) cout << "Initial substrate: reading layers 0 through " << nz-3 << " from file " << SubstrateFileName << endl;
+            else {
+                cout << "Reading substrate layers " << FileLBound << " through "  << FileHBound << " from file" << endl;
+                cout << "Placing new grains structure at k = " << nz-2-(LayerHeight*LayersSimulatedAtOnce)+1 << " through " << nz-2-(LayerHeight*LayersSimulatedAtOnce)+1 + FileHBound-FileLBound << endl;
             }
         }
         
         // Assign GrainID values to cells that are part of the substrate
         // Cells that border the melted region are type active, others are type solid
         for (int k=0; k<nzS; k++) {
-            if (k < nz-2) {
+            if (k < FileLBound) {
                 for (int j=0; j<nyS; j++) {
                     for (int i=0; i<nxS; i++) {
                         string GIDVal;
                         getline(Substrate,GIDVal);
-                        //cout << k << " " << i << " " << j << GIDVal << endl;
+                    }
+                }
+            }
+            else if ((k >= FileLBound)&&(k <= FileHBound)) {
+                for (int j=0; j<nyS; j++) {
+                    for (int i=0; i<nxS; i++) {
+                        string GIDVal;
+                        getline(Substrate,GIDVal);
                         if ((i >= Substrate_LowX)&&(i < Substrate_HighX)&&(j >= Substrate_LowY)&&(j < Substrate_HighY)) {
-                            int CAGridLocation = (k+1)*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
+                            int CAGridLocation;
+                            if (layernumber == -1) CAGridLocation = (k+1)*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
+                            else CAGridLocation = (nz-2-(LayerHeight*LayersSimulatedAtOnce)+1 + (k-FileLBound))*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
                             if (CritTimeStep(CAGridLocation) == 0) {
                                 GrainID(CAGridLocation) = stoi(GIDVal,nullptr,10);
-                                UndercoolingChange(CAGridLocation) = 0.1;
-                                // Check to see if this site is actually at the solid-liquid interface
-                                int LCount = 0;
-                                // Which neighbors should be iterated over?
-                                int ItBounds = FindItBounds(i-MyXOffset,j-MyYOffset,MyXSlices,MyYSlices);
-                                int NListLength;
-                                if (ItBounds == 0) {
-                                    NListLength = 26;
-                                }
-                                else if (ItBounds > 4) {
-                                    NListLength = 11;
-                                }
-                                else {
-                                    NListLength = 17;
-                                }
-                                // "ll" corresponds to the specific position on the list of neighboring cells
-                                for (int ll=0; ll<NListLength; ll++) {
-                                    // "l" correpsponds to the specific neighboring cell
-                                    int l = ItList[ItBounds][ll];
-                                    // Local coordinates of adjacent cell center
-                                    int MyNeighborX = (i-MyXOffset) + NeighborX[l];
-                                    int MyNeighborY = (j-MyYOffset) + NeighborY[l];
-                                    int MyNeighborZ = (k+1) + NeighborZ[l];
-                                    int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
-                                    if (CritTimeStep(NeighborD3D1ConvPosition) > 0) {
-                                        LCount++;
-                                    }
-                                }
-                                if (LCount == 0) {
-                                    // Not at the interface
-                                    CellType(CAGridLocation) = Solid;
-                                    //GrainID[CAGridLocation] = 0;
-                                }
-                                else {
-                                    // At the interface
-                                    CellType((k+1)*MyXSlices*MyYSlices+(i-MyXOffset)*MyYSlices+(j-MyYOffset)) = Active;
-                                    SubstrateActCells++;
-                                }
+                                //cout << stoi(GIDVal,nullptr,10) << endl;
                             }
                             else {
-                                
-                                double R = dis(gen);
-                                if (R < BulkProb) {
-                                    NucleatedGrains++;
-                                    PossibleNuclei_ThisRank++;
-                                    CellType((k+1)*MyXSlices*MyYSlices+(i-MyXOffset)*MyYSlices+(j-MyYOffset)) = LiqSol;
+                                GrainID(CAGridLocation) = 0;
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                break;
+            }
+        }
+        Substrate.close();
+        
+        if (nz > nzS) {
+            
+            
+        }
+        
+        // Erase top portion of microstructure for a theoretical last pass
+//        if ((AllLayersAtOnce)||(!(AllLayersAtOnce)&&(layernumber == NumberOfLayers-2))) {
+//            EraseTop(NumberOfLayers+1,TempFilesInSeries, DecompositionStrategy, SimulationType, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx, ny, nz, ProcessorsInXDirection, ProcessorsInYDirection, GrainID, tempfile, XMin, XMax, YMin, YMax, ZMin, ZMax, Melted,  TemperatureDataSource, LayerwiseTemperature, AllLayersAtOnce, LayerHeight, NumberOfLayers, CellType, CritTimeStep, UndercoolingChange);
+//        }
+        
+//        // Extra set of wall cells around edges for spot melt problem
+//        for (int k=0; k<nz; k++)  {
+//            for(int i=0; i<MyXSlices; i++) {
+//                for(int j=0; j<MyYSlices; j++) {
+//                    int GlobalX = i + MyXOffset;
+//                    int GlobalY = j + MyYOffset;
+//                    if ((GlobalX == 0)||(GlobalX == nx-1)||(GlobalY == 0)||(GlobalY == ny-1)||(GlobalX == 1)||(GlobalX == nx-2)||(GlobalY == 1)||(GlobalY == ny-2)) {
+//                        int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+//                        CellType(CAGridLocation) = Wall;
+//                        GrainID(CAGridLocation) = 0;
+//                    }
+//                }
+//            }
+//        }
+    
+        // Count number of active cells are at the solid-liquid boundary, as well as the number of nucleation events that may potentially occur
+        for (int k=1; k<nz-1; k++) {
+            for (int j=0; j<MyYSlices; j++) {
+                for (int i=0; i<MyXSlices; i++) {
+                    int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+                    if (CellType(CAGridLocation) != Wall) {
+                        if (CritTimeStep(CAGridLocation) != 0) {
+                           // This is a liquid ("Delayed") cell or a nuclei, if not in a ghost node and the RNG places one at this site
+                           double R = dis(gen);
+                           if (R < BulkProb) {
+                               if ((i != 0)&&(i != MyXSlices-1)&&(j != 0)&&(j != MyYSlices-1)) {
+                                   PossibleNuclei_ThisRank++;
+                                   CellType(CAGridLocation) = LiqSol;
+                               }
+                           }
+                           else {
+                               CellType(CAGridLocation) = Delayed;
+                               GrainID(CAGridLocation) = layernumber+1;
+                           }
+                        }
+                        else {
+                            // This is a solid or active cell, depending on whether it is located at the interface of the liquid
+                            // Check to see if this site is actually at the solid-liquid interface
+                            int LCount = 0;
+                            // Which neighbors should be iterated over?
+                            int ItBounds = FindItBounds(i,j,MyXSlices,MyYSlices);
+                            int NListLength;
+                            if (ItBounds == 0) {
+                                NListLength = 26;
+                            }
+                            else if (ItBounds > 4) {
+                                NListLength = 11;
+                            }
+                            else {
+                                NListLength = 17;
+                            }
+                            // "ll" corresponds to the specific position on the list of neighboring cells
+                            for (int ll=0; ll<NListLength; ll++) {
+                                // "l" correpsponds to the specific neighboring cell
+                                int l = ItList[ItBounds][ll];
+                                // Local coordinates of adjacent cell center
+                                int MyNeighborX = i + NeighborX[l];
+                                int MyNeighborY = j + NeighborY[l];
+                                int MyNeighborZ = k + NeighborZ[l];
+                                int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
+                                if (CritTimeStep(NeighborD3D1ConvPosition) > 0) {
+                                    LCount++;
                                 }
-                                else {
-                                    CellType((k+1)*MyXSlices*MyYSlices+(i-MyXOffset)*MyYSlices+(j-MyYOffset)) = Delayed;
-                                    GrainID(CAGridLocation) = 0;
-                                }
+                            }
+                            if (LCount == 0) {
+                                // Not at the interface
+                                CellType(CAGridLocation) = Solid;
+                            }
+                            else {
+                                // At the interface
+                                CellType(CAGridLocation) = Active;
+                                UndercoolingChange(CAGridLocation) = 0.1;
+                                SubstrateActCells_ThisRank++;
                             }
                         }
                     }
                 }
             }
         }
-        Substrate.close();
     }
-    
-    //cout << "ID = " << id << " PossibleNucleiatedGrains before GN " << PossibleNuclei_ThisRank << " " << NucleatedGrains << endl;
-    // Count number of active cells are at the solid-liquid boundary, as well as the number of nucleation events that may potentially occur
     int TotalSubstrateActCells, TotalNucleatedGrains;
-    MPI_Reduce(&SubstrateActCells,&TotalSubstrateActCells,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
-    MPI_Reduce(&NucleatedGrains,&TotalNucleatedGrains,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
+    MPI_Reduce(&SubstrateActCells_ThisRank,&TotalSubstrateActCells,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
+    MPI_Reduce(&PossibleNuclei_ThisRank,&TotalNucleatedGrains,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
     if (id == 0) cout << "Number of substrate active cells: " << TotalSubstrateActCells << endl;
     if (id == 0) cout << "Number of potential nucleated grains: " << TotalNucleatedGrains << endl;
-
+    int FirstNucleatedGID_Rank0;
+    if (layernumber == -1) {
+        FirstNucleatedGID_Rank0 = -1;
+    }
+    else {
+        FirstNucleatedGID_Rank0 = NextLayer_FirstNucleatedGrainID;
+    }
+    int MyFirstNGrainID; // First GrainID for nuclei on this rank, for this layer
     if (np > 1) {
-        // Grains for nucleated growth - determine GrainIDs on each MPI rank
+        // Assign GrainIDs for nucleated grains (negative values)
+        // Grains for nucleated growth
         if (id == 0) {
-            //cout << " ID 0 sending" << endl;
-            int SBuf = -NucleatedGrains-1;
+            int SBuf = FirstNucleatedGID_Rank0-PossibleNuclei_ThisRank;
             MPI_Send(&SBuf,1,MPI_INT,1,0,MPI_COMM_WORLD);
-            MyFirstNGrainID = -1;
+            MyFirstNGrainID = FirstNucleatedGID_Rank0;
         }
         else if (id == np-1) {
-            //cout << " ID " << np-1 << " recieving" << endl;
             int RBuf;
             MPI_Recv(&RBuf,1,MPI_INT,np-2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
             MyFirstNGrainID = RBuf;
-            NextLayer_FirstNucleatedGrainID = MyFirstNGrainID - NucleatedGrains;
+            NextLayer_FirstNucleatedGrainID = MyFirstNGrainID - PossibleNuclei_ThisRank;
         }
         else {
             int RBuf;
-            //cout << " ID " << id << " sending/recieving" << endl;
             MPI_Recv(&RBuf,1,MPI_INT,id-1,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
             MyFirstNGrainID = RBuf;
-            int SBuf = MyFirstNGrainID - NucleatedGrains;
+            int SBuf = MyFirstNGrainID - PossibleNuclei_ThisRank;
             MPI_Send(&SBuf,1,MPI_INT,id+1,0,MPI_COMM_WORLD);
         }
         MPI_Bcast(&NextLayer_FirstNucleatedGrainID, 1, MPI_INT, np-1, MPI_COMM_WORLD);
     }
     else {
         // No communication among ranks
-        NextLayer_FirstNucleatedGrainID = -NucleatedGrains-1;
-        
+        NextLayer_FirstNucleatedGrainID = FirstNucleatedGID_Rank0-PossibleNuclei_ThisRank;
+        MyFirstNGrainID = FirstNucleatedGID_Rank0;
     }
 
     // Assign Grain IDs to nucleated grains
@@ -1060,19 +1292,25 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
     int FNCount = 0;
     int GNCount = 0;
     int HNCount = 0;
-
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    if (id == 0) cout << "A" << endl;
     // Set up active cell octahedra for growth, mark cell data to be communicated across ranks in ghost nodes
+    // Assign GrainIDs to nuclei sites
     int NCounter = MyFirstNGrainID;
-
+    
+//   if (id == 0) {
     for (int RankZ=1; RankZ<nz-1; RankZ++) {
+        //cout << RankZ << endl;
         for (int RankX=0; RankX<MyXSlices; RankX++) {
             for (int RankY=0; RankY<MyYSlices; RankY++) {
-                int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+                long int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                 if (CellType(D3D1ConvPosition) == Active) {
+                    //cout << "Coords" << RankX << " " << RankY << " " << RankZ << endl;
                     int GlobalX = RankX + MyXOffset;
                     int GlobalY = RankY + MyYOffset;
                     int MyGrainID = GrainID(D3D1ConvPosition);
                     NewGrain(MyXSlices,MyYSlices,nz,RankX,RankY,RankZ,MyGrainID,GlobalX,GlobalY,CellType,GrainID,DiagonalLength,DOCenter);
+                    //cout << "Grain of ID " << MyGrainID << " made" << endl;
                     // The orientation for the new grain will depend on its Grain ID
                     int MyOrientation = GrainOrientation[((abs(MyGrainID) - 1) % NGrainOrientations)];
                     // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
@@ -1080,60 +1318,57 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
                     double xp = GlobalX + 0.5;
                     double yp = GlobalY + 0.5;
                     double zp = RankZ + 0.5;
-                CritDiagLengthCalc(xp,yp,zp,MyOrientation,RankX,RankY,RankZ,D3D1ConvPosition,DOCenter(3*D3D1ConvPosition),DOCenter(3*D3D1ConvPosition+1),DOCenter(3*D3D1ConvPosition+2),NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
                     
-//                    if (id == 1) {
-//                        cout << "Cell located at " << RankX << " " << RankY << " " << RankZ << " Center at " << DOCenter(3*D3D1ConvPosition) << " " << DOCenter(3*D3D1ConvPosition+1) << " " << DOCenter(3*D3D1ConvPosition+2) << endl;
-//                        for (int l=0; l<26; l++) {
-//                            cout << " CDL " << l << " is " << CritDiagonalLength(26*D3D1ConvPosition+l) << endl;
-//                        }
-//                        
-//                        
-//                    }
-//                    if (np > 1) {
-//                        if (DecompositionStrategy == 1) {
-//                            if (RankY == 1) {
-//                                CellType(D3D1ConvPosition) = Ghost1;
-//                            }
-//                            else if (RankY == MyYSlices-2) {
-//                                CellType(D3D1ConvPosition) = Ghost1;
-//                            }
-//                        }
-//                        else {
-//                            if (RankY == 1) {
-//                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-//                                if (RankX == MyXSlices-2) {
-//                                    CellType(D3D1ConvPosition) = Ghost3;
-//                                }
-//                                else if (RankX == 1) {
-//                                    CellType(D3D1ConvPosition) = Ghost3;
-//                                }
-//                                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
-//                                    // This is being sent to MyLeft
-//                                    CellType(D3D1ConvPosition) = Ghost1;
-//                                }
-//                            }
-//                            else if (RankY == MyYSlices-2) {
-//                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-//                                if (RankX == MyXSlices-2) {
-//                                    CellType(D3D1ConvPosition) = Ghost3;
-//                                }
-//                                else if (RankX == 1) {
-//                                    CellType(D3D1ConvPosition) = Ghost3;
-//                                }
-//                                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
-//                                    CellType(D3D1ConvPosition) = Ghost1;
-//                                }
-//                            }
-//                            else if ((RankX == 1)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
-//                                CellType(D3D1ConvPosition) = Ghost1;
-//                                //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
-//                            }
-//                            else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
-//                                CellType(D3D1ConvPosition) = Ghost1;
-//                            }
-//                        }
-//                    }
+                    int OctCenterX = DOCenter((long int)(3*D3D1ConvPosition));
+                    int OctCenterY = DOCenter((long int)(3*D3D1ConvPosition+1));
+                    int OctCenterZ = DOCenter((long int)(3*D3D1ConvPosition+2));
+                    if ((OctCenterZ < 0)||(OctCenterX < 0)) cout << "DO Center < 0 " << endl;
+                    CritDiagLengthCalc(xp,yp,zp,MyOrientation,RankX,RankY,RankZ,D3D1ConvPosition,OctCenterX,OctCenterY,OctCenterZ,NeighborX,NeighborY,NeighborZ, GrainUnitVector,CritDiagonalLength);
+                    //cout << "CDL calculated" << endl;
+                    if (np > 1) {
+                        if (DecompositionStrategy == 1) {
+                            if (RankY == 1) {
+                                CellType(D3D1ConvPosition) = Ghost1;
+                            }
+                            else if (RankY == MyYSlices-2) {
+                                CellType(D3D1ConvPosition) = Ghost1;
+                            }
+                        }
+                        else {
+                            if (RankY == 1) {
+                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                                if (RankX == MyXSlices-2) {
+                                    CellType(D3D1ConvPosition) = Ghost3;
+                                }
+                                else if (RankX == 1) {
+                                    CellType(D3D1ConvPosition) = Ghost3;
+                                }
+                                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
+                                    // This is being sent to MyLeft
+                                    CellType(D3D1ConvPosition) = Ghost1;
+                                }
+                            }
+                            else if (RankY == MyYSlices-2) {
+                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                                if (RankX == MyXSlices-2) {
+                                    CellType(D3D1ConvPosition) = Ghost3;
+                                }
+                                else if (RankX == 1) {
+                                    CellType(D3D1ConvPosition) = Ghost3;
+                                }
+                                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
+                                    CellType(D3D1ConvPosition) = Ghost1;
+                                }
+                            }
+                            else if ((RankX == 1)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
+                                CellType(D3D1ConvPosition) = Ghost1;
+                                //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
+                            }
+                            else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
+                                CellType(D3D1ConvPosition) = Ghost1;
+                            }
+                        }
+                    }
                 }
                 else if (CellType(D3D1ConvPosition) == LiqSol) {
                     // Mark and count the number of nucleation events to be sent to other ranks
@@ -1194,7 +1429,9 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
             }
         }
     }
-
+ // }
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    if (id == 0) cout << "B" << endl;
     // Send/recieve number of nuclei in the ghost nodes (ARNCount-HRNCount) so that each rank knows the total number of nuclei in it's domain
     int ARNCount = 0;
     int BRNCount = 0;
@@ -1244,7 +1481,8 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
     //cout << "possible nuclei rank " << id << " no ghost nodes: " << PossibleNuclei_ThisRank << endl;
     PossibleNuclei_ThisRank += (ARNCount + BRNCount + CRNCount + DRNCount + ERNCount + FRNCount + GRNCount + HRNCount);
     //cout << "additional nuclei on rank " << id << " : " << ARNCount << " " << BRNCount << " " << CRNCount << " " << DRNCount << " " << ERNCount << " " << FRNCount << " " << GRNCount << " " << HRNCount << " new total " << PossibleNuclei_ThisRank << endl;
-    
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    if (id == 0) cout << "C" << endl;
     // Remove delay cells not bordering others
     for (int RankZ=1; RankZ<nz-1; RankZ++) {
         for (int RankX=1; RankX<MyXSlices-1; RankX++) {
@@ -1284,9 +1522,26 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
                         //cout << RankX << " " << RankY << " " << RankZ << " is solid" << endl;
                     }
                 }
+                //if (RankZ == nz-2) cout << " ID = " << id << " Melted = " << Melted[RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY] << endl;
             }
         }
     }
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    if (id == 0) cout << "D" << endl;
+    // Second rim of wall cells for spot melt scans
+//    for (int k=0; k<nz; k++)  {
+//        for(int i=0; i<MyXSlices; i++) {
+//            for(int j=0; j<MyYSlices; j++) {
+//                int GlobalX = i + MyXOffset;
+//                int GlobalY = j + MyYOffset;
+//                if ((GlobalX == 1)||(GlobalX == nx-2)||(GlobalY == 1)||(GlobalY == ny-2)) {
+//                    int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+//                    CellType(CAGridLocation) = Wall;
+//                    GrainID(CAGridLocation) = 0;
+//                }
+//            }
+//        }
+//    }
     
 }
 
@@ -1296,7 +1551,6 @@ void GrainInit(string TemperatureDataType, string SubstrateFileName, double Frac
 // This data is synced across MPI ranks, for nucleation events that occur in the ghost nodes
 void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz, int id, double dTN, double dTsigma, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int &PossibleNuclei_ThisRank, ViewI::HostMirror NucleiLocation, ViewI::HostMirror NucleationTimes, int* GrainOrientation, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange) {
 
-    //cout << "START NUCLEI INIT, id " << id << " " << PossibleNuclei_ThisRank << endl;
     // Counts and buffers for sending/recieving nucleation data from ghost nodes
     int ACount = 0;
     int BCount = 0;
@@ -1324,8 +1578,8 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             double LocNucUnd = distribution(generator);
             // Time steps to reach this undercooling after cell goes below the liquidus
             int TimeToNucUnd = CritTimeStep(i) + round(LocNucUnd/UndercoolingChange(i));
-            NucleationTimes(NEvent) = TimeToNucUnd;
-            //cout << "Nuc ID " << id << " Cell " << i << " Time " <<  CritTimeStep(i) << " Adj " << round(LocNucUnd/UndercoolingChange(i)) << endl;
+            NucleationTimes(NEvent) = max(CritTimeStep(i),TimeToNucUnd);
+            //cout << "Nuc ID " << id << " Cell " << i << " Time " <<  CritTimeStep(i) << " Adj " << round(LocNucUnd/UndercoolingChange(i)) << " or " << CritTimeStep(i) << endl;
             // Determine if other MPI ranks need information about this potential nucleation event
             // If so, store the location (X,Y,Z), GrainID, and nucleation time step value to be sent
             int RankZ = floor(i/(MyXSlices*MyYSlices));
@@ -1817,32 +2071,19 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             }
         }
     }
-
+    cout << " ID = " << id << " Possible nucleation events: " << NEvent << endl;
 }
 
 
-void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, string TemperatureDataType, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int ierr, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyLeftOut, int MyRightIn, int MyRightOut, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], int* GrainOrientation, float* GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewI::HostMirror CellType, ViewI::HostMirror TriangleIndex, ViewI::HostMirror GrainID, int* GrainID_Stored, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, string tempfile, double deltax, double deltat, double NMax, double dTN, double dTsigma, int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax, int &NextLayer_FirstNucleatedGrainID, bool* Melted, bool* Melted_Stored, int &PossibleNuclei_ThisRank) {
+void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int LocalDomainSize, int id, int np, ViewF::HostMirror DiagonalLength, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, int* GrainID_Stored, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, bool* Melted, bool* Melted_Stored, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int LayersSimulatedAtOnce, int TempFilesInSeries) {
     
-    std::seed_seq seed = {765,4,1111};
-    std::array<unsigned,5> sequence;
-    seed.generate(sequence.begin(),sequence.end());
-    mt19937_64 gen(id);
+    int LayerOffset;
+    if (LayersSimulatedAtOnce > 1)
+        LayerOffset = layernumber*LayerHeight*LayersSimulatedAtOnce*MyXSlices*MyYSlices;
+    else
+        LayerOffset = layernumber*LayerHeight*MyXSlices*MyYSlices;
     
-    uniform_real_distribution<double> dis(0.0, 1.0);
-    
-    // Convert initial grain spacing to a grain density
-    double BulkProb = NMax*deltax*deltax*deltax;
-    if (id == 0) cout << "Fraction of melt pool sites to potentially be activated: " << BulkProb << endl;
-    int SubstrateActCells = 0;
-    int NucleatedGrains = 0;
-    
-    for (int i=0; i<2*id*layernumber; i++) {
-        double Discard = dis(gen);
-    }
-    
-    int LayerOffset = layernumber*LayerHeight*MyXSlices*MyYSlices;
-    
-    for (int k=1; k<=LayerHeight; k++)  {
+    for (int k=1; k<=LayerHeight*LayersSimulatedAtOnce; k++)  {
         for(int i=0; i<MyXSlices; i++) {
             for(int j=0; j<MyYSlices; j++) {
                 GrainID_Stored[LayerOffset+(k-1)*MyXSlices*MyYSlices+i*MyYSlices+j] = GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j);
@@ -1859,441 +2100,287 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
     }
     
     // Shift substrate grain IDs for new layer
-    for (int k=1; k<=nz-LayerHeight-2; k++)  {
+    for (int k=1; k<=nz-(LayerHeight*LayersSimulatedAtOnce)-2; k++)  {
         for(int i=0; i<MyXSlices; i++) {
             for(int j=0; j<MyYSlices; j++) {
-                // Remelt appropriate region of substrate grain structure
-                if (CritTimeStep(k*MyXSlices*MyYSlices+i*MyYSlices+j) > 0) {
-                    GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = 0;
-                    double R = dis(gen);
-                    if (R < BulkProb) {
-                        NucleatedGrains++;
-                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = LiqSol;
-                    }
-                    else {
-                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Delayed;
-                    }
-                }
                 // Shift substrate in unmelted region
-                else {
-                    GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = GrainID_Temp[(k+LayerHeight)*MyXSlices*MyYSlices+i*MyYSlices+j];
-                    Melted[k*MyXSlices*MyYSlices+i*MyYSlices+j] = Melted_Temp[(k+LayerHeight)*MyXSlices*MyYSlices+i*MyYSlices+j];
-                    // Check to see if this site is actually at the solid-liquid interface
-                    int LCount = 0;
-                    // Which neighbors should be iterated over?
-                    int ItBounds = FindItBounds(i,j,MyXSlices,MyYSlices);
-                    int NListLength;
-                    if (ItBounds == 0) {
-                        NListLength = 26;
-                    }
-                    else if (ItBounds > 4) {
-                        NListLength = 11;
-                    }
-                    else {
-                        NListLength = 17;
-                    }
-                    // "ll" corresponds to the specific position on the list of neighboring cells
-                    for (int ll=0; ll<NListLength; ll++) {
-                        // "l" correpsponds to the specific neighboring cell
-                        int l = ItList[ItBounds][ll];
-                        // Local coordinates of adjacent cell center
-                        int MyNeighborX = i + NeighborX[l];
-                        int MyNeighborY = j + NeighborY[l];
-                        int MyNeighborZ = k + NeighborZ[l];
-                        int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
-                        if (CritTimeStep(NeighborD3D1ConvPosition) > 0) {
-                            LCount++;
-                        }
-                    }
-                    if (LCount == 0) {
-                        // Not at the interface
-                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Solid;
-                    }
-                    else {
-                        CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = Active;
-                        SubstrateActCells++;
-                    }
-                }
+                GrainID(k*MyXSlices*MyYSlices+i*MyYSlices+j) = GrainID_Temp[(k+LayerHeight*LayersSimulatedAtOnce)*MyXSlices*MyYSlices+i*MyYSlices+j];
+                Melted[k*MyXSlices*MyYSlices+i*MyYSlices+j] = Melted_Temp[(k+LayerHeight*LayersSimulatedAtOnce)*MyXSlices*MyYSlices+i*MyYSlices+j];
             }
         }
     }
     delete [] GrainID_Temp;
-    
-    // Grain structure in newly "deposited" material
-    ifstream Substrate;
-    Substrate.open(SubstrateFileName);
-    int Substrate_LowX = MyXOffset;
-    int Substrate_HighX = MyXOffset+MyXSlices;
-    int Substrate_LowY = MyYOffset;
-    int Substrate_HighY = MyYOffset+MyYSlices;
-    int nxS, nyS, nzS;
-    string s;
-    getline(Substrate,s);
-    std::size_t found = s.find("=");
-    string str = s.substr(found+1,s.length()-1);
-    nzS = stoi(str,nullptr,10);
-    getline(Substrate,s);
-    found = s.find("=");
-    str = s.substr(found+1,s.length()-1);
-    nyS = stoi(str,nullptr,10);
-    getline(Substrate,s);
-    found = s.find("=");
-    str = s.substr(found+1,s.length()-1);
-    nxS = stoi(str,nullptr,10);
-    
+    delete [] Melted_Temp;
 
-    int FileLBound = nz - 2 + (layernumber)*LayerHeight;
-    int FileHBound = nz - 2 + (layernumber)*LayerHeight + (LayerHeight-1);
-    
-    if (id == 0) cout << "Initial substrate: reading layers " << FileLBound << " through "  << FileHBound << " from file" << endl;
-    for (int k=0; k<nzS; k++) {
-        if (k < FileLBound) {
-            for (int j=0; j<nyS; j++) {
-                for (int i=0; i<nxS; i++) {
-                    string GIDVal;
-                    getline(Substrate,GIDVal);
-                }
-            }
+    if (TempFilesInSeries > 1) {
+        // Clear undercooling/critical time step values from past layer
+        for (int i=0; i<LocalDomainSize; i++) {
+            UndercoolingChange(i) = 0.0;
+            UndercoolingCurrent(i) = 0.0;
+            CritTimeStep(i) = 0;
         }
-        else if ((k >= FileLBound)&&(k <= FileHBound)) {
-            for (int j=0; j<nyS; j++) {
-                if ((j >= Substrate_LowY)&&(j < Substrate_HighY)) {
-                    for (int i=0; i<nxS; i++) {
-                        string GIDVal;
-                        getline(Substrate,GIDVal);
-                        int CAGridLocation = (nz-2-LayerHeight+1 + (k-FileLBound))*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
-                        if ((i >= Substrate_LowX)&&(i < Substrate_HighX)) {
-                            //if ((CAGridLocation < 0)||(CAGridLocation >= MyXSlices*MyYSlices*nz)) cout << " ID = " << id << " X = " << i-MyXOffset << " y = " << j-MyYOffset << " Z = " << (nz-2-LayerHeight+1 + (k-FileLBound)) << endl;
-                            if (CritTimeStep(CAGridLocation) == 0) {
-                                // Part of solid
-                                GrainID(CAGridLocation) = stoi(GIDVal,nullptr,10);
-                                // Check to see if this site is at the solid-liquid interface
-                                int LCount = 0;
-                                // Which neighbors should be iterated over?
-                                int ItBounds = FindItBounds(i-MyXOffset,j-MyYOffset,MyXSlices,MyYSlices);
-                                int NListLength;
-                                if (ItBounds == 0) {
-                                    NListLength = 26;
-                                }
-                                else if (ItBounds > 4) {
-                                    NListLength = 11;
-                                }
-                                else {
-                                    NListLength = 17;
-                                }
-                                // "ll" corresponds to the specific position on the list of neighboring cells
-                                for (int ll=0; ll<NListLength; ll++) {
-                                    // "l" correpsponds to the specific neighboring cell
-                                    int l = ItList[ItBounds][ll];
-                                    // Local coordinates of adjacent cell center
-                                    int MyNeighborX = i - MyXOffset + NeighborX[l];
-                                    int MyNeighborY = j - MyYOffset + NeighborY[l];
-                                    int MyNeighborZ = (nz-2-LayerHeight+1 + (k-FileLBound)) + NeighborZ[l];
-                                    int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
-                                    //if ((NeighborD3D1ConvPosition < 0)||(NeighborD3D1ConvPosition >= MyXSlices*MyYSlices*nz)) cout << " ID = " << id << " X = " << MyNeighborX << " y = " << MyNeighborY << " Z = " << MyNeighborZ << endl;
-                                    if (CritTimeStep(NeighborD3D1ConvPosition) > 0) {
-                                        LCount++;
-                                    }
-                                }
-                                if (LCount != 0) {
-                                    // At the interface
-                                    CellType(CAGridLocation) = Active;
-                                    //if (id == 5) cout << " ID 5 GID is " << GrainID[CAGridLocation] << " LOC = " << CAGridLocation << " " << i-MyXOffset << " " << j-MyYOffset << " " << (nz-2-LayerHeight+1 + (k-FileLBound)) << endl;
-                                    SubstrateActCells++;
-                                }
-                                else {
-                                    CellType(CAGridLocation) = Solid;
-                                }
-                            }
-                            else {
-                                // Part of liquid
-                                double R = dis(gen);
-                                if (R < BulkProb) {
-                                    NucleatedGrains++;
-                                    CellType(CAGridLocation) = LiqSol;
-                                }
-                                else {
-                                    CellType(CAGridLocation) = Delayed;
-                                }
+    }
+    for (int i=0; i<LocalDomainSize; i++) {
+        CellType(i) = 0.0;
+        DiagonalLength(i) = 0.0;
+    }
+    long int DomainSize3 = (long int)(3)*(long int)(LocalDomainSize);
+    long int DomainSize26 = (long int)(26)*(long int)(LocalDomainSize);
+    for (long int i=0; i<DomainSize3; i++) {
+        DOCenter(i) = 0.0;
+    }
+    for (long int i=0; i<DomainSize26; i++) {
+        CritDiagonalLength(i) = 0.0;
+    }
+//    for (int i=0; i<72*LocalDomainSize; i++) {
+//        TriangleIndex(i) = 0.0;
+//    }
+    
+    // Reset buffers
+    Kokkos::parallel_for ("XZBufReset",BufSizeX*BufSizeZ, KOKKOS_LAMBDA (const int& i) {
+        for (int j=0; j<5; j++) {
+            BufferA(i,j) = 0.0;
+            BufferAR(i,j) = 0.0;
+            BufferB(i,j) = 0.0;
+            BufferBR(i,j) = 0.0;
+        }
+    });
+    Kokkos::parallel_for ("YZBufReset",BufSizeY*BufSizeZ, KOKKOS_LAMBDA (const int& i) {
+        for (int j=0; j<5; j++) {
+            BufferC(i,j) = 0.0;
+            BufferCR(i,j) = 0.0;
+            BufferD(i,j) = 0.0;
+            BufferDR(i,j) = 0.0;
+        }
+    });
+    Kokkos::parallel_for ("ZBufReset",BufSizeZ, KOKKOS_LAMBDA (const int& i) {
+        for (int j=0; j<5; j++) {
+            BufferE(i,j) = 0.0;
+            BufferER(i,j) = 0.0;
+            BufferF(i,j) = 0.0;
+            BufferFR(i,j) = 0.0;
+            BufferG(i,j) = 0.0;
+            BufferGR(i,j) = 0.0;
+            BufferH(i,j) = 0.0;
+            BufferHR(i,j) = 0.0;
+        }
+    });
+    
+}
+
+void EraseTop(int NextLayerNumber, int TempFilesInSeries, int DecompositionStrategy, string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, ViewI::HostMirror GrainID, string tempfile, float XMin, float XMax, float YMin, float YMax, float ZMin, float ZMax, bool* Melted, string TemperatureDataSource, int LayersSimulatedAtOnce, int LayerHeight, int NumberOfLayers, ViewI::HostMirror CellType, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange) {
+    
+    // Temperature data read
+    int HTtoCAratio = HT_deltax/deltax; // OpenFOAM/CA cell size ratio
+    
+    // With row/col 0 being wall cells and row/col 1 being solid cells outside of the melted area, the domain starts at row/col 2
+    // As the wall cells are not part of the physical domain (solid cells at row/col 1 are defined as X = Y = 0,
+    // the melted region domain data starts at X = Y = deltax, with data points at X or Y = deltax + N*HT_deltax through X or Y = nx-3 or ny-3
+    
+    // The X and Y bounds are the region (for this MPI rank) of the physical domain that needs to be read
+    // Extends past the actual spatial extent of the local domain for purposes of interpolating from HT_deltax to deltax
+    int LowerXBound, LowerYBound, UpperXBound, UpperYBound;
+    if (MyXOffset <= 2) LowerXBound = 2;
+    else LowerXBound = MyXOffset - ((MyXOffset-2) % HTtoCAratio);
+    if (MyYOffset <= 2) LowerYBound = 2;
+    else LowerYBound = MyYOffset - ((MyYOffset-2) % HTtoCAratio);
+    
+    if (MyXOffset+MyXSlices-1 >= nx-3) UpperXBound = nx-3;
+    else UpperXBound = MyXOffset + MyXSlices - 1 + HTtoCAratio - ((MyXOffset + (MyXSlices-1) - 2) % HTtoCAratio);
+    if (MyYOffset+MyYSlices-1 >= ny-3) UpperYBound = ny-3;
+    else UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + (MyYSlices-1) - 2) % HTtoCAratio);
+    
+    vector <vector <vector <int> > > Data;
+    for (int k=0; k<nz; k++) {
+        vector <vector <int> > TemperatureXX;
+        for (int i=LowerXBound; i<=UpperXBound; i++) {
+            vector <int> TemperatureX;
+            for (int j=LowerYBound; j<=UpperYBound; j++) {
+                TemperatureX.push_back(0);
+            }
+            TemperatureXX.push_back(TemperatureX);
+        }
+        Data.push_back(TemperatureXX);
+    }
+    
+    double UnitConversion;
+    if (TemperatureDataSource == "O") UnitConversion = 1;
+    else UnitConversion = 1000;
+    
+    ifstream Geom;
+    string thislayertempfile;
+    
+    if (LayersSimulatedAtOnce > 1) {
+        
+        // "layernumber" is the layer that would be depositied next
+        int NextLayerFile = NumberOfLayers+1;
+        string NextLayerFileS;
+        NextLayerFile = NextLayerFile % TempFilesInSeries;
+        if (NextLayerFile == 0) NextLayerFile = TempFilesInSeries;
+        NextLayerFileS = to_string(NextLayerFile);
+        thislayertempfile = NextLayerFileS + tempfile;
+        ifstream TemperatureFileRead;
+        TemperatureFileRead.open(thislayertempfile);
+        if (!TemperatureFileRead.good()) {
+            if (id == 0) cout << "Temperature file " << thislayertempfile << " not found" << endl;
+            TemperatureFileRead.close();
+        }
+    }
+    else thislayertempfile = tempfile;
+    
+    if (id == 0) cout << "Layer " << NumberOfLayers+1 << " temperature file is: " << thislayertempfile << endl;
+    double PseudoLayerOffsetZ;
+    if (LayersSimulatedAtOnce > 1) {
+        PseudoLayerOffsetZ = NumberOfLayers*LayerHeight*deltax;
+    }
+    else {
+        PseudoLayerOffsetZ = LayerHeight*deltax;
+    }
+
+    Geom.open(thislayertempfile);
+    if (id == 0) cout << "Layer " << NumberOfLayers << " LayerHeight = " << LayerHeight << " Z Off = " << PseudoLayerOffsetZ/deltax << " cells" << endl;
+    while (!Geom.eof()) {
+        string s;
+        getline(Geom,s);
+        bool ReadingLine = true;
+        int i = 0;
+        int j = 0;
+        int XInt, YInt, ZInt;
+        double MyX, MyY, MyZ;
+        
+        int FirstChar = 0;
+        int LastChar;
+        while (ReadingLine) {
+            if (s.empty()) break;
+            char C = s.at(i);
+            // If this character is not a space, convert from string
+            if ((isblank(C))||(i == s.length()-1)) {
+                string NewDataS;
+                if (j < 4) {
+                    LastChar = i;
+                    NewDataS = s.substr(FirstChar,LastChar-FirstChar);
+                    if (j < 3) {
+                        bool Searching = true;
+                        while (Searching) {
+                            //cout << "N searching: Char " << i << " is " << s.at(i) << " of line " << s << endl;
+                            i++;
+                            C = s.at(i);
+                            if (!(isblank(C))) {
+                                FirstChar = i;
+                                Searching = false;
                             }
                         }
                     }
                 }
                 else {
-                    for (int i=0; i<nxS; i++) {
-                        string GIDVal;
-                        getline(Substrate,GIDVal);
+                    i = s.length()-1;
+                    bool Searching = true;
+                    while (Searching) {
+                        //cout << "Space searching: Char " << i << " is " << s.at(i) << " of line " << s << endl;
+                        C = s.at(i);
+                        if (isblank(C)) {
+                            FirstChar = i;
+                            Searching = false;
+                        }
+                        i--;
                     }
+                    //cout << "Chars " << FirstChar << " + " << s.length()-FirstChar << endl;
+                    NewDataS = s.substr(FirstChar,s.length()-FirstChar);
+                    //cout << NewDataS << endl;
                 }
-            }
-        }
-        else {
-            break;
-        }
-    }
-    Substrate.close();
-        
-    int ThisLayer_FirstNucleatedGrainID = NextLayer_FirstNucleatedGrainID;
-    
-    int TotalNucleatedGrains, TotalSubstrateActCells;
-    MPI_Reduce(&NucleatedGrains,&TotalNucleatedGrains,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
-    if (id == 0) cout << "Number of potential nucleated grains: " << TotalNucleatedGrains << endl;
-    MPI_Reduce(&SubstrateActCells,&TotalSubstrateActCells,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
-    if (id == 0) cout << "Number of active substrate cells: " << TotalSubstrateActCells << endl;
-    
-    int MyFirstNGrainID;
-    if (np > 1) {
-        // Assign GrainIDs for nucleated grains (negative values)
-        // Grains for nucleated growth
-        if (id == 0) {
-            int SBuf = ThisLayer_FirstNucleatedGrainID-NucleatedGrains;
-            MPI_Send(&SBuf,1,MPI_INT,1,0,MPI_COMM_WORLD);
-            MyFirstNGrainID = ThisLayer_FirstNucleatedGrainID;
-        }
-        else if (id == np-1) {
-            int RBuf;
-            MPI_Recv(&RBuf,1,MPI_INT,np-2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            MyFirstNGrainID = RBuf;
-            NextLayer_FirstNucleatedGrainID = MyFirstNGrainID - NucleatedGrains;
-        }
-        else {
-            int RBuf;
-            MPI_Recv(&RBuf,1,MPI_INT,id-1,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            MyFirstNGrainID = RBuf;
-            int SBuf = MyFirstNGrainID - NucleatedGrains;
-            MPI_Send(&SBuf,1,MPI_INT,id+1,0,MPI_COMM_WORLD);
-        }
-        MPI_Bcast(&NextLayer_FirstNucleatedGrainID, 1, MPI_INT, np-1, MPI_COMM_WORLD);
-    }
-    else {
-        // No communication among ranks
-        NextLayer_FirstNucleatedGrainID = ThisLayer_FirstNucleatedGrainID-NucleatedGrains;
-        MyFirstNGrainID = ThisLayer_FirstNucleatedGrainID;
-    }
-    //MPI_Barrier(MPI_COMM_WORLD);
-    //cout << "First GID asssigned " << endl;
-    
-    // Assign Grain IDs to cells - epitaxial and nucleated grains
-    std::default_random_engine generator;
-    std::normal_distribution<double> distribution(dTN,dTsigma);
-    for (int i=0; i<100*id; i++) {
-        double Discard = distribution(generator);
-    }
-    int NCounter = MyFirstNGrainID;
-    MPI_Barrier(MPI_COMM_WORLD);
-    //if (id == 5) cout << " Begin loop" << endl;
-    // Assign Grain IDs to nucleated grains
-    // Set up active cell data structures for appropriate cells
-    int ANCount = 0;
-    int BNCount = 0;
-    int CNCount = 0;
-    int DNCount = 0;
-    int ENCount = 0;
-    int FNCount = 0;
-    int GNCount = 0;
-    int HNCount = 0;
-    for (int RankZ=1; RankZ<nz-1; RankZ++) {
-        for (int RankX=1; RankX<MyXSlices-1; RankX++) {
-            for (int RankY=1; RankY<MyYSlices-1; RankY++) {
-                int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if (CellType(D3D1ConvPosition) == Active) {
-                    int GlobalX = RankX + MyXOffset;
-                    int GlobalY = RankY + MyYOffset;
-                    int MyGrainID = GrainID(D3D1ConvPosition);
-                    NewGrain(MyXSlices,MyYSlices,nz,RankX,RankY,RankZ,MyGrainID,GlobalX,GlobalY,CellType,GrainID,DiagonalLength,DOCenter);
-                    // The orientation for the new grain will depend on its Grain ID
-                    int MyOrientation = GrainOrientation[((abs(MyGrainID) - 1) % NGrainOrientations)];
-                    // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
-                    // (xp,yp,zp) is the new cell's center on the global grid
-                    double xp = GlobalX + 0.5;
-                    double yp = GlobalY + 0.5;
-                    double zp = RankZ + 0.5;
-                    CritDiagLengthCalc(xp,yp,zp,MyOrientation,RankX,RankY,RankZ,D3D1ConvPosition,DOCenter(3*D3D1ConvPosition),DOCenter(3*D3D1ConvPosition+1),DOCenter(3*D3D1ConvPosition+2),NeighborX,NeighborY,NeighborZ, GrainUnitVector,TriangleIndex,CritDiagonalLength);
+                if (j == 0) {
+                    MyX = atof(NewDataS.c_str())/UnitConversion; // Only divide by 1000 if from Truchas
+                    XInt = round((MyX-XMin)/deltax) + 2; // + HTtoCAratio;
+                    //if (id == 0) cout << XInt << endl;
+                }
+                else if (j == 1) {
+                    //if (id == 0) cout << "Y " << MeshData << endl;
+                    MyY = atof(NewDataS.c_str())/UnitConversion; // Only divide by 1000 if from Truchas
+                    YInt = round((MyY-YMin)/deltax) + 2;// + HTtoCAratio;
+                    //if (id == 0) cout << YInt << endl;
+                }
+                else if (j == 2) {
+                    //if (id == 0) cout << "Z " << MeshData << endl;
+                    MyZ = atof(NewDataS.c_str())/UnitConversion + PseudoLayerOffsetZ; // Only divide by 1000 if from Truchas
+                    ZInt = round((MyZ-ZMin)/deltax) + 2;
+                }
+                else if (j == 3) {
+                    // Determine if this X and Y fall in this rank's range of interest
+                    if ((XInt >= LowerXBound)&&(XInt <= UpperXBound)&&(YInt >= LowerYBound)&&(YInt <= UpperYBound)&&(ZInt <= nz-1)) {
+                        Data[ZInt][XInt-LowerXBound][YInt-LowerYBound] = 1;
+                    }
                     
-                    if (DecompositionStrategy == 1) {
-                        if (RankY == 1) {
-                            CellType(D3D1ConvPosition) = Ghost1;
-                        }
-                        else if (RankY == MyYSlices-2) {
-                            CellType(D3D1ConvPosition) = Ghost1;
-                        }
-                    }
-                    else {
-                        if (RankY == 1) {
-                            // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                            if (RankX == MyXSlices-2) {
-                                CellType(D3D1ConvPosition) = Ghost3;
-                            }
-                            else if (RankX == 1) {
-                                CellType(D3D1ConvPosition) = Ghost3;
-                            }
-                            else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
-                                // This is being sent to MyLeft
-                                CellType(D3D1ConvPosition) = Ghost1;
-                            }
-                        }
-                        else if (RankY == MyYSlices-2) {
-                            // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                            if (RankX == MyXSlices-2) {
-                                CellType(D3D1ConvPosition) = Ghost3;
-                            }
-                            else if (RankX == 1) {
-                                CellType(D3D1ConvPosition) = Ghost3;
-                            }
-                            else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
-                                CellType(D3D1ConvPosition) = Ghost1;
-                            }
-                        }
-                        else if ((RankX == 1)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
-                            CellType(D3D1ConvPosition) = Ghost1;
-                            //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
-                        }
-                        else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
-                            CellType(D3D1ConvPosition) = Ghost1;
-                        }
-                    }
                 }
-                else if (CellType(D3D1ConvPosition) == LiqSol) {
-                    // Mark and count the number of nucleation events to be sent to other ranks
-                    GrainID(RankZ*MyXSlices*MyYSlices+RankX*MyYSlices+RankY) = NCounter;
-                    NCounter--;
-                    if (DecompositionStrategy == 1) {
-                        if (RankY == 1) {
-                            ANCount++;
-                        }
-                        else if (RankY == MyYSlices-2) {
-                            BNCount++;
-                        }
-                    }
-                    else {
-                        if (RankY == 1) {
-                            // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                            if (RankX == MyXSlices-2) {
-                                ENCount++;
-                                CNCount++;
-                                ANCount++;
-                            }
-                            else if (RankX == 1) {
-                                GNCount++;
-                                DNCount++;
-                                ANCount++;
-                            }
-                            else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
-                                // This is being sent to MyLeft
-                                ANCount++;
-                            }
-                        }
-                        else if (RankY == MyYSlices-2) {
-                            // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                            if (RankX == MyXSlices-2) {
-                                FNCount++;
-                                CNCount++;
-                                BNCount++;
-                            }
-                            else if (RankX == 1) {
-                                HNCount++;
-                                DNCount++;
-                                BNCount++;
-                            }
-                            else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
-                                BNCount++;
-                            }
-                        }
-                        else if ((RankX == 1)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
-                            DNCount++;
-                        }
-                        else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
-                            CNCount++;
-                        }
-                    }
+                else if (j == 4) {
+                    ReadingLine = false;
                 }
+                j++;
             }
+            // advance to the next character
+            i++;
         }
     }
-    
-    // Send/recieve number of nuclei in the ghost nodes (ARNCount-HRNCount) so that each rank knows the total number of nuclei in it's domain
-    int ARNCount, BRNCount, CRNCount, DRNCount, ERNCount, FRNCount, GRNCount, HRNCount;
-    
-    // Send BNCount, Recieve ARNCount (send to the right, recieve on the left)
-    MPI_Sendrecv(&BNCount,1,MPI_INT,MyRight,0,&ARNCount,1,MPI_INT,MyLeft,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-    
-    // Send ANCount, Recieve BRNCount (send to the left, recieve on the right)
-    MPI_Sendrecv(&ANCount,1,MPI_INT,MyLeft,0,&BRNCount,1,MPI_INT,MyRight,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-    
-    if (DecompositionStrategy != 1) {
-        // Send CNCount, Recieve DRNCount (send into the plane, recieve out of the plane)
-        MPI_Sendrecv(&CNCount,1,MPI_INT,MyIn,0,&DRNCount,1,MPI_INT,MyOut,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        
-        // Send DNCount, Recieve CRNCount (send out of the plane, recieve into the plane)
-        MPI_Sendrecv(&DNCount,1,MPI_INT,MyOut,0,&CRNCount,1,MPI_INT,MyIn,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        
-        
-        // Send HNCount, Recieve ERNCount
-        MPI_Sendrecv(&HNCount,1,MPI_INT,MyRightOut,0,&ERNCount,1,MPI_INT,MyLeftIn,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        
-        // Send ENCount, Recieve HRNCount
-        MPI_Sendrecv(&ENCount,1,MPI_INT,MyLeftIn,0,&HRNCount,1,MPI_INT,MyRightOut,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        
-        // Send GNCount, Recieve FRNCount
-        MPI_Sendrecv(&GNCount,1,MPI_INT,MyLeftOut,0,&FRNCount,1,MPI_INT,MyRightIn,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-        
-        // Send FNCount, Recieve GRNCount
-        MPI_Sendrecv(&FNCount,1,MPI_INT,MyRightIn,0,&GRNCount,1,MPI_INT,MyLeftOut,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-    }
-    
-    if (MyLeft == MPI_PROC_NULL) ARNCount = 0;
-    if (MyRight == MPI_PROC_NULL) BRNCount = 0;
-    if (MyIn == MPI_PROC_NULL) CRNCount = 0;
-    if (MyOut == MPI_PROC_NULL) DRNCount = 0;
-    if (MyLeftIn == MPI_PROC_NULL) ERNCount = 0;
-    if (MyRightIn == MPI_PROC_NULL) FRNCount = 0;
-    if (MyLeftOut == MPI_PROC_NULL) GRNCount = 0;
-    if (MyRightOut == MPI_PROC_NULL) HRNCount = 0;
-    
-    PossibleNuclei_ThisRank += (ARNCount + BRNCount + CRNCount + DRNCount + ERNCount + FRNCount + GRNCount + HRNCount);
-    
-    // Remove delay cells not bordering others
-    for (int RankZ=1; RankZ<nz-1; RankZ++) {
-        for (int RankX=1; RankX<MyXSlices-1; RankX++) {
-            for (int RankY=1; RankY<MyYSlices-1; RankY++) {
-                int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-                if (CellType(D3D1ConvPosition) == Delayed) {
-                    // Check to see if this cell is at the interface
-                    int LCount = 0;
-                    // Which neighbors should be iterated over?
-                    int ItBounds = FindItBounds(RankX,RankY,MyXSlices,MyYSlices);
-                    int NListLength;
-                    if (ItBounds == 0) {
-                        NListLength = 26;
-                    }
-                    else if (ItBounds > 4) {
-                        NListLength = 11;
-                    }
-                    else {
-                        NListLength = 17;
-                    }
-                    // "ll" corresponds to the specific position on the list of neighboring cells
-                    for (int ll=0; ll<NListLength; ll++) {
-                        // "l" correpsponds to the specific neighboring cell
-                        int l = ItList[ItBounds][ll];
-                        // Local coordinates of adjacent cell center
-                        int MyNeighborX = RankX + NeighborX[l];
-                        int MyNeighborY = RankY + NeighborY[l];
-                        int MyNeighborZ = RankZ + NeighborZ[l];
-                        int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
-                        if ((CellType(NeighborD3D1ConvPosition) == Delayed)||(CellType(NeighborD3D1ConvPosition) == Active)||(CellType(NeighborD3D1ConvPosition) == LiqSol)) {
-                            LCount++;
-                        }
-                    }
-                    if (LCount == 0) {
-                        // This cell is returned to solid type
-                        CellType(D3D1ConvPosition) = Solid;
-                        GrainID(D3D1ConvPosition) = 0;
-                    }
-                }
-            }
-        }
-    }
-    
-}
 
+    // Data interpolation between heat transport and CA grids, if necessary
+    if (HTtoCAratio != 1) {
+        for (int k=2; k<=nz-2; k++) {
+            
+            int LowZ = k - ((k-2) % HTtoCAratio);
+            int HighZ = LowZ + HTtoCAratio;
+
+            if (HighZ > nz-2) HighZ = nz-2;
+            
+            for (int i=0; i<=UpperXBound-LowerXBound; i++) {
+                int LowX =  i - (i % HTtoCAratio);
+                int HighX = LowX + HTtoCAratio;
+
+                if (HighX >= UpperXBound-LowerXBound) HighX = UpperXBound-LowerXBound;
+                
+                for (int j=0; j<=UpperYBound-LowerYBound; j++) {
+                    int LowY = j - (j % HTtoCAratio);
+                    int HighY = LowY + HTtoCAratio;
+
+                    if (HighY >= UpperYBound-LowerYBound) HighY = UpperYBound-LowerYBound;
+
+                    double Pt1 = Data[LowZ][LowX][LowY];
+                    double Pt2 = Data[LowZ][HighX][LowY];
+                    double Pt3 = Data[LowZ][LowX][HighY];
+                    double Pt4 = Data[LowZ][HighX][HighY];
+                    double Pt5 = Data[HighZ][LowX][LowY];
+                    double Pt6 = Data[HighZ][HighX][LowY];
+                    double Pt7 = Data[HighZ][LowX][HighY];
+                    double Pt8 = Data[HighZ][HighX][HighY];
+                    if ((Pt1 > 0)&&(Pt2 > 0)&&(Pt3 > 0)&&(Pt4 > 0)&&(Pt5 > 0)&&(Pt6 > 0)&&(Pt7 > 0)&&(Pt8 > 0)) {
+                        Data[k][i][j] = 1;
+                    }
+                    
+                }
+            }
+        }
+    }
+
+    int MaxCTS = 0;
+    int GMax;
+    for (int k=0; k<nz; k++) {
+        for (int ii=LowerXBound; ii<=UpperXBound; ii++) {
+            for (int jj=LowerYBound; jj<=UpperYBound; jj++) {
+                if ((ii >= MyXOffset)&&(ii < MyXOffset+MyXSlices)&&(jj >= MyYOffset)&&(jj < MyYOffset+MyYSlices)) {
+                    int Adj_i = ii - MyXOffset;
+                    int Adj_j = jj - MyYOffset;
+                    double CTLiq = Data[k][ii-LowerXBound][jj-LowerYBound];
+                    int Coord3D1D = k*MyXSlices*MyYSlices + Adj_i*MyYSlices + Adj_j;
+                    if (CTLiq > 0)  {
+                        GrainID(Coord3D1D) = -1;
+                        CellType(Coord3D1D) = Wall;
+                        CritTimeStep(Coord3D1D) = 0;
+                        UndercoolingChange(Coord3D1D) = 0;
+                    }
+                    if (CritTimeStep(Coord3D1D) > MaxCTS) MaxCTS = CritTimeStep(Coord3D1D);
+                }
+            }
+        }
+    }
+    MPI_Reduce(&MaxCTS, &GMax, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&GMax,1,MPI_INT,0,MPI_COMM_WORLD);
+    if (id == 0) cout << "Largest critical time step after remelting is " << GMax << endl;
+}

@@ -1,20 +1,5 @@
 #include "header.h"
 using namespace std;
-//
-//double CrossP1(double TestVec1[3], double TestVec2[3]);
-//double CrossP2(double TestVec1[3], double TestVec2[3]);
-//double CrossP3(double TestVec1[3], double TestVec2[3]);
-//int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices);
-//int MaxIndex(double TestVec3[6]);
-//int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy);
-//int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy);
-//int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
-//int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
-//double MaxVal(double TestVec3[6],int NVals);
-//void NewGrain(int nx, int ny, int nz, int RankX, int RankY, int RankZ, int MyGrainID, int GlobalX, int GlobalY, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror DiagonalLength, ViewF::HostMirror DOCenter);
-//void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int NewCellX, int NewCellY, int NewCellZ, int CellLocation, double cx, double cy, double cz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI::HostMirror TriangleIndex, ViewF::HostMirror CritDiagonalLength);
-//void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection, int &ProcessorsInYDirection, int id, int np, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut);
-//void XYLimitCalc(int &LLX, int &LLY, int &ULX, int &ULY, int MyXSlices, int MyYSlices, int MyLeft, int MyRight, int MyIn, int MyOut);
 
 /*************************** FUNCTIONS CALLED THROUGH MAIN SUBROUTINES ***************************/
 
@@ -43,11 +28,11 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
     else if (DecompositionStrategy >= 2) {
         int XSlicesPerP = nx/ProcessorsInXDirection;
         int XRemainder = nx % ProcessorsInXDirection;
-        int XPosition = p/ProcessorsInYDirection;
         if (XRemainder == 0) {
             XRemoteMPSlices = XSlicesPerP;
         }
         else {
+            int XPosition = p/ProcessorsInYDirection;
             if (XPosition < XRemainder) {
                 XRemoteMPSlices = XSlicesPerP + 1;
             }
@@ -55,14 +40,12 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
                 XRemoteMPSlices = XSlicesPerP;
             }
         }
-        if ((XPosition == 0)||(XPosition == ProcessorsInYDirection-1)) XRemoteMPSlices++;
-        else {
-            XRemoteMPSlices++;
-            XRemoteMPSlices++;
-        }
     }
+    // Add "ghost nodes" for other processors
+    XRemoteMPSlices = XRemoteMPSlices+2;
     return XRemoteMPSlices;
 }
+
 
 int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy) {
     int RemoteXOffset;
@@ -84,11 +67,10 @@ int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDire
                 RemoteXOffset = (XSlicesPerP + 1)*(XRemainder-1) + XSlicesPerP + 1 + (XPosition-XRemainder)*XSlicesPerP;
             }
         }
-        if (XPosition != 0) {
-            RemoteXOffset--;
-        }
     }
-    //cout << " My ID is " << p << " and my X Offset is " << RemoteXOffset << endl;
+    // Account for "ghost nodes" for other processors
+    RemoteXOffset--;
+    // cout << " My ID is " << p << " and my X Offset is " << RemoteXOffset << endl;
     return RemoteXOffset;
 }
 
@@ -108,24 +90,15 @@ int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decompo
                 YRemoteMPSlices = YSlicesPerP;
             }
         }
-        // Ghost nodes - exterior ranks have a set, interior ranks have 2 sets
-        if (np > 1) {
-            if ((p == 0)||(p == np-1)) YRemoteMPSlices++;
-            else {
-               YRemoteMPSlices++;
-               YRemoteMPSlices++;
-            }
-        }
     }
     else if (DecompositionStrategy >= 2) {
         int YSlicesPerP = ny/ProcessorsInYDirection;
         int YRemainder = ny % ProcessorsInYDirection;
-        int YPosition = p % ProcessorsInYDirection;
         if (YRemainder == 0) {
             YRemoteMPSlices = YSlicesPerP;
         }
         else {
-
+            int YPosition = p % ProcessorsInYDirection;
             if (YPosition < YRemainder) {
                 YRemoteMPSlices = YSlicesPerP + 1;
             }
@@ -133,15 +106,10 @@ int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decompo
                 YRemoteMPSlices = YSlicesPerP;
             }
         }
-        
-        if ((YPosition == 0)||(YPosition == ProcessorsInYDirection-1)) YRemoteMPSlices++;
-        else {
-            YRemoteMPSlices++;
-            YRemoteMPSlices++;
-        }
-        
     }
-
+    // Add "ghost nodes" for other processors
+    YRemoteMPSlices = YRemoteMPSlices+2;
+    
     return YRemoteMPSlices;
 }
 
@@ -161,9 +129,6 @@ int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decomposi
                 RemoteYOffset = (YSlicesPerP + 1)*(YRemainder-1) + YSlicesPerP + 1 + (p-YRemainder)*YSlicesPerP;
             }
         }
-        if (p > 0) {
-            RemoteYOffset--;
-        }
     }
     else if (DecompositionStrategy >= 2) {
         int YSlicesPerP = ny/ProcessorsInYDirection;
@@ -180,12 +145,10 @@ int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decomposi
                 RemoteYOffset = (YSlicesPerP + 1)*(YRemainder-1) + YSlicesPerP + 1 + (YPosition-YRemainder)*YSlicesPerP;
             }
         }
-        if (YPosition != 0) {
-            RemoteYOffset--;
-        }
-        
     }
-    //cout << " My ID is " << p << " and my Y Offset is " << RemoteYOffset << endl;
+    // Account for "ghost nodes" for other processors
+    RemoteYOffset--;
+    // cout << " My ID is " << p << " and my Y Offset is " << RemoteYOffset << endl;
     return RemoteYOffset;
 }
 
@@ -269,7 +232,7 @@ void NewGrain(int MyXSlices, int MyYSlices, int nz, int RankX, int RankY, int Ra
     DOCenter(3*CellLocation+2) = RankZ + 0.5;
 }
 
-void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int NewCellX, int NewCellY, int NewCellZ, int CellLocation, double cx, double cy, double cz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI::HostMirror TriangleIndex, ViewF::HostMirror CritDiagonalLength) {
+void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int NewCellX, int NewCellY, int NewCellZ, long int CellLocation, double cx, double cy, double cz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewF::HostMirror CritDiagonalLength) {
     
     // Calculate critical diagonal lengths for the new active cell located at (xp,yp,zp) on the local grid
     // For each neighbor (l=0 to 25), calculate which octahedron face leads to cell capture
@@ -277,7 +240,9 @@ void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int 
     
     // if ((id == 0)&&(cycle == 588)) cout << " Cell at " << RankX << " " << RankY << " " << RankZ << " has been captured by a grain with orientation " << MyOrientation << endl;
     //    if ((id == 0)&&(cycle > 0)) cout << " cycle " << cycle << " Orientation captured " << MyOrientation << endl;
+
     for (int l=0; l<26; l++)  {
+
         // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of a neighbor cell
         double x0 = xp + NeighborX[l] - cx;
         double y0 = yp + NeighborY[l] - cy;
@@ -289,62 +254,100 @@ void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int 
             x0 = 0.00001;
         }
         
-        // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
-        double AnglesA[6];
-        for (int ll=0; ll<6; ll++) {
-            double xd = GrainUnitVector[18*MyOrientation + 3*ll];
-            double yd = GrainUnitVector[18*MyOrientation + 3*ll + 1];
-            double zd = GrainUnitVector[18*MyOrientation + 3*ll + 2];
-            AnglesA[ll] = (xd*x0 + yd*y0 + zd*z0)/mag0;
-        }
-        int index1, index2, index3;
-        index1 = MaxIndex(AnglesA);
-        TriangleIndex(78*CellLocation + 3*l) = index1;
-        // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
-        double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1 + 0];
-        double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
-        double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
-        AnglesA[index1] = -1;
-        if (index1 % 2 == 0) AnglesA[index1+1] = -1;
-        if (index1 % 2 == 1) AnglesA[index1-1] = -1;
-        double MaxA = MaxVal(AnglesA,6);
-        double Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-        if (MaxA == 0) {
-            // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
-            // manually assign other diagonals (one of the 4 possible "capturing" faces)
-            if ((index1 == 0)||(index1 == 1)) {
-                index2 = 2;
-                index3 = 4;
-            }
-            else if ((index1 == 2)||(index1 == 3)) {
-                index2 = 0;
-                index3 = 4;
-            }
-            else if ((index1 == 4)||(index1 == 5)) {
-                index2 = 0;
-                index3 = 2;
-            }
+        // Calculate unit vectors for the octahedron that intersect the new cell center
+        double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+        double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
+        if (Angle1 < 0) {
+            Diag1X = GrainUnitVector[9*MyOrientation];
+            Diag1Y = GrainUnitVector[9*MyOrientation + 1];
+            Diag1Z = GrainUnitVector[9*MyOrientation + 2];
         }
         else {
-            // 2nd and 3rd closest diagonals to x0,y0,z0
-            // note that if these are the same length, this means that the octahedron edge captures the new cell center
-            // in this case, either of the 2 possible "capturing" faces will work
-            index2 = MaxIndex(AnglesA);
-            AnglesA[index2] = -1;
-            if (index2 % 2 == 0) AnglesA[index2+1] = -1;
-            if (index2 % 2 == 1) AnglesA[index2-1] = -1;
-            index3 = MaxIndex(AnglesA);
+            Diag1X = -GrainUnitVector[9*MyOrientation];
+            Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
+            Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
         }
 
-        TriangleIndex(78*CellLocation + 3*l + 1) = index2;
-        Diag2X = GrainUnitVector[18*MyOrientation + 3*index2 + 0];
-        Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
-        Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
-        TriangleIndex(78*CellLocation + 3*l + 2) = index3;
-        // if (id == 1) cout << "RankX/RankY/BoxZ are " << RankX << " " << RankY << " " << BoxZ << " indexes are " << index1 << " " << index2 << " " << index3 << endl;
-        Diag3X = GrainUnitVector[18*MyOrientation + 3*index3 + 0];
-        Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
-        Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
+        double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
+        if (Angle2 < 0) {
+            Diag2X = GrainUnitVector[9*MyOrientation + 3];
+            Diag2Y = GrainUnitVector[9*MyOrientation + 4];
+            Diag2Z = GrainUnitVector[9*MyOrientation + 5];
+        }
+        else {
+            Diag2X = -GrainUnitVector[9*MyOrientation + 3];
+            Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
+            Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
+        }
+
+        double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
+        if (Angle3 < 0) {
+            Diag3X = GrainUnitVector[9*MyOrientation + 6];
+            Diag3Y = GrainUnitVector[9*MyOrientation + 7];
+            Diag3Z = GrainUnitVector[9*MyOrientation + 8];
+        }
+        else {
+            Diag3X = -GrainUnitVector[9*MyOrientation + 6];
+            Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
+            Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
+        }
+        // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
+//        double AnglesA[6];
+//        for (int ll=0; ll<6; ll++) {
+//            double xd = GrainUnitVector[18*MyOrientation + 3*ll];
+//            double yd = GrainUnitVector[18*MyOrientation + 3*ll + 1];
+//            double zd = GrainUnitVector[18*MyOrientation + 3*ll + 2];
+//            AnglesA[ll] = (xd*x0 + yd*y0 + zd*z0)/mag0;
+//        }
+//        int index1, index2, index3;
+//        index1 = MaxIndex(AnglesA);
+//        //cout << 78*CellLocation + 3*l << endl;
+//        //TriangleIndex(78*CellLocation + 3*l) = index1;
+//        // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
+//        double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1 + 0];
+//        double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
+//        double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
+//        AnglesA[index1] = -1;
+//        if (index1 % 2 == 0) AnglesA[index1+1] = -1;
+//        if (index1 % 2 == 1) AnglesA[index1-1] = -1;
+//        double MaxA = MaxVal(AnglesA,6);
+//        double Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+//        if (MaxA == 0) {
+//            // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
+//            // manually assign other diagonals (one of the 4 possible "capturing" faces)
+//            if ((index1 == 0)||(index1 == 1)) {
+//                index2 = 2;
+//                index3 = 4;
+//            }
+//            else if ((index1 == 2)||(index1 == 3)) {
+//                index2 = 0;
+//                index3 = 4;
+//            }
+//            else if ((index1 == 4)||(index1 == 5)) {
+//                index2 = 0;
+//                index3 = 2;
+//            }
+//        }
+//        else {
+//            // 2nd and 3rd closest diagonals to x0,y0,z0
+//            // note that if these are the same length, this means that the octahedron edge captures the new cell center
+//            // in this case, either of the 2 possible "capturing" faces will work
+//            index2 = MaxIndex(AnglesA);
+//            AnglesA[index2] = -1;
+//            if (index2 % 2 == 0) AnglesA[index2+1] = -1;
+//            if (index2 % 2 == 1) AnglesA[index2-1] = -1;
+//            index3 = MaxIndex(AnglesA);
+//        }
+//
+//        //TriangleIndex(78*CellLocation + 3*l + 1) = index2;
+//        Diag2X = GrainUnitVector[18*MyOrientation + 3*index2 + 0];
+//        Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
+//        Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
+//        //TriangleIndex(78*CellLocation + 3*l + 2) = index3;
+//        // if (id == 1) cout << "RankX/RankY/BoxZ are " << RankX << " " << RankY << " " << BoxZ << " indexes are " << index1 << " " << index2 << " " << index3 << endl;
+//        Diag3X = GrainUnitVector[18*MyOrientation + 3*index3 + 0];
+//        Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
+//        Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
         double U1[3], U2[3], UU[3], Norm[3];
         U1[0] = Diag2X - Diag1X;
         U1[1] = Diag2Y - Diag1Y;
@@ -368,8 +371,12 @@ void CritDiagLengthCalc(double xp, double yp, double zp, int MyOrientation, int 
         //            cout << "Cycle " << cycle << " id = " << id << " NaN CDL for cell " << NewCellX << " " << NewCellY << " " << BoxZ << endl;
         //        }
         float CDLVal = pow(pow(ParaT*Diag1X,2) + pow(ParaT*Diag1Y,2) + pow(ParaT*Diag1Z,2),0.5);
+        //cout << "CDLVal = " << CDLVal << endl;
         if (std::isnan(CDLVal)) CDLVal = 0.0;
-        CritDiagonalLength(26*CellLocation+l)  = CDLVal;
+        long int CDLIndex = (long int)(26)*CellLocation+(long int)(l);
+        if (CDLIndex < 0) cout << " Value less than zero " << CDLIndex << endl;
+        CritDiagonalLength(CDLIndex)  = CDLVal;
+
 
     }
 }
