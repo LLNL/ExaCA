@@ -41,15 +41,16 @@ namespace Kokkos { //reduction identity must be defined in Kokkos namespace
     };
 }
     
-void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, const int nz, int cycle, int &nn, ViewI CritTimeStep, ViewI CellType, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, int* GrainOrientation, ViewF DOCenter, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank) {
+void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, const int nz, int cycle, int &nn, ViewI CritTimeStep, ViewI CellType, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, int* GrainOrientation, ViewF DOCenter, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank, ViewI Locks) {
     
     // Loop through local list of nucleation events - has the time step exceeded the time step for nucleation at the sites?
     int NucleationThisDT = 0;
     Kokkos::parallel_reduce("NucleiUpdateLoop",PossibleNuclei_ThisRank, KOKKOS_LAMBDA (const int& NucCounter, int &update) {
         //printf("Nucleation Check: rank, cycle, i %d %d %d \n",id,cycle,NucCounter);
         if ((cycle >= NucleationTimes(NucCounter))&&(CellType(NucleiLocations(NucCounter)) == LiqSol)) {
+            Locks(NucleiLocations(NucCounter)) = 1;
             //printf("Nucleation: rank, cycle, NucTime %d %d %d",id,cycle,NucleationTimes(NucCounter));
-            int D3D1ConvPosition = NucleiLocations(NucCounter);
+            long int D3D1ConvPosition = NucleiLocations(NucCounter);
             // This undercooled liquid cell is now a nuclei (add to count if it isn't in the ghost nodes, to avoid double counting)
             int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
             int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
@@ -62,12 +63,14 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
             CellType(D3D1ConvPosition) = Active;
             GrainID(D3D1ConvPosition) = MyGrainID;
             DiagonalLength(D3D1ConvPosition) = 0.01;
-            DOCenter(3*D3D1ConvPosition) = GlobalX + 0.5;
-            DOCenter(3*D3D1ConvPosition+1) = GlobalY + 0.5;
-            DOCenter(3*D3D1ConvPosition+2) = RankZ + 0.5;
+            long int DOX = (long int)(3)*D3D1ConvPosition;
+            long int DOY = (long int)(3)*D3D1ConvPosition+(long int)(1);
+            long int DOZ = (long int)(3)*D3D1ConvPosition+(long int)(2);
+            DOCenter(DOX) = GlobalX + 0.5;
+            DOCenter(DOY) = GlobalY + 0.5;
+            DOCenter(DOZ) = RankZ + 0.5;
             // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative GrainID values)
             int MyOrientation = GrainOrientation[((abs(MyGrainID) - 1) % NGrainOrientations)];
-
             // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
             for (int n=0; n<26; n++)  {
 
@@ -83,87 +86,124 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
                 // mag0 is the magnitude of (x0,y0,z0)
                 double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
 
-                // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
-                double AnglesA[6];
-                for (int aa=0; aa<6; aa++) {
-                    double xd = GrainUnitVector[18*MyOrientation + 3*aa];
-                    double yd = GrainUnitVector[18*MyOrientation + 3*aa + 1];
-                    double zd = GrainUnitVector[18*MyOrientation + 3*aa + 2];
-                    AnglesA[aa] = (xd*x0 + yd*y0 + zd*z0)/mag0;
-                }
-
-                int index1, index2, index3;
-                index1 = 0;
-                for (int ii=1; ii<6; ii++) {
-                    if (AnglesA[index1] < AnglesA[ii]) {
-                        index1 = ii;
-                    }
-                }
-
-                TriangleIndex(78*D3D1ConvPosition + 3*n) = index1;
-                // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
-                double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1 + 0];
-                double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
-                double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
-                AnglesA[index1] = -1;
-                if (index1 % 2 == 0) AnglesA[index1+1] = -1;
-                if (index1 % 2 == 1) AnglesA[index1-1] = -1;
-
-                double MaxA = AnglesA[0];
-                for (int ii=1; ii<6; ii++) {
-                    if (MaxA < AnglesA[ii]) {
-                        MaxA = AnglesA[ii];
-                    }
-                }
-
-
-                double Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                if (MaxA == 0) {
-                    // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
-                    // manually assign other diagonals (one of the 4 possible "capturing" faces)
-                    if ((index1 == 0)||(index1 == 1)) {
-                        index2 = 2;
-                        index3 = 4;
-                    }
-                    else if ((index1 == 2)||(index1 == 3)) {
-                        index2 = 0;
-                        index3 = 4;
-                    }
-                    else if ((index1 == 4)||(index1 == 5)) {
-                        index2 = 0;
-                        index3 = 2;
-                    }
+                // Calculate unit vectors for the octahedron that intersect the new cell center
+                double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                double Angle1 = (GrainUnitVector[18*MyOrientation]*x0 + GrainUnitVector[18*MyOrientation + 1]*y0 + GrainUnitVector[18*MyOrientation + 2]*z0)/mag0;
+                if (Angle1 < 0) {
+                    Diag1X = GrainUnitVector[18*MyOrientation];
+                    Diag1Y = GrainUnitVector[18*MyOrientation + 1];
+                    Diag1Z = GrainUnitVector[18*MyOrientation + 2];
                 }
                 else {
-                    // 2nd and 3rd closest diagonals to x0,y0,z0
-                    // note that if these are the same length, this means that the octahedron edge captures the new cell center
-                    // in this case, either of the 2 possible "capturing" faces will work
-                    index2 = 0;
-                    for (int ii=1; ii<6; ii++) {
-                        if (AnglesA[index2] < AnglesA[ii]) {
-                            index2 = ii;
-                        }
-                    }
-                    AnglesA[index2] = -1;
-                    if (index2 % 2 == 0) AnglesA[index2+1] = -1;
-                    if (index2 % 2 == 1) AnglesA[index2-1] = -1;
-                    // index3 = MaxIndex(AnglesA);
-                    index3 = 0;
-                    for (int ii=1; ii<6; ii++) {
-                        if (AnglesA[index3] < AnglesA[ii]) {
-                            index3 = ii;
-                        }
-                    }
-
+                    Diag1X = GrainUnitVector[18*MyOrientation + 3];
+                    Diag1Y = GrainUnitVector[18*MyOrientation + 4];
+                    Diag1Z = GrainUnitVector[18*MyOrientation + 5];
                 }
-                TriangleIndex(78*D3D1ConvPosition + 3*n + 1) = index2;
-                Diag2X = GrainUnitVector[18*MyOrientation + 3*index2 + 0];
-                Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
-                Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
-                TriangleIndex(78*D3D1ConvPosition + 3*n + 2) = index3;
-                Diag3X = GrainUnitVector[18*MyOrientation + 3*index3 + 0];
-                Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
-                Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
+                
+                double Angle2 = (GrainUnitVector[18*MyOrientation + 6]*x0 + GrainUnitVector[18*MyOrientation + 7]*y0 + GrainUnitVector[18*MyOrientation + 8]*z0)/mag0;
+                if (Angle2 < 0) {
+                    Diag1X = GrainUnitVector[18*MyOrientation + 6];
+                    Diag1Y = GrainUnitVector[18*MyOrientation + 7];
+                    Diag1Z = GrainUnitVector[18*MyOrientation + 8];
+                }
+                else {
+                    Diag1X = GrainUnitVector[18*MyOrientation + 9];
+                    Diag1Y = GrainUnitVector[18*MyOrientation + 10];
+                    Diag1Z = GrainUnitVector[18*MyOrientation + 11];
+                }
+                
+                double Angle3 = (GrainUnitVector[18*MyOrientation + 12]*x0 + GrainUnitVector[18*MyOrientation + 13]*y0 + GrainUnitVector[18*MyOrientation + 14]*z0)/mag0;
+                if (Angle3 < 0) {
+                    Diag2X = GrainUnitVector[18*MyOrientation + 12];
+                    Diag2Y = GrainUnitVector[18*MyOrientation + 13];
+                    Diag2Z = GrainUnitVector[18*MyOrientation + 14];
+                }
+                else {
+                    Diag3X = GrainUnitVector[18*MyOrientation + 15];
+                    Diag3Y = GrainUnitVector[18*MyOrientation + 16];
+                    Diag3Z = GrainUnitVector[18*MyOrientation + 17];
+                }
+                
+                // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
+//                double AnglesA[6];
+//                for (int aa=0; aa<6; aa++) {
+//                    double xd = GrainUnitVector[18*MyOrientation + 3*aa];
+//                    double yd = GrainUnitVector[18*MyOrientation + 3*aa + 1];
+//                    double zd = GrainUnitVector[18*MyOrientation + 3*aa + 2];
+//                    AnglesA[aa] = (xd*x0 + yd*y0 + zd*z0)/mag0;
+//                }
+//                int index1, index2, index3;
+//                index1 = 0;
+//                for (int ii=1; ii<6; ii++) {
+//                    if (AnglesA[index1] < AnglesA[ii]) {
+//                        index1 = ii;
+//                    }
+//                }
+//
+//                //TriangleIndex(78*D3D1ConvPosition + 3*n) = index1;
+//                // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
+//                double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1 + 0];
+//                double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
+//                double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
+//                AnglesA[index1] = -1;
+//                if (index1 % 2 == 0) AnglesA[index1+1] = -1;
+//                if (index1 % 2 == 1) AnglesA[index1-1] = -1;
+//
+//                double MaxA = AnglesA[0];
+//                for (int ii=1; ii<6; ii++) {
+//                    if (MaxA < AnglesA[ii]) {
+//                        MaxA = AnglesA[ii];
+//                    }
+//                }
+//
+//
+//                double Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+//                if (MaxA == 0) {
+//                    // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
+//                    // manually assign other diagonals (one of the 4 possible "capturing" faces)
+//                    if ((index1 == 0)||(index1 == 1)) {
+//                        index2 = 2;
+//                        index3 = 4;
+//                    }
+//                    else if ((index1 == 2)||(index1 == 3)) {
+//                        index2 = 0;
+//                        index3 = 4;
+//                    }
+//                    else if ((index1 == 4)||(index1 == 5)) {
+//                        index2 = 0;
+//                        index3 = 2;
+//                    }
+//                }
+//                else {
+//                    // 2nd and 3rd closest diagonals to x0,y0,z0
+//                    // note that if these are the same length, this means that the octahedron edge captures the new cell center
+//                    // in this case, either of the 2 possible "capturing" faces will work
+//                    index2 = 0;
+//                    for (int ii=1; ii<6; ii++) {
+//                        if (AnglesA[index2] < AnglesA[ii]) {
+//                            index2 = ii;
+//                        }
+//                    }
+//                    AnglesA[index2] = -1;
+//                    if (index2 % 2 == 0) AnglesA[index2+1] = -1;
+//                    if (index2 % 2 == 1) AnglesA[index2-1] = -1;
+//                    // index3 = MaxIndex(AnglesA);
+//                    index3 = 0;
+//                    for (int ii=1; ii<6; ii++) {
+//                        if (AnglesA[index3] < AnglesA[ii]) {
+//                            index3 = ii;
+//                        }
+//                    }
+//
+//                }
+//                //TriangleIndex(78*D3D1ConvPosition + 3*n + 1) = index2;
+//                Diag2X = GrainUnitVector[18*MyOrientation + 3*index2 + 0];
+//                Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
+//                Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
+//                //TriangleIndex(78*D3D1ConvPosition + 3*n + 2) = index3;
+//                Diag3X = GrainUnitVector[18*MyOrientation + 3*index3 + 0];
+//                Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
+//                Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
                 double U1[3], U2[3], UU[3], Norm[3];
                 U1[0] = Diag2X - Diag1X;
                 U1[1] = Diag2Y - Diag1Y;
@@ -187,7 +227,9 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
                 //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
                 //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
                 //                                }
-                CritDiagonalLength(26*D3D1ConvPosition+n) = CDLVal;
+                long int CDLIndex = (long int)(26)*D3D1ConvPosition + (long int)(n);
+                CritDiagonalLength(CDLIndex) = CDLVal;
+                //printf("ID = %d Orient = %d GID = %d Diag %d CDL %f \n",id,MyOrientation,MyGrainID,n,CDLVal);
                 //printf("CDLVal : %d %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,n,mag0,index1,index2,index3,normx,normy,normz);
             }
         }
@@ -200,10 +242,10 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
 }
     
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int LocalDomainSize, int MyXSlices, int MyYSlices, const int nz, double AConst, double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, float* GrainUnitVector, ViewI TriangleIndex, ViewF CritDiagonalLength, ViewF DiagonalLength, int* GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, ViewI Locks) {
+void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int LocalDomainSize, int MyXSlices, int MyYSlices, const int nz, double AConst, double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, float* GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, int* GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, ViewI Locks) {
     
     // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to be accounted for
-    Kokkos::parallel_for ("CellCapture",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
+    Kokkos::parallel_for ("CellCapture",LocalDomainSize, KOKKOS_LAMBDA (const long int& D3D1ConvPosition) {
         
         // Test
 //        if ((UndercoolingCurrent(D3D1ConvPosition) < 0)&&(cycle > CritTimeStep(D3D1ConvPosition)+1)&&(CellType(D3D1ConvPosition) != Wall)) {
@@ -306,7 +348,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                     int MyNeighborX = RankX + NeighborX[l];
                     int MyNeighborY = RankY + NeighborY[l];
                     int MyNeighborZ = RankZ + NeighborZ[l];
-                    int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
+                    long int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
                     //                printf("Old cell at %d %d %d , CDL for direction %d is %f : \n", RankX,RankY,RankZ,ll,CritDiagonalLength(26*D3D1ConvPosition+l));
                     if ((CellType(NeighborD3D1ConvPosition) == Liquid)||(CellType(NeighborD3D1ConvPosition) == LiqSol)||(CellType(NeighborD3D1ConvPosition) == Delayed)) LCount = 1;
                     // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
@@ -332,33 +374,134 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                             // The new cell is captured by this cell's growing octahedron (Grain "h")
                             GrainID(NeighborD3D1ConvPosition) = h;
                             // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
-                            double cxold = DOCenter(3*D3D1ConvPosition);
-                            double cyold = DOCenter(3*D3D1ConvPosition+1);
-                            double czold = DOCenter(3*D3D1ConvPosition+2);
+                            double cxold = DOCenter((long int)(3)*D3D1ConvPosition);
+                            double cyold = DOCenter((long int)(3)*D3D1ConvPosition+(long int)(1));
+                            double czold = DOCenter((long int)(3)*D3D1ConvPosition+(long int)(2));
                             
                             // (xp,yp,zp) are the global coordinates of the new cell's center
                             double xp = GlobalX + NeighborX[l] + 0.5;
                             double yp = GlobalY + NeighborY[l] + 0.5;
                             double zp = RankZ + NeighborZ[l] + 0.5;
-                            // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of the new  cell
+                            
+                            // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of the new cell
                             double x0 = xp - cxold;
                             double y0 = yp - cyold;
                             double z0 = zp - czold;
                             
-                            int index1 = TriangleIndex(78*D3D1ConvPosition + 3*l);
-                            int index2 = TriangleIndex(78*D3D1ConvPosition + 3*l + 1);
-                            int index3 = TriangleIndex(78*D3D1ConvPosition + 3*l + 2);
+                            // mag0 is the magnitude of (x0,y0,z0)
+                            double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
                             
-                            double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1];
-                            double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
-                            double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
+                            // Calculate unit vectors for the octahedron that intersect the new cell center
+                            double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                            double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
+                            if (Angle1 < 0) {
+                                Diag1X = GrainUnitVector[9*MyOrientation];
+                                Diag1Y = GrainUnitVector[9*MyOrientation + 1];
+                                Diag1Z = GrainUnitVector[9*MyOrientation + 2];
+                            }
+                            else {
+                                Diag1X = -GrainUnitVector[9*MyOrientation];
+                                Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
+                                Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
+                            }
                             
-                            double Diag2X = GrainUnitVector[18*MyOrientation + 3*index2];
-                            double Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
-                            double Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
-                            double Diag3X = GrainUnitVector[18*MyOrientation + 3*index3];
-                            double Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
-                            double Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
+                            double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
+                            if (Angle2 < 0) {
+                                Diag2X = GrainUnitVector[9*MyOrientation + 3];
+                                Diag2Y = GrainUnitVector[9*MyOrientation + 4];
+                                Diag2Z = GrainUnitVector[9*MyOrientation + 5];
+                            }
+                            else {
+                                Diag2X = -GrainUnitVector[9*MyOrientation + 3];
+                                Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
+                                Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
+                            }
+                            
+                            double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
+                            if (Angle3 < 0) {
+                                Diag3X = GrainUnitVector[9*MyOrientation + 6];
+                                Diag3Y = GrainUnitVector[9*MyOrientation + 7];
+                                Diag3Z = GrainUnitVector[9*MyOrientation + 8];
+                            }
+                            else {
+                                Diag3X = -GrainUnitVector[9*MyOrientation + 6];
+                                Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
+                                Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
+                            }
+                            
+                            // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
+//                            double AnglesA[6];
+//                            int index1, index2, index3;
+//                            for (int aa=0; aa<6; aa++) {
+//                                double xd = GrainUnitVector[18*MyOrientation + 3*aa];
+//                                double yd = GrainUnitVector[18*MyOrientation + 3*aa + 1];
+//                                double zd = GrainUnitVector[18*MyOrientation + 3*aa + 2];
+//                                AnglesA[aa] = (xd*x0 + yd*y0 + zd*z0)/mag0;
+//                            }
+//                            index1 = 0;
+//                            for (int ii=1; ii<6; ii++) {
+//                                if (AnglesA[index1] < AnglesA[ii]) {
+//                                    index1 = ii;
+//                                }
+//                            }
+//                            AnglesA[index1] = -1;
+//                            if (index1 % 2 == 0) AnglesA[index1+1] = -1;
+//                            if (index1 % 2 == 1) AnglesA[index1-1] = -1;
+//
+//                            double MaxA = AnglesA[0];
+//                            for (int ii=1; ii<6; ii++) {
+//                                if (MaxA < AnglesA[ii]) {
+//                                    MaxA = AnglesA[ii];
+//                                }
+//                            }
+//                            if (MaxA == 0) {
+//                                // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
+//                                // manually assign other diagonals (one of the 4 possible "capturing" faces)
+//                                if ((index1 == 0)||(index1 == 1)) {
+//                                    index2 = 2;
+//                                    index3 = 4;
+//                                }
+//                                else if ((index1 == 2)||(index1 == 3)) {
+//                                    index2 = 0;
+//                                    index3 = 4;
+//                                }
+//                                else if ((index1 == 4)||(index1 == 5)) {
+//                                    index2 = 0;
+//                                    index3 = 2;
+//                                }
+//                            }
+//                            else {
+//                                // 2nd and 3rd closest diagonals to x0,y0,z0
+//                                // note that if these are the same length, this means that the octahedron edge captures the new cell center
+//                                // in this case, either of the 2 possible "capturing" faces will work
+//                                index2 = 0;
+//                                for (int ii=1; ii<6; ii++) {
+//                                    if (AnglesA[index2] < AnglesA[ii]) {
+//                                        index2 = ii;
+//                                    }
+//                                }
+//                                AnglesA[index2] = -1;
+//                                if (index2 % 2 == 0) AnglesA[index2+1] = -1;
+//                                if (index2 % 2 == 1) AnglesA[index2-1] = -1;
+//                                // index3 = MaxIndex(AnglesA);
+//                                index3 = 0;
+//                                for (int ii=1; ii<6; ii++) {
+//                                    if (AnglesA[index3] < AnglesA[ii]) {
+//                                        index3 = ii;
+//                                    }
+//                                }
+//
+//                            }
+//                            double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1];
+//                            double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
+//                            double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
+//
+//                            double Diag2X = GrainUnitVector[18*MyOrientation + 3*index2];
+//                            double Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
+//                            double Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
+//                            double Diag3X = GrainUnitVector[18*MyOrientation + 3*index3];
+//                            double Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
+//                            double Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
                             
                             double U1[3], U2[3], UU[3], Norm[3];
                             U1[0] = Diag2X - Diag1X;
@@ -497,9 +640,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                             double cy = yc - NewODiagL*CaptDiagUV[1];
                             double cz = zc - NewODiagL*CaptDiagUV[2];
                             
-                            DOCenter(3*NeighborD3D1ConvPosition) = cx;
-                            DOCenter(3*NeighborD3D1ConvPosition+1) = cy;
-                            DOCenter(3*NeighborD3D1ConvPosition+2) = cz;
+                            DOCenter((long int)(3)*NeighborD3D1ConvPosition) = cx;
+                            DOCenter((long int)(3)*NeighborD3D1ConvPosition+(long int)(1)) = cy;
+                            DOCenter((long int)(3)*NeighborD3D1ConvPosition+(long int)(2)) = cz;
                             // Calculate critical diagonal lengths for the new active cell located at (xp,yp,zp) on the local grid
                             // For each neighbor (l=0 to 25), calculate which octahedron face leads to cell capture
                             // Calculate critical octahedron diagonal length to activate each nearest neighbor, as well as the coordinates of the triangle vertices on the capturing face
@@ -507,13 +650,13 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                 int NeighborOfNeighborX = MyNeighborX + NeighborX[n];
                                 int NeighborOfNeighborY = MyNeighborY + NeighborY[n];
                                 int NeighborOfNeighborZ = MyNeighborZ + NeighborZ[n];
-                                int NeighborOfNeighborPosition = NeighborOfNeighborZ*MyXSlices*MyYSlices + NeighborOfNeighborX*MyYSlices + NeighborOfNeighborY;
+                                long int NeighborOfNeighborPosition = NeighborOfNeighborZ*MyXSlices*MyYSlices + NeighborOfNeighborX*MyYSlices + NeighborOfNeighborY;
                                 if (NeighborOfNeighborPosition == D3D1ConvPosition) {
                                     // Do not calculate critical diagonal length req'd for the newly captured cell to capture the original
-                                    TriangleIndex(78*NeighborD3D1ConvPosition + 3*n) = 6;
-                                    TriangleIndex(78*NeighborD3D1ConvPosition + 3*n + 1) = 6;
-                                    TriangleIndex(78*NeighborD3D1ConvPosition + 3*n + 2) = 6;
-                                    CritDiagonalLength(26*NeighborD3D1ConvPosition+n) = 10000000.0;
+                                    //TriangleIndex(78*NeighborD3D1ConvPosition + 3*n) = 6;
+                                    //TriangleIndex(78*NeighborD3D1ConvPosition + 3*n + 1) = 6;
+                                    //TriangleIndex(78*NeighborD3D1ConvPosition + 3*n + 2) = 6;
+                                    CritDiagonalLength((long int)(26)*NeighborD3D1ConvPosition+(long int)(n)) = 10000000.0;
                                 }
                                 else {
                                     // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of a neighbor cell
@@ -523,87 +666,128 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     // mag0 is the magnitude of (x0,y0,z0)
                                     double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
                                     
-                                    // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
-                                    double AnglesA[6];
-                                    for (int aa=0; aa<6; aa++) {
-                                        double xd = GrainUnitVector[18*MyOrientation + 3*aa];
-                                        double yd = GrainUnitVector[18*MyOrientation + 3*aa + 1];
-                                        double zd = GrainUnitVector[18*MyOrientation + 3*aa + 2];
-                                        AnglesA[aa] = (xd*x0 + yd*y0 + zd*z0)/mag0;
-                                    }
-                                    
-                                    int index1, index2, index3;
-                                    index1 = 0;
-                                    for (int ii=1; ii<6; ii++) {
-                                        if (AnglesA[index1] < AnglesA[ii]) {
-                                            index1 = ii;
-                                        }
-                                    }
-                                    
-                                    TriangleIndex(78*NeighborD3D1ConvPosition + 3*n) = index1;
-                                    // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
-                                    double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1 + 0];
-                                    double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
-                                    double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
-                                    AnglesA[index1] = -1;
-                                    if (index1 % 2 == 0) AnglesA[index1+1] = -1;
-                                    if (index1 % 2 == 1) AnglesA[index1-1] = -1;
-                                    
-                                    double MaxA = AnglesA[0];
-                                    for (int ii=1; ii<6; ii++) {
-                                        if (MaxA < AnglesA[ii]) {
-                                            MaxA = AnglesA[ii];
-                                        }
-                                    }
-                                    
-                                    
-                                    double Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                                    if (MaxA == 0) {
-                                        // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
-                                        // manually assign other diagonals (one of the 4 possible "capturing" faces)
-                                        if ((index1 == 0)||(index1 == 1)) {
-                                            index2 = 2;
-                                            index3 = 4;
-                                        }
-                                        else if ((index1 == 2)||(index1 == 3)) {
-                                            index2 = 0;
-                                            index3 = 4;
-                                        }
-                                        else if ((index1 == 4)||(index1 == 5)) {
-                                            index2 = 0;
-                                            index3 = 2;
-                                        }
+                                    // Calculate unit vectors for the octahedron that intersect the new cell center
+                                    double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                                    double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
+                                    if (Angle1 < 0) {
+                                        Diag1X = GrainUnitVector[9*MyOrientation];
+                                        Diag1Y = GrainUnitVector[9*MyOrientation + 1];
+                                        Diag1Z = GrainUnitVector[9*MyOrientation + 2];
                                     }
                                     else {
-                                        // 2nd and 3rd closest diagonals to x0,y0,z0
-                                        // note that if these are the same length, this means that the octahedron edge captures the new cell center
-                                        // in this case, either of the 2 possible "capturing" faces will work
-                                        index2 = 0;
-                                        for (int ii=1; ii<6; ii++) {
-                                            if (AnglesA[index2] < AnglesA[ii]) {
-                                                index2 = ii;
-                                            }
-                                        }
-                                        AnglesA[index2] = -1;
-                                        if (index2 % 2 == 0) AnglesA[index2+1] = -1;
-                                        if (index2 % 2 == 1) AnglesA[index2-1] = -1;
-                                        // index3 = MaxIndex(AnglesA);
-                                        index3 = 0;
-                                        for (int ii=1; ii<6; ii++) {
-                                            if (AnglesA[index3] < AnglesA[ii]) {
-                                                index3 = ii;
-                                            }
-                                        }
-                                        
+                                        Diag1X = -GrainUnitVector[9*MyOrientation];
+                                        Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
+                                        Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
                                     }
-                                    TriangleIndex(78*NeighborD3D1ConvPosition + 3*n + 1) = index2;
-                                    Diag2X = GrainUnitVector[18*MyOrientation + 3*index2 + 0];
-                                    Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
-                                    Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
-                                    TriangleIndex(78*NeighborD3D1ConvPosition + 3*n + 2) = index3;
-                                    Diag3X = GrainUnitVector[18*MyOrientation + 3*index3 + 0];
-                                    Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
-                                    Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
+
+                                    double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
+                                    if (Angle2 < 0) {
+                                        Diag2X = GrainUnitVector[9*MyOrientation + 3];
+                                        Diag2Y = GrainUnitVector[9*MyOrientation + 4];
+                                        Diag2Z = GrainUnitVector[9*MyOrientation + 5];
+                                    }
+                                    else {
+                                        Diag2X = -GrainUnitVector[9*MyOrientation + 3];
+                                        Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
+                                        Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
+                                    }
+
+                                    double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
+                                    if (Angle3 < 0) {
+                                        Diag3X = GrainUnitVector[9*MyOrientation + 6];
+                                        Diag3Y = GrainUnitVector[9*MyOrientation + 7];
+                                        Diag3Z = GrainUnitVector[9*MyOrientation + 8];
+                                    }
+                                    else {
+                                        Diag3X = -GrainUnitVector[9*MyOrientation + 6];
+                                        Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
+                                        Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
+                                    }
+                                    // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
+
+//                                    double AnglesA[6];
+//                                    for (int aa=0; aa<6; aa++) {
+//                                        double xd = GrainUnitVector[18*MyOrientation + 3*aa];
+//                                        double yd = GrainUnitVector[18*MyOrientation + 3*aa + 1];
+//                                        double zd = GrainUnitVector[18*MyOrientation + 3*aa + 2];
+//                                        AnglesA[aa] = (xd*x0 + yd*y0 + zd*z0)/mag0;
+//                                    }
+//
+//                                    int index1N, index2N, index3N;
+//                                    index1N = 0;
+//                                    for (int ii=1; ii<6; ii++) {
+//                                        if (AnglesA[index1N] < AnglesA[ii]) {
+//                                            index1N = ii;
+//                                        }
+//                                    }
+//
+//                                    //TriangleIndex(78*NeighborD3D1ConvPosition + 3*n) = index1N;
+//
+//                                    // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
+//                                    double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1N + 0];
+//                                    double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1N + 1];
+//                                    double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1N + 2];
+//                                    AnglesA[index1N] = -1;
+//                                    if (index1N % 2 == 0) AnglesA[index1N+1] = -1;
+//                                    if (index1N % 2 == 1) AnglesA[index1N-1] = -1;
+//
+//                                    double MaxA = AnglesA[0];
+//                                    for (int ii=1; ii<6; ii++) {
+//                                        if (MaxA < AnglesA[ii]) {
+//                                            MaxA = AnglesA[ii];
+//                                        }
+//                                    }
+//
+//
+//                                    double Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+//                                    if (MaxA == 0) {
+//                                        // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
+//                                        // manually assign other diagonals (one of the 4 possible "capturing" faces)
+//                                        if ((index1N == 0)||(index1N == 1)) {
+//                                            index2 = 2;
+//                                            index3 = 4;
+//                                        }
+//                                        else if ((index1N == 2)||(index1N == 3)) {
+//                                            index2 = 0;
+//                                            index3 = 4;
+//                                        }
+//                                        else if ((index1N == 4)||(index1N == 5)) {
+//                                            index2 = 0;
+//                                            index3 = 2;
+//                                        }
+//                                    }
+//                                    else {
+//                                        // 2nd and 3rd closest diagonals to x0,y0,z0
+//                                        // note that if these are the same length, this means that the octahedron edge captures the new cell center
+//                                        // in this case, either of the 2 possible "capturing" faces will work
+//                                        index2N = 0;
+//                                        for (int ii=1; ii<6; ii++) {
+//                                            if (AnglesA[index2N] < AnglesA[ii]) {
+//                                                index2N = ii;
+//                                            }
+//                                        }
+//                                        AnglesA[index2N] = -1;
+//                                        if (index2N % 2 == 0) AnglesA[index2N+1] = -1;
+//                                        if (index2N % 2 == 1) AnglesA[index2N-1] = -1;
+//                                        // index3 = MaxIndex(AnglesA);
+//                                        index3N = 0;
+//                                        for (int ii=1; ii<6; ii++) {
+//                                            if (AnglesA[index3N] < AnglesA[ii]) {
+//                                                index3N = ii;
+//                                            }
+//                                        }
+//
+//                                    }
+//                                    //TriangleIndex(78*NeighborD3D1ConvPosition + 3*n + 1) = index2N;
+//                                    Diag2X = GrainUnitVector[18*MyOrientation + 3*index2N + 0];
+//                                    Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2N + 1];
+//                                    Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2N + 2];
+//                                    //TriangleIndex(78*NeighborD3D1ConvPosition + 3*n + 2) = index3N;
+//                                    Diag3X = GrainUnitVector[18*MyOrientation + 3*index3N + 0];
+//                                    Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3N + 1];
+//                                    Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3N + 2];
+//                                    
+                                    
                                     double U1[3], U2[3], UU[3], Norm[3];
                                     U1[0] = Diag2X - Diag1X;
                                     U1[1] = Diag2Y - Diag1Y;
@@ -627,30 +811,36 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
                                     //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
                                     //                                }
-                                    CritDiagonalLength(26*NeighborD3D1ConvPosition+n) = CDLVal;
+                                    CritDiagonalLength((long int)(26)*NeighborD3D1ConvPosition+(long int)(n)) = CDLVal;
                                     //                                if (CDLVal == 0.0) printf("Zero CDLVal : %d %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,n,mag0,index1,index2,index3,normx,normy,normz);
                                 }
                             }
                             
                             if (np > 0) {
+                                
+                                float GhostGID = (float)(GrainID(NeighborD3D1ConvPosition));
+                                float GhostDOCX = DOCenter((long int)(3)*NeighborD3D1ConvPosition);
+                                float GhostDOCY = DOCenter((long int)(3)*NeighborD3D1ConvPosition+(long int)(1));
+                                float GhostDOCZ = DOCenter((long int)(3)*NeighborD3D1ConvPosition+(long int)(2));
+                                float GhostDL = DiagonalLength(NeighborD3D1ConvPosition);
                                 // Collect data for the ghost nodes:
                                 if (DecompositionStrategy == 1) {
                                     int GNPosition = MyNeighborZ*BufSizeX + MyNeighborX;
                                     if (MyNeighborY == 1) {
-                                        BufferA(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                        BufferA(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                        BufferA(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                        BufferA(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                        BufferA(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                        BufferA(GNPosition,0) = GhostGID;
+                                        BufferA(GNPosition,1) = GhostDOCX;
+                                        BufferA(GNPosition,2) = GhostDOCY;
+                                        BufferA(GNPosition,3) = GhostDOCZ;
+                                        BufferA(GNPosition,4) = GhostDL;
                                         //printf("NewDL for A is %f \n",BufferA(GNPosition,4));
                                     }
                                     else if (MyNeighborY == MyYSlices-2) {
                                         int GNPosition = MyNeighborZ*BufSizeX + MyNeighborX;
-                                        BufferB(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                        BufferB(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                        BufferB(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                        BufferB(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                        BufferB(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                        BufferB(GNPosition,0) = GhostGID;
+                                        BufferB(GNPosition,1) = GhostDOCX;
+                                        BufferB(GNPosition,2) = GhostDOCY;
+                                        BufferB(GNPosition,3) = GhostDOCZ;
+                                        BufferB(GNPosition,4) = GhostDL;
                                         //printf("NewDL for B is %f \n",BufferB(GNPosition,4));
                                     }
                                 }
@@ -660,123 +850,123 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         if (MyNeighborX == MyXSlices-2) {
                                             // To MyLeft (BufferA)
                                             int GNPosition = MyNeighborZ*BufSizeX + MyNeighborX-1;
-                                            BufferA(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferA(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferA(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferA(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferA(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferA(GNPosition,0) = GhostGID;
+                                            BufferA(GNPosition,1) = GhostDOCX;
+                                            BufferA(GNPosition,2) = GhostDOCY;
+                                            BufferA(GNPosition,3) = GhostDOCZ;
+                                            BufferA(GNPosition,4) = GhostDL;
                                             // To MyOut (BufferC)
                                             GNPosition = MyNeighborZ*BufSizeY + MyNeighborY-1;
-                                            BufferC(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferC(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferC(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferC(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferC(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferC(GNPosition,0) = GhostGID;
+                                            BufferC(GNPosition,1) = GhostDOCX;
+                                            BufferC(GNPosition,2) = GhostDOCY;
+                                            BufferC(GNPosition,3) = GhostDOCZ;
+                                            BufferC(GNPosition,4) = GhostDL;
                                             // To MyLeftOut (BufferE)
                                             GNPosition = MyNeighborZ;
-                                            BufferE(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferE(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferE(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferE(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferE(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferE(GNPosition,0) = GhostGID;
+                                            BufferE(GNPosition,1) = GhostDOCX;
+                                            BufferE(GNPosition,2) = GhostDOCY;
+                                            BufferE(GNPosition,3) = GhostDOCZ;
+                                            BufferE(GNPosition,4) = GhostDL;
                                         }
                                         else if (MyNeighborX == 1) {
                                             int GNPosition = MyNeighborZ*BufSizeX + MyNeighborX-1;
-                                            BufferA(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferA(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferA(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferA(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferA(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferA(GNPosition,0) = GhostGID;
+                                            BufferA(GNPosition,1) = GhostDOCX;
+                                            BufferA(GNPosition,2) = GhostDOCY;
+                                            BufferA(GNPosition,3) = GhostDOCZ;
+                                            BufferA(GNPosition,4) = GhostDL;
                                             GNPosition = MyNeighborZ*BufSizeY + MyNeighborY-1;
-                                            BufferD(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferD(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferD(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferD(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferD(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferD(GNPosition,0) = GhostGID;
+                                            BufferD(GNPosition,1) = GhostDOCX;
+                                            BufferD(GNPosition,2) = GhostDOCY;
+                                            BufferD(GNPosition,3) = GhostDOCZ;
+                                            BufferD(GNPosition,4) = GhostDL;
                                             GNPosition = MyNeighborZ;
-                                            BufferG(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferG(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferG(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferG(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferG(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferG(GNPosition,0) = GhostGID;
+                                            BufferG(GNPosition,1) = GhostDOCX;
+                                            BufferG(GNPosition,2) = GhostDOCY;
+                                            BufferG(GNPosition,3) = GhostDOCZ;
+                                            BufferG(GNPosition,4) = GhostDL;
                                         }
                                         else if ((MyNeighborX > 1)&&(MyNeighborX < MyXSlices-2)) {
                                             // This is being sent to MyLeft
                                             int GNPosition = MyNeighborZ*BufSizeX + MyNeighborX-1;
-                                            BufferA(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferA(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferA(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferA(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferA(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferA(GNPosition,0) = GhostGID;
+                                            BufferA(GNPosition,1) = GhostDOCX;
+                                            BufferA(GNPosition,2) = GhostDOCY;
+                                            BufferA(GNPosition,3) = GhostDOCZ;
+                                            BufferA(GNPosition,4) = GhostDL;
                                         }
                                     }
                                     else if (MyNeighborY == MyYSlices-2) {
                                         // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
                                         if (MyNeighborX == MyXSlices-2) {
                                             int GNPosition = MyNeighborZ*BufSizeX + MyNeighborX-1;
-                                            BufferB(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferB(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferB(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferB(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferB(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferB(GNPosition,0) = GhostGID;
+                                            BufferB(GNPosition,1) = GhostDOCX;
+                                            BufferB(GNPosition,2) = GhostDOCY;
+                                            BufferB(GNPosition,3) = GhostDOCZ;
+                                            BufferB(GNPosition,4) = GhostDL;
                                             GNPosition = MyNeighborZ*BufSizeY + MyNeighborY-1;
-                                            BufferC(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferC(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferC(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferC(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferC(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferC(GNPosition,0) = GhostGID;
+                                            BufferC(GNPosition,1) = GhostDOCX;
+                                            BufferC(GNPosition,2) = GhostDOCY;
+                                            BufferC(GNPosition,3) = GhostDOCZ;
+                                            BufferC(GNPosition,4) = GhostDL;
                                             GNPosition = MyNeighborZ;
-                                            BufferF(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferF(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferF(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferF(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferF(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferF(GNPosition,0) = GhostGID;
+                                            BufferF(GNPosition,1) = GhostDOCX;
+                                            BufferF(GNPosition,2) = GhostDOCY;
+                                            BufferF(GNPosition,3) = GhostDOCZ;
+                                            BufferF(GNPosition,4) = GhostDL;
                                         }
                                         else if (MyNeighborX == 1) {
                                             int GNPosition = MyNeighborZ*BufSizeX + MyNeighborX-1;
-                                            BufferB(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferB(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferB(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferB(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferB(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferB(GNPosition,0) = GhostGID;
+                                            BufferB(GNPosition,1) = GhostDOCX;
+                                            BufferB(GNPosition,2) = GhostDOCY;
+                                            BufferB(GNPosition,3) = GhostDOCZ;
+                                            BufferB(GNPosition,4) = GhostDL;
                                             GNPosition = MyNeighborZ*BufSizeY + MyNeighborY-1;
-                                            BufferD(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferD(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferD(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferD(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferD(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferD(GNPosition,0) = GhostGID;
+                                            BufferD(GNPosition,1) = GhostDOCX;
+                                            BufferD(GNPosition,2) = GhostDOCY;
+                                            BufferD(GNPosition,3) = GhostDOCZ;
+                                            BufferD(GNPosition,4) = GhostDL;
                                             GNPosition = MyNeighborZ;
-                                            BufferH(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferH(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferH(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferH(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferH(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferH(GNPosition,0) = GhostGID;
+                                            BufferH(GNPosition,1) = GhostDOCX;
+                                            BufferH(GNPosition,2) = GhostDOCY;
+                                            BufferH(GNPosition,3) = GhostDOCZ;
+                                            BufferH(GNPosition,4) = GhostDL;
                                         }
                                         else if ((MyNeighborX > 1)&&(MyNeighborX < MyXSlices-2)) {
                                             int GNPosition = MyNeighborZ*BufSizeX + MyNeighborX-1;
-                                            BufferB(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                            BufferB(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                            BufferB(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                            BufferB(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                            BufferB(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                            BufferB(GNPosition,0) = GhostGID;
+                                            BufferB(GNPosition,1) = GhostDOCX;
+                                            BufferB(GNPosition,2) = GhostDOCY;
+                                            BufferB(GNPosition,3) = GhostDOCZ;
+                                            BufferB(GNPosition,4) = GhostDL;
                                         }
                                     }
                                     else if ((MyNeighborX == 1)&&(MyNeighborY > 1)&&(MyNeighborY < MyYSlices-2)) {
                                         int GNPosition = MyNeighborZ*BufSizeY + MyNeighborY-1;
-                                        BufferD(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                        BufferD(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                        BufferD(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                        BufferD(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                        BufferD(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                        BufferD(GNPosition,0) = GhostGID;
+                                        BufferD(GNPosition,1) = GhostDOCX;
+                                        BufferD(GNPosition,2) = GhostDOCY;
+                                        BufferD(GNPosition,3) = GhostDOCZ;
+                                        BufferD(GNPosition,4) = GhostDL;
                                         //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
                                     }
                                     else if ((MyNeighborX == MyXSlices-2)&&(MyNeighborY > 1)&&(MyNeighborY < MyYSlices-2)) {
                                         int GNPosition = MyNeighborZ*BufSizeY + MyNeighborY-1;
-                                        BufferC(GNPosition,0) = (float)(GrainID(NeighborD3D1ConvPosition));
-                                        BufferC(GNPosition,1) = DOCenter(3*NeighborD3D1ConvPosition);
-                                        BufferC(GNPosition,2) = DOCenter(3*NeighborD3D1ConvPosition+1);
-                                        BufferC(GNPosition,3) = DOCenter(3*NeighborD3D1ConvPosition+2);
-                                        BufferC(GNPosition,4) = DiagonalLength(NeighborD3D1ConvPosition);
+                                        BufferC(GNPosition,0) = GhostGID;
+                                        BufferC(GNPosition,1) = GhostDOCX;
+                                        BufferC(GNPosition,2) = GhostDOCY;
+                                        BufferC(GNPosition,3) = GhostDOCZ;
+                                        BufferC(GNPosition,4) = GhostDL;
                                     }
                                 } // End if statement for ghost node marking
                             } // End if statement for serial/parallel code
@@ -797,7 +987,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
 
     Kokkos::fence();
     // Fix corrupted lock values
-    Kokkos::parallel_for ("CellCapture",LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
+    Kokkos::parallel_for ("CellCapture",LocalDomainSize, KOKKOS_LAMBDA (const long int& D3D1ConvPosition) {
         if ((CellType(D3D1ConvPosition) == Liquid)||(CellType(D3D1ConvPosition) == LiqSol)||(CellType(D3D1ConvPosition) == Delayed)) {
             Kokkos::atomic_compare_exchange(&Locks(D3D1ConvPosition),0,1);
         }

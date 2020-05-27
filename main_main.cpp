@@ -15,19 +15,15 @@ int main ( int argc, char *argv[] ) {
         
         if (id == 0) Kokkos::DefaultExecutionSpace::print_configuration(std::cout);
         if (id == 0) cout << "Number of MPI ranks = " << np << endl;
-        // Variables with values taken from input file "MasterInputs.txt"
-        int DecompositionStrategy;
-        double deltax, AConst, BConst, CConst, DConst, NMax, dTN, dTsigma;
-        string BaseFileName, GrainOrientationFile, TemperatureDataType;
         
-        MasterInputRead(DecompositionStrategy, deltax, AConst, BConst, CConst, DConst, NMax, dTN, dTsigma, BaseFileName, GrainOrientationFile, TemperatureDataType);
-        
-        // Run CA code based on bulky of reduced version of data
-        if (TemperatureDataType == "B") {
-            RunProgram_Bulky(id,np,ierr,DecompositionStrategy, deltax, AConst, BConst, CConst, NMax, dTN, dTsigma, BaseFileName, GrainOrientationFile);
+        char* InputFileEnv = getenv ("CAINPUT");
+        if (InputFileEnv == NULL) {
+            if (id == 0) cout << "Error: Input file not found, program will not run" << endl;
         }
         else {
-            RunProgram_Reduced(id,np,ierr,DecompositionStrategy, deltax, AConst, BConst, CConst, DConst, NMax, dTN, dTsigma, BaseFileName, GrainOrientationFile, TemperatureDataType);
+            // Run CA code using reduced temperature data format
+            string InputFile(InputFileEnv);
+            RunProgram_Reduced(id, np, ierr, InputFile);
         }
         
     }
