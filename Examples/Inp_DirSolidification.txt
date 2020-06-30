@@ -2,7 +2,7 @@ Test problem simulating constrained alloy solidification (Problem type 'C')
 *****
 Problem type: 'C'
 Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
-Material:'Inconel'
+Material:'Inconel718'
 Cell size (microns: 1
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
 Mean nucleation undercooling (in K): 5

@@ -2,7 +2,7 @@ Test problem using alternating odd-even layers of a cross-hatching scan pattern 
 *****
 Problem type: 'R'
 Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
-Material:'Inconel'
+Material:'Inconel718'
 Cell size (microns): 5
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 0
 Mean nucleation undercooling (in K): 5
@@ -11,8 +11,8 @@ Output file base name:'TestProblem3'
 File of grain orientations:'GrainOrientationVectors_Robert.csv'
 Name of file containing temperatures:'CA-FOAM-fluidflow.dat'
 Temperature files in the series: 2
-Number of layers simulated at once (should be divisible by number of layers AND Temperature files in the series): 2
 Is the temperature data in the burst buffer (Y or N)?: 'N'
+Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: 'N'
 Heat transport data mesh size (microns): 5
 Truchas in mm (T) or OpenFOAM (O) in m for input data length units:'O'
 Time step (microseconds): 0.3

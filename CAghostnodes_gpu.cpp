@@ -1,8 +1,176 @@
 #include "header.h"
 using namespace std;
 
+// Initial placement of data in ghost nodes
+void GhostNodesInit_GPU(int DecompositionStrategy, int MyXSlices, int MyYSlices, ViewI GrainID, ViewI CellType, ViewF DOCenter, ViewF DiagonalLength, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, int LocalActiveDomainSize, int ZBound_Low) {
+    
+    // Fill buffers with ghost node data following initialization of data on GPUs
+    Kokkos::parallel_for ("GNInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const long int& D3D1ConvPosition) {
+        
+        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
+        int RankX = floor(Rem/MyYSlices);
+        int RankY = Rem % MyYSlices;
+        int GlobalZ = RankZ + ZBound_Low;
+        int D3D1ConvPositionGlobal = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+        
+        float GhostGID = (float)(GrainID(D3D1ConvPositionGlobal));
+        float GhostDOCX = DOCenter((long int)(3)*D3D1ConvPosition);
+        float GhostDOCY = DOCenter((long int)(3)*D3D1ConvPosition+(long int)(1));
+        float GhostDOCZ = DOCenter((long int)(3)*D3D1ConvPosition+(long int)(2));
+        float GhostDL = DiagonalLength(D3D1ConvPosition);
+        
+        // Collect data for the ghost nodes:
+        if (DecompositionStrategy == 1) {
+            int GNPosition = RankZ*BufSizeX + RankX;
+            if (RankY == 1) {
+                BufferA(GNPosition,0) = GhostGID;
+                BufferA(GNPosition,1) = GhostDOCX;
+                BufferA(GNPosition,2) = GhostDOCY;
+                BufferA(GNPosition,3) = GhostDOCZ;
+                BufferA(GNPosition,4) = GhostDL;
+                //printf("NewDL for A is %f \n",BufferA(GNPosition,4));
+            }
+            else if (RankY == MyYSlices-2) {
+                BufferB(GNPosition,0) = GhostGID;
+                BufferB(GNPosition,1) = GhostDOCX;
+                BufferB(GNPosition,2) = GhostDOCY;
+                BufferB(GNPosition,3) = GhostDOCZ;
+                BufferB(GNPosition,4) = GhostDL;
+                //printf("NewDL for B is %f \n",BufferB(GNPosition,4));
+            }
+        }
+        else {
+            if (RankY == 1) {
+                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                if (RankX == MyXSlices-2) {
+                    // To MyLeft (BufferA)
+                    int GNPosition = RankZ*BufSizeX + RankX-1;
+                    BufferA(GNPosition,0) = GhostGID;
+                    BufferA(GNPosition,1) = GhostDOCX;
+                    BufferA(GNPosition,2) = GhostDOCY;
+                    BufferA(GNPosition,3) = GhostDOCZ;
+                    BufferA(GNPosition,4) = GhostDL;
+                    // To MyOut (BufferC)
+                    GNPosition = RankZ*BufSizeY + RankY-1;
+                    BufferC(GNPosition,0) = GhostGID;
+                    BufferC(GNPosition,1) = GhostDOCX;
+                    BufferC(GNPosition,2) = GhostDOCY;
+                    BufferC(GNPosition,3) = GhostDOCZ;
+                    BufferC(GNPosition,4) = GhostDL;
+                    // To MyLeftOut (BufferE)
+                    GNPosition = RankZ;
+                    BufferE(GNPosition,0) = GhostGID;
+                    BufferE(GNPosition,1) = GhostDOCX;
+                    BufferE(GNPosition,2) = GhostDOCY;
+                    BufferE(GNPosition,3) = GhostDOCZ;
+                    BufferE(GNPosition,4) = GhostDL;
+                }
+                else if (RankX == 1) {
+                    int GNPosition = RankZ*BufSizeX + RankX-1;
+                    BufferA(GNPosition,0) = GhostGID;
+                    BufferA(GNPosition,1) = GhostDOCX;
+                    BufferA(GNPosition,2) = GhostDOCY;
+                    BufferA(GNPosition,3) = GhostDOCZ;
+                    BufferA(GNPosition,4) = GhostDL;
+                    GNPosition = RankZ*BufSizeY + RankY-1;
+                    BufferD(GNPosition,0) = GhostGID;
+                    BufferD(GNPosition,1) = GhostDOCX;
+                    BufferD(GNPosition,2) = GhostDOCY;
+                    BufferD(GNPosition,3) = GhostDOCZ;
+                    BufferD(GNPosition,4) = GhostDL;
+                    GNPosition = RankZ;
+                    BufferG(GNPosition,0) = GhostGID;
+                    BufferG(GNPosition,1) = GhostDOCX;
+                    BufferG(GNPosition,2) = GhostDOCY;
+                    BufferG(GNPosition,3) = GhostDOCZ;
+                    BufferG(GNPosition,4) = GhostDL;
+                }
+                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
+                    // This is being sent to MyLeft
+                    int GNPosition = RankZ*BufSizeX + RankX-1;
+                    BufferA(GNPosition,0) = GhostGID;
+                    BufferA(GNPosition,1) = GhostDOCX;
+                    BufferA(GNPosition,2) = GhostDOCY;
+                    BufferA(GNPosition,3) = GhostDOCZ;
+                    BufferA(GNPosition,4) = GhostDL;
+                }
+            }
+            else if (RankY == MyYSlices-2) {
+                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                if (RankX == MyXSlices-2) {
+                    int GNPosition = RankZ*BufSizeX + RankX-1;
+                    BufferB(GNPosition,0) = GhostGID;
+                    BufferB(GNPosition,1) = GhostDOCX;
+                    BufferB(GNPosition,2) = GhostDOCY;
+                    BufferB(GNPosition,3) = GhostDOCZ;
+                    BufferB(GNPosition,4) = GhostDL;
+                    GNPosition = RankZ*BufSizeY + RankY-1;
+                    BufferC(GNPosition,0) = GhostGID;
+                    BufferC(GNPosition,1) = GhostDOCX;
+                    BufferC(GNPosition,2) = GhostDOCY;
+                    BufferC(GNPosition,3) = GhostDOCZ;
+                    BufferC(GNPosition,4) = GhostDL;
+                    GNPosition = RankZ;
+                    BufferF(GNPosition,0) = GhostGID;
+                    BufferF(GNPosition,1) = GhostDOCX;
+                    BufferF(GNPosition,2) = GhostDOCY;
+                    BufferF(GNPosition,3) = GhostDOCZ;
+                    BufferF(GNPosition,4) = GhostDL;
+                }
+                else if (RankX == 1) {
+                    int GNPosition = RankZ*BufSizeX + RankX-1;
+                    BufferB(GNPosition,0) = GhostGID;
+                    BufferB(GNPosition,1) = GhostDOCX;
+                    BufferB(GNPosition,2) = GhostDOCY;
+                    BufferB(GNPosition,3) = GhostDOCZ;
+                    BufferB(GNPosition,4) = GhostDL;
+                    GNPosition = RankZ*BufSizeY + RankY-1;
+                    BufferD(GNPosition,0) = GhostGID;
+                    BufferD(GNPosition,1) = GhostDOCX;
+                    BufferD(GNPosition,2) = GhostDOCY;
+                    BufferD(GNPosition,3) = GhostDOCZ;
+                    BufferD(GNPosition,4) = GhostDL;
+                    GNPosition = RankZ;
+                    BufferH(GNPosition,0) = GhostGID;
+                    BufferH(GNPosition,1) = GhostDOCX;
+                    BufferH(GNPosition,2) = GhostDOCY;
+                    BufferH(GNPosition,3) = GhostDOCZ;
+                    BufferH(GNPosition,4) = GhostDL;
+                }
+                else if ((RankX > 1)&&(RankX < MyXSlices-2)) {
+                    int GNPosition = RankZ*BufSizeX + RankX-1;
+                    BufferB(GNPosition,0) = GhostGID;
+                    BufferB(GNPosition,1) = GhostDOCX;
+                    BufferB(GNPosition,2) = GhostDOCY;
+                    BufferB(GNPosition,3) = GhostDOCZ;
+                    BufferB(GNPosition,4) = GhostDL;
+                }
+            }
+            else if ((RankX == 1)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
+                int GNPosition = RankZ*BufSizeY + RankY-1;
+                BufferD(GNPosition,0) = GhostGID;
+                BufferD(GNPosition,1) = GhostDOCX;
+                BufferD(GNPosition,2) = GhostDOCY;
+                BufferD(GNPosition,3) = GhostDOCZ;
+                BufferD(GNPosition,4) = GhostDL;
+                //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
+            }
+            else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
+                int GNPosition = RankZ*BufSizeY + RankY-1;
+                BufferC(GNPosition,0) = GhostGID;
+                BufferC(GNPosition,1) = GhostDOCX;
+                BufferC(GNPosition,2) = GhostDOCY;
+                BufferC(GNPosition,3) = GhostDOCZ;
+                BufferC(GNPosition,4) = GhostDL;
+            }
+        } // End if statement for ghost node marking
+    });
+
+}
+
 // 2D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CellType, ViewF DOCenter, ViewI GrainID, float* GrainUnitVector, int* GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, ViewI Locks) {
+void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CellType, ViewF DOCenter, ViewI GrainID, float* GrainUnitVector, int* GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, ViewI Locks, int ZBound_Low) {
 
     Kokkos::fence();
     MPI_Barrier(MPI_COMM_WORLD);
@@ -188,18 +356,20 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
                 if (Place) {
                     // Update this ghost node cell's information with data from other rank
                     //printf("unpack, X/Y/Z, GID, Center, DL %d %d %d %d %d %f %f %f %f \n",unpack_index,CellLocation,RankX,RankY,RankZ,DOCenterX,DOCenterY,DOCenterZ,NewDiagonalLength);
-                    CellType(CellLocation) = Active;
+                    int GlobalZ = RankZ + ZBound_Low;
+                    int GlobalCellLocation = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+                    CellType(GlobalCellLocation) = Active;
                     Locks(CellLocation) = 0;
-                    GrainID(CellLocation) = NewGrainID;
+                    GrainID(GlobalCellLocation) = NewGrainID;
                     DOCenter((long int)(3)*CellLocation) = DOCenterX;
                     DOCenter((long int)(3)*CellLocation+(long int)(1)) = DOCenterY;
                     DOCenter((long int)(3)*CellLocation+(long int)(2)) = DOCenterZ;
-                    int MyOrientation = GrainOrientation[((abs(GrainID(CellLocation)) - 1) % NGrainOrientations)];
+                    int MyOrientation = GrainOrientation[((abs(GrainID(GlobalCellLocation)) - 1) % NGrainOrientations)];
                     DiagonalLength(CellLocation) = NewDiagonalLength;
                     // Global coordinates of cell center
                     double xp = RankX + MyXOffset + 0.5;
                     double yp = RankY + MyYOffset + 0.5;
-                    double zp = RankZ + 0.5;
+                    double zp = GlobalZ + 0.5;
                     // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
                     for (int n=0; n<26; n++)  {
                         
@@ -207,11 +377,9 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
                         int MyNeighborY = RankY + NeighborY[n];
                         int MyNeighborZ = RankZ + NeighborZ[n];
                         long int NeighborPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
+
                         if (NeighborPosition == CellLocation) {
                             // Do not calculate critical diagonal length req'd for the newly captured cell to capture the original
-//                            TriangleIndex(78*NeighborPosition + 3*n) = 6;
-//                            TriangleIndex(78*NeighborPosition + 3*n + 1) = 6;
-//                            TriangleIndex(78*NeighborPosition + 3*n + 2) = 6;
                             CritDiagonalLength((long int)(26)*NeighborPosition+(long int)(n)) = 10000000.0;
                         }
                         
@@ -260,87 +428,6 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
                             Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
                         }
                         
-                        // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
-//                        double AnglesA[6];
-//                        for (int aa=0; aa<6; aa++) {
-//                            double xd = GrainUnitVector[18*MyOrientation + 3*aa];
-//                            double yd = GrainUnitVector[18*MyOrientation + 3*aa + 1];
-//                            double zd = GrainUnitVector[18*MyOrientation + 3*aa + 2];
-//                            AnglesA[aa] = (xd*x0 + yd*y0 + zd*z0)/mag0;
-//                        }
-//
-//                        int index1, index2, index3;
-//                        index1 = 0;
-//                        for (int ii=1; ii<6; ii++) {
-//                            if (AnglesA[index1] < AnglesA[ii]) {
-//                                index1 = ii;
-//                            }
-//                        }
-//
-//                        //TriangleIndex(78*CellLocation + 3*n) = index1;
-//                        // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
-//                        double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1 + 0];
-//                        double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
-//                        double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
-//                        AnglesA[index1] = -1;
-//                        if (index1 % 2 == 0) AnglesA[index1+1] = -1;
-//                        if (index1 % 2 == 1) AnglesA[index1-1] = -1;
-//
-//                        double MaxA = AnglesA[0];
-//                        for (int ii=1; ii<6; ii++) {
-//                            if (MaxA < AnglesA[ii]) {
-//                                MaxA = AnglesA[ii];
-//                            }
-//                        }
-//
-//
-//                        double Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-//                        if (MaxA == 0) {
-//                            // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
-//                            // manually assign other diagonals (one of the 4 possible "capturing" faces)
-//                            if ((index1 == 0)||(index1 == 1)) {
-//                                index2 = 2;
-//                                index3 = 4;
-//                            }
-//                            else if ((index1 == 2)||(index1 == 3)) {
-//                                index2 = 0;
-//                                index3 = 4;
-//                            }
-//                            else if ((index1 == 4)||(index1 == 5)) {
-//                                index2 = 0;
-//                                index3 = 2;
-//                            }
-//                        }
-//                        else {
-//                            // 2nd and 3rd closest diagonals to x0,y0,z0
-//                            // note that if these are the same length, this means that the octahedron edge captures the new cell center
-//                            // in this case, either of the 2 possible "capturing" faces will work
-//                            index2 = 0;
-//                            for (int ii=1; ii<6; ii++) {
-//                                if (AnglesA[index2] < AnglesA[ii]) {
-//                                    index2 = ii;
-//                                }
-//                            }
-//                            AnglesA[index2] = -1;
-//                            if (index2 % 2 == 0) AnglesA[index2+1] = -1;
-//                            if (index2 % 2 == 1) AnglesA[index2-1] = -1;
-//                            // index3 = MaxIndex(AnglesA);
-//                            index3 = 0;
-//                            for (int ii=1; ii<6; ii++) {
-//                                if (AnglesA[index3] < AnglesA[ii]) {
-//                                    index3 = ii;
-//                                }
-//                            }
-//
-//                        }
-//                        //TriangleIndex(78*CellLocation + 3*n + 1) = index2;
-//                        Diag2X = GrainUnitVector[18*MyOrientation + 3*index2 + 0];
-//                        Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
-//                        Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
-//                        //TriangleIndex(78*CellLocation + 3*n + 2) = index3;
-//                        Diag3X = GrainUnitVector[18*MyOrientation + 3*index3 + 0];
-//                        Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
-//                        Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
                         double U1[3], U2[3], UU[3], Norm[3];
                         U1[0] = Diag2X - Diag1X;
                         U1[1] = Diag2Y - Diag1Y;
@@ -378,10 +465,12 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
 //*****************************************************************************/
 
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CellType, ViewF DOCenter, ViewI GrainID, float* GrainUnitVector, int* GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferAR, Buffer2D BufferBR, int BufSizeX, int BufSizeY, int BufSizeZ, ViewI Locks) {
+void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CellType, ViewF DOCenter, ViewI GrainID, float* GrainUnitVector, int* GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferAR, Buffer2D BufferBR, int BufSizeX, int BufSizeY, int BufSizeZ, ViewI Locks, int ZBound_Low) {
     
-    Kokkos::fence();
-    MPI_Barrier(MPI_COMM_WORLD);
+//    Kokkos::fence();
+//
+//        MPI_Barrier(MPI_COMM_WORLD);
+//        cout << "Data transfer start rank " << id << " buf size " << 5*BufSizeX*BufSizeZ << endl;
     
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
@@ -394,8 +483,8 @@ void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices,
     MPI_Irecv(BufferAR.data(),5*BufSizeX*BufSizeZ,MPI_FLOAT,MyLeft,0,MPI_COMM_WORLD,&RecvRequests[0]);
     MPI_Irecv(BufferBR.data(),5*BufSizeX*BufSizeZ,MPI_FLOAT,MyRight,0,MPI_COMM_WORLD,&RecvRequests[1]);
     
-    //MPI_Barrier(MPI_COMM_WORLD);
-    //if (id == 0) cout << "Data transfer complete" << endl;
+   // MPI_Barrier(MPI_COMM_WORLD);
+   // if (id == 0)  cout << "Sends complete" << endl;
     
     // unpack in any order
     bool unpack_complete = false;
@@ -449,18 +538,21 @@ void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices,
                 if (Place) {
                     //printf("ID, RankX, RankZ, SizeX, SizeZ %d %d %d %d %d \n",id,RankX,RankZ,BufSizeX,BufSizeZ);
                     //printf("ID, X/Y/Z, GID, Center, DL %d %d %d %d %d %f %f %f %f \n",id,CellLocation,RankX,RankY,RankZ,DOCenterX,DOCenterY,DOCenterZ,NewDiagonalLength);
+                    int GlobalZ = RankZ + ZBound_Low;
+                    int GlobalCellLocation = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
+                    
                     // Update this ghost node cell's information with data from other rank
-                    GrainID(CellLocation) = NewGrainID;
+                    GrainID(GlobalCellLocation) = NewGrainID;
                     Locks(CellLocation) = 0;
                     DOCenter((long int)(3)*CellLocation) = DOCenterX;
                     DOCenter((long int)(3)*CellLocation+(long int)(1)) = DOCenterY;
                     DOCenter((long int)(3)*CellLocation+(long int)(2)) = DOCenterZ;
-                    int MyOrientation = GrainOrientation[((abs(GrainID(CellLocation)) - 1) % NGrainOrientations)];
+                    int MyOrientation = GrainOrientation[((abs(GrainID(GlobalCellLocation)) - 1) % NGrainOrientations)];
                     DiagonalLength(CellLocation) = NewDiagonalLength;
                     // Global coordinates of cell center
                     double xp = RankX + MyXOffset + 0.5;
                     double yp = RankY + MyYOffset + 0.5;
-                    double zp = RankZ + 0.5;
+                    double zp = GlobalZ + 0.5;
                     // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
                     for (int n=0; n<26; n++)  {
                         
@@ -520,88 +612,6 @@ void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices,
                             Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
                             Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
                         }
-                        
-//                        // Calculate angles between the octahedron diagonal directions and the vector x0,y0,z0
-//                        double AnglesA[6];
-//                        for (int aa=0; aa<6; aa++) {
-//                            double xd = GrainUnitVector[18*MyOrientation + 3*aa];
-//                            double yd = GrainUnitVector[18*MyOrientation + 3*aa + 1];
-//                            double zd = GrainUnitVector[18*MyOrientation + 3*aa + 2];
-//                            AnglesA[aa] = (xd*x0 + yd*y0 + zd*z0)/mag0;
-//                        }
-//
-//                        int index1, index2, index3;
-//                        index1 = 0;
-//                        for (int ii=1; ii<6; ii++) {
-//                            if (AnglesA[index1] < AnglesA[ii]) {
-//                                index1 = ii;
-//                            }
-//                        }
-//
-//                        //TriangleIndex(78*CellLocation + 3*n) = index1;
-//                        // First diagonal of the capturing face is that which makes the smallest (?) angle with x0,y0,z0
-//                        double Diag1X = GrainUnitVector[18*MyOrientation + 3*index1 + 0];
-//                        double Diag1Y = GrainUnitVector[18*MyOrientation + 3*index1 + 1];
-//                        double Diag1Z = GrainUnitVector[18*MyOrientation + 3*index1 + 2];
-//                        AnglesA[index1] = -1;
-//                        if (index1 % 2 == 0) AnglesA[index1+1] = -1;
-//                        if (index1 % 2 == 1) AnglesA[index1-1] = -1;
-//
-//                        double MaxA = AnglesA[0];
-//                        for (int ii=1; ii<6; ii++) {
-//                            if (MaxA < AnglesA[ii]) {
-//                                MaxA = AnglesA[ii];
-//                            }
-//                        }
-//
-//
-//                        double Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-//                        if (MaxA == 0) {
-//                            // Special case- other diagonals are all perpendicular to the first one (e.g. the octahedron corner captures the new cell center)
-//                            // manually assign other diagonals (one of the 4 possible "capturing" faces)
-//                            if ((index1 == 0)||(index1 == 1)) {
-//                                index2 = 2;
-//                                index3 = 4;
-//                            }
-//                            else if ((index1 == 2)||(index1 == 3)) {
-//                                index2 = 0;
-//                                index3 = 4;
-//                            }
-//                            else if ((index1 == 4)||(index1 == 5)) {
-//                                index2 = 0;
-//                                index3 = 2;
-//                            }
-//                        }
-//                        else {
-//                            // 2nd and 3rd closest diagonals to x0,y0,z0
-//                            // note that if these are the same length, this means that the octahedron edge captures the new cell center
-//                            // in this case, either of the 2 possible "capturing" faces will work
-//                            index2 = 0;
-//                            for (int ii=1; ii<6; ii++) {
-//                                if (AnglesA[index2] < AnglesA[ii]) {
-//                                    index2 = ii;
-//                                }
-//                            }
-//                            AnglesA[index2] = -1;
-//                            if (index2 % 2 == 0) AnglesA[index2+1] = -1;
-//                            if (index2 % 2 == 1) AnglesA[index2-1] = -1;
-//                            // index3 = MaxIndex(AnglesA);
-//                            index3 = 0;
-//                            for (int ii=1; ii<6; ii++) {
-//                                if (AnglesA[index3] < AnglesA[ii]) {
-//                                    index3 = ii;
-//                                }
-//                            }
-//
-//                        }
-//                        //TriangleIndex(78*CellLocation + 3*n + 1) = index2;
-//                        Diag2X = GrainUnitVector[18*MyOrientation + 3*index2 + 0];
-//                        Diag2Y = GrainUnitVector[18*MyOrientation + 3*index2 + 1];
-//                        Diag2Z = GrainUnitVector[18*MyOrientation + 3*index2 + 2];
-//                        //TriangleIndex(78*CellLocation + 3*n + 2) = index3;
-//                        Diag3X = GrainUnitVector[18*MyOrientation + 3*index3 + 0];
-//                        Diag3Y = GrainUnitVector[18*MyOrientation + 3*index3 + 1];
-//                        Diag3Z = GrainUnitVector[18*MyOrientation + 3*index3 + 2];
                         double U1[3], U2[3], UU[3], Norm[3];
                         U1[0] = Diag2X - Diag1X;
                         U1[1] = Diag2Y - Diag1Y;
@@ -628,11 +638,17 @@ void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices,
                         CritDiagonalLength((long int)(26)*CellLocation+(long int)(n)) = CDLVal;
                         //if (id == 1) printf("Cell at CYCLE %d LOC %d %d %d ORIENTATION %d DL = %f TI = %d %d %d DiagonalN %d CDL Val %f \n",cycle,RankX,RankY,RankZ,GrainOrientation[((abs(GrainID(CellLocation)) - 1) % NGrainOrientations)],DiagonalLength(CellLocation),TriangleIndex(78*CellLocation + 3*n),TriangleIndex(78*CellLocation + 3*n + 1),TriangleIndex(78*CellLocation + 3*n+2),n,CDLVal);
                     }
-                    CellType(CellLocation) = Active;
+                    CellType(GlobalCellLocation) = Active;
                 }
             });
         }
     }
+    
+//    if (cycle >= 54276000) {
+//        MPI_Barrier(MPI_COMM_WORLD);
+//        cout << "Data transfer complete rank " << id << endl;
+//    }
+    
     // Wait on send requests
     MPI_Waitall(2, SendRequests.data(), MPI_STATUSES_IGNORE );
     
