@@ -2,7 +2,7 @@ Test problem using a simple raster pattern (4 overlapping melt pool tracks):
 *****
 Problem type: 'R'
 Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
-Material:'Inconel718'
+Material:'Inconel625'
 Cell size (microns): 1
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
 Mean nucleation undercooling (in K): 5
@@ -16,6 +16,6 @@ Extra set of wall cells around temperature field (used for spot melt problems, Y
 Heat transport data mesh size (microns): 5
 Truchas in mm (T) or OpenFOAM (O) in m for input data length units:'O'
 Time step (microseconds): 0.08333333
-Number of layers: 1
-Offset between layers (if Number of layers > 1, in cells): 1
+Number of layers: 2
+Offset between layers (if Number of layers > 1, in cells): 15
 Substrate file name:'SubstrateFine.csv'
