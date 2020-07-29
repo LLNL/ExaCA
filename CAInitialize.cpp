@@ -991,7 +991,7 @@ void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, floa
 
 void GrainInit(int layernumber, int LayerHeight, string SimulationType, string SubstrateFileName, double FractSurfaceSitesActive, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], int* GrainOrientation, float* GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, bool* Melted, double deltax, double NMax, int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int NumberOfLayers, int TempFilesInSeries, double HT_deltax, double deltat, double XMin, double XMax, double YMin, double YMax, double ZMin, double ZMax, string tempfile, string TemperatureDataSource, int ZBound_Low, string ExtraWalls) {
     
-    mt19937_64 gen(id*(layernumber+1));
+    mt19937_64 gen(id);//2*id);//*234) ; //123);//234); //(id*(layernumber+1));
     uniform_real_distribution<double> dis(0.0, 1.0);
     
     // Convert initial grain spacing to a grain density
@@ -1118,12 +1118,11 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
         str = s.substr(found+1,s.length()-1);
         nxS = stoi(str,nullptr,10);
         if ((id == 0)&&(nzS < nz)) cout << "Warning: only " << nzS << " layers of substrate data for a simulation of " << nz << " total layers" << endl;
-        
+
         // Assign GrainID values to cells that are part of the substrate
         // Cells that border the melted region are type active, others are type solid
         for (int k=0; k<nzS; k++) {
             if (k == nz) break;
-
             for (int j=0; j<nyS; j++) {
                 for (int i=0; i<nxS; i++) {
                     string GIDVal;
@@ -1142,26 +1141,48 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
             }
         }
         Substrate.close();
-        if (nz > nzS) {
-            for (int k=nzS; k<nz; k++) {
-                for (int j=0; j<nyS; j++) {
-                    for (int i=0; i<nxS; i++) {
-                        if ((i >= Substrate_LowX)&&(i < Substrate_HighX)&&(j >= Substrate_LowY)&&(j < Substrate_HighY)) {
-                            int CAGridLocation;
-                            CAGridLocation = k*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
-                            if (CritTimeStep(CAGridLocation) == 0) {
-                                GrainID(CAGridLocation) = floor(NGrainOrientations*(float) rand()/RAND_MAX);
-                            }
-                            else {
-                                GrainID(CAGridLocation) = 0;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (id == 0) cout << "Substrate file read complete" << endl;
+//        if (nz > nzS) {
+//            for (int k=nzS; k<nz; k++) {
+//                for (int j=0; j<nyS; j++) {
+//                    for (int i=0; i<nxS; i++) {
+//                        if ((i >= Substrate_LowX)&&(i < Substrate_HighX)&&(j >= Substrate_LowY)&&(j < Substrate_HighY)) {
+//                            int CAGridLocation;
+//                            CAGridLocation = k*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
+//                            if (CritTimeStep(CAGridLocation) == 0) {
+//                                GrainID(CAGridLocation) = floor(NGrainOrientations*(float) rand()/RAND_MAX);
+//                            }
+//                            else {
+//                                GrainID(CAGridLocation) = 0;
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        if (id == 0) cout << "Substrate file read complete" << endl;
 
+        // Single crystal substrate
+//        int Substrate_LowX = MyXOffset;
+//        int Substrate_HighX = MyXOffset+MyXSlices;
+//        int Substrate_LowY = MyYOffset;
+//        int Substrate_HighY = MyYOffset+MyYSlices;
+//        for (int k=0; k<nz; k++) {
+//            for (int j=0; j<ny; j++) {
+//                for (int i=0; i<nx; i++) {
+//                    if ((i >= Substrate_LowX)&&(i < Substrate_HighX)&&(j >= Substrate_LowY)&&(j < Substrate_HighY)) {
+//                        int CAGridLocation;
+//                        CAGridLocation = k*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
+//                        if (CritTimeStep(CAGridLocation) == 0) {
+//                            GrainID(CAGridLocation) = 9589; //stoi(GIDVal,nullptr,10);
+//                        }
+//                        else {
+//                            GrainID(CAGridLocation) = 0;
+//                        }
+//                    }
+//                }
+//            }
+//        }
+        
         if (ExtraWalls == "Y") {
             if (id == 0) cout << "Extra wall cells around domain" << endl;
             // Extra set of wall cells around edges for spot melt problem

@@ -56,7 +56,7 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
 
     int LocalActiveDomainSize = MyXSlices*MyYSlices*nzActive; // Number of active cells on this MPI rank
     
-    // PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, CritTimeStep_H, UndercoolingChange_H, DecompositionStrategy);
+    //PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, CritTimeStep_H, UndercoolingChange_H, DecompositionStrategy);
     
     
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
@@ -189,15 +189,15 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
             cycle++;
 
             
-           // if ((layernumber == 1)&&(id == 0)) cout << " CYCLE " << cycle << endl;
+            //if ((layernumber == 0)&&(id == 0)) cout << " CYCLE " << cycle << endl;
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
            Nucleation(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, cycle, nn, CritTimeStep_G, CellType_G, UndercoolingCurrent_G, UndercoolingChange_G, NucleiLocation_G, NucleationTimes_G, GrainID_G, GrainOrientation, DOCenter_G, NeighborX,  NeighborY, NeighborZ, GrainUnitVector, CritDiagonalLength_G, DiagonalLength_G, NGrainOrientations, PossibleNuclei_ThisRank, Locks, ZBound_Low, layernumber, LayerID_G);
 
-           //if ((layernumber == 1)&&(id == 0)) cout << " CYCLE " << cycle << endl;
             // Update cells on GPU - new active cells, solidification of old active cells
             CellCapture(id, np, cycle, DecompositionStrategy, LocalActiveDomainSize, MyXSlices, MyYSlices, nz, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList, NeighborX, NeighborY, NeighborZ, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G,  GrainUnitVector, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufSizeX, BufSizeY, Locks, ZBound_Low, nzActive, layernumber, LayerID_G);
-
-           //if ((layernumber == 1)&&(id == 0)) cout << " CYCLE " << cycle << endl;
+            //cout << "ID = " << id << " waiting" << endl;
+           //  MPI_Barrier(MPI_COMM_WORLD);
+           // if ((layernumber == 0)&&(id == 0)) cout << " CYCLE " << cycle << endl;
             if (np > 1) {
             // Update ghost nodes
                 if (DecompositionStrategy == 1) GhostNodes1D_GPU(cycle, id, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_G, DOCenter_G,GrainID_G, GrainUnitVector, GrainOrientation, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations, BufferA, BufferB, BufferAR, BufferBR, BufSizeX,  BufSizeY, BufSizeZ, Locks, ZBound_Low);

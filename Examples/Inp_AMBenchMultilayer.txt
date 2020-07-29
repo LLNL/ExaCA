@@ -3,7 +3,7 @@ Test problem using alternating odd-even layers of a cross-hatching scan pattern 
 Problem type: 'R'
 Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
 Material:'Inconel625'
-Cell size (microns): 1.6666666
+Cell size (microns): 5
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 0
 Mean nucleation undercooling (in K): 5
 Standard deviation of nucleation undercooling: 0.5

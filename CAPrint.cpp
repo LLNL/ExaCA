@@ -76,14 +76,9 @@ void PrintValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYS
             }
             //cout << "DataCounter = " << DataCounter << " of " << RBufSize << endl;
         }
-        int XPrintLow = 3;
-        int YPrintLow = 3;
-        int XPrintHigh = nx-4;
-        int YPrintHigh = ny-4;
-        int ZPrintLow = 1;
-        int ZPrintHigh = nz-2;
         
         // File 1: Histogram of orientations for texture determination
+        cout << "Printing file of grain orientation distribution" << endl;
         ofstream Grainplot0;
         string FName0 = BaseFileName + "_Orientations.csv";
         Grainplot0.open(FName0);
@@ -91,10 +86,11 @@ void PrintValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYS
         for (int i=0; i<NGrainOrientations; i++) {
             GOHistogram[i] = 0;
         }
+
         // frequency data on grain ids
         for (int k=1; k<nz-1; k++) {
-            for (int j=3; j<=ny-4; j++) {
-                for (int i=3; i<=nx-4; i++) {
+            for (int j=1; j<ny-1; j++) {
+                for (int i=1; i<nz-1; i++) {
                     if (Melted_WholeDomain[k][i][j]) {
                         int GOVal = (abs(GrainID_WholeDomain[k][i][j]) - 1) % NGrainOrientations;
                         GOHistogram[GOVal]++;
@@ -108,16 +104,16 @@ void PrintValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYS
         Grainplot0.close();
 
         string FName1 = BaseFileName + ".csv";
-        cout << "Opening file " << FName1 << endl;
+        cout << "Printing file of Grain ID values" << endl;
         std::ofstream Grainplot1;
         Grainplot1.open(FName1);
-        Grainplot1 << "Outermost dimension is nz = " << ZPrintHigh-ZPrintLow+1 << endl;
-        Grainplot1 << "ny = " << YPrintHigh-YPrintLow+1 << endl;
-        Grainplot1 << "Innermost dimension is nx = " << XPrintHigh-XPrintLow+1 << endl;
-        for (int k=ZPrintLow; k<=ZPrintHigh; k++) {
-            for (int j=YPrintLow; j<=YPrintHigh; j++) {
-                for (int i=XPrintLow; i<=XPrintHigh; i++) {
-                    if (Melted_WholeDomain[k][i][j]) Grainplot1 << 0 << endl;
+        Grainplot1 << "Outermost dimension is nz = " << nz-2 << endl;
+        Grainplot1 << "ny = " << ny-2 << endl;
+        Grainplot1 << "Innermost dimension is nx = " << nx-2 << endl;
+        for (int k=1; k<nz-1; k++) {
+            for (int j=1; j<ny-1; j++) {
+                for (int i=1; i<nx-1; i++) {
+                    if (!Melted_WholeDomain[k][i][j]) Grainplot1 << 0 << endl;
                     else Grainplot1 << GrainID_WholeDomain[k][i][j] << endl;
                 }
             }
@@ -125,7 +121,7 @@ void PrintValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYS
         Grainplot1.close();
 
         string FName2 = BaseFileName + ".vtk";
-        cout << "Opening file " << FName2 << endl;
+        cout << "Printing Paraview file of grain misorientations" << endl;
         // Print grain orientations to file
         std::ofstream Grainplot2;
         // New vtk file
@@ -134,17 +130,17 @@ void PrintValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYS
         Grainplot2 << "vtk output" << endl;
         Grainplot2 << "ASCII" << endl;
         Grainplot2 << "DATASET STRUCTURED_POINTS" << endl;
-        Grainplot2 << "DIMENSIONS " << (XPrintHigh-XPrintLow+1) << " " << (YPrintHigh-YPrintLow+1) << " " << (ZPrintHigh-ZPrintLow+1) << endl;
+        Grainplot2 << "DIMENSIONS " << nx-2 << " " << ny-2 << " " << nz-2 << endl;
         Grainplot2 << "ORIGIN 0 0 0" << endl;
         Grainplot2 << "SPACING 1 1 1" << endl;
-        Grainplot2 << fixed << "POINT_DATA " << (XPrintHigh-XPrintLow+1)*(YPrintHigh-YPrintLow+1)*(ZPrintHigh-ZPrintLow+1) << endl;
+        Grainplot2 << fixed << "POINT_DATA " << (nx-2)*(ny-2)*(nz-2) << endl;
         Grainplot2 << "SCALARS Angle_z int 1" << endl;
         Grainplot2 << "LOOKUP_TABLE default" << endl;
 
         int NVC = 0;
-        for (int k=ZPrintLow; k<=ZPrintHigh; k++) {
-            for (int j=YPrintLow; j<=YPrintHigh; j++) {
-                for (int i=XPrintLow; i<=XPrintHigh; i++) {
+        for (int k=1; k<nz-1; k++) {
+            for (int j=1; j<ny-1; j++) {
+                for (int i=1; i<nx-1; i++) {
                     if (!Melted_WholeDomain[k][i][j]) Grainplot2 << 200 << " ";
                     else {
                         //if (GrainID_WholeDomain[k][i][j] == -1) {
@@ -166,14 +162,14 @@ void PrintValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYS
                             }
                             else RoundedAngle = round(AngleZmin);
                             Grainplot2 << RoundedAngle << " ";
-                        //}
+                      //}
                     }
                 }
             }
             Grainplot2 << endl;
         }
         Grainplot2.close();
-        cout << "Volume fraction of domain claimed by nucleated grains: " << (float)(NVC)/(float)((nx*ny*(nz-2))) << endl;
+        cout << "Volume fraction of domain claimed by nucleated grains: " << (float)(NVC)/(float)((nx-2)*(ny-2)*(nz-2)) << endl;
         
     }
     else {

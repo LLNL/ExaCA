@@ -66,7 +66,7 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
             int GlobalX = RankX + MyXOffset;
             int GlobalY = RankY + MyYOffset;
             int MyGrainID = GrainID(GlobalD3D1ConvPosition);
-            CellType(GlobalD3D1ConvPosition) = Active;
+            //CellType(GlobalD3D1ConvPosition) = Active;
 
             DiagonalLength(D3D1ConvPosition) = 0.01;
             long int DOX = (long int)(3)*D3D1ConvPosition;
@@ -90,42 +90,41 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
 
                 // Calculate unit vectors for the octahedron that intersect the new cell center
                 double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                double Angle1 = (GrainUnitVector[18*MyOrientation]*x0 + GrainUnitVector[18*MyOrientation + 1]*y0 + GrainUnitVector[18*MyOrientation + 2]*z0)/mag0;
+                double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
                 if (Angle1 < 0) {
-                    Diag1X = GrainUnitVector[18*MyOrientation];
-                    Diag1Y = GrainUnitVector[18*MyOrientation + 1];
-                    Diag1Z = GrainUnitVector[18*MyOrientation + 2];
+                    Diag1X = GrainUnitVector[9*MyOrientation];
+                    Diag1Y = GrainUnitVector[9*MyOrientation + 1];
+                    Diag1Z = GrainUnitVector[9*MyOrientation + 2];
                 }
                 else {
-                    Diag1X = GrainUnitVector[18*MyOrientation + 3];
-                    Diag1Y = GrainUnitVector[18*MyOrientation + 4];
-                    Diag1Z = GrainUnitVector[18*MyOrientation + 5];
+                    Diag1X = -GrainUnitVector[9*MyOrientation];
+                    Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
+                    Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
                 }
                 
-                double Angle2 = (GrainUnitVector[18*MyOrientation + 6]*x0 + GrainUnitVector[18*MyOrientation + 7]*y0 + GrainUnitVector[18*MyOrientation + 8]*z0)/mag0;
+                double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
                 if (Angle2 < 0) {
-                    Diag1X = GrainUnitVector[18*MyOrientation + 6];
-                    Diag1Y = GrainUnitVector[18*MyOrientation + 7];
-                    Diag1Z = GrainUnitVector[18*MyOrientation + 8];
+                    Diag2X = GrainUnitVector[9*MyOrientation + 3];
+                    Diag2Y = GrainUnitVector[9*MyOrientation + 4];
+                    Diag2Z = GrainUnitVector[9*MyOrientation + 5];
                 }
                 else {
-                    Diag1X = GrainUnitVector[18*MyOrientation + 9];
-                    Diag1Y = GrainUnitVector[18*MyOrientation + 10];
-                    Diag1Z = GrainUnitVector[18*MyOrientation + 11];
+                    Diag2X = -GrainUnitVector[9*MyOrientation + 3];
+                    Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
+                    Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
                 }
                 
-                double Angle3 = (GrainUnitVector[18*MyOrientation + 12]*x0 + GrainUnitVector[18*MyOrientation + 13]*y0 + GrainUnitVector[18*MyOrientation + 14]*z0)/mag0;
+                double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
                 if (Angle3 < 0) {
-                    Diag2X = GrainUnitVector[18*MyOrientation + 12];
-                    Diag2Y = GrainUnitVector[18*MyOrientation + 13];
-                    Diag2Z = GrainUnitVector[18*MyOrientation + 14];
+                    Diag3X = GrainUnitVector[9*MyOrientation + 6];
+                    Diag3Y = GrainUnitVector[9*MyOrientation + 7];
+                    Diag3Z = GrainUnitVector[9*MyOrientation + 8];
                 }
                 else {
-                    Diag3X = GrainUnitVector[18*MyOrientation + 15];
-                    Diag3Y = GrainUnitVector[18*MyOrientation + 16];
-                    Diag3Z = GrainUnitVector[18*MyOrientation + 17];
+                    Diag3X = -GrainUnitVector[9*MyOrientation + 6];
+                    Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
+                    Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
                 }
-                
  
                 double U1[3], U2[3], UU[3], Norm[3];
                 U1[0] = Diag2X - Diag1X;
@@ -155,12 +154,10 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
                 //printf("ID = %d Orient = %d GID = %d Diag %d CDL %f \n",id,MyOrientation,MyGrainID,n,CDLVal);
                 //printf("CDLVal : %d %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,n,mag0,index1,index2,index3,normx,normy,normz);
             }
+            CellType(GlobalD3D1ConvPosition) = Active;
         }
     },NucleationThisDT);
     nn += NucleationThisDT;
-
-//    MPI_Barrier(MPI_COMM_WORLD);
-//    if (id == 0) cout << "End nucleation " << cycle << endl;
     
 }
     
@@ -303,27 +300,27 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     int GlobalY = RankY + MyYOffset;
                                     int h = GrainID(GlobalD3D1ConvPosition);
                                     int MyOrientation = GrainOrientation[((abs(h) - 1) % NGrainOrientations)];
-                                    
+
                                     // The new cell is captured by this cell's growing octahedron (Grain "h")
                                     GrainID(GlobalNeighborD3D1ConvPosition) = h;
                                     // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
                                     double cxold = DOCenter((long int)(3)*D3D1ConvPosition);
                                     double cyold = DOCenter((long int)(3)*D3D1ConvPosition+(long int)(1));
                                     double czold = DOCenter((long int)(3)*D3D1ConvPosition+(long int)(2));
-                                    
+
                                     // (xp,yp,zp) are the global coordinates of the new cell's center
                                     double xp = GlobalX + NeighborX[l] + 0.5;
                                     double yp = GlobalY + NeighborY[l] + 0.5;
                                     double zp = GlobalZ + NeighborZ[l] + 0.5;
-                                    
+
                                     // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of the new cell
                                     double x0 = xp - cxold;
                                     double y0 = yp - cyold;
                                     double z0 = zp - czold;
-                                    
+
                                     // mag0 is the magnitude of (x0,y0,z0)
                                     double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
-                                    
+
                                     // Calculate unit vectors for the octahedron that intersect the new cell center
                                     double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
                                     double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
@@ -337,7 +334,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
                                         Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
                                     }
-                                    
+
                                     double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
                                     if (Angle2 < 0) {
                                         Diag2X = GrainUnitVector[9*MyOrientation + 3];
@@ -349,7 +346,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
                                         Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
                                     }
-                                    
+
                                     double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
                                     if (Angle3 < 0) {
                                         Diag3X = GrainUnitVector[9*MyOrientation + 6];
@@ -361,7 +358,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
                                         Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
                                     }
-                                    
+
                                     double U1[3], U2[3], UU[3], Norm[3];
                                     U1[0] = Diag2X - Diag1X;
                                     U1[1] = Diag2Y - Diag1Y;
@@ -390,15 +387,15 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     double TriangleZ1 = czold+ParaT*Diag1Z;
                                     double TriangleZ2 = czold+ParaT*Diag2Z;
                                     double TriangleZ3 = czold+ParaT*Diag3Z;
-                                    
+
                                     // Determine which of the 3 corners of the capturing face is closest to the captured cell center
                                     double Disttocorner0 = pow(pow(TriangleX1-xp,2) + pow(TriangleY1-yp,2) + pow(TriangleZ1-zp,2),0.5);
                                     double Disttocorner1 = pow(pow(TriangleX2-xp,2) + pow(TriangleY2-yp,2) + pow(TriangleZ2-zp,2),0.5);
                                     double Disttocorner2 = pow(pow(TriangleX3-xp,2) + pow(TriangleY3-yp,2) + pow(TriangleZ3-zp,2),0.5);
-                                    
+
                                     int mindisttocornerindex;
                                     double mindisttocorner, xc, yc, zc;
-                                    
+
                                     if (Disttocorner0 < Disttocorner1) {
                                         if (Disttocorner2 < Disttocorner0) {
                                             mindisttocornerindex = 2;
@@ -431,7 +428,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                             zc = TriangleZ2;
                                         }
                                     }
-                                    
+
                                     double x1, y1, z1, x2, y2, z2;
                                     if (mindisttocornerindex == 0) {
                                         x1 = TriangleX2;
@@ -441,7 +438,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         y2 = TriangleY3;
                                         z2 = TriangleZ3;
                                     }
-                                    
+
                                     if (mindisttocornerindex == 1) {
                                         x1 = TriangleX1;
                                         y1 = TriangleY1;
@@ -450,7 +447,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         y2 = TriangleY3;
                                         z2 = TriangleZ3;
                                     }
-                                    
+
                                     if (mindisttocornerindex == 2) {
                                         x1 = TriangleX1;
                                         y1 = TriangleY1;
@@ -459,12 +456,12 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         y2 = TriangleY2;
                                         z2 = TriangleZ2;
                                     }
-                                    
+
                                     double D1 = pow(pow(xp-x2,2) + pow(yp-y2,2) + pow(zp-z2,2),0.5);
                                     double D2 = pow(pow(xc-x2,2) + pow(yc-y2,2) + pow(zc-z2,2),0.5);
                                     double D3 = pow(pow(xp-x1,2) + pow(yp-y1,2) + pow(zp-z1,2),0.5);
                                     double D4 = pow(pow(xc-x1,2) + pow(yc-y1,2) + pow(zc-z1,2),0.5);
-                                    
+
                                     double I1, I2, J1, J2;
                                     // If minimum distance to corner = 0, the octahedron corner captured the new cell center
                                     if (mindisttocorner == 0) {
@@ -482,14 +479,14 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     double L12 = 0.5*(min(I1,sqrt(3)) + min(I2,sqrt(3)));
                                     double L13 = 0.5*(min(J1,sqrt(3)) + min(J2,sqrt(3)));
                                     double NewODiagL = sqrt(2)*max(L12,L13); // half diagonal length of new octahedron
-                                    
+
                                     DiagonalLength(NeighborD3D1ConvPosition) = NewODiagL;
                                     // Calculate coordinates of new decentered octahedron center
                                     double CaptDiag[3], CaptDiagUV[3];
                                     CaptDiag[0] = xc - cxold;
                                     CaptDiag[1] = yc - cyold;
                                     CaptDiag[2] = zc - czold;
-                                    
+
                                     NDem = sqrt(CaptDiag[0]*CaptDiag[0] + CaptDiag[1]*CaptDiag[1] + CaptDiag[2]*CaptDiag[2]);
                                     CaptDiagUV[0] = CaptDiag[0]/NDem;
                                     CaptDiagUV[1] = CaptDiag[1]/NDem;
@@ -498,7 +495,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     double cx = xc - NewODiagL*CaptDiagUV[0];
                                     double cy = yc - NewODiagL*CaptDiagUV[1];
                                     double cz = zc - NewODiagL*CaptDiagUV[2];
-                                    
+
                                     DOCenter((long int)(3)*NeighborD3D1ConvPosition) = cx;
                                     DOCenter((long int)(3)*NeighborD3D1ConvPosition+(long int)(1)) = cy;
                                     DOCenter((long int)(3)*NeighborD3D1ConvPosition+(long int)(2)) = cz;
@@ -521,7 +518,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                             double z0 = zp + NeighborZ[n] - cz;
                                             // mag0 is the magnitude of (x0,y0,z0)
                                             double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
-                                            
+
                                             // Calculate unit vectors for the octahedron that intersect the new cell center
                                             double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
                                             double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
@@ -588,9 +585,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                             //                                if (CDLVal == 0.0) printf("Zero CDLVal : %d %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,n,mag0,index1,index2,index3,normx,normy,normz);
                                         }
                                     }
-                                    
+
                                     if (np > 0) {
-                                        
+
                                         float GhostGID = (float)(GrainID(GlobalNeighborD3D1ConvPosition));
                                         float GhostDOCX = DOCenter((long int)(3)*NeighborD3D1ConvPosition);
                                         float GhostDOCY = DOCenter((long int)(3)*NeighborD3D1ConvPosition+(long int)(1));
@@ -759,7 +756,6 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
             } // end "if" loop over cells of interest
         } // end "if" loop over cells relevent for this layer of solidification
     });
-
     Kokkos::fence();
     
     // Fix corrupted lock values
@@ -809,13 +805,14 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
     MPI_Reduce(&nn,&Global_nn,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
     
     if (id == 0) {
-//        cout << "======================================================" << endl;
-        cout << "Layer = " << layernumber << " , cycle = " << cycle << " , Superheated liquid cells remaining = " << Global_sumD << endl;
-//        cout << "Undercooled liquid cells remaining = " << Global_sumL << endl;
-//        cout << "Active interface cells remaining = " << Global_sumA << endl;
-//        cout << "Solid cells remaining = " << Global_sumS << endl;
-//        cout << "Number of nucleation events = " << Global_nn << endl;
-//        cout << "======================================================" << endl;
+       // cout << "======================================================" << endl;
+        cout << "cycle = " << cycle << " Superheated liquid cells = " << Global_sumD << " Number of nucleation events this layer " << Global_nn << endl;
+       // cout << "Superheated liquid cells remaining = " << Global_sumD << endl;
+       // cout << "Undercooled liquid cells remaining = " << Global_sumL << endl;
+       // cout << "Active interface cells remaining = " << Global_sumA << endl;
+       // cout << "Solid cells remaining = " << Global_sumS << endl;
+       // cout << "Number of nucleation events = " << Global_nn << endl;
+       // cout << "======================================================" << endl;
     
         if (layernumber != NumberOfLayers-1) {
              // cout << "Finish ts = " << FinishTimeStep[layernumber] << endl;

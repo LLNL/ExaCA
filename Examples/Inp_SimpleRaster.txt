@@ -16,6 +16,6 @@ Extra set of wall cells around temperature field (used for spot melt problems, Y
 Heat transport data mesh size (microns): 5
 Truchas in mm (T) or OpenFOAM (O) in m for input data length units:'O'
 Time step (microseconds): 0.08333333
-Number of layers: 2
+Number of layers: 1
 Offset between layers (if Number of layers > 1, in cells): 15
 Substrate file name:'SubstrateFine.csv'
