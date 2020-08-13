@@ -56,8 +56,7 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
 
     int LocalActiveDomainSize = MyXSlices*MyYSlices*nzActive; // Number of active cells on this MPI rank
     
-    //PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, CritTimeStep_H, UndercoolingChange_H, DecompositionStrategy);
-    
+    //PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, CritTimeStep_H, UndercoolingChange_H, DecompositionStrategy);    
     
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     
@@ -187,10 +186,8 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
         // Loop continues until all liquid cells claimed by solid grains
         do {
             cycle++;
-
-            StartNuclTime = MPI_Wtime();
-            //if ((layernumber == 0)&&(id == 0)) cout << " CYCLE " << cycle << endl;
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
+            StartNuclTime = MPI_Wtime();
             Nucleation(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, cycle, nn, CritTimeStep_G, CellType_G, UndercoolingCurrent_G, UndercoolingChange_G, NucleiLocation_G, NucleationTimes_G, GrainID_G, GrainOrientation, DOCenter_G, NeighborX,  NeighborY, NeighborZ, GrainUnitVector, CritDiagonalLength_G, DiagonalLength_G, NGrainOrientations, PossibleNuclei_ThisRank, Locks, ZBound_Low, layernumber, LayerID_G);
             NuclTime += MPI_Wtime() - StartNuclTime;
 
@@ -198,27 +195,20 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
             StartCaptureTime = MPI_Wtime();
             CellCapture(id, np, cycle, DecompositionStrategy, LocalActiveDomainSize, MyXSlices, MyYSlices, nz, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList, NeighborX, NeighborY, NeighborZ, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G,  GrainUnitVector, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufSizeX, BufSizeY, Locks, ZBound_Low, nzActive, layernumber, LayerID_G);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
-            //cout << "ID = " << id << " waiting" << endl;
-           //  MPI_Barrier(MPI_COMM_WORLD);
-           // if ((layernumber == 0)&&(id == 0)) cout << " CYCLE " << cycle << endl;
+
             if (np > 1) {
-            // Update ghost nodes
+                // Update ghost nodes
                 StartGhostTime = MPI_Wtime();
                 if (DecompositionStrategy == 1) GhostNodes1D_GPU(cycle, id, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_G, DOCenter_G,GrainID_G, GrainUnitVector, GrainOrientation, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations, BufferA, BufferB, BufferAR, BufferBR, BufSizeX,  BufSizeY, BufSizeZ, Locks, ZBound_Low);
                 else GhostNodes2D_GPU(cycle, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, NeighborX, NeighborY, NeighborZ, CellType_G, DOCenter_G, GrainID_G, GrainUnitVector, GrainOrientation, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR, BufferER, BufferFR, BufferGR, BufferHR, BufSizeX, BufSizeY, BufSizeZ, Locks, ZBound_Low);
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
-            //if ((layernumber == 1)&&(id == 0)) cout << " CYCLE " << cycle << endl;
+
             if (cycle % 1000 == 0) {
-                IntermediateOutputAndCheck(id, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nn, XSwitch, CellType_G, CritTimeStep_G, SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low, Locks, LayerID_G);
+                IntermediateOutputAndCheck(id, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nn, XSwitch, CellType_G, CritTimeStep_G, SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low, Locks, LayerID_G );
             }
             
-
-            //if (cycle == 20000) XSwitch = 1;
-            //if (cycle == 20000)     PrintCT( id,  np,  nx,  ny,  nz,  MyXSlices,  MyYSlices,  ProcessorsInXDirection,  ProcessorsInYDirection,  CellType_H,  OutputFile,  DecompositionStrategy);
-            
         } while(XSwitch == 0);
-
 
         if (layernumber != NumberOfLayers-1) {
              // Determine new active cell domain size and offset from bottom of global domain
@@ -276,7 +266,6 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
             double LayerTime2 = MPI_Wtime();
             if (id == 0) cout << "Time for final layer was " << LayerTime2-LayerTime1 << " s" << endl;
          }
-
     }
 
     double RunTime = MPI_Wtime() - InitTime;
@@ -320,18 +309,4 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
 
         cout << "===================================================================================" << endl;
     }
-//    MPI_Barrier(MPI_COMM_WORLD);
-//    cout << "ID = " << id << " ready to exit" << endl;
-//    double GlobalT;
-//    MPI_Reduce(&CoolTime,&GlobalT,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-//    if (id == 0) cout << "Time spent in cooling = " << GlobalT << " s" << endl;
-//    MPI_Reduce(&NucTime,&GlobalT,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-//    if (id == 0) cout << "Time spent in nucleation = " << GlobalT << " s" << endl;
-//    MPI_Reduce(&GrowTime,&GlobalT,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-//    if (id == 0) cout << "Time spent in growth = " << GlobalT << " s" << endl;
-//    MPI_Reduce(&CaptTime,&GlobalT,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-//    if (id == 0) cout << "Time spent in capture = " << GlobalT << " s" << endl;
-//    MPI_Reduce(&DeactTime,&GlobalT,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-//    if (id == 0) cout << "Time spent in deactivation = " << GlobalT << " s" << endl;
-    
 }
