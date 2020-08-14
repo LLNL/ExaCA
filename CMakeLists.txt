@@ -41,7 +41,7 @@ target_link_libraries(ExaCA PUBLIC
 include(CTest)
 
 if(${BUILD_TESTING})
-    add_executable(KokkosTest main_main.cpp)
-    target_link_libraries(KokkosTest ExaCA)
-    add_test(NAME KokkosTest COMMAND KokkosTest)
+    add_executable(ExaCA-Kokkos main_main.cpp)
+    target_link_libraries(ExaCA-Kokkos ExaCA)
+    add_test(NAME ExaCA-Test COMMAND ExaCA-Kokkos)
 endif(${BUILD_TESTING})
