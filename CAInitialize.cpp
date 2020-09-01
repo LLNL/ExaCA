@@ -1365,7 +1365,7 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
                              double y0 = yp + NeighborY[n] - cy;
                              double z0 = zp + NeighborZ[n] - cz;
                              // mag0 is the magnitude of (x0,y0,z0)
-                             double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
+                             double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
                              
                              // Calculate unit vectors for the octahedron that intersect the new cell center
                              double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
@@ -1423,7 +1423,7 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
                              double normy = Norm[1];
                              double normz = Norm[2];
                              double ParaT = (normx*x0+normy*y0+normz*z0)/(normx*Diag1X+normy*Diag1Y+normz*Diag1Z);
-                             float CDLVal = pow(pow(ParaT*Diag1X,2) + pow(ParaT*Diag1Y,2) + pow(ParaT*Diag1Z,2),0.5);
+                             float CDLVal = pow(pow(ParaT*Diag1X,2.0) + pow(ParaT*Diag1Y,2.0) + pow(ParaT*Diag1Z,2.0),0.5);
                              //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
                              //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
                              //                                }
@@ -2260,7 +2260,7 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
                 double y0 = yp + NeighborY[n] - cy;
                 double z0 = zp + NeighborZ[n] - cz;
                 // mag0 is the magnitude of (x0,y0,z0)
-                double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
+                double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
                 
                 // Calculate unit vectors for the octahedron that intersect the new cell center
                 double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
@@ -2318,7 +2318,7 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
                 double normy = Norm[1];
                 double normz = Norm[2];
                 double ParaT = (normx*x0+normy*y0+normz*z0)/(normx*Diag1X+normy*Diag1Y+normz*Diag1Z);
-                float CDLVal = pow(pow(ParaT*Diag1X,2) + pow(ParaT*Diag1Y,2) + pow(ParaT*Diag1Z,2),0.5);
+                float CDLVal = pow(pow(ParaT*Diag1X,2.0) + pow(ParaT*Diag1Y,2.0) + pow(ParaT*Diag1Z,2.0),0.5);
                 //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
                 //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
                 //                                }
