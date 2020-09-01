@@ -521,7 +521,7 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
                 else {
                     // "TempFilesInSeries" temperature files was read, so the upper Z bound should account for an additional "NumberOfLayers-TempFilesInSeries" worth of data
                     int RepeatedFile = (LayerReadCount) % TempFilesInSeries;
-                    int RepeatUnit = floor((LayerReadCount)/(float)(TempFilesInSeries));
+                    int RepeatUnit = LayerReadCount/TempFilesInSeries;
                     ZMinLayer[LayerReadCount] = ZMinLayer[RepeatedFile] + RepeatUnit*TempFilesInSeries*deltax*LayerHeight;
                     ZMaxLayer[LayerReadCount] = ZMaxLayer[RepeatedFile] + RepeatUnit*TempFilesInSeries*deltax*LayerHeight;
                     ZMax += deltax*LayerHeight;
@@ -1149,7 +1149,7 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
 //                            int CAGridLocation;
 //                            CAGridLocation = k*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
 //                            if (CritTimeStep(CAGridLocation) == 0) {
-//                                GrainID(CAGridLocation) = floor(NGrainOrientations*(float) rand()/RAND_MAX);
+//                                GrainID(CAGridLocation) = floorf(NGrainOrientations*(float) rand()/RAND_MAX);
 //                            }
 //                            else {
 //                                GrainID(CAGridLocation) = 0;
@@ -1627,9 +1627,9 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             //cout << "Nuc ID " << id << " Cell " << i << " Time " <<  CritTimeStep(i) << " Adj " << round(LocNucUnd/UndercoolingChange(i)) << " or " << CritTimeStep(i) << endl;
             // Determine if other MPI ranks need information about this potential nucleation event
             // If so, store the location (X,Y,Z), GrainID, and nucleation time step value to be sent
-            int RankZ = floor(i/(MyXSlices*MyYSlices));
+            int RankZ = i/(MyXSlices*MyYSlices);
             int Rem = i % (MyXSlices*MyYSlices);
-            int RankX = floor(Rem/MyYSlices);
+            int RankX = Rem/MyYSlices;
             int RankY = Rem % MyYSlices;
             if (DecompositionStrategy == 1) {
                 if (RankY == 1) {
@@ -2132,7 +2132,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
     Kokkos::parallel_reduce("MinReduce", LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, int& lmin) {
         if (CellType(D3D1ConvPosition) == Active) {
             // Check Z position of this active cell
-            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+            int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
             if (RankZ < lmin) lmin = RankZ;
         }
     }, Kokkos::Min<int>(NewMin));
@@ -2144,7 +2144,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
     Kokkos::parallel_reduce("MaxReduce", LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, int& lmax) {
         if (LayerID(D3D1ConvPosition) == layernumber+1) {
             // Check Z position of this active cell
-            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+            int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
             if (RankZ > lmax) lmax = RankZ;
         }
     }, Kokkos::Max<int>(NewMax));
@@ -2221,9 +2221,9 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
     
     Kokkos::parallel_for("NewActiveCellInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
         // Initialize active cell data structures for those that are now part of the active domain
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = RankZ + ZBound_Low;
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
@@ -2333,9 +2333,9 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
     
     // Reset lock values
     Kokkos::parallel_for("LockInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = ZBound_Low + RankZ;
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;

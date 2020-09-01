@@ -1,5 +1,4 @@
 #include "header.h"
-using namespace std;
 
 // Initial placement of data in ghost nodes
 void GhostNodesInit_GPU(int DecompositionStrategy, int MyXSlices, int MyYSlices, ViewI GrainID, ViewI CellType, ViewF DOCenter, ViewF DiagonalLength, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, int LocalActiveDomainSize, int ZBound_Low) {
@@ -7,9 +6,9 @@ void GhostNodesInit_GPU(int DecompositionStrategy, int MyXSlices, int MyYSlices,
     // Fill buffers with ghost node data following initialization of data on GPUs
     Kokkos::parallel_for ("GNInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const long int& D3D1ConvPosition) {
         
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = RankZ + ZBound_Low;
         int D3D1ConvPositionGlobal = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
@@ -233,7 +232,7 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
                     // Adjust X Position by +1 since X = 0 is not included in this buffer
                     RankX = BufPosition % BufSizeX + 1;
                     RankY = 0;
-                    RankZ = floor(BufPosition/BufSizeX);
+                    RankZ = BufPosition/BufSizeX;
                     CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
                     if ((BufferAR(BufPosition,4) > 0)&&(DiagonalLength(CellLocation) == 0)) {
                         Place = true;
@@ -249,7 +248,7 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
                     // Adjust X Position by +1 since X = 0 is not included in this buffer
                     RankX = BufPosition % BufSizeX + 1;
                     RankY = MyYSlices-1;
-                    RankZ = floor(BufPosition/BufSizeX);
+                    RankZ = BufPosition/BufSizeX;
                     CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
                     if ((BufferBR(BufPosition,4) > 0)&&(DiagonalLength(CellLocation) == 0)) {
                         Place = true;
@@ -265,7 +264,7 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
                     // Adjust Y Position by +1 since Y = 0 is not included in this buffer
                     RankX = MyXSlices-1;
                     RankY = BufPosition % BufSizeY + 1;
-                    RankZ = floor(BufPosition/BufSizeY);
+                    RankZ = BufPosition/BufSizeY;
                     CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
                     if ((BufferCR(BufPosition,4) > 0)&&(DiagonalLength(CellLocation) == 0)) {
                         Place = true;
@@ -281,7 +280,7 @@ void GhostNodes2D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyIn, int 
                     // Adjust Y Position by +1 since Y = 0 is not included in this buffer
                     RankX = 0;
                     RankY = BufPosition % BufSizeY + 1;
-                    RankZ = floor(BufPosition/BufSizeY);
+                    RankZ = BufPosition/BufSizeY;
                     CellLocation = RankZ*MyXSlices*MyYSlices + MyYSlices*RankX + RankY;
                     if ((BufferDR(BufPosition,4) > 0)&&(DiagonalLength(CellLocation) == 0)) {
                         Place = true;
@@ -504,7 +503,7 @@ void GhostNodes1D_GPU(int cycle, int id, int MyLeft, int MyRight, int MyXSlices,
                 long int CellLocation;
                 float DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
                 bool Place = false;
-                RankZ = floor(BufPosition/BufSizeX);
+                RankZ = BufPosition/BufSizeX;
                 RankX = BufPosition % BufSizeX;
                 // Which rank was the data received from?
                 if (unpack_index == 0) {

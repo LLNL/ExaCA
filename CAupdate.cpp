@@ -50,9 +50,9 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
         if ((cycle >= NucleationTimes(NucCounter))&&(CellType(NucleiLocations(NucCounter)) == LiqSol)&&(LayerID(NucleiLocations(NucCounter)) <= layernumber)) {
             // (X,Y,Z) coordinates of nucleation event, on active cell grid (RankX,RankY,RankZ) and global grid (RankX,RankY,GlobalZ)
             long int GlobalD3D1ConvPosition = NucleiLocations(NucCounter);
-            int GlobalZ = floor(GlobalD3D1ConvPosition/(MyXSlices*MyYSlices));
+            int GlobalZ = GlobalD3D1ConvPosition/(MyXSlices*MyYSlices);
             int Rem = GlobalD3D1ConvPosition % (MyXSlices*MyYSlices);
-            int RankX = floor(Rem/MyYSlices);
+            int RankX = Rem/MyYSlices;
             int RankY = Rem % MyYSlices;
             int RankZ = GlobalZ - ZBound_Low;
             int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
@@ -172,9 +172,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
 //            printf("Superheated cell %d %d %d %f \n",id,D3D1ConvPosition,CellType(D3D1ConvPosition),UndercoolingCurrent(D3D1ConvPosition));
 //        }
         // Cells of interest for the CA
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = RankZ + ZBound_Low;
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
@@ -369,7 +369,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     UU[0] = U1[1]*U2[2] - U1[2]*U2[1];
                                     UU[1] = U1[2]*U2[0] - U1[0]*U2[2];
                                     UU[2] = U1[0]*U2[1] - U1[1]*U2[0];
-                                    double NDem = sqrt(UU[0]*UU[0] + UU[1]*UU[1] + UU[2]*UU[2]);
+                                    double NDem = sqrtf(UU[0]*UU[0] + UU[1]*UU[1] + UU[2]*UU[2]);
                                     Norm[0] = UU[0]/NDem;
                                     Norm[1] = UU[1]/NDem;
                                     Norm[2] = UU[2]/NDem;
@@ -476,9 +476,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         J1 = D3*((xp-x1)*(xc-x1) + (yp-y1)*(yc-y1) + (zp-z1)*(zc-z1))/(D3*D4);
                                         J2 = D4 - J1;
                                     }
-                                    double L12 = 0.5*(min(I1,sqrt(3)) + min(I2,sqrt(3)));
-                                    double L13 = 0.5*(min(J1,sqrt(3)) + min(J2,sqrt(3)));
-                                    double NewODiagL = sqrt(2)*max(L12,L13); // half diagonal length of new octahedron
+                                    double L12 = 0.5*(min(I1,sqrt(3.0)) + min(I2,sqrt(3.0)));
+                                    double L13 = 0.5*(min(J1,sqrt(3.0)) + min(J2,sqrt(3.0)));
+                                    double NewODiagL = sqrt(2.0)*max(L12,L13); // half diagonal length of new octahedron
 
                                     DiagonalLength(NeighborD3D1ConvPosition) = NewODiagL;
                                     // Calculate coordinates of new decentered octahedron center
@@ -760,9 +760,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
     
     // Fix corrupted lock values
     Kokkos::parallel_for ("CellCapture",LocalActiveDomainSize, KOKKOS_LAMBDA (const long int& D3D1ConvPosition) {
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = RankZ + ZBound_Low;
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
@@ -782,9 +782,9 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
             if (CellType(D3D1ConvPosition) == Delayed) upd.the_array[0] += 1;
             else if (CellType(D3D1ConvPosition) == Liquid) {
                 upd.the_array[1] += 1;
-                int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+                int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
                 int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-                int RankX = floor(Rem/MyYSlices);
+                int RankX = Rem/MyYSlices;
                 int RankY = Rem % MyYSlices;
                 //if (cycle >= 3088000) printf("Anomalous liquid cell on rank %d X/Y/Z %d %d %d Locks value %d \n",id,RankX,RankY,RankZ,Locks(D3D1ConvPosition));
             }
@@ -833,9 +833,9 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
         else if (CellType(D3D1ConvPosition) == Solid)      upd.the_array[3] += 1;
         
         if ((CellType(D3D1ConvPosition) == Liquid)&&(Global_sumL <= 2)) {
-            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+            int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
             int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-            int RankX = floor(Rem/MyYSlices);
+            int RankX = Rem/MyYSlices;
             int RankY = Rem % MyYSlices;
            // printf("Anomalous liquid cell on rank %d has locks value %d \n",id,Locks(D3D1ConvPosition));
         }
@@ -847,9 +847,9 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
             // Check when the next superheated cells go below the liquidus
             int NextCTS;
             Kokkos::parallel_reduce("CellCapture",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, int &tempv) {
-                int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+                int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
                 int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-                int RankX = floor(Rem/MyYSlices);
+                int RankX = Rem/MyYSlices;
                 int RankY = Rem % MyYSlices;
                 int GlobalZ = RankZ + ZBound_Low;
                 int GlobalD3D1ConvPosition = GlobalZ*RankX*RankY + RankX*MyYSlices + RankY;
