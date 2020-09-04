@@ -6,13 +6,13 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     double NuclTime, StartNuclTime, CaptureTime, StartCaptureTime, GhostTime, StartGhostTime = 0.0;
     double StartTime = MPI_Wtime();
     
-    int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
-    
+    int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries, NumberOfTruchasRanks;
+    bool FilesToPrint[4];
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange, NMax, dTN, dTsigma;
-    string SubstrateFileName, tempfile, SimulationType, OutputFile, GrainOrientationFile, TemperatureDataSource, BurstBuffer, ExtraWalls;
+    string SubstrateFileName, tempfile, SimulationType, OutputFile, GrainOrientationFile, TemperatureDataSource, BurstBuffer, ExtraWalls, PathToOutput;
     
     // Read input data
-    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile, TempFilesInSeries, BurstBuffer, ExtraWalls, HT_deltax, TemperatureDataSource, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, G, R, nx, ny, nz, FractSurfaceSitesActive);
+    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile, TempFilesInSeries, BurstBuffer, ExtraWalls, HT_deltax, TemperatureDataSource, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, G, R, nx, ny, nz, FractSurfaceSitesActive,PathToOutput,NumberOfTruchasRanks,FilesToPrint);
     
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -24,8 +24,16 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     float* ZMinLayer = new float[NumberOfLayers];
     float* ZMaxLayer = new float[NumberOfLayers];
     int* FinishTimeStep = new int[NumberOfLayers];
+    
+    // Temporary data structure for storing temperature data from file(s)
+    // Initial estimate for size
+    vector <float> RawData(1000000);
+    // Contains "NumberOfLayers" values corresponding to the location within "RawData" of the first data element in each layer
+    int* FirstValue = new int[NumberOfLayers];
+
     // Initialization of the grid and decomposition, along with deltax and deltat
-    ParallelMeshInit(DecompositionStrategy, NeighborX, NeighborY, NeighborZ, ItList, SimulationType, ierr, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut, deltax, HT_deltax, deltat, nx, ny, nz, ProcessorsInXDirection, ProcessorsInYDirection, tempfile, XMin, XMax, YMin, YMax, ZMin, ZMax, TemperatureDataSource, LayerHeight, NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer);
+    // Read in temperature data
+    ParallelMeshInit(DecompositionStrategy, NeighborX, NeighborY, NeighborZ, ItList, SimulationType, ierr, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut, deltax, HT_deltax, deltat, nx, ny, nz, ProcessorsInXDirection, ProcessorsInYDirection, tempfile, XMin, XMax, YMin, YMax, ZMin, ZMax, TemperatureDataSource, LayerHeight, NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer, FirstValue, RawData, BurstBuffer,NumberOfTruchasRanks);
     
     long int LocalDomainSize = MyXSlices*MyYSlices*nz; // Number of cells on this MPI rank
 
@@ -50,13 +58,15 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     int nzActive;
     
     // Initialize the temperature fields
-    TempInit(-1, TempFilesInSeries, G, R, DecompositionStrategy,NeighborX, NeighborY, NeighborZ, ItList, SimulationType, ierr, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut, deltax, HT_deltax, deltat, nx, ny, nz, ProcessorsInXDirection, ProcessorsInYDirection,  CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, tempfile, XMin, XMax, YMin, YMax, ZMin, ZMax, Melted, TemperatureDataSource, ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FinishTimeStep, FreezingRange, LayerID_H);
+    TempInit(-1, TempFilesInSeries, G, R, DecompositionStrategy,NeighborX, NeighborY, NeighborZ, ItList, SimulationType, ierr, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut, deltax, HT_deltax, deltat, nx, ny, nz, ProcessorsInXDirection, ProcessorsInYDirection,  CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, tempfile, XMin, XMax, YMin, YMax, ZMin, ZMax, Melted, TemperatureDataSource, ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FinishTimeStep, FreezingRange, LayerID_H, FirstValue, RawData, BurstBuffer);
+    // Delete temporary data structure for temperature data read
+    RawData.clear();
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0) cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of " << nz << " cells in the Z direction" << endl;
 
     int LocalActiveDomainSize = MyXSlices*MyYSlices*nzActive; // Number of active cells on this MPI rank
     
-    //PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, CritTimeStep_H, UndercoolingChange_H, DecompositionStrategy);    
+    // PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, CritTimeStep_H, UndercoolingChange_H, DecompositionStrategy,PathToOutput);
     
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     
@@ -259,7 +269,7 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
              MPI_Barrier(MPI_COMM_WORLD);
              double LayerTime2 = MPI_Wtime();
              cycle = 0;
-             if (id == 0) cout << "Time for layer number " << layernumber+1 << " was " << LayerTime2-LayerTime1 << " s, starting layer " << layernumber+2 << endl;
+             if (id == 0) cout << "Time for layer number " << layernumber << " was " << LayerTime2-LayerTime1 << " s, starting layer " << layernumber+1 << endl;
          }
          else {
             MPI_Barrier(MPI_COMM_WORLD);
@@ -275,8 +285,8 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     Kokkos::deep_copy( CellType_H, CellType_G );
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0) cout << "Printing to files" << endl;
-    PrintValues(id,np,nx,ny,nz,MyXSlices,MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H,GrainOrientation,GrainUnitVector,OutputFile,DecompositionStrategy,NGrainOrientations,Melted);
+    if (id == 0) cout << "Collecting data on rank 0 and printing to files" << endl;
+    CollectGrainData(id,np,nx,ny,nz,MyXSlices,MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H,GrainOrientation,GrainUnitVector,OutputFile,DecompositionStrategy,NGrainOrientations,Melted,PathToOutput,FilesToPrint,deltax);
     
     double OutTime = MPI_Wtime() - RunTime - InitTime;
     double InitMaxTime, InitMinTime, OutMaxTime, OutMinTime = 0.0;
