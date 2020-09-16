@@ -674,7 +674,7 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
                     else {
                         // "TempFilesInSeries" temperature files was read, so the upper Z bound should account for an additional "NumberOfLayers-TempFilesInSeries" worth of data
                         int RepeatedFile = (LayerReadCount) % TempFilesInSeries;
-                        int RepeatUnit = floor((LayerReadCount)/(float)(TempFilesInSeries));
+                        int RepeatUnit = LayerReadCount/TempFilesInSeries;
                         ZMinLayer[LayerReadCount] = ZMinLayer[RepeatedFile] + RepeatUnit*TempFilesInSeries*deltax*LayerHeight;
                         ZMaxLayer[LayerReadCount] = ZMaxLayer[RepeatedFile] + RepeatUnit*TempFilesInSeries*deltax*LayerHeight;
                         FirstValue[LayerReadCount] = FirstValue[RepeatedFile];
@@ -1190,25 +1190,25 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
             }
         }
         Substrate.close();
-        if (nz > nzS) {
-            for (int k=nzS; k<nz; k++) {
-                for (int j=0; j<nyS; j++) {
-                    for (int i=0; i<nxS; i++) {
-                        if ((i >= Substrate_LowX)&&(i < Substrate_HighX)&&(j >= Substrate_LowY)&&(j < Substrate_HighY)) {
-                            int CAGridLocation;
-                            CAGridLocation = k*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
-                            if (CritTimeStep(CAGridLocation) == 0) {
-                                GrainID(CAGridLocation) = floor(NGrainOrientations*(float) rand()/RAND_MAX);
-                            }
-                            else {
-                                GrainID(CAGridLocation) = 0;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (id == 0) cout << "Substrate file read complete" << endl;
+//        if (nz > nzS) {
+//            for (int k=nzS; k<nz; k++) {
+//                for (int j=0; j<nyS; j++) {
+//                    for (int i=0; i<nxS; i++) {
+//                        if ((i >= Substrate_LowX)&&(i < Substrate_HighX)&&(j >= Substrate_LowY)&&(j < Substrate_HighY)) {
+//                            int CAGridLocation;
+//                            CAGridLocation = k*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
+//                            if (CritTimeStep(CAGridLocation) == 0) {
+//                                GrainID(CAGridLocation) = floorf(NGrainOrientations*(float) rand()/RAND_MAX);
+//                            }
+//                            else {
+//                                GrainID(CAGridLocation) = 0;
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        if (id == 0) cout << "Substrate file read complete" << endl;
 
 //         Single crystal substrate
 //        int Substrate_LowX = MyXOffset;
@@ -1414,7 +1414,7 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
                              double y0 = yp + NeighborY[n] - cy;
                              double z0 = zp + NeighborZ[n] - cz;
                              // mag0 is the magnitude of (x0,y0,z0)
-                             double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
+                             double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
                              
                              // Calculate unit vectors for the octahedron that intersect the new cell center
                              double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
@@ -1472,7 +1472,7 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
                              double normy = Norm[1];
                              double normz = Norm[2];
                              double ParaT = (normx*x0+normy*y0+normz*z0)/(normx*Diag1X+normy*Diag1Y+normz*Diag1Z);
-                             float CDLVal = pow(pow(ParaT*Diag1X,2) + pow(ParaT*Diag1Y,2) + pow(ParaT*Diag1Z,2),0.5);
+                             float CDLVal = pow(pow(ParaT*Diag1X,2.0) + pow(ParaT*Diag1Y,2.0) + pow(ParaT*Diag1Z,2.0),0.5);
                              //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
                              //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
                              //                                }
@@ -1676,9 +1676,9 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             //cout << "Nuc ID " << id << " Cell " << i << " Time " <<  CritTimeStep(i) << " Adj " << round(LocNucUnd/UndercoolingChange(i)) << " or " << CritTimeStep(i) << endl;
             // Determine if other MPI ranks need information about this potential nucleation event
             // If so, store the location (X,Y,Z), GrainID, and nucleation time step value to be sent
-            int RankZ = floor(i/(MyXSlices*MyYSlices));
+            int RankZ = i/(MyXSlices*MyYSlices);
             int Rem = i % (MyXSlices*MyYSlices);
-            int RankX = floor(Rem/MyYSlices);
+            int RankX = Rem/MyYSlices;
             int RankY = Rem % MyYSlices;
             if (DecompositionStrategy == 1) {
                 if (RankY == 1) {
@@ -2181,10 +2181,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
     Kokkos::parallel_reduce("MinReduce", LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, int& lmin) {
         if (CellType(D3D1ConvPosition) == Active) {
             // Check Z position of this active cell
-            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
-//            int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-//            int RankX = floor(Rem/MyYSlices);
-//            int RankY = Rem % MyYSlices;
+            int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
             if (RankZ < lmin) lmin = RankZ;
            // if ((RankZ <= 11)&&(layernumber == 2)) printf("Rank %d has an active cell at z = %d x = %d y = %d \n",id,RankZ,RankX,RankY);
         }
@@ -2218,7 +2215,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
     Kokkos::parallel_reduce("MaxReduce", LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, int& lmax) {
         if (LayerID(D3D1ConvPosition) == layernumber+1) {
             // Check Z position of this active cell
-            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+            int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
             if (RankZ > lmax) lmax = RankZ;
         }
     }, Kokkos::Max<int>(NewMax));
@@ -2292,9 +2289,9 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
     
     Kokkos::parallel_for("NewActiveCellInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
         // Initialize active cell data structures for those that are now part of the active domain
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = RankZ + ZBound_Low;
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
@@ -2331,7 +2328,7 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
                 double y0 = yp + NeighborY[n] - cy;
                 double z0 = zp + NeighborZ[n] - cz;
                 // mag0 is the magnitude of (x0,y0,z0)
-                double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
+                double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
                 
                 // Calculate unit vectors for the octahedron that intersect the new cell center
                 double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
@@ -2389,7 +2386,7 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
                 double normy = Norm[1];
                 double normz = Norm[2];
                 double ParaT = (normx*x0+normy*y0+normz*z0)/(normx*Diag1X+normy*Diag1Y+normz*Diag1Z);
-                float CDLVal = pow(pow(ParaT*Diag1X,2) + pow(ParaT*Diag1Y,2) + pow(ParaT*Diag1Z,2),0.5);
+                float CDLVal = pow(pow(ParaT*Diag1X,2.0) + pow(ParaT*Diag1Y,2.0) + pow(ParaT*Diag1Z,2.0),0.5);
                 //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
                 //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
                 //                                }
@@ -2404,9 +2401,9 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
     
     // Reset lock values
     Kokkos::parallel_for("LockInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = ZBound_Low + RankZ;
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;

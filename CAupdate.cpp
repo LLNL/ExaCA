@@ -50,9 +50,9 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
         if ((cycle >= NucleationTimes(NucCounter))&&(CellType(NucleiLocations(NucCounter)) == LiqSol)&&(LayerID(NucleiLocations(NucCounter)) <= layernumber)) {
             // (X,Y,Z) coordinates of nucleation event, on active cell grid (RankX,RankY,RankZ) and global grid (RankX,RankY,GlobalZ)
             long int GlobalD3D1ConvPosition = NucleiLocations(NucCounter);
-            int GlobalZ = floor(GlobalD3D1ConvPosition/(MyXSlices*MyYSlices));
+            int GlobalZ = GlobalD3D1ConvPosition/(MyXSlices*MyYSlices);
             int Rem = GlobalD3D1ConvPosition % (MyXSlices*MyYSlices);
-            int RankX = floor(Rem/MyYSlices);
+            int RankX = Rem/MyYSlices;
             int RankY = Rem % MyYSlices;
             int RankZ = GlobalZ - ZBound_Low;
             int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
@@ -86,7 +86,7 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
                 double z0 = NeighborZ[n];
 
                 // mag0 is the magnitude of (x0,y0,z0)
-                double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
+                double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
 
                 // Calculate unit vectors for the octahedron that intersect the new cell center
                 double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
@@ -145,7 +145,7 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
                 double normy = Norm[1];
                 double normz = Norm[2];
                 double ParaT = (normx*x0+normy*y0+normz*z0)/(normx*Diag1X+normy*Diag1Y+normz*Diag1Z);
-                float CDLVal = pow(pow(ParaT*Diag1X,2) + pow(ParaT*Diag1Y,2) + pow(ParaT*Diag1Z,2),0.5);
+                float CDLVal = pow(pow(ParaT*Diag1X,2.0) + pow(ParaT*Diag1Y,2.0) + pow(ParaT*Diag1Z,2.0),0.5);
                 //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
                 //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
                 //                                }
@@ -172,9 +172,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
 //            printf("Superheated cell %d %d %d %f \n",id,D3D1ConvPosition,CellType(D3D1ConvPosition),UndercoolingCurrent(D3D1ConvPosition));
 //        }
         // Cells of interest for the CA
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = RankZ + ZBound_Low;
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
@@ -202,7 +202,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                     // Update local diagonal length of active cell
                     double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
                     LocU = min(210.0,LocU);
-                    double V = AConst*pow(LocU,3) + BConst*pow(LocU,2) + CConst*LocU + DConst;
+                    double V = AConst*pow(LocU,3.0) + BConst*pow(LocU,2.0) + CConst*LocU + DConst;
                     V = max(0.0,V);
                     DiagonalLength(D3D1ConvPosition) += min(0.045,V); // Max amount the diagonal can grow per time step
                     //if (cycle >= 20000) printf("Active cell rank %d with Undercooling %f and UC %f and DL %f \n",id,LocU,UndercoolingChange(D3D1ConvPosition),V);
@@ -319,7 +319,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     double z0 = zp - czold;
 
                                     // mag0 is the magnitude of (x0,y0,z0)
-                                    double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
+                                    double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
 
                                     // Calculate unit vectors for the octahedron that intersect the new cell center
                                     double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
@@ -369,7 +369,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     UU[0] = U1[1]*U2[2] - U1[2]*U2[1];
                                     UU[1] = U1[2]*U2[0] - U1[0]*U2[2];
                                     UU[2] = U1[0]*U2[1] - U1[1]*U2[0];
-                                    double NDem = sqrt(UU[0]*UU[0] + UU[1]*UU[1] + UU[2]*UU[2]);
+                                    double NDem = sqrtf(UU[0]*UU[0] + UU[1]*UU[1] + UU[2]*UU[2]);
                                     Norm[0] = UU[0]/NDem;
                                     Norm[1] = UU[1]/NDem;
                                     Norm[2] = UU[2]/NDem;
@@ -389,9 +389,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     double TriangleZ3 = czold+ParaT*Diag3Z;
 
                                     // Determine which of the 3 corners of the capturing face is closest to the captured cell center
-                                    double Disttocorner0 = pow(pow(TriangleX1-xp,2) + pow(TriangleY1-yp,2) + pow(TriangleZ1-zp,2),0.5);
-                                    double Disttocorner1 = pow(pow(TriangleX2-xp,2) + pow(TriangleY2-yp,2) + pow(TriangleZ2-zp,2),0.5);
-                                    double Disttocorner2 = pow(pow(TriangleX3-xp,2) + pow(TriangleY3-yp,2) + pow(TriangleZ3-zp,2),0.5);
+                                    double Disttocorner0 = pow(pow(TriangleX1-xp,2.0) + pow(TriangleY1-yp,2.0) + pow(TriangleZ1-zp,2.0),0.5);
+                                    double Disttocorner1 = pow(pow(TriangleX2-xp,2.0) + pow(TriangleY2-yp,2.0) + pow(TriangleZ2-zp,2.0),0.5);
+                                    double Disttocorner2 = pow(pow(TriangleX3-xp,2.0) + pow(TriangleY3-yp,2.0) + pow(TriangleZ3-zp,2.0),0.5);
 
                                     int mindisttocornerindex;
                                     double mindisttocorner, xc, yc, zc;
@@ -457,10 +457,10 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         z2 = TriangleZ2;
                                     }
 
-                                    double D1 = pow(pow(xp-x2,2) + pow(yp-y2,2) + pow(zp-z2,2),0.5);
-                                    double D2 = pow(pow(xc-x2,2) + pow(yc-y2,2) + pow(zc-z2,2),0.5);
-                                    double D3 = pow(pow(xp-x1,2) + pow(yp-y1,2) + pow(zp-z1,2),0.5);
-                                    double D4 = pow(pow(xc-x1,2) + pow(yc-y1,2) + pow(zc-z1,2),0.5);
+                                    double D1 = pow(pow(xp-x2,2.0) + pow(yp-y2,2.0) + pow(zp-z2,2.0),0.5);
+                                    double D2 = pow(pow(xc-x2,2.0) + pow(yc-y2,2.0) + pow(zc-z2,2.0),0.5);
+                                    double D3 = pow(pow(xp-x1,2.0) + pow(yp-y1,2.0) + pow(zp-z1,2.0),0.5);
+                                    double D4 = pow(pow(xc-x1,2.0) + pow(yc-y1,2.0) + pow(zc-z1,2.0),0.5);
 
                                     double I1, I2, J1, J2;
                                     // If minimum distance to corner = 0, the octahedron corner captured the new cell center
@@ -476,9 +476,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                         J1 = D3*((xp-x1)*(xc-x1) + (yp-y1)*(yc-y1) + (zp-z1)*(zc-z1))/(D3*D4);
                                         J2 = D4 - J1;
                                     }
-                                    double L12 = 0.5*(min(I1,sqrt(3)) + min(I2,sqrt(3)));
-                                    double L13 = 0.5*(min(J1,sqrt(3)) + min(J2,sqrt(3)));
-                                    double NewODiagL = sqrt(2)*max(L12,L13); // half diagonal length of new octahedron
+                                    double L12 = 0.5*(min(I1,sqrt(3.0)) + min(I2,sqrt(3.0)));
+                                    double L13 = 0.5*(min(J1,sqrt(3.0)) + min(J2,sqrt(3.0)));
+                                    double NewODiagL = sqrt(2.0)*max(L12,L13); // half diagonal length of new octahedron
 
                                     DiagonalLength(NeighborD3D1ConvPosition) = NewODiagL;
                                     // Calculate coordinates of new decentered octahedron center
@@ -517,7 +517,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                             double y0 = yp + NeighborY[n] - cy;
                                             double z0 = zp + NeighborZ[n] - cz;
                                             // mag0 is the magnitude of (x0,y0,z0)
-                                            double mag0 = pow(pow(x0,2) + pow(y0,2) + pow(z0,2),0.5);
+                                            double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
 
                                             // Calculate unit vectors for the octahedron that intersect the new cell center
                                             double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
@@ -576,7 +576,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                             double normy = Norm[1];
                                             double normz = Norm[2];
                                             double ParaT = (normx*x0+normy*y0+normz*z0)/(normx*Diag1X+normy*Diag1Y+normz*Diag1Z);
-                                            float CDLVal = pow(pow(ParaT*Diag1X,2) + pow(ParaT*Diag1Y,2) + pow(ParaT*Diag1Z,2),0.5);
+                                            float CDLVal = pow(pow(ParaT*Diag1X,2.0) + pow(ParaT*Diag1Y,2.0) + pow(ParaT*Diag1Z,2.0),0.5);
                                             //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
                                             //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
                                             //                                }
@@ -760,9 +760,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
     
     // Fix corrupted lock values
     Kokkos::parallel_for ("CellCapture",LocalActiveDomainSize, KOKKOS_LAMBDA (const long int& D3D1ConvPosition) {
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = RankZ + ZBound_Low;
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
@@ -782,9 +782,9 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
             if (CellType(D3D1ConvPosition) == Delayed) upd.the_array[0] += 1;
             else if (CellType(D3D1ConvPosition) == Liquid) {
                 upd.the_array[1] += 1;
-                int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+                int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
                 int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-                int RankX = floor(Rem/MyYSlices);
+                int RankX = Rem/MyYSlices;
                 int RankY = Rem % MyYSlices;
                 //if (cycle >= 3088000) printf("Anomalous liquid cell on rank %d X/Y/Z %d %d %d Locks value %d \n",id,RankX,RankY,RankZ,Locks(D3D1ConvPosition));
             }
@@ -833,9 +833,9 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
         else if (CellType(D3D1ConvPosition) == Solid)      upd.the_array[3] += 1;
         
         if ((CellType(D3D1ConvPosition) == Liquid)&&(Global_sumL <= 2)) {
-            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+            int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
             int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-            int RankX = floor(Rem/MyYSlices);
+            int RankX = Rem/MyYSlices;
             int RankY = Rem % MyYSlices;
            // printf("Anomalous liquid cell on rank %d has locks value %d \n",id,Locks(D3D1ConvPosition));
         }
@@ -847,9 +847,9 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
             // Check when the next superheated cells go below the liquidus
             int NextCTS;
             Kokkos::parallel_reduce("CellCapture",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, int &tempv) {
-                int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+                int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
                 int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-                int RankX = floor(Rem/MyYSlices);
+                int RankX = Rem/MyYSlices;
                 int RankY = Rem % MyYSlices;
                 int GlobalZ = RankZ + ZBound_Low;
                 int GlobalD3D1ConvPosition = GlobalZ*RankX*RankY + RankX*MyYSlices + RankY;
