@@ -54,7 +54,8 @@ mkdir build
 cd build
 export EXACA_INSTALL_DIR=`pwd`/install
 cmake \
-  -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR \
+  -D CMAKE_BUILD_TYPE="Release" \
+  -D Kokkos_DIR=$KOKKOS_INSTALL_DIR \
   -D CMAKE_PREFIX_PATH=$EXACA_INSTALL_DIR \
   \
   ..;
