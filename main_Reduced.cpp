@@ -155,9 +155,9 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     // 0 = cannot be captured, 1 = can be capured
     ViewI Locks("Locks",LocalActiveDomainSize);
     Kokkos::parallel_for("LockInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
-        int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
+        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
         int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = floor(Rem/MyYSlices);
+        int RankX = Rem/MyYSlices;
         int RankY = Rem % MyYSlices;
         int GlobalZ = ZBound_Low + RankZ;
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
