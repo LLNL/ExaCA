@@ -83,6 +83,9 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
         if (FilesToPrint[1]) PrintGrainIDs(FName, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain);
         if (FilesToPrint[2]) PrintGrainIDsForExaConstit(FName, nx, ny, nz, GrainID_WholeDomain,deltax);
         if (FilesToPrint[3]) PrintParaview(FName, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain, GrainOrientation, GrainUnitVector, NGrainOrientations);
+        if (FilesToPrint[4]) PrintGrainAreas(FName, deltax, nx, ny, nz, GrainID_WholeDomain);
+        if (FilesToPrint[5]) PrintWeightedGrainAreas(FName, deltax, nx, ny, nz, GrainID_WholeDomain);
+        
     }
     else {
 
@@ -465,4 +468,67 @@ void PrintGrainIDsForExaConstit(string FName, int nx, int ny, int nz, vector <ve
         }
     }
     Grainplot1.close();
+}
+
+void PrintGrainAreas(string FName, double deltax, int nx, int ny, int nz, vector <vector <vector <int> > > GrainID_WholeDomain) {
+
+    string FName1 = FName + "_GrainAreas.csv";
+    cout << "Printing file of grain area values (in square microns) for all Z coordinates" << endl;
+    std::ofstream Grainplot1;
+    Grainplot1.open(FName1);
+    for (int k=1; k<=nz-2; k++) {
+        vector <int> GIDVals_ThisLayer;
+        for (int j=1; j<=ny-2; j++) {
+           for (int i=1; i<=nx-2; i++) {
+                GIDVals_ThisLayer.push_back(GrainID_WholeDomain[k][i][j]);
+            }
+        }
+        std::vector<int>::iterator it;
+        sort(GIDVals_ThisLayer.begin(),GIDVals_ThisLayer.end());
+        it = std::unique (GIDVals_ThisLayer.begin(), GIDVals_ThisLayer.end());
+        int CellsThisLayer = GIDVals_ThisLayer.size();
+        GIDVals_ThisLayer.resize( std::distance(GIDVals_ThisLayer.begin(),it) );
+        int GrainsThisLayer = GIDVals_ThisLayer.size();
+        double MeanGrainAreaThisLayer = (double)(CellsThisLayer) / (double)(GrainsThisLayer);
+        Grainplot1 << MeanGrainAreaThisLayer*deltax*deltax/pow(10,-12) << endl;
+    }
+    Grainplot1.close();
+}
+
+void PrintWeightedGrainAreas(string FName, double deltax, int nx, int ny, int nz, vector <vector <vector <int> > > GrainID_WholeDomain) {
+
+    string FName1 = FName + "_WeightedGrainAreas.csv";
+    cout << "Printing file of Grain ID values (in square microns) for every 10th Z coordinate" << endl;
+    std::ofstream Grainplot1;
+    Grainplot1.open(FName1);
+     for (int k=1; k<=nz-2; k++) {
+       if ((k+2) % 12 == 0) {
+         vector <int> GIDVals_ThisLayer;
+         for (int j=1; j<=ny-2; j++) {
+            for (int i=1; i<=nx-2; i++) {
+                GIDVals_ThisLayer.push_back(GrainID_WholeDomain[k][i][j]);
+             }
+         }
+         vector<int> GIDAllVals_ThisLayer;
+         GIDAllVals_ThisLayer = GIDVals_ThisLayer;
+         std::vector<int>::iterator it;
+         sort(GIDVals_ThisLayer.begin(),GIDVals_ThisLayer.end());
+         it = std::unique (GIDVals_ThisLayer.begin(), GIDVals_ThisLayer.end());
+         int CellsThisLayer = GIDVals_ThisLayer.size();
+         GIDVals_ThisLayer.resize( std::distance(GIDVals_ThisLayer.begin(),it) );
+         int GrainsThisLayer = GIDVals_ThisLayer.size();
+         long int AreaXArea = 0;
+         for (int l=0; l<GrainsThisLayer; l++) {
+             long int MyGrainArea = 0;
+             for (int ll=0; ll<CellsThisLayer; ll++) {
+                 if (GIDVals_ThisLayer[l] == GIDAllVals_ThisLayer[ll]) MyGrainArea++;
+             }
+             AreaXArea += MyGrainArea*MyGrainArea;
+         }
+         double WeightedArea = ((double)(AreaXArea) / (double)((nx-2)*(ny-2)));
+         Grainplot1 << WeightedArea*deltax*deltax/pow(10,-12) << endl;
+       }
+    }
+    Grainplot1.close();
+    
 }

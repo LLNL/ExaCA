@@ -1,22 +1,22 @@
-Test problem simulating constrained alloy solidification (Problem type 'C')
+Test problem simulating constrained (no thermal gradient) alloy solidification (Problem type 'C') as a small test problem with a few grains that can be run on a single rank/GPU
 *****
 Problem type: 'C'
 Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
 Material:'Inconel625'
 Cell size (microns: 1
-Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
+Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 0
 Mean nucleation undercooling (in K): 5
 Standard deviation of nucleation undercooling: 0.5
 Path to output:'/usr/WS2/rolchigo/'
-Output file base name:'TestProblem1'
+Output file base name:'TestProblem0'
 File of grain orientations:'GrainOrientationVectors_Robert.csv'
 Thermal gradient (K/m): 500000
 Cooling rate (K/s): 300000
-Domain size in x: 200
-Domain size in y: 200
-Domain size in z: 200
+Domain size in x: 50
+Domain size in y: 50
+Domain size in z: 50
 "N", where the time step = deltax/(Steady State Velocity * N): 25
-Fraction of surface sites active: 0.08
+Fraction of surface sites active: 0.005
 Print file of grain orientations (Y or N)?:'N'
 Print csv file of grain id values (Y or N)?:'N'
 Print csv file of ExaConstit-formatted grain id values (Y or N)?:'N'

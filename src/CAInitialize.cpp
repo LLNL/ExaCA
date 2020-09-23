@@ -2,7 +2,7 @@
 using namespace std;
 // Initializes input parameters, mesh, temperature field, and grain structures for CA simulations
 
-void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool& TruchasMultilayer, string &ExtraWalls, double &HT_deltax, string &TemperatureDataSource, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, int &NumberOfTruchasRanks, bool (&FilesToPrint)[4]) {
+void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool& TruchasMultilayer, string &ExtraWalls, double &HT_deltax, string &TemperatureDataSource, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, int &NumberOfTruchasRanks, bool (&FilesToPrint)[6]) {
 
     ifstream InputData, MaterialData;
     string Colon = ":";
@@ -24,7 +24,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     std::size_t found = ValueRead.find(Quote);
     std::string str2 = ValueRead.substr(found+1,1);
     SimulationType = str2;
-    
+
     // Decomposition strategy
     getline(InputData,ValueRead);
     found = ValueRead.find(Colon);
@@ -334,6 +334,16 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     found = ValueRead.find(Quote);
     FileYN = ValueRead.substr(found+1,1);
     if (FileYN == "Y") FilesToPrint[3] = true;
+    // file of grain areas
+    getline(InputData,ValueRead);
+    found = ValueRead.find(Quote);
+    FileYN = ValueRead.substr(found+1,1);
+    if (FileYN == "Y") FilesToPrint[4] = true;
+    // file of weighted grain areas
+    getline(InputData,ValueRead);
+    found = ValueRead.find(Quote);
+    FileYN = ValueRead.substr(found+1,1);
+    if (FileYN == "Y") FilesToPrint[5] = true;
     InputData.close();
     
     if (id == 0) {

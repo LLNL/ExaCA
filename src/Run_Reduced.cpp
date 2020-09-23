@@ -8,7 +8,7 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries, NumberOfTruchasRanks;
     bool TruchasMultilayer = false; // If reading from Truchas multilayer data, this is changed to true in the input file (previously, this variable was called "BurstBuffer")
-    bool FilesToPrint[4] = {0}; // Which specific files to print are specified in the input file
+    bool FilesToPrint[6] = {0}; // Which specific files to print are specified in the input file
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange, NMax, dTN, dTsigma;
     string SubstrateFileName, tempfile, SimulationType, OutputFile, GrainOrientationFile, TemperatureDataSource, ExtraWalls, PathToOutput;
     
