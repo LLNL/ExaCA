@@ -23,11 +23,11 @@ find_package(MPI REQUIRED)
 
 set(EXACA_SOURCES
     CAfunctions.cpp
-    CAghostnodes_gpu.cpp
+    CAghostnodes.cpp
     CAInitialize.cpp
     CAPrint.cpp
     CAupdate.cpp
-    main_Reduced.cpp
+    Run_Reduced.cpp
 )
 
 set(EXACA_HEADERS header.h)
@@ -41,7 +41,7 @@ target_link_libraries(ExaCA PUBLIC
 include(CTest)
 
 if(${BUILD_TESTING})
-    add_executable(ExaCA-Kokkos main_main.cpp)
+    add_executable(ExaCA-Kokkos main.cpp)
     target_link_libraries(ExaCA-Kokkos ExaCA)
     add_test(NAME ExaCA-Test COMMAND ExaCA-Kokkos)
 endif(${BUILD_TESTING})

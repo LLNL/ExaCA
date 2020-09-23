@@ -7,15 +7,20 @@ Cell size (microns): 5
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 0
 Mean nucleation undercooling (in K): 5
 Standard deviation of nucleation undercooling: 0.5
+Path to output:'/usr/WS2/rolchigo/'
 Output file base name:'TestProblem3'
 File of grain orientations:'GrainOrientationVectors_Robert.csv'
+Heat transport data mesh size (microns): 5
+Time step (microseconds): 0.3
+Substrate file name:'SubstrateCoarse.csv'
+Is the temperature data in the parallel file system/burst buffer (Y or N)? If N, read additional arguments: 'N'
 Name of file containing temperatures:'CA-FOAM-fluidflow.dat'
 Temperature files in the series: 2
-Is the temperature data in the burst buffer (Y or N)?: 'N'
 Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: 'N'
-Heat transport data mesh size (microns): 5
 Truchas in mm (T) or OpenFOAM (O) in m for input data length units:'O'
-Time step (microseconds): 0.3
 Number of layers: 4
 Offset between layers (if Number of layers > 1, in cells): 3
-Substrate file name:'SubstrateCoarse.csv'
+Print file of grain orientations (Y or N)?:'N'
+Print csv file of grain id values (Y or N)?:'N'
+Print csv file of ExaConstit-formatted grain id values (Y or N)?:'N'
+Print Paraview vtk file of grain misorientation values (Y or N)?:'Y'

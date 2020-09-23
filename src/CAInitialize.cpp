@@ -2,13 +2,14 @@
 using namespace std;
 // Initializes input parameters, mesh, temperature field, and grain structures for CA simulations
 
-void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, string& BurstBuffer, string &ExtraWalls, double &HT_deltax, string &TemperatureDataSource, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, int &NumberOfTruchasRanks, bool (&FilesToPrint)[4]) {
+void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool& TruchasMultilayer, string &ExtraWalls, double &HT_deltax, string &TemperatureDataSource, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, int &NumberOfTruchasRanks, bool (&FilesToPrint)[4]) {
 
     ifstream InputData, MaterialData;
     string Colon = ":";
     string Quote = "'";
-    InputData.open(InputFile);
-    if (id == 0) cout << "Input file " << InputFile << " opened" << endl;
+    string InputFileS = "examples/" + InputFile;
+    InputData.open(InputFileS);
+    if (id == 0) cout << "Input file " << InputFileS << " opened" << endl;
     bool SkippingLines = true;
     while(SkippingLines) {
         string dummyline;
@@ -35,7 +36,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     std::size_t found1 = ValueRead.find_first_of(Quote);
     std::size_t found2 = ValueRead.find_last_of(Quote);
     string MaterialFile = ValueRead.substr(found1+1,found2-found1-1);
-    MaterialData.open("Materials/" + MaterialFile);
+    MaterialData.open("examples/Materials/" + MaterialFile);
     SkippingLines = true;
     while(SkippingLines) {
         string dummyline;
@@ -112,6 +113,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     found1 = ValueRead.find_first_of(Quote);
     found2 = ValueRead.find_last_of(Quote);
     GrainOrientationFile = ValueRead.substr(found1+1,found2-found1-1);
+    GrainOrientationFile = "examples/Substrate/" + GrainOrientationFile;
     if (SimulationType == "R") {
         // Read input arguments for a reduced temperature data format solidification problem
         if (id == 0) cout << "CA Simulation using reduced temperature data from file(s)" << endl;
@@ -134,14 +136,16 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
         found1 = ValueRead.find_first_of(Quote);
         found2 = ValueRead.find_last_of(Quote);
         SubstrateFileName = ValueRead.substr(found1+1,found2-found1-1);
+        SubstrateFileName = "examples/Substrate/" + SubstrateFileName;
         if (id == 0) cout << "The substrate file used is " << SubstrateFileName << endl;
         
         // Usage of burst buffer/parallel file system for temperature data - if 'Y', values for LayerHeight, NumberOfLayers are unused, temperature filename is overwritten
         getline(InputData,ValueRead);
         found = ValueRead.find(Quote);
-        BurstBuffer = ValueRead.substr(found+1,1);
-
-        if (BurstBuffer == "Y") {
+        string TruchasMultilayerS = ValueRead.substr(found+1,1);
+        if (TruchasMultilayerS == "Y") TruchasMultilayer = true;
+        
+        if (TruchasMultilayer) {
             // Location of temperature data and name of files given in script
             char* InPath;
             char* InFileName;
@@ -218,7 +222,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
             TempFilesInSeries = stoi(str2,nullptr,10);
             
             // Temperature file(s) is/are located in the default location ("Temperatures" subdirectory)
-            tempfile = "Temperatures/" + tempfile;
+            tempfile = "examples/Temperatures/" + tempfile;
             if (id == 0) {
                 cout << "Temperature data file(s) is/are " << tempfile << " , and there are " << TempFilesInSeries << " in the series" << endl;
             }
@@ -315,25 +319,21 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     found = ValueRead.find(Quote);
     FileYN = ValueRead.substr(found+1,1);
     if (FileYN == "Y") FilesToPrint[0] = true;
-    else FilesToPrint[0] = false;
     // csv file of grain ids
     getline(InputData,ValueRead);
     found = ValueRead.find(Quote);
     FileYN = ValueRead.substr(found+1,1);
     if (FileYN == "Y") FilesToPrint[1] = true;
-    else FilesToPrint[1] = false;
     // csv file of x,y,z,grainid for ExaConstit
     getline(InputData,ValueRead);
     found = ValueRead.find(Quote);
     FileYN = ValueRead.substr(found+1,1);
     if (FileYN == "Y") FilesToPrint[2] = true;
-    else FilesToPrint[2] = false;
     // vtk file of grain misorientations
     getline(InputData,ValueRead);
     found = ValueRead.find(Quote);
     FileYN = ValueRead.substr(found+1,1);
     if (FileYN == "Y") FilesToPrint[3] = true;
-    else FilesToPrint[3] = false;
     InputData.close();
     
     if (id == 0) {
@@ -346,7 +346,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     
 }
 
-void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, double &deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, string tempfile, float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, string TemperatureDataSource, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries, float* ZMinLayer, float* ZMaxLayer, int* FirstValue, vector <float> &RawData, string BurstBuffer, int NumberOfTruchasRanks) {
+void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, double &deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, string tempfile, float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, string TemperatureDataSource, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries, float* ZMinLayer, float* ZMaxLayer, int* FirstValue, vector <float> &RawData, bool TruchasMultilayer, int NumberOfTruchasRanks) {
         
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
@@ -497,7 +497,7 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
         // Read and find bounds of temperature data
         // Differences between reading data from the burst buffer/parallel file systems vs as a standard series:
         int LayersToRead, HTRanksWithData;
-        if (BurstBuffer == "Y") {
+        if (TruchasMultilayer) {
             LayersToRead = NumberOfLayers;
             HTRanksWithData = NumberOfTruchasRanks;
         }
@@ -525,7 +525,7 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
                 
                 string tempfile_thislayer;
                 
-                if (BurstBuffer == "N") {
+                if (!(TruchasMultilayer)) {
                     if (TempFilesInSeries > 1) {
                         string NextLayerFileS = to_string(LayerReadCount);
                         int NextLayerFile = LayerReadCount % TempFilesInSeries;
@@ -563,7 +563,7 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
                 ifstream Geom;
 
                 Geom.open(tempfile_thislayer);
-                if (BurstBuffer == "Y") {
+                if (TruchasMultilayer) {
                     // 3 header lines
                     string s;
                     getline(Geom,s);
@@ -615,7 +615,7 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
                             // If not reading from the parallel file system/burst buffer directly from Truchas, Z values need to be adjusted based on which layer is being simulated (layers are offset by "LayerHeight"
                             // If reading from the parallel file system/burst buffer, Z values are not adjusted
                             float AdjustedZ;
-                            if ((BurstBuffer == "N")&&(TempFilesInSeries > 1)) {
+                            if (!(TruchasMultilayer)&&(TempFilesInSeries > 1)) {
                                 AdjustedZ = RawData[NumberOfHTDataPoints] + deltax*LayerHeight*(LayerReadCount-1);
                             }
                             else {
@@ -659,7 +659,7 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
         } // End loop over all files read for all layers
         RawData.resize(NumberOfHTDataPoints);
 
-        if (BurstBuffer == "N") {
+        if (!(TruchasMultilayer)) {
             // Extend domain in Z (build) direction if the number of layers are simulated is greater than the number of temperature files read
             if (NumberOfLayers > TempFilesInSeries) {
                 for (int LayerReadCount=TempFilesInSeries; LayerReadCount<NumberOfLayers; LayerReadCount++) {
@@ -715,7 +715,7 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
    // cout << "ID = " << id << " X RANGE = " << MyXOffset << " TO = " << MyXOffset+MyXSlices-1 << " ; YRANGE = " << MyYOffset << " TO = " << MyYOffset+MyYSlices-1 << endl;
 }
 
-void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, string tempfile, float XMin, float XMax, float YMin, float YMax, float ZMin, float ZMax, bool* Melted, string TemperatureDataSource, float* ZMinLayer, float* ZMaxLayer, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int* FinishTimeStep, double FreezingRange, ViewI::HostMirror LayerID, int* FirstValue, vector <float> RawData, string BurstBuffer) {
+void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, string tempfile, float XMin, float XMax, float YMin, float YMax, float ZMin, float ZMax, bool* Melted, string TemperatureDataSource, float* ZMinLayer, float* ZMaxLayer, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int* FinishTimeStep, double FreezingRange, ViewI::HostMirror LayerID, int* FirstValue, vector <float> RawData, bool TruchasMultilayer) {
 
     if (SimulationType == "C") {
         
@@ -805,7 +805,7 @@ void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int De
            // Determine which section of "RawData" is relevant for this layer of the overall domain
            int StartRange = FirstValue[LayerCounter];
            int EndRange;
-           if (BurstBuffer == "N") {
+           if (!(TruchasMultilayer)) {
                int RepeatedFile = LayerCounter % TempFilesInSeries;
                if (RepeatedFile != TempFilesInSeries-1) EndRange = FirstValue[LayerCounter+1];
                else {
@@ -829,7 +829,7 @@ void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int De
                    YInt = round((RawData[i]-YMin)/deltax) + 2;
                }
                else if (Pos == 2) {
-                   if (BurstBuffer == "N")  ZInt = round((RawData[i] + deltax*LayerHeight*LayerCounter - ZMinLayer[LayerCounter])/deltax);
+                   if (!(TruchasMultilayer))  ZInt = round((RawData[i] + deltax*LayerHeight*LayerCounter - ZMinLayer[LayerCounter])/deltax);
                    else ZInt = round((RawData[i] - ZMinLayer[LayerCounter])/deltax);
                }
                else if (Pos == 3) {
@@ -855,7 +855,7 @@ void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int De
            MPI_Bcast(&LargestTime_Global,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
            MPI_Reduce(&SmallestTime, &SmallestTime_Global, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
            MPI_Bcast(&SmallestTime_Global,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
-           if (BurstBuffer == "Y") {
+           if (TruchasMultilayer) {
                if (id == 0) cout << "Smallest time for layer " << LayerCounter << " is " << SmallestTime_Global << endl;
                LayerwiseTSOffset = SmallestTime_Global;
            }
@@ -981,7 +981,7 @@ void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, floa
     
     // Read file of grain orientations
     ifstream O;
-    O.open("Substrate/" + GrainOrientationFile);
+    O.open(GrainOrientationFile);
     
     // Line 1 is the number of orientation values to read (if not specified already)
     string ValueRead;
@@ -1146,8 +1146,8 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
         // Assign GrainID values to cells that are part of the substrate
         // Cells that border the melted region are type active, others are type solid
         ifstream Substrate;
-        Substrate.open("Substrate/" + SubstrateFileName);
-        if (id == 0) cout << "Opened substrate file " << "Substrate/" + SubstrateFileName << endl;
+        Substrate.open(SubstrateFileName);
+        if (id == 0) cout << "Opened substrate file " << SubstrateFileName << endl;
         int Substrate_LowX = MyXOffset;
         int Substrate_HighX = MyXOffset+MyXSlices;
         int Substrate_LowY = MyYOffset;
@@ -2183,24 +2183,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
             // Check Z position of this active cell
             int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
             if (RankZ < lmin) lmin = RankZ;
-           // if ((RankZ <= 11)&&(layernumber == 2)) printf("Rank %d has an active cell at z = %d x = %d y = %d \n",id,RankZ,RankX,RankY);
         }
-//        else if (CellType(D3D1ConvPosition) == Delayed) {
-//            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
-//            int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-//            int RankX = floor(Rem/MyYSlices);
-//            int RankY = Rem % MyYSlices;
-//            if (RankZ < lmin) lmin = RankZ;
-//            if ((RankZ <= 11)&&(layernumber == 2)) printf("Rank %d has a delayed cell at z = %d x = %d y = %d \n",id,RankZ,RankX,RankY);
-//        }
-//        else if (CellType(D3D1ConvPosition) == Liquid) {
-//            int RankZ = floor(D3D1ConvPosition/(MyXSlices*MyYSlices));
-//            int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-//            int RankX = floor(Rem/MyYSlices);
-//            int RankY = Rem % MyYSlices;
-//            if (RankZ < lmin) lmin = RankZ;
-//            if ((RankZ <= 11)&&(layernumber == 2)) printf("Rank %d has a liquid cell at z = %d x = %d y = %d \n",id,RankZ,RankX,RankY);
-//        }
     }, Kokkos::Min<int>(NewMin));
     NewMin--;
     MPI_Allreduce(&NewMin,&ZBound_Low,1,MPI_INT,MPI_MIN,MPI_COMM_WORLD);
