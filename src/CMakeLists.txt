@@ -14,6 +14,8 @@ target_link_libraries(ExaCA PUBLIC
     MPI::MPI_CXX
     Kokkos::kokkos
 )
+install(TARGETS ExaCA DESTINATION lib)
 
 add_executable(ExaCA-Kokkos main.cpp)
 target_link_libraries(ExaCA-Kokkos ExaCA)
+install(TARGETS ExaCA-Kokkos DESTINATION bin)
