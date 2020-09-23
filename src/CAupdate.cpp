@@ -782,10 +782,10 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
             if (CellType(D3D1ConvPosition) == Delayed) upd.the_array[0] += 1;
             else if (CellType(D3D1ConvPosition) == Liquid) {
                 upd.the_array[1] += 1;
-                int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
-                int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-                int RankX = Rem/MyYSlices;
-                int RankY = Rem % MyYSlices;
+//                int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
+//                int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
+//                int RankX = Rem/MyYSlices;
+//                int RankY = Rem % MyYSlices;
                 //if (cycle >= 3088000) printf("Anomalous liquid cell on rank %d X/Y/Z %d %d %d Locks value %d \n",id,RankX,RankY,RankZ,Locks(D3D1ConvPosition));
             }
             else if (CellType(D3D1ConvPosition) == Active)     upd.the_array[2] += 1;
@@ -806,7 +806,7 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
     
     if (id == 0) {
        // cout << "======================================================" << endl;
-        cout << "cycle = " << cycle << " Superheated liquid cells = " << Global_sumD << " Number of nucleation events this layer " << Global_nn << endl;
+        cout << "cycle = " << cycle << " Superheated liquid cells = " << Global_sumD << " Undercooled liquid cells = " << Global_sumL << " Number of nucleation events this layer " << Global_nn << endl;
        // cout << "Superheated liquid cells remaining = " << Global_sumD << endl;
        // cout << "Undercooled liquid cells remaining = " << Global_sumL << endl;
        // cout << "Active interface cells remaining = " << Global_sumA << endl;
@@ -826,20 +826,20 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
     
    // MPI_Bcast(&Global_sumL,1,MPI_UNSIGNED_LONG,0,MPI_COMM_WORLD);
     
-    Kokkos::parallel_reduce (  LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, sample::ValueType & upd) {
-        if (CellType(D3D1ConvPosition) == Delayed) upd.the_array[0] += 1;
-        else if (CellType(D3D1ConvPosition) == Liquid)  upd.the_array[1] += 1;
-        else if (CellType(D3D1ConvPosition) == Active)     upd.the_array[2] += 1;
-        else if (CellType(D3D1ConvPosition) == Solid)      upd.the_array[3] += 1;
-        
-        if ((CellType(D3D1ConvPosition) == Liquid)&&(Global_sumL <= 2)) {
-            int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
-            int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-            int RankX = Rem/MyYSlices;
-            int RankY = Rem % MyYSlices;
+//    Kokkos::parallel_reduce (  LocalDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, sample::ValueType & upd) {
+//        if (CellType(D3D1ConvPosition) == Delayed) upd.the_array[0] += 1;
+//        else if (CellType(D3D1ConvPosition) == Liquid)  upd.the_array[1] += 1;
+//        else if (CellType(D3D1ConvPosition) == Active)     upd.the_array[2] += 1;
+//        else if (CellType(D3D1ConvPosition) == Solid)      upd.the_array[3] += 1;
+//        
+        //if ((CellType(D3D1ConvPosition) == Liquid)&&(Global_sumL <= 2)) {
+        //    int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
+        //    int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
+        //    int RankX = Rem/MyYSlices;
+        //    int RankY = Rem % MyYSlices;
            // printf("Anomalous liquid cell on rank %d has locks value %d \n",id,Locks(D3D1ConvPosition));
-        }
-    }, Kokkos::Sum<sample::ValueType>(CellTypeStorage) );
+        //}
+    //}, Kokkos::Sum<sample::ValueType>(CellTypeStorage) );
     
     if ((XSwitch == 0)&&(TemperatureDataType == "R")) {
         MPI_Bcast(&Global_sumL,1,MPI_UNSIGNED_LONG,0,MPI_COMM_WORLD);

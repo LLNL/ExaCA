@@ -23,7 +23,6 @@ int main ( int argc, char *argv[] ) {
         else {
             // Run CA code using reduced temperature data format
             string InputFile(InputFileEnv);
-            InputFile = "Examples/" + InputFile;
             RunProgram_Reduced(id, np, ierr, InputFile);
         }
         

@@ -7,6 +7,7 @@ Cell size (microns: 1
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
 Mean nucleation undercooling (in K): 5
 Standard deviation of nucleation undercooling: 0.5
+Path to output:'/usr/WS2/rolchigo/'
 Output file base name:'TestProblem1'
 File of grain orientations:'GrainOrientationVectors_Robert.csv'
 Thermal gradient (K/m): 500000
@@ -16,3 +17,7 @@ Domain size in y: 500
 Domain size in z: 500
 "N", where the time step = deltax/(Steady State Velocity * N): 25
 Fraction of surface sites active: 0.08
+Print file of grain orientations (Y or N)?:'N'
+Print csv file of grain id values (Y or N)?:'N'
+Print csv file of ExaConstit-formatted grain id values (Y or N)?:'N'
+Print Paraview vtk file of grain misorientation values (Y or N)?:'Y'
