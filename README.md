@@ -74,5 +74,5 @@ ExaCA-Kokkos runs using an input file, the name of which is set by the environme
 Run by simply calling the created executable:
 ```
 export CAINPUT=Inp_DirSolidification.txt
-mpiexec -n 1 ./build/install/ExaCA-Kokkos
+mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos
 ```
