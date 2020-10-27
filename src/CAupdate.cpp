@@ -758,20 +758,6 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
     });
     Kokkos::fence();
     
-    // Fix corrupted lock values
-    Kokkos::parallel_for ("CellCapture",LocalActiveDomainSize, KOKKOS_LAMBDA (const long int& D3D1ConvPosition) {
-        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
-        int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = Rem/MyYSlices;
-        int RankY = Rem % MyYSlices;
-        int GlobalZ = RankZ + ZBound_Low;
-        int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-        if ((CellType(GlobalD3D1ConvPosition) == Liquid)||(CellType(GlobalD3D1ConvPosition) == LiqSol)||(CellType(GlobalD3D1ConvPosition) == Delayed)) {
-            Kokkos::atomic_compare_exchange(&Locks(D3D1ConvPosition),0,1);
-        }
-        //if ((cycle == 3088000)&&(CellType(GlobalD3D1ConvPosition) == Liquid)) printf
-    });
-    
 }
 
 // Prints intermediate code output to stdout, checks to see if solidification is complete
