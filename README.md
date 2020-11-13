@@ -110,6 +110,7 @@ ExaCA-Kokkos runs using an input file, the name of which is set by the environme
  * `Inp_AMBenchMultilayer.txt` simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
  * `Inp_SimpleRaster.txt` simulates a single layer consisting of four overlapping melt pools
  * `Inp_DirSolidification.txt` does not use a thermal profile for a beam melting problem, but rather simulates grain growth from a surface with a fixed thermal gradient and cooling rate
+ * `Inp_SmallDirSolidification.txt` the smallest and simplest example problem
 
 Run by calling the created executable from the ExaCA root directory:
 ```
