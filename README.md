@@ -65,7 +65,7 @@ cd ../..
 
 ## Run
 
-ExaCA-Kokkos runs using an input file, the name of which is set by the environmental variable `CAINPUT` either from the terminal or inside a job script. Three examples problems are given in the `Examples` directory:
+ExaCA-Kokkos runs using an input file, passed on the command line. Three examples problems are given in the `examples/` directory:
 
  * `Inp_AMBenchMultilayer.txt` simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
  * `Inp_SimpleRaster.txt` simulates a single layer consisting of four overlapping melt pools
@@ -73,6 +73,5 @@ ExaCA-Kokkos runs using an input file, the name of which is set by the environme
 
 Run by simply calling the created executable:
 ```
-export CAINPUT=Inp_DirSolidification.txt
-mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos
+mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ```
