@@ -817,7 +817,7 @@ void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int De
            int EndRange;
            if (!(TruchasMultilayer)) {
                int RepeatedFile = LayerCounter % TempFilesInSeries;
-               if (RepeatedFile != TempFilesInSeries-1) EndRange = FirstValue[LayerCounter+1];
+               if (RepeatedFile != TempFilesInSeries-1) EndRange = FirstValue[RepeatedFile+1];
                else {
                    EndRange = RawData.size();
                }
