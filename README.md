@@ -20,7 +20,13 @@ versions:
 git clone https://github.com/kokkos/kokkos.git --branch 3.0.00
 ```
 
-### Build Kokkos
+### Backend options
+Note that ExaCA runs with the default enabled Kokkos backend
+ (see https://github.com/kokkos/kokkos/wiki/Initialization).
+
+ExaCA has been tested with Serial, OpenMP, Pthreads, and Cuda backends.
+
+### Build CPU
 
 First, if Kokkos is not already built on your system, build Kokkos:
 ```
@@ -28,22 +34,55 @@ First, if Kokkos is not already built on your system, build Kokkos:
 cd ./kokkos
 mkdir build
 cd build
-export KOKKOS_INSTALL_DIR=`pwd`/install
 cmake \
   -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR \
+  -D CMAKE_INSTALL_PREFIX=install \
   -D Kokkos_ENABLE_OPENMP=ON \
   \
   .. ;
 make install
 cd ../..
 ```
-Note that ExaCA runs with the default enabled Kokkos backend
- (https://github.com/kokkos/kokkos/wiki/Initialization).
-
-### Build ExaCA
 
 Then build ExaCA, including the path to the Kokkos build:
+```
+# Change this path to Kokkos installation
+export KOKKOS_INSTALL_DIR=./kokkos/build/install
+
+# Change this path to ExaCA source
+cd ./ExaCA
+mkdir build
+cd build
+cmake \
+  -D CMAKE_BUILD_TYPE="Release" \
+  -D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR \
+  -D CMAKE_INSTALL_PREFIX=install \
+  \
+  ..;
+make install
+cd ../..
+```
+
+### Build CUDA
+
+If running on NVIDIA GPUs, build Kokkos with additional inputs:
+```
+# Change this path to Kokkos source
+cd ./kokkos
+mkdir build
+cd build
+cmake \
+  -D CMAKE_BUILD_TYPE="Release" \
+  -D CMAKE_CXX_COMPILER=../bin/nvcc_wrapper \
+  -D CMAKE_INSTALL_PREFIX=install
+  -D Kokkos_ENABLE_CUDA=ON \
+  \
+  .. ;
+make install
+cd ../..
+```
+
+Build ExaCA, this time with the Kokkos compiler wrapper:
 ```
 # Change this path to Kokkos installation
 export KOKKOS_INSTALL_DIR=./kokkos/build/install
@@ -55,8 +94,9 @@ cd build
 export EXACA_INSTALL_DIR=`pwd`/install
 cmake \
   -D CMAKE_BUILD_TYPE="Release" \
-  -D Kokkos_DIR=$KOKKOS_INSTALL_DIR \
-  -D CMAKE_PREFIX_PATH=$EXACA_INSTALL_DIR \
+  -D CMAKE_CXX_COMPILER=$KOKKOS_INSTALL_DIR/bin/nvcc_wrapper \
+  -D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR \
+  -D CMAKE_INSTALL_PREFIX=install \
   \
   ..;
 make install
@@ -70,8 +110,9 @@ ExaCA-Kokkos runs using an input file, the name of which is set by the environme
  * `Inp_AMBenchMultilayer.txt` simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
  * `Inp_SimpleRaster.txt` simulates a single layer consisting of four overlapping melt pools
  * `Inp_DirSolidification.txt` does not use a thermal profile for a beam melting problem, but rather simulates grain growth from a surface with a fixed thermal gradient and cooling rate
+ * `Inp_SmallDirSolidification.txt` the smallest and simplest example problem
 
-Run by simply calling the created executable:
+Run by calling the created executable from the ExaCA root directory:
 ```
 export CAINPUT=Inp_DirSolidification.txt
 mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos
