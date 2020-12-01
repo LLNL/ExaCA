@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
+include(GNUInstallDirs)
 
 #
 # Find Kokkos and set compiler to Kokkos' nvcc_wrapper
