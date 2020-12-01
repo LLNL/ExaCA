@@ -4,12 +4,14 @@ using namespace std;
 
 void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool& TruchasMultilayer, string &ExtraWalls, double &HT_deltax, string &TemperatureDataSource, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, int &NumberOfTruchasRanks, bool (&FilesToPrint)[6]) {
 
+    size_t backslash = InputFile.find_last_of("/");
+    string FilePath = InputFile.substr(0, backslash);
+
     ifstream InputData, MaterialData;
     string Colon = ":";
     string Quote = "'";
-    string InputFileS = "examples/" + InputFile;
-    InputData.open(InputFileS);
-    if (id == 0) cout << "Input file " << InputFileS << " opened" << endl;
+    InputData.open(InputFile);
+    if (id == 0) cout << "Input file " << InputFile << " opened" << endl;
     bool SkippingLines = true;
     while(SkippingLines) {
         string dummyline;
@@ -36,7 +38,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     std::size_t found1 = ValueRead.find_first_of(Quote);
     std::size_t found2 = ValueRead.find_last_of(Quote);
     string MaterialFile = ValueRead.substr(found1+1,found2-found1-1);
-    MaterialData.open("examples/Materials/" + MaterialFile);
+    MaterialData.open(FilePath + "/Materials/" + MaterialFile);
     SkippingLines = true;
     while(SkippingLines) {
         string dummyline;
@@ -113,7 +115,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     found1 = ValueRead.find_first_of(Quote);
     found2 = ValueRead.find_last_of(Quote);
     GrainOrientationFile = ValueRead.substr(found1+1,found2-found1-1);
-    GrainOrientationFile = "examples/Substrate/" + GrainOrientationFile;
+    GrainOrientationFile = FilePath + "/Substrate/" + GrainOrientationFile;
     if (SimulationType == "R") {
         // Read input arguments for a reduced temperature data format solidification problem
         if (id == 0) cout << "CA Simulation using reduced temperature data from file(s)" << endl;
@@ -136,7 +138,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
         found1 = ValueRead.find_first_of(Quote);
         found2 = ValueRead.find_last_of(Quote);
         SubstrateFileName = ValueRead.substr(found1+1,found2-found1-1);
-        SubstrateFileName = "examples/Substrate/" + SubstrateFileName;
+        SubstrateFileName = FilePath + "/Substrate/" + SubstrateFileName;
         if (id == 0) cout << "The substrate file used is " << SubstrateFileName << endl;
         
         // Usage of burst buffer/parallel file system for temperature data - if 'Y', values for LayerHeight, NumberOfLayers are unused, temperature filename is overwritten

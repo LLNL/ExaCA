@@ -15,17 +15,15 @@ int main ( int argc, char *argv[] ) {
         
         if (id == 0) Kokkos::DefaultExecutionSpace::print_configuration(std::cout);
         if (id == 0) cout << "Number of MPI ranks = " << np << endl;
-        
-        char* InputFileEnv = getenv ("CAINPUT");
-        if (InputFileEnv == NULL) {
-            if (id == 0) cout << "Error: Input file not found, program will not run" << endl;
+
+	if ( argc < 2 ) {
+            cout << "Error: Must provide path to input file on the command line." << endl;
+	}
+	else {
+	    // Run CA code using reduced temperature data format
+	    string InputFile = argv[1];
+	    RunProgram_Reduced(id, np, ierr, InputFile);
         }
-        else {
-            // Run CA code using reduced temperature data format
-            string InputFile(InputFileEnv);
-            RunProgram_Reduced(id, np, ierr, InputFile);
-        }
-        
     }
     // Finalize Kokkos
     Kokkos::finalize();
