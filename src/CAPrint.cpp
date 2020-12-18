@@ -5,7 +5,7 @@ using namespace std;
 /**
   Prints values of grain orientation for all cells to files
 */
-void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI::HostMirror GrainID, int* GrainOrientation, float* GrainUnitVector, string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool* Melted, string PathToOutput, bool FilesToPrint[4], double deltax) {
+void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI::HostMirror GrainID, ViewI::HostMirror GrainOrientation, ViewF::HostMirror GrainUnitVector, string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool* Melted, string PathToOutput, bool FilesToPrint[4], double deltax) {
 
     if (id == 0) {
         // Create GrainID variable for entire domain, place GrainIDs for rank 0
@@ -402,7 +402,7 @@ void PrintGrainIDs(string FName, int nx, int ny, int nz, vector <vector <vector 
     Grainplot1.close();
 }
 
-void PrintParaview(string FName, int nx, int ny, int nz, vector <vector <vector <bool> > > Melted_WholeDomain, vector <vector <vector <int> > > GrainID_WholeDomain, int* GrainOrientation, float* GrainUnitVector, int NGrainOrientations) {
+void PrintParaview(string FName, int nx, int ny, int nz, vector <vector <vector <bool> > > Melted_WholeDomain, vector <vector <vector <int> > > GrainID_WholeDomain, ViewI::HostMirror GrainOrientation, ViewF::HostMirror GrainUnitVector, int NGrainOrientations) {
 
     string FName2 = FName + ".vtk";
     cout << "Printing Paraview file of grain misorientations" << endl;
@@ -428,10 +428,10 @@ void PrintParaview(string FName, int nx, int ny, int nz, vector <vector <vector 
                 if (!Melted_WholeDomain[k][i][j]) Grainplot2 << 200 << " ";
                 else {
                     int RoundedAngle;
-                    int MyOrientation = GrainOrientation[((abs(GrainID_WholeDomain[k][i][j]) - 1) % NGrainOrientations)];
+                    int MyOrientation = GrainOrientation(((abs(GrainID_WholeDomain[k][i][j]) - 1) % NGrainOrientations));
                     double AngleZmin = 62.7;
                     for(int ll=0; ll<3; ll++) {
-                        double AngleZ = abs((180/M_PI)*acos(GrainUnitVector[9*MyOrientation + 3*ll + 2]));
+                        double AngleZ = abs((180/M_PI)*acos(GrainUnitVector(9*MyOrientation + 3*ll + 2)));
                         if (AngleZ < AngleZmin) {
                             AngleZmin = AngleZ;
                         }

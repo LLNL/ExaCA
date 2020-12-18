@@ -41,7 +41,7 @@ namespace Kokkos { //reduction identity must be defined in Kokkos namespace
     };
 }
     
-void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, const int nz, int cycle, int &nn, ViewI CritTimeStep, ViewI CellType, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, int* GrainOrientation, ViewF DOCenter, int NeighborX[26], int NeighborY[26], int NeighborZ[26], float* GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank, ViewI Locks, int ZBound_Low, int layernumber, ViewI LayerID) {
+void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, const int nz, int cycle, int &nn, ViewI CritTimeStep, ViewI CellType, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewI GrainOrientation, ViewF DOCenter, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank, ViewI Locks, int ZBound_Low, int layernumber, ViewI LayerID) {
     
     // Loop through local list of nucleation events - has the time step exceeded the time step for nucleation at the sites?
     int NucleationThisDT = 0;
@@ -76,54 +76,54 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
             DOCenter(DOY) = GlobalY + 0.5;
             DOCenter(DOZ) = GlobalZ + 0.5;
             // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative GrainID values)
-            int MyOrientation = GrainOrientation[((abs(MyGrainID) - 1) % NGrainOrientations)];
+            int MyOrientation = GrainOrientation(((abs(MyGrainID) - 1) % NGrainOrientations));
             // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
             for (int n=0; n<26; n++)  {
 
                 // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of a neighbor cell
-                double x0 = NeighborX[n];
-                double y0 = NeighborY[n];
-                double z0 = NeighborZ[n];
+                double x0 = NeighborX(n);
+                double y0 = NeighborY(n);
+                double z0 = NeighborZ(n);
 
                 // mag0 is the magnitude of (x0,y0,z0)
                 double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
 
                 // Calculate unit vectors for the octahedron that intersect the new cell center
                 double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
+                double Angle1 = (GrainUnitVector(9*MyOrientation)*x0 + GrainUnitVector(9*MyOrientation + 1)*y0 + GrainUnitVector(9*MyOrientation + 2)*z0)/mag0;
                 if (Angle1 < 0) {
-                    Diag1X = GrainUnitVector[9*MyOrientation];
-                    Diag1Y = GrainUnitVector[9*MyOrientation + 1];
-                    Diag1Z = GrainUnitVector[9*MyOrientation + 2];
+                    Diag1X = GrainUnitVector(9*MyOrientation);
+                    Diag1Y = GrainUnitVector(9*MyOrientation + 1);
+                    Diag1Z = GrainUnitVector(9*MyOrientation + 2);
                 }
                 else {
-                    Diag1X = -GrainUnitVector[9*MyOrientation];
-                    Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
-                    Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
+                    Diag1X = -GrainUnitVector(9*MyOrientation);
+                    Diag1Y = -GrainUnitVector(9*MyOrientation + 1);
+                    Diag1Z = -GrainUnitVector(9*MyOrientation + 2);
                 }
                 
-                double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
+                double Angle2 = (GrainUnitVector(9*MyOrientation + 3)*x0 + GrainUnitVector(9*MyOrientation + 4)*y0 + GrainUnitVector(9*MyOrientation + 5)*z0)/mag0;
                 if (Angle2 < 0) {
-                    Diag2X = GrainUnitVector[9*MyOrientation + 3];
-                    Diag2Y = GrainUnitVector[9*MyOrientation + 4];
-                    Diag2Z = GrainUnitVector[9*MyOrientation + 5];
+                    Diag2X = GrainUnitVector(9*MyOrientation + 3);
+                    Diag2Y = GrainUnitVector(9*MyOrientation + 4);
+                    Diag2Z = GrainUnitVector(9*MyOrientation + 5);
                 }
                 else {
-                    Diag2X = -GrainUnitVector[9*MyOrientation + 3];
-                    Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
-                    Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
+                    Diag2X = -GrainUnitVector(9*MyOrientation + 3);
+                    Diag2Y = -GrainUnitVector(9*MyOrientation + 4);
+                    Diag2Z = -GrainUnitVector(9*MyOrientation + 5);
                 }
                 
-                double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
+                double Angle3 = (GrainUnitVector(9*MyOrientation + 6)*x0 + GrainUnitVector(9*MyOrientation + 7)*y0 + GrainUnitVector(9*MyOrientation + 8)*z0)/mag0;
                 if (Angle3 < 0) {
-                    Diag3X = GrainUnitVector[9*MyOrientation + 6];
-                    Diag3Y = GrainUnitVector[9*MyOrientation + 7];
-                    Diag3Z = GrainUnitVector[9*MyOrientation + 8];
+                    Diag3X = GrainUnitVector(9*MyOrientation + 6);
+                    Diag3Y = GrainUnitVector(9*MyOrientation + 7);
+                    Diag3Z = GrainUnitVector(9*MyOrientation + 8);
                 }
                 else {
-                    Diag3X = -GrainUnitVector[9*MyOrientation + 6];
-                    Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
-                    Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
+                    Diag3X = -GrainUnitVector(9*MyOrientation + 6);
+                    Diag3Y = -GrainUnitVector(9*MyOrientation + 7);
+                    Diag3Z = -GrainUnitVector(9*MyOrientation + 8);
                 }
  
                 double U1[3], U2[3], UU[3], Norm[3];
@@ -162,7 +162,7 @@ void Nucleation(int id, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffs
 }
     
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, const int nz, double AConst, double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, float* GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, int* GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, ViewI Locks, int ZBound_Low, int nzActive, int layernumber, ViewI LayerID) {
+void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, const int nz, double AConst, double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, ViewI2D ItList, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, ViewI Locks, int ZBound_Low, int nzActive, int layernumber, ViewI LayerID) {
     
     // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to be accounted for
     Kokkos::parallel_for ("CellCapture",LocalActiveDomainSize, KOKKOS_LAMBDA (const long int& D3D1ConvPosition) {
@@ -267,11 +267,11 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                     // "ll" corresponds to the specific position on the list of neighboring cells
                     for (int ll=0; ll<NListLength; ll++) {
                         // "l" correpsponds to the specific neighboring cell
-                        int l = ItList[ItBounds][ll];
+                        int l = ItList(ItBounds,ll);
                         // Local coordinates of adjacent cell center
-                        int MyNeighborX = RankX + NeighborX[l];
-                        int MyNeighborY = RankY + NeighborY[l];
-                        int MyNeighborZ = RankZ + NeighborZ[l];
+                        int MyNeighborX = RankX + NeighborX(l);
+                        int MyNeighborY = RankY + NeighborY(l);
+                        int MyNeighborZ = RankZ + NeighborZ(l);
 
                         if (MyNeighborZ < nzActive) {
                             long int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
@@ -299,7 +299,7 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     int GlobalX = RankX + MyXOffset;
                                     int GlobalY = RankY + MyYOffset;
                                     int h = GrainID(GlobalD3D1ConvPosition);
-                                    int MyOrientation = GrainOrientation[((abs(h) - 1) % NGrainOrientations)];
+                                    int MyOrientation = GrainOrientation(((abs(h) - 1) % NGrainOrientations));
 
                                     // The new cell is captured by this cell's growing octahedron (Grain "h")
                                     GrainID(GlobalNeighborD3D1ConvPosition) = h;
@@ -309,9 +309,9 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                                     double czold = DOCenter((long int)(3)*D3D1ConvPosition+(long int)(2));
 
                                     // (xp,yp,zp) are the global coordinates of the new cell's center
-                                    double xp = GlobalX + NeighborX[l] + 0.5;
-                                    double yp = GlobalY + NeighborY[l] + 0.5;
-                                    double zp = GlobalZ + NeighborZ[l] + 0.5;
+                                    double xp = GlobalX + NeighborX(l) + 0.5;
+                                    double yp = GlobalY + NeighborY(l) + 0.5;
+                                    double zp = GlobalZ + NeighborZ(l) + 0.5;
 
                                     // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of the new cell
                                     double x0 = xp - cxold;
@@ -323,40 +323,40 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
 
                                     // Calculate unit vectors for the octahedron that intersect the new cell center
                                     double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                                    double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
+                                    double Angle1 = (GrainUnitVector(9*MyOrientation)*x0 + GrainUnitVector(9*MyOrientation + 1)*y0 + GrainUnitVector(9*MyOrientation + 2)*z0)/mag0;
                                     if (Angle1 < 0) {
-                                        Diag1X = GrainUnitVector[9*MyOrientation];
-                                        Diag1Y = GrainUnitVector[9*MyOrientation + 1];
-                                        Diag1Z = GrainUnitVector[9*MyOrientation + 2];
+                                        Diag1X = GrainUnitVector(9*MyOrientation);
+                                        Diag1Y = GrainUnitVector(9*MyOrientation + 1);
+                                        Diag1Z = GrainUnitVector(9*MyOrientation + 2);
                                     }
                                     else {
-                                        Diag1X = -GrainUnitVector[9*MyOrientation];
-                                        Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
-                                        Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
+                                        Diag1X = -GrainUnitVector(9*MyOrientation);
+                                        Diag1Y = -GrainUnitVector(9*MyOrientation + 1);
+                                        Diag1Z = -GrainUnitVector(9*MyOrientation + 2);
                                     }
 
-                                    double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
+                                    double Angle2 = (GrainUnitVector(9*MyOrientation + 3)*x0 + GrainUnitVector(9*MyOrientation + 4)*y0 + GrainUnitVector(9*MyOrientation + 5)*z0)/mag0;
                                     if (Angle2 < 0) {
-                                        Diag2X = GrainUnitVector[9*MyOrientation + 3];
-                                        Diag2Y = GrainUnitVector[9*MyOrientation + 4];
-                                        Diag2Z = GrainUnitVector[9*MyOrientation + 5];
+                                        Diag2X = GrainUnitVector(9*MyOrientation + 3);
+                                        Diag2Y = GrainUnitVector(9*MyOrientation + 4);
+                                        Diag2Z = GrainUnitVector(9*MyOrientation + 5);
                                     }
                                     else {
-                                        Diag2X = -GrainUnitVector[9*MyOrientation + 3];
-                                        Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
-                                        Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
+                                        Diag2X = -GrainUnitVector(9*MyOrientation + 3);
+                                        Diag2Y = -GrainUnitVector(9*MyOrientation + 4);
+                                        Diag2Z = -GrainUnitVector(9*MyOrientation + 5);
                                     }
 
-                                    double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
+                                    double Angle3 = (GrainUnitVector(9*MyOrientation + 6)*x0 + GrainUnitVector(9*MyOrientation + 7)*y0 + GrainUnitVector(9*MyOrientation + 8)*z0)/mag0;
                                     if (Angle3 < 0) {
-                                        Diag3X = GrainUnitVector[9*MyOrientation + 6];
-                                        Diag3Y = GrainUnitVector[9*MyOrientation + 7];
-                                        Diag3Z = GrainUnitVector[9*MyOrientation + 8];
+                                        Diag3X = GrainUnitVector(9*MyOrientation + 6);
+                                        Diag3Y = GrainUnitVector(9*MyOrientation + 7);
+                                        Diag3Z = GrainUnitVector(9*MyOrientation + 8);
                                     }
                                     else {
-                                        Diag3X = -GrainUnitVector[9*MyOrientation + 6];
-                                        Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
-                                        Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
+                                        Diag3X = -GrainUnitVector(9*MyOrientation + 6);
+                                        Diag3Y = -GrainUnitVector(9*MyOrientation + 7);
+                                        Diag3Z = -GrainUnitVector(9*MyOrientation + 8);
                                     }
 
                                     double U1[3], U2[3], UU[3], Norm[3];
@@ -521,40 +521,40 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
 
                                             // Calculate unit vectors for the octahedron that intersect the new cell center
                                             double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                                            double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
+                                            double Angle1 = (GrainUnitVector(9*MyOrientation)*x0 + GrainUnitVector(9*MyOrientation + 1)*y0 + GrainUnitVector(9*MyOrientation + 2)*z0)/mag0;
                                             if (Angle1 < 0) {
-                                                Diag1X = GrainUnitVector[9*MyOrientation];
-                                                Diag1Y = GrainUnitVector[9*MyOrientation + 1];
-                                                Diag1Z = GrainUnitVector[9*MyOrientation + 2];
+                                                Diag1X = GrainUnitVector(9*MyOrientation);
+                                                Diag1Y = GrainUnitVector(9*MyOrientation + 1);
+                                                Diag1Z = GrainUnitVector(9*MyOrientation + 2);
                                             }
                                             else {
-                                                Diag1X = -GrainUnitVector[9*MyOrientation];
-                                                Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
-                                                Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
+                                                Diag1X = -GrainUnitVector(9*MyOrientation);
+                                                Diag1Y = -GrainUnitVector(9*MyOrientation + 1);
+                                                Diag1Z = -GrainUnitVector(9*MyOrientation + 2);
                                             }
 
-                                            double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
+                                            double Angle2 = (GrainUnitVector(9*MyOrientation + 3)*x0 + GrainUnitVector(9*MyOrientation + 4)*y0 + GrainUnitVector(9*MyOrientation + 5)*z0)/mag0;
                                             if (Angle2 < 0) {
-                                                Diag2X = GrainUnitVector[9*MyOrientation + 3];
-                                                Diag2Y = GrainUnitVector[9*MyOrientation + 4];
-                                                Diag2Z = GrainUnitVector[9*MyOrientation + 5];
+                                                Diag2X = GrainUnitVector(9*MyOrientation + 3);
+                                                Diag2Y = GrainUnitVector(9*MyOrientation + 4);
+                                                Diag2Z = GrainUnitVector(9*MyOrientation + 5);
                                             }
                                             else {
-                                                Diag2X = -GrainUnitVector[9*MyOrientation + 3];
-                                                Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
-                                                Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
+                                                Diag2X = -GrainUnitVector(9*MyOrientation + 3);
+                                                Diag2Y = -GrainUnitVector(9*MyOrientation + 4);
+                                                Diag2Z = -GrainUnitVector(9*MyOrientation + 5);
                                             }
 
-                                            double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
+                                            double Angle3 = (GrainUnitVector(9*MyOrientation + 6)*x0 + GrainUnitVector(9*MyOrientation + 7)*y0 + GrainUnitVector(9*MyOrientation + 8)*z0)/mag0;
                                             if (Angle3 < 0) {
-                                                Diag3X = GrainUnitVector[9*MyOrientation + 6];
-                                                Diag3Y = GrainUnitVector[9*MyOrientation + 7];
-                                                Diag3Z = GrainUnitVector[9*MyOrientation + 8];
+                                                Diag3X = GrainUnitVector(9*MyOrientation + 6);
+                                                Diag3Y = GrainUnitVector(9*MyOrientation + 7);
+                                                Diag3Z = GrainUnitVector(9*MyOrientation + 8);
                                             }
                                             else {
-                                                Diag3X = -GrainUnitVector[9*MyOrientation + 6];
-                                                Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
-                                                Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
+                                                Diag3X = -GrainUnitVector(9*MyOrientation + 6);
+                                                Diag3Y = -GrainUnitVector(9*MyOrientation + 7);
+                                                Diag3Z = -GrainUnitVector(9*MyOrientation + 8);
                                             }
 
                                             double U1[3], U2[3], UU[3], Norm[3];

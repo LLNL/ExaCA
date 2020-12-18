@@ -358,41 +358,41 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     
 }
 
-void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, double &deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, string tempfile, float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, string TemperatureDataSource, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries, float* ZMinLayer, float* ZMaxLayer, int* FirstValue, vector <float> &RawData, bool TruchasMultilayer, int NumberOfTruchasRanks) {
+void ParallelMeshInit(int DecompositionStrategy, ViewI::HostMirror NeighborX, ViewI::HostMirror NeighborY, ViewI::HostMirror NeighborZ, ViewI2D::HostMirror ItList, string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, double &deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, string tempfile, float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, string TemperatureDataSource, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries, float* ZMinLayer, float* ZMaxLayer, int* FirstValue, vector <float> &RawData, bool TruchasMultilayer, int NumberOfTruchasRanks) {
         
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
     // Neighbors 9 through 16 are in the XY plane with cell X
     // Neighbors 17 through 25 are in the +Y direction
 
-    NeighborX[0] = 0; NeighborY[0] = -1; NeighborZ[0] = 0;
-    NeighborX[1] = 1; NeighborY[1] = -1; NeighborZ[1] = 0;
-    NeighborX[2] = -1; NeighborY[2] = -1; NeighborZ[2] = 0;
-    NeighborX[3] = 0; NeighborY[3] = -1; NeighborZ[3] = 1;
-    NeighborX[4] = 0; NeighborY[4] = -1; NeighborZ[4] = -1;
-    NeighborX[5] = -1; NeighborY[5] = -1; NeighborZ[5] = 1;
-    NeighborX[6] = 1; NeighborY[6] = -1; NeighborZ[6] = 1;
-    NeighborX[7] = -1; NeighborY[7] = -1; NeighborZ[7] = -1;
-    NeighborX[8] = 1; NeighborY[8] = -1; NeighborZ[8] = -1;
+    NeighborX(0) = 0; NeighborY(0) = -1; NeighborZ(0) = 0;
+    NeighborX(1) = 1; NeighborY(1) = -1; NeighborZ(1) = 0;
+    NeighborX(2) = -1; NeighborY(2) = -1; NeighborZ(2) = 0;
+    NeighborX(3) = 0; NeighborY(3) = -1; NeighborZ(3) = 1;
+    NeighborX(4) = 0; NeighborY(4) = -1; NeighborZ(4) = -1;
+    NeighborX(5) = -1; NeighborY(5) = -1; NeighborZ(5) = 1;
+    NeighborX(6) = 1; NeighborY(6) = -1; NeighborZ(6) = 1;
+    NeighborX(7) = -1; NeighborY(7) = -1; NeighborZ(7) = -1;
+    NeighborX(8) = 1; NeighborY(8) = -1; NeighborZ(8) = -1;
     
-    NeighborX[9] = 0; NeighborY[9] = 0; NeighborZ[9] = 1;
-    NeighborX[10] = 0; NeighborY[10] = 0; NeighborZ[10] = -1;
-    NeighborX[11] = 1; NeighborY[11] = 0; NeighborZ[11] = 1;
-    NeighborX[12] = -1; NeighborY[12] = 0; NeighborZ[12] = 1;
-    NeighborX[13] = 1; NeighborY[13] = 0; NeighborZ[13] = -1;
-    NeighborX[14] = -1; NeighborY[14] = 0; NeighborZ[14] = -1;
-    NeighborX[15] = 1; NeighborY[15] = 0; NeighborZ[15] = 0;
-    NeighborX[16] = -1; NeighborY[16] = 0; NeighborZ[16] = 0;
+    NeighborX(9) = 0; NeighborY(9) = 0; NeighborZ(9) = 1;
+    NeighborX(10) = 0; NeighborY(10) = 0; NeighborZ(10) = -1;
+    NeighborX(11) = 1; NeighborY(11) = 0; NeighborZ(11) = 1;
+    NeighborX(12) = -1; NeighborY(12) = 0; NeighborZ(12) = 1;
+    NeighborX(13) = 1; NeighborY(13) = 0; NeighborZ(13) = -1;
+    NeighborX(14) = -1; NeighborY(14) = 0; NeighborZ(14) = -1;
+    NeighborX(15) = 1; NeighborY(15) = 0; NeighborZ(15) = 0;
+    NeighborX(16) = -1; NeighborY(16) = 0; NeighborZ(16) = 0;
     
-    NeighborX[17] = 0; NeighborY[17] = 1; NeighborZ[17] = 0;
-    NeighborX[18] = 1; NeighborY[18] = 1; NeighborZ[18] = 0;
-    NeighborX[19] = -1; NeighborY[19] = 1; NeighborZ[19] = 0;
-    NeighborX[20] = 0; NeighborY[20] = 1; NeighborZ[20] = 1;
-    NeighborX[21] = 0; NeighborY[21] = 1; NeighborZ[21] = -1;
-    NeighborX[22] = 1; NeighborY[22] = 1; NeighborZ[22] = 1;
-    NeighborX[23] = -1; NeighborY[23] = 1; NeighborZ[23] = 1;
-    NeighborX[24] = 1; NeighborY[24] = 1; NeighborZ[24] = -1;
-    NeighborX[25] = -1; NeighborY[25] = 1; NeighborZ[25] = -1;
+    NeighborX(17) = 0; NeighborY(17) = 1; NeighborZ(17) = 0;
+    NeighborX(18) = 1; NeighborY(18) = 1; NeighborZ(18) = 0;
+    NeighborX(19) = -1; NeighborY(19) = 1; NeighborZ(19) = 0;
+    NeighborX(20) = 0; NeighborY(20) = 1; NeighborZ(20) = 1;
+    NeighborX(21) = 0; NeighborY(21) = 1; NeighborZ(21) = -1;
+    NeighborX(22) = 1; NeighborY(22) = 1; NeighborZ(22) = 1;
+    NeighborX(23) = -1; NeighborY(23) = 1; NeighborZ(23) = 1;
+    NeighborX(24) = 1; NeighborY(24) = 1; NeighborZ(24) = -1;
+    NeighborX(25) = -1; NeighborY(25) = 1; NeighborZ(25) = -1;
     
 //    // Opposite neighbors
 //    Opp_Neighbor[0] = 17;
@@ -426,69 +426,69 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
     
     // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
     for (int i=0; i<=25; i++) {
-        ItList[0][i] = i;
+        ItList(0,i) = i;
     }
     // If Y coordinate is on lower edge, Case 1: iteration over only neighbors 9-25 possible
     int Pos = 0;
     for (int i=0; i<=25; i++) {
-        if (NeighborY[i] != -1) {
-            ItList[1][Pos] = i;
+        if (NeighborY(i) != -1) {
+            ItList(1,Pos) = i;
             Pos++;
         }
     }
     // If Y coordinate is on upper edge, Case 2: iteration over only neighbors 0-16 possible
     Pos = 0;
     for (int i=0; i<=25; i++) {
-        if (NeighborY[i] != 1) {
-            ItList[2][Pos] = i;
+        if (NeighborY(i) != 1) {
+            ItList(2,Pos) = i;
             Pos++;
         }
     }
     // If X coordinate is on lower edge, Case 3: iteration over only neighbors 0,1,3,4,6,8,9,10,11,13,15,17,18,20,21,22,24
     Pos = 0;
     for (int i=0; i<=25; i++) {
-        if (NeighborX[i] != -1) {
-            ItList[3][Pos] = i;
+        if (NeighborX(i) != -1) {
+            ItList(3,Pos) = i;
             Pos++;
         }
     }
     // If X coordinate is on upper edge, Case 4: iteration over only neighbors 0,2,3,4,5,7,9,10,12,14,16,17,19,20,21,23,25
     Pos = 0;
     for (int i=0; i<=25; i++) {
-        if (NeighborX[i] != 1) {
-            ItList[4][Pos] = i;
+        if (NeighborX(i) != 1) {
+            ItList(4,Pos) = i;
             Pos++;
         }
     }
     // If X/Y coordinates are on lower edge, Case 5: iteration over only neighbors 9,10,11,13,15,17,18,20,21,22,24
     Pos = 0;
     for (int i=0; i<=25; i++) {
-        if ((NeighborX[i] != -1)&&(NeighborY[i] != -1)) {
-            ItList[5][Pos] = i;
+        if ((NeighborX(i) != -1)&&(NeighborY(i) != -1)) {
+            ItList(5,Pos) = i;
             Pos++;
         }
     }
     // If X coordinate is on upper edge/Y on lower edge, Case 6:
     Pos = 0;
     for (int i=0; i<=25; i++) {
-        if ((NeighborX[i] != 1)&&(NeighborY[i] != -1)) {
-            ItList[6][Pos] = i;
+        if ((NeighborX(i) != 1)&&(NeighborY(i) != -1)) {
+            ItList(6,Pos) = i;
             Pos++;
         }
     }
     // If X coordinate is on lower edge/Y on upper edge, Case 7:
     Pos = 0;
     for (int i=0; i<=25; i++) {
-        if ((NeighborX[i] != -1)&&(NeighborY[i] != 1)) {
-            ItList[7][Pos] = i;
+        if ((NeighborX(i) != -1)&&(NeighborY(i) != 1)) {
+            ItList(7,Pos) = i;
             Pos++;
         }
     }
     // If X/Y coordinates are on upper edge, Case 8:
     Pos = 0;
     for (int i=0; i<=25; i++) {
-        if ((NeighborX[i] != 1)&&(NeighborY[i] != 1)) {
-            ItList[8][Pos] = i;
+        if ((NeighborX(i) != 1)&&(NeighborY(i) != 1)) {
+            ItList(8,Pos) = i;
             Pos++;
         }
     }
@@ -727,7 +727,7 @@ void ParallelMeshInit(int DecompositionStrategy, int (&NeighborX)[26], int (&Nei
    // cout << "ID = " << id << " X RANGE = " << MyXOffset << " TO = " << MyXOffset+MyXSlices-1 << " ; YRANGE = " << MyYOffset << " TO = " << MyYOffset+MyYSlices-1 << endl;
 }
 
-void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int DecompositionStrategy, int (&NeighborX)[26], int (&NeighborY)[26], int (&NeighborZ)[26], int (&ItList)[9][26], string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, string tempfile, float XMin, float XMax, float YMin, float YMax, float ZMin, float ZMax, bool* Melted, string TemperatureDataSource, float* ZMinLayer, float* ZMaxLayer, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int* FinishTimeStep, double FreezingRange, ViewI::HostMirror LayerID, int* FirstValue, vector <float> RawData, bool TruchasMultilayer) {
+void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int DecompositionStrategy, ViewI::HostMirror NeighborX, ViewI::HostMirror NeighborY, ViewI::HostMirror NeighborZ, ViewI2D::HostMirror ItList, string SimulationType, int ierr, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, ViewF::HostMirror UndercoolingCurrent, string tempfile, float XMin, float XMax, float YMin, float YMax, float ZMin, float ZMax, bool* Melted, string TemperatureDataSource, float* ZMinLayer, float* ZMaxLayer, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int* FinishTimeStep, double FreezingRange, ViewI::HostMirror LayerID, int* FirstValue, vector <float> RawData, bool TruchasMultilayer) {
 
     if (SimulationType == "C") {
         
@@ -989,7 +989,7 @@ void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int De
 
 // Initialize grain orientations and unit vectors
 
-void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, float* GrainUnitVector, string GrainOrientationFile) {
+void OrientationInit(int id, int NGrainOrientations, ViewI::HostMirror GrainOrientation, ViewF::HostMirror GrainUnitVector, string GrainOrientationFile) {
     
     // Read file of grain orientations
     ifstream O;
@@ -1012,7 +1012,7 @@ void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, floa
             float ReadGO = atof(s.c_str());
             // X,Y,Z of a single unit vector
             
-            GrainUnitVector[9*i + 3*UVNumber + Comp] = ReadGO;
+            GrainUnitVector(9*i + 3*UVNumber + Comp) = ReadGO;
             
 //            GrainUnitVector[18*i + 3*UVNumber + Comp] = ReadGO;
 //            GrainUnitVector[18*i + 3*(UVNumber+1) + Comp] = -ReadGO;
@@ -1037,7 +1037,7 @@ void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, floa
     }
     MPI_Bcast(&GrainOrientation_master[0], NGrainOrientations, MPI_INT, 0, MPI_COMM_WORLD);
     for (int h=0; h<NGrainOrientations; h++) {
-        GrainOrientation[h] = GrainOrientation_master[h];
+        GrainOrientation(h) = GrainOrientation_master[h];
     }
     
 }
@@ -1050,7 +1050,7 @@ void OrientationInit(int id, int NGrainOrientations, int* GrainOrientation, floa
 // Initializes cell types where the substrate comes from a file
 //*/
 
-void GrainInit(int layernumber, int LayerHeight, string SimulationType, string SubstrateFileName, double FractSurfaceSitesActive, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int ItList[9][26], int NeighborX[26], int NeighborY[26], int NeighborZ[26], int* GrainOrientation, float* GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, bool* Melted, double deltax, double NMax, int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int NumberOfLayers, int TempFilesInSeries, double HT_deltax, double deltat, double XMin, double XMax, double YMin, double YMax, double ZMin, double ZMax, string tempfile, string TemperatureDataSource, int ZBound_Low, string ExtraWalls) {
+void GrainInit(int layernumber, int LayerHeight, string SimulationType, string SubstrateFileName, double FractSurfaceSitesActive, int NGrainOrientations, int DecompositionStrategy, int ProcessorsInXDirection, int ProcessorsInYDirection, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, ViewI2D::HostMirror ItList, ViewI::HostMirror NeighborX, ViewI::HostMirror NeighborY, ViewI::HostMirror NeighborZ, ViewI::HostMirror GrainOrientation, ViewF::HostMirror GrainUnitVector, ViewF::HostMirror DiagonalLength, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewF::HostMirror CritDiagonalLength, ViewF::HostMirror DOCenter, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange, bool* Melted, double deltax, double NMax, int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int NumberOfLayers, int TempFilesInSeries, double HT_deltax, double deltat, double XMin, double XMax, double YMin, double YMax, double ZMin, double ZMax, string tempfile, string TemperatureDataSource, int ZBound_Low, string ExtraWalls) {
     
     mt19937_64 gen(id);//2*id);//*234) ; //123);//234); //(id*(layernumber+1));
     uniform_real_distribution<double> dis(0.0, 1.0);
@@ -1300,11 +1300,11 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
                             // "ll" corresponds to the specific position on the list of neighboring cells
                             for (int ll=0; ll<NListLength; ll++) {
                                 // "l" correpsponds to the specific neighboring cell
-                                int l = ItList[ItBounds][ll];
+                                int l = ItList(ItBounds,ll);
                                 // Local coordinates of adjacent cell center
-                                int MyNeighborX = i + NeighborX[l];
-                                int MyNeighborY = j + NeighborY[l];
-                                int MyNeighborZ = k + NeighborZ[l];
+                                int MyNeighborX = i + NeighborX(l);
+                                int MyNeighborY = j + NeighborY(l);
+                                int MyNeighborZ = k + NeighborZ(l);
                                 int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
                                 if (CritTimeStep(NeighborD3D1ConvPosition) > 0) {
                                     LCount++;
@@ -1405,7 +1405,7 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
                         DOCenter(3*D3D1ConvPosition+2) = GlobalZ + 0.5;
 
                         // The orientation for the new grain will depend on its Grain ID
-                        int MyOrientation = GrainOrientation[((abs(MyGrainID) - 1) % NGrainOrientations)];
+                        int MyOrientation = GrainOrientation(((abs(MyGrainID) - 1) % NGrainOrientations));
                         // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
                         // (xp,yp,zp) is the new cell's center on the global grid
                         double xp = GlobalX + 0.5;
@@ -1422,47 +1422,47 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
                          for (int n=0; n<26; n++)  {
 
                              // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of a neighbor cell
-                             double x0 = xp + NeighborX[n] - cx;
-                             double y0 = yp + NeighborY[n] - cy;
-                             double z0 = zp + NeighborZ[n] - cz;
+                             double x0 = xp + NeighborX(n) - cx;
+                             double y0 = yp + NeighborY(n) - cy;
+                             double z0 = zp + NeighborZ(n) - cz;
                              // mag0 is the magnitude of (x0,y0,z0)
                              double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
                              
                              // Calculate unit vectors for the octahedron that intersect the new cell center
                              double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                             double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
+                             double Angle1 = (GrainUnitVector(9*MyOrientation)*x0 + GrainUnitVector(9*MyOrientation + 1)*y0 + GrainUnitVector(9*MyOrientation + 2)*z0)/mag0;
                              if (Angle1 < 0) {
-                                 Diag1X = GrainUnitVector[9*MyOrientation];
-                                 Diag1Y = GrainUnitVector[9*MyOrientation + 1];
-                                 Diag1Z = GrainUnitVector[9*MyOrientation + 2];
+                                 Diag1X = GrainUnitVector(9*MyOrientation);
+                                 Diag1Y = GrainUnitVector(9*MyOrientation + 1);
+                                 Diag1Z = GrainUnitVector(9*MyOrientation + 2);
                              }
                              else {
-                                 Diag1X = -GrainUnitVector[9*MyOrientation];
-                                 Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
-                                 Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
+                                 Diag1X = -GrainUnitVector(9*MyOrientation);
+                                 Diag1Y = -GrainUnitVector(9*MyOrientation + 1);
+                                 Diag1Z = -GrainUnitVector(9*MyOrientation + 2);
                              }
-                             double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
+                             double Angle2 = (GrainUnitVector(9*MyOrientation + 3)*x0 + GrainUnitVector(9*MyOrientation + 4)*y0 + GrainUnitVector(9*MyOrientation + 5)*z0)/mag0;
                              if (Angle2 < 0) {
-                                 Diag2X = GrainUnitVector[9*MyOrientation + 3];
-                                 Diag2Y = GrainUnitVector[9*MyOrientation + 4];
-                                 Diag2Z = GrainUnitVector[9*MyOrientation + 5];
+                                 Diag2X = GrainUnitVector(9*MyOrientation + 3);
+                                 Diag2Y = GrainUnitVector(9*MyOrientation + 4);
+                                 Diag2Z = GrainUnitVector(9*MyOrientation + 5);
                              }
                              else {
-                                 Diag2X = -GrainUnitVector[9*MyOrientation + 3];
-                                 Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
-                                 Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
+                                 Diag2X = -GrainUnitVector(9*MyOrientation + 3);
+                                 Diag2Y = -GrainUnitVector(9*MyOrientation + 4);
+                                 Diag2Z = -GrainUnitVector(9*MyOrientation + 5);
                              }
 
-                             double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
+                             double Angle3 = (GrainUnitVector(9*MyOrientation + 6)*x0 + GrainUnitVector(9*MyOrientation + 7)*y0 + GrainUnitVector(9*MyOrientation + 8)*z0)/mag0;
                              if (Angle3 < 0) {
-                                 Diag3X = GrainUnitVector[9*MyOrientation + 6];
-                                 Diag3Y = GrainUnitVector[9*MyOrientation + 7];
-                                 Diag3Z = GrainUnitVector[9*MyOrientation + 8];
+                                 Diag3X = GrainUnitVector(9*MyOrientation + 6);
+                                 Diag3Y = GrainUnitVector(9*MyOrientation + 7);
+                                 Diag3Z = GrainUnitVector(9*MyOrientation + 8);
                              }
                              else {
-                                 Diag3X = -GrainUnitVector[9*MyOrientation + 6];
-                                 Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
-                                 Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
+                                 Diag3X = -GrainUnitVector(9*MyOrientation + 6);
+                                 Diag3Y = -GrainUnitVector(9*MyOrientation + 7);
+                                 Diag3Z = -GrainUnitVector(9*MyOrientation + 8);
                              }
 
                              double U1[3], U2[3], UU[3], Norm[3];
@@ -1628,11 +1628,11 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
                     // "ll" corresponds to the specific position on the list of neighboring cells
                     for (int ll=0; ll<NListLength; ll++) {
                         // "l" correpsponds to the specific neighboring cell
-                        int l = ItList[ItBounds][ll];
+                        int l = ItList(ItBounds,ll);
                         // Local coordinates of adjacent cell center
-                        int MyNeighborX = RankX + NeighborX[l];
-                        int MyNeighborY = RankY + NeighborY[l];
-                        int MyNeighborZ = RankZ + NeighborZ[l];
+                        int MyNeighborX = RankX + NeighborX(l);
+                        int MyNeighborY = RankY + NeighborY(l);
+                        int MyNeighborZ = RankZ + NeighborZ(l);
                         int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
                         if ((CellType(NeighborD3D1ConvPosition) != Solid)&&(CellType(NeighborD3D1ConvPosition) != Wall)) {
                             LCount++;
@@ -1655,7 +1655,7 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
 // After initializing grain structure and filling ghost nodes, the known potential nucleation sites are placed into the nucleation data structures
 // Each nucleation event is assigned a time step, beyond which if the associated cell is not solid or actve, the event occurs
 // This data is synced across MPI ranks, for nucleation events that occur in the ghost nodes
-void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz, int id, double dTN, double dTsigma, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int &PossibleNuclei_ThisRank, ViewI::HostMirror NucleiLocation, ViewI::HostMirror NucleationTimes, int* GrainOrientation, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange) {
+void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz, int id, double dTN, double dTsigma, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int &PossibleNuclei_ThisRank, ViewI::HostMirror NucleiLocation, ViewI::HostMirror NucleationTimes, ViewI::HostMirror GrainOrientation, ViewI::HostMirror CellType, ViewI::HostMirror GrainID, ViewI::HostMirror CritTimeStep, ViewF::HostMirror UndercoolingChange) {
 
     // Counts and buffers for sending/recieving nucleation data from ghost nodes
     int ACount = 0;
@@ -2228,7 +2228,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
     
 }
 
-void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int LocalDomainSize, int LocalActiveDomainSize, int* GrainOrientation, int NGrainOrientations, float* GrainUnitVector, int NeighborX[26], int NeighborY[26], int NeighborZ[26], int id, int np, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength, ViewF DOCenter, ViewI CritTimeStep, ViewF UndercoolingChange, ViewF UndercoolingCurrent, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int TempFilesInSeries, int &ZBound_Low, int &ZBound_High, float ZMin, double deltax, int nzActive, ViewI Locks) {
+void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int LocalDomainSize, int LocalActiveDomainSize, ViewI::HostMirror GrainOrientation, int NGrainOrientations, ViewF::HostMirror GrainUnitVector, ViewI::HostMirror NeighborX, ViewI::HostMirror NeighborY, ViewI::HostMirror NeighborZ, int id, int np, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength, ViewF DOCenter, ViewI CritTimeStep, ViewF UndercoolingChange, ViewF UndercoolingCurrent, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int TempFilesInSeries, int &ZBound_Low, int &ZBound_High, float ZMin, double deltax, int nzActive, ViewI Locks) {
 
     // Reset active cell data structures
     Kokkos::parallel_for("DelDLData",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& i) {
@@ -2319,47 +2319,47 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
             for (int n=0; n<26; n++)  {
 
                 // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of a neighbor cell
-                double x0 = xp + NeighborX[n] - cx;
-                double y0 = yp + NeighborY[n] - cy;
-                double z0 = zp + NeighborZ[n] - cz;
+                double x0 = xp + NeighborX(n) - cx;
+                double y0 = yp + NeighborY(n) - cy;
+                double z0 = zp + NeighborZ(n) - cz;
                 // mag0 is the magnitude of (x0,y0,z0)
                 double mag0 = pow(pow(x0,2.0) + pow(y0,2.0) + pow(z0,2.0),0.5);
                 
                 // Calculate unit vectors for the octahedron that intersect the new cell center
                 double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                double Angle1 = (GrainUnitVector[9*MyOrientation]*x0 + GrainUnitVector[9*MyOrientation + 1]*y0 + GrainUnitVector[9*MyOrientation + 2]*z0)/mag0;
+                double Angle1 = (GrainUnitVector(9*MyOrientation)*x0 + GrainUnitVector(9*MyOrientation + 1)*y0 + GrainUnitVector(9*MyOrientation + 2)*z0)/mag0;
                 if (Angle1 < 0) {
-                    Diag1X = GrainUnitVector[9*MyOrientation];
-                    Diag1Y = GrainUnitVector[9*MyOrientation + 1];
-                    Diag1Z = GrainUnitVector[9*MyOrientation + 2];
+                    Diag1X = GrainUnitVector(9*MyOrientation);
+                    Diag1Y = GrainUnitVector(9*MyOrientation + 1);
+                    Diag1Z = GrainUnitVector(9*MyOrientation + 2);
                 }
                 else {
-                    Diag1X = -GrainUnitVector[9*MyOrientation];
-                    Diag1Y = -GrainUnitVector[9*MyOrientation + 1];
-                    Diag1Z = -GrainUnitVector[9*MyOrientation + 2];
+                    Diag1X = -GrainUnitVector(9*MyOrientation);
+                    Diag1Y = -GrainUnitVector(9*MyOrientation + 1);
+                    Diag1Z = -GrainUnitVector(9*MyOrientation + 2);
                 }
-                double Angle2 = (GrainUnitVector[9*MyOrientation + 3]*x0 + GrainUnitVector[9*MyOrientation + 4]*y0 + GrainUnitVector[9*MyOrientation + 5]*z0)/mag0;
+                double Angle2 = (GrainUnitVector(9*MyOrientation + 3)*x0 + GrainUnitVector(9*MyOrientation + 4)*y0 + GrainUnitVector(9*MyOrientation + 5)*z0)/mag0;
                 if (Angle2 < 0) {
-                    Diag2X = GrainUnitVector[9*MyOrientation + 3];
-                    Diag2Y = GrainUnitVector[9*MyOrientation + 4];
-                    Diag2Z = GrainUnitVector[9*MyOrientation + 5];
+                    Diag2X = GrainUnitVector(9*MyOrientation + 3);
+                    Diag2Y = GrainUnitVector(9*MyOrientation + 4);
+                    Diag2Z = GrainUnitVector(9*MyOrientation + 5);
                 }
                 else {
-                    Diag2X = -GrainUnitVector[9*MyOrientation + 3];
-                    Diag2Y = -GrainUnitVector[9*MyOrientation + 4];
-                    Diag2Z = -GrainUnitVector[9*MyOrientation + 5];
+                    Diag2X = -GrainUnitVector(9*MyOrientation + 3);
+                    Diag2Y = -GrainUnitVector(9*MyOrientation + 4);
+                    Diag2Z = -GrainUnitVector(9*MyOrientation + 5);
                 }
 
-                double Angle3 = (GrainUnitVector[9*MyOrientation + 6]*x0 + GrainUnitVector[9*MyOrientation + 7]*y0 + GrainUnitVector[9*MyOrientation + 8]*z0)/mag0;
+                double Angle3 = (GrainUnitVector(9*MyOrientation + 6)*x0 + GrainUnitVector(9*MyOrientation + 7)*y0 + GrainUnitVector(9*MyOrientation + 8)*z0)/mag0;
                 if (Angle3 < 0) {
-                    Diag3X = GrainUnitVector[9*MyOrientation + 6];
-                    Diag3Y = GrainUnitVector[9*MyOrientation + 7];
-                    Diag3Z = GrainUnitVector[9*MyOrientation + 8];
+                    Diag3X = GrainUnitVector(9*MyOrientation + 6);
+                    Diag3Y = GrainUnitVector(9*MyOrientation + 7);
+                    Diag3Z = GrainUnitVector(9*MyOrientation + 8);
                 }
                 else {
-                    Diag3X = -GrainUnitVector[9*MyOrientation + 6];
-                    Diag3Y = -GrainUnitVector[9*MyOrientation + 7];
-                    Diag3Z = -GrainUnitVector[9*MyOrientation + 8];
+                    Diag3X = -GrainUnitVector(9*MyOrientation + 6);
+                    Diag3Y = -GrainUnitVector(9*MyOrientation + 7);
+                    Diag3Z = -GrainUnitVector(9*MyOrientation + 8);
                 }
 
                 double U1[3], U2[3], UU[3], Norm[3];
