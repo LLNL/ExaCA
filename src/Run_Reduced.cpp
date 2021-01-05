@@ -3,7 +3,8 @@ using namespace std;
 
 void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     
-    double NuclTime, StartNuclTime, CaptureTime, StartCaptureTime, GhostTime, StartGhostTime = 0.0;
+    double NuclTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
+    double StartNuclTime, StartCaptureTime, StartGhostTime;
     double StartTime = MPI_Wtime();
     
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries, NumberOfTruchasRanks;
