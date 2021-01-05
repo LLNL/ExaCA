@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.9)
-include(GNUInstallDirs)
 
 project(ExaCA CXX)
+
+include(GNUInstallDirs)
 
 find_package(Kokkos 3 REQUIRED)
 find_package(MPI REQUIRED)
