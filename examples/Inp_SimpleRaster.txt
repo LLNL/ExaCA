@@ -1,28 +1,28 @@
 Test problem using a simple raster pattern (4 overlapping melt pool tracks): 
 *****
-Problem type: 'R'
-Decomposition Strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
-Material:'Inconel625'
+Problem type: R
+Decomposition strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
+Material:Inconel625
 Cell size (microns): 1
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
 Mean nucleation undercooling (in K): 5
 Standard deviation of nucleation undercooling: 0.5
-Path to output:'/usr/WS2/rolchigo/'
-Output file base name:'TestProblem2'
-File of grain orientations:'GrainOrientationVectors_Robert.csv'
+Path to output:/usr/WS2/rolchigo/
+Output file base name:TestProblem2
+File of grain orientations:GrainOrientationVectors_Robert.csv
 Heat transport data mesh size (microns): 5
 Time step (microseconds): 0.08333333
-Substrate file name:'SubstrateFine.csv'
-Is the temperature data in the parallel file system/burst buffer (Y or N)? If N, read additional arguments: 'N'
-Name of file containing temperatures:'Master-Raster-150um.txt'
-Temperature files in the series: 1
-Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: 'N'
-Truchas in mm (T) or OpenFOAM (O) in m for input data length units:'O'
+Substrate file name:SubstrateFine.csv
+Burst buffer temperature data (Y or N)? If N, read additional arguments: N
+Temperature filename: Master-Raster-150um.txt
+Number of temperature files: 1
+Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: N
+Source of input length unit (Truchas in mm (T) or OpenFOAM (O) in m): O
 Number of layers: 1
 Offset between layers (if Number of layers > 1, in cells): 15
-Print file of grain orientations (Y or N)?:'N'
-Print csv file of grain id values (Y or N)?:'N'
-Print csv file of ExaConstit-formatted grain id values (Y or N)?:'N'
-Print Paraview vtk file of grain misorientation values (Y or N)?:'Y'
-Print file of grain area values (Y or N)?:'Y'
-Print file of weighted grain area values (Y or N)?:'Y'
+Print file of grain orientations (Y or N)?: N
+Print csv file of grain id values (Y or N)?: N
+Print csv file of ExaConstit-formatted grain id values (Y or N)?: N
+Print Paraview vtk file of grain misorientation values (Y or N)?: Y
+Print file of grain area values (Y or N)?: Y
+Print file of weighted grain area values (Y or N)?: Y
