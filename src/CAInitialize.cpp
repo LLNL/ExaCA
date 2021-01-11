@@ -1,7 +1,73 @@
 #include "header.h"
+
+#include <iostream>
+#include <string>
+#include <regex>
+
 using namespace std;
 // Initializes input parameters, mesh, temperature field, and grain structures for CA simulations
 
+// Skip initial lines in input files.
+void skipLines( std::ifstream &stream )
+{
+    std::string line;
+    while(getline(stream, line))
+    {
+        if (line == "*****")
+            break;
+    }
+}
+
+// Verify the required input was included with the correct format.
+std::string parseInput( std::ifstream &stream, std::string key )
+{
+    std::string line;
+    std::getline(stream, line);
+    std::size_t colon = line.find(":");
+    std::string actual_key = line.substr(0, colon);
+
+    // Check for keyword
+    if ( actual_key.find( key ) == std::string::npos )
+    {
+        string error = "Required input \"" + key + "\" not found in input file.";
+        throw std::runtime_error( error );
+    }
+    // Check for colon seperator
+    if ( colon == std::string::npos )
+    {
+        string error = "Input \"" + key + "\" must be separated from value by \":\"." ;
+        throw std::runtime_error( error );
+    }
+
+    // Remove whitespace
+    std::string val = line.substr(colon+1,string::npos);
+    std::regex r("\\s+");
+    val = std::regex_replace(val, r, "");
+    std::cout << key << " " << val << "." << std::endl;
+
+    return val;
+}
+
+// Verify the required boolean input was included with the correct format.
+bool parseInputBool( std::ifstream &stream, std::string key )
+{
+    std::string val = parseInput( stream, key );
+    if ( val == "N" )
+    {
+        return false;
+    }
+    else if ( val == "Y" )
+    {
+        return true;
+    }
+    else
+    {
+        string error = "Input \"" + key + "\" must be \"Y\" or \"N\".";
+        throw std::runtime_error( error );
+    }
+}
+
+// Read ExaCA input file.
 void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool& TruchasMultilayer, string &ExtraWalls, double &HT_deltax, string &TemperatureDataSource, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, int &NumberOfTruchasRanks, bool (&FilesToPrint)[6]) {
 
     size_t backslash = InputFile.find_last_of("/");
@@ -12,141 +78,87 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     string Quote = "'";
     InputData.open(InputFile);
     if (id == 0) cout << "Input file " << InputFile << " opened" << endl;
-    bool SkippingLines = true;
-    while(SkippingLines) {
-        string dummyline;
-        getline(InputData,dummyline);
-        if (dummyline == "*****")
-            SkippingLines = false;
-    }
-    
-    string ValueRead;
+    skipLines(InputData);
+
+    std::string val;
+
     // Simulation Type
-    getline(InputData,ValueRead);
-    std::size_t found = ValueRead.find(Quote);
-    std::string str2 = ValueRead.substr(found+1,1);
-    SimulationType = str2;
+    SimulationType = parseInput(InputData, "Problem type");
 
     // Decomposition strategy
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    DecompositionStrategy = stoi(str2,nullptr,10);
+    val = parseInput(InputData, "Decomposition strategy");
+    DecompositionStrategy = stoi(val,nullptr,10);
     
     // Material (opening a separate file to obtain values for A, B, C, and D for the interfacial reponse function)
-    getline(InputData,ValueRead);
-    std::size_t found1 = ValueRead.find_first_of(Quote);
-    std::size_t found2 = ValueRead.find_last_of(Quote);
-    string MaterialFile = ValueRead.substr(found1+1,found2-found1-1);
+    std::string MaterialFile = parseInput(InputData, "Material");
     MaterialData.open(FilePath + "/Materials/" + MaterialFile);
-    SkippingLines = true;
-    while(SkippingLines) {
-        string dummyline;
-        getline(MaterialData,dummyline);
-        if (dummyline == "*****")
-            SkippingLines = false;
-    }
+    skipLines(MaterialData);
+
     // Interfacial response function A
-    getline(MaterialData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    AConst = atof(str2.c_str());
+    val = parseInput(MaterialData, "A");
+    AConst = atof(val.c_str());
     // Interfacial response function B
-    getline(MaterialData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    BConst = atof(str2.c_str());
+    val = parseInput(MaterialData, "B");
+    BConst = atof(val.c_str());
     // Interfacial response function C
-    getline(MaterialData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    CConst = atof(str2.c_str());
+    val = parseInput(MaterialData, "C");
+    CConst = atof(val.c_str());
     // Interfacial response function D
-    getline(MaterialData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    DConst = atof(str2.c_str());
+    val = parseInput(MaterialData, "D");
+    DConst = atof(val.c_str());
     // Alloy freezing range
-    getline(MaterialData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    FreezingRange = atof(str2.c_str());
+    val = parseInput(MaterialData, "Alloy freezing range");
+    FreezingRange = atof(val.c_str());
+
     MaterialData.close();
 
     // CA cell size
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    deltax = atof(str2.c_str())*pow(10,-6);
+    val = parseInput(InputData, "Cell size");
+    deltax = atof(val.c_str())*pow(10,-6);
     
     // Nucleation density
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    double NRead = atof(str2.c_str());
+    val = parseInput(InputData, "Heterogeneous nucleation density");
+    double NRead = atof(val.c_str());
     NMax = NRead*pow(10,12);
     
     // Mean nucleation undercooling
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    dTN = atof(str2.c_str());
+    val = parseInput(InputData, "Mean nucleation undercooling");
+    dTN = atof(val.c_str());
     
     // Standard deviation of nucleation undercooling
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Colon);
-    str2 = ValueRead.substr(found+1,string::npos);
-    dTsigma = atof(str2.c_str());
+    val = parseInput(InputData, "Standard deviation of nucleation undercooling");
+    dTsigma = atof(val.c_str());
     
     // Path to output
-    getline(InputData,ValueRead);
-    found1 = ValueRead.find_first_of(Quote);
-    found2 = ValueRead.find_last_of(Quote);
-    PathToOutput = ValueRead.substr(found1+1,found2-found1-1);
+    PathToOutput = parseInput(InputData, "Path to output");
 
     // Output base file name
-    getline(InputData,ValueRead);
-    found1 = ValueRead.find_first_of(Quote);
-    found2 = ValueRead.find_last_of(Quote);
-    OutputFile = ValueRead.substr(found1+1,found2-found1-1);
+    OutputFile = parseInput(InputData, "Output file base name");
     
     // File of grain orientations
-    getline(InputData,ValueRead);
-    found1 = ValueRead.find_first_of(Quote);
-    found2 = ValueRead.find_last_of(Quote);
-    GrainOrientationFile = ValueRead.substr(found1+1,found2-found1-1);
+    GrainOrientationFile = parseInput(InputData, "File of grain orientations");
     GrainOrientationFile = FilePath + "/Substrate/" + GrainOrientationFile;
+
     if (SimulationType == "R") {
         // Read input arguments for a reduced temperature data format solidification problem
         if (id == 0) cout << "CA Simulation using reduced temperature data from file(s)" << endl;
         // Heat transport mesh size
-        getline(InputData,ValueRead);
-        std::size_t found = ValueRead.find(Colon);
-        string str2 = ValueRead.substr(found+1,string::npos-found+1);
-        HT_deltax = atof(str2.c_str())*pow(10,-6);
+        val = parseInput(InputData, "Heat transport data mesh size");
+        HT_deltax = atof(val.c_str())*pow(10,-6);
         if (id == 0) cout << "Mesh size of the temperature data is " << HT_deltax << " microns" << endl;
         
         // Time step (s)
-        getline(InputData,ValueRead);
-        found = ValueRead.find(Colon);
-        str2 = ValueRead.substr(found+1,string::npos);
-        deltat = atof(str2.c_str())*pow(10,-6);
-        if (id == 0) cout << "The time step is " << str2 << " microseconds" << endl;
+        val = parseInput(InputData, "Time step");
+        deltat = atof(val.c_str())*pow(10,-6);
+        if (id == 0) cout << "The time step is " << val << " microseconds" << endl;
         
         // Name of substrate file
-        getline(InputData,ValueRead);
-        found1 = ValueRead.find_first_of(Quote);
-        found2 = ValueRead.find_last_of(Quote);
-        SubstrateFileName = ValueRead.substr(found1+1,found2-found1-1);
+        SubstrateFileName = parseInput(InputData, "Substrate file name");
         SubstrateFileName = FilePath + "/Substrate/" + SubstrateFileName;
         if (id == 0) cout << "The substrate file used is " << SubstrateFileName << endl;
         
         // Usage of burst buffer/parallel file system for temperature data - if 'Y', values for LayerHeight, NumberOfLayers are unused, temperature filename is overwritten
-        getline(InputData,ValueRead);
-        found = ValueRead.find(Quote);
-        string TruchasMultilayerS = ValueRead.substr(found+1,1);
-        if (TruchasMultilayerS == "Y") TruchasMultilayer = true;
-        
+        TruchasMultilayer = parseInputBool(InputData, "Burst buffer temperature data");
         if (TruchasMultilayer) {
             // Location of temperature data and name of files given in script
             char* InPath;
@@ -212,49 +224,39 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
         }
         else {
             // File containing temperature data
-            getline(InputData,ValueRead);
-            std::size_t found1 = ValueRead.find_first_of(Quote);
-            std::size_t found2 = ValueRead.find_last_of(Quote);
-            tempfile = ValueRead.substr(found1+1,found2-found1-1);
+            tempfile = parseInput(InputData, "Temperature filename");
+            tempfile = FilePath + "/Temperatures/" + tempfile;
 
             // Temperature files in series
-            getline(InputData,ValueRead);
-            found = ValueRead.find(Colon);
-            str2 = ValueRead.substr(found+1,string::npos-found+1);
-            TempFilesInSeries = stoi(str2,nullptr,10);
+            val = parseInput(InputData, "Number of temperature files");
+            TempFilesInSeries = stoi(val,nullptr,10);
             
-            // Temperature file(s) is/are located in the default location ("Temperatures" subdirectory)
-            tempfile = "examples/Temperatures/" + tempfile;
             if (id == 0) {
                 cout << "Temperature data file(s) is/are " << tempfile << " , and there are " << TempFilesInSeries << " in the series" << endl;
             }
             
             // Usage of second set of wall cells around temperature field (for spot melt problems, where the melt pool boundaries are right at the walls)
-            getline(InputData,ValueRead);
-            found = ValueRead.find(Quote);
-            ExtraWalls = ValueRead.substr(found+1,1);
+            ExtraWalls = parseInputBool(InputData, "Extra set of wall cells around temperature field");
             
             // OpenFOAM or Truchas as temperature data source (for non-scipt based coupling)?
-            getline(InputData,ValueRead);
-            found = ValueRead.find(Quote);
-            TemperatureDataSource = ValueRead.substr(found+1,1);
+            TemperatureDataSource = parseInput(InputData, "Source of input length unit");
             
             if (id == 0) {
-                if (TemperatureDataSource == "O") cout << "Units of temperature coordinates are meters (OpenFOAM)" << endl;
-                else cout << "Units of temperature coordinates are millimeters (Truchas)" << endl;
+                if (TemperatureDataSource == "O")
+                    cout << "Units of temperature coordinates are meters (OpenFOAM)" << endl;
+                else if (TemperatureDataSource == "T")
+                    cout << "Units of temperature coordinates are millimeters (Truchas)" << endl;
+                else
+                    throw std::runtime_error("Input \"Source of input length unit\" must be \"T\" or \"O\".");
             }
             
             // Number of layers (for non script-based coupling)
-            getline(InputData,ValueRead);
-            found = ValueRead.find(Colon);
-            str2 = ValueRead.substr(found+1,string::npos);
-            NumberOfLayers = stoi(str2,nullptr,10);
+            val = parseInput(InputData, "Number of layers");
+            NumberOfLayers = stoi(val,nullptr,10);
             
             // Layer height (for non script-based coupling)
-            getline(InputData,ValueRead);
-            found = ValueRead.find(Colon);
-            str2 = ValueRead.substr(found+1,string::npos);
-            LayerHeight = stoi(str2,nullptr,10);
+            val = parseInput(InputData, "Offset between layers");
+            LayerHeight = stoi(val,nullptr,10);
             if (id == 0) cout << "A total of " << NumberOfLayers << " of solidification offset by " << LayerHeight << " CA cells will be simulated" << endl;
             
         }
@@ -265,87 +267,56 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
         LayerHeight = nz;
         
         // Thermal gradient
-        getline(InputData,ValueRead);
-        std::size_t found = ValueRead.find(Colon);
-        std::string str2 = ValueRead.substr(found+1,string::npos);
-        G = atof(str2.c_str());
+        val = parseInput(InputData, "Thermal gradient");
+        G = atof(val.c_str());
         
         // Cooling rate
-        getline(InputData,ValueRead);
-        found = ValueRead.find(Colon);
-        str2 = ValueRead.substr(found+1,string::npos);
-        R = atof(str2.c_str());
+        val = parseInput(InputData, "Cooling rate");
+        R = atof(val.c_str());
         if (id == 0) cout << "CA Simulation using a fixed thermal gradient of " << G << " K/m and a cooling rate of " << R << " K/s" << endl;
         
         // Domain size in x
-        getline(InputData,ValueRead);
-        found = ValueRead.find(Colon);
-        str2 = ValueRead.substr(found+1,string::npos);
-        nx = stoi(str2,nullptr,10);
+        val = parseInput(InputData, "Domain size in x");
+        nx = stoi(val,nullptr,10);
         nx = nx+2;
         
         // Domain size in y
-        getline(InputData,ValueRead);
-        found = ValueRead.find(Colon);
-        str2 = ValueRead.substr(found+1,string::npos);
-        ny = stoi(str2,nullptr,10);
+        val = parseInput(InputData, "Domain size in y");
+        ny = stoi(val,nullptr,10);
         ny = ny+2;
         
         // Domain size in z
-        getline(InputData,ValueRead);
-        found = ValueRead.find(Colon);
-        str2 = ValueRead.substr(found+1,string::npos);
-        nz = stoi(str2,nullptr,10);
+        val = parseInput(InputData, "Domain size in z");
+        nz = stoi(val,nullptr,10);
         nz = nz+2;
         if (id == 0) cout << "The domain size is " << nx << " by " << ny << " by " << nz << " cells" << endl;
         
         // delta t (using ratio between cooling rate R, thermal gradient G, and cell size delta x
-        getline(InputData,ValueRead);
-        found = ValueRead.find(Colon);
-        str2 = ValueRead.substr(found+1,string::npos);
-        int NRatio = stoi(str2,nullptr,10);
+        val = parseInput(InputData, "\"N\"");
+        int NRatio = stoi(val,nullptr,10);
         deltat = deltax/(NRatio*(R/G));
         if (id == 0) cout << "The time step is " << deltat*pow(10,6) << " microseconds" << endl;
         
         // Fraction of bottom surface sites active
-        getline(InputData,ValueRead);
-        found = ValueRead.find(Colon);
-        str2 = ValueRead.substr(found+1,string::npos);
-        FractSurfaceSitesActive = atof(str2.c_str());
+        val = parseInput(InputData, "Fraction of surface sites active");
+        FractSurfaceSitesActive = atof(val.c_str());
         if (id == 0) cout << "The fraction of CA cells at the bottom surface that are active is " << FractSurfaceSitesActive << endl;
     }
     // Which files should be printed?
     string FileYN;
     // Orientations file
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Quote);
-    FileYN = ValueRead.substr(found+1,1);
-    if (FileYN == "Y") FilesToPrint[0] = true;
+    FilesToPrint[0] = parseInputBool(InputData, "Print file of grain orientations");
     // csv file of grain ids
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Quote);
-    FileYN = ValueRead.substr(found+1,1);
-    if (FileYN == "Y") FilesToPrint[1] = true;
+    FilesToPrint[1] = parseInputBool(InputData, "Print csv file of grain id values");
     // csv file of x,y,z,grainid for ExaConstit
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Quote);
-    FileYN = ValueRead.substr(found+1,1);
-    if (FileYN == "Y") FilesToPrint[2] = true;
+    FilesToPrint[2] = parseInputBool(InputData, "Print csv file of ExaConstit-formatted grain id values");
     // vtk file of grain misorientations
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Quote);
-    FileYN = ValueRead.substr(found+1,1);
-    if (FileYN == "Y") FilesToPrint[3] = true;
+    FilesToPrint[3] = parseInputBool(InputData, "Print Paraview vtk file of grain misorientation values");
     // file of grain areas
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Quote);
-    FileYN = ValueRead.substr(found+1,1);
-    if (FileYN == "Y") FilesToPrint[4] = true;
+    FilesToPrint[4] = parseInputBool(InputData, "Print file of grain area values");
     // file of weighted grain areas
-    getline(InputData,ValueRead);
-    found = ValueRead.find(Quote);
-    FileYN = ValueRead.substr(found+1,1);
-    if (FileYN == "Y") FilesToPrint[5] = true;
+    FilesToPrint[5] = parseInputBool(InputData, "Print file of weighted grain area value");
+
     InputData.close();
     
     if (id == 0) {
