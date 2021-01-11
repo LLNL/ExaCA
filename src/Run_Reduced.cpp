@@ -25,10 +25,10 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     ViewI NeighborY_G("NeighborY_G",26);
     ViewI NeighborZ_G("NeighborZ_G",26);
     ViewI2D ItList_G("ItList_G",9,26);
-    ViewI::HostMirror NeighborX_H = Kokkos::create_mirror_view( NeighborX_G );
-    ViewI::HostMirror NeighborY_H = Kokkos::create_mirror_view( NeighborY_G );
-    ViewI::HostMirror NeighborZ_H = Kokkos::create_mirror_view( NeighborZ_G );
-    ViewI2D::HostMirror ItList_H = Kokkos::create_mirror_view( ItList_G );
+    ViewI::host_mirror_type NeighborX_H = Kokkos::create_mirror_view( NeighborX_G );
+    ViewI::host_mirror_type NeighborY_H = Kokkos::create_mirror_view( NeighborY_G );
+    ViewI::host_mirror_type NeighborZ_H = Kokkos::create_mirror_view( NeighborZ_G );
+    ViewI2D::host_mirror_type ItList_H = Kokkos::create_mirror_view( ItList_G );
     float XMin, YMin, ZMin, XMax, YMax, ZMax; // OpenFOAM simulation bounds (if using OpenFOAM data)
     float* ZMinLayer = new float[NumberOfLayers];
     float* ZMaxLayer = new float[NumberOfLayers];
@@ -54,10 +54,10 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
      ViewI LayerID_G("LayerID_G", LocalDomainSize);
      ViewF UndercoolingChange_G("UndercoolingChange_G",LocalDomainSize);
      ViewF UndercoolingCurrent_G("UndercoolingCurrent_G",LocalDomainSize);
-     ViewI::HostMirror CritTimeStep_H = Kokkos::create_mirror_view( CritTimeStep_G );
-     ViewI::HostMirror LayerID_H = Kokkos::create_mirror_view( LayerID_G );
-     ViewF::HostMirror UndercoolingChange_H = Kokkos::create_mirror_view( UndercoolingChange_G );
-     ViewF::HostMirror UndercoolingCurrent_H = Kokkos::create_mirror_view( UndercoolingCurrent_G );
+     ViewI::host_mirror_type CritTimeStep_H = Kokkos::create_mirror_view( CritTimeStep_G );
+     ViewI::host_mirror_type LayerID_H = Kokkos::create_mirror_view( LayerID_G );
+     ViewF::host_mirror_type UndercoolingChange_H = Kokkos::create_mirror_view( UndercoolingChange_G );
+     ViewF::host_mirror_type UndercoolingCurrent_H = Kokkos::create_mirror_view( UndercoolingCurrent_G );
      bool* Melted = new bool[LocalDomainSize];
 
     // By default, the active domain bounds are the same as the global domain bounds
@@ -80,8 +80,8 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     ViewF GrainUnitVector_G("GrainUnitVector_G", 9*NGrainOrientations);
     ViewI GrainOrientation_G("GrainOrientation_G", NGrainOrientations);
-    ViewF::HostMirror GrainUnitVector_H = Kokkos::create_mirror_view( GrainUnitVector_G );
-    ViewI::HostMirror GrainOrientation_H = Kokkos::create_mirror_view( GrainOrientation_G );
+    ViewF::host_mirror_type GrainUnitVector_H = Kokkos::create_mirror_view( GrainUnitVector_G );
+    ViewI::host_mirror_type GrainOrientation_H = Kokkos::create_mirror_view( GrainOrientation_G );
     
     // Initialize grain orientations
     OrientationInit(id, NGrainOrientations, GrainOrientation_H, GrainUnitVector_H, GrainOrientationFile);
@@ -91,16 +91,16 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     // CA cell variables
     ViewI GrainID_G("GrainID_G",LocalDomainSize);
     ViewI CellType_G("CellType_G",LocalDomainSize);
-    ViewI::HostMirror GrainID_H = Kokkos::create_mirror_view( GrainID_G );
-    ViewI::HostMirror CellType_H = Kokkos::create_mirror_view( CellType_G );
+    ViewI::host_mirror_type GrainID_H = Kokkos::create_mirror_view( GrainID_G );
+    ViewI::host_mirror_type CellType_H = Kokkos::create_mirror_view( CellType_G );
 
     // Variables characterizing the active cell region within each rank's grid
     ViewF DiagonalLength_G("DiagonalLength_G",LocalActiveDomainSize);
     ViewF CritDiagonalLength_G("CritDiagonalLength_G",26*LocalActiveDomainSize);
     ViewF DOCenter_G("DOCenter_G",3*LocalActiveDomainSize);
-    ViewF::HostMirror DiagonalLength_H = Kokkos::create_mirror_view( DiagonalLength_G );
-    ViewF::HostMirror CritDiagonalLength_H = Kokkos::create_mirror_view( CritDiagonalLength_G );
-    ViewF::HostMirror DOCenter_H = Kokkos::create_mirror_view( DOCenter_G );
+    ViewF::host_mirror_type DiagonalLength_H = Kokkos::create_mirror_view( DiagonalLength_G );
+    ViewF::host_mirror_type CritDiagonalLength_H = Kokkos::create_mirror_view( CritDiagonalLength_G );
+    ViewF::host_mirror_type DOCenter_H = Kokkos::create_mirror_view( DOCenter_G );
 
     // Initialize the grain structure
     int PossibleNuclei_ThisRank, NextLayer_FirstNucleatedGrainID;
@@ -112,8 +112,8 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
 
     ViewI NucleationTimes_G("NucleationTimes_G",PossibleNuclei_ThisRank);
     ViewI NucleiLocation_G("NucleiLocation_G",PossibleNuclei_ThisRank);
-    ViewI::HostMirror NucleationTimes_H = Kokkos::create_mirror_view( NucleationTimes_G );
-    ViewI::HostMirror NucleiLocation_H = Kokkos::create_mirror_view( NucleiLocation_G );
+    ViewI::host_mirror_type NucleationTimes_H = Kokkos::create_mirror_view( NucleationTimes_G );
+    ViewI::host_mirror_type NucleiLocation_H = Kokkos::create_mirror_view( NucleiLocation_G );
     
     // Update nuclei on ghost nodes, fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     NucleiInit(DecompositionStrategy, MyXSlices, MyYSlices, nz, id, dTN, dTsigma, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, PossibleNuclei_ThisRank, NucleiLocation_H, NucleationTimes_H, GrainOrientation_H, CellType_H, GrainID_H, CritTimeStep_H, UndercoolingChange_H);
