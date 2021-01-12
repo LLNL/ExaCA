@@ -2147,7 +2147,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             }
         }
     }
-    cout << " ID = " << id << " Possible nucleation events: " << NEvent << endl;
+    cout << "(" << id << ": " << NEvent << ") " << flush;
 }
 
 
