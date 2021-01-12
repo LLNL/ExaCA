@@ -43,7 +43,6 @@ std::string parseInput( std::ifstream &stream, std::string key )
     std::string val = line.substr(colon+1,string::npos);
     std::regex r("\\s+");
     val = std::regex_replace(val, r, "");
-    std::cout << key << " " << val << "." << std::endl;
 
     return val;
 }
