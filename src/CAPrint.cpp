@@ -5,7 +5,7 @@ using namespace std;
 /**
   Prints values of grain orientation for all cells to files
 */
-void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI::host_mirror_type GrainID, ViewI::host_mirror_type GrainOrientation, ViewF::host_mirror_type GrainUnitVector, string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool* Melted, string PathToOutput, bool FilesToPrint[4], double deltax) {
+void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool* Melted, string PathToOutput, bool FilesToPrint[4], double deltax) {
 
     if (id == 0) {
         // Create GrainID variable for entire domain, place GrainIDs for rank 0
@@ -119,7 +119,7 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
 /**
  Prints values of critical undercooling for all cells to files
  */
-void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int MyYSlices,int ProcessorsInXDirection,int ProcessorsInYDirection, ViewI::host_mirror_type CritTimeStep, ViewF::host_mirror_type UndercoolingChange, int DecompositionStrategy, string PathToOutput) {
+void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int MyYSlices,int ProcessorsInXDirection,int ProcessorsInYDirection, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, int DecompositionStrategy, string PathToOutput) {
     
     // Critical time step for solidification start printed to file first
     if (id == 0) {
@@ -235,7 +235,7 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int M
 
 ///*****************************************************************************/
 
-void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI::host_mirror_type CellType, string BaseFileName, int DecompositionStrategy) {
+void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI_H CellType, string BaseFileName, int DecompositionStrategy) {
 
     string FName = BaseFileName + "_CT.vtk";
     std::ofstream Grainplot;
@@ -402,7 +402,7 @@ void PrintGrainIDs(string FName, int nx, int ny, int nz, vector <vector <vector 
     Grainplot1.close();
 }
 
-void PrintParaview(string FName, int nx, int ny, int nz, vector <vector <vector <bool> > > Melted_WholeDomain, vector <vector <vector <int> > > GrainID_WholeDomain, ViewI::host_mirror_type GrainOrientation, ViewF::host_mirror_type GrainUnitVector, int NGrainOrientations) {
+void PrintParaview(string FName, int nx, int ny, int nz, vector <vector <vector <bool> > > Melted_WholeDomain, vector <vector <vector <int> > > GrainID_WholeDomain, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, int NGrainOrientations) {
 
     string FName2 = FName + ".vtk";
     cout << "Printing Paraview file of grain misorientations" << endl;
