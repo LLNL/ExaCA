@@ -116,10 +116,10 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     ViewI::host_mirror_type NucleiLocation_H = Kokkos::create_mirror_view( NucleiLocation_G );
     
     // Update nuclei on ghost nodes, fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
+    if (id == 0) cout << " Possible nucleation events (rank: # events): " << endl;
     NucleiInit(DecompositionStrategy, MyXSlices, MyYSlices, nz, id, dTN, dTsigma, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, PossibleNuclei_ThisRank, NucleiLocation_H, NucleationTimes_H, GrainOrientation_H, CellType_H, GrainID_H, CritTimeStep_H, UndercoolingChange_H);
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0) cout << "Done with nuclei initialization " << endl;
     
     // Normalize solidification parameters
     AConst = AConst*deltat/deltax;
@@ -197,7 +197,7 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     }
 
     double InitTime = MPI_Wtime() - StartTime;
-    if (id == 0) cout << "Data initialized: Time spent: " << InitTime << " s" << endl;
+    if (id == 0) cout << "\nData initialized: Time spent: " << InitTime << " s" << endl;
 
     cycle = 0;
     
