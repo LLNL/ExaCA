@@ -9,12 +9,13 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries, NumberOfTruchasRanks;
     bool TruchasMultilayer = false; // If reading from Truchas multilayer data, this is changed to true in the input file (previously, this variable was called "BurstBuffer")
+    bool PrintFilesYN;
     bool FilesToPrint[6] = {0}; // Which specific files to print are specified in the input file
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange, NMax, dTN, dTsigma;
     string SubstrateFileName, tempfile, SimulationType, OutputFile, GrainOrientationFile, TemperatureDataSource, ExtraWalls, PathToOutput;
     
     // Read input data
-    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile, TempFilesInSeries, TruchasMultilayer, ExtraWalls, HT_deltax, TemperatureDataSource, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, G, R, nx, ny, nz, FractSurfaceSitesActive,PathToOutput,NumberOfTruchasRanks,FilesToPrint);
+    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile, TempFilesInSeries, TruchasMultilayer, ExtraWalls, HT_deltax, TemperatureDataSource, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, G, R, nx, ny, nz, FractSurfaceSitesActive,PathToOutput,NumberOfTruchasRanks,FilesToPrint,PrintFilesYN);
     
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -251,7 +252,7 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
              if (id == 0) cout << "Resize executed" << endl;
             
              // Update active cell data structures for simulation of next layer
-             LayerSetup(SubstrateFileName, layernumber, LayerHeight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, LocalDomainSize, LocalActiveDomainSize, GrainOrientation_H, NGrainOrientations, GrainUnitVector_H, NeighborX_H, NeighborY_H, NeighborZ_H, id, np, DiagonalLength_G, CellType_G, GrainID_G, CritDiagonalLength_G, DOCenter_G, CritTimeStep_G, UndercoolingChange_G, UndercoolingCurrent_G, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR, BufferER, BufferFR, BufferGR, BufferHR, BufSizeX, BufSizeY, BufSizeZ, TempFilesInSeries, ZBound_Low, ZBound_High, ZMin, deltax, nzActive, Locks);
+             LayerSetup(SubstrateFileName, layernumber, LayerHeight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nz, LocalDomainSize, LocalActiveDomainSize, GrainOrientation_G, NGrainOrientations, GrainUnitVector_G, NeighborX_G, NeighborY_G, NeighborZ_G, id, np, DiagonalLength_G, CellType_G, GrainID_G, CritDiagonalLength_G, DOCenter_G, CritTimeStep_G, UndercoolingChange_G, UndercoolingCurrent_G, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR, BufferER, BufferFR, BufferGR, BufferHR, BufSizeX, BufSizeY, BufSizeZ, TempFilesInSeries, ZBound_Low, ZBound_High, ZMin, deltax, nzActive, Locks);
 
             if (id == 0) cout << "New layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY << " " << BufSizeZ << endl;
             // Update ghost nodes for grain locations and attributes
@@ -283,8 +284,13 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     Kokkos::deep_copy( CellType_H, CellType_G );
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0) cout << "Collecting data on rank 0 and printing to files" << endl;
-    CollectGrainData(id,np,nx,ny,nz,MyXSlices,MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H,GrainOrientation_H,GrainUnitVector_H,OutputFile,DecompositionStrategy,NGrainOrientations,Melted,PathToOutput,FilesToPrint,deltax);
+    if (PrintFilesYN) {
+        if (id == 0) cout << "Collecting data on rank 0 and printing to files" << endl;
+        CollectGrainData(id,np,nx,ny,nz,MyXSlices,MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H,GrainOrientation_H,GrainUnitVector_H,OutputFile,DecompositionStrategy,NGrainOrientations,Melted,PathToOutput,FilesToPrint,deltax);
+    }
+    else {
+        if (id == 0) cout << "No output files to be printed, exiting program" << endl;
+    }
     
     double OutTime = MPI_Wtime() - RunTime - InitTime;
     double InitMaxTime, InitMinTime, OutMaxTime, OutMinTime = 0.0;

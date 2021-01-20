@@ -67,7 +67,7 @@ bool parseInputBool( std::ifstream &stream, std::string key )
 }
 
 // Read ExaCA input file.
-void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool& TruchasMultilayer, string &ExtraWalls, double &HT_deltax, string &TemperatureDataSource, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, int &NumberOfTruchasRanks, bool (&FilesToPrint)[6]) {
+void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool& TruchasMultilayer, string &ExtraWalls, double &HT_deltax, string &TemperatureDataSource, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, int &NumberOfTruchasRanks, bool (&FilesToPrint)[6], bool &PrintFilesYN) {
 
     size_t backslash = InputFile.find_last_of("/");
     string FilePath = InputFile.substr(0, backslash);
@@ -315,7 +315,8 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     FilesToPrint[4] = parseInputBool(InputData, "Print file of grain area values");
     // file of weighted grain areas
     FilesToPrint[5] = parseInputBool(InputData, "Print file of weighted grain area value");
-
+    if ((!(FilesToPrint[0]))&&(!(FilesToPrint[1]))&&(!(FilesToPrint[2]))&&(!(FilesToPrint[3]))&&(!(FilesToPrint[4]))&&(!(FilesToPrint[5]))) PrintFilesYN = false;
+        else PrintFilesYN = true;
     InputData.close();
     
     if (id == 0) {
@@ -727,6 +728,18 @@ void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int De
    }
    else {
             
+        // Initialize temperature views to 0
+        for (int k=0; k<nz; k++) {
+           for (int i=0; i<MyXSlices; i++) {
+               for (int j=0; j<MyYSlices; j++) {
+                   int Coord3D1D = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+                   CritTimeStep(Coord3D1D) = 0;
+                   UndercoolingChange(Coord3D1D) = 0.0;
+                   UndercoolingCurrent(Coord3D1D) = 0.0;
+               }
+           }
+        }
+       
         // Temperature data read
         int HTtoCAratio = HT_deltax/deltax; // OpenFOAM/CA cell size ratio
 
@@ -942,7 +955,6 @@ void TempInit(int layernumber, int TempFilesInSeries, double G, double R, int De
 //                               if (UndercoolingChange(Coord3D1D) > 0.25) {
 //                                   UndercoolingChange(Coord3D1D) = 0.25;
 //                               }
-                               UndercoolingCurrent(Coord3D1D) = 0;
                            }
                        }
                    }
@@ -1040,10 +1052,13 @@ void GrainInit(int layernumber, int LayerHeight, string SimulationType, string S
             for(int j=0; j<MyYSlices; j++) {
                 int GlobalX = i + MyXOffset;
                 int GlobalY = j + MyYOffset;
+                int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
                 if ((GlobalX == -1)||(GlobalX == nx)||(GlobalY == -1)||(GlobalY == ny)||(k == 0)||(k == nz-1)) {
-                    int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
                     CellType(CAGridLocation) = Wall;
                     GrainID(CAGridLocation) = 0;
+                }
+                else {
+                    CellType(CAGridLocation) = Solid;
                 }
             }
         }
@@ -2198,7 +2213,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
     
 }
 
-void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int LocalDomainSize, int LocalActiveDomainSize, ViewI_H GrainOrientation, int NGrainOrientations, ViewF_H GrainUnitVector, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, int id, int np, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength, ViewF DOCenter, ViewI CritTimeStep, ViewF UndercoolingChange, ViewF UndercoolingCurrent, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int TempFilesInSeries, int &ZBound_Low, int &ZBound_High, float ZMin, double deltax, int nzActive, ViewI Locks) {
+void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nz, int LocalDomainSize, int LocalActiveDomainSize, ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, int id, int np, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength, ViewF DOCenter, ViewI CritTimeStep, ViewF UndercoolingChange, ViewF UndercoolingCurrent, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int TempFilesInSeries, int &ZBound_Low, int &ZBound_High, float ZMin, double deltax, int nzActive, ViewI Locks) {
 
     // Reset active cell data structures
     Kokkos::parallel_for("DelDLData",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& i) {
@@ -2272,7 +2287,7 @@ void LayerSetup(string SubstrateFileName, int layernumber, int LayerHeight, int 
             DOCenter(3*D3D1ConvPosition+2) = GlobalZ + 0.5;
 
             // The orientation for the new grain will depend on its Grain ID
-            int MyOrientation = GrainOrientation[((abs(MyGrainID) - 1) % NGrainOrientations)];
+            int MyOrientation = GrainOrientation(((abs(MyGrainID) - 1) % NGrainOrientations));
             // Calculate critical values at which this active cell leads to the activation of a neighboring liquid cell
             // (xp,yp,zp) is the new cell's center on the global grid
             double xp = GlobalX + 0.5;
