@@ -5,7 +5,7 @@ using namespace std;
 /**
   Prints values of grain orientation for all cells to files
 */
-void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool* Melted, string PathToOutput, bool FilesToPrint[4], double deltax) {
+void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool* Melted, string PathToOutput, bool FilesToPrint[4], double deltax) {
 
     if (id == 0) {
         // Create GrainID variable for entire domain, place GrainIDs for rank 0
@@ -41,8 +41,8 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
         // Message size different for different ranks
         for (int p=1; p<np; p++) {
            // cout << "FEEDING " << p << " " << nx << " " << ProcessorsInXDirection << " " << np << " " << DecompositionStrategy << endl;
-            int RecvXOffset = XOffsetCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,np,DecompositionStrategy);
-            int RecvXSlices = XMPSlicesCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,np,DecompositionStrategy);
+            int RecvXOffset = XOffsetCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
+            int RecvXSlices = XMPSlicesCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
 
             int RecvYOffset = YOffsetCalc(p,ny,ProcessorsInYDirection,np,DecompositionStrategy);
             int RecvYSlices = YMPSlicesCalc(p,ny,ProcessorsInYDirection,np,DecompositionStrategy);
@@ -119,7 +119,7 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
 /**
  Prints values of critical undercooling for all cells to files
  */
-void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int MyYSlices,int ProcessorsInXDirection,int ProcessorsInYDirection, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, int DecompositionStrategy, string PathToOutput) {
+void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int MyYSlices,int ProcessorsInXDirection,int ProcessorsInYDirection, ViewI_H CritTimeStep, int DecompositionStrategy, string PathToOutput) {
     
     // Critical time step for solidification start printed to file first
     if (id == 0) {
@@ -149,8 +149,8 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int M
         // Message size different for different ranks
         for (int p=1; p<np; p++) {
             //cout << "FEEDING " << p << " " << nx << " " << ProcessorsInXDirection << " " << np << " " << DecompositionStrategy << endl;
-            int RecvXOffset = XOffsetCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,np,DecompositionStrategy);
-            int RecvXSlices = XMPSlicesCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,np,DecompositionStrategy);
+            int RecvXOffset = XOffsetCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
+            int RecvXSlices = XMPSlicesCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
             
             int RecvYOffset = YOffsetCalc(p,ny,ProcessorsInYDirection,np,DecompositionStrategy);
             int RecvYSlices = YMPSlicesCalc(p,ny,ProcessorsInYDirection,np,DecompositionStrategy);
@@ -266,8 +266,8 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
         // Message size different for different ranks
         for (int p=1; p<np; p++) {
             // cout << "FEEDING " << p << " " << nx << " " << ProcessorsInXDirection << " " << np << " " << DecompositionStrategy << endl;
-            int RecvXOffset = XOffsetCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,np,DecompositionStrategy);
-            int RecvXSlices = XMPSlicesCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,np,DecompositionStrategy);
+            int RecvXOffset = XOffsetCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
+            int RecvXSlices = XMPSlicesCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
             
             int RecvYOffset = YOffsetCalc(p,ny,ProcessorsInYDirection,np,DecompositionStrategy);
             int RecvYSlices = YMPSlicesCalc(p,ny,ProcessorsInYDirection,np,DecompositionStrategy);
@@ -358,10 +358,7 @@ void PrintOrientations(string FName, int nx, int ny, int nz, vector <vector <vec
     ofstream Grainplot0;
     string FName0 = FName + "_Orientations.csv";
     Grainplot0.open(FName0);
-    int GOHistogram[NGrainOrientations];
-    for (int i=0; i<NGrainOrientations; i++) {
-        GOHistogram[i] = 0;
-    }
+    ViewI_H GOHistogram("grain_orientations", NGrainOrientations);
     cout << "Histogram made" << endl;
     // frequency data on grain ids
     for (int k=1; k<nz-1; k++) {
@@ -370,7 +367,7 @@ void PrintOrientations(string FName, int nx, int ny, int nz, vector <vector <vec
                 if (Melted_WholeDomain[k][i][j]) {
                     //cout << GrainID_WholeDomain[k][i][j] << endl;
                     int GOVal = (abs(GrainID_WholeDomain[k][i][j]) - 1) % NGrainOrientations;
-                    GOHistogram[GOVal]++;
+                    GOHistogram(GOVal)++;
                 }
             }
         }
