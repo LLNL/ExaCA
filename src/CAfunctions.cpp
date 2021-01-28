@@ -3,6 +3,7 @@ using namespace std;
 
 /*************************** FUNCTIONS CALLED THROUGH MAIN SUBROUTINES ***************************/
 
+//*****************************************************************************/
 // Return the three terms of the cross product between two column vectors of length three
 double CrossP1(double TestVec1[3], double TestVec2[3]) {
     double CrossPOut;
@@ -20,6 +21,7 @@ double CrossP3(double TestVec1[3], double TestVec2[3]) {
     return CrossPOut;
 }
 
+//*****************************************************************************/
 int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy) {
     int XRemoteMPSlices = 0;
     if (DecompositionStrategy == 1) {
@@ -47,6 +49,7 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
 }
 
 
+//*****************************************************************************/
 int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy) {
     int RemoteXOffset = 0;
     if (DecompositionStrategy == 1) {
@@ -70,10 +73,10 @@ int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDire
     }
     // Account for "ghost nodes" for other processors
     RemoteXOffset--;
-    // cout << " My ID is " << p << " and my X Offset is " << RemoteXOffset << endl;
     return RemoteXOffset;
 }
 
+//*****************************************************************************/
 int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy) {
     int YRemoteMPSlices = 0;
     if (DecompositionStrategy == 1) {
@@ -113,6 +116,7 @@ int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decompo
     return YRemoteMPSlices;
 }
 
+//*****************************************************************************/
 int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy) {
     int RemoteYOffset = 0;
     if (DecompositionStrategy == 1) {
@@ -148,10 +152,10 @@ int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decomposi
     }
     // Account for "ghost nodes" for other processors
     RemoteYOffset--;
-    // cout << " My ID is " << p << " and my Y Offset is " << RemoteYOffset << endl;
     return RemoteYOffset;
 }
 
+//*****************************************************************************/
 int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices) {
     int ItBounds;
     // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
@@ -199,6 +203,7 @@ int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices) {
     return ItBounds;
 }
 
+//*****************************************************************************/
 // Given a list of 6 values, return the index of the largest one
 int MaxIndex(double TestVec3[6]) {
     int MaxIT = 0;
@@ -221,8 +226,7 @@ double MaxVal(double TestVec3[6], int NVals) {
     return MaxIT;
 }
 
-/*******************************************************************************************************************/
-
+//*****************************************************************************/
 // Determine the mapping of processors to grid data
 void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection, int &ProcessorsInYDirection, int id, int np, int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut) {
     
@@ -315,7 +319,6 @@ void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &Proce
                 if (np % RoundSquare == 0) {
                     PY = np/RoundSquare;
                     PX = RoundSquare;
-                    //cout << PX << " " << PY << endl;
                     NotSquare = 0;
                 }
                 else {
@@ -350,15 +353,11 @@ void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &Proce
         if ((MyLeft == MPI_PROC_NULL)||(MyOut == MPI_PROC_NULL)) MyLeftOut = MPI_PROC_NULL;
         if ((MyRight == MPI_PROC_NULL)||(MyOut == MPI_PROC_NULL)) MyRightOut = MPI_PROC_NULL;
     }
-    // if (id == 0) cout << "PX = " << ProcessorsInXDirection << " PY = " << ProcessorsInYDirection << endl;
-    //cout << "ID = " << id << " MyLeft = " << MyLeft << " MyRight = "  << MyRight << endl;
 }
 
 
-/*******************************************************************************************************************/
-
+//*****************************************************************************/
 // Determine the scan limits for each rank in X and Y directions
-
 void XYLimitCalc(int &LLX, int &LLY, int &ULX, int &ULY, int MyXSlices, int MyYSlices, int MyLeft, int MyRight, int MyIn, int MyOut) {
     LLX = 0;
     LLY = 0;
