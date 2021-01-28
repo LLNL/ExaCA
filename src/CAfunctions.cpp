@@ -20,8 +20,8 @@ double CrossP3(double TestVec1[3], double TestVec2[3]) {
     return CrossPOut;
 }
 
-int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy) {
-    int XRemoteMPSlices;
+int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy) {
+    int XRemoteMPSlices = 0;
     if (DecompositionStrategy == 1) {
         XRemoteMPSlices = nx;
     }
@@ -47,8 +47,8 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
 }
 
 
-int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int np, int DecompositionStrategy) {
-    int RemoteXOffset;
+int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy) {
+    int RemoteXOffset = 0;
     if (DecompositionStrategy == 1) {
         RemoteXOffset = 0;
     }
@@ -75,7 +75,7 @@ int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDire
 }
 
 int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy) {
-    int YRemoteMPSlices;
+    int YRemoteMPSlices = 0;
     if (DecompositionStrategy == 1) {
         int YSlicesPerP = ny/np;
         int YRemainder = ny % np;
@@ -114,7 +114,7 @@ int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decompo
 }
 
 int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy) {
-    int RemoteYOffset;
+    int RemoteYOffset = 0;
     if (DecompositionStrategy == 1) {
         int YSlicesPerP = ny/np;
         int YRemainder = ny % np;
@@ -224,7 +224,7 @@ double MaxVal(double TestVec3[6], int NVals) {
 /*******************************************************************************************************************/
 
 // Determine the mapping of processors to grid data
-void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection, int &ProcessorsInYDirection, int id, int np, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut) {
+void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection, int &ProcessorsInYDirection, int id, int np, int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut) {
     
     if (DecompositionStrategy == 1) {
     OneDim:
