@@ -38,7 +38,6 @@ cmake \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_INSTALL_PREFIX=install \
   -D Kokkos_ENABLE_OPENMP=ON \
-  \
   .. ;
 make install
 cd ../..
@@ -57,7 +56,6 @@ cmake \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR \
   -D CMAKE_INSTALL_PREFIX=install \
-  \
   ..;
 make install
 cd ../..
@@ -74,9 +72,9 @@ cd build
 cmake \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_CXX_COMPILER=../bin/nvcc_wrapper \
-  -D CMAKE_INSTALL_PREFIX=install
+  -D CMAKE_INSTALL_PREFIX=install \
   -D Kokkos_ENABLE_CUDA=ON \
-  \
+  -D Kokkos_ENABLE_CUDA_LAMBDA=ON \
   .. ;
 make install
 cd ../..
@@ -97,7 +95,6 @@ cmake \
   -D CMAKE_CXX_COMPILER=$KOKKOS_INSTALL_DIR/bin/nvcc_wrapper \
   -D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR \
   -D CMAKE_INSTALL_PREFIX=install \
-  \
   ..;
 make install
 cd ../..
