@@ -1,5 +1,6 @@
 #include "header.h"
 
+//*****************************************************************************/
 // Initial placement of data in ghost nodes
 void GhostNodesInit_GPU(int DecompositionStrategy, int MyXSlices, int MyYSlices, ViewI GrainID, ViewF DOCenter, ViewF DiagonalLength, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, int LocalActiveDomainSize, int ZBound_Low) {
 
@@ -28,7 +29,6 @@ void GhostNodesInit_GPU(int DecompositionStrategy, int MyXSlices, int MyYSlices,
                 BufferA(GNPosition,2) = GhostDOCY;
                 BufferA(GNPosition,3) = GhostDOCZ;
                 BufferA(GNPosition,4) = GhostDL;
-                //printf("NewDL for A is %f \n",BufferA(GNPosition,4));
             }
             else if (RankY == MyYSlices-2) {
                 BufferB(GNPosition,0) = GhostGID;
@@ -36,7 +36,6 @@ void GhostNodesInit_GPU(int DecompositionStrategy, int MyXSlices, int MyYSlices,
                 BufferB(GNPosition,2) = GhostDOCY;
                 BufferB(GNPosition,3) = GhostDOCZ;
                 BufferB(GNPosition,4) = GhostDL;
-                //printf("NewDL for B is %f \n",BufferB(GNPosition,4));
             }
         }
         else {
@@ -153,7 +152,6 @@ void GhostNodesInit_GPU(int DecompositionStrategy, int MyXSlices, int MyYSlices,
                 BufferD(GNPosition,2) = GhostDOCY;
                 BufferD(GNPosition,3) = GhostDOCZ;
                 BufferD(GNPosition,4) = GhostDL;
-                //if (id == 0) cout << "RANK 0 LISTED " << MyNeighborX << " " << MyNeighborY << " " << MyNeighborZ << endl;
             }
             else if ((RankX == MyXSlices-2)&&(RankY > 1)&&(RankY < MyYSlices-2)) {
                 int GNPosition = RankZ*BufSizeY + RankY-1;
@@ -168,6 +166,7 @@ void GhostNodesInit_GPU(int DecompositionStrategy, int MyXSlices, int MyYSlices,
 
 }
 
+//*****************************************************************************/
 // 2D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
 void GhostNodes2D_GPU(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, ViewI Locks, int ZBound_Low) {
 
@@ -354,7 +353,6 @@ void GhostNodes2D_GPU(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, in
 
                 if (Place) {
                     // Update this ghost node cell's information with data from other rank
-                    //printf("unpack, X/Y/Z, GID, Center, DL %d %d %d %d %d %f %f %f %f \n",unpack_index,CellLocation,RankX,RankY,RankZ,DOCenterX,DOCenterY,DOCenterZ,NewDiagonalLength);
                     int GlobalZ = RankZ + ZBound_Low;
                     int GlobalCellLocation = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                     CellType(GlobalCellLocation) = Active;
@@ -447,11 +445,7 @@ void GhostNodes2D_GPU(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, in
                         double normz = Norm[2];
                         double ParaT = (normx*x0+normy*y0+normz*z0)/(normx*Diag1X+normy*Diag1Y+normz*Diag1Z);
                         float CDLVal = pow(pow(ParaT*Diag1X,2.0) + pow(ParaT*Diag1Y,2.0) + pow(ParaT*Diag1Z,2.0),0.5);
-                        //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
-                        //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
-                        //                                }
                         CritDiagonalLength((long int)(26)*CellLocation+(long int)(n)) = CDLVal;
-                        //printf("Unpack %d CLOC %f %f %f OLOC %f %f %f TI = %d %d %d DiagonalN %d CDL Val %f \n",unpack_index,RankX+MyXOffset+0.5,RankY+MyYOffset+0.5,RankZ+0.5,DOCenterX,DOCenterY,DOCenterZ,TriangleIndex(78*CellLocation + 3*n),TriangleIndex(78*CellLocation + 3*n + 1),TriangleIndex(78*CellLocation + 3*n+2),n,CDLVal);
                     }
                 }
             });
@@ -459,17 +453,11 @@ void GhostNodes2D_GPU(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, in
     }
     // Wait on send requests
     MPI_Waitall(8, SendRequests.data(), MPI_STATUSES_IGNORE );
-
 }
-//*****************************************************************************/
 
+//*****************************************************************************/
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
 void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferAR, Buffer2D BufferBR, int BufSizeX, int, int BufSizeZ, ViewI Locks, int ZBound_Low) {
-    
-//    Kokkos::fence();
-//
-//        MPI_Barrier(MPI_COMM_WORLD);
-//        cout << "Data transfer start rank " << id << " buf size " << 5*BufSizeX*BufSizeZ << endl;
     
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
@@ -481,9 +469,6 @@ void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYS
     // Receive buffers for all neighbors (MPI_Irecv)
     MPI_Irecv(BufferAR.data(),5*BufSizeX*BufSizeZ,MPI_FLOAT,MyLeft,0,MPI_COMM_WORLD,&RecvRequests[0]);
     MPI_Irecv(BufferBR.data(),5*BufSizeX*BufSizeZ,MPI_FLOAT,MyRight,0,MPI_COMM_WORLD,&RecvRequests[1]);
-    
-   // MPI_Barrier(MPI_COMM_WORLD);
-   // if (id == 0)  cout << "Sends complete" << endl;
     
     // unpack in any order
     bool unpack_complete = false;
@@ -518,7 +503,6 @@ void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYS
                         DOCenterZ = BufferAR(BufPosition,3);
                         NewDiagonalLength = BufferAR(BufPosition,4);
                     }
-                    //if (BufferAR(BufPosition,4) > 0) printf("NewDL for A is %f \n",BufferAR(BufPosition,4));
                 }
                 else if (unpack_index == 1) {
                     // Data received from MyRight
@@ -532,11 +516,8 @@ void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYS
                         DOCenterZ = BufferBR(BufPosition,3);
                         NewDiagonalLength = BufferBR(BufPosition,4);
                     }
-                    //if (BufferBR(BufPosition,4) > 0) printf("NewDL for B is %f \n",BufferBR(BufPosition,4));
                 }
                 if (Place) {
-                    //printf("ID, RankX, RankZ, SizeX, SizeZ %d %d %d %d %d \n",id,RankX,RankZ,BufSizeX,BufSizeZ);
-                    //printf("ID, X/Y/Z, GID, Center, DL %d %d %d %d %d %f %f %f %f \n",id,CellLocation,RankX,RankY,RankZ,DOCenterX,DOCenterY,DOCenterZ,NewDiagonalLength);
                     int GlobalZ = RankZ + ZBound_Low;
                     int GlobalCellLocation = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                     
@@ -561,9 +542,6 @@ void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYS
                         long int NeighborPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
                         if (NeighborPosition == CellLocation) {
                             // Do not calculate critical diagonal length req'd for the newly captured cell to capture the original
-//                            TriangleIndex(78*NeighborPosition + 3*n) = 6;
-//                            TriangleIndex(78*NeighborPosition + 3*n + 1) = 6;
-//                            TriangleIndex(78*NeighborPosition + 3*n + 2) = 6;
                             CritDiagonalLength((long int)(26)*NeighborPosition+(long int)(n)) = 10000000.0;
                         }
                         
@@ -631,11 +609,7 @@ void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYS
                         double normz = Norm[2];
                         double ParaT = (normx*x0+normy*y0+normz*z0)/(normx*Diag1X+normy*Diag1Y+normz*Diag1Z);
                         float CDLVal = pow(pow(ParaT*Diag1X,2.0) + pow(ParaT*Diag1Y,2.0) + pow(ParaT*Diag1Z,2.0),0.5);
-                        //                                if ((normx*Diag1X+normy*Diag1Y+normz*Diag1Z) == 0.0) {
-                        //                                    printf("Captured cell : %d %d %d %f %d %d %d %f %f %f",MyNeighborX,MyNeighborY,MyNeighborZ,mag0,index1,index2,index3,normx,normy,normz);
-                        //                                }
                         CritDiagonalLength((long int)(26)*CellLocation+(long int)(n)) = CDLVal;
-                        //if (id == 1) printf("Cell at CYCLE %d LOC %d %d %d ORIENTATION %d DL = %f TI = %d %d %d DiagonalN %d CDL Val %f \n",cycle,RankX,RankY,RankZ,GrainOrientation[((abs(GrainID(CellLocation)) - 1) % NGrainOrientations)],DiagonalLength(CellLocation),TriangleIndex(78*CellLocation + 3*n),TriangleIndex(78*CellLocation + 3*n + 1),TriangleIndex(78*CellLocation + 3*n+2),n,CDLVal);
                     }
                     CellType(GlobalCellLocation) = Active;
                 }
@@ -643,12 +617,6 @@ void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYS
         }
     }
     
-//    if (cycle >= 54276000) {
-//        MPI_Barrier(MPI_COMM_WORLD);
-//        cout << "Data transfer complete rank " << id << endl;
-//    }
-    
     // Wait on send requests
     MPI_Waitall(2, SendRequests.data(), MPI_STATUSES_IGNORE );
-    
 }
