@@ -263,9 +263,6 @@ void CellCapture(int, int np, int cycle, int DecompositionStrategy, int LocalAct
                             long int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
                             long int GlobalNeighborD3D1ConvPosition = (MyNeighborZ+ZBound_Low)*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
                             
-                            //int Pos1 = (int)(D3D1ConvPosition);
-                            //int Pos2 = (int)(NeighborD3D1ConvPosition);
-                            //printf("Old cell at %d %d , CDL for direction %d is %f : \n", Pos1,Pos2,ll,CritDiagonalLength(26*D3D1ConvPosition+l));
                             if ((CellType(GlobalNeighborD3D1ConvPosition) == Liquid)||(CellType(GlobalNeighborD3D1ConvPosition) == LiqSol)||(CellType(GlobalNeighborD3D1ConvPosition) == Delayed)) LCount = 1;
                             // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
                             if ((DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26*D3D1ConvPosition+l))&&(Locks(NeighborD3D1ConvPosition) == 1)) {
@@ -281,7 +278,6 @@ void CellCapture(int, int np, int cycle, int DecompositionStrategy, int LocalAct
                                 // If OldLocksValue is 0, this capture event already happened
                                 // Only proceed if OldLocksValue is 1
                                 if (OldLocksValue == 1) {
-                                    //printf("Old cell was at %d %d %d , CDL was %f and DL was %f :New cell at %d %d %d captured \n",RankX,RankY,RankZ,CritDiagonalLength(26*D3D1ConvPosition+l),DiagonalLength(D3D1ConvPosition),MyNeighborX,MyNeighborY,MyNeighborZ);
                                     int GlobalX = RankX + MyXOffset;
                                     int GlobalY = RankY + MyYOffset;
                                     int h = GrainID(GlobalD3D1ConvPosition);
@@ -309,10 +305,10 @@ void CellCapture(int, int np, int cycle, int DecompositionStrategy, int LocalAct
 
                                     // Calculate unit vectors for the octahedron that intersect the new cell center
                                     double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                                    
+
                                     double Angle1 = (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 + GrainUnitVector(9 * MyOrientation + 2) * z0) / mag0;
                                     double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 + GrainUnitVector(9 * MyOrientation + 5) * z0) / mag0;
-                                    double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 + GrainUnitVector(9 * MyOrientation + 8) * z0) / mag0;                                
+                                    double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 + GrainUnitVector(9 * MyOrientation + 8) * z0) / mag0;
 
                                     Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
                                     Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
@@ -324,7 +320,7 @@ void CellCapture(int, int np, int cycle, int DecompositionStrategy, int LocalAct
 
                                     Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
                                     Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
-                                    Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);                                                                
+                                    Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
 
                                     double U1[3], U2[3], UU[3], Norm[3];
                                     U1[0] = Diag2X - Diag1X;
@@ -344,9 +340,9 @@ void CellCapture(int, int np, int cycle, int DecompositionStrategy, int LocalAct
                                     double norm[3], TriangleX[3], TriangleY[3], TriangleZ[3], ParaT;
                                     norm[0] = Norm[0]; norm[1] = Norm[1]; norm[2] = Norm[2];
                                     ParaT = (norm[0] * x0 + norm[1] * y0 + norm[2] * z0) / (norm[0] * Diag1X + norm[1] * Diag1Y + norm[2] * Diag1Z);
-                                    
-                                    TriangleX[0] = cxold + ParaT * Diag1X; 
-                                    TriangleY[0] = cyold + ParaT * Diag1Y; 
+
+                                    TriangleX[0] = cxold + ParaT * Diag1X;
+                                    TriangleY[0] = cyold + ParaT * Diag1Y;
                                     TriangleZ[0] = czold + ParaT * Diag1Z;
 
                                     TriangleX[1] = cxold + ParaT * Diag2X;
@@ -355,7 +351,7 @@ void CellCapture(int, int np, int cycle, int DecompositionStrategy, int LocalAct
 
                                     TriangleX[2] = cxold + ParaT * Diag3X;
                                     TriangleY[2] = cyold + ParaT * Diag3Y;
-                                    TriangleZ[2] = czold + ParaT * Diag3Z;                                 
+                                    TriangleZ[2] = czold + ParaT * Diag3Z;
 
                                     // Determine which of the 3 corners of the capturing face is closest to the captured cell center
                                     double DistToCorner[3];
@@ -370,10 +366,10 @@ void CellCapture(int, int np, int cycle, int DecompositionStrategy, int LocalAct
 
                                     int idx = 2 * (z - y) * z + (y - x) * y;
                                     double mindisttocorner, xc, yc, zc;
-                                    
+
                                     mindisttocorner = DistToCorner[idx];
                                     xc = TriangleX[idx], yc = TriangleY[idx], zc = TriangleZ[idx];
-                                    
+
                                     double x1, y1, z1, x2, y2, z2;
                                     x1 = TriangleX[(idx + 1) % 3], y1 = TriangleY[(idx + 1) % 3], z1 = TriangleZ[(idx + 1) % 3];
                                     x2 = TriangleX[(idx + 2) % 3], y2 = TriangleY[(idx + 2) % 3], z2 = TriangleZ[(idx + 2) % 3];
@@ -430,54 +426,54 @@ void CellCapture(int, int np, int cycle, int DecompositionStrategy, int LocalAct
                                             // Do not calculate critical diagonal length req'd for the newly captured cell to capture the original
                                             CritDiagonalLength((long int)(26)*NeighborD3D1ConvPosition+(long int)(n)) = 10000000.0;
                                         }
-										else {
-											// (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of a neighbor cell
-											double x0 = xp + NeighborX[n] - cx;
-											double y0 = yp + NeighborY[n] - cy;
-											double z0 = zp + NeighborZ[n] - cz;
-											// mag0 is the magnitude of (x0,y0,z0)
-											double mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
+                                        else {
+                                            // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center of a neighbor cell
+                                            double x0 = xp + NeighborX[n] - cx;
+                                            double y0 = yp + NeighborY[n] - cy;
+                                            double z0 = zp + NeighborZ[n] - cz;
+                                            // mag0 is the magnitude of (x0,y0,z0)
+                                            double mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
 
-											// Calculate unit vectors for the octahedron that intersect the new cell center
-											double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-											double Angle1 = (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 + GrainUnitVector(9 * MyOrientation + 2) * z0) / mag0;
-											double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 + GrainUnitVector(9 * MyOrientation + 5) * z0) / mag0;
-											double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 + GrainUnitVector(9 * MyOrientation + 8) * z0) / mag0;
+                                            // Calculate unit vectors for the octahedron that intersect the new cell center
+                                            double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                                            double Angle1 = (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 + GrainUnitVector(9 * MyOrientation + 2) * z0) / mag0;
+                                            double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 + GrainUnitVector(9 * MyOrientation + 5) * z0) / mag0;
+                                            double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 + GrainUnitVector(9 * MyOrientation + 8) * z0) / mag0;
 
-											Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
-											Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
-											Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
+                                            Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
+                                            Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
+                                            Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
 
-											Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
-											Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
-											Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
+                                            Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
+                                            Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
+                                            Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
 
-											Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
-											Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
-											Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
+                                            Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
+                                            Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
+                                            Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
 
-											double U1[3], U2[3], UU[3], Norm[3];
-											U1[0] = Diag2X - Diag1X;
-											U1[1] = Diag2Y - Diag1Y;
-											U1[2] = Diag2Z - Diag1Z;
-											U2[0] = Diag3X - Diag1X;
-											U2[1] = Diag3Y - Diag1Y;
-											U2[2] = Diag3Z - Diag1Z;
-											UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-											UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-											UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-											double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-											Norm[0] = UU[0] / NDem;
-											Norm[1] = UU[1] / NDem;
-											Norm[2] = UU[2] / NDem;
-											// normal to capturing plane
-											double normx = Norm[0];
-											double normy = Norm[1];
-											double normz = Norm[2];
-											double ParaT = (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
-											float CDLVal = fabsf(ParaT) * sqrtf(Diag1X * Diag1X + Diag1Y * Diag1Y + Diag1Z * Diag1Z);
-											CritDiagonalLength((long int)(26) * NeighborD3D1ConvPosition + (long int)(n)) = CDLVal;
-										}
+                                            double U1[3], U2[3], UU[3], Norm[3];
+                                            U1[0] = Diag2X - Diag1X;
+                                            U1[1] = Diag2Y - Diag1Y;
+                                            U1[2] = Diag2Z - Diag1Z;
+                                            U2[0] = Diag3X - Diag1X;
+                                            U2[1] = Diag3Y - Diag1Y;
+                                            U2[2] = Diag3Z - Diag1Z;
+                                            UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                                            UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                                            UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                                            double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                                            Norm[0] = UU[0] / NDem;
+                                            Norm[1] = UU[1] / NDem;
+                                            Norm[2] = UU[2] / NDem;
+                                            // normal to capturing plane
+                                            double normx = Norm[0];
+                                            double normy = Norm[1];
+                                            double normz = Norm[2];
+                                            double ParaT = (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
+                                            float CDLVal = fabsf(ParaT) * sqrtf(Diag1X * Diag1X + Diag1Y * Diag1Y + Diag1Z * Diag1Z);
+                                            CritDiagonalLength((long int)(26) * NeighborD3D1ConvPosition + (long int)(n)) = CDLVal;
+                                        }
                                     }
 
                                     if (np > 0) {
