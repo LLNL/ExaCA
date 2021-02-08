@@ -17,7 +17,7 @@ int main ( int argc, char *argv[] ) {
         if (id == 0) cout << "Number of MPI ranks = " << np << endl;
 
 	if ( argc < 2 ) {
-            cout << "Error: Must provide path to input file on the command line." << endl;
+            throw std::runtime_error("Error: Must provide path to input file on the command line.");
 	}
 	else {
 	    // Run CA code using reduced temperature data format
