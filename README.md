@@ -34,15 +34,17 @@ First, if Kokkos is not already built on your system, build Kokkos:
 cd ./kokkos
 mkdir build
 cd build
+# Check the CPU architecture flag matches the hardware
 cmake \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_INSTALL_PREFIX=install \
   -D Kokkos_ENABLE_OPENMP=ON \
-  \
+  -D Kokkos_ARCH_POWER9=ON \
   .. ;
 make install
 cd ../..
 ```
+Note that there are other host backends available. The Kokkos architecture flag must match the hardware you run on and will improve performance, if used.
 
 Then build ExaCA, including the path to the Kokkos build:
 ```
@@ -57,7 +59,6 @@ cmake \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR \
   -D CMAKE_INSTALL_PREFIX=install \
-  \
   ..;
 make install
 cd ../..
@@ -71,16 +72,19 @@ If running on NVIDIA GPUs, build Kokkos with additional inputs:
 cd ./kokkos
 mkdir build
 cd build
+# Check the GPU architecture flag matches the hardware
 cmake \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_CXX_COMPILER=../bin/nvcc_wrapper \
-  -D CMAKE_INSTALL_PREFIX=install
+  -D CMAKE_INSTALL_PREFIX=install \
   -D Kokkos_ENABLE_CUDA=ON \
-  \
+  -D Kokkos_ENABLE_CUDA_LAMBDA=ON \
+  -D Kokkos_ARCH_VOLTA70=ON \
   .. ;
 make install
 cd ../..
 ```
+Note the two flags needed for the `Kokkos::Cuda` backend. The Kokkos architecture flag must match the hardware you run on and will improve performance. By default, the host will use `Kokkos::Serial`; other parallel host backends can also be used, e.g. by adding `-D Kokkos_ENABLE_OPENMP`.
 
 Build ExaCA, this time with the Kokkos compiler wrapper:
 ```
@@ -97,7 +101,6 @@ cmake \
   -D CMAKE_CXX_COMPILER=$KOKKOS_INSTALL_DIR/bin/nvcc_wrapper \
   -D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR \
   -D CMAKE_INSTALL_PREFIX=install \
-  \
   ..;
 make install
 cd ../..

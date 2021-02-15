@@ -1,10 +1,8 @@
 #include "header.h"
 using namespace std;
 
-///*****************************************************************************/
-/**
-  Prints values of grain orientation for all cells to files
-*/
+//*****************************************************************************/
+// Prints values of grain orientation for all cells to files
 void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool* Melted, string PathToOutput, bool FilesToPrint[4], double deltax) {
 
     if (id == 0) {
@@ -36,11 +34,9 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
             }
         }
         
-//      cout << "RANK 0 PLACED AT X = 1 through " << MyXSlices-2 << " , Y = 1 through " << MyYSlices-2 << endl;
         // Recieve Grain ID value from other ranks
         // Message size different for different ranks
         for (int p=1; p<np; p++) {
-           // cout << "FEEDING " << p << " " << nx << " " << ProcessorsInXDirection << " " << np << " " << DecompositionStrategy << endl;
             int RecvXOffset = XOffsetCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
             int RecvXSlices = XMPSlicesCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
 
@@ -48,8 +44,6 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
             int RecvYSlices = YMPSlicesCalc(p,ny,ProcessorsInYDirection,np,DecompositionStrategy);
 
             // No ghost nodes in send and recieved data
-            //int XPosition = p/ProcessorsInYDirection;
-            //int YPosition = p % ProcessorsInYDirection;
             RecvYSlices = RecvYSlices-2;
             RecvXSlices = RecvXSlices-2;
             
@@ -74,7 +68,6 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
                     }
                 }
             }
-            //cout << "DataCounter = " << DataCounter << " of " << RBufSize << endl;
         }
         
         string FName = PathToOutput + BaseFileName;
@@ -90,11 +83,9 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
     else {
 
         // Send non-ghost node data to rank 0
-        //cout << "Rank " << id << endl;
         int SBufSize = (MyXSlices-2)*(MyYSlices-2)*(nz-2);
         int *SendBufGID = new int[SBufSize];
         int *SendBufM = new int [SBufSize];
-        //if (id == 4) cout << "Cell type is " << GrainID((nz-2)*MyXSlices*MyYSlices + 233*MyYSlices + 1) << endl;
         int DataCounter = 0;
 
         for (int k=1; k<nz-1; k++) {
@@ -108,17 +99,14 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
             }
         }
         
-        //cout << "Rank " << id << " sending " <<  SBufSize << " data points" << endl;
         MPI_Send(SendBufGID,SBufSize,MPI_INT,0,0,MPI_COMM_WORLD);
         MPI_Send(SendBufM,SBufSize,MPI_INT,0,1,MPI_COMM_WORLD);
     }
 
 }
 
-///*****************************************************************************/
-/**
- Prints values of critical undercooling for all cells to files
- */
+//*****************************************************************************/
+// Prints values of critical undercooling for all cells to files
 void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int MyYSlices,int ProcessorsInXDirection,int ProcessorsInYDirection, ViewI_H CritTimeStep, int DecompositionStrategy, string PathToOutput) {
     
     // Critical time step for solidification start printed to file first
@@ -136,7 +124,6 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int M
             }
             CritTimeStep_WholeDomain.push_back(CTS_JK);
         }
-        //cout << "X" << endl;
         for (int k=1; k<nz-1; k++) {
             for (int i=1; i<MyXSlices-1; i++) {
                 for (int j=1; j<MyYSlices-1; j++) {
@@ -144,11 +131,10 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int M
                 }
             }
         }
-        //cout << "Y" << endl;
+
         // Recieve values from other ranks
         // Message size different for different ranks
         for (int p=1; p<np; p++) {
-            //cout << "FEEDING " << p << " " << nx << " " << ProcessorsInXDirection << " " << np << " " << DecompositionStrategy << endl;
             int RecvXOffset = XOffsetCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
             int RecvXSlices = XMPSlicesCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
             
@@ -164,11 +150,9 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int M
             RecvXOffset++;
 
             int RBufSize = RecvXSlices*RecvYSlices*(nz-2);
-            //cout << "RBufSize = " << RBufSize << endl;
             int *RecvBufGID = new int[RBufSize];
-            //cout << "Rank 0 ready to recieve " << RBufSize << " int data from rank " << p << endl;
             MPI_Recv(RecvBufGID,RBufSize,MPI_INT,p,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            //cout << "Recieved data from rank " << p << endl;
+
             int DataCounter = 0;
             for (int k=1; k<nz-1; k++) {
                 for (int i=0; i<RecvXSlices; i++) {
@@ -178,14 +162,12 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int M
                     }
                 }
             }
-            //cout << "DataCounter = " << DataCounter << " of " << RBufSize << endl;
-            //cout << "Placed data in Rows " << RecvXOffset << " through " << RecvXOffset+RecvXSlices-1 << " and in cols " << RecvYOffset << " through " << RecvYOffset+RecvYSlices-1 << endl;
         }
         
         // Print grain orientations to file
         string FName = PathToOutput + "CriticalTimeStep.vtk";
         std::ofstream CTSplot;
-//        // New vtk file
+        // New vtk file
         CTSplot.open(FName);
         CTSplot << "# vtk DataFile Version 3.0" << endl;
         CTSplot << "vtk output" << endl;
@@ -212,12 +194,9 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int M
     }
     else {
         // Send non-ghost node data to rank 0
-        //cout << "Rank " << id << endl;
         int SBufSize = (MyXSlices-2)*(MyYSlices-2)*(nz-2);
         int *SendBufGID = new int[SBufSize];
-        //cout << "Rank " << id << endl;
         int DataCounter = 0;
-        // cout << "Rank " << id << " sending " << nx*nz*(MyYSlices-2) << " data points" << endl;
         for (int k=1; k<nz-1; k++) {
             for (int i=1; i<MyXSlices-1; i++) {
                 for (int j=1; j<MyYSlices-1; j++) {
@@ -226,15 +205,12 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices,int M
                 }
             }
         }
-        //cout << "Rank " << id << " sending " << SBufSize << " int data points" << endl;
         MPI_Send(SendBufGID,SBufSize,MPI_INT,0,0,MPI_COMM_WORLD);
-        //cout << "RANK " << id << " SENT DATA" << endl;
     }
 
 }
 
-///*****************************************************************************/
-
+//*****************************************************************************/
 void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI_H CellType, string BaseFileName, int DecompositionStrategy) {
 
     string FName = BaseFileName + "_CT.vtk";
@@ -265,7 +241,6 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
         // Recieve Grain ID value from other ranks
         // Message size different for different ranks
         for (int p=1; p<np; p++) {
-            // cout << "FEEDING " << p << " " << nx << " " << ProcessorsInXDirection << " " << np << " " << DecompositionStrategy << endl;
             int RecvXOffset = XOffsetCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
             int RecvXSlices = XMPSlicesCalc(p,nx,ProcessorsInXDirection,ProcessorsInYDirection,DecompositionStrategy);
             
@@ -273,22 +248,18 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
             int RecvYSlices = YMPSlicesCalc(p,ny,ProcessorsInYDirection,np,DecompositionStrategy);
             
             // No ghost nodes in send and recieved data
-//            int XPosition = p/ProcessorsInYDirection;
-//            int YPosition = p % ProcessorsInYDirection;
             RecvYSlices = RecvYSlices-2;
             RecvXSlices = RecvXSlices-2;
             
             // Readjust X and Y offsets of incoming data based on the lack of ghost nodes
             RecvYOffset++;
             RecvXOffset++;
-                //}
-                        //cout << "Allocating memory" << endl;
+
             int RBufSize = RecvXSlices*RecvYSlices*(nz-2);
             int *RecvBufGID = new int[RBufSize];
-            //cout << "Rank 0 recieving from " << p << " a total of " << RecvYSlices << " slices; Y from " << RecvYOffset << " to " << RecvYOffset+RecvYSlices-1 << " and " << RBufSize << " data points total" << endl;
             MPI_Recv(RecvBufGID,RBufSize,MPI_INT,p,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            //cout << "Placing data in Rows " << RecvXOffset << " through " << RecvXOffset+RecvXSlices-1 << " and in cols " << RecvYOffset << " through " << RecvYOffset+RecvYSlices-1 << endl;
             int DataCounter = 0;
+
             for (int k=1; k<nz-1; k++) {
                 for (int i=0; i<RecvXSlices; i++) {
                     for (int j=0; j<RecvYSlices; j++) {
@@ -297,7 +268,6 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
                     }
                 }
             }
-            //cout << "DataCounter = " << DataCounter << " of " << RBufSize << endl;
         }
         cout << "Opening file" << endl;
         // Print grain orientations to file
@@ -331,10 +301,8 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
     else {
 
         // Send non-ghost node data to rank 0
-        //cout << "Rank " << id << endl;
         int SBufSize = (MyXSlices-2)*(MyYSlices-2)*(nz-2);
         int *SendBufGID = new int[SBufSize];
-        //cout << "Rank " << id << " Sending " << MyYSlices-2 << " slices " << endl; //; Y from " << MyYOffset+1 << " to " << MyYOffset+MyYSlices-2 << endl;
         int DataCounter = 0;
         for (int k=1; k<nz-1; k++) {
             for (int i=1; i<MyXSlices-1; i++) {
@@ -344,13 +312,12 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
                 }
             }
         }
-       // cout << "Rank " << id << " sending " << SBufSize << " data points" << endl;
         MPI_Send(SendBufGID,SBufSize,MPI_INT,0,0,MPI_COMM_WORLD);
-       // cout << "RANK " << id << " SENT DATA" << endl;
     }
     
 }
 
+//*****************************************************************************/
 void PrintOrientations(string FName, int nx, int ny, int nz, vector <vector <vector <bool> > > Melted_WholeDomain, vector <vector <vector <int> > > GrainID_WholeDomain, int NGrainOrientations) {
 
     // Histogram of orientations for texture determination
@@ -365,7 +332,6 @@ void PrintOrientations(string FName, int nx, int ny, int nz, vector <vector <vec
         for (int j=1; j<ny-1; j++) {
             for (int i=1; i<nx-1; i++) {
                 if (Melted_WholeDomain[k][i][j]) {
-                    //cout << GrainID_WholeDomain[k][i][j] << endl;
                     int GOVal = (abs(GrainID_WholeDomain[k][i][j]) - 1) % NGrainOrientations;
                     GOHistogram(GOVal)++;
                 }
@@ -379,6 +345,7 @@ void PrintOrientations(string FName, int nx, int ny, int nz, vector <vector <vec
     Grainplot0.close();
 }
 
+//*****************************************************************************/
 void PrintGrainIDs(string FName, int nx, int ny, int nz, vector <vector <vector <bool> > > Melted_WholeDomain, vector <vector <vector <int> > > GrainID_WholeDomain) {
 
     string FName1 = FName + ".csv";
@@ -399,6 +366,7 @@ void PrintGrainIDs(string FName, int nx, int ny, int nz, vector <vector <vector 
     Grainplot1.close();
 }
 
+//*****************************************************************************/
 void PrintParaview(string FName, int nx, int ny, int nz, vector <vector <vector <bool> > > Melted_WholeDomain, vector <vector <vector <int> > > GrainID_WholeDomain, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, int NGrainOrientations) {
 
     string FName2 = FName + ".vtk";
@@ -448,6 +416,7 @@ void PrintParaview(string FName, int nx, int ny, int nz, vector <vector <vector 
     cout << "Volume fraction of domain claimed by nucleated grains: " << (float)(NVC)/(float)((nx-2)*(ny-2)*(nz-2)) << endl;
 }
 
+//*****************************************************************************/
 void PrintGrainIDsForExaConstit(string FName, int nx, int ny, int nz, vector <vector <vector <int> > > GrainID_WholeDomain, double deltax) {
     
     string FName1 = FName + "_ExaConstit.csv";
@@ -467,6 +436,7 @@ void PrintGrainIDsForExaConstit(string FName, int nx, int ny, int nz, vector <ve
     Grainplot1.close();
 }
 
+//*****************************************************************************/
 void PrintGrainAreas(string FName, double deltax, int nx, int ny, int nz, vector <vector <vector <int> > > GrainID_WholeDomain) {
 
     string FName1 = FName + "_GrainAreas.csv";
@@ -492,6 +462,7 @@ void PrintGrainAreas(string FName, double deltax, int nx, int ny, int nz, vector
     Grainplot1.close();
 }
 
+//*****************************************************************************/
 void PrintWeightedGrainAreas(string FName, double deltax, int nx, int ny, int nz, vector <vector <vector <int> > > GrainID_WholeDomain) {
 
     string FName1 = FName + "_WeightedGrainAreas.csv";
