@@ -71,16 +71,13 @@ void GhostNodesInit_GPU(int id, int np, int DecompositionStrategy, int MyLeft, i
             }
         }
     });
-//    MPI_Barrier(MPI_COMM_WORLD);
-//    if (id == 0) cout << "Starting req allocation" << endl;
-    // Allocate requests
+
     int NumberOfSends;
     if (DecompositionStrategy > 1) NumberOfSends = 8;
     else NumberOfSends = 2;
     std::vector<MPI_Request> SendRequests(NumberOfSends, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(NumberOfSends, MPI_REQUEST_NULL);
-//    MPI_Barrier(MPI_COMM_WORLD);
-//    if (id == 0) cout << "Starting data send/recv" << endl;
+    
     // Send data to each other rank (MPI_Isend)
     MPI_Isend(BufferA.data(),2*MyXSlices*nzActive,MPI_FLOAT,MyLeft,0,MPI_COMM_WORLD,&SendRequests[0]);
     MPI_Isend(BufferB.data(),2*MyXSlices*nzActive,MPI_FLOAT,MyRight,0,MPI_COMM_WORLD,&SendRequests[1]);

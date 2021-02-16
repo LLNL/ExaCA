@@ -589,7 +589,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                              }
                           }
                        }
-                       //if (id == 0) cout << "Subdivisions at " << Subdivisions[0] << " " << Subdivisions[1] << " " << Subdivisions[2] << " " << Subdivisions[3] << endl;
+
                        for (int i=0; i<5; i++) {
                           int stringstart;
                           int stringlength;
@@ -600,7 +600,6 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                           if (i == 4) stringlength = s.length();
                           else stringlength = Subdivisions[i]-stringstart;
                           string MeshDataS = s.substr(stringstart,stringlength);
-                          //if (id == 0) cout << s << " SUBVAL = " << MeshDataS << endl;
                           float MeshData = atof(MeshDataS.c_str());
                           if (i == 0) {
                               if (LengthUnits == "mm") XConverted = MeshData/1000.0;
@@ -880,7 +879,6 @@ void TempInit(int layernumber, int TempFilesInSeries, double G, double R, string
             if (id == 0) cout << "Largest time globally for layer " << LayerCounter << " is " << LargestTime_Global << endl;
             FinishTimeStep[LayerCounter] = round((LargestTime_Global-LayerwiseTSOffset)/deltat);
             if (id == 0) cout << " Layer " << LayerCounter << " FINISH TIME STEP IS " << FinishTimeStep[LayerCounter] << endl;
-            //TimeOffset = LargestTime_Global;
             if (id == 0) cout << "Layer " << LayerCounter << " temperatures read" << endl;
 
            // Data interpolation between heat transport and CA grids, if necessary
