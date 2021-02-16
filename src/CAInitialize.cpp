@@ -294,7 +294,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
 }
 
 //*****************************************************************************/
-void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI2D_H ItList, string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, string tempfile, float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries, int &NumberOfTemperatureDataPoints, float* ZMinLayer, float* ZMaxLayer, int* FirstValue, int* LastValue, vector <float> &RawData) {
+void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI2D_H ItList, string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, int &nx, int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, string tempfile, float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float* ZMinLayer, float* ZMaxLayer, int* FirstValue, int* LastValue, vector <float> &RawData) {
         
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
@@ -454,7 +454,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     std::regex r("\\s+");
                     LengthUnits = std::regex_replace(LengthUnits, r, "");
                     TimeUnits = std::regex_replace(TimeUnits, r, "");
-                    if (((LengthUnits != "mm")&&(LengthUnits != "m"))||(TimeUnits != "ms")&&(TimeUnits != "s")) {
+                    if (((LengthUnits != "mm")&&(LengthUnits != "m"))||((TimeUnits != "ms")&&(TimeUnits != "s"))) {
                         string error = "Length units \"" + LengthUnits + "\" or time units \"" + TimeUnits + "\" are not valid- must be mm or m for length and ms or s for time";
                         throw std::runtime_error( error );
                     }
@@ -590,11 +590,11 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                           }
                        }
 
+                       int XInt = 0, YInt = 0;
+                       float XConverted = 0.0, YConverted = 0.0;
                        for (int i=0; i<5; i++) {
                           int stringstart;
                           int stringlength;
-                          int XInt, YInt;
-                          float XConverted, YConverted;
                           if (i == 0) stringstart = 0;
                           else stringstart = Subdivisions[i-1];
                           if (i == 4) stringlength = s.length();
@@ -744,7 +744,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
 }
 
 //*****************************************************************************/
-void TempInit(int layernumber, int TempFilesInSeries, double G, double R, string SimulationType, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin, bool* Melted, float* ZMinLayer, float* ZMaxLayer, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int* FinishTimeStep, double FreezingRange, ViewI_H LayerID, int* FirstValue, int* LastValue, vector <float> RawData) {
+void TempInit(int layernumber, double G, double R, string SimulationType, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin, bool* Melted, float* ZMinLayer, float* ZMaxLayer, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int* FinishTimeStep, double FreezingRange, ViewI_H LayerID, int* FirstValue, int* LastValue, vector <float> RawData) {
 
     if (SimulationType == "C") {
         

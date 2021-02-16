@@ -1,14 +1,14 @@
 #include "header.h"
 using namespace std;
 
-void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
+void RunProgram_Reduced(int id, int np, string InputFile) {
     
     double NuclTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
     double StartNuclTime, StartCaptureTime, StartGhostTime;
     double StartTime = MPI_Wtime();
     
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
-    int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
+    unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     bool ExtraWalls = false; // If simulating a spot melt problem where the side walls are not part of the substrate, this is changed to true in the input file
     bool PrintFilesYN, RemeltingYN;
     bool FilesToPrint[6] = {0}; // Which specific files to print are specified in the input file
@@ -63,7 +63,7 @@ void RunProgram_Reduced(int id, int np, int ierr, string InputFile) {
     int nzActive;
     
     // Initialize the temperature fields
-    TempInit(-1, TempFilesInSeries, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx, ny, nz,  CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted, ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FinishTimeStep, FreezingRange, LayerID_H, FirstValue, LastValue, RawData);
+    TempInit(-1, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx, ny, nz,  CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted, ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FinishTimeStep, FreezingRange, LayerID_H, FirstValue, LastValue, RawData);
     // Delete temporary data structure for temperature data read
     RawData.clear();
     MPI_Barrier(MPI_COMM_WORLD);
