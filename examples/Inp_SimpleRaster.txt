@@ -13,11 +13,9 @@ File of grain orientations:GrainOrientationVectors_Robert.csv
 Heat transport data mesh size (microns): 5
 Time step (microseconds): 0.08333333
 Substrate file name:SubstrateFine.csv
-Burst buffer temperature data (Y or N)? If N, read additional arguments: N
 Temperature filename: Master-Raster-150um.txt
 Number of temperature files: 1
 Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: N
-Source of input length unit (Truchas in mm (T) or OpenFOAM (O) in m): O
 Number of layers: 1
 Offset between layers (if Number of layers > 1, in cells): 15
 Print file of grain orientations (Y or N)?: N

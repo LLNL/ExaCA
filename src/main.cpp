@@ -3,15 +3,15 @@ using namespace std;
 
 int main ( int argc, char *argv[] ) {
     // Initialize MPI
-    int ierr, id, np;
-    ierr = MPI_Init ( &argc, &argv );
+    int id, np;
+    MPI_Init ( &argc, &argv );
     // Initialize Kokkos
     Kokkos::initialize(argc, argv); {
         
         // Get number of processes
-        ierr = MPI_Comm_size ( MPI_COMM_WORLD, &np );
+        MPI_Comm_size ( MPI_COMM_WORLD, &np );
         // Get individual process ID
-        ierr = MPI_Comm_rank ( MPI_COMM_WORLD, &id );
+        MPI_Comm_rank ( MPI_COMM_WORLD, &id );
         
         if (id == 0) Kokkos::DefaultExecutionSpace::print_configuration(std::cout);
         if (id == 0) cout << "Number of MPI ranks = " << np << endl;
@@ -22,12 +22,12 @@ int main ( int argc, char *argv[] ) {
 	else {
 	    // Run CA code using reduced temperature data format
 	    string InputFile = argv[1];
-	    RunProgram_Reduced(id, np, ierr, InputFile);
+	    RunProgram_Reduced(id, np, InputFile);
         }
     }
     // Finalize Kokkos
     Kokkos::finalize();
     // Finalize MPI
-    ierr = MPI_Finalize ( );
+    MPI_Finalize ( );
     return 0;
 }
