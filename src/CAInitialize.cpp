@@ -412,7 +412,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         YMax = -1000000.0;
         ZMax = -1000000.0;
         string LengthUnits, TimeUnits;
-        bool UseCoolingRate;
+        bool UseCoolingRate = false;
         
         for (int Loop=0; Loop<=1; Loop++) {
 
@@ -524,7 +524,6 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     }
                     else {
                         if ((col2at1 == std::string::npos)&&(col2at2 == std::string::npos)&&(col2at3 == std::string::npos)) UseCoolingRate = true;
-                        else UseCoolingRate = false;
                     }
                     // Based on the input file's layer offset, adjust ZMin/ZMax from the temperature data coordinate system to the multilayer CA coordinate system
                     // Check to see in the XYZ bounds for this layer are also limiting for the entire multilayer CA coordinate system
@@ -844,7 +843,7 @@ void TempInit(int layernumber, double G, double R, string SimulationType, int id
            // Determine which section of "RawData" is relevant for this layer of the overall domain
            int StartRange = FirstValue[LayerCounter];
            int EndRange = LastValue[LayerCounter];
-           int XInt, YInt, ZInt;
+           int XInt = -1; int YInt = -1; int ZInt = -1;
            if (id == 0) cout << "Range for layer " << LayerCounter << " on rank 0 is " << StartRange << " to " << EndRange << endl;
            MPI_Barrier(MPI_COMM_WORLD);
            for (int i=StartRange; i<EndRange; i++) {
