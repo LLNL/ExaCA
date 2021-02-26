@@ -10,13 +10,14 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     bool ExtraWalls = false; // If simulating a spot melt problem where the side walls are not part of the substrate, this is changed to true in the input file
-    bool PrintFilesYN, RemeltingYN;
+    bool PrintFilesYN, RemeltingYN, UseSubstrateFile;
     bool FilesToPrint[6] = {0}; // Which specific files to print are specified in the input file
+    float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange, NMax, dTN, dTsigma;
     string SubstrateFileName, tempfile, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     
     // Read input data
-    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile, TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, FilesToPrint, PrintFilesYN);
+    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile, TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, FilesToPrint, PrintFilesYN);
     
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -71,7 +72,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
     int LocalActiveDomainSize = MyXSlices*MyYSlices*nzActive; // Number of active cells on this MPI rank
     
-    //PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, LayerID_H, DecompositionStrategy,PathToOutput);
+    PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, LayerID_H, DecompositionStrategy,PathToOutput);
     
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     ViewF_H GrainUnitVector_H(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9*NGrainOrientations);
@@ -91,9 +92,15 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     ViewF_H CritDiagonalLength_H(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"),26*LocalActiveDomainSize);
     ViewF_H DOCenter_H(Kokkos::ViewAllocateWithoutInitializing("DOCenter"),3*LocalActiveDomainSize);
 
-    // Initialize the grain structure
+    // Initialize the grain structure - for either a constrained solidification problem, using a substrate from a file, or generating a substrate using the existing CA algorithm
     int PossibleNuclei_ThisRank, NextLayer_FirstNucleatedGrainID;
-    
+    if (SimulationType == "C") {
+        SubstrateInit_ConstrainedGrowth();
+    }
+    else {
+        if (UseSubstrateFile) SubstrateInit_FromFile();
+        else SubstrateInit_FromGrainSpacing();
+    }
     GrainInit(-1, SimulationType, SubstrateFileName, FractSurfaceSitesActive, NGrainOrientations, DecompositionStrategy, nx, ny, nz, LocalActiveDomainSize, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, GrainOrientation_H, GrainUnitVector_H, DiagonalLength_H, CellType_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, UndercoolingChange_H, Melted, deltax, NMax, NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low, ExtraWalls);
     
     MPI_Barrier(MPI_COMM_WORLD);
