@@ -80,6 +80,31 @@ bool parseInputBool( std::ifstream &stream, std::string key )
     }
 }
 
+// Verify that the temperature data read for X, Y, Z falls in bounds
+void CheckTemperatureCoordinateBound(std::string Label, float LowerBound, float UpperBound, float InputValue, int LineNumber, std::string TemperatureFilename) {
+
+    if ((InputValue < LowerBound)||(InputValue > UpperBound)) {
+        string error = Label + " value " + to_string(InputValue) + " on line " + to_string(LineNumber) + " of file " + TemperatureFilename + " is invalid based on domain size limit given in the file header: must be greater than " + to_string(LowerBound) + " and less than " + to_string(UpperBound);
+        throw std::runtime_error( error );
+    }
+}
+
+// Verify that the temperature data (liquidus time, solidus time or cooling rate) is physically reasonable
+void CheckTemperatureDataPoint(std::string Label, float InputValue, int LineNumber, std::string TemperatureFilename) {
+    if (Label == "Liquidus Time") {
+        if (InputValue <= 0)  {
+            string error = Label + " value " + to_string(InputValue) + " on line " + to_string(LineNumber) + " of file " + TemperatureFilename + " is invalid: must be equal to or greater than zero";
+            throw std::runtime_error( error );
+        }
+    }
+    else {
+        if (InputValue < 0) {
+            string error = Label + " value " + to_string(InputValue) + " on line " + to_string(LineNumber) + " of file " + TemperatureFilename + " is invalid: must be greater than zero";
+            throw std::runtime_error( error );
+        }
+    }
+}
+
 //*****************************************************************************/
 // Read ExaCA input file.
 void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, bool (&FilesToPrint)[6], bool &PrintFilesYN) {
@@ -480,14 +505,12 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                         string error = "XYZ data size line improperly formatted in input file: should be [xmin, xmax; ymin, ymax; zmin, zmax]";
                         throw std::runtime_error( error );
                     }
-                    if ((Loop == 0)&&(id == 0)) cout << "Layer = " << LayerReadCount << " Z Bounds are " << XMinString << " " << XMaxString  << endl;
                     float XMin_ThisLayer = atof(XMinString.c_str());
                     float XMax_ThisLayer = atof(XMaxString.c_str());
                     float YMin_ThisLayer = atof(YMinString.c_str());
                     float YMax_ThisLayer = atof(YMaxString.c_str());
                     float ZMin_ThisLayer = atof(ZMinString.c_str());
                     float ZMax_ThisLayer = atof(ZMaxString.c_str());
-                    if ((Loop == 0)&&(id == 0)) cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMin_ThisLayer << " " << ZMax_ThisLayer  << endl;
                     if (LengthUnits == "mm") {
                         XMin_ThisLayer = XMin_ThisLayer/1000.0;
                         XMax_ThisLayer = XMax_ThisLayer/1000.0;
@@ -568,6 +591,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                         getline(TemperatureFile,DummyLine);
                     }
                     // Read data from the remaining lines
+                    int LineCounter = 5;
                     while (!TemperatureFile.eof()) {
                        string s;
                        getline(TemperatureFile,s);
@@ -603,11 +627,13 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                           if (i == 0) {
                               if (LengthUnits == "mm") XConverted = MeshData/1000.0;
                               else XConverted = MeshData;
+                              CheckTemperatureCoordinateBound("X Coordinate", XMin, XMax, XConverted, LineCounter, tempfile_thislayer);
                               XInt = round((XConverted-XMin)/deltax) + 2;
                           }
                           else if (i == 1) {
                               if (LengthUnits == "mm") YConverted = MeshData/1000.0;
                               else YConverted = MeshData;
+                              CheckTemperatureCoordinateBound("Y Coordinate", YMin, YMax, YConverted, LineCounter, tempfile_thislayer);
                               YInt = round((YConverted-YMin)/deltax) + 2;
                           }
                           else if (i == 2) {
@@ -617,8 +643,11 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                   NumberOfTemperatureDataPoints++;
                                   RawData[NumberOfTemperatureDataPoints] = YConverted;
                                   NumberOfTemperatureDataPoints++;
-                                  if (LengthUnits == "mm") RawData[NumberOfTemperatureDataPoints] = MeshData/1000.0;
-                                  else RawData[NumberOfTemperatureDataPoints] = MeshData;
+                                  float ZConverted = MeshData;
+                                  if (LengthUnits == "mm") ZConverted = MeshData/1000.0;
+                                  // Z coordinate should be checked relative to the full multilayer temperature field bounds
+                                  CheckTemperatureCoordinateBound("Z Coordinate", ZMin, ZMax, ZConverted + deltax*LayerHeight*(LayerReadCount-1), LineCounter, tempfile_thislayer);
+                                  RawData[NumberOfTemperatureDataPoints] = ZConverted;
                                   NumberOfTemperatureDataPoints++;
                               }
                               else {
@@ -629,25 +658,30 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                           else if (i == 3) {
                               // Liquidus time
                               if ((XInt >= LowerXBound)&&(XInt <= UpperXBound)&&(YInt >= LowerYBound)&&(YInt <= UpperYBound)) {
-                                  if (TimeUnits == "ms") RawData[NumberOfTemperatureDataPoints] = MeshData/1000.0;
-                                  else RawData[NumberOfTemperatureDataPoints] = MeshData;
+                                  float LiquidusTime = MeshData;
+                                  if (TimeUnits == "ms") LiquidusTime = MeshData/1000.0;
+                                  CheckTemperatureDataPoint("Liquidus Time", LiquidusTime, LineCounter, tempfile_thislayer);
+                                  RawData[NumberOfTemperatureDataPoints] = LiquidusTime;
                                   NumberOfTemperatureDataPoints++;
                               }
                           }
                           else if (i == 4) {
                               // Solidus time OR cooling rate (convert all to a positive cooling rate)
                               if ((XInt >= LowerXBound)&&(XInt <= UpperXBound)&&(YInt >= LowerYBound)&&(YInt <= UpperYBound)) {
+                                  float CoolingRate = 0.0;
                                   if (UseCoolingRate) {
-                                      if (TimeUnits == "ms") RawData[NumberOfTemperatureDataPoints] = MeshData/1000.0;
-                                      else RawData[NumberOfTemperatureDataPoints] = MeshData;
+                                      CoolingRate = MeshData;
+                                      if (TimeUnits == "ms") CoolingRate = MeshData*1000.0; // Multiply by 1000 to convert cooling rate from K/ms to K/s
+                                      CheckTemperatureDataPoint("Cooling Rate", CoolingRate, LineCounter, tempfile_thislayer);
                                   }
                                   else {
                                       float TimeLiq = RawData[NumberOfTemperatureDataPoints-1];
-                                      float TimeSol;
+                                      float TimeSol = MeshData;
                                       if (TimeUnits == "ms") TimeSol = MeshData/1000.0;
-                                      else TimeSol = MeshData;
-                                      RawData[NumberOfTemperatureDataPoints] = abs(FreezingRange/(TimeSol-TimeLiq));
+                                      CoolingRate = FreezingRange/(TimeSol-TimeLiq);
+                                      CheckTemperatureDataPoint("Cooling Rate (calculated using liquidus and solidus time values)", CoolingRate, LineCounter, tempfile_thislayer);
                                   }
+                                  RawData[NumberOfTemperatureDataPoints] = CoolingRate;
                                   NumberOfTemperatureDataPoints++;
                               }
                           }
@@ -656,6 +690,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                               RawData.resize(OldSize+1000000);
                           }
                       }
+                      LineCounter++;
                    }
                    LastValue[LayerReadCount-1] = NumberOfTemperatureDataPoints;
                 }
@@ -2217,7 +2252,6 @@ void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
             
             int GlobalX = RankX + MyXOffset;
             int GlobalY = RankY + MyYOffset;
-
             int MyGrainID = GrainID(GlobalD3D1ConvPosition);
             DiagonalLength(D3D1ConvPosition) = 0.01;
             DOCenter(3*D3D1ConvPosition) = GlobalX + 0.5;
