@@ -101,8 +101,7 @@ void GhostNodesInit_GPU(int id, int, int DecompositionStrategy, int MyLeft, int 
         MPI_Irecv(BufferGR.data(),2*nzActive,MPI_FLOAT,MyRightIn,0,MPI_COMM_WORLD,&RecvRequests[6]);
         MPI_Irecv(BufferHR.data(),2*nzActive,MPI_FLOAT,MyLeftOut,0,MPI_COMM_WORLD,&RecvRequests[7]);
     }
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0) cout << "Buf recv" << endl;
+
     // unpack in any order
     bool unpack_complete = false;
     while (!unpack_complete) {
@@ -220,8 +219,6 @@ void GhostNodesInit_GPU(int id, int, int DecompositionStrategy, int MyLeft, int 
     }
     // Wait on send requests
     MPI_Waitall(NumberOfSends, SendRequests.data(), MPI_STATUSES_IGNORE );
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0) cout << "Buf recv" << endl;
     // Octahedra for active cells that were marked in the previous loop, initially have centers aligned with cell centers, Diagonal lengths of 0.01
     // Also ensure locks values match up with cell types that may have been changed through ghost node update (Wall/Solid/Active Locks = 0, Liquid/LiqSol Locks = 1)
     Kokkos::parallel_for ("GNInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& CellLocation) {
@@ -331,8 +328,7 @@ void GhostNodesInit_GPU(int id, int, int DecompositionStrategy, int MyLeft, int 
             }
         }
     });
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0) cout << "Buf done" << endl;
+    
 }
 
 //*****************************************************************************/

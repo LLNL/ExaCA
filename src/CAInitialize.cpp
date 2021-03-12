@@ -1244,7 +1244,7 @@ void SubstrateInit_FromFile(string SubstrateFileName, int nz, int MyXSlices, int
             
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation, while the remainder of the interface is seeded with
 // CA-cell sized substrate grains (emulating bulk nucleation alongside the edges of partially melted powder particles)
-void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int nz, int nzActive, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, int id, int np, double deltax, ViewI GrainID_DEVICE, ViewI_H GrainID_HOST, ViewI_H CritTimeStep) {
+void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int nz, int nzActive, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, int id, int np, double deltax, ViewI GrainID_DEVICE, ViewI_H GrainID_HOST, ViewI CritTimeStep_DEVICE, ViewI_H CritTimeStep_HOST) {
     
     // Seed random number generator such that each rank generates the same baseplate grain center locations
     double SubstrateSeed = 1.0;
@@ -1255,75 +1255,72 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
     double BaseplateGrainProb = (deltax*deltax*deltax)/(SubstrateGrainSpacing*SubstrateGrainSpacing*SubstrateGrainSpacing*pow(10,-18));
     ViewI_H NumBaseplateGrains_H(Kokkos::ViewAllocateWithoutInitializing("NBaseplate"), 1);
     NumBaseplateGrains_H(0) = 0;
-    ViewI NumBaseplateGrains_G(Kokkos::ViewAllocateWithoutInitializing("NBaseplate_G"),1);
-    Kokkos::deep_copy(NumBaseplateGrains_G, NumBaseplateGrains_H);
     ViewI_H BaseplateGrainX_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX"),nx*ny*nzActive);
     ViewI_H BaseplateGrainY_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY"),nx*ny*nzActive);
     ViewI_H BaseplateGrainZ_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ"),nx*ny*nzActive);
     
     // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain centers
-    for (int k=1; k<nzActive; k++) {
+    for (int k=1; k<=nzActive; k++) {
         for (int i=1; i<nx-1; i++) {
             for (int j=1; j<ny-1; j++) {
                 double R = dis(gen);
                 if (R < BaseplateGrainProb) {
-                    int OldIndexValue = Kokkos::atomic_fetch_add(&NumBaseplateGrains_G(), 1);
+                    int OldIndexValue = NumBaseplateGrains_H(0);
                     BaseplateGrainX_H(OldIndexValue) = i;
                     BaseplateGrainY_H(OldIndexValue) = j;
                     BaseplateGrainZ_H(OldIndexValue) = k;
+                    NumBaseplateGrains_H(0)++;
                 }
             }
         }
     }
+    if (id == 0) cout << "Number of baseplate grains: " << NumBaseplateGrains_H(0) << endl;
+    ViewI NumBaseplateGrains_G(Kokkos::ViewAllocateWithoutInitializing("NBaseplate_G"),1);
+    Kokkos::deep_copy(NumBaseplateGrains_G, NumBaseplateGrains_H);
     ViewI BaseplateGrainX_G(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX"),nx*ny*nzActive);
     ViewI BaseplateGrainY_G(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY"),nx*ny*nzActive);
     ViewI BaseplateGrainZ_G(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ"),nx*ny*nzActive);
     Kokkos::deep_copy(BaseplateGrainX_G, BaseplateGrainX_H);
     Kokkos::deep_copy(BaseplateGrainY_G, BaseplateGrainY_H);
     Kokkos::deep_copy(BaseplateGrainZ_G, BaseplateGrainZ_H);
-    Kokkos::parallel_for ("BaseplateGrainIDInit",Kokkos::RangePolicy<>(1,nzActive-1), KOKKOS_LAMBDA (const int& k) {
-        for (int i=0; i<MyXSlices; i++) {
-            int GlobalX = i + MyXOffset;
-            for (int j=0; j<MyYSlices; j++) {
-                int GlobalY = j + MyYOffset;
-                int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
-                if (CritTimeStep(CAGridLocation) == 0) {
-                    // This cell is part of the substrate - determine which grain center the cell is closest to, in order to assign it a grain ID
-                    // If closest to grain "n", assign grain ID "n+1" (grain ID = 0 is not used)
-                    float MinDistanceToThisGrain = (float)(LocalActiveDomainSize);
-                    int ClosestGrainIndex = -1;
-                    for (int n=0; n<NumBaseplateGrains_G(); n++) {
-                        float DistanceToThisGrainX = (float)(abs(BaseplateGrainX_G(n)-GlobalX));
-                        float DistanceToThisGrainY = (float)(abs(BaseplateGrainY_G(n)-GlobalY));
-                        float DistanceToThisGrainZ = (float)(abs(BaseplateGrainZ_G(n)-k));
-                        float DistanceToThisGrain = sqrtf(DistanceToThisGrainX*DistanceToThisGrainX + DistanceToThisGrainY*DistanceToThisGrainY + DistanceToThisGrainZ*DistanceToThisGrainZ);
-                        if (DistanceToThisGrain < MinDistanceToThisGrain) {
-                            ClosestGrainIndex = n;
-                            MinDistanceToThisGrain = DistanceToThisGrain;
-                        }
-                    }
-                    GrainID_DEVICE(CAGridLocation) = ClosestGrainIndex+1;
-                }
-                else {
-                    // This cell is part of layer 0's melt pool footprint
-                    GrainID_DEVICE(CAGridLocation) = 0;
+    Kokkos::parallel_for ("CellCapture",  Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>> ({1,0,0},{nzActive,MyXSlices,MyYSlices}), KOKKOS_LAMBDA (const int k, const int i, const int j) {
+        int GlobalX = i + MyXOffset;
+        int GlobalY = j + MyYOffset;
+        int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+        if (CritTimeStep_DEVICE(CAGridLocation) == 0) {
+            // This cell is part of the substrate - determine which grain center the cell is closest to, in order to assign it a grain ID
+            // If closest to grain "n", assign grain ID "n+1" (grain ID = 0 is not used)
+            float MinDistanceToThisGrain = (float)(LocalActiveDomainSize);
+            int ClosestGrainIndex = -1;
+            for (int n=0; n<NumBaseplateGrains_G(); n++) {
+                float DistanceToThisGrainX = (float)(abs(BaseplateGrainX_G(n)-GlobalX));
+                float DistanceToThisGrainY = (float)(abs(BaseplateGrainY_G(n)-GlobalY));
+                float DistanceToThisGrainZ = (float)(abs(BaseplateGrainZ_G(n)-k));
+                float DistanceToThisGrain = sqrtf(DistanceToThisGrainX*DistanceToThisGrainX + DistanceToThisGrainY*DistanceToThisGrainY + DistanceToThisGrainZ*DistanceToThisGrainZ);
+                if (DistanceToThisGrain < MinDistanceToThisGrain) {
+                    ClosestGrainIndex = n;
+                    MinDistanceToThisGrain = DistanceToThisGrain;
                 }
             }
+            GrainID_DEVICE(CAGridLocation) = ClosestGrainIndex+1;
+        }
+        else {
+            // This cell is part of layer 0's melt pool footprint
+            GrainID_DEVICE(CAGridLocation) = 0;
         }
     });
     
-    // Copy Grain ID and number of baseplate grains back to host
+    // Copy Grain ID back to host
     Kokkos::deep_copy(GrainID_HOST, GrainID_DEVICE);
-    Kokkos::deep_copy(NumBaseplateGrains_H, NumBaseplateGrains_G);
-    if (id == 0) cout << "Number of baseplate grains: " << NumBaseplateGrains_H(0) << endl;
-    
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (id == 0) cout << "Baseplate grain structure initialized" << endl;
     // Initialize grain seeds above baseplate to emulate bulk nucleation at edge of melted powder particles
     int PowderLayerActCells_ThisRank = 0;
     for (int k=nzActive; k<nz; k++) {
         for (int i=1; i<MyXSlices-1; i++) {
             for (int j=1; j<MyYSlices-1; j++) {
                 int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
-                if (CritTimeStep(CAGridLocation) == 0) {
+                if (CritTimeStep_HOST(CAGridLocation) == 0) {
                     // This cell is part of the powder layer - count how many of these exist on this rank
                     PowderLayerActCells_ThisRank++;
                 }
@@ -1334,7 +1331,6 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
             }
         }
     }
-    
     // Assign grain IDs to bulk grain nuclei
     int FirstEpitaxialGrainID = NumBaseplateGrains_H(0) + 1;
     if (np > 1) {
@@ -1356,12 +1352,14 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
             MPI_Send(&SBuf,1,MPI_INT,id+1,0,MPI_COMM_WORLD);
         }
     }
-    for (int D3D1ConvPosition=0; D3D1ConvPosition<MyXSlices*MyYSlices*nz; D3D1ConvPosition++)  {
-        if (CritTimeStep(D3D1ConvPosition) == 0)  {
+    for (int D3D1ConvPosition=MyXSlices*MyYSlices*nzActive; D3D1ConvPosition<MyXSlices*MyYSlices*nz; D3D1ConvPosition++)  {
+        if (CritTimeStep_HOST(D3D1ConvPosition) == 0)  {
             GrainID_HOST(D3D1ConvPosition) = FirstEpitaxialGrainID;
             FirstEpitaxialGrainID++;
         }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (id == 0) cout << "Initialized baseplate and powder grain structure" << endl;
     
 }
 //*****************************************************************************/
