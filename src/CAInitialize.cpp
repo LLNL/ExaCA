@@ -28,12 +28,12 @@ std::string parseInput_TwoPossibilities( std::ifstream &stream, std::string keyA
     std::string actual_key = line.substr(0, colon);
 
     // Check for keyword
-    if ( actual_key.find( keyA ) == std::string::npos ) {
+    if (actual_key.find(keyA) == std::string::npos) {
         // Key "A" was not found, check for Key "B"
-        if ( actual_key.find( keyB ) == std::string::npos ) {
+        if (actual_key.find(keyB) == std::string::npos) {
             // Neither key found
-            string error = "Required input not present: Neither " + keyA + " nor " + keyB " was found in the input file.";
-            throw std::runtime_error( error );
+            string error = "Required input not present: Neither " + keyA + " nor " + keyB + " was found in the input file";
+            throw std::runtime_error(error);
         }
         else {
             // Key "B" found
@@ -45,9 +45,9 @@ std::string parseInput_TwoPossibilities( std::ifstream &stream, std::string keyA
         WhichKey = "A";
     }
     // Check for colon seperator
-    if ( colon == std::string::npos ) {
-        string error = "Input \"" + key + "\" must be separated from value by \":\"." ;
-        throw std::runtime_error( error );
+    if (colon == std::string::npos) {
+        string error = "Input \"" + WhichKey + "\" must be separated from value by \":\"." ;
+        throw std::runtime_error(error);
     }
 
     // Remove whitespace
@@ -1117,7 +1117,7 @@ void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, V
 }
 
 // Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom surface of the constrained domain
-void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nz, int MyXOffset, int MyYOffset, int id, int np, ViewI_H CellType, ViewI_H GrainID) {
+void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx, int ny, int nz, int MyXOffset, int MyYOffset, int id, int np, ViewI_H CellType, ViewI_H GrainID) {
 
     mt19937_64 gen(id);
     uniform_real_distribution<double> dis(0.0, 1.0);
@@ -1185,7 +1185,7 @@ void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlic
 }
     
 // Initializes Grain ID values where the substrate comes from a file
-void SubstrateInit_FromFile(string SubstrateFileName, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, ViewI_H CritTimeStep, ViewI_H CellType, ViewI_H GrainID) {
+void SubstrateInit_FromFile(string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI_H CritTimeStep, ViewI_H GrainID) {
     
     // Assign GrainID values to cells that are part of the substrate
     ifstream Substrate;
@@ -1244,10 +1244,10 @@ void SubstrateInit_FromFile(string SubstrateFileName, int nx, int ny, int nz, in
             
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation, while the remainder of the interface is seeded with
 // CA-cell sized substrate grains (emulating bulk nucleation alongside the edges of partially melted powder particles)
-void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int nz, int nzActive, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, double deltax, ViewI GrainID_DEVICE, ViewI_H GrainID_HOST, ViewI_H CritTimeStep) {
+void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int nz, int nzActive, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, int id, int np, double deltax, ViewI GrainID_DEVICE, ViewI_H GrainID_HOST, ViewI_H CritTimeStep) {
     
     // Seed random number generator such that each rank generates the same baseplate grain center locations
-    int SubstrateSeed = 1;
+    double SubstrateSeed = 1.0;
     mt19937_64 gen(SubstrateSeed);
     uniform_real_distribution<double> dis(0.0, 1.0);
 
@@ -1255,27 +1255,33 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
     double BaseplateGrainProb = (deltax*deltax*deltax)/(SubstrateGrainSpacing*SubstrateGrainSpacing*SubstrateGrainSpacing*pow(10,-18));
     ViewI_H NumBaseplateGrains_H(Kokkos::ViewAllocateWithoutInitializing("NBaseplate"), 1);
     NumBaseplateGrains_H(0) = 0;
-    ViewI NumBaseplateGrains_G = Kokkos::create_mirror_view_and_copy(memory_space(), NumBaseplateGrains_H);
-    ViewI BaseplateGrainX(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX"),nx*ny*nzActive);
-    ViewI BaseplateGrainY(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY"),nx*ny*nzActive);
-    ViewI BaseplateGrainZ(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ"),nx*ny*nzActive);
+    ViewI NumBaseplateGrains_G(Kokkos::ViewAllocateWithoutInitializing("NBaseplate_G"),1);
+    Kokkos::deep_copy(NumBaseplateGrains_G, NumBaseplateGrains_H);
+    ViewI_H BaseplateGrainX_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX"),nx*ny*nzActive);
+    ViewI_H BaseplateGrainY_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY"),nx*ny*nzActive);
+    ViewI_H BaseplateGrainZ_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ"),nx*ny*nzActive);
     
     // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain centers
-    Kokkos::parallel_for ("BaseplateGrainLocationInit",Kokkos::RangePolicy(1,nzActive), KOKKOS_LAMBDA (const int& k) {
+    for (int k=1; k<nzActive; k++) {
         for (int i=1; i<nx-1; i++) {
             for (int j=1; j<ny-1; j++) {
                 double R = dis(gen);
                 if (R < BaseplateGrainProb) {
                     int OldIndexValue = Kokkos::atomic_fetch_add(&NumBaseplateGrains_G(), 1);
-                    BaseplateGrainX(OldIndexValue) = i;
-                    BaseplateGrainY(OldIndexValue) = j;
-                    BaseplateGrainZ(OldIndexValue) = k;
+                    BaseplateGrainX_H(OldIndexValue) = i;
+                    BaseplateGrainY_H(OldIndexValue) = j;
+                    BaseplateGrainZ_H(OldIndexValue) = k;
                 }
             }
         }
-    });
-    
-    Kokkos::parallel_for ("BaseplateGrainIDInit",Kokkos::RangePolicy(1,nzActive-1), KOKKOS_LAMBDA (const int& k) {
+    }
+    ViewI BaseplateGrainX_G(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX"),nx*ny*nzActive);
+    ViewI BaseplateGrainY_G(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY"),nx*ny*nzActive);
+    ViewI BaseplateGrainZ_G(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ"),nx*ny*nzActive);
+    Kokkos::deep_copy(BaseplateGrainX_G, BaseplateGrainX_H);
+    Kokkos::deep_copy(BaseplateGrainY_G, BaseplateGrainY_H);
+    Kokkos::deep_copy(BaseplateGrainZ_G, BaseplateGrainZ_H);
+    Kokkos::parallel_for ("BaseplateGrainIDInit",Kokkos::RangePolicy<>(1,nzActive-1), KOKKOS_LAMBDA (const int& k) {
         for (int i=0; i<MyXSlices; i++) {
             int GlobalX = i + MyXOffset;
             for (int j=0; j<MyYSlices; j++) {
@@ -1287,35 +1293,34 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
                     float MinDistanceToThisGrain = (float)(LocalActiveDomainSize);
                     int ClosestGrainIndex = -1;
                     for (int n=0; n<NumBaseplateGrains_G(); n++) {
-                        float DistanceToThisGrainX = (float)(abs(BaseplateGrainX(n)-i));
-                        float DistanceToThisGrainY = (float)(abs(BaseplateGrainY(n)-j));
-                        float DistanceToThisGrainZ = (float)(abs(BaseplateGrainZ(n)-k));
+                        float DistanceToThisGrainX = (float)(abs(BaseplateGrainX_G(n)-GlobalX));
+                        float DistanceToThisGrainY = (float)(abs(BaseplateGrainY_G(n)-GlobalY));
+                        float DistanceToThisGrainZ = (float)(abs(BaseplateGrainZ_G(n)-k));
                         float DistanceToThisGrain = sqrtf(DistanceToThisGrainX*DistanceToThisGrainX + DistanceToThisGrainY*DistanceToThisGrainY + DistanceToThisGrainZ*DistanceToThisGrainZ);
                         if (DistanceToThisGrain < MinDistanceToThisGrain) {
                             ClosestGrainIndex = n;
                             MinDistanceToThisGrain = DistanceToThisGrain;
                         }
                     }
-                    GrainID(CAGridLocation) = n+1;
+                    GrainID_DEVICE(CAGridLocation) = ClosestGrainIndex+1;
                 }
                 else {
                     // This cell is part of layer 0's melt pool footprint
-                    GrainID(CAGridLocation) = 0;
+                    GrainID_DEVICE(CAGridLocation) = 0;
                 }
             }
         }
     });
     
     // Copy Grain ID and number of baseplate grains back to host
-    Kokkos::deep_copy(GrainID_HOST, GrainID);
+    Kokkos::deep_copy(GrainID_HOST, GrainID_DEVICE);
     Kokkos::deep_copy(NumBaseplateGrains_H, NumBaseplateGrains_G);
-    if (id == 0) cout << "Number of baseplate grains: " << NumBaseplateGrains_H << endl;
+    if (id == 0) cout << "Number of baseplate grains: " << NumBaseplateGrains_H(0) << endl;
     
     // Initialize grain seeds above baseplate to emulate bulk nucleation at edge of melted powder particles
     int PowderLayerActCells_ThisRank = 0;
     for (int k=nzActive; k<nz; k++) {
         for (int i=1; i<MyXSlices-1; i++) {
-            int GlobalX = i + MyXOffset;
             for (int j=1; j<MyYSlices-1; j++) {
                 int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
                 if (CritTimeStep(CAGridLocation) == 0) {
@@ -1328,10 +1333,10 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
                 }
             }
         }
-    });
+    }
     
     // Assign grain IDs to bulk grain nuclei
-    int FirstEpitaxialGrainID = NumBaseplateGrains_H + 1;
+    int FirstEpitaxialGrainID = NumBaseplateGrains_H(0) + 1;
     if (np > 1) {
         // Grains for epitaxial growth - determine GrainIDs on each MPI rank
         if (id == 0) {
@@ -1352,7 +1357,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
         }
     }
     for (int D3D1ConvPosition=0; D3D1ConvPosition<MyXSlices*MyYSlices*nz; D3D1ConvPosition++)  {
-        if (CritTimeStep(CAGridLocation) == 0)  {
+        if (CritTimeStep(D3D1ConvPosition) == 0)  {
             GrainID_HOST(D3D1ConvPosition) = FirstEpitaxialGrainID;
             FirstEpitaxialGrainID++;
         }
@@ -1361,12 +1366,15 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 }
 //*****************************************************************************/
 // Initializes cell types where the substrate comes from a file
-void GrainInit(string SimulationType, int NGrainOrientations, int DecompositionStrategy, int nx, int ny, int nz, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, ViewI2D_H ItList, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H GrainID, ViewF_H CritDiagonalLength, ViewF_H DOCenter, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, bool* Melted, double deltax, double NMax, int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low, bool ExtraWalls) {
+void GrainInit(int layernumber, string SimulationType, int NGrainOrientations, int DecompositionStrategy, int nx, int ny, int nz, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, ViewI2D_H ItList, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H GrainID, ViewF_H CritDiagonalLength, ViewF_H DOCenter, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, double deltax, double NMax, int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low, bool ExtraWalls) {
     
     // RNG for heterogenous nuclei locations in the liquid
     mt19937_64 gen(id);
     uniform_real_distribution<double> dis(0.0, 1.0);
-
+    
+    // Probability that a given liquid site will be a potential nucleus location
+    double BulkProb = NMax*deltax*deltax*deltax;
+    
     if (SimulationType != "C") {
         // Wall cells at global domain boundaries
         // Other cells are either regions that will melt, or part of the substrate
@@ -1451,7 +1459,7 @@ void GrainInit(string SimulationType, int NGrainOrientations, int DecompositionS
     }
 
     // Count the number of nucleation events that may potentially occur on this rank (not counting ghost nodes, to avoid double counting cells are potential nucleation sites)
-    int PossibleNuclei_ThisRank = 0;
+    PossibleNuclei_ThisRank = 0;
     for (int k=1; k<nz-1; k++) {
         for (int j=1; j<MyYSlices-1; j++) {
             for (int i=1; i<MyXSlices-1; i++) {

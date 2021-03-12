@@ -7,6 +7,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     double StartNuclTime, StartCaptureTime, StartGhostTime;
     double StartTime = MPI_Wtime();
     
+    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     bool ExtraWalls = false; // If simulating a spot melt problem where the side walls are not part of the substrate, this is changed to true in the input file
@@ -72,7 +73,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
     int LocalActiveDomainSize = MyXSlices*MyYSlices*nzActive; // Number of active cells on this MPI rank
     
-    PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, LayerID_H, DecompositionStrategy,PathToOutput);
+    // PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, LayerID_H, DecompositionStrategy,PathToOutput);
     
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     ViewF_H GrainUnitVector_H(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9*NGrainOrientations);
@@ -85,6 +86,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     
     // CA cell variables
     ViewI_H GrainID_H(Kokkos::ViewAllocateWithoutInitializing("GrainID"),LocalDomainSize);
+    ViewI GrainID_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainID_H );
     ViewI_H CellType_H(Kokkos::ViewAllocateWithoutInitializing("CellType"),LocalDomainSize);
 
     // Variables characterizing the active cell region within each rank's grid
@@ -95,14 +97,14 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     // Initialize the grain structure - for either a constrained solidification problem, using a substrate from a file, or generating a substrate using the existing CA algorithm
     int PossibleNuclei_ThisRank, NextLayer_FirstNucleatedGrainID;
     if (SimulationType == "C") {
-        SubstrateInit_ConstrainedGrowth(FractSurfaceSitesActive, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, id, np, CellType_H, GrainID_H);
+        SubstrateInit_ConstrainedGrowth(FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, nz, MyXOffset, MyYOffset, id, np, CellType_H, GrainID_H);
 
     }
     else {
-        if (UseSubstrateFile) SubstrateInit_FromFile(SubstrateFileName, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, CritTimeStep_H, CellType_H, GrainID_H);
-        else SubstrateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, nz, nzActive, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, deltax, GrainID_G, GrainID_H, CritTimeStep_H);
+        if (UseSubstrateFile) SubstrateInit_FromFile(SubstrateFileName, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, CritTimeStep_H, GrainID_H);
+        else SubstrateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, nz, nzActive, MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, id, np, deltax, GrainID_G, GrainID_H, CritTimeStep_H);
     }
-    GrainInit(SimulationType, NGrainOrientations, DecompositionStrategy, nx, ny, nz, LocalActiveDomainSize, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, GrainOrientation_H,  GrainUnitVector_H, DiagonalLength_H, CellType_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, UndercoolingChange_H, Melted, deltax, NMax, NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low, ExtraWalls);
+    GrainInit(-1, SimulationType, NGrainOrientations, DecompositionStrategy, nx, ny, nz, LocalActiveDomainSize, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, GrainOrientation_H,  GrainUnitVector_H, DiagonalLength_H, CellType_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, UndercoolingChange_H, deltax, NMax, NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low, ExtraWalls);
 
     
 //    MPI_Barrier(MPI_COMM_WORLD);
@@ -153,8 +155,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 //    Buffer2D BufferHR("BufferHR",BufSizeZ,5);
 //
 //    // Copy view data to GPU
-//    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-//    ViewI GrainID_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainID_H );
+//    Kokkos::deep_copy( GrainID_G, GrainID_H );
 //    ViewI CellType_G = Kokkos::create_mirror_view_and_copy( memory_space(), CellType_H );
 //    ViewF DiagonalLength_G = Kokkos::create_mirror_view_and_copy( memory_space(), DiagonalLength_H );
 //    ViewF CritDiagonalLength_G = Kokkos::create_mirror_view_and_copy( memory_space(), CritDiagonalLength_H );
@@ -289,45 +290,45 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 //    // Copy GPU results for GrainID back to CPU for printing to file(s)
 //    Kokkos::deep_copy( GrainID_H, GrainID_G );
 //    Kokkos::deep_copy( CellType_H, CellType_G );
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (PrintFilesYN) {
-        if (id == 0) cout << "Collecting data on rank 0 and printing to files" << endl;
-        CollectGrainData(id,np,nx,ny,nz,MyXSlices,MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H,GrainOrientation_H,GrainUnitVector_H,OutputFile,DecompositionStrategy,NGrainOrientations,Melted,PathToOutput,FilesToPrint,deltax);
-    }
-    else {
-        if (id == 0) cout << "No output files to be printed, exiting program" << endl;
-    }
-    
-    double OutTime = MPI_Wtime() - RunTime - InitTime;
-    double InitMaxTime, InitMinTime, OutMaxTime, OutMinTime = 0.0;
-    double NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime = 0.0;
-    MPI_Allreduce( &InitTime, &InitMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
-    MPI_Allreduce( &InitTime, &InitMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
-    MPI_Allreduce( &NuclTime, &NuclMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
-    MPI_Allreduce( &NuclTime, &NuclMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
-    MPI_Allreduce( &CaptureTime, &CaptureMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
-    MPI_Allreduce( &CaptureTime, &CaptureMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
-    MPI_Allreduce( &GhostTime, &GhostMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
-    MPI_Allreduce( &GhostTime, &GhostMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
-    MPI_Allreduce( &OutTime, &OutMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
-    MPI_Allreduce( &OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
-
-    if (id == 0) {
-        cout << "===================================================================================" << endl;
-        cout << "Having run with = " << np << " processors" << endl;
-        cout << "Output written at cycle = " << cycle << endl;
-        cout << "Total time = " << InitTime + RunTime + OutTime << endl;
-        cout << "Time spent initializing data = " << InitTime << " s" << endl;
-        cout << "Time spent performing CA calculations = " << RunTime << " s" << endl;
-        cout << "Time spent collecting and printing output data = " << OutTime << " s\n" << endl;
-
-        cout << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime <<" s" << endl;
-        cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime <<" s" << endl;
-        cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s" << endl;
-        cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s" << endl;
-        cout << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s" << endl << endl;
-
-        cout << "===================================================================================" << endl;
-    }
+//
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    if (PrintFilesYN) {
+//        if (id == 0) cout << "Collecting data on rank 0 and printing to files" << endl;
+//        CollectGrainData(id,np,nx,ny,nz,MyXSlices,MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H,GrainOrientation_H,GrainUnitVector_H,OutputFile,DecompositionStrategy,NGrainOrientations,Melted,PathToOutput,FilesToPrint,deltax);
+//    }
+//    else {
+//        if (id == 0) cout << "No output files to be printed, exiting program" << endl;
+//    }
+//    
+//    double OutTime = MPI_Wtime() - RunTime - InitTime;
+//    double InitMaxTime, InitMinTime, OutMaxTime, OutMinTime = 0.0;
+//    double NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime = 0.0;
+//    MPI_Allreduce( &InitTime, &InitMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
+//    MPI_Allreduce( &InitTime, &InitMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
+//    MPI_Allreduce( &NuclTime, &NuclMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
+//    MPI_Allreduce( &NuclTime, &NuclMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
+//    MPI_Allreduce( &CaptureTime, &CaptureMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
+//    MPI_Allreduce( &CaptureTime, &CaptureMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
+//    MPI_Allreduce( &GhostTime, &GhostMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
+//    MPI_Allreduce( &GhostTime, &GhostMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
+//    MPI_Allreduce( &OutTime, &OutMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
+//    MPI_Allreduce( &OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
+//
+//    if (id == 0) {
+//        cout << "===================================================================================" << endl;
+//        cout << "Having run with = " << np << " processors" << endl;
+//        cout << "Output written at cycle = " << cycle << endl;
+//        cout << "Total time = " << InitTime + RunTime + OutTime << endl;
+//        cout << "Time spent initializing data = " << InitTime << " s" << endl;
+//        cout << "Time spent performing CA calculations = " << RunTime << " s" << endl;
+//        cout << "Time spent collecting and printing output data = " << OutTime << " s\n" << endl;
+//
+//        cout << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime <<" s" << endl;
+//        cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime <<" s" << endl;
+//        cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s" << endl;
+//        cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s" << endl;
+//        cout << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s" << endl << endl;
+//
+//        cout << "===================================================================================" << endl;
+//    }
 }
