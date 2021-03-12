@@ -30,7 +30,7 @@ namespace sample {  // namespace helps with name resolution in reduction identit
             }
         }
     };
-    typedef array_type<int,8> ValueType;  // used to simplify code below
+    typedef array_type<unsigned long int,5> ValueType;  // used to simplify code below
 }
 namespace Kokkos { //reduction identity must be defined in Kokkos namespace
     template<>
@@ -634,7 +634,7 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
     unsigned long int LocalSolidCells = CellTypeStorage.the_array[3];
     unsigned long int LocalRemainingLiquidCells = CellTypeStorage.the_array[4];
     
-    signed long int GlobalSuperheatedCells, GlobalUndercooledCells, GlobalActiveCells, GlobalSolidCells, GlobalRemainingLiquidCells;
+    unsigned long int GlobalSuperheatedCells, GlobalUndercooledCells, GlobalActiveCells, GlobalSolidCells, GlobalRemainingLiquidCells;
     MPI_Reduce(&LocalSuperheatedCells,&GlobalSuperheatedCells,1,MPI_UNSIGNED_LONG,MPI_SUM,0,MPI_COMM_WORLD);
     MPI_Reduce(&LocalUndercooledCells,&GlobalUndercooledCells,1,MPI_UNSIGNED_LONG,MPI_SUM,0,MPI_COMM_WORLD);
     MPI_Reduce(&LocalActiveCells,&GlobalActiveCells,1,MPI_UNSIGNED_LONG,MPI_SUM,0,MPI_COMM_WORLD);
@@ -652,19 +652,20 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
         MPI_Bcast(&GlobalUndercooledCells,1,MPI_UNSIGNED_LONG,0,MPI_COMM_WORLD);
         if (GlobalUndercooledCells == 0) {
             // Check when the next superheated cells go below the liquidus
-            int NextCTS;
-            Kokkos::parallel_reduce("CellCapture",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, int &tempv) {
+            unsigned long int NextCTS;
+            Kokkos::parallel_reduce("CellCapture",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition, unsigned long int &tempv) {
                 int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
                 int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
                 int RankX = Rem/MyYSlices;
                 int RankY = Rem % MyYSlices;
                 int GlobalZ = RankZ + ZBound_Low;
                 int GlobalD3D1ConvPosition = GlobalZ*RankX*RankY + RankX*MyYSlices + RankY;
+                unsigned long int CritTimeStep_ThisCell = (unsigned long int)(CritTimeStep(GlobalD3D1ConvPosition));
                 if ((CellType(GlobalD3D1ConvPosition) == Liquid)&&(LayerID(GlobalD3D1ConvPosition) == layernumber)) {
-                    if (CritTimeStep(GlobalD3D1ConvPosition) < tempv) tempv = CritTimeStep(GlobalD3D1ConvPosition);
+                    if (CritTimeStep_ThisCell < tempv) tempv = CritTimeStep_ThisCell;
                 }
 
-            },Kokkos::Min<int>(NextCTS));
+            },Kokkos::Min<unsigned long int>(NextCTS));
 
             unsigned long int GlobalNextCTS;
             MPI_Allreduce(&NextCTS,&GlobalNextCTS,1,MPI_UNSIGNED_LONG,MPI_MIN,MPI_COMM_WORLD);
