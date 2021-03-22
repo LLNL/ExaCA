@@ -7,16 +7,18 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     double StartNuclTime, StartCaptureTime, StartGhostTime;
     double StartTime = MPI_Wtime();
     
+    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     bool ExtraWalls = false; // If simulating a spot melt problem where the side walls are not part of the substrate, this is changed to true in the input file
-    bool PrintFilesYN, RemeltingYN;
+    bool PrintFilesYN, RemeltingYN, UseSubstrateFile;
     bool FilesToPrint[6] = {0}; // Which specific files to print are specified in the input file
+    float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange, NMax, dTN, dTsigma;
     string SubstrateFileName, tempfile, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     
     // Read input data
-    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile, TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, FilesToPrint, PrintFilesYN);
+    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile, TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, FilesToPrint, PrintFilesYN);
     
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -66,12 +68,13 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     TempInit(-1, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx, ny, nz,  CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted, ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FinishTimeStep, FreezingRange, LayerID_H, FirstValue, LastValue, RawData);
     // Delete temporary data structure for temperature data read
     RawData.clear();
+    ViewI CritTimeStep_G = Kokkos::create_mirror_view_and_copy( memory_space(), CritTimeStep_H );
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0) cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of " << nz << " cells in the Z direction" << endl;
 
     int LocalActiveDomainSize = MyXSlices*MyYSlices*nzActive; // Number of active cells on this MPI rank
     
-    //PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, LayerID_H, DecompositionStrategy,PathToOutput);
+    PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, CritTimeStep_H, DecompositionStrategy,PathToOutput);
     
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     ViewF_H GrainUnitVector_H(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9*NGrainOrientations);
@@ -84,6 +87,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     
     // CA cell variables
     ViewI_H GrainID_H(Kokkos::ViewAllocateWithoutInitializing("GrainID"),LocalDomainSize);
+    ViewI GrainID_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainID_H );
     ViewI_H CellType_H(Kokkos::ViewAllocateWithoutInitializing("CellType"),LocalDomainSize);
 
     // Variables characterizing the active cell region within each rank's grid
@@ -91,29 +95,37 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     ViewF_H CritDiagonalLength_H(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"),26*LocalActiveDomainSize);
     ViewF_H DOCenter_H(Kokkos::ViewAllocateWithoutInitializing("DOCenter"),3*LocalActiveDomainSize);
 
-    // Initialize the grain structure
+    // Initialize the grain structure - for either a constrained solidification problem, using a substrate from a file, or generating a substrate using the existing CA algorithm
     int PossibleNuclei_ThisRank, NextLayer_FirstNucleatedGrainID;
-    
-    GrainInit(-1, SimulationType, SubstrateFileName, FractSurfaceSitesActive, NGrainOrientations, DecompositionStrategy, nx, ny, nz, LocalActiveDomainSize, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, GrainOrientation_H, GrainUnitVector_H, DiagonalLength_H, CellType_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, UndercoolingChange_H, Melted, deltax, NMax, NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low, ExtraWalls);
+    if (SimulationType == "C") {
+        SubstrateInit_ConstrainedGrowth(FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, nz, MyXOffset, MyYOffset, id, np, CellType_H, GrainID_H);
+
+    }
+    else {
+        if (UseSubstrateFile) SubstrateInit_FromFile(SubstrateFileName, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, CritTimeStep_H, GrainID_H);
+        else SubstrateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, nz, nzActive, MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, id, np, deltax, GrainID_G, GrainID_H, CritTimeStep_G, CritTimeStep_H);
+    }
+    GrainInit(-1, SimulationType, NGrainOrientations, DecompositionStrategy, nx, ny, nz, LocalActiveDomainSize, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, GrainOrientation_H,  GrainUnitVector_H, DiagonalLength_H, CellType_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, UndercoolingChange_H, deltax, NMax, NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low, ExtraWalls);
+
     
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0) cout << "Grain struct initialized" << endl;
 
     ViewI_H NucleationTimes_H(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes"),PossibleNuclei_ThisRank);
     ViewI_H NucleiLocation_H(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation"),PossibleNuclei_ThisRank);
-    
+
     // Update nuclei on ghost nodes, fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     if (id == 0) cout << " Possible nucleation events (rank: # events): " << endl;
     NucleiInit(DecompositionStrategy, MyXSlices, MyYSlices, nz, id, dTN, dTsigma, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, NucleiLocation_H, NucleationTimes_H, CellType_H, GrainID_H, CritTimeStep_H, UndercoolingChange_H);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0) cout << "Nucleation initialized" << endl;
-    
+
     // Normalize solidification parameters
     AConst = AConst*deltat/deltax;
     BConst = BConst*deltat/deltax;
     CConst = CConst*deltat/deltax;
     int cycle;
-    
+
     // Buffers for ghost node data (fixed size)
     int BufSizeX, BufSizeY, BufSizeZ;
     if (DecompositionStrategy == 1) {
@@ -142,15 +154,15 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     Buffer2D BufferFR("BufferFR",BufSizeZ,5);
     Buffer2D BufferGR("BufferGR",BufSizeZ,5);
     Buffer2D BufferHR("BufferHR",BufSizeZ,5);
-    
+
     // Copy view data to GPU
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI GrainID_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainID_H );
+    //   GrainID/CritTimeStep were already created as part of earlier initialization routines
+    Kokkos::deep_copy( GrainID_G, GrainID_H );
+    Kokkos::deep_copy( CritTimeStep_G, CritTimeStep_H );
     ViewI CellType_G = Kokkos::create_mirror_view_and_copy( memory_space(), CellType_H );
     ViewF DiagonalLength_G = Kokkos::create_mirror_view_and_copy( memory_space(), DiagonalLength_H );
     ViewF CritDiagonalLength_G = Kokkos::create_mirror_view_and_copy( memory_space(), CritDiagonalLength_H );
     ViewF DOCenter_G = Kokkos::create_mirror_view_and_copy( memory_space(), DOCenter_H );
-    ViewI CritTimeStep_G = Kokkos::create_mirror_view_and_copy( memory_space(), CritTimeStep_H );
     ViewI LayerID_G = Kokkos::create_mirror_view_and_copy( memory_space(), LayerID_H );
     ViewF UndercoolingChange_G = Kokkos::create_mirror_view_and_copy( memory_space(), UndercoolingChange_H );
     ViewF UndercoolingCurrent_G = Kokkos::create_mirror_view_and_copy( memory_space(), UndercoolingCurrent_H );
@@ -162,7 +174,13 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     ViewI2D ItList_G = Kokkos::create_mirror_view_and_copy( memory_space(), ItList_H );
     ViewI GrainOrientation_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainOrientation_H );
     ViewF GrainUnitVector_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainUnitVector_H );
-    
+
+    // Steering Vector
+    ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
+    ViewI_H numSteer_H(Kokkos::ViewAllocateWithoutInitializing("SteeringVector_Size"), 1);
+    numSteer_H(0) = 0;
+    ViewI numSteer_G = Kokkos::create_mirror_view_and_copy(memory_space(), numSteer_H);
+
     // Locks for cell capture
     // 0 = cannot be captured, 1 = can be capured
     ViewI Locks(Kokkos::ViewAllocateWithoutInitializing("Locks"),LocalActiveDomainSize);
@@ -176,7 +194,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
         if ((CellType_G(GlobalD3D1ConvPosition) == LiqSol)||(CellType_G(GlobalD3D1ConvPosition) == Liquid)) Locks(D3D1ConvPosition) = 1;
         else Locks(D3D1ConvPosition) = 0;
     });
-    
+
     if (np > 1) {
         // Ghost nodes for initial microstructure state
         GhostNodesInit_GPU(id, np, DecompositionStrategy, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive, LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G, NeighborZ_G, GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G, DOCenter_G, DiagonalLength_G, CritDiagonalLength_G, Locks);
@@ -185,13 +203,13 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     double InitTime = MPI_Wtime() - StartTime;
     if (id == 0) cout << "\nData initialized: Time spent: " << InitTime << " s" << endl;
     cycle = 0;
-    
+
     for (int layernumber=0; layernumber<NumberOfLayers; layernumber++) {
-        
+
         int nn = 0; // Counter for the number of nucleation events
         int XSwitch = 0;
         double LayerTime1 = MPI_Wtime();
-        
+
         // Loop continues until all liquid cells claimed by solid grains
         do {
             cycle++;
@@ -203,7 +221,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
             // Update cells on GPU - new active cells, solidification of old active cells
             StartCaptureTime = MPI_Wtime();
-            CellCapture(np, cycle, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize, MyXSlices, MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList_G, NeighborX_G, NeighborY_G, NeighborZ_G, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G,  GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufSizeX, BufSizeY, Locks, ZBound_Low, nzActive, nz, layernumber, LayerID_G);
+            CellCapture(id, np, cycle, DecompositionStrategy, LocalActiveDomainSize, MyXSlices, MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList_G, NeighborX_G, NeighborY_G, NeighborZ_G, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G,  GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufSizeX, BufSizeY, Locks, ZBound_Low, nzActive, layernumber, LayerID_G, SteeringVector , numSteer_G, numSteer_H);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
@@ -217,7 +235,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
             if (cycle % 1000 == 0) {
                 IntermediateOutputAndCheck(id, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nn, XSwitch, CellType_G, CritTimeStep_G, SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low, LayerID_G );
             }
-            
+
         } while(XSwitch == 0);
 
         if (layernumber != NumberOfLayers-1) {
@@ -230,7 +248,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
              Kokkos::resize(DOCenter_G,3*LocalActiveDomainSize);
              Kokkos::resize(CritDiagonalLength_G,26*LocalActiveDomainSize);
              Kokkos::resize(Locks,LocalActiveDomainSize);
-            
+
              Kokkos::resize(BufferA,BufSizeX*BufSizeZ,5);
              Kokkos::resize(BufferB,BufSizeX*BufSizeZ,5);
              Kokkos::resize(BufferC,BufSizeY*BufSizeZ,5);
@@ -239,7 +257,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
              Kokkos::resize(BufferF,BufSizeZ,5);
              Kokkos::resize(BufferG,BufSizeZ,5);
              Kokkos::resize(BufferH,BufSizeZ,5);
-            
+
              Kokkos::resize(BufferAR,BufSizeX*BufSizeZ,5);
              Kokkos::resize(BufferBR,BufSizeX*BufSizeZ,5);
              Kokkos::resize(BufferCR,BufSizeY*BufSizeZ,5);
@@ -248,10 +266,10 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
              Kokkos::resize(BufferFR,BufSizeZ,5);
              Kokkos::resize(BufferGR,BufSizeZ,5);
              Kokkos::resize(BufferHR,BufSizeZ,5);
-            
+
              MPI_Barrier(MPI_COMM_WORLD);
              if (id == 0) cout << "Resize executed" << endl;
-            
+
              // Update active cell data structures for simulation of next layer
              LayerSetup(MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, GrainOrientation_G, NGrainOrientations, GrainUnitVector_G, NeighborX_G, NeighborY_G, NeighborZ_G, DiagonalLength_G, CellType_G, GrainID_G, CritDiagonalLength_G, DOCenter_G, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR, BufferER, BufferFR, BufferGR, BufferHR, BufSizeX, BufSizeY, BufSizeZ, ZBound_Low, Locks);
 

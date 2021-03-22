@@ -219,7 +219,6 @@ void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyR
     }
     // Wait on send requests
     MPI_Waitall(NumberOfSends, SendRequests.data(), MPI_STATUSES_IGNORE );
-
     // Octahedra for active cells that were marked in the previous loop, initially have centers aligned with cell centers, Diagonal lengths of 0.01
     // Also ensure locks values match up with cell types that may have been changed through ghost node update (Wall/Solid/Active Locks = 0, Liquid/LiqSol Locks = 1)
     Kokkos::parallel_for ("GNInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& CellLocation) {
@@ -329,7 +328,7 @@ void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyR
             }
         }
     });
-
+    
 }
 
 //*****************************************************************************/
