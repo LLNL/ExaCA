@@ -74,7 +74,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
     int LocalActiveDomainSize = MyXSlices*MyYSlices*nzActive; // Number of active cells on this MPI rank
     
-    // PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, LayerID_H, DecompositionStrategy,PathToOutput);
+    PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, CritTimeStep_H, DecompositionStrategy,PathToOutput);
     
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     ViewF_H GrainUnitVector_H(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9*NGrainOrientations);
@@ -175,6 +175,12 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     ViewI GrainOrientation_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainOrientation_H );
     ViewF GrainUnitVector_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainUnitVector_H );
 
+    // Steering Vector
+    ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
+    ViewI_H numSteer_H(Kokkos::ViewAllocateWithoutInitializing("SteeringVector_Size"), 1);
+    numSteer_H(0) = 0;
+    ViewI numSteer_G = Kokkos::create_mirror_view_and_copy(memory_space(), numSteer_H);
+
     // Locks for cell capture
     // 0 = cannot be captured, 1 = can be capured
     ViewI Locks(Kokkos::ViewAllocateWithoutInitializing("Locks"),LocalActiveDomainSize);
@@ -215,7 +221,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
             // Update cells on GPU - new active cells, solidification of old active cells
             StartCaptureTime = MPI_Wtime();
-            CellCapture(np, cycle, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize, MyXSlices, MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList_G, NeighborX_G, NeighborY_G, NeighborZ_G, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G,  GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufSizeX, BufSizeY, Locks, ZBound_Low, nzActive, nz, layernumber, LayerID_G);
+            CellCapture(id, np, cycle, DecompositionStrategy, LocalActiveDomainSize, MyXSlices, MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList_G, NeighborX_G, NeighborY_G, NeighborZ_G, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G,  GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufSizeX, BufSizeY, Locks, ZBound_Low, nzActive, layernumber, LayerID_G, SteeringVector , numSteer_G, numSteer_H);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {

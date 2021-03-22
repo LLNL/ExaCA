@@ -3,7 +3,7 @@ using namespace std;
 
 //*****************************************************************************/
 // Initial placement of data in ghost nodes
-void GhostNodesInit_GPU(int id, int, int DecompositionStrategy, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive, int LocalActiveDomainSize, int NGrainOrientations, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI GrainID, ViewI CellType, ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength, ViewI Locks) {
+void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive, int LocalActiveDomainSize, int NGrainOrientations, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI GrainID, ViewI CellType, ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength, ViewI Locks) {
 
     // Fill buffers with ghost node data following initialization of data on GPUs
     // Similar to the calls to GhostNodes1D/GhostNodes2D, but the information sent/received in the halo regions is different
