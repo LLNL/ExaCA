@@ -175,20 +175,17 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
         int isNotSolid = (cellType != Solid);
         int pastCritTime = (cycle > CritTimeStep(GlobalD3D1ConvPosition));
 
-        int cell_Delayed = (cellType == Delayed);
         int cell_LiqSol = (cellType == LiqSol);
         int cell_Liquid = (cellType == Liquid);
         int cell_Active = (cellType == Active);
 
-        if (layerCheck * isNotSolid * pastCritTime) {
-            CellType(GlobalD3D1ConvPosition) = CellType(GlobalD3D1ConvPosition) - cell_Delayed;
+        if (layerCheck && isNotSolid && pastCritTime) {
             UndercoolingCurrent(GlobalD3D1ConvPosition) += UndercoolingChange(GlobalD3D1ConvPosition) * (cell_LiqSol + cell_Liquid + cell_Active);
             if (cell_Active){ SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(), 1)) = D3D1ConvPosition; }
         }
     });
     Kokkos::deep_copy(numSteer_H, numSteer_G);
 
-    //cout << "\t" << numActive_H(0) << "\t" << LocalActiveDomainSize << "\n" << fflush;
     Kokkos::parallel_for("CellCapture", numSteer_H(), KOKKOS_LAMBDA(const int& num) {
         numSteer_G(0) = 0;
         int D3D1ConvPosition = SteeringVector(num);
