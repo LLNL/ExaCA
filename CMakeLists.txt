@@ -11,7 +11,7 @@ set(EXACA_SUPPORTED_DEVICES SERIAL PTHREAD OPENMP CUDA)
 
 add_subdirectory(src)
 
-if(${BUILD_TESTING})
+if(ExaCA_ENABLE_TESTING)
   add_subdirectory(unit_test)
   enable_testing()
 endif()
