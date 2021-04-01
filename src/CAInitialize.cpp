@@ -2139,6 +2139,11 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             }
         }
     }
+    
+    // Replace the temporary "LiqSol" cell type with the "Liquid" cell type - as GrainID is used to mark the potential nucleus orientation, LiqSol is unneeded
+    for (int i=0; i<MyXSlices*MyYSlices*nz; i++)  {
+        if (CellType(i) == LiqSol) CellType(i) = Liquid;
+    }
     cout << "(" << id << ": " << NEvent << ") " << flush;
 }
 
@@ -2192,7 +2197,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
 }
 
 //*****************************************************************************/
-void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength, ViewF DOCenter, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int &ZBound_Low, ViewI Locks) {
+void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength, ViewF DOCenter, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int &ZBound_Low) {
 
     // Reset active cell data structures
     Kokkos::parallel_for("DelDLData",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& i) {
@@ -2342,17 +2347,5 @@ void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
                 CritDiagonalLength((long int)(26)*D3D1ConvPosition+(long int)(n)) = CDLVal;
             }
         }
-    });
-    
-    // Reset lock values
-    Kokkos::parallel_for("LockInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
-        int RankZ = D3D1ConvPosition/(MyXSlices*MyYSlices);
-        int Rem = D3D1ConvPosition % (MyXSlices*MyYSlices);
-        int RankX = Rem/MyYSlices;
-        int RankY = Rem % MyYSlices;
-        int GlobalZ = ZBound_Low + RankZ;
-        int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-        if ((CellType(GlobalD3D1ConvPosition) == LiqSol)||(CellType(GlobalD3D1ConvPosition) == Liquid)) Locks(D3D1ConvPosition) = 1;
-        else Locks(D3D1ConvPosition) = 0;
     });
 }
