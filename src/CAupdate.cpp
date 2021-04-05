@@ -51,7 +51,7 @@ void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
         if ((cycle >= NucleationTimes(NucCounter))&&(CellType(NucleiLocations(NucCounter)) == Liquid)&&(LayerID(NucleiLocations(NucCounter)) <= layernumber)) {
             // (X,Y,Z) coordinates of nucleation event, on active cell grid (RankX,RankY,RankZ) and global grid (RankX,RankY,GlobalZ)
             long int GlobalD3D1ConvPosition = NucleiLocations(NucCounter);
-            CellType(GlobalD3D1ConvPosition) = Transition;
+            CellType(GlobalD3D1ConvPosition) = TemporaryUpdate;
             int GlobalZ = GlobalD3D1ConvPosition/(MyXSlices*MyYSlices);
             int Rem = GlobalD3D1ConvPosition % (MyXSlices*MyYSlices);
             int RankX = Rem/MyYSlices;
@@ -258,11 +258,10 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                                 // old_val = atomic_compare_exchange(ptr_to_value,comparison_value, new_value);
                                 // Atomicly sets the value at the address given by ptr_to_value to new_value if the current value at ptr_to_value is equal to comparison_value
                                 // Returns the previously stored value at the address independent on whether the exchange has happened.
-                                // If this cell's is a liquid cell, change it to "transition" type and return a value of "liquid"
-                                // If this cell has already been changed to "transition" type, return a value of "0"
-                                int OldCellTypeValue = Kokkos::atomic_compare_exchange(&CellType(GlobalNeighborD3D1ConvPosition),Liquid,0);
-                                // If CellType is "Transition", this capture event already happened
-                                // Only proceed if CellType is liquid (only one thread can "capture" the cell)
+                                // If this cell's is a liquid cell, change it to "TemporaryUpdate" type and return a value of "liquid"
+                                // If this cell has already been changed to "TemporaryUpdate" type, return a value of "0"
+                                int OldCellTypeValue = Kokkos::atomic_compare_exchange(&CellType(GlobalNeighborD3D1ConvPosition),Liquid,TemporaryUpdate);
+                                // Only proceed if CellType was previously liquid (this current thread changed the value to TemporaryUpdate)
                                 if (OldCellTypeValue == Liquid) {
                                     int GlobalX = RankX + MyXOffset;
                                     int GlobalY = RankY + MyYOffset;

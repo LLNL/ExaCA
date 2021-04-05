@@ -16,7 +16,7 @@
 #include "mpi.h"
 
 enum TypeNames { Wall = 0, Solid = 1, Active = 2,
-                Transition = 3, LiqSol = 4, Liquid = 5,
+                TemporaryUpdate = 3, TemporaryInit = 4, Liquid = 5,
                 Ghost = 6};
 
 // Use Kokkos::DefaultExecutionSpace

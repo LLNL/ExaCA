@@ -1135,7 +1135,7 @@ void GrainInit(int layernumber, string SimulationType, string SubstrateFileName,
                         // Randomly locate bulk site seeds
                         if (R < BulkProb) {
                             PossibleNuclei_ThisRank++;
-                            CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = LiqSol;
+                            CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = TemporaryInit;
                             // GrainID for these are assigned later
                         }
                     }
@@ -1265,7 +1265,7 @@ void GrainInit(int layernumber, string SimulationType, string SubstrateFileName,
                            if (R < BulkProb) {
                                if ((i != 0)&&(i != MyXSlices-1)&&(j != 0)&&(j != MyYSlices-1)) {
                                    PossibleNuclei_ThisRank++;
-                                   CellType(CAGridLocation) = LiqSol;
+                                   CellType(CAGridLocation) = TemporaryInit;
                                }
                                else {
                                    CellType(CAGridLocation) = Liquid;
@@ -1484,7 +1484,7 @@ void GrainInit(int layernumber, string SimulationType, string SubstrateFileName,
                         }
                     }
                 }
-                else if (CellType(D3D1ConvPositionGlobal) == LiqSol) {
+                else if (CellType(D3D1ConvPositionGlobal) == TemporaryInit) {
                     // Mark and count the number of nucleation events to be sent to other ranks
                     GrainID(D3D1ConvPositionGlobal) = NCounter;
                     NCounter--;
@@ -1662,7 +1662,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
     // Collect data for ghost nodes' nucleation events
     int NEvent = 0;
     for (int i=0; i<MyXSlices*MyYSlices*nz; i++)  {
-        if (CellType(i) == LiqSol) {
+        if (CellType(i) == TemporaryInit) {
             NucleiLocation(NEvent) = i;
             // Undercooling for this nucleation event
             double LocNucUnd = distribution(generator);
@@ -2028,7 +2028,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             NucleiLocation(NEvent) = CellLocation;
             NucleationTimes(NEvent) = GhostNodesAR(4*i+2);
-            CellType(CellLocation) = LiqSol;
+            CellType(CellLocation) = TemporaryInit;
             GrainID(CellLocation) = GhostNodesAR(4*i+3);
             NEvent++;
         }
@@ -2043,7 +2043,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
             NucleiLocation(NEvent) = CellLocation;
             NucleationTimes(NEvent) = GhostNodesBR(4*i+2);
-            CellType(CellLocation) = LiqSol;
+            CellType(CellLocation) = TemporaryInit;
             GrainID(CellLocation) = GhostNodesBR(4*i+3);
             NEvent++;
         }
@@ -2059,7 +2059,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                 NucleiLocation(NEvent) = CellLocation;
                 NucleationTimes(NEvent) = GhostNodesCR(4*i+2);
-                CellType(CellLocation) = LiqSol;
+                CellType(CellLocation) = TemporaryInit;
                 GrainID(CellLocation) = GhostNodesCR(4*i+3);
                 NEvent++;
             }
@@ -2074,7 +2074,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                 NucleiLocation(NEvent) = CellLocation;
                 NucleationTimes(NEvent) = GhostNodesDR(4*i+2);
-                CellType(CellLocation) = LiqSol;
+                CellType(CellLocation) = TemporaryInit;
                 GrainID(CellLocation) = GhostNodesDR(4*i+3);
                 NEvent++;
             }
@@ -2089,7 +2089,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                 NucleiLocation(NEvent) = CellLocation;
                 NucleationTimes(NEvent) = GhostNodesER(3*i+1);
-                CellType(CellLocation) = LiqSol;
+                CellType(CellLocation) = TemporaryInit;
                 GrainID(CellLocation) = GhostNodesER(3*i+2);
                 NEvent++;
             }
@@ -2104,7 +2104,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                 NucleiLocation(NEvent) = CellLocation;
                 NucleationTimes(NEvent) = GhostNodesFR(3*i+1);
-                CellType(CellLocation) = LiqSol;
+                CellType(CellLocation) = TemporaryInit;
                 GrainID(CellLocation) = GhostNodesFR(3*i+2);
                 NEvent++;
             }
@@ -2119,7 +2119,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                 NucleiLocation(NEvent) = CellLocation;
                 NucleationTimes(NEvent) = GhostNodesGR(3*i+1);
-                CellType(CellLocation) = LiqSol;
+                CellType(CellLocation) = TemporaryInit;
                 GrainID(CellLocation) = GhostNodesGR(3*i+2);
                 NEvent++;
             }
@@ -2133,16 +2133,16 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
                 int CellLocation = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                 NucleiLocation(NEvent) = CellLocation;
                 NucleationTimes(NEvent) = GhostNodesHR(3*i+1);
-                CellType(CellLocation) = LiqSol;
+                CellType(CellLocation) = TemporaryInit;
                 GrainID(CellLocation) = GhostNodesHR(3*i+2);
                 NEvent++;
             }
         }
     }
     
-    // Replace the temporary "LiqSol" cell type with the "Liquid" cell type - as GrainID is used to mark the potential nucleus orientation, LiqSol is unneeded
+    // Replace the temporary "TemporaryInit" cell type with the "Liquid" cell type - as GrainID is used to mark the potential nucleus orientation, TemporaryInit is unneeded
     for (int i=0; i<MyXSlices*MyYSlices*nz; i++)  {
-        if (CellType(i) == LiqSol) CellType(i) = Liquid;
+        if (CellType(i) == TemporaryInit) CellType(i) = Liquid;
     }
     cout << "(" << id << ": " << NEvent << ") " << flush;
 }
