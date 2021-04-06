@@ -163,6 +163,12 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     ViewI GrainOrientation_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainOrientation_H );
     ViewF GrainUnitVector_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainUnitVector_H );
     
+    // Steering Vector
+    ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
+    ViewI_H numSteer_H(Kokkos::ViewAllocateWithoutInitializing("SteeringVectorSize"), 1);
+    numSteer_H(0) = 0;
+    ViewI numSteer_G = Kokkos::create_mirror_view_and_copy(memory_space(), numSteer_H);
+
     if (np > 1) {
         // Ghost nodes for initial microstructure state
         GhostNodesInit_GPU(id, np, DecompositionStrategy, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive, LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G, NeighborZ_G, GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G, DOCenter_G, DiagonalLength_G, CritDiagonalLength_G);
@@ -189,7 +195,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
             // Update cells on GPU - new active cells, solidification of old active cells
             StartCaptureTime = MPI_Wtime();
-            CellCapture(np, cycle, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize, MyXSlices, MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList_G, NeighborX_G, NeighborY_G, NeighborZ_G, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G,  GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufSizeX, BufSizeY, ZBound_Low, nzActive, nz, layernumber, LayerID_G);
+            CellCapture(np, cycle, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize, MyXSlices, MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList_G, NeighborX_G, NeighborY_G, NeighborZ_G, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G,  GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G, GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufSizeX, BufSizeY, ZBound_Low, nzActive, nz, layernumber, LayerID_G, SteeringVector, numSteer_G, numSteer_H);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
@@ -211,6 +217,9 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
              int ZShift;
              DomainShiftAndResize(id, MyXSlices, MyYSlices, ZShift, ZBound_Low, ZBound_High, nzActive, LocalDomainSize, LocalActiveDomainSize, BufSizeZ, LayerHeight, CellType_G, layernumber, LayerID_G);
 
+            // Resize steering vector as LocalActiveDomainSize may have changed
+            Kokkos::resize(SteeringVector,LocalActiveDomainSize);
+            
              // Resize active cell data structures
              Kokkos::resize(DiagonalLength_G,LocalActiveDomainSize);
              Kokkos::resize(DOCenter_G,3*LocalActiveDomainSize);
