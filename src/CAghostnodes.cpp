@@ -3,7 +3,7 @@ using namespace std;
 
 //*****************************************************************************/
 // Initial placement of data in ghost nodes
-void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive, int LocalActiveDomainSize, int NGrainOrientations, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI GrainID, ViewI CellType, ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength, ViewI Locks) {
+void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive, int LocalActiveDomainSize, int NGrainOrientations, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI GrainID, ViewI CellType, ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength) {
 
     // Fill buffers with ghost node data following initialization of data on GPUs
     // Similar to the calls to GhostNodes1D/GhostNodes2D, but the information sent/received in the halo regions is different
@@ -145,7 +145,7 @@ void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyR
                         }
                         if (CellType(GlobalCellLocation) == Active) {
                             // Mark cell for later placement of octahedra, critical diagonal length calculations
-                            CellType(GlobalCellLocation) = Ghost1;
+                            CellType(GlobalCellLocation) = Ghost;
                         }
                     }
                 }
@@ -167,7 +167,7 @@ void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyR
                         }
                         if (CellType(GlobalCellLocation) == Active) {
                             // Mark cell for later placement of octahedra, critical diagonal length calculations
-                            CellType(GlobalCellLocation) = Ghost1;
+                            CellType(GlobalCellLocation) = Ghost;
                         }
                     }
                 }
@@ -211,7 +211,7 @@ void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyR
                     }
                     if (CellType(GlobalCellLocation) == Active) {
                         // Mark cell for later placement of octahedra, critical diagonal length calculations
-                        CellType(GlobalCellLocation) = Ghost1;
+                        CellType(GlobalCellLocation) = Ghost;
                     }
                 }
             });
@@ -221,7 +221,6 @@ void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyR
     MPI_Waitall(NumberOfSends, SendRequests.data(), MPI_STATUSES_IGNORE );
 
     // Octahedra for active cells that were marked in the previous loop, initially have centers aligned with cell centers, Diagonal lengths of 0.01
-    // Also ensure locks values match up with cell types that may have been changed through ghost node update (Wall/Solid/Active Locks = 0, Liquid/LiqSol Locks = 1)
     Kokkos::parallel_for ("GNInit",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& CellLocation) {
         int RankZ = CellLocation/(MyXSlices*MyYSlices);
         int Rem = CellLocation % (MyXSlices*MyYSlices);
@@ -229,15 +228,8 @@ void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyR
         int RankY = Rem % MyYSlices;
         int GlobalZ = RankZ + ZBound_Low;
         int GlobalCellLocation = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-        if ((CellType(GlobalCellLocation) == Wall)||(CellType(GlobalCellLocation) == Solid)||(CellType(GlobalCellLocation) == Active)) {
-            Locks(CellLocation) = 0;
-        }
-        else if ((CellType(GlobalCellLocation) == Liquid)||(CellType(GlobalCellLocation) == LiqSol)) {
-            Locks(CellLocation) = 1;
-        }
-        if (CellType(GlobalCellLocation) == Ghost1) {
+        if (CellType(GlobalCellLocation) == Ghost) {
             CellType(GlobalCellLocation) = Active;
-            Locks(CellLocation) = 0;
             DOCenter((long int)(3)*CellLocation) = RankX + MyXOffset + 0.5;
             DOCenter((long int)(3)*CellLocation+(long int)(1)) = RankY + MyYOffset + 0.5;
             DOCenter((long int)(3)*CellLocation+(long int)(2)) = GlobalZ + 0.5;
@@ -334,7 +326,7 @@ void GhostNodesInit_GPU(int, int, int DecompositionStrategy, int MyLeft, int MyR
 
 //*****************************************************************************/
 // 2D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes2D_GPU(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, ViewI Locks, int ZBound_Low) {
+void GhostNodes2D_GPU(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int ZBound_Low) {
 
     Kokkos::fence();
     MPI_Barrier(MPI_COMM_WORLD);
@@ -522,7 +514,6 @@ void GhostNodes2D_GPU(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, in
                     int GlobalZ = RankZ + ZBound_Low;
                     int GlobalCellLocation = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
                     CellType(GlobalCellLocation) = Active;
-                    Locks(CellLocation) = 0;
                     GrainID(GlobalCellLocation) = NewGrainID;
                     DOCenter((long int)(3)*CellLocation) = DOCenterX;
                     DOCenter((long int)(3)*CellLocation+(long int)(1)) = DOCenterY;
@@ -623,7 +614,7 @@ void GhostNodes2D_GPU(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, in
 
 //*****************************************************************************/
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferAR, Buffer2D BufferBR, int BufSizeX, int, int BufSizeZ, ViewI Locks, int ZBound_Low) {
+void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferAR, Buffer2D BufferBR, int BufSizeX, int, int BufSizeZ, int ZBound_Low) {
     
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
@@ -689,7 +680,6 @@ void GhostNodes1D_GPU(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYS
                     
                     // Update this ghost node cell's information with data from other rank
                     GrainID(GlobalCellLocation) = NewGrainID;
-                    Locks(CellLocation) = 0;
                     DOCenter((long int)(3)*CellLocation) = DOCenterX;
                     DOCenter((long int)(3)*CellLocation+(long int)(1)) = DOCenterY;
                     DOCenter((long int)(3)*CellLocation+(long int)(2)) = DOCenterZ;

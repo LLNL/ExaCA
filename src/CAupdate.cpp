@@ -42,24 +42,22 @@ namespace Kokkos { //reduction identity must be defined in Kokkos namespace
 }
     
 //*****************************************************************************/
-void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn, ViewI CellType, ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewI GrainOrientation, ViewF DOCenter, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank, ViewI Locks, int ZBound_Low, int layernumber, ViewI LayerID) {
+void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn, ViewI CellType, ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewI GrainOrientation, ViewF DOCenter, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank, int ZBound_Low, int layernumber, ViewI LayerID) {
     
     // Loop through local list of nucleation events - has the time step exceeded the time step for nucleation at the sites?
     int NucleationThisDT = 0;
     Kokkos::parallel_reduce("NucleiUpdateLoop",PossibleNuclei_ThisRank, KOKKOS_LAMBDA (const int& NucCounter, int &update) {
 
-        if ((cycle >= NucleationTimes(NucCounter))&&(CellType(NucleiLocations(NucCounter)) == LiqSol)&&(LayerID(NucleiLocations(NucCounter)) <= layernumber)) {
+        if ((cycle >= NucleationTimes(NucCounter))&&(CellType(NucleiLocations(NucCounter)) == Liquid)&&(LayerID(NucleiLocations(NucCounter)) <= layernumber)) {
             // (X,Y,Z) coordinates of nucleation event, on active cell grid (RankX,RankY,RankZ) and global grid (RankX,RankY,GlobalZ)
             long int GlobalD3D1ConvPosition = NucleiLocations(NucCounter);
+            CellType(GlobalD3D1ConvPosition) = TemporaryUpdate;
             int GlobalZ = GlobalD3D1ConvPosition/(MyXSlices*MyYSlices);
             int Rem = GlobalD3D1ConvPosition % (MyXSlices*MyYSlices);
             int RankX = Rem/MyYSlices;
             int RankY = Rem % MyYSlices;
             int RankZ = GlobalZ - ZBound_Low;
             int D3D1ConvPosition = RankZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
-            
-            Locks(D3D1ConvPosition) = 0;
-
             // This undercooled liquid cell is now a nuclei (add to count if it isn't in the ghost nodes, to avoid double counting)
 
             if ((RankX > 0)&&(RankX < MyXSlices-1)&&(RankY > 0)&&(RankY < MyYSlices-1)) update++;
@@ -157,7 +155,7 @@ void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
     
 //*****************************************************************************/
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int, int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, ViewI2D ItList, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, ViewI Locks, int ZBound_Low, int nzActive, int, int layernumber, ViewI LayerID) {
+void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int, int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, ViewI2D ItList, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int, int layernumber, ViewI LayerID) {
     
     // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to be accounted for
     Kokkos::parallel_for ("CellCapture",LocalActiveDomainSize, KOKKOS_LAMBDA (const int& D3D1ConvPosition) {
@@ -170,7 +168,7 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
         int GlobalD3D1ConvPosition = GlobalZ*MyXSlices*MyYSlices + RankX*MyYSlices + RankY;
         if (LayerID(GlobalD3D1ConvPosition) <= layernumber) {
             if ((CellType(GlobalD3D1ConvPosition) != Solid)&&(cycle > CritTimeStep(GlobalD3D1ConvPosition))) {
-                if ((CellType(GlobalD3D1ConvPosition) == LiqSol)||(CellType(GlobalD3D1ConvPosition) == Liquid)) {
+                if (CellType(GlobalD3D1ConvPosition) == Liquid) {
                     // Update local undercooling - linear cooling between solidus and liquidus
                     UndercoolingCurrent(GlobalD3D1ConvPosition) += UndercoolingChange(GlobalD3D1ConvPosition);
                 }
@@ -252,20 +250,19 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                         if (MyNeighborZ < nzActive) {
                             long int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
                             long int GlobalNeighborD3D1ConvPosition = (MyNeighborZ+ZBound_Low)*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
-                            if ((CellType(GlobalNeighborD3D1ConvPosition) == Liquid)||(CellType(GlobalNeighborD3D1ConvPosition) == LiqSol)) LCount = 1;
+                            if (CellType(GlobalNeighborD3D1ConvPosition) == Liquid) LCount = 1;
                             // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
                                                        
-                            if ((DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26*D3D1ConvPosition+l))&&(Locks(NeighborD3D1ConvPosition) == 1)) {
+                            if ((DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26*D3D1ConvPosition+l))&&(CellType(GlobalNeighborD3D1ConvPosition) == Liquid)) {
                                 // Use of atomic_compare_exchange (https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_compare_exchange)
                                 // old_val = atomic_compare_exchange(ptr_to_value,comparison_value, new_value);
                                 // Atomicly sets the value at the address given by ptr_to_value to new_value if the current value at ptr_to_value is equal to comparison_value
                                 // Returns the previously stored value at the address independent on whether the exchange has happened.
-                                // If this cell's value for "Locks" is still 1, replace it with 0 and return a value of 1
-                                // If this cell's value for "Locks" has been changed to 0, return a value of 0
-                                int OldLocksValue = Kokkos::atomic_compare_exchange(&Locks(NeighborD3D1ConvPosition),1,0);
-                                // If OldLocksValue is 0, this capture event already happened
-                                // Only proceed if OldLocksValue is 1
-                                if (OldLocksValue == 1) {
+                                // If this cell's is a liquid cell, change it to "TemporaryUpdate" type and return a value of "liquid"
+                                // If this cell has already been changed to "TemporaryUpdate" type, return a value of "0"
+                                int OldCellTypeValue = Kokkos::atomic_compare_exchange(&CellType(GlobalNeighborD3D1ConvPosition),Liquid,TemporaryUpdate);
+                                // Only proceed if CellType was previously liquid (this current thread changed the value to TemporaryUpdate)
+                                if (OldCellTypeValue == Liquid) {
                                     int GlobalX = RankX + MyXOffset;
                                     int GlobalY = RankY + MyYOffset;
                                     int h = GrainID(GlobalD3D1ConvPosition);
