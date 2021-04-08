@@ -276,7 +276,9 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                     // Returns the previously stored value at the address independent on whether the exchange has happened.
                     // If this cell's is a liquid cell, change it to "TemporaryUpdate" type and return a value of "liquid"
                     // If this cell has already been changed to "TemporaryUpdate" type, return a value of "0"
-                    int OldCellTypeValue = Kokkos::atomic_compare_exchange(&CellType(GlobalNeighborD3D1ConvPosition),Liquid,TemporaryUpdate);
+                    int update_val = TemporaryUpdate;
+                    int old_val = Liquid;
+                    int OldCellTypeValue = Kokkos::atomic_compare_exchange(&CellType(GlobalNeighborD3D1ConvPosition),old_val,update_val);
                     // Only proceed if CellType was previously liquid (this current thread changed the value to TemporaryUpdate)
                     if (OldCellTypeValue == Liquid) {
                         int GlobalX = RankX + MyXOffset;
