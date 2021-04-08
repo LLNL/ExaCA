@@ -19,46 +19,95 @@ void skipLines( std::ifstream &stream )
     }
 }
 
-// Verify the required input was included with the correct format.
-std::string parseInput( std::ifstream &stream, std::string key )
-{
-    std::string line;
-    std::getline(stream, line);
-    std::size_t colon = line.find(":");
-    std::string actual_key = line.substr(0, colon);
-
-    std::vector<std::string> deprecated_inputs = {"Burst buffer", "Source of input length unit" };
-    for (auto di : deprecated_inputs)
-    if ( actual_key.find( di ) != std::string::npos )
-    {
-        std::cout << "WARNING - this input has been deprecated and has no effect, \""
-                  << actual_key << "\"" << std::endl;
-
-        // Ignore this input and get another line
+// Find the colon on a line read from a file, and return the value before the colon
+// Throw an error if no colon is found, get a new line and throw a warning if the value before
+// the colon is a deprecated input
+// Also store the location of the colon within the line
+std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon) {
+    
+    bool DeprecatedInputCheck = true;
+    std::string actual_key;
+    while (DeprecatedInputCheck) {
         std::getline(stream, line);
         colon = line.find(":");
         actual_key = line.substr(0, colon);
+        // Check for colon seperator
+        if (colon == std::string::npos) {
+            string error = "Input \"" + actual_key + "\" must be separated from value by \":\"." ;
+            throw std::runtime_error( error );
+        }
+        std::vector<std::string> deprecated_inputs = {"Burst buffer", "Source of input length unit" };
+        for (auto di : deprecated_inputs)
+        if (actual_key.find(di) != std::string::npos) {
+            std::cout << "WARNING - this input has been deprecated and has no effect, \"" << actual_key << "\"" << std::endl;
+            // Ignore this line and get another line
+        }
+        else {
+            // Input was not a deprecated line - continue
+            DeprecatedInputCheck = false;
+        }
     }
+    return actual_key;
+    
+}
 
-    // Check for keyword
-    if ( actual_key.find( key ) == std::string::npos )
-    {
-        string error = "Required input \"" + key + "\" not found in input file.";
-        throw std::runtime_error( error );
-    }
-    // Check for colon seperator
-    if ( colon == std::string::npos )
-    {
-        string error = "Input \"" + key + "\" must be separated from value by \":\"." ;
-        throw std::runtime_error( error );
-    }
-
-    // Remove whitespace
-    std::string val = line.substr(colon+1,string::npos);
+// Remove whitespace from "line", taking only the portion of the line that comes after the colon
+std::string removeWhitespace(std::string line, std::size_t colon) {
+    
+    std::string val = line.substr(colon+1, string::npos);
     std::regex r("\\s+");
     val = std::regex_replace(val, r, "");
-
     return val;
+    
+}
+
+// Verify the required input was included with the correct format, and parse the input (with only 1 possibility for the possible input)
+std::string parseInput(std::ifstream &stream, std::string key) {
+        
+    std::size_t colon;
+    std::string line, val;
+    std::string actual_key = getKey(stream, line, colon);
+    
+    // Check for keyword
+    if (actual_key.find(key) == std::string::npos) {
+        // Keyword not found
+        string error = "Required input not present: " + key + " not found in the input file";
+        throw std::runtime_error(error);
+    }
+    // Keyword was found
+    val = removeWhitespace(line, colon);
+    return val;
+
+}
+
+// Verify the required input was included with the correct format, and parse the input
+// 2 possible keywords to check against - WhichKey denotes which of the two was found
+std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int& WhichKey) {
+        
+    std::size_t colon;
+    std::string line, val;
+    std::string actual_key = getKey(stream, line, colon);
+
+    // Check for keywords
+    if (actual_key.find(key1) == std::string::npos) {
+        // Keyword 1 not found - check for Keyword 2
+        if (actual_key.find(key2) == std::string::npos) {
+            // Neither possible input found
+            string error = "Required input not present: Neither " + key1 + " nor " + key2 + " was found in the input file";
+            throw std::runtime_error(error);
+        }
+        else {
+            // The second keyword was found
+            WhichKey = 2;
+        }
+    }
+    else {
+        // First keyword was found
+        WhichKey = 1;
+    }
+    val = removeWhitespace(line, colon);
+    return val;
+    
 }
 
 // Verify the required boolean input was included with the correct format.
@@ -107,7 +156,7 @@ void CheckTemperatureDataPoint(std::string Label, float InputValue, int LineNumb
 
 //*****************************************************************************/
 // Read ExaCA input file.
-void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, bool (&FilesToPrint)[6], bool &PrintFilesYN) {
+void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst, double &BConst, double &CConst, double &DConst, double& FreezingRange, double &deltax, double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile, string &tempfile, int &TempFilesInSeries, bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, string &PathToOutput, bool (&FilesToPrint)[6], bool &PrintFilesYN) {
 
     size_t backslash = InputFile.find_last_of("/");
     string FilePath = InputFile.substr(0, backslash);
@@ -192,11 +241,18 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
         deltat = atof(val.c_str())*pow(10,-6);
         if (id == 0) cout << "The time step is " << val << " microseconds" << endl;
         
-        // Name of substrate file
-        SubstrateFileName = parseInput(InputData, "Substrate file name");
-        SubstrateFileName = FilePath + "/Substrate/" + SubstrateFileName;
-        if (id == 0) cout << "The substrate file used is " << SubstrateFileName << endl;
-
+        // Name of substrate file OR average spacing of substrate grains in microns
+        int SubstrateDataType = 0;
+        val = parseInputMultiple(InputData, "Substrate file name", "Substrate grain spacing", SubstrateDataType);
+        if (SubstrateDataType == 1) {
+            SubstrateFileName = FilePath + "/Substrate/" + val;
+            UseSubstrateFile = true;
+            if (id == 0) cout << "The substrate file used is " << SubstrateFileName << endl;
+        }
+        else if (SubstrateDataType == 2) {
+            SubstrateGrainSpacing = atof(val.c_str());
+            UseSubstrateFile = false;
+        }
         // Burst buffer/Truchas multilayer simulation input (no longer supported)
         
         // File containing temperature data
@@ -1065,21 +1121,14 @@ void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, V
     
 }
 
+// Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom surface of the constrained domain
+void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx, int ny, int nz, int MyXOffset, int MyYOffset, int id, int np, ViewI_H CellType, ViewI_H GrainID) {
 
-//*****************************************************************************/
-// Initializes cell types where the substrate comes from a file
-void GrainInit(int layernumber, string SimulationType, string SubstrateFileName, double FractSurfaceSitesActive, int NGrainOrientations, int DecompositionStrategy, int nx, int ny, int nz, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, ViewI2D_H ItList, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H GrainID, ViewF_H CritDiagonalLength, ViewF_H DOCenter, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, bool* Melted, double deltax, double NMax, int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low, bool ExtraWalls) {
-    
     mt19937_64 gen(id);
     uniform_real_distribution<double> dis(0.0, 1.0);
     
-    // Convert initial grain spacing to a grain density
-    double BulkProb = NMax*deltax*deltax*deltax;
-    if (id == 0) cout << "Fraction of heterogenous nucleation sites to potentially be activated: " << BulkProb << endl;
-    
     // Counter for the number of active cells
     int SubstrateActCells_ThisRank = 0;
-    PossibleNuclei_ThisRank = 0;
     
     // Wall cells at global domain boundaries
     // Other cells are either regions that will melt, or part of the substrate
@@ -1094,237 +1143,354 @@ void GrainInit(int layernumber, string SimulationType, string SubstrateFileName,
                     GrainID(CAGridLocation) = 0;
                 }
                 else {
-                    CellType(CAGridLocation) = Solid;
-                }
-            }
-        }
-    }
-    
-    if (SimulationType == "C") {
-        
-        // Constrained solidification test problem - side surfaces are walls, liquid domain
-        for (int k=0; k<nz; k++)  {
-            for(int i=0; i<MyXSlices; i++) {
-                for(int j=0; j<MyYSlices; j++) {
-                    int GlobalX = i + MyXOffset;
-                    int GlobalY = j + MyYOffset;
-                    int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
-                    GrainID(CAGridLocation) = 0;
-                    if ((GlobalX != -1)&&(GlobalX != nx)&&(GlobalY != -1)&&(GlobalY != ny)&&(k != 0)&&(k != nz-1)) {
-                        Melted[CAGridLocation] = true;
-                        CellType(CAGridLocation) = Liquid;
-                    }
-                }
-            }
-        }
-
-        // Other cells may be substrate or heterogenous solid sites
-        for (int k=1; k<nz-1; k++)  {
-            for(int i=1; i<MyXSlices-1; i++) {
-                for(int j=1; j<MyYSlices-1; j++) {
-                    int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
-                    double R = dis(gen);
-                    if (k == 1) {
-                        // Randomly locate substrate grain seeds
+                    if ((k == 1)&&(i > 0)&&(i < MyXSlices-1)&&(j > 0)&&(j < MyYSlices-1)) {
+                        // Randomly locate substrate grain seeds - do not place seeds in the ghost nodes, as this would double count these cells as possible grain sites
+                        double R = dis(gen);
                         if (R < FractSurfaceSitesActive) {
                             SubstrateActCells_ThisRank++;
                             CellType(CAGridLocation) = Active;
                         }
+                        else {
+                            CellType(CAGridLocation) = Liquid;
+                        }
+                    }
+                    else CellType(CAGridLocation) = Liquid;
+                }
+            }
+        }
+    }
+    // Assign grain IDs to bottom surface grains
+    int FirstEpitaxialGrainID = 1;
+    if (np > 1) {
+        // Grains for epitaxial growth - determine GrainIDs on each MPI rank
+        if (id == 0) {
+            int SBuf = FirstEpitaxialGrainID+SubstrateActCells_ThisRank;
+            MPI_Send(&SBuf,1,MPI_INT,1,0,MPI_COMM_WORLD);
+        }
+        else if (id == np-1) {
+            int RBuf;
+            MPI_Recv(&RBuf,1,MPI_INT,np-2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            FirstEpitaxialGrainID = RBuf;
+        }
+        else {
+            int RBuf;
+            MPI_Recv(&RBuf,1,MPI_INT,id-1,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            FirstEpitaxialGrainID = RBuf;
+            int SBuf = RBuf + SubstrateActCells_ThisRank;
+            MPI_Send(&SBuf,1,MPI_INT,id+1,0,MPI_COMM_WORLD);
+        }
+    }
+    for (int i=0; i<MyXSlices*MyYSlices*nz; i++)  {
+        if (CellType(i) == Active)  {
+            GrainID(i) = FirstEpitaxialGrainID;
+            FirstEpitaxialGrainID++;
+        }
+    }
+
+}
+    
+// Initializes Grain ID values where the substrate comes from a file
+void SubstrateInit_FromFile(string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI_H CritTimeStep, ViewI_H GrainID) {
+    
+    // Assign GrainID values to cells that are part of the substrate
+    ifstream Substrate;
+    Substrate.open(SubstrateFileName);
+    if (id == 0) cout << "Opened substrate file " << SubstrateFileName << endl;
+    int Substrate_LowX = MyXOffset;
+    int Substrate_HighX = MyXOffset+MyXSlices;
+    int Substrate_LowY = MyYOffset;
+    int Substrate_HighY = MyYOffset+MyYSlices;
+    int nxS, nyS, nzS;
+    string s;
+    getline(Substrate,s);
+    std::size_t found = s.find("=");
+    string str = s.substr(found+1,s.length()-1);
+    nzS = stoi(str,nullptr,10);
+    getline(Substrate,s);
+    found = s.find("=");
+    str = s.substr(found+1,s.length()-1);
+    nyS = stoi(str,nullptr,10);
+    getline(Substrate,s);
+    found = s.find("=");
+    str = s.substr(found+1,s.length()-1);
+    nxS = stoi(str,nullptr,10);
+    if ((id == 0)&&(nzS < nz)) {
+        // Do not allow simulation if there is inssufficient substrate data in the specified file
+        string error = "Error: only " + to_string(nzS) + " layers of substrate data are present in the file " + SubstrateFileName + " ; at least " + to_string(nz) + " layers of substrate data are required to simulate the specified solidification problem";
+        throw std::runtime_error(error);
+    }
+
+    // Assign GrainID values to cells that are part of the substrate
+    // Cells that border the melted region are type active, others are type solid
+    for (int k=0; k<nzS; k++) {
+        if (k == nz) break;
+        for (int j=0; j<nyS; j++) {
+            for (int i=0; i<nxS; i++) {
+                string GIDVal;
+                getline(Substrate,GIDVal);
+                if ((i >= Substrate_LowX)&&(i < Substrate_HighX)&&(j >= Substrate_LowY)&&(j < Substrate_HighY)) {
+                    int CAGridLocation;
+                    CAGridLocation = k*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
+                    if (CritTimeStep(CAGridLocation) == 0) {
+                        // This cell is part of the substrate
+                        GrainID(CAGridLocation) = stoi(GIDVal,nullptr,10);
                     }
                     else {
-                        // Randomly locate bulk site seeds
-                        if (R < BulkProb) {
-                            PossibleNuclei_ThisRank++;
-                            CellType(k*MyXSlices*MyYSlices+i*MyYSlices+j) = TemporaryInit;
-                            // GrainID for these are assigned later
-                        }
+                        // This cell is part of at least one layer's melt pool footprint
+                        GrainID(CAGridLocation) = 0;
                     }
                 }
             }
         }
-        
-        // Assign grain IDs to bottom surface grains
-        int FirstEpitaxialGrainID = 1;
-        if (np > 1) {
-            // Grains for epitaxial growth - determine GrainIDs on each MPI rank
-            if (id == 0) {
-                int SBuf = FirstEpitaxialGrainID+SubstrateActCells_ThisRank;
-                MPI_Send(&SBuf,1,MPI_INT,1,0,MPI_COMM_WORLD);
-            }
-            else if (id == np-1) {
-                int RBuf;
-                MPI_Recv(&RBuf,1,MPI_INT,np-2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                FirstEpitaxialGrainID = RBuf;
-            }
-            else {
-                int RBuf;
-                MPI_Recv(&RBuf,1,MPI_INT,id-1,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                FirstEpitaxialGrainID = RBuf;
-                int SBuf = RBuf + SubstrateActCells_ThisRank;
-                MPI_Send(&SBuf,1,MPI_INT,id+1,0,MPI_COMM_WORLD);
-            }
-        }
-        for (int i=0; i<MyXSlices*MyYSlices*nz; i++)  {
-            if (CellType(i) == Active)  {
-                GrainID(i) = FirstEpitaxialGrainID;
-                FirstEpitaxialGrainID++;
-            }
-        }
-        
     }
-    else {
-        // Assign GrainID values to cells that are part of the substrate
-        // Cells that border the melted region are type active, others are type solid
-        ifstream Substrate;
-        Substrate.open(SubstrateFileName);
-        if (id == 0) cout << "Opened substrate file " << SubstrateFileName << endl;
-        int Substrate_LowX = MyXOffset;
-        int Substrate_HighX = MyXOffset+MyXSlices;
-        int Substrate_LowY = MyYOffset;
-        int Substrate_HighY = MyYOffset+MyYSlices;
-        int nxS, nyS, nzS;
-        string s;
-        getline(Substrate,s);
-        std::size_t found = s.find("=");
-        string str = s.substr(found+1,s.length()-1);
-        nzS = stoi(str,nullptr,10);
-        getline(Substrate,s);
-        found = s.find("=");
-        str = s.substr(found+1,s.length()-1);
-        nyS = stoi(str,nullptr,10);
-        getline(Substrate,s);
-        found = s.find("=");
-        str = s.substr(found+1,s.length()-1);
-        nxS = stoi(str,nullptr,10);
-        if ((id == 0)&&(nzS < nz)) cout << "Warning: only " << nzS << " layers of substrate data for a simulation of " << nz << " total layers" << endl;
-
-        // Assign GrainID values to cells that are part of the substrate
-        // Cells that border the melted region are type active, others are type solid
-        for (int k=0; k<nzS; k++) {
-            if (k == nz) break;
-            for (int j=0; j<nyS; j++) {
-                for (int i=0; i<nxS; i++) {
-                    string GIDVal;
-                    getline(Substrate,GIDVal);
-                    if ((i >= Substrate_LowX)&&(i < Substrate_HighX)&&(j >= Substrate_LowY)&&(j < Substrate_HighY)) {
-                        int CAGridLocation;
-                        CAGridLocation = k*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
-                        if (CritTimeStep(CAGridLocation) == 0) {
-                            GrainID(CAGridLocation) = stoi(GIDVal,nullptr,10);
-                        }
-                        else {
-                            GrainID(CAGridLocation) = 0;
-                        }
-                    }
-                }
-            }
-        }
-        Substrate.close();
-        if (nz > nzS) {
-            for (int k=nzS; k<nz; k++) {
-                for (int j=0; j<nyS; j++) {
-                    for (int i=0; i<nxS; i++) {
-                        if ((i >= Substrate_LowX)&&(i < Substrate_HighX)&&(j >= Substrate_LowY)&&(j < Substrate_HighY)) {
-                            int CAGridLocation;
-                            CAGridLocation = k*MyXSlices*MyYSlices + (i-MyXOffset)*MyYSlices + (j-MyYOffset);
-                            GrainID(CAGridLocation) = 0;
-                        }
-                    }
-                }
-            }
-        }
-        if (id == 0) cout << "Substrate file read complete" << endl;
-        
-        if (ExtraWalls) {
-            if (id == 0) cout << "Extra wall cells around domain" << endl;
-            // Extra set of wall cells around edges for spot melt problem
-            for (int k=0; k<nz; k++)  {
-                for(int i=0; i<MyXSlices; i++) {
-                    for(int j=0; j<MyYSlices; j++) {
-                        int GlobalX = i + MyXOffset;
-                        int GlobalY = j + MyYOffset;
-                        if ((GlobalX == 0)||(GlobalX == nx-1)||(GlobalY == 0)||(GlobalY == ny-1)||(GlobalX == 1)||(GlobalX == nx-2)||(GlobalY == 1)||(GlobalY == ny-2)) {
-                            int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
-                            CellType(CAGridLocation) = Wall;
-                            GrainID(CAGridLocation) = 0;
-                        }
-                    }
-                }
-            }
-        }
+    Substrate.close();
+    if (id == 0) cout << "Substrate file read complete" << endl;
+}
+            
+// Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation, while the remainder of the interface is seeded with
+// CA-cell sized substrate grains (emulating bulk nucleation alongside the edges of partially melted powder particles)
+void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int nz, int nzActive, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, int id, int np, double deltax, ViewI_H GrainID, ViewI_H CritTimeStep) {
     
-        // Count number of active cells are at the solid-liquid boundary, as well as the number of nucleation events that may potentially occur
-        for (int k=1; k<nz-1; k++) {
-            for (int j=0; j<MyYSlices; j++) {
-                for (int i=0; i<MyXSlices; i++) {
-                    int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
-                    if (CellType(CAGridLocation) != Wall) {
-                        if (CritTimeStep(CAGridLocation) != 0) {
-                           // This is a liquid cell or a nuclei, if not in a ghost node and the RNG places one at this site
-                           double R = dis(gen);
-                           if (R < BulkProb) {
-                               if ((i != 0)&&(i != MyXSlices-1)&&(j != 0)&&(j != MyYSlices-1)) {
-                                   PossibleNuclei_ThisRank++;
-                                   CellType(CAGridLocation) = TemporaryInit;
-                               }
-                               else {
-                                   CellType(CAGridLocation) = Liquid;
-                               }
-                           }
-                           else {
-                               CellType(CAGridLocation) = Liquid;
-                           }
-                        }
-                        else {
-                            // This is a solid or active cell, depending on whether it is located at the interface of the liquid
-                            // Check to see if this site is actually at the solid-liquid interface
-                            int LCount = 0;
-                            // Which neighbors should be iterated over?
-                            int ItBounds = FindItBounds(i,j,MyXSlices,MyYSlices);
-                            int NListLength;
-                            if (ItBounds == 0) {
-                                NListLength = 26;
-                            }
-                            else if (ItBounds > 4) {
-                                NListLength = 11;
-                            }
-                            else {
-                                NListLength = 17;
-                            }
-                            // "ll" corresponds to the specific position on the list of neighboring cells
-                            for (int ll=0; ll<NListLength; ll++) {
-                                // "l" correpsponds to the specific neighboring cell
-                                int l = ItList(ItBounds,ll);
-                                // Local coordinates of adjacent cell center
-                                int MyNeighborX = i + NeighborX(l);
-                                int MyNeighborY = j + NeighborY(l);
-                                int MyNeighborZ = k + NeighborZ(l);
-                                int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
-                                if ((CritTimeStep(NeighborD3D1ConvPosition) > 0)&&(CellType(NeighborD3D1ConvPosition) != Wall)) {
-                                    LCount++;
-                                }
-                            }
-                            if (LCount == 0) {
-                                // Not at the interface
-                                CellType(CAGridLocation) = Solid;
-                            }
-                            else {
-                                // At the interface
-                                CellType(CAGridLocation) = Active;
-                                UndercoolingChange(CAGridLocation) = 0.1;
-                                SubstrateActCells_ThisRank++;
-                            }
-                        }
+    // Seed random number generator such that each rank generates the same baseplate grain center locations
+    double SubstrateSeed = 1.0;
+    mt19937_64 gen(SubstrateSeed);
+    uniform_real_distribution<double> dis(0.0, 1.0);
+
+    // Probability that a given cell will be the center of a baseplate grain
+    double BaseplateGrainProb = (deltax*deltax*deltax)/(SubstrateGrainSpacing*SubstrateGrainSpacing*SubstrateGrainSpacing*pow(10,-18));
+    ViewI_H NumBaseplateGrains_H(Kokkos::ViewAllocateWithoutInitializing("NBaseplate"), 1);
+    NumBaseplateGrains_H(0) = 0;
+    ViewI_H BaseplateGrainX_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX"),nx*ny*nzActive);
+    ViewI_H BaseplateGrainY_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY"),nx*ny*nzActive);
+    ViewI_H BaseplateGrainZ_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ"),nx*ny*nzActive);
+    
+    // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain centers
+    // This will eventually be done on the device when random number generation with Kokkos is more efficient
+    for (int k=1; k<=nzActive; k++) {
+        for (int i=1; i<nx-1; i++) {
+            for (int j=1; j<ny-1; j++) {
+                double R = dis(gen);
+                if (R < BaseplateGrainProb) {
+                    int OldIndexValue = NumBaseplateGrains_H(0);
+                    BaseplateGrainX_H(OldIndexValue) = i;
+                    BaseplateGrainY_H(OldIndexValue) = j;
+                    BaseplateGrainZ_H(OldIndexValue) = k;
+                    NumBaseplateGrains_H(0)++;
+                }
+            }
+        }
+    }
+    if (id == 0) cout << "Number of baseplate grains: " << NumBaseplateGrains_H(0) << endl;
+    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
+    ViewI NumBaseplateGrains_G = Kokkos::create_mirror_view_and_copy( memory_space(), NumBaseplateGrains_H );
+    ViewI BaseplateGrainX_G = Kokkos::create_mirror_view_and_copy( memory_space(), BaseplateGrainX_H );
+    ViewI BaseplateGrainY_G = Kokkos::create_mirror_view_and_copy( memory_space(), BaseplateGrainY_H );
+    ViewI BaseplateGrainZ_G = Kokkos::create_mirror_view_and_copy( memory_space(), BaseplateGrainZ_H );
+    
+    // While eventually all of the initialization routines will be performed on the device (minus reading from files),
+    // for now we initialize GrainID on the device, copy back to the host for the remainder of the initialization routines,
+    // and then copy back to the device
+    // Also need a copy of CritTimeStep on the device to do this
+    // This is done because the loop was too slow on the host/in serial
+    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
+    ViewI CritTimeStep_G = Kokkos::create_mirror_view_and_copy( memory_space(), CritTimeStep);
+    ViewI GrainID_G = Kokkos::create_mirror_view_and_copy( memory_space(), GrainID);
+    Kokkos::parallel_for ("CellCapture",  Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>> ({1,0,0},{nzActive,MyXSlices,MyYSlices}), KOKKOS_LAMBDA (const int k, const int i, const int j) {
+        int GlobalX = i + MyXOffset;
+        int GlobalY = j + MyYOffset;
+        int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+        if (CritTimeStep_G(CAGridLocation) == 0) {
+            // This cell is part of the substrate - determine which grain center the cell is closest to, in order to assign it a grain ID
+            // If closest to grain "n", assign grain ID "n+1" (grain ID = 0 is not used)
+            float MinDistanceToThisGrain = (float)(LocalActiveDomainSize);
+            int ClosestGrainIndex = -1;
+            for (int n=0; n<NumBaseplateGrains_G(); n++) {
+                float DistanceToThisGrainX = (float)(abs(BaseplateGrainX_G(n)-GlobalX));
+                float DistanceToThisGrainY = (float)(abs(BaseplateGrainY_G(n)-GlobalY));
+                float DistanceToThisGrainZ = (float)(abs(BaseplateGrainZ_G(n)-k));
+                float DistanceToThisGrain = sqrtf(DistanceToThisGrainX*DistanceToThisGrainX + DistanceToThisGrainY*DistanceToThisGrainY + DistanceToThisGrainZ*DistanceToThisGrainZ);
+                if (DistanceToThisGrain < MinDistanceToThisGrain) {
+                    ClosestGrainIndex = n;
+                    MinDistanceToThisGrain = DistanceToThisGrain;
+                }
+            }
+            GrainID_G(CAGridLocation) = ClosestGrainIndex+1;
+        }
+        else {
+            // This cell is part of layer 0's melt pool footprint
+            GrainID_G(CAGridLocation) = 0;
+        }
+    });
+    
+    // Copy Grain ID back to host
+    Kokkos::deep_copy(GrainID, GrainID_G);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (id == 0) cout << "Baseplate grain structure initialized" << endl;
+    // Initialize grain seeds above baseplate to emulate bulk nucleation at edge of melted powder particles
+    int PowderLayerActCells_ThisRank = 0;
+    for (int k=nzActive; k<nz; k++) {
+        for (int i=1; i<MyXSlices-1; i++) {
+            for (int j=1; j<MyYSlices-1; j++) {
+                int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+                if (CritTimeStep(CAGridLocation) == 0) {
+                    // This cell is part of the powder layer - count how many of these exist on this rank
+                    PowderLayerActCells_ThisRank++;
+                }
+                else {
+                    // This cell is part of one of the layer's melt pool footprint
+                    GrainID(CAGridLocation) = 0;
+                }
+            }
+        }
+    }
+    // Assign grain IDs to bulk grain nuclei
+    int FirstEpitaxialGrainID = NumBaseplateGrains_H(0) + 1;
+    if (np > 1) {
+        // Grains for epitaxial growth - determine GrainIDs on each MPI rank
+        if (id == 0) {
+            int SBuf = FirstEpitaxialGrainID+PowderLayerActCells_ThisRank;
+            MPI_Send(&SBuf,1,MPI_INT,1,0,MPI_COMM_WORLD);
+        }
+        else if (id == np-1) {
+            int RBuf;
+            MPI_Recv(&RBuf,1,MPI_INT,np-2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            FirstEpitaxialGrainID = RBuf;
+        }
+        else {
+            int RBuf;
+            MPI_Recv(&RBuf,1,MPI_INT,id-1,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            FirstEpitaxialGrainID = RBuf;
+            int SBuf = RBuf + PowderLayerActCells_ThisRank;
+            MPI_Send(&SBuf,1,MPI_INT,id+1,0,MPI_COMM_WORLD);
+        }
+    }
+    for (int D3D1ConvPosition=MyXSlices*MyYSlices*nzActive; D3D1ConvPosition<MyXSlices*MyYSlices*nz; D3D1ConvPosition++)  {
+        if (CritTimeStep(D3D1ConvPosition) == 0)  {
+            GrainID(D3D1ConvPosition) = FirstEpitaxialGrainID;
+            FirstEpitaxialGrainID++;
+        }
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (id == 0) cout << "Initialized baseplate and powder grain structure" << endl;
+    
+}
+
+//*****************************************************************************/
+// Initializes cells at border of solid and liquid as active type, wall cells along global domain bounds
+void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, int nz, int MyXOffset, int MyYOffset, ViewI_H CellType, ViewI_H GrainID, ViewI_H CritTimeStep, ViewI2D_H ItList, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewF_H UndercoolingChange, bool ExtraWalls) {
+
+    // Wall cells at global domain boundaries
+    // Other cells are either regions that will melt, or part of the substrate
+    for (int k=0; k<nz; k++)  {
+        for(int i=0; i<MyXSlices; i++) {
+            for(int j=0; j<MyYSlices; j++) {
+                int GlobalX = i + MyXOffset;
+                int GlobalY = j + MyYOffset;
+                int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+                if ((GlobalX == -1)||(GlobalX == nx)||(GlobalY == -1)||(GlobalY == ny)||(k == 0)||(k == nz-1)) {
+                    CellType(CAGridLocation) = Wall;
+                    GrainID(CAGridLocation) = 0;
+                }
+                if (ExtraWalls) {
+                    if ((GlobalX == 0)||(GlobalX == nx-1)||(GlobalY == 0)||(GlobalY == ny-1)||(GlobalX == 1)||(GlobalX == nx-2)||(GlobalY == 1)||(GlobalY == ny-2)) {
+                        CellType(CAGridLocation) = Wall;
+                        GrainID(CAGridLocation) = 0;
                     }
                 }
             }
         }
     }
-    int TotalSubstrateActCells, TotalNucleatedGrains;
+
+    // Count number of active cells are at the solid-liquid boundary
+    int SubstrateActCells_ThisRank = 0;
+    for (int k=1; k<nz-1; k++) {
+        for (int j=0; j<MyYSlices; j++) {
+            for (int i=0; i<MyXSlices; i++) {
+                int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+                if (CritTimeStep(CAGridLocation) == 0) {
+                    // This is a solid or active cell, depending on whether it is located at the interface of the liquid
+                    // Check to see if this site is actually at the solid-liquid interface
+                    int LCount = 0;
+                    // Which neighbors should be iterated over?
+                    int ItBounds = FindItBounds(i,j,MyXSlices,MyYSlices);
+                    int NListLength;
+                    if (ItBounds == 0) {
+                        NListLength = 26;
+                    }
+                    else if (ItBounds > 4) {
+                        NListLength = 11;
+                    }
+                    else {
+                        NListLength = 17;
+                    }
+                    // "ll" corresponds to the specific position on the list of neighboring cells
+                    for (int ll=0; ll<NListLength; ll++) {
+                        // "l" correpsponds to the specific neighboring cell
+                        int l = ItList(ItBounds,ll);
+                        // Local coordinates of adjacent cell center
+                        int MyNeighborX = i + NeighborX(l);
+                        int MyNeighborY = j + NeighborY(l);
+                        int MyNeighborZ = k + NeighborZ(l);
+                        int NeighborD3D1ConvPosition = MyNeighborZ*MyXSlices*MyYSlices + MyNeighborX*MyYSlices + MyNeighborY;
+                        if ((CritTimeStep(NeighborD3D1ConvPosition) > 0)&&(CellType(NeighborD3D1ConvPosition) != Wall)) {
+                            LCount++;
+                            // At the interface - assign this cell a value for undercooling change taken from one of its neighbors
+                            CellType(CAGridLocation) = Active;
+                            UndercoolingChange(CAGridLocation) = UndercoolingChange(NeighborD3D1ConvPosition);
+                            SubstrateActCells_ThisRank++;
+                            break;
+                        }
+                    }
+                    if (LCount == 0) {
+                        // Not at the interface
+                        CellType(CAGridLocation) = Solid;
+                    }
+                }
+                else {
+                    // This cell has associated melting data and is initialized as liquid
+                    CellType(CAGridLocation) = Liquid;
+                }
+            }
+        }
+    }
+    int TotalSubstrateActCells;
     MPI_Reduce(&SubstrateActCells_ThisRank,&TotalSubstrateActCells,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
+    if (id == 0) cout << "Number of substrate active cells across all ranks: " << TotalSubstrateActCells << endl;
+    
+}
+    
+//*****************************************************************************/
+// Initializes cell types where the substrate comes from a file
+void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrategy, int nz, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, ViewI2D_H ItList, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI_H GrainOrientation, ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H GrainID, ViewF_H CritDiagonalLength, ViewF_H DOCenter, ViewI_H CritTimeStep, double deltax, double NMax, int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low) {
+    
+    // RNG for heterogenous nuclei locations in the liquid
+    mt19937_64 gen(id);
+    uniform_real_distribution<double> dis(0.0, 1.0);
+    
+    // Probability that a given liquid site will be a potential nucleus location
+    double BulkProb = NMax*deltax*deltax*deltax;
+
+    // Count the number of nucleation events that may potentially occur on this rank (not counting ghost nodes, to avoid double counting cells are potential nucleation sites)
+    PossibleNuclei_ThisRank = 0;
+    for (int k=1; k<nz-1; k++) {
+        for (int j=1; j<MyYSlices-1; j++) {
+            for (int i=1; i<MyXSlices-1; i++) {
+                int CAGridLocation = k*MyXSlices*MyYSlices + i*MyYSlices + j;
+                if (CritTimeStep(CAGridLocation) != 0) {
+                   double R = dis(gen);
+                   if (R < BulkProb) {
+                        PossibleNuclei_ThisRank++;
+                        CellType(CAGridLocation) = TemporaryInit;
+                    }
+                }
+            }
+        }
+    }
+    
+    int TotalNucleatedGrains;
     MPI_Reduce(&PossibleNuclei_ThisRank,&TotalNucleatedGrains,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
-    if (id == 0) cout << "Number of substrate active cells: " << TotalSubstrateActCells << endl;
     if (id == 0) cout << "Number of potential nucleated grains: " << TotalNucleatedGrains << endl;
+    
     int FirstNucleatedGID_Rank0;
     if (layernumber == -1) {
         FirstNucleatedGID_Rank0 = -1;
