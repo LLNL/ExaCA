@@ -12,7 +12,7 @@ Output file base name:TestProblem2
 File of grain orientations:GrainOrientationVectors_Robert.csv
 Heat transport data mesh size (microns): 5
 Time step (microseconds): 0.08333333
-Substrate file name:SubstrateFine.csv
+Substrate grain spacing (in microns): 25
 Temperature filename: Master-Raster-150um.txt
 Number of temperature files: 1
 Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: N
