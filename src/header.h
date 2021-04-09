@@ -109,10 +109,10 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
 void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
                 ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY,
                 ViewI NeighborZ, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength,
-                ViewF DOCenter, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD,
-                Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR,
-                Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR,
-                Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int &ZBound_Low);
+                ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC,
+                Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH,
+                Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER,
+                Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int &ZBound_Low);
 
 // Contained in "CAupdate.cpp"
 void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn, ViewI CellType,

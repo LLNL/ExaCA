@@ -328,9 +328,9 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
             // Update active cell data structures for simulation of next layer
             LayerSetup(MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, GrainOrientation_G,
                        NGrainOrientations, GrainUnitVector_G, NeighborX_G, NeighborY_G, NeighborZ_G, DiagonalLength_G,
-                       CellType_G, GrainID_G, CritDiagonalLength_G, DOCenter_G, BufferA, BufferB, BufferC, BufferD,
-                       BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR, BufferER, BufferFR,
-                       BufferGR, BufferHR, BufSizeX, BufSizeY, BufSizeZ, ZBound_Low);
+                       CellType_G, GrainID_G, CritDiagonalLength_G, DOCenter_G, DecompositionStrategy, BufferA, BufferB,
+                       BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR,
+                       BufferER, BufferFR, BufferGR, BufferHR, ZBound_Low);
 
             if (id == 0)
                 cout << "New layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY << " " << BufSizeZ << endl;
