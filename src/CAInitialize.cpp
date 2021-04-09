@@ -2693,55 +2693,33 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
 void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
                 ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY,
                 ViewI NeighborZ, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength,
-                ViewF DOCenter, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD,
-                Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR,
-                Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR,
-                Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int &ZBound_Low) {
+                ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC,
+                Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH,
+                Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER,
+                Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int &ZBound_Low) {
 
     // Reset active cell data structures
-    Kokkos::parallel_for(
-        "DelDLData", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &i) { DiagonalLength(i) = 0; });
-
-    Kokkos::parallel_for(
-        "DelDOData", 3 * LocalActiveDomainSize, KOKKOS_LAMBDA(const int &i) { DOCenter(i) = 0; });
-
-    Kokkos::parallel_for(
-        "DelCDLData", 26 * LocalActiveDomainSize, KOKKOS_LAMBDA(const int &i) { CritDiagonalLength(i) = 0; });
-
-    // Reset buffers
-    Kokkos::parallel_for(
-        "XZBufReset", BufSizeX * BufSizeZ, KOKKOS_LAMBDA(const int &i) {
-            for (int j = 0; j < 5; j++) {
-                BufferA(i, j) = 0.0;
-                BufferAR(i, j) = 0.0;
-                BufferB(i, j) = 0.0;
-                BufferBR(i, j) = 0.0;
-            }
-        });
-
-    Kokkos::parallel_for(
-        "YZBufReset", BufSizeY * BufSizeZ, KOKKOS_LAMBDA(const int &i) {
-            for (int j = 0; j < 5; j++) {
-                BufferC(i, j) = 0.0;
-                BufferCR(i, j) = 0.0;
-                BufferD(i, j) = 0.0;
-                BufferDR(i, j) = 0.0;
-            }
-        });
-
-    Kokkos::parallel_for(
-        "ZBufReset", BufSizeZ, KOKKOS_LAMBDA(const int &i) {
-            for (int j = 0; j < 5; j++) {
-                BufferE(i, j) = 0.0;
-                BufferER(i, j) = 0.0;
-                BufferF(i, j) = 0.0;
-                BufferFR(i, j) = 0.0;
-                BufferG(i, j) = 0.0;
-                BufferGR(i, j) = 0.0;
-                BufferH(i, j) = 0.0;
-                BufferHR(i, j) = 0.0;
-            }
-        });
+    Kokkos::deep_copy(DiagonalLength, 0);
+    Kokkos::deep_copy(DOCenter, 0);
+    Kokkos::deep_copy(CritDiagonalLength, 0);
+    Kokkos::deep_copy(BufferA, 0.0);
+    Kokkos::deep_copy(BufferAR, 0.0);
+    Kokkos::deep_copy(BufferB, 0.0);
+    Kokkos::deep_copy(BufferBR, 0.0);
+    if (DecompositionStrategy != 1) {
+        Kokkos::deep_copy(BufferC, 0.0);
+        Kokkos::deep_copy(BufferCR, 0.0);
+        Kokkos::deep_copy(BufferD, 0.0);
+        Kokkos::deep_copy(BufferDR, 0.0);
+        Kokkos::deep_copy(BufferE, 0.0);
+        Kokkos::deep_copy(BufferER, 0.0);
+        Kokkos::deep_copy(BufferF, 0.0);
+        Kokkos::deep_copy(BufferFR, 0.0);
+        Kokkos::deep_copy(BufferG, 0.0);
+        Kokkos::deep_copy(BufferGR, 0.0);
+        Kokkos::deep_copy(BufferH, 0.0);
+        Kokkos::deep_copy(BufferHR, 0.0);
+    }
 
     Kokkos::parallel_for(
         "NewActiveCellInit", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
