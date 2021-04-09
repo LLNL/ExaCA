@@ -20,7 +20,7 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight
     Buffer3D BufferC, BufferD, BufferCR, BufferDR;
     Buffer2D BufferE, BufferF, BufferG, BufferH, BufferER, BufferFR, BufferGR, BufferHR;
     if (DecompositionStrategy > 1) {
-        BufferC = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferC"), MyYSlices, nzActive, 5);
+        BufferC = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferC"), MyYSlices, nzActive, 2);
         BufferD = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferD"), MyYSlices, nzActive, 2);
         BufferE = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferE"), nzActive, 2);
         BufferF = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferF"), nzActive, 2);
