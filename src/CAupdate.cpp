@@ -779,7 +779,7 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
                     int RankX = Rem / MyYSlices;
                     int RankY = Rem % MyYSlices;
                     int GlobalZ = RankZ + ZBound_Low;
-                    int GlobalD3D1ConvPosition = GlobalZ * RankX * RankY + RankX * MyYSlices + RankY;
+                    int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                     unsigned long int CritTimeStep_ThisCell = (unsigned long int)(CritTimeStep(GlobalD3D1ConvPosition));
                     if ((CellType(GlobalD3D1ConvPosition) == Liquid) &&
                         (LayerID(GlobalD3D1ConvPosition) == layernumber)) {
