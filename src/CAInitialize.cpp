@@ -1016,7 +1016,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
 
 //*****************************************************************************/
 void TempInit(int layernumber, double G, double R, string SimulationType, int id, int &MyXSlices, int &MyYSlices,
-              int &MyXOffset, int &MyYOffset, double deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz,
+              int &MyXOffset, int &MyYOffset, double &deltax, double HT_deltax, double deltat, int &nx, int &ny, int &nz,
               ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin,
               float ZMin, bool *Melted, float *ZMinLayer, float *ZMaxLayer, int LayerHeight, int NumberOfLayers,
               int &nzActive, int &ZBound_Low, int &ZBound_High, int *FinishTimeStep, double FreezingRange,
@@ -1065,7 +1065,19 @@ void TempInit(int layernumber, double G, double R, string SimulationType, int id
         }
 
         // Temperature data read
-        int HTtoCAratio = HT_deltax / deltax; // OpenFOAM/CA cell size ratio
+        double HTtoCAratio_unrounded = HT_deltax / deltax;
+        double HTtoCAratio_floor = floor(HTtoCAratio_unrounded);
+        if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.0005)&&(id == 0)) {
+            string error = "Error: Temperature data point spacing not evenly divisible by CA cell size";
+            throw std::runtime_error(error);
+        }
+        else if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.000001)&&(id == 0)) {
+            cout << "Note: Adjusting cell size from " << deltax << " to " << HT_deltax / HTtoCAratio_floor << " to "
+            "ensure even divisibility of CA cell size into temperature data spacing" << endl;
+        }
+        // Adjust deltax to exact value based on temperature data spacing and ratio between heat transport/CA cell sizes
+        deltax = HT_deltax / HTtoCAratio_floor;
+        int HTtoCAratio = round(HT_deltax / deltax); // OpenFOAM/CA cell size ratio
 
         // With row/col 0 being wall cells and row/col 1 being solid cells outside of the melted area, the domain starts
         // at row/col 2 As the wall cells are not part of the physical domain (solid cells at row/col 1 are defined as X
