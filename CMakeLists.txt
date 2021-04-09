@@ -14,3 +14,13 @@ include(CTest)
 if(${BUILD_TESTING})
     add_test(NAME ExaCA-Test COMMAND ExaCA-Kokkos)
 endif()
+
+# clang-format
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+find_package( CLANG_FORMAT 10)
+if(CLANG_FORMAT_FOUND)
+  file(GLOB_RECURSE FORMAT_SOURCES src/*.cpp src/*.h)
+  add_custom_target(format
+    COMMAND ${CLANG_FORMAT_EXECUTABLE} -i -style=file ${FORMAT_SOURCES}
+    DEPENDS ${FORMAT_SOURCES})
+endif()

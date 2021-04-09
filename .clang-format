@@ -1,0 +1,24 @@
+BasedOnStyle:  LLVM
+---
+Language:        Cpp
+ColumnLimit: 120
+AlwaysBreakTemplateDeclarations: true
+BinPackParameters: true
+IndentWidth: 4
+SpacesInParentheses: false
+BreakConstructorInitializersBeforeComma: true
+PointerAlignment: Right
+# Attach with else on newline
+BraceWrapping:
+  AfterClass:      false
+  AfterControlStatement: false
+  AfterEnum:       false
+  AfterFunction:   false
+  AfterNamespace:  false
+  AfterObjCDeclaration: false
+  AfterStruct:     false
+  AfterUnion:      false
+  BeforeCatch:     false
+  BeforeElse:      true
+  IndentBraces:    false
+BreakBeforeBraces: Custom
