@@ -1,4 +1,12 @@
-#include "header.h"
+#include "runCA.hpp"
+
+#include <Kokkos_Core.hpp>
+
+#include "mpi.h"
+
+#include <stdexcept>
+#include <string>
+
 using namespace std;
 
 int main(int argc, char *argv[]) {

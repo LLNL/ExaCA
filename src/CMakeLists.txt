@@ -1,13 +1,20 @@
+set(EXACA_HEADERS
+    CAfunctions.hpp
+    CAghostnodes.hpp
+    CAinitialize.hpp
+    CAprint.hpp
+    CAupdate.hpp
+    runCA.hpp
+)
 set(EXACA_SOURCES
     CAfunctions.cpp
     CAghostnodes.cpp
-    CAInitialize.cpp
-    CAPrint.cpp
+    CAinitialize.cpp
+    CAprint.cpp
     CAupdate.cpp
-    Run_Reduced.cpp
+    runCA.cpp
 )
 
-set(EXACA_HEADERS header.h)
 install(FILES ${EXACA_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 add_library(ExaCA STATIC ${EXACA_SOURCES} ${EXACA_HEADERS})

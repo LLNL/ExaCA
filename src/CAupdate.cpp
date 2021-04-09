@@ -1,4 +1,9 @@
-#include "header.h"
+#include "CAupdate.hpp"
+
+#include "mpi.h"
+
+#include <cmath>
+
 using namespace std;
 
 namespace sample { // namespace helps with name resolution in reduction identity

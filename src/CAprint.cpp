@@ -1,4 +1,12 @@
-#include "header.h"
+#include "CAprint.hpp"
+
+#include "CAfunctions.hpp"
+
+#include "mpi.h"
+
+#include <cmath>
+#include <fstream>
+
 using namespace std;
 
 //*****************************************************************************/
