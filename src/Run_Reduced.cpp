@@ -220,11 +220,11 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
     if (np > 1) {
         // Ghost nodes for initial microstructure state
-        GhostNodesInit_GPU(id, np, DecompositionStrategy, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut,
-                           MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive,
-                           LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G, NeighborZ_G,
-                           GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G, DOCenter_G, DiagonalLength_G,
-                           CritDiagonalLength_G);
+        GhostNodesInit(id, np, DecompositionStrategy, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut,
+                       MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive,
+                       LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G, NeighborZ_G,
+                       GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G, DOCenter_G, DiagonalLength_G,
+                       CritDiagonalLength_G);
     }
 
     double InitTime = MPI_Wtime() - StartTime;
@@ -265,19 +265,17 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
                 // Update ghost nodes
                 StartGhostTime = MPI_Wtime();
                 if (DecompositionStrategy == 1)
-                    GhostNodes1D_GPU(cycle, id, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-                                     NeighborX_G, NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G,
-                                     GrainUnitVector_G, GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G,
-                                     NGrainOrientations, BufferA, BufferB, BufferAR, BufferBR, BufSizeX, BufSizeY,
-                                     BufSizeZ, ZBound_Low);
+                    GhostNodes1D(cycle, id, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborX_G,
+                                 NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G, GrainUnitVector_G,
+                                 GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations,
+                                 BufferA, BufferB, BufferAR, BufferBR, BufSizeX, BufSizeY, BufSizeZ, ZBound_Low);
                 else
-                    GhostNodes2D_GPU(cycle, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut,
-                                     MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborX_G, NeighborY_G,
-                                     NeighborZ_G, CellType_G, DOCenter_G, GrainID_G, GrainUnitVector_G,
-                                     GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations,
-                                     BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR,
-                                     BufferBR, BufferCR, BufferDR, BufferER, BufferFR, BufferGR, BufferHR, BufSizeX,
-                                     BufSizeY, BufSizeZ, ZBound_Low);
+                    GhostNodes2D(cycle, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut,
+                                 MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G,
+                                 CellType_G, DOCenter_G, GrainID_G, GrainUnitVector_G, GrainOrientation_G,
+                                 DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations, BufferA, BufferB, BufferC,
+                                 BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR,
+                                 BufferER, BufferFR, BufferGR, BufferHR, BufSizeX, BufSizeY, BufSizeZ, ZBound_Low);
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
@@ -339,11 +337,11 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
             if (id == 0)
                 cout << "New layer ghost nodes initialized" << endl;
             if (np > 1) {
-                GhostNodesInit_GPU(id, np, DecompositionStrategy, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn,
-                                   MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low,
-                                   nzActive, LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G,
-                                   NeighborZ_G, GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G,
-                                   DOCenter_G, DiagonalLength_G, CritDiagonalLength_G);
+                GhostNodesInit(id, np, DecompositionStrategy, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn,
+                               MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive,
+                               LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G, NeighborZ_G,
+                               GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G, DOCenter_G,
+                               DiagonalLength_G, CritDiagonalLength_G);
             }
             XSwitch = 0;
             MPI_Barrier(MPI_COMM_WORLD);
