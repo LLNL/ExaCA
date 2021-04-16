@@ -10,11 +10,18 @@
 #include <random>
 #include <regex>
 
-// Initializes input parameters, mesh, temperature field, and grain structures for CA simulations
+InputParameters::InputParameters(int id, std::string InputFile) {
+    readFromFile(id, InputFile);
+
+    // Normalize solidification parameters
+    AConst = AConst * deltat / deltax;
+    BConst = BConst * deltat / deltax;
+    CConst = CConst * deltat / deltax;
+}
 
 //*****************************************************************************/
 // Skip initial lines in input files.
-void skipLines(std::ifstream &stream) {
+void InputParameters::skipLines(std::ifstream &stream) {
     std::string line;
     while (getline(stream, line)) {
         if (line == "*****")
@@ -26,7 +33,7 @@ void skipLines(std::ifstream &stream) {
 // Throw an error if no colon is found, get a new line and throw a warning if the value before
 // the colon is a deprecated input
 // Also store the location of the colon within the line
-std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon) {
+std::string InputParameters::getKey(std::ifstream &stream, std::string &line, std::size_t &colon) {
 
     bool DeprecatedInputCheck = true;
     std::string actual_key;
@@ -55,7 +62,7 @@ std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon)
 }
 
 // Remove whitespace from "line", taking only the portion of the line that comes after the colon
-std::string removeWhitespace(std::string line, std::size_t colon) {
+std::string InputParameters::removeWhitespace(std::string line, std::size_t colon) {
 
     std::string val = line.substr(colon + 1, std::string::npos);
     std::regex r("\\s+");
@@ -63,9 +70,9 @@ std::string removeWhitespace(std::string line, std::size_t colon) {
     return val;
 }
 
-// Verify the required input was included with the correct format, and parse the input (with only 1 possibility for the
-// possible input)
-std::string parseInput(std::ifstream &stream, std::string key) {
+// Verify the required input was included with the correct format, and parse the input (with only 1 possibility for
+// the possible input)
+std::string InputParameters::parseInput(std::ifstream &stream, std::string key) {
 
     std::size_t colon;
     std::string line, val;
@@ -84,7 +91,8 @@ std::string parseInput(std::ifstream &stream, std::string key) {
 
 // Verify the required input was included with the correct format, and parse the input
 // 2 possible keywords to check against - WhichKey denotes which of the two was found
-std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int &WhichKey) {
+std::string InputParameters::parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2,
+                                                int &WhichKey) {
 
     std::size_t colon;
     std::string line, val;
@@ -113,7 +121,7 @@ std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::str
 }
 
 // Verify the required boolean input was included with the correct format.
-bool parseInputBool(std::ifstream &stream, std::string key) {
+bool InputParameters::parseInputBool(std::ifstream &stream, std::string key) {
     std::string val = parseInput(stream, key);
     if (val == "N") {
         return false;
@@ -128,8 +136,9 @@ bool parseInputBool(std::ifstream &stream, std::string key) {
 }
 
 // Verify that the temperature data read for X, Y, Z falls in bounds
-void CheckTemperatureCoordinateBound(std::string Label, float LowerBound, float UpperBound, float InputValue,
-                                     int LineNumber, std::string TemperatureFilename) {
+void InputParameters::checkTemperatureCoordinateBound(std::string Label, float LowerBound, float UpperBound,
+                                                      float InputValue, int LineNumber,
+                                                      std::string TemperatureFilename) {
 
     if ((InputValue < LowerBound) || (InputValue > UpperBound)) {
         std::string error = Label + " value " + std::to_string(InputValue) + " on line " + std::to_string(LineNumber) +
@@ -141,7 +150,8 @@ void CheckTemperatureCoordinateBound(std::string Label, float LowerBound, float 
 }
 
 // Verify that the temperature data (liquidus time, solidus time or cooling rate) is physically reasonable
-void CheckTemperatureDataPoint(std::string Label, float InputValue, int LineNumber, std::string TemperatureFilename) {
+void InputParameters::checkTemperatureDataPoint(std::string Label, float InputValue, int LineNumber,
+                                                std::string TemperatureFilename) {
     if (Label == "Liquidus Time") {
         if (InputValue <= 0) {
             std::string error = Label + " value " + std::to_string(InputValue) + " on line " +
@@ -162,15 +172,7 @@ void CheckTemperatureDataPoint(std::string Label, float InputValue, int LineNumb
 
 //*****************************************************************************/
 // Read ExaCA input file.
-void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
-                       double &AConst, double &BConst, double &CConst, double &DConst, double &FreezingRange,
-                       double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
-                       std::string &GrainOrientationFile, std::string &tempfile, int &TempFilesInSeries,
-                       bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
-                       int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
-                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput, bool (&FilesToPrint)[6],
-                       bool &PrintFilesYN) {
+void InputParameters::readFromFile(int id, std::string InputFile) {
 
     size_t backslash = InputFile.find_last_of("/");
     std::string FilePath = InputFile.substr(0, backslash);
@@ -289,8 +291,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             std::cout << "Temperature data file(s) is/are " << tempfile << " , and there are " << TempFilesInSeries
                       << " in the series" << std::endl;
         }
-        // Check to ensure all temperature files exist - obtain number of temperature data values and data units from
-        // each file
+        // Check to ensure all temperature files exist - obtain number of temperature data values and data units
+        // from each file
         for (int i = 0; i < TempFilesInSeries; i++) {
             std::string CurrentTempFile = tempfile;
             if (TempFilesInSeries > 1) {
@@ -412,16 +414,15 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 }
 
 //*****************************************************************************/
-void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
-                      ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
-                      int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
-                      int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
-                      int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
-                      double &deltax, double HT_deltax, int &nx, int &ny, int &nz, int &ProcessorsInXDirection,
-                      int &ProcessorsInYDirection, std::string tempfile, float &XMin, float &XMax, float &YMin,
-                      float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight, int NumberOfLayers,
-                      int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
-                      float *ZMaxLayer, int *FirstValue, int *LastValue, std::vector<float> &RawData) {
+void InputParameters::parallelMeshInit(int id, int np, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
+                                       ViewI2D_H ItList, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,
+                                       int &NeighborRank_North, int &NeighborRank_South, int &NeighborRank_East,
+                                       int &NeighborRank_West, int &NeighborRank_NorthEast, int &NeighborRank_NorthWest,
+                                       int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
+                                       int &ProcessorsInXDirection, int &ProcessorsInYDirection, float &XMin,
+                                       float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax,
+                                       unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer, float *ZMaxLayer,
+                                       int *FirstValue, int *LastValue, std::vector<float> &RawData) {
 
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
@@ -841,7 +842,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                     XConverted = MeshData / 1000.0;
                                 else
                                     XConverted = MeshData;
-                                CheckTemperatureCoordinateBound("X Coordinate", XMin, XMax, XConverted, LineCounter,
+                                checkTemperatureCoordinateBound("X Coordinate", XMin, XMax, XConverted, LineCounter,
                                                                 tempfile_thislayer);
                                 XInt = round((XConverted - XMin) / deltax) + 2;
                             }
@@ -850,7 +851,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                     YConverted = MeshData / 1000.0;
                                 else
                                     YConverted = MeshData;
-                                CheckTemperatureCoordinateBound("Y Coordinate", YMin, YMax, YConverted, LineCounter,
+                                checkTemperatureCoordinateBound("Y Coordinate", YMin, YMax, YConverted, LineCounter,
                                                                 tempfile_thislayer);
                                 YInt = round((YConverted - YMin) / deltax) + 2;
                             }
@@ -867,7 +868,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                         ZConverted = MeshData / 1000.0;
                                     // Z coordinate should be checked relative to the full multilayer temperature field
                                     // bounds
-                                    CheckTemperatureCoordinateBound("Z Coordinate", ZMin, ZMax,
+                                    checkTemperatureCoordinateBound("Z Coordinate", ZMin, ZMax,
                                                                     ZConverted +
                                                                         deltax * LayerHeight * (LayerReadCount - 1),
                                                                     LineCounter, tempfile_thislayer);
@@ -887,7 +888,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                     float LiquidusTime = MeshData;
                                     if (TimeUnits == "ms")
                                         LiquidusTime = MeshData / 1000.0;
-                                    CheckTemperatureDataPoint("Liquidus Time", LiquidusTime, LineCounter,
+                                    checkTemperatureDataPoint("Liquidus Time", LiquidusTime, LineCounter,
                                                               tempfile_thislayer);
                                     RawData[NumberOfTemperatureDataPoints] = LiquidusTime;
                                     NumberOfTemperatureDataPoints++;
@@ -904,7 +905,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                             CoolingRate =
                                                 MeshData *
                                                 1000.0; // Multiply by 1000 to convert cooling rate from K/ms to K/s
-                                        CheckTemperatureDataPoint("Cooling Rate", CoolingRate, LineCounter,
+                                        checkTemperatureDataPoint("Cooling Rate", CoolingRate, LineCounter,
                                                                   tempfile_thislayer);
                                     }
                                     else {
@@ -913,7 +914,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                         if (TimeUnits == "ms")
                                             TimeSol = MeshData / 1000.0;
                                         CoolingRate = FreezingRange / (TimeSol - TimeLiq);
-                                        CheckTemperatureDataPoint(
+                                        checkTemperatureDataPoint(
                                             "Cooling Rate (calculated using liquidus and solidus time values)",
                                             CoolingRate, LineCounter, tempfile_thislayer);
                                     }
@@ -1030,12 +1031,11 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
 }
 
 //*****************************************************************************/
-void TempInit(int layernumber, double G, double R, std::string SimulationType, int id, int &MyXSlices, int &MyYSlices,
-              int &MyXOffset, int &MyYOffset, double &deltax, double HT_deltax, double deltat, int &nx, int &ny,
-              int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin,
-              float YMin, float ZMin, bool *Melted, float *ZMinLayer, float *ZMaxLayer, int LayerHeight,
-              int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int *FinishTimeStep,
-              double FreezingRange, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<float> RawData) {
+void InputParameters::tempInit(int id, int layernumber, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,
+                               ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
+                               float XMin, float YMin, float ZMin, bool *Melted, float *ZMinLayer, float *ZMaxLayer,
+                               int &nzActive, int &ZBound_Low, int &ZBound_High, int *FinishTimeStep, ViewI_H LayerID,
+                               int *FirstValue, int *LastValue, std::vector<float> RawData) {
 
     if (SimulationType == "C") {
 
