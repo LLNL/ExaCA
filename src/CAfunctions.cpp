@@ -1,4 +1,10 @@
-#include "header.h"
+#include "CAfunctions.hpp"
+
+#include "mpi.h"
+
+#include <cmath>
+#include <iostream>
+
 using namespace std;
 
 /*************************** FUNCTIONS CALLED THROUGH MAIN SUBROUTINES ***************************/

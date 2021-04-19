@@ -1,8 +1,14 @@
-#include "header.h"
+#include "CAinitialize.hpp"
 
+#include "CAfunctions.hpp"
+
+#include "mpi.h"
+
+#include <cmath>
+#include <fstream>
 #include <iostream>
+#include <random>
 #include <regex>
-#include <string>
 
 using namespace std;
 // Initializes input parameters, mesh, temperature field, and grain structures for CA simulations

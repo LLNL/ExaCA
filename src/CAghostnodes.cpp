@@ -1,4 +1,10 @@
-#include "header.h"
+#include "CAghostnodes.hpp"
+
+#include "mpi.h"
+
+#include <cmath>
+#include <vector>
+
 using namespace std;
 
 //*****************************************************************************/
