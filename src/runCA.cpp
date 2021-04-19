@@ -1,4 +1,16 @@
-#include "header.h"
+#include "runCA.hpp"
+
+#include "CAghostnodes.hpp"
+#include "CAinitialize.hpp"
+#include "CAprint.hpp"
+#include "CAtypes.hpp"
+#include "CAupdate.hpp"
+
+#include "mpi.h"
+
+#include <string>
+#include <vector>
+
 using namespace std;
 
 void RunProgram_Reduced(int id, int np, string InputFile) {
