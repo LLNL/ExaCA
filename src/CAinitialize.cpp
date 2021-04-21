@@ -428,87 +428,14 @@ void InputParameters::parallelMeshInit(int id, int np, ViewI_H NeighborX, ViewI_
     // Neighbors 0 through 8 are in the -Y direction
     // Neighbors 9 through 16 are in the XY plane with cell X
     // Neighbors 17 through 25 are in the +Y direction
-
-    NeighborX(0) = 0;
-    NeighborY(0) = -1;
-    NeighborZ(0) = 0;
-    NeighborX(1) = 1;
-    NeighborY(1) = -1;
-    NeighborZ(1) = 0;
-    NeighborX(2) = -1;
-    NeighborY(2) = -1;
-    NeighborZ(2) = 0;
-    NeighborX(3) = 0;
-    NeighborY(3) = -1;
-    NeighborZ(3) = 1;
-    NeighborX(4) = 0;
-    NeighborY(4) = -1;
-    NeighborZ(4) = -1;
-    NeighborX(5) = -1;
-    NeighborY(5) = -1;
-    NeighborZ(5) = 1;
-    NeighborX(6) = 1;
-    NeighborY(6) = -1;
-    NeighborZ(6) = 1;
-    NeighborX(7) = -1;
-    NeighborY(7) = -1;
-    NeighborZ(7) = -1;
-    NeighborX(8) = 1;
-    NeighborY(8) = -1;
-    NeighborZ(8) = -1;
-
-    NeighborX(9) = 0;
-    NeighborY(9) = 0;
-    NeighborZ(9) = 1;
-    NeighborX(10) = 0;
-    NeighborY(10) = 0;
-    NeighborZ(10) = -1;
-    NeighborX(11) = 1;
-    NeighborY(11) = 0;
-    NeighborZ(11) = 1;
-    NeighborX(12) = -1;
-    NeighborY(12) = 0;
-    NeighborZ(12) = 1;
-    NeighborX(13) = 1;
-    NeighborY(13) = 0;
-    NeighborZ(13) = -1;
-    NeighborX(14) = -1;
-    NeighborY(14) = 0;
-    NeighborZ(14) = -1;
-    NeighborX(15) = 1;
-    NeighborY(15) = 0;
-    NeighborZ(15) = 0;
-    NeighborX(16) = -1;
-    NeighborY(16) = 0;
-    NeighborZ(16) = 0;
-
-    NeighborX(17) = 0;
-    NeighborY(17) = 1;
-    NeighborZ(17) = 0;
-    NeighborX(18) = 1;
-    NeighborY(18) = 1;
-    NeighborZ(18) = 0;
-    NeighborX(19) = -1;
-    NeighborY(19) = 1;
-    NeighborZ(19) = 0;
-    NeighborX(20) = 0;
-    NeighborY(20) = 1;
-    NeighborZ(20) = 1;
-    NeighborX(21) = 0;
-    NeighborY(21) = 1;
-    NeighborZ(21) = -1;
-    NeighborX(22) = 1;
-    NeighborY(22) = 1;
-    NeighborZ(22) = 1;
-    NeighborX(23) = -1;
-    NeighborY(23) = 1;
-    NeighborZ(23) = 1;
-    NeighborX(24) = 1;
-    NeighborY(24) = 1;
-    NeighborZ(24) = -1;
-    NeighborX(25) = -1;
-    NeighborY(25) = 1;
-    NeighborZ(25) = -1;
+    int x[26]{0, 1, -1, 0, 0, -1, 1, -1, 1, 0, 0, 1, -1, 1, -1, 1, -1, 0, 1, -1, 0, 0, 1, -1, 1, -1};
+    int y[26]{-1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    int z[26]{0, 0, 0, 1, -1, 1, 1, -1, -1, 1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, -1};
+    for (int i = 0; i <= 25; i++) {
+        NeighborX(i) = x[i];
+        NeighborY(i) = y[i];
+        NeighborZ(i) = z[i];
+    }
 
     // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
     for (int i = 0; i <= 25; i++) {
