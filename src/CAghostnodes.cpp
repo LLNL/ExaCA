@@ -5,8 +5,6 @@
 #include <cmath>
 #include <vector>
 
-using namespace std;
-
 //*****************************************************************************/
 // Initial placement of data in ghost nodes
 void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn,

@@ -7,25 +7,23 @@
 #include <cmath>
 #include <fstream>
 
-using namespace std;
-
 //*****************************************************************************/
 // Prints values of grain orientation for all cells to files
 void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection,
                       int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
-                      string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
-                      string PathToOutput, bool FilesToPrint[4], double deltax) {
+                      std::string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
+                      std::string PathToOutput, bool FilesToPrint[4], double deltax) {
 
     if (id == 0) {
         // Create GrainID variable for entire domain, place GrainIDs for rank 0
-        vector<vector<vector<int>>> GrainID_WholeDomain;
-        vector<vector<vector<bool>>> Melted_WholeDomain;
+        std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain;
+        std::vector<std::vector<std::vector<bool>>> Melted_WholeDomain;
         for (int k = 0; k < nz; k++) {
-            vector<vector<int>> GrainID_JK;
-            vector<vector<bool>> Melted_JK;
+            std::vector<std::vector<int>> GrainID_JK;
+            std::vector<std::vector<bool>> Melted_JK;
             for (int i = 0; i < nx; i++) {
-                vector<int> GrainID_K;
-                vector<bool> Melted_K;
+                std::vector<int> GrainID_K;
+                std::vector<bool> Melted_K;
                 for (int j = 0; j < ny; j++) {
                     GrainID_K.push_back(0);
                     Melted_K.push_back(false);
@@ -84,7 +82,7 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
             }
         }
 
-        string FName = PathToOutput + BaseFileName;
+        std::string FName = PathToOutput + BaseFileName;
 
         if (FilesToPrint[0])
             PrintOrientations(FName, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain, NGrainOrientations);
@@ -129,16 +127,17 @@ void CollectGrainData(int id, int np, int nx, int ny, int nz, int MyXSlices, int
 //*****************************************************************************/
 // Prints values of critical undercooling for all cells to files
 void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection,
-                     int ProcessorsInYDirection, ViewI_H CritTimeStep, int DecompositionStrategy, string PathToOutput) {
+                     int ProcessorsInYDirection, ViewI_H CritTimeStep, int DecompositionStrategy,
+                     std::string PathToOutput) {
 
     // Critical time step for solidification start printed to file first
     if (id == 0) {
         // Create GrainID variable for entire domain, place GrainIDs for rank 0
-        vector<vector<vector<int>>> CritTimeStep_WholeDomain;
+        std::vector<std::vector<std::vector<int>>> CritTimeStep_WholeDomain;
         for (int k = 0; k < nz; k++) {
-            vector<vector<int>> CTS_JK;
+            std::vector<std::vector<int>> CTS_JK;
             for (int i = 0; i < nx; i++) {
-                vector<int> CTS_K;
+                std::vector<int> CTS_K;
                 for (int j = 0; j < ny; j++) {
                     CTS_K.push_back(0);
                 }
@@ -189,20 +188,20 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int 
         }
 
         // Print grain orientations to file
-        string FName = PathToOutput + "CriticalTimeStep.vtk";
+        std::string FName = PathToOutput + "CriticalTimeStep.vtk";
         std::ofstream CTSplot;
         // New vtk file
         CTSplot.open(FName);
-        CTSplot << "# vtk DataFile Version 3.0" << endl;
-        CTSplot << "vtk output" << endl;
-        CTSplot << "ASCII" << endl;
-        CTSplot << "DATASET STRUCTURED_POINTS" << endl;
-        CTSplot << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 2 << endl;
-        CTSplot << "ORIGIN 0 0 0" << endl;
-        CTSplot << "SPACING 1 1 1" << endl;
-        CTSplot << fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 2) << endl;
-        CTSplot << "SCALARS Angle_z float 1" << endl;
-        CTSplot << "LOOKUP_TABLE default" << endl;
+        CTSplot << "# vtk DataFile Version 3.0" << std::endl;
+        CTSplot << "vtk output" << std::endl;
+        CTSplot << "ASCII" << std::endl;
+        CTSplot << "DATASET STRUCTURED_POINTS" << std::endl;
+        CTSplot << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 2 << std::endl;
+        CTSplot << "ORIGIN 0 0 0" << std::endl;
+        CTSplot << "SPACING 1 1 1" << std::endl;
+        CTSplot << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 2) << std::endl;
+        CTSplot << "SCALARS Angle_z float 1" << std::endl;
+        CTSplot << "LOOKUP_TABLE default" << std::endl;
 
         for (int k = 1; k < nz - 1; k++) {
             for (int j = 1; j < ny - 1; j++) {
@@ -210,7 +209,7 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int 
                     CTSplot << 0.75 * pow(10, -6) * (float)(CritTimeStep_WholeDomain[k][i][j]) << " ";
                 }
             }
-            CTSplot << endl;
+            CTSplot << std::endl;
         }
         CTSplot.close();
     }
@@ -233,17 +232,17 @@ void PrintTempValues(int id, int np, int nx, int ny, int nz, int MyXSlices, int 
 
 //*****************************************************************************/
 void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection,
-             int ProcessorsInYDirection, ViewI_H CellType, string BaseFileName, int DecompositionStrategy) {
+             int ProcessorsInYDirection, ViewI_H CellType, std::string BaseFileName, int DecompositionStrategy) {
 
-    string FName = BaseFileName + "_CT.vtk";
+    std::string FName = BaseFileName + "_CT.vtk";
     std::ofstream Grainplot;
     if (id == 0) {
         // Create GrainID variable for entire domain, place GrainIDs for rank 0
-        vector<vector<vector<int>>> CellType_WholeDomain;
+        std::vector<std::vector<std::vector<int>>> CellType_WholeDomain;
         for (int k = 0; k < nz; k++) {
-            vector<vector<int>> CellType_JK;
+            std::vector<std::vector<int>> CellType_JK;
             for (int i = 0; i < nx; i++) {
-                vector<int> CellType_K;
+                std::vector<int> CellType_K;
                 for (int j = 0; j < ny; j++) {
                     CellType_K.push_back(Wall);
                 }
@@ -259,7 +258,7 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
             }
         }
 
-        cout << "Domain created: Rank 0 placed slices 0 through" << MyYSlices - 2 << endl;
+        std::cout << "Domain created: Rank 0 placed slices 0 through" << MyYSlices - 2 << std::endl;
         // Recieve Grain ID value from other ranks
         // Message size different for different ranks
         for (int p = 1; p < np; p++) {
@@ -292,21 +291,21 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
                 }
             }
         }
-        cout << "Opening file" << endl;
+        std::cout << "Opening file" << std::endl;
         // Print grain orientations to file
         std::ofstream Grainplot;
         // New vtk file
         Grainplot.open(FName);
-        Grainplot << "# vtk DataFile Version 3.0" << endl;
-        Grainplot << "vtk output" << endl;
-        Grainplot << "ASCII" << endl;
-        Grainplot << "DATASET STRUCTURED_POINTS" << endl;
-        Grainplot << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 2 << endl;
-        Grainplot << "ORIGIN 0 0 0" << endl;
-        Grainplot << "SPACING 1 1 1" << endl;
-        Grainplot << fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 2) << endl;
-        Grainplot << "SCALARS Angle_z int 1" << endl;
-        Grainplot << "LOOKUP_TABLE default" << endl;
+        Grainplot << "# vtk DataFile Version 3.0" << std::endl;
+        Grainplot << "vtk output" << std::endl;
+        Grainplot << "ASCII" << std::endl;
+        Grainplot << "DATASET STRUCTURED_POINTS" << std::endl;
+        Grainplot << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 2 << std::endl;
+        Grainplot << "ORIGIN 0 0 0" << std::endl;
+        Grainplot << "SPACING 1 1 1" << std::endl;
+        Grainplot << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 2) << std::endl;
+        Grainplot << "SCALARS Angle_z int 1" << std::endl;
+        Grainplot << "LOOKUP_TABLE default" << std::endl;
 
         for (int k = 1; k < nz - 1; k++) {
             for (int j = 1; j < ny - 1; j++) {
@@ -321,7 +320,7 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
                         Grainplot << 3 << " ";
                 }
             }
-            Grainplot << endl;
+            Grainplot << std::endl;
         }
         Grainplot.close();
     }
@@ -344,17 +343,18 @@ void PrintCT(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlice
 }
 
 //*****************************************************************************/
-void PrintOrientations(string FName, int nx, int ny, int nz, vector<vector<vector<bool>>> Melted_WholeDomain,
-                       vector<vector<vector<int>>> GrainID_WholeDomain, int NGrainOrientations) {
+void PrintOrientations(std::string FName, int nx, int ny, int nz,
+                       std::vector<std::vector<std::vector<bool>>> Melted_WholeDomain,
+                       std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain, int NGrainOrientations) {
 
     // Histogram of orientations for texture determination
-    cout << "Printing file of grain orientation distribution, out of " << NGrainOrientations
-         << " possible orientations for each grain" << endl;
-    ofstream Grainplot0;
-    string FName0 = FName + "_Orientations.csv";
+    std::cout << "Printing file of grain orientation distribution, out of " << NGrainOrientations
+              << " possible orientations for each grain" << std::endl;
+    std::ofstream Grainplot0;
+    std::string FName0 = FName + "_Orientations.csv";
     Grainplot0.open(FName0);
     ViewI_H GOHistogram("grain_orientations", NGrainOrientations);
-    cout << "Histogram made" << endl;
+    std::cout << "Histogram made" << std::endl;
     // frequency data on grain ids
     for (int k = 1; k < nz - 1; k++) {
         for (int j = 1; j < ny - 1; j++) {
@@ -366,31 +366,32 @@ void PrintOrientations(string FName, int nx, int ny, int nz, vector<vector<vecto
             }
         }
     }
-    cout << "Histogram filled" << endl;
+    std::cout << "Histogram filled" << std::endl;
     for (int i = 0; i < NGrainOrientations; i++) {
-        Grainplot0 << GOHistogram[i] << endl;
+        Grainplot0 << GOHistogram[i] << std::endl;
     }
     Grainplot0.close();
 }
 
 //*****************************************************************************/
-void PrintGrainIDs(string FName, int nx, int ny, int nz, vector<vector<vector<bool>>> Melted_WholeDomain,
-                   vector<vector<vector<int>>> GrainID_WholeDomain) {
+void PrintGrainIDs(std::string FName, int nx, int ny, int nz,
+                   std::vector<std::vector<std::vector<bool>>> Melted_WholeDomain,
+                   std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain) {
 
-    string FName1 = FName + ".csv";
-    cout << "Printing file of Grain ID values" << endl;
+    std::string FName1 = FName + ".csv";
+    std::cout << "Printing file of Grain ID values" << std::endl;
     std::ofstream Grainplot1;
     Grainplot1.open(FName1);
-    Grainplot1 << "Outermost dimension is nz = " << nz - 2 << endl;
-    Grainplot1 << "ny = " << ny - 2 << endl;
-    Grainplot1 << "Innermost dimension is nx = " << nx - 2 << endl;
+    Grainplot1 << "Outermost dimension is nz = " << nz - 2 << std::endl;
+    Grainplot1 << "ny = " << ny - 2 << std::endl;
+    Grainplot1 << "Innermost dimension is nx = " << nx - 2 << std::endl;
     for (int k = 1; k < nz - 1; k++) {
         for (int j = 1; j < ny - 1; j++) {
             for (int i = 1; i < nx - 1; i++) {
                 if (!Melted_WholeDomain[k][i][j])
-                    Grainplot1 << 0 << endl;
+                    Grainplot1 << 0 << std::endl;
                 else
-                    Grainplot1 << GrainID_WholeDomain[k][i][j] << endl;
+                    Grainplot1 << GrainID_WholeDomain[k][i][j] << std::endl;
             }
         }
     }
@@ -398,26 +399,27 @@ void PrintGrainIDs(string FName, int nx, int ny, int nz, vector<vector<vector<bo
 }
 
 //*****************************************************************************/
-void PrintParaview(string FName, int nx, int ny, int nz, vector<vector<vector<bool>>> Melted_WholeDomain,
-                   vector<vector<vector<int>>> GrainID_WholeDomain, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
-                   int NGrainOrientations) {
+void PrintParaview(std::string FName, int nx, int ny, int nz,
+                   std::vector<std::vector<std::vector<bool>>> Melted_WholeDomain,
+                   std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain, ViewI_H GrainOrientation,
+                   ViewF_H GrainUnitVector, int NGrainOrientations) {
 
-    string FName2 = FName + ".vtk";
-    cout << "Printing Paraview file of grain misorientations" << endl;
+    std::string FName2 = FName + ".vtk";
+    std::cout << "Printing Paraview file of grain misorientations" << std::endl;
     // Print grain orientations to file
     std::ofstream Grainplot2;
     // New vtk file
     Grainplot2.open(FName2);
-    Grainplot2 << "# vtk DataFile Version 3.0" << endl;
-    Grainplot2 << "vtk output" << endl;
-    Grainplot2 << "ASCII" << endl;
-    Grainplot2 << "DATASET STRUCTURED_POINTS" << endl;
-    Grainplot2 << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 2 << endl;
-    Grainplot2 << "ORIGIN 0 0 0" << endl;
-    Grainplot2 << "SPACING 1 1 1" << endl;
-    Grainplot2 << fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 2) << endl;
-    Grainplot2 << "SCALARS Angle_z int 1" << endl;
-    Grainplot2 << "LOOKUP_TABLE default" << endl;
+    Grainplot2 << "# vtk DataFile Version 3.0" << std::endl;
+    Grainplot2 << "vtk output" << std::endl;
+    Grainplot2 << "ASCII" << std::endl;
+    Grainplot2 << "DATASET STRUCTURED_POINTS" << std::endl;
+    Grainplot2 << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 2 << std::endl;
+    Grainplot2 << "ORIGIN 0 0 0" << std::endl;
+    Grainplot2 << "SPACING 1 1 1" << std::endl;
+    Grainplot2 << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 2) << std::endl;
+    Grainplot2 << "SCALARS Angle_z int 1" << std::endl;
+    Grainplot2 << "LOOKUP_TABLE default" << std::endl;
 
     int NVC = 0;
     for (int k = 1; k < nz - 1; k++) {
@@ -446,30 +448,30 @@ void PrintParaview(string FName, int nx, int ny, int nz, vector<vector<vector<bo
                 }
             }
         }
-        Grainplot2 << endl;
+        Grainplot2 << std::endl;
     }
     Grainplot2.close();
-    cout << "Volume fraction of domain claimed by nucleated grains: "
-         << (float)(NVC) / (float)((nx - 2) * (ny - 2) * (nz - 2)) << endl;
+    std::cout << "Volume fraction of domain claimed by nucleated grains: "
+              << (float)(NVC) / (float)((nx - 2) * (ny - 2) * (nz - 2)) << std::endl;
 }
 
 //*****************************************************************************/
-void PrintGrainIDsForExaConstit(string FName, int nx, int ny, int nz, vector<vector<vector<int>>> GrainID_WholeDomain,
-                                double deltax) {
+void PrintGrainIDsForExaConstit(std::string FName, int nx, int ny, int nz,
+                                std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain, double deltax) {
 
-    string FName1 = FName + "_ExaConstit.csv";
-    cout << "Printing file of X, Y, Z, GrainID values for ExaConstit" << endl;
+    std::string FName1 = FName + "_ExaConstit.csv";
+    std::cout << "Printing file of X, Y, Z, GrainID values for ExaConstit" << std::endl;
 
     std::ofstream Grainplot1;
     Grainplot1.open(FName1);
     Grainplot1 << "Coordinates are in CA units, 1 cell = " << deltax
                << " microns. Data is cell-centered. Origin at 0,0,0, domain size is " << nx - 2 << " by " << ny - 2
-               << " by " << nz - 2 << " cells" << endl;
-    Grainplot1 << "X coord, Y coord, Z coord, Grain ID" << endl;
+               << " by " << nz - 2 << " cells" << std::endl;
+    Grainplot1 << "X coord, Y coord, Z coord, Grain ID" << std::endl;
     for (int k = 1; k < nz - 1; k++) {
         for (int j = 1; j < ny - 1; j++) {
             for (int i = 1; i < nx - 1; i++) {
-                Grainplot1 << i - 1 << "," << j - 1 << "," << k - 1 << "," << GrainID_WholeDomain[k][i][j] << endl;
+                Grainplot1 << i - 1 << "," << j - 1 << "," << k - 1 << "," << GrainID_WholeDomain[k][i][j] << std::endl;
             }
         }
     }
@@ -477,15 +479,15 @@ void PrintGrainIDsForExaConstit(string FName, int nx, int ny, int nz, vector<vec
 }
 
 //*****************************************************************************/
-void PrintGrainAreas(string FName, double deltax, int nx, int ny, int nz,
-                     vector<vector<vector<int>>> GrainID_WholeDomain) {
+void PrintGrainAreas(std::string FName, double deltax, int nx, int ny, int nz,
+                     std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain) {
 
-    string FName1 = FName + "_GrainAreas.csv";
-    cout << "Printing file of grain area values (in square microns) for all Z coordinates" << endl;
+    std::string FName1 = FName + "_GrainAreas.csv";
+    std::cout << "Printing file of grain area values (in square microns) for all Z coordinates" << std::endl;
     std::ofstream Grainplot1;
     Grainplot1.open(FName1);
     for (int k = 1; k <= nz - 2; k++) {
-        vector<int> GIDVals_ThisLayer;
+        std::vector<int> GIDVals_ThisLayer;
         for (int j = 1; j <= ny - 2; j++) {
             for (int i = 1; i <= nx - 2; i++) {
                 GIDVals_ThisLayer.push_back(GrainID_WholeDomain[k][i][j]);
@@ -498,28 +500,28 @@ void PrintGrainAreas(string FName, double deltax, int nx, int ny, int nz,
         GIDVals_ThisLayer.resize(std::distance(GIDVals_ThisLayer.begin(), it));
         int GrainsThisLayer = GIDVals_ThisLayer.size();
         double MeanGrainAreaThisLayer = (double)(CellsThisLayer) / (double)(GrainsThisLayer);
-        Grainplot1 << MeanGrainAreaThisLayer * deltax * deltax / pow(10, -12) << endl;
+        Grainplot1 << MeanGrainAreaThisLayer * deltax * deltax / pow(10, -12) << std::endl;
     }
     Grainplot1.close();
 }
 
 //*****************************************************************************/
-void PrintWeightedGrainAreas(string FName, double deltax, int nx, int ny, int nz,
-                             vector<vector<vector<int>>> GrainID_WholeDomain) {
+void PrintWeightedGrainAreas(std::string FName, double deltax, int nx, int ny, int nz,
+                             std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain) {
 
-    string FName1 = FName + "_WeightedGrainAreas.csv";
-    cout << "Printing file of Grain ID values (in square microns) for every 10th Z coordinate" << endl;
+    std::string FName1 = FName + "_WeightedGrainAreas.csv";
+    std::cout << "Printing file of Grain ID values (in square microns) for every 10th Z coordinate" << std::endl;
     std::ofstream Grainplot1;
     Grainplot1.open(FName1);
     for (int k = 1; k <= nz - 2; k++) {
         if ((k + 2) % 12 == 0) {
-            vector<int> GIDVals_ThisLayer;
+            std::vector<int> GIDVals_ThisLayer;
             for (int j = 1; j <= ny - 2; j++) {
                 for (int i = 1; i <= nx - 2; i++) {
                     GIDVals_ThisLayer.push_back(GrainID_WholeDomain[k][i][j]);
                 }
             }
-            vector<int> GIDAllVals_ThisLayer;
+            std::vector<int> GIDAllVals_ThisLayer;
             GIDAllVals_ThisLayer = GIDVals_ThisLayer;
             std::vector<int>::iterator it;
             sort(GIDVals_ThisLayer.begin(), GIDVals_ThisLayer.end());
@@ -537,7 +539,7 @@ void PrintWeightedGrainAreas(string FName, double deltax, int nx, int ny, int nz
                 AreaXArea += MyGrainArea * MyGrainArea;
             }
             double WeightedArea = ((double)(AreaXArea) / (double)((nx - 2) * (ny - 2)));
-            Grainplot1 << WeightedArea * deltax * deltax / pow(10, -12) << endl;
+            Grainplot1 << WeightedArea * deltax * deltax / pow(10, -12) << std::endl;
         }
     }
     Grainplot1.close();

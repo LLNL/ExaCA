@@ -7,8 +7,6 @@
 #include <stdexcept>
 #include <string>
 
-using namespace std;
-
 int main(int argc, char *argv[]) {
     // Initialize MPI
     int id, np;
@@ -25,14 +23,14 @@ int main(int argc, char *argv[]) {
         if (id == 0)
             Kokkos::DefaultExecutionSpace::print_configuration(std::cout);
         if (id == 0)
-            cout << "Number of MPI ranks = " << np << endl;
+            std::cout << "Number of MPI ranks = " << np << std::endl;
 
         if (argc < 2) {
             throw std::runtime_error("Error: Must provide path to input file on the command line.");
         }
         else {
             // Run CA code using reduced temperature data format
-            string InputFile = argv[1];
+            std::string InputFile = argv[1];
             RunProgram_Reduced(id, np, InputFile);
         }
     }

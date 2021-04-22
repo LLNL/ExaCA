@@ -11,9 +11,7 @@
 #include <string>
 #include <vector>
 
-using namespace std;
-
-void RunProgram_Reduced(int id, int np, string InputFile) {
+void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     double NuclTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
     double StartNuclTime, StartCaptureTime, StartGhostTime;
@@ -28,7 +26,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange,
         NMax, dTN, dTsigma;
-    string SubstrateFileName, tempfile, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
+    std::string SubstrateFileName, tempfile, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
 
     // Read input data
     InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
@@ -55,7 +53,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     // Data structure for storing raw temperature data from file(s)
     // With no remelting, each data point has 5 values (X, Y, Z coordinates, liquidus time, and either solidus time OR
     // cooling rate) Initial estimate for size
-    vector<float> RawData(1000000);
+    std::vector<float> RawData(1000000);
 
     // Contains "NumberOfLayers" values corresponding to the location within "RawData" of the first data element in each
     // temperature file
@@ -74,7 +72,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        cout << "Mesh initialized" << endl;
+        std::cout << "Mesh initialized" << std::endl;
 
     // Temperature fields characterized by these variables:
     ViewI_H CritTimeStep_H(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep"), LocalDomainSize);
@@ -99,8 +97,8 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     RawData.clear();
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of " << nz
-             << " cells in the Z direction" << endl;
+        std::cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of "
+                  << nz << " cells in the Z direction" << std::endl;
 
     int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive; // Number of active cells on this MPI rank
 
@@ -115,7 +113,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     OrientationInit(id, NGrainOrientations, GrainOrientation_H, GrainUnitVector_H, GrainOrientationFile);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        cout << "Done with orientation initialization " << endl;
+        std::cout << "Done with orientation initialization " << std::endl;
 
     // CA cell variables
     ViewI_H GrainID_H(Kokkos::ViewAllocateWithoutInitializing("GrainID"), LocalDomainSize);
@@ -153,7 +151,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        cout << "Grain struct initialized" << endl;
+        std::cout << "Grain struct initialized" << std::endl;
 
     ViewI_H NucleationTimes_H(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes"), PossibleNuclei_ThisRank);
     ViewI_H NucleiLocation_H(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation"), PossibleNuclei_ThisRank);
@@ -161,13 +159,13 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     // Update nuclei on ghost nodes, fill in nucleation data structures, and assign nucleation undercooling values to
     // potential nucleation events
     if (id == 0)
-        cout << " Possible nucleation events (rank: # events): " << endl;
+        std::cout << " Possible nucleation events (rank: # events): " << std::endl;
     NucleiInit(DecompositionStrategy, MyXSlices, MyYSlices, nz, id, dTN, dTsigma, MyLeft, MyRight, MyIn, MyOut,
                MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, NucleiLocation_H, NucleationTimes_H, CellType_H, GrainID_H,
                CritTimeStep_H, UndercoolingChange_H);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        cout << "Nucleation initialized" << endl;
+        std::cout << "Nucleation initialized" << std::endl;
 
     // Normalize solidification parameters
     AConst = AConst * deltat / deltax;
@@ -241,7 +239,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
     double InitTime = MPI_Wtime() - StartTime;
     if (id == 0)
-        cout << "\nData initialized: Time spent: " << InitTime << " s" << endl;
+        std::cout << "\nData initialized: Time spent: " << InitTime << " s" << std::endl;
     cycle = 0;
 
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
@@ -333,7 +331,7 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
 
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0)
-                cout << "Resize executed" << endl;
+                std::cout << "Resize executed" << std::endl;
 
             // Update active cell data structures for simulation of next layer
             LayerSetup(MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, GrainOrientation_G,
@@ -343,11 +341,12 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
                        BufferER, BufferFR, BufferGR, BufferHR, ZBound_Low);
 
             if (id == 0)
-                cout << "New layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY << " " << BufSizeZ << endl;
+                std::cout << "New layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY << " " << BufSizeZ
+                          << std::endl;
             // Update ghost nodes for grain locations and attributes
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0)
-                cout << "New layer ghost nodes initialized" << endl;
+                std::cout << "New layer ghost nodes initialized" << std::endl;
             if (np > 1) {
                 GhostNodesInit(id, np, DecompositionStrategy, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn,
                                MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive,
@@ -360,14 +359,14 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
             double LayerTime2 = MPI_Wtime();
             cycle = 0;
             if (id == 0)
-                cout << "Time for layer number " << layernumber << " was " << LayerTime2 - LayerTime1
-                     << " s, starting layer " << layernumber + 1 << endl;
+                std::cout << "Time for layer number " << layernumber << " was " << LayerTime2 - LayerTime1
+                          << " s, starting layer " << layernumber + 1 << std::endl;
         }
         else {
             MPI_Barrier(MPI_COMM_WORLD);
             double LayerTime2 = MPI_Wtime();
             if (id == 0)
-                cout << "Time for final layer was " << LayerTime2 - LayerTime1 << " s" << endl;
+                std::cout << "Time for final layer was " << LayerTime2 - LayerTime1 << " s" << std::endl;
         }
     }
 
@@ -380,14 +379,14 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     MPI_Barrier(MPI_COMM_WORLD);
     if (PrintFilesYN) {
         if (id == 0)
-            cout << "Collecting data on rank 0 and printing to files" << endl;
+            std::cout << "Collecting data on rank 0 and printing to files" << std::endl;
         CollectGrainData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
                          GrainID_H, GrainOrientation_H, GrainUnitVector_H, OutputFile, DecompositionStrategy,
                          NGrainOrientations, Melted, PathToOutput, FilesToPrint, deltax);
     }
     else {
         if (id == 0)
-            cout << "No output files to be printed, exiting program" << endl;
+            std::cout << "No output files to be printed, exiting program" << std::endl;
     }
 
     double OutTime = MPI_Wtime() - RunTime - InitTime;
@@ -405,20 +404,25 @@ void RunProgram_Reduced(int id, int np, string InputFile) {
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
     if (id == 0) {
-        cout << "===================================================================================" << endl;
-        cout << "Having run with = " << np << " processors" << endl;
-        cout << "Output written at cycle = " << cycle << endl;
-        cout << "Total time = " << InitTime + RunTime + OutTime << endl;
-        cout << "Time spent initializing data = " << InitTime << " s" << endl;
-        cout << "Time spent performing CA calculations = " << RunTime << " s" << endl;
-        cout << "Time spent collecting and printing output data = " << OutTime << " s\n" << endl;
+        std::cout << "===================================================================================" << std::endl;
+        std::cout << "Having run with = " << np << " processors" << std::endl;
+        std::cout << "Output written at cycle = " << cycle << std::endl;
+        std::cout << "Total time = " << InitTime + RunTime + OutTime << std::endl;
+        std::cout << "Time spent initializing data = " << InitTime << " s" << std::endl;
+        std::cout << "Time spent performing CA calculations = " << RunTime << " s" << std::endl;
+        std::cout << "Time spent collecting and printing output data = " << OutTime << " s\n" << std::endl;
 
-        cout << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime << " s" << endl;
-        cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s" << endl;
-        cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s" << endl;
-        cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s" << endl;
-        cout << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s" << endl << endl;
+        std::cout << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime << " s"
+                  << std::endl;
+        std::cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s"
+                  << std::endl;
+        std::cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s"
+                  << std::endl;
+        std::cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s"
+                  << std::endl;
+        std::cout << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s\n"
+                  << std::endl;
 
-        cout << "===================================================================================" << endl;
+        std::cout << "===================================================================================" << std::endl;
     }
 }
