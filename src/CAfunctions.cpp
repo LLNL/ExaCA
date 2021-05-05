@@ -5,8 +5,6 @@
 #include <cmath>
 #include <iostream>
 
-using namespace std;
-
 /*************************** FUNCTIONS CALLED THROUGH MAIN SUBROUTINES ***************************/
 
 //*****************************************************************************/
@@ -271,7 +269,8 @@ void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &Proce
     else if (DecompositionStrategy == 2) {
         if (np % 2 != 0) {
             if (id == 0)
-                cout << "Warning: Number of processors not divisible by two- defaulting to 1D decomposition" << endl;
+                std::cout << "Warning: Number of processors not divisible by two- defaulting to 1D decomposition"
+                          << std::endl;
             DecompositionStrategy = 1;
             goto OneDim;
         }
@@ -323,9 +322,10 @@ void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &Proce
 
         if (((!PerfectSquare) && (!DivisibleBy2)) || (np == 2)) {
             if (id == 0)
-                cout << "Note: Number of processors is either 2, not divisible by two, or not divisible by itself- "
-                        "defaulting to 1D decomposition"
-                     << endl;
+                std::cout
+                    << "Note: Number of processors is either 2, not divisible by two, or not divisible by itself- "
+                       "defaulting to 1D decomposition"
+                    << std::endl;
             DecompositionStrategy = 1;
             goto OneDim;
         }
@@ -358,10 +358,10 @@ void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &Proce
             ProcessorsInYDirection = PY;
         }
         if ((ProcessorsInXDirection == 2) && (id == 0))
-            cout << "Note: Decomposition pattern 3 is equivalent to 2" << endl;
+            std::cout << "Note: Decomposition pattern 3 is equivalent to 2" << std::endl;
         if (id == 0)
-            cout << " Processors in X: " << ProcessorsInXDirection << " Processors in Y: " << ProcessorsInYDirection
-                 << endl;
+            std::cout << " Processors in X: " << ProcessorsInXDirection
+                      << " Processors in Y: " << ProcessorsInYDirection << std::endl;
         MyLeft = id - 1;
         MyRight = id + 1;
         MyIn = id + ProcessorsInYDirection;

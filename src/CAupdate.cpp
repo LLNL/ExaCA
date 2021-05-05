@@ -4,7 +4,9 @@
 
 #include <cmath>
 
-using namespace std;
+// Using for compatibility with device math functions.
+using std::max;
+using std::min;
 
 namespace sample { // namespace helps with name resolution in reduction identity
 template <class ScalarType, int N>
@@ -719,8 +721,8 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
 // Prints intermediate code output to stdout, checks to see if solidification is complete
 void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices, int LocalDomainSize,
                                 int LocalActiveDomainSize, int nn, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
-                                string TemperatureDataType, int *FinishTimeStep, int layernumber, int, int ZBound_Low,
-                                ViewI LayerID) {
+                                std::string TemperatureDataType, int *FinishTimeStep, int layernumber, int,
+                                int ZBound_Low, ViewI LayerID) {
 
     sample::ValueType CellTypeStorage;
     Kokkos::parallel_reduce(
@@ -762,10 +764,11 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
     MPI_Reduce(&nn, &Global_nn, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if (id == 0) {
-        cout << "cycle = " << cycle << " Superheated liquid cells = " << GlobalSuperheatedCells
-             << " Undercooled liquid cells = " << GlobalUndercooledCells << " Number of nucleation events this layer "
-             << Global_nn
-             << " Remaining liquid cells in future layers of this simulation = " << GlobalRemainingLiquidCells << endl;
+        std::cout << "cycle = " << cycle << " Superheated liquid cells = " << GlobalSuperheatedCells
+                  << " Undercooled liquid cells = " << GlobalUndercooledCells
+                  << " Number of nucleation events this layer " << Global_nn
+                  << " Remaining liquid cells in future layers of this simulation = " << GlobalRemainingLiquidCells
+                  << std::endl;
         if (GlobalSuperheatedCells + GlobalUndercooledCells == 0)
             XSwitch = 1;
     }
@@ -800,7 +803,7 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
                 // Jump to next time step when solidification starts again
                 cycle = GlobalNextCTS - 1;
                 if (id == 0)
-                    cout << "Jumping to cycle " << cycle + 1 << endl;
+                    std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
             }
             if (cycle >= FinishTimeStep[layernumber])
                 XSwitch = 1;
