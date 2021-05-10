@@ -10,7 +10,6 @@
 #include <random>
 #include <regex>
 
-using namespace std;
 // Initializes input parameters, mesh, temperature field, and grain structures for CA simulations
 
 //*****************************************************************************/
@@ -37,7 +36,7 @@ std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon)
         actual_key = line.substr(0, colon);
         // Check for colon seperator
         if (colon == std::string::npos) {
-            string error = "Input \"" + actual_key + "\" must be separated from value by \":\".";
+            std::string error = "Input \"" + actual_key + "\" must be separated from value by \":\".";
             throw std::runtime_error(error);
         }
         std::vector<std::string> deprecated_inputs = {"Burst buffer", "Source of input length unit"};
@@ -58,7 +57,7 @@ std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon)
 // Remove whitespace from "line", taking only the portion of the line that comes after the colon
 std::string removeWhitespace(std::string line, std::size_t colon) {
 
-    std::string val = line.substr(colon + 1, string::npos);
+    std::string val = line.substr(colon + 1, std::string::npos);
     std::regex r("\\s+");
     val = std::regex_replace(val, r, "");
     return val;
@@ -75,7 +74,7 @@ std::string parseInput(std::ifstream &stream, std::string key) {
     // Check for keyword
     if (actual_key.find(key) == std::string::npos) {
         // Keyword not found
-        string error = "Required input not present: " + key + " not found in the input file";
+        std::string error = "Required input not present: " + key + " not found in the input file";
         throw std::runtime_error(error);
     }
     // Keyword was found
@@ -96,7 +95,7 @@ std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::str
         // Keyword 1 not found - check for Keyword 2
         if (actual_key.find(key2) == std::string::npos) {
             // Neither possible input found
-            string error =
+            std::string error =
                 "Required input not present: Neither " + key1 + " nor " + key2 + " was found in the input file";
             throw std::runtime_error(error);
         }
@@ -123,7 +122,7 @@ bool parseInputBool(std::ifstream &stream, std::string key) {
         return true;
     }
     else {
-        string error = "Input \"" + key + "\" must be \"Y\" or \"N\".";
+        std::string error = "Input \"" + key + "\" must be \"Y\" or \"N\".";
         throw std::runtime_error(error);
     }
 }
@@ -133,10 +132,10 @@ void CheckTemperatureCoordinateBound(std::string Label, float LowerBound, float 
                                      int LineNumber, std::string TemperatureFilename) {
 
     if ((InputValue < LowerBound) || (InputValue > UpperBound)) {
-        string error = Label + " value " + to_string(InputValue) + " on line " + to_string(LineNumber) + " of file " +
-                       TemperatureFilename +
-                       " is invalid based on domain size limit given in the file header: must be greater than " +
-                       to_string(LowerBound) + " and less than " + to_string(UpperBound);
+        std::string error = Label + " value " + std::to_string(InputValue) + " on line " + std::to_string(LineNumber) +
+                            " of file " + TemperatureFilename +
+                            " is invalid based on domain size limit given in the file header: must be greater than " +
+                            std::to_string(LowerBound) + " and less than " + std::to_string(UpperBound);
         throw std::runtime_error(error);
     }
 }
@@ -145,15 +144,17 @@ void CheckTemperatureCoordinateBound(std::string Label, float LowerBound, float 
 void CheckTemperatureDataPoint(std::string Label, float InputValue, int LineNumber, std::string TemperatureFilename) {
     if (Label == "Liquidus Time") {
         if (InputValue <= 0) {
-            string error = Label + " value " + to_string(InputValue) + " on line " + to_string(LineNumber) +
-                           " of file " + TemperatureFilename + " is invalid: must be equal to or greater than zero";
+            std::string error = Label + " value " + std::to_string(InputValue) + " on line " +
+                                std::to_string(LineNumber) + " of file " + TemperatureFilename +
+                                " is invalid: must be equal to or greater than zero";
             throw std::runtime_error(error);
         }
     }
     else {
         if (InputValue < 0) {
-            string error = Label + " value " + to_string(InputValue) + " on line " + to_string(LineNumber) +
-                           " of file " + TemperatureFilename + " is invalid: must be greater than zero";
+            std::string error = Label + " value " + std::to_string(InputValue) + " on line " +
+                                std::to_string(LineNumber) + " of file " + TemperatureFilename +
+                                " is invalid: must be greater than zero";
             throw std::runtime_error(error);
         }
     }
@@ -161,24 +162,25 @@ void CheckTemperatureDataPoint(std::string Label, float InputValue, int LineNumb
 
 //*****************************************************************************/
 // Read ExaCA input file.
-void InputReadFromFile(int id, string InputFile, string &SimulationType, int &DecompositionStrategy, double &AConst,
-                       double &BConst, double &CConst, double &DConst, double &FreezingRange, double &deltax,
-                       double &NMax, double &dTN, double &dTsigma, string &OutputFile, string &GrainOrientationFile,
-                       string &tempfile, int &TempFilesInSeries, bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN,
-                       double &deltat, int &NumberOfLayers, int &LayerHeight, string &SubstrateFileName,
-                       float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny,
-                       int &nz, double &FractSurfaceSitesActive, string &PathToOutput, bool (&FilesToPrint)[6],
+void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
+                       double &AConst, double &BConst, double &CConst, double &DConst, double &FreezingRange,
+                       double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
+                       std::string &GrainOrientationFile, std::string &tempfile, int &TempFilesInSeries,
+                       bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
+                       int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
+                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
+                       double &FractSurfaceSitesActive, std::string &PathToOutput, bool (&FilesToPrint)[6],
                        bool &PrintFilesYN) {
 
     size_t backslash = InputFile.find_last_of("/");
-    string FilePath = InputFile.substr(0, backslash);
+    std::string FilePath = InputFile.substr(0, backslash);
 
-    ifstream InputData, MaterialData;
-    string Colon = ":";
-    string Quote = "'";
+    std::ifstream InputData, MaterialData;
+    std::string Colon = ":";
+    std::string Quote = "'";
     InputData.open(InputFile);
     if (id == 0)
-        cout << "Input file " << InputFile << " opened" << endl;
+        std::cout << "Input file " << InputFile << " opened" << std::endl;
     skipLines(InputData);
 
     std::string val;
@@ -243,19 +245,19 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     if (SimulationType == "R") {
         // Read input arguments for a reduced temperature data format solidification problem
         if (id == 0)
-            cout << "CA Simulation using reduced temperature data from file(s)" << endl;
+            std::cout << "CA Simulation using reduced temperature data from file(s)" << std::endl;
 
         // Heat transport mesh size
         val = parseInput(InputData, "Heat transport data mesh size");
         HT_deltax = atof(val.c_str()) * pow(10, -6);
         if (id == 0)
-            cout << "Mesh size of the temperature data is " << HT_deltax << " microns" << endl;
+            std::cout << "Mesh size of the temperature data is " << HT_deltax << " microns" << std::endl;
 
         // Time step (s)
         val = parseInput(InputData, "Time step");
         deltat = atof(val.c_str()) * pow(10, -6);
         if (id == 0)
-            cout << "The time step is " << val << " microseconds" << endl;
+            std::cout << "The time step is " << val << " microseconds" << std::endl;
 
         // Name of substrate file OR average spacing of substrate grains in microns
         int SubstrateDataType = 0;
@@ -264,7 +266,7 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
             SubstrateFileName = FilePath + "/Substrate/" + val;
             UseSubstrateFile = true;
             if (id == 0)
-                cout << "The substrate file used is " << SubstrateFileName << endl;
+                std::cout << "The substrate file used is " << SubstrateFileName << std::endl;
         }
         else if (SubstrateDataType == 2) {
             SubstrateGrainSpacing = atof(val.c_str());
@@ -284,31 +286,31 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
         RemeltingYN = false;
 
         if (id == 0) {
-            cout << "Temperature data file(s) is/are " << tempfile << " , and there are " << TempFilesInSeries
-                 << " in the series" << endl;
+            std::cout << "Temperature data file(s) is/are " << tempfile << " , and there are " << TempFilesInSeries
+                      << " in the series" << std::endl;
         }
         // Check to ensure all temperature files exist - obtain number of temperature data values and data units from
         // each file
         for (int i = 0; i < TempFilesInSeries; i++) {
-            string CurrentTempFile = tempfile;
+            std::string CurrentTempFile = tempfile;
             if (TempFilesInSeries > 1) {
                 int NextLayerFile = i + 1;
-                string NextLayerFileS = to_string(NextLayerFile);
+                std::string NextLayerFileS = std::to_string(NextLayerFile);
                 std::size_t found = tempfile.find_last_of("/");
-                string FPath = tempfile.substr(0, found + 1);
-                string FName = tempfile.substr(found + 1);
+                std::string FPath = tempfile.substr(0, found + 1);
+                std::string FName = tempfile.substr(found + 1);
                 CurrentTempFile = FPath + NextLayerFileS + FName;
             }
-            ifstream TemperatureFile;
+            std::ifstream TemperatureFile;
             TemperatureFile.open(CurrentTempFile);
             if (TemperatureFile.is_open()) {
                 if (id == 0)
-                    cout << "Successfully opened file" << endl;
+                    std::cout << "Successfully opened file" << std::endl;
                 TemperatureFile.close();
             }
             else {
                 if (id == 0)
-                    cout << "Failed to open file " << CurrentTempFile << endl;
+                    std::cout << "Failed to open file " << CurrentTempFile << std::endl;
                 if (id == 0)
                     throw std::runtime_error("Input \"Could not find or open temperature file(s)\"  \".");
             }
@@ -326,8 +328,8 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
         val = parseInput(InputData, "Offset between layers");
         LayerHeight = stoi(val, nullptr, 10);
         if (id == 0)
-            cout << "A total of " << NumberOfLayers << " of solidification offset by " << LayerHeight
-                 << " CA cells will be simulated" << endl;
+            std::cout << "A total of " << NumberOfLayers << " of solidification offset by " << LayerHeight
+                      << " CA cells will be simulated" << std::endl;
     }
     else if (SimulationType == "C") {
         // Read input arguments for a constrained growth solidification problem
@@ -342,8 +344,8 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
         val = parseInput(InputData, "Cooling rate");
         R = atof(val.c_str());
         if (id == 0)
-            cout << "CA Simulation using a fixed thermal gradient of " << G << " K/m and a cooling rate of " << R
-                 << " K/s" << endl;
+            std::cout << "CA Simulation using a fixed thermal gradient of " << G << " K/m and a cooling rate of " << R
+                      << " K/s" << std::endl;
 
         // Domain size in x
         val = parseInput(InputData, "Domain size in x");
@@ -360,24 +362,24 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
         nz = stoi(val, nullptr, 10);
         nz = nz + 2;
         if (id == 0)
-            cout << "The domain size is " << nx << " by " << ny << " by " << nz << " cells" << endl;
+            std::cout << "The domain size is " << nx << " by " << ny << " by " << nz << " cells" << std::endl;
 
         // delta t (using ratio between cooling rate R, thermal gradient G, and cell size delta x
         val = parseInput(InputData, "\"N\"");
         int NRatio = stoi(val, nullptr, 10);
         deltat = deltax / (NRatio * (R / G));
         if (id == 0)
-            cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << endl;
+            std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
 
         // Fraction of bottom surface sites active
         val = parseInput(InputData, "Fraction of surface sites active");
         FractSurfaceSitesActive = atof(val.c_str());
         if (id == 0)
-            cout << "The fraction of CA cells at the bottom surface that are active is " << FractSurfaceSitesActive
-                 << endl;
+            std::cout << "The fraction of CA cells at the bottom surface that are active is " << FractSurfaceSitesActive
+                      << std::endl;
     }
     // Which files should be printed?
-    string FileYN;
+    std::string FileYN;
     // Orientations file
     FilesToPrint[0] = parseInputBool(InputData, "Print file of grain orientations");
     // csv file of grain ids
@@ -398,27 +400,27 @@ void InputReadFromFile(int id, string InputFile, string &SimulationType, int &De
     InputData.close();
 
     if (id == 0) {
-        cout << "Decomposition Strategy is " << DecompositionStrategy << endl;
-        cout << "Material simulated is " << MaterialFile
-             << ", interfacial response function constants are A = " << AConst << ", B = " << BConst
-             << ", C = " << CConst << ", and D = " << DConst << endl;
-        cout << "CA cell size is " << deltax * pow(10, 6) << " microns" << endl;
-        cout << "Nucleation density is " << NRead << " x 10^12 per m^3" << endl;
-        cout << "Mean nucleation undercooling is " << dTN << " K, standard deviation of distribution is " << dTsigma
-             << "K" << endl;
+        std::cout << "Decomposition Strategy is " << DecompositionStrategy << std::endl;
+        std::cout << "Material simulated is " << MaterialFile
+                  << ", interfacial response function constants are A = " << AConst << ", B = " << BConst
+                  << ", C = " << CConst << ", and D = " << DConst << std::endl;
+        std::cout << "CA cell size is " << deltax * pow(10, 6) << " microns" << std::endl;
+        std::cout << "Nucleation density is " << NRead << " x 10^12 per m^3" << std::endl;
+        std::cout << "Mean nucleation undercooling is " << dTN << " K, standard deviation of distribution is "
+                  << dTsigma << "K" << std::endl;
     }
 }
 
 //*****************************************************************************/
 void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
-                      ViewI2D_H ItList, string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
+                      ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
                       int &MyXOffset, int &MyYOffset, int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn,
                       int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, int &nx,
-                      int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, string tempfile,
+                      int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, std::string tempfile,
                       float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, float FreezingRange,
                       int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
                       unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer, float *ZMaxLayer, int *FirstValue,
-                      int *LastValue, vector<float> &RawData) {
+                      int *LastValue, std::vector<float> &RawData) {
 
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
@@ -591,47 +593,47 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         XMax = -1000000.0;
         YMax = -1000000.0;
         ZMax = -1000000.0;
-        string LengthUnits, TimeUnits;
+        std::string LengthUnits, TimeUnits;
         bool UseCoolingRate = false;
 
         for (int Loop = 0; Loop <= 1; Loop++) {
 
-            int LayersToRead = min(NumberOfLayers, TempFilesInSeries); // was given in input file
+            int LayersToRead = std::min(NumberOfLayers, TempFilesInSeries); // was given in input file
             for (int LayerReadCount = 1; LayerReadCount <= LayersToRead; LayerReadCount++) {
 
-                string tempfile_thislayer;
+                std::string tempfile_thislayer;
                 if (TempFilesInSeries > 1) {
-                    string NextLayerFileS = to_string(LayerReadCount);
+                    std::string NextLayerFileS = std::to_string(LayerReadCount);
                     int NextLayerFile = LayerReadCount % TempFilesInSeries;
                     if (NextLayerFile == 0)
                         NextLayerFile = TempFilesInSeries;
-                    NextLayerFileS = to_string(NextLayerFile);
+                    NextLayerFileS = std::to_string(NextLayerFile);
                     std::size_t found = tempfile.find_last_of("/");
-                    string FPath = tempfile.substr(0, found + 1);
-                    string FName = tempfile.substr(found + 1);
+                    std::string FPath = tempfile.substr(0, found + 1);
+                    std::string FName = tempfile.substr(found + 1);
                     tempfile_thislayer = FPath + NextLayerFileS + FName;
                 }
                 else {
                     tempfile_thislayer = tempfile;
                 }
-                ifstream TemperatureFile;
+                std::ifstream TemperatureFile;
                 TemperatureFile.open(tempfile_thislayer);
 
                 if (Loop == 0) {
                     // Read the header line data
                     // First line is the number of temperature data points (currently not used by the CA code, but may
                     // be in the future)
-                    string DummyVar_TemperatureDataPoints = parseInput(TemperatureFile, "temperature");
+                    std::string DummyVar_TemperatureDataPoints = parseInput(TemperatureFile, "temperature");
                     // Second line is the number of remelting events in the file (should be 0 as we currently are
                     // assuming no remelting)
                     ZMinLayer[LayerReadCount - 1] = 1000000.0;
                     ZMaxLayer[LayerReadCount - 1] = -1000000.0;
-                    string val = parseInput(TemperatureFile, "remelting");
+                    std::string val = parseInput(TemperatureFile, "remelting");
                     int RemeltingDummyVar = stoi(val, nullptr, 10);
                     if ((id == 0) && (RemeltingDummyVar != 0))
-                        cout << "WARNING: ExaCA does not currently allow for multiple remelting events, remelting "
-                                "events was set to "
-                             << RemeltingDummyVar << " by design, errors will likely result" << endl;
+                        std::cout << "WARNING: ExaCA does not currently allow for multiple remelting events, remelting "
+                                     "events was set to "
+                                  << RemeltingDummyVar << " by design, errors will likely result" << std::endl;
                     // Third line contains the units of length (m or mm) and time (s or ms)
                     val = parseInput(TemperatureFile, "Units");
                     std::size_t findcommaseparator = val.find(",");
@@ -642,16 +644,17 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     TimeUnits = std::regex_replace(TimeUnits, r, "");
                     if (((LengthUnits != "mm") && (LengthUnits != "m")) ||
                         ((TimeUnits != "ms") && (TimeUnits != "s"))) {
-                        string error = "Length units \"" + LengthUnits + "\" or time units \"" + TimeUnits +
-                                       "\" are not valid- must be mm or m for length and ms or s for time";
+                        std::string error = "Length units \"" + LengthUnits + "\" or time units \"" + TimeUnits +
+                                            "\" are not valid- must be mm or m for length and ms or s for time";
                         throw std::runtime_error(error);
                     }
                     if (id == 0)
-                        cout << "Units of length are " << LengthUnits << " and units of time are " << TimeUnits << endl;
+                        std::cout << "Units of length are " << LengthUnits << " and units of time are " << TimeUnits
+                                  << std::endl;
                     // Fourth line contains XYZ bounds for the global temperature domain contained within this file
-                    string GlobalBoundsLine;
+                    std::string GlobalBoundsLine;
                     getline(TemperatureFile, GlobalBoundsLine);
-                    string XMinString, XMaxString, YMinString, YMaxString, ZMinString, ZMaxString;
+                    std::string XMinString, XMaxString, YMinString, YMaxString, ZMinString, ZMaxString;
                     size_t XStart = GlobalBoundsLine.find("[");
                     size_t XSeparator = GlobalBoundsLine.find(",");
                     size_t XEnd = GlobalBoundsLine.find(",", XSeparator + 1);
@@ -669,8 +672,9 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                         (XEnd == std::string::npos) || (YSeparator == std::string::npos) ||
                         (YEnd == std::string::npos) || (ZSeparator == std::string::npos) ||
                         (ZEnd == std::string::npos)) {
-                        string error = "XYZ data size line improperly formatted in input file: should be [xmin, xmax; "
-                                       "ymin, ymax; zmin, zmax]";
+                        std::string error =
+                            "XYZ data size line improperly formatted in input file: should be [xmin, xmax; "
+                            "ymin, ymax; zmin, zmax]";
                         throw std::runtime_error(error);
                     }
                     float XMin_ThisLayer = atof(XMinString.c_str());
@@ -689,7 +693,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     }
                     // Make sure fifth line contains all required column names: x, y, z, tl, and either ts or cr
                     // Check mix of lower and uppercase letters just in case
-                    string HeaderLine;
+                    std::string HeaderLine;
                     getline(TemperatureFile, HeaderLine);
                     std::size_t xf = HeaderLine.find("x");
                     if (xf == std::string::npos)
@@ -707,8 +711,8 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                         col1 = HeaderLine.find("TL");
                     if ((xf == std::string::npos) || (yf == std::string::npos) || (zf == std::string::npos) ||
                         (col1 == std::string::npos)) {
-                        string error = "One of the first four required column headers did not appear in the "
-                                       "temperature input file: these are x, y, z, tl";
+                        std::string error = "One of the first four required column headers did not appear in the "
+                                            "temperature input file: these are x, y, z, tl";
                         throw std::runtime_error(error);
                     }
                     std::size_t col2at1 = HeaderLine.find("ts");
@@ -719,7 +723,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     if ((col2at1 == std::string::npos) && (col2at2 == std::string::npos) &&
                         (col2at3 == std::string::npos) && (col2at4 == std::string::npos) &&
                         (col2at5 == std::string::npos)) {
-                        string error = "The fifth column header must be either ts or cr";
+                        std::string error = "The fifth column header must be either ts or cr";
                         throw std::runtime_error(error);
                     }
                     else {
@@ -747,8 +751,8 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     ZMinLayer[LayerReadCount - 1] = ZMin_ThisLayer;
                     ZMaxLayer[LayerReadCount - 1] = ZMax_ThisLayer;
                     if (id == 0)
-                        cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMin_ThisLayer << " "
-                             << ZMax_ThisLayer << endl;
+                        std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMin_ThisLayer << " "
+                                  << ZMax_ThisLayer << std::endl;
                 }
                 else {
                     // Store raw data relevant to each rank in the vector structure RawData
@@ -787,18 +791,18 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                             MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + (MyYSlices - 1) - 2) % HTtoCAratio);
 
                     // Second pass through the files - ignore header lines (there are now 5)
-                    string DummyLine;
+                    std::string DummyLine;
                     for (int line = 0; line < 5; line++) {
                         getline(TemperatureFile, DummyLine);
                     }
                     // Read data from the remaining lines
                     int LineCounter = 5;
                     while (!TemperatureFile.eof()) {
-                        string s;
+                        std::string s;
                         getline(TemperatureFile, s);
                         if (s.empty())
                             break;
-                        string XVal, YVal, ZVal, TLVal, TSVal;
+                        std::string XVal, YVal, ZVal, TLVal, TSVal;
                         int Subdivisions[4];
                         int SubdivisionCount = 0;
                         for (std::size_t i = 1; i < s.length(); i++) {
@@ -829,7 +833,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                 stringlength = s.length();
                             else
                                 stringlength = Subdivisions[i] - stringstart;
-                            string MeshDataS = s.substr(stringstart, stringlength);
+                            std::string MeshDataS = s.substr(stringstart, stringlength);
                             float MeshData = atof(MeshDataS.c_str());
                             if (i == 0) {
                                 if (LengthUnits == "mm")
@@ -962,11 +966,11 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                 ny = round((YMax - YMin) / deltax) + 1 + 4;
                 nz = round((ZMax - ZMin) / deltax) + 1 + 3;
                 if (id == 0) {
-                    cout << "Domain size: " << nx << " by " << ny << " by " << nz << endl;
-                    cout << "X Limits of domain: " << XMin << " and " << XMax << endl;
-                    cout << "Y Limits of domain: " << YMin << " and " << YMax << endl;
-                    cout << "Z Limits of domain: " << ZMin << " and " << ZMax << endl;
-                    cout << "================================================================" << endl;
+                    std::cout << "Domain size: " << nx << " by " << ny << " by " << nz << std::endl;
+                    std::cout << "X Limits of domain: " << XMin << " and " << XMax << std::endl;
+                    std::cout << "Y Limits of domain: " << YMin << " and " << YMax << std::endl;
+                    std::cout << "Z Limits of domain: " << ZMin << " and " << ZMax << std::endl;
+                    std::cout << "================================================================" << std::endl;
                 }
                 InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id,
                                      np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut);
@@ -1006,8 +1010,8 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         // For constrained solidification test problems, nx/ny/nz are already known and the decomposition can be
         // performed immediately
         if (id == 0) {
-            cout << "Constrained solidification domain size: " << nx << " by " << ny << " by " << nz << endl;
-            cout << "================================================================" << endl;
+            std::cout << "Constrained solidification domain size: " << nx << " by " << ny << " by " << nz << std::endl;
+            std::cout << "================================================================" << std::endl;
         }
         InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id, np,
                              MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut);
@@ -1021,12 +1025,12 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
 }
 
 //*****************************************************************************/
-void TempInit(int layernumber, double G, double R, string SimulationType, int id, int &MyXSlices, int &MyYSlices,
+void TempInit(int layernumber, double G, double R, std::string SimulationType, int id, int &MyXSlices, int &MyYSlices,
               int &MyXOffset, int &MyYOffset, double &deltax, double HT_deltax, double deltat, int &nx, int &ny,
               int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin,
               float YMin, float ZMin, bool *Melted, float *ZMinLayer, float *ZMaxLayer, int LayerHeight,
               int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int *FinishTimeStep,
-              double FreezingRange, ViewI_H LayerID, int *FirstValue, int *LastValue, vector<float> RawData) {
+              double FreezingRange, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<float> RawData) {
 
     if (SimulationType == "C") {
 
@@ -1074,14 +1078,14 @@ void TempInit(int layernumber, double G, double R, string SimulationType, int id
         double HTtoCAratio_unrounded = HT_deltax / deltax;
         double HTtoCAratio_floor = floor(HTtoCAratio_unrounded);
         if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.0005) && (id == 0)) {
-            string error = "Error: Temperature data point spacing not evenly divisible by CA cell size";
+            std::string error = "Error: Temperature data point spacing not evenly divisible by CA cell size";
             throw std::runtime_error(error);
         }
         else if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.000001) && (id == 0)) {
-            cout << "Note: Adjusting cell size from " << deltax << " to " << HT_deltax / HTtoCAratio_floor
-                 << " to "
-                    "ensure even divisibility of CA cell size into temperature data spacing"
-                 << endl;
+            std::cout << "Note: Adjusting cell size from " << deltax << " to " << HT_deltax / HTtoCAratio_floor
+                      << " to "
+                         "ensure even divisibility of CA cell size into temperature data spacing"
+                      << std::endl;
         }
         // Adjust deltax to exact value based on temperature data spacing and ratio between heat transport/CA cell sizes
         deltax = HT_deltax / HTtoCAratio_floor;
@@ -1136,16 +1140,16 @@ void TempInit(int layernumber, double G, double R, string SimulationType, int id
                 round((ZMaxLayer[LayerCounter] - ZMinLayer[LayerCounter]) / deltax) +
                 1; // (note this doesn't include the 2 rows of wall/active cells at the bottom surface)
             if (id == 0)
-                cout << "Initializing temporary temperature data structures with " << nzTempValuesThisLayer
-                     << " cells in z direction" << endl;
+                std::cout << "Initializing temporary temperature data structures with " << nzTempValuesThisLayer
+                          << " cells in z direction" << std::endl;
             if (id == 0)
-                cout << "Layer " << LayerCounter << " rank " << id << " ZMin this layer is " << ZMinLayer[LayerCounter]
-                     << endl;
-            vector<vector<vector<double>>> CR, CritTL;
+                std::cout << "Layer " << LayerCounter << " rank " << id << " ZMin this layer is "
+                          << ZMinLayer[LayerCounter] << std::endl;
+            std::vector<std::vector<std::vector<double>>> CR, CritTL;
             for (int k = 0; k < nzTempValuesThisLayer; k++) {
-                vector<vector<double>> TemperatureXX;
+                std::vector<std::vector<double>> TemperatureXX;
                 for (int i = LowerXBound; i <= UpperXBound; i++) {
-                    vector<double> TemperatureX;
+                    std::vector<double> TemperatureX;
                     for (int j = LowerYBound; j <= UpperYBound; j++) {
                         TemperatureX.push_back(-1.0);
                     }
@@ -1162,8 +1166,8 @@ void TempInit(int layernumber, double G, double R, string SimulationType, int id
             int YInt = -1;
             int ZInt = -1;
             if (id == 0)
-                cout << "Range for layer " << LayerCounter << " on rank 0 is " << StartRange << " to " << EndRange
-                     << endl;
+                std::cout << "Range for layer " << LayerCounter << " on rank 0 is " << StartRange << " to " << EndRange
+                          << std::endl;
             MPI_Barrier(MPI_COMM_WORLD);
             for (int i = StartRange; i < EndRange; i++) {
 
@@ -1199,12 +1203,14 @@ void TempInit(int layernumber, double G, double R, string SimulationType, int id
             MPI_Bcast(&SmallestTime_Global, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
             if (id == 0)
-                cout << "Largest time globally for layer " << LayerCounter << " is " << LargestTime_Global << endl;
+                std::cout << "Largest time globally for layer " << LayerCounter << " is " << LargestTime_Global
+                          << std::endl;
             FinishTimeStep[LayerCounter] = round((LargestTime_Global - LayerwiseTSOffset) / deltat);
             if (id == 0)
-                cout << " Layer " << LayerCounter << " FINISH TIME STEP IS " << FinishTimeStep[LayerCounter] << endl;
+                std::cout << " Layer " << LayerCounter << " FINISH TIME STEP IS " << FinishTimeStep[LayerCounter]
+                          << std::endl;
             if (id == 0)
-                cout << "Layer " << LayerCounter << " temperatures read" << endl;
+                std::cout << "Layer " << LayerCounter << " temperatures read" << std::endl;
 
             // Data interpolation between heat transport and CA grids, if necessary
             if (HTtoCAratio != 1) {
@@ -1272,7 +1278,7 @@ void TempInit(int layernumber, double G, double R, string SimulationType, int id
             }
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0)
-                cout << "Interpolation done" << endl;
+                std::cout << "Interpolation done" << std::endl;
 
             // Convert CritTL, CritTS matrices into CritTimeStep and UndercoolingChange (change in undercooling with
             // time step) "ZMin" is the global Z coordinate that corresponds to cells at Z = 2 (Z = 0 is the domain's
@@ -1284,9 +1290,10 @@ void TempInit(int layernumber, double G, double R, string SimulationType, int id
                 nzActive = ZBound_High - ZBound_Low + 1;
             }
             if (id == 0)
-                cout << "Layer " << LayerCounter << " data belongs to global z coordinates of "
-                     << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 << " through "
-                     << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 + nzTempValuesThisLayer - 1 << endl;
+                std::cout << "Layer " << LayerCounter << " data belongs to global z coordinates of "
+                          << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 << " through "
+                          << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 + nzTempValuesThisLayer - 1
+                          << std::endl;
 
             for (int k = 0; k < nzTempValuesThisLayer; k++) {
                 for (int ii = LowerXBound; ii <= UpperXBound; ii++) {
@@ -1313,32 +1320,32 @@ void TempInit(int layernumber, double G, double R, string SimulationType, int id
         } // End read over all temperature files and placement of data
 
         if (id == 0)
-            cout << "First layer Z bounds are " << ZBound_Low << " and " << ZBound_High << endl;
+            std::cout << "First layer Z bounds are " << ZBound_Low << " and " << ZBound_High << std::endl;
     }
 }
 //*****************************************************************************/
 // Initialize grain orientations and unit vectors
 void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
-                     string GrainOrientationFile) {
+                     std::string GrainOrientationFile) {
 
     // Read file of grain orientations
-    ifstream O;
+    std::ifstream O;
     O.open(GrainOrientationFile);
 
     // Line 1 is the number of orientation values to read (if not specified already)
-    string ValueRead;
+    std::string ValueRead;
     getline(O, ValueRead);
 
     // Populate data structure for grain unit vectors
     for (int i = 0; i < NGrainOrientations; i++) {
-        string s;
+        std::string s;
         if (!getline(O, s))
             break;
-        istringstream ss(s);
+        std::istringstream ss(s);
         int Comp = 0;
         int UVNumber = 0;
         while (ss) { // This is the 3 grain orientation angles
-            string s;
+            std::string s;
             if (!getline(ss, s, ','))
                 break;
             float ReadGO = atof(s.c_str());
@@ -1374,8 +1381,8 @@ void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlic
                                      int nz, int MyXOffset, int MyYOffset, int id, int np, ViewI_H CellType,
                                      ViewI_H GrainID) {
 
-    mt19937_64 gen(id);
-    uniform_real_distribution<double> dis(0.0, 1.0);
+    std::mt19937_64 gen(id);
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
 
     // Counter for the number of active cells
     int SubstrateActCells_ThisRank = 0;
@@ -1442,23 +1449,23 @@ void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlic
 }
 
 // Initializes Grain ID values where the substrate comes from a file
-void SubstrateInit_FromFile(string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
+void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
                             int MyYOffset, int id, ViewI_H CritTimeStep, ViewI_H GrainID) {
 
     // Assign GrainID values to cells that are part of the substrate
-    ifstream Substrate;
+    std::ifstream Substrate;
     Substrate.open(SubstrateFileName);
     if (id == 0)
-        cout << "Opened substrate file " << SubstrateFileName << endl;
+        std::cout << "Opened substrate file " << SubstrateFileName << std::endl;
     int Substrate_LowX = MyXOffset;
     int Substrate_HighX = MyXOffset + MyXSlices;
     int Substrate_LowY = MyYOffset;
     int Substrate_HighY = MyYOffset + MyYSlices;
     int nxS, nyS, nzS;
-    string s;
+    std::string s;
     getline(Substrate, s);
     std::size_t found = s.find("=");
-    string str = s.substr(found + 1, s.length() - 1);
+    std::string str = s.substr(found + 1, s.length() - 1);
     nzS = stoi(str, nullptr, 10);
     getline(Substrate, s);
     found = s.find("=");
@@ -1470,9 +1477,10 @@ void SubstrateInit_FromFile(string SubstrateFileName, int nz, int MyXSlices, int
     nxS = stoi(str, nullptr, 10);
     if ((id == 0) && (nzS < nz)) {
         // Do not allow simulation if there is inssufficient substrate data in the specified file
-        string error = "Error: only " + to_string(nzS) + " layers of substrate data are present in the file " +
-                       SubstrateFileName + " ; at least " + to_string(nz) +
-                       " layers of substrate data are required to simulate the specified solidification problem";
+        std::string error = "Error: only " + std::to_string(nzS) +
+                            " layers of substrate data are present in the file " + SubstrateFileName + " ; at least " +
+                            std::to_string(nz) +
+                            " layers of substrate data are required to simulate the specified solidification problem";
         throw std::runtime_error(error);
     }
 
@@ -1483,7 +1491,7 @@ void SubstrateInit_FromFile(string SubstrateFileName, int nz, int MyXSlices, int
             break;
         for (int j = 0; j < nyS; j++) {
             for (int i = 0; i < nxS; i++) {
-                string GIDVal;
+                std::string GIDVal;
                 getline(Substrate, GIDVal);
                 if ((i >= Substrate_LowX) && (i < Substrate_HighX) && (j >= Substrate_LowY) && (j < Substrate_HighY)) {
                     int CAGridLocation;
@@ -1502,7 +1510,7 @@ void SubstrateInit_FromFile(string SubstrateFileName, int nz, int MyXSlices, int
     }
     Substrate.close();
     if (id == 0)
-        cout << "Substrate file read complete" << endl;
+        std::cout << "Substrate file read complete" << std::endl;
 }
 
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation,
@@ -1514,8 +1522,8 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 
     // Seed random number generator such that each rank generates the same baseplate grain center locations
     double SubstrateSeed = 1.0;
-    mt19937_64 gen(SubstrateSeed);
-    uniform_real_distribution<double> dis(0.0, 1.0);
+    std::mt19937_64 gen(SubstrateSeed);
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
 
     // Probability that a given cell will be the center of a baseplate grain
     double BaseplateGrainProb = (deltax * deltax * deltax) /
@@ -1543,7 +1551,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
         }
     }
     if (id == 0)
-        cout << "Number of baseplate grains: " << NumBaseplateGrains_H(0) << endl;
+        std::cout << "Number of baseplate grains: " << NumBaseplateGrains_H(0) << std::endl;
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     ViewI NumBaseplateGrains_G = Kokkos::create_mirror_view_and_copy(memory_space(), NumBaseplateGrains_H);
     ViewI BaseplateGrainX_G = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainX_H);
@@ -1594,7 +1602,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
     Kokkos::deep_copy(GrainID, GrainID_G);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        cout << "Baseplate grain structure initialized" << endl;
+        std::cout << "Baseplate grain structure initialized" << std::endl;
     // Initialize grain seeds above baseplate to emulate bulk nucleation at edge of melted powder particles
     int PowderLayerActCells_ThisRank = 0;
     for (int k = nzActive; k < nz; k++) {
@@ -1642,7 +1650,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
     }
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        cout << "Initialized baseplate and powder grain structure" << endl;
+        std::cout << "Initialized baseplate and powder grain structure" << std::endl;
 }
 
 //*****************************************************************************/
@@ -1733,7 +1741,7 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
     int TotalSubstrateActCells;
     MPI_Reduce(&SubstrateActCells_ThisRank, &TotalSubstrateActCells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if (id == 0)
-        cout << "Number of substrate active cells across all ranks: " << TotalSubstrateActCells << endl;
+        std::cout << "Number of substrate active cells across all ranks: " << TotalSubstrateActCells << std::endl;
 }
 
 //*****************************************************************************/
@@ -1747,8 +1755,8 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
                int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low) {
 
     // RNG for heterogenous nuclei locations in the liquid
-    mt19937_64 gen(id);
-    uniform_real_distribution<double> dis(0.0, 1.0);
+    std::mt19937_64 gen(id);
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
 
     // Probability that a given liquid site will be a potential nucleus location
     double BulkProb = NMax * deltax * deltax * deltax;
@@ -1774,7 +1782,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
     int TotalNucleatedGrains;
     MPI_Reduce(&PossibleNuclei_ThisRank, &TotalNucleatedGrains, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if (id == 0)
-        cout << "Number of potential nucleated grains: " << TotalNucleatedGrains << endl;
+        std::cout << "Number of potential nucleated grains: " << TotalNucleatedGrains << std::endl;
 
     int FirstNucleatedGID_Rank0;
     if (layernumber == -1) {
@@ -2132,7 +2140,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
     int FCount = 0;
     int GCount = 0;
     int HCount = 0;
-    vector<int> ANuc, BNuc, CNuc, DNuc, ENuc, FNuc, GNuc, HNuc;
+    std::vector<int> ANuc, BNuc, CNuc, DNuc, ENuc, FNuc, GNuc, HNuc;
 
     // Gaussian distribution of nucleation undercooling
     std::default_random_engine generator;
@@ -2150,7 +2158,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             double LocNucUnd = distribution(generator);
             // Time steps to reach this undercooling after cell goes below the liquidus
             int TimeToNucUnd = CritTimeStep(i) + round(LocNucUnd / UndercoolingChange(i));
-            NucleationTimes(NEvent) = max(CritTimeStep(i), TimeToNucUnd);
+            NucleationTimes(NEvent) = std::max(CritTimeStep(i), TimeToNucUnd);
 
             // Determine if other MPI ranks need information about this potential nucleation event
             // If so, store the location (X,Y,Z), GrainID, and nucleation time step value to be sent
@@ -2646,7 +2654,7 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
         if (CellType(i) == TemporaryInit)
             CellType(i) = Liquid;
     }
-    cout << "(" << id << ": " << NEvent << ") " << flush;
+    std::cout << "(" << id << ": " << NEvent << ") " << std::flush;
 }
 
 //*****************************************************************************/
@@ -2679,7 +2687,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
     ZShift = ZBound_Low - ZBound_LowOld;
 
     if (id == 0)
-        cout << "New domain bottom at Z = " << ZBound_Low << ", a shift of " << ZShift << " cells" << endl;
+        std::cout << "New domain bottom at Z = " << ZBound_Low << ", a shift of " << ZShift << " cells" << std::endl;
 
     // The new "top" of the active domain is located at the highest location with cells solidifying during the next
     // layer
@@ -2697,7 +2705,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
         Kokkos::Max<int>(NewMax));
     MPI_Allreduce(&NewMax, &ZBound_High, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     if (id == 0)
-        cout << "New domain top at Z = " << ZBound_High << endl;
+        std::cout << "New domain top at Z = " << ZBound_High << std::endl;
     // Change in active region data structures' sizes
     nzActive = ZBound_High - ZBound_Low + 1;
     LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
@@ -2706,7 +2714,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
     BufSizeZ = nzActive;
 
     if (id == 0)
-        cout << "New active domain height is " << nzActive << endl;
+        std::cout << "New active domain height is " << nzActive << std::endl;
 }
 
 //*****************************************************************************/
