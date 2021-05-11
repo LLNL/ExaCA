@@ -414,13 +414,14 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 //*****************************************************************************/
 void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
                       ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
-                      int &MyXOffset, int &MyYOffset, int &MyLeft, int &MyRight, int &MyIn, int &MyOut, int &MyLeftIn,
-                      int &MyLeftOut, int &MyRightIn, int &MyRightOut, double &deltax, double HT_deltax, int &nx,
-                      int &ny, int &nz, int &ProcessorsInXDirection, int &ProcessorsInYDirection, std::string tempfile,
-                      float &XMin, float &XMax, float &YMin, float &YMax, float &ZMin, float &ZMax, float FreezingRange,
-                      int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
-                      unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer, float *ZMaxLayer, int *FirstValue,
-                      int *LastValue, std::vector<float> &RawData) {
+                      int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
+                      int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
+                      int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
+                      double &deltax, double HT_deltax, int &nx, int &ny, int &nz, int &ProcessorsInXDirection,
+                      int &ProcessorsInYDirection, std::string tempfile, float &XMin, float &XMax, float &YMin,
+                      float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight, int NumberOfLayers,
+                      int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
+                      float *ZMaxLayer, int *FirstValue, int *LastValue, std::vector<float> &RawData) {
 
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
@@ -973,7 +974,9 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     std::cout << "================================================================" << std::endl;
                 }
                 InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id,
-                                     np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut);
+                                     np, NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West,
+                                     NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
+                                     NeighborRank_SouthWest);
 
                 MyXOffset = XOffsetCalc(id, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
                 MyXSlices =
@@ -1014,7 +1017,9 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             std::cout << "================================================================" << std::endl;
         }
         InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id, np,
-                             MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn, MyRightOut);
+                             NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West,
+                             NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
+                             NeighborRank_SouthWest);
 
         MyXOffset = XOffsetCalc(id, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
         MyXSlices = XMPSlicesCalc(id, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
@@ -1747,8 +1752,9 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
 //*****************************************************************************/
 // Initializes cell types where the substrate comes from a file
 void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrategy, int nz, int LocalActiveDomainSize,
-               int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int MyLeft, int MyRight,
-               int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, ViewI2D_H ItList,
+               int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np, int NeighborRank_North,
+               int NeighborRank_South, int NeighborRank_East, int NeighborRank_West, int NeighborRank_NorthEast,
+               int NeighborRank_NorthWest, int NeighborRank_SouthEast, int NeighborRank_SouthWest, ViewI2D_H ItList,
                ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI_H GrainOrientation,
                ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H GrainID,
                ViewF_H CritDiagonalLength, ViewF_H DOCenter, ViewI_H CritTimeStep, double deltax, double NMax,
@@ -1823,14 +1829,14 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
 
     // Assign Grain IDs to nucleated grains
     // Set up active cell data structures for appropriate cells
-    int ANCount = 0;
-    int BNCount = 0;
-    int CNCount = 0;
-    int DNCount = 0;
-    int ENCount = 0;
-    int FNCount = 0;
-    int GNCount = 0;
-    int HNCount = 0;
+    int SouthNucleiSendCount = 0;
+    int NorthNucleiSendCount = 0;
+    int EastNucleiSendCount = 0;
+    int WestNucleiSendCount = 0;
+    int NorthWestNucleiSendCount = 0;
+    int NorthEastNucleiSendCount = 0;
+    int SouthWestNucleiSendCount = 0;
+    int SouthEastNucleiSendCount = 0;
 
     // Set up active cell octahedra for growth, mark cell data to be communicated across ranks in ghost nodes
     // Assign GrainIDs to nuclei sites
@@ -1963,51 +1969,51 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
                     if (np > 1) {
                         if (DecompositionStrategy == 1) {
                             if (RankY == 1) {
-                                ANCount++;
+                                SouthNucleiSendCount++;
                             }
                             else if (RankY == MyYSlices - 2) {
-                                BNCount++;
+                                NorthNucleiSendCount++;
                             }
                         }
                         else {
                             if (RankY == 1) {
                                 // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
                                 if (RankX == MyXSlices - 2) {
-                                    ENCount++;
-                                    CNCount++;
-                                    ANCount++;
+                                    SouthEastNucleiSendCount++;
+                                    EastNucleiSendCount++;
+                                    SouthNucleiSendCount++;
                                 }
                                 else if (RankX == 1) {
-                                    GNCount++;
-                                    DNCount++;
-                                    ANCount++;
+                                    SouthWestNucleiSendCount++;
+                                    WestNucleiSendCount++;
+                                    SouthNucleiSendCount++;
                                 }
                                 else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
                                     // This is being sent to MyLeft
-                                    ANCount++;
+                                    SouthNucleiSendCount++;
                                 }
                             }
                             else if (RankY == MyYSlices - 2) {
                                 // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
                                 if (RankX == MyXSlices - 2) {
-                                    FNCount++;
-                                    CNCount++;
-                                    BNCount++;
+                                    NorthEastNucleiSendCount++;
+                                    EastNucleiSendCount++;
+                                    NorthNucleiSendCount++;
                                 }
                                 else if (RankX == 1) {
-                                    HNCount++;
-                                    DNCount++;
-                                    BNCount++;
+                                    NorthWestNucleiSendCount++;
+                                    WestNucleiSendCount++;
+                                    NorthNucleiSendCount++;
                                 }
                                 else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
-                                    BNCount++;
+                                    NorthNucleiSendCount++;
                                 }
                             }
                             else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                                DNCount++;
+                                WestNucleiSendCount++;
                             }
                             else if ((RankX == MyXSlices - 2) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                                CNCount++;
+                                EastNucleiSendCount++;
                             }
                         }
                     }
@@ -2016,65 +2022,63 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
         }
     }
 
-    // Send/recieve number of nuclei in the ghost nodes (ARNCount-HRNCount) so that each rank knows the total number of
+    // Send/recieve number of nuclei in the ghost nodes so that each rank knows the total number of
     // nuclei in it's domain
-    int ARNCount = 0;
-    int BRNCount = 0;
-    int CRNCount = 0;
-    int DRNCount = 0;
-    int ERNCount = 0;
-    int FRNCount = 0;
-    int GRNCount = 0;
-    int HRNCount = 0;
+    int SouthNucleiRecvCount = 0;
+    int NorthNucleiRecvCount = 0;
+    int EastNucleiRecvCount = 0;
+    int WestNucleiRecvCount = 0;
+    int NorthWestNucleiRecvCount = 0;
+    int NorthEastNucleiRecvCount = 0;
+    int SouthWestNucleiRecvCount = 0;
+    int SouthEastNucleiRecvCount = 0;
 
-    // Send BNCount, Recieve ARNCount (send to the right, recieve on the left)
-    MPI_Sendrecv(&BNCount, 1, MPI_INT, MyRight, 0, &ARNCount, 1, MPI_INT, MyLeft, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    // Send ANCount, Recieve BRNCount (send to the left, recieve on the right)
-    MPI_Sendrecv(&ANCount, 1, MPI_INT, MyLeft, 0, &BRNCount, 1, MPI_INT, MyRight, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // South/North exchange number of nuclei in halo regions
+    MPI_Sendrecv(&NorthNucleiSendCount, 1, MPI_INT, NeighborRank_North, 0, &SouthNucleiRecvCount, 1, MPI_INT,
+                 NeighborRank_South, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Sendrecv(&SouthNucleiSendCount, 1, MPI_INT, NeighborRank_South, 0, &NorthNucleiRecvCount, 1, MPI_INT,
+                 NeighborRank_North, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     if (DecompositionStrategy != 1) {
-        // Send CNCount, Recieve DRNCount (send into the plane, recieve out of the plane)
-        MPI_Sendrecv(&CNCount, 1, MPI_INT, MyIn, 0, &DRNCount, 1, MPI_INT, MyOut, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        // East/West exchange number of nuclei in halo regions
+        MPI_Sendrecv(&EastNucleiSendCount, 1, MPI_INT, NeighborRank_East, 0, &WestNucleiRecvCount, 1, MPI_INT,
+                     NeighborRank_West, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Sendrecv(&WestNucleiSendCount, 1, MPI_INT, NeighborRank_West, 0, &EastNucleiRecvCount, 1, MPI_INT,
+                     NeighborRank_East, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        // Send DNCount, Recieve CRNCount (send out of the plane, recieve into the plane)
-        MPI_Sendrecv(&DNCount, 1, MPI_INT, MyOut, 0, &CRNCount, 1, MPI_INT, MyIn, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        // NorthWest/SouthEast exchange number of nuclei in halo regions
+        MPI_Sendrecv(&NorthWestNucleiSendCount, 1, MPI_INT, NeighborRank_NorthWest, 0, &SouthEastNucleiRecvCount, 1,
+                     MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Sendrecv(&SouthEastNucleiSendCount, 1, MPI_INT, NeighborRank_SouthEast, 0, &NorthWestNucleiRecvCount, 1,
+                     MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        // Send HNCount, Recieve ERNCount
-        MPI_Sendrecv(&HNCount, 1, MPI_INT, MyRightOut, 0, &ERNCount, 1, MPI_INT, MyLeftIn, 0, MPI_COMM_WORLD,
-                     MPI_STATUS_IGNORE);
-
-        // Send ENCount, Recieve HRNCount
-        MPI_Sendrecv(&ENCount, 1, MPI_INT, MyLeftIn, 0, &HRNCount, 1, MPI_INT, MyRightOut, 0, MPI_COMM_WORLD,
-                     MPI_STATUS_IGNORE);
-
-        // Send GNCount, Recieve FRNCount
-        MPI_Sendrecv(&GNCount, 1, MPI_INT, MyLeftOut, 0, &FRNCount, 1, MPI_INT, MyRightIn, 0, MPI_COMM_WORLD,
-                     MPI_STATUS_IGNORE);
-
-        // Send FNCount, Recieve GRNCount
-        MPI_Sendrecv(&FNCount, 1, MPI_INT, MyRightIn, 0, &GRNCount, 1, MPI_INT, MyLeftOut, 0, MPI_COMM_WORLD,
-                     MPI_STATUS_IGNORE);
+        // NorthEast/SouthWest exchange number of nuclei in halo regions
+        MPI_Sendrecv(&NorthEastNucleiSendCount, 1, MPI_INT, NeighborRank_NorthEast, 0, &SouthWestNucleiRecvCount, 1,
+                     MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Sendrecv(&SouthWestNucleiSendCount, 1, MPI_INT, NeighborRank_SouthWest, 0, &NorthEastNucleiRecvCount, 1,
+                     MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 
-    if (MyLeft == MPI_PROC_NULL)
-        ARNCount = 0;
-    if (MyRight == MPI_PROC_NULL)
-        BRNCount = 0;
-    if (MyIn == MPI_PROC_NULL)
-        CRNCount = 0;
-    if (MyOut == MPI_PROC_NULL)
-        DRNCount = 0;
-    if (MyLeftIn == MPI_PROC_NULL)
-        ERNCount = 0;
-    if (MyRightIn == MPI_PROC_NULL)
-        FRNCount = 0;
-    if (MyLeftOut == MPI_PROC_NULL)
-        GRNCount = 0;
-    if (MyRightOut == MPI_PROC_NULL)
-        HRNCount = 0;
+    if (NeighborRank_South == MPI_PROC_NULL)
+        SouthNucleiRecvCount = 0;
+    if (NeighborRank_North == MPI_PROC_NULL)
+        NorthNucleiRecvCount = 0;
+    if (NeighborRank_East == MPI_PROC_NULL)
+        EastNucleiRecvCount = 0;
+    if (NeighborRank_West == MPI_PROC_NULL)
+        WestNucleiRecvCount = 0;
+    if (NeighborRank_NorthWest == MPI_PROC_NULL)
+        NorthWestNucleiRecvCount = 0;
+    if (NeighborRank_NorthEast == MPI_PROC_NULL)
+        NorthEastNucleiRecvCount = 0;
+    if (NeighborRank_SouthWest == MPI_PROC_NULL)
+        SouthWestNucleiRecvCount = 0;
+    if (NeighborRank_SouthEast == MPI_PROC_NULL)
+        SouthEastNucleiRecvCount = 0;
 
-    PossibleNuclei_ThisRank += (ARNCount + BRNCount + CRNCount + DRNCount + ERNCount + FRNCount + GRNCount + HRNCount);
+    PossibleNuclei_ThisRank +=
+        (SouthNucleiRecvCount + NorthNucleiRecvCount + EastNucleiRecvCount + WestNucleiRecvCount +
+         NorthWestNucleiRecvCount + NorthEastNucleiRecvCount + SouthWestNucleiRecvCount + SouthEastNucleiRecvCount);
 
     // Remove delay cells not bordering others
     for (int RankZ = 1; RankZ < nz - 1; RankZ++) {
@@ -2127,20 +2131,22 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
 // solid or actve, the event occurs This data is synced across MPI ranks, for nucleation events that occur in the ghost
 // nodes
 void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz, int id, double dTN, double dTsigma,
-                int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut,
-                int MyRightOut, ViewI_H NucleiLocation, ViewI_H NucleationTimes, ViewI_H CellType, ViewI_H GrainID,
-                ViewI_H CritTimeStep, ViewF_H UndercoolingChange) {
+                int NeighborRank_North, int NeighborRank_South, int NeighborRank_East, int NeighborRank_West,
+                int NeighborRank_NorthEast, int NeighborRank_NorthWest, int NeighborRank_SouthEast,
+                int NeighborRank_SouthWest, ViewI_H NucleiLocation, ViewI_H NucleationTimes, ViewI_H CellType,
+                ViewI_H GrainID, ViewI_H CritTimeStep, ViewF_H UndercoolingChange) {
 
     // Counts and buffers for sending/recieving nucleation data from ghost nodes
-    int ACount = 0;
-    int BCount = 0;
-    int CCount = 0;
-    int DCount = 0;
-    int ECount = 0;
-    int FCount = 0;
-    int GCount = 0;
-    int HCount = 0;
-    std::vector<int> ANuc, BNuc, CNuc, DNuc, ENuc, FNuc, GNuc, HNuc;
+    int SouthNucleiSendCount = 0;
+    int NorthNucleiSendCount = 0;
+    int EastNucleiSendCount = 0;
+    int WestNucleiSendCount = 0;
+    int NorthWestNucleiSendCount = 0;
+    int NorthEastNucleiSendCount = 0;
+    int SouthWestNucleiSendCount = 0;
+    int SouthEastNucleiSendCount = 0;
+    std::vector<int> TempNucleiDataSouth, TempNucleiDataNorth, TempNucleiDataEast, TempNucleiDataWest,
+        TempNucleiDataNorthWest, TempNucleiDataNorthEast, TempNucleiDataSouthWest, TempNucleiDataSouthEast;
 
     // Gaussian distribution of nucleation undercooling
     std::default_random_engine generator;
@@ -2168,18 +2174,18 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
             int RankY = Rem % MyYSlices;
             if (DecompositionStrategy == 1) {
                 if (RankY == 1) {
-                    ACount++;
-                    ANuc.push_back(RankX);
-                    ANuc.push_back(RankZ);
-                    ANuc.push_back(TimeToNucUnd);
-                    ANuc.push_back(GrainID(i));
+                    SouthNucleiSendCount++;
+                    TempNucleiDataSouth.push_back(RankX);
+                    TempNucleiDataSouth.push_back(RankZ);
+                    TempNucleiDataSouth.push_back(TimeToNucUnd);
+                    TempNucleiDataSouth.push_back(GrainID(i));
                 }
                 else if (RankY == MyYSlices - 2) {
-                    BCount++;
-                    BNuc.push_back(RankX);
-                    BNuc.push_back(RankZ);
-                    BNuc.push_back(TimeToNucUnd);
-                    BNuc.push_back(GrainID(i));
+                    NorthNucleiSendCount++;
+                    TempNucleiDataNorth.push_back(RankX);
+                    TempNucleiDataNorth.push_back(RankZ);
+                    TempNucleiDataNorth.push_back(TimeToNucUnd);
+                    TempNucleiDataNorth.push_back(GrainID(i));
                 }
             }
             else {
@@ -2187,110 +2193,110 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
                     // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
                     if (RankX == MyXSlices - 2) {
 
-                        ECount++;
-                        ENuc.push_back(RankZ);
-                        ENuc.push_back(TimeToNucUnd);
-                        ENuc.push_back(GrainID(i));
+                        SouthEastNucleiSendCount++;
+                        TempNucleiDataSouthEast.push_back(RankZ);
+                        TempNucleiDataSouthEast.push_back(TimeToNucUnd);
+                        TempNucleiDataSouthEast.push_back(GrainID(i));
 
-                        CCount++;
-                        CNuc.push_back(RankY);
-                        CNuc.push_back(RankZ);
-                        CNuc.push_back(TimeToNucUnd);
-                        CNuc.push_back(GrainID(i));
+                        EastNucleiSendCount++;
+                        TempNucleiDataEast.push_back(RankY);
+                        TempNucleiDataEast.push_back(RankZ);
+                        TempNucleiDataEast.push_back(TimeToNucUnd);
+                        TempNucleiDataEast.push_back(GrainID(i));
 
-                        ACount++;
-                        ANuc.push_back(RankX);
-                        ANuc.push_back(RankZ);
-                        ANuc.push_back(TimeToNucUnd);
-                        ANuc.push_back(GrainID(i));
+                        SouthNucleiSendCount++;
+                        TempNucleiDataSouth.push_back(RankX);
+                        TempNucleiDataSouth.push_back(RankZ);
+                        TempNucleiDataSouth.push_back(TimeToNucUnd);
+                        TempNucleiDataSouth.push_back(GrainID(i));
                     }
                     else if (RankX == 1) {
 
-                        GCount++;
-                        GNuc.push_back(RankZ);
-                        GNuc.push_back(TimeToNucUnd);
-                        GNuc.push_back(GrainID(i));
+                        SouthWestNucleiSendCount++;
+                        TempNucleiDataSouthWest.push_back(RankZ);
+                        TempNucleiDataSouthWest.push_back(TimeToNucUnd);
+                        TempNucleiDataSouthWest.push_back(GrainID(i));
 
-                        DCount++;
-                        DNuc.push_back(RankY);
-                        DNuc.push_back(RankZ);
-                        DNuc.push_back(TimeToNucUnd);
-                        DNuc.push_back(GrainID(i));
+                        WestNucleiSendCount++;
+                        TempNucleiDataWest.push_back(RankY);
+                        TempNucleiDataWest.push_back(RankZ);
+                        TempNucleiDataWest.push_back(TimeToNucUnd);
+                        TempNucleiDataWest.push_back(GrainID(i));
 
-                        ACount++;
-                        ANuc.push_back(RankX);
-                        ANuc.push_back(RankZ);
-                        ANuc.push_back(TimeToNucUnd);
-                        ANuc.push_back(GrainID(i));
+                        SouthNucleiSendCount++;
+                        TempNucleiDataSouth.push_back(RankX);
+                        TempNucleiDataSouth.push_back(RankZ);
+                        TempNucleiDataSouth.push_back(TimeToNucUnd);
+                        TempNucleiDataSouth.push_back(GrainID(i));
                     }
                     else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
                         // This is being sent to MyLeft
-                        ACount++;
-                        ANuc.push_back(RankX);
-                        ANuc.push_back(RankZ);
-                        ANuc.push_back(TimeToNucUnd);
-                        ANuc.push_back(GrainID(i));
+                        SouthNucleiSendCount++;
+                        TempNucleiDataSouth.push_back(RankX);
+                        TempNucleiDataSouth.push_back(RankZ);
+                        TempNucleiDataSouth.push_back(TimeToNucUnd);
+                        TempNucleiDataSouth.push_back(GrainID(i));
                     }
                 }
                 else if (RankY == MyYSlices - 2) {
                     // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
                     if (RankX == MyXSlices - 2) {
-                        FCount++;
-                        FNuc.push_back(RankZ);
-                        FNuc.push_back(TimeToNucUnd);
-                        FNuc.push_back(GrainID(i));
+                        NorthEastNucleiSendCount++;
+                        TempNucleiDataNorthEast.push_back(RankZ);
+                        TempNucleiDataNorthEast.push_back(TimeToNucUnd);
+                        TempNucleiDataNorthEast.push_back(GrainID(i));
 
-                        CCount++;
-                        CNuc.push_back(RankY);
-                        CNuc.push_back(RankZ);
-                        CNuc.push_back(TimeToNucUnd);
-                        CNuc.push_back(GrainID(i));
+                        EastNucleiSendCount++;
+                        TempNucleiDataEast.push_back(RankY);
+                        TempNucleiDataEast.push_back(RankZ);
+                        TempNucleiDataEast.push_back(TimeToNucUnd);
+                        TempNucleiDataEast.push_back(GrainID(i));
 
-                        BCount++;
-                        BNuc.push_back(RankX);
-                        BNuc.push_back(RankZ);
-                        BNuc.push_back(TimeToNucUnd);
-                        BNuc.push_back(GrainID(i));
+                        NorthNucleiSendCount++;
+                        TempNucleiDataNorth.push_back(RankX);
+                        TempNucleiDataNorth.push_back(RankZ);
+                        TempNucleiDataNorth.push_back(TimeToNucUnd);
+                        TempNucleiDataNorth.push_back(GrainID(i));
                     }
                     else if (RankX == 1) {
-                        HCount++;
-                        HNuc.push_back(RankZ);
-                        HNuc.push_back(TimeToNucUnd);
-                        HNuc.push_back(GrainID(i));
+                        NorthWestNucleiSendCount++;
+                        TempNucleiDataNorthWest.push_back(RankZ);
+                        TempNucleiDataNorthWest.push_back(TimeToNucUnd);
+                        TempNucleiDataNorthWest.push_back(GrainID(i));
 
-                        DCount++;
-                        DNuc.push_back(RankY);
-                        DNuc.push_back(RankZ);
-                        DNuc.push_back(TimeToNucUnd);
-                        DNuc.push_back(GrainID(i));
+                        WestNucleiSendCount++;
+                        TempNucleiDataWest.push_back(RankY);
+                        TempNucleiDataWest.push_back(RankZ);
+                        TempNucleiDataWest.push_back(TimeToNucUnd);
+                        TempNucleiDataWest.push_back(GrainID(i));
 
-                        BCount++;
-                        BNuc.push_back(RankX);
-                        BNuc.push_back(RankZ);
-                        BNuc.push_back(TimeToNucUnd);
-                        BNuc.push_back(GrainID(i));
+                        NorthNucleiSendCount++;
+                        TempNucleiDataNorth.push_back(RankX);
+                        TempNucleiDataNorth.push_back(RankZ);
+                        TempNucleiDataNorth.push_back(TimeToNucUnd);
+                        TempNucleiDataNorth.push_back(GrainID(i));
                     }
                     else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
-                        BCount++;
-                        BNuc.push_back(RankX);
-                        BNuc.push_back(RankZ);
-                        BNuc.push_back(TimeToNucUnd);
-                        BNuc.push_back(GrainID(i));
+                        NorthNucleiSendCount++;
+                        TempNucleiDataNorth.push_back(RankX);
+                        TempNucleiDataNorth.push_back(RankZ);
+                        TempNucleiDataNorth.push_back(TimeToNucUnd);
+                        TempNucleiDataNorth.push_back(GrainID(i));
                     }
                 }
                 else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                    DCount++;
-                    DNuc.push_back(RankY);
-                    DNuc.push_back(RankZ);
-                    DNuc.push_back(TimeToNucUnd);
-                    DNuc.push_back(GrainID(i));
+                    WestNucleiSendCount++;
+                    TempNucleiDataWest.push_back(RankY);
+                    TempNucleiDataWest.push_back(RankZ);
+                    TempNucleiDataWest.push_back(TimeToNucUnd);
+                    TempNucleiDataWest.push_back(GrainID(i));
                 }
                 else if ((RankX == MyXSlices - 2) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                    CCount++;
-                    CNuc.push_back(RankY);
-                    CNuc.push_back(RankZ);
-                    CNuc.push_back(TimeToNucUnd);
-                    CNuc.push_back(GrainID(i));
+                    EastNucleiSendCount++;
+                    TempNucleiDataEast.push_back(RankY);
+                    TempNucleiDataEast.push_back(RankZ);
+                    TempNucleiDataEast.push_back(TimeToNucUnd);
+                    TempNucleiDataEast.push_back(GrainID(i));
                 }
             }
             NEvent++;
@@ -2298,351 +2304,376 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
     }
 
     // Determine whether or not ghost node information transfer needs to take place
-    int ARCount, BRCount, CRCount, DRCount, ERCount, FRCount, GRCount, HRCount;
+    int SouthNucleiRecvCount = 0;
+    int NorthNucleiRecvCount = 0;
+    int EastNucleiRecvCount = 0;
+    int WestNucleiRecvCount = 0;
+    int NorthWestNucleiRecvCount = 0;
+    int NorthEastNucleiRecvCount = 0;
+    int SouthWestNucleiRecvCount = 0;
+    int SouthEastNucleiRecvCount = 0;
 
-    // Send BCount, Recieve ARCount (send to the right, recieve on the left)
-    MPI_Sendrecv(&BCount, 1, MPI_INT, MyRight, 0, &ARCount, 1, MPI_INT, MyLeft, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    // Send ACount, Recieve BRCount (send to the left, recieve on the right)
-    MPI_Sendrecv(&ACount, 1, MPI_INT, MyLeft, 0, &BRCount, 1, MPI_INT, MyRight, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // South/North exchange number of nuclei in halo regions
+    MPI_Sendrecv(&NorthNucleiSendCount, 1, MPI_INT, NeighborRank_North, 0, &SouthNucleiRecvCount, 1, MPI_INT,
+                 NeighborRank_South, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Sendrecv(&SouthNucleiSendCount, 1, MPI_INT, NeighborRank_South, 0, &NorthNucleiRecvCount, 1, MPI_INT,
+                 NeighborRank_North, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     if (DecompositionStrategy != 1) {
+        // East/West exchange number of nuclei in halo regions
+        MPI_Sendrecv(&EastNucleiSendCount, 1, MPI_INT, NeighborRank_East, 0, &WestNucleiRecvCount, 1, MPI_INT,
+                     NeighborRank_West, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Sendrecv(&WestNucleiSendCount, 1, MPI_INT, NeighborRank_West, 0, &EastNucleiRecvCount, 1, MPI_INT,
+                     NeighborRank_East, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        // Send CCount, Recieve DRCount (send into the plane, recieve out of the plane)
-        MPI_Sendrecv(&CCount, 1, MPI_INT, MyIn, 0, &DRCount, 1, MPI_INT, MyOut, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        // NorthWest/SouthEast exchange number of nuclei in halo regions
+        MPI_Sendrecv(&NorthWestNucleiSendCount, 1, MPI_INT, NeighborRank_NorthWest, 0, &SouthEastNucleiRecvCount, 1,
+                     MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Sendrecv(&SouthEastNucleiSendCount, 1, MPI_INT, NeighborRank_SouthEast, 0, &NorthWestNucleiRecvCount, 1,
+                     MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        // Send DCount, Recieve CRCount (send out of the plane, recieve into the plane)
-        MPI_Sendrecv(&DCount, 1, MPI_INT, MyOut, 0, &CRCount, 1, MPI_INT, MyIn, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-        // Send HCount, Recieve ERCount
-        MPI_Sendrecv(&HCount, 1, MPI_INT, MyRightOut, 0, &ERCount, 1, MPI_INT, MyLeftIn, 0, MPI_COMM_WORLD,
-                     MPI_STATUS_IGNORE);
-
-        // Send ECount, Recieve HRCount
-        MPI_Sendrecv(&ECount, 1, MPI_INT, MyLeftIn, 0, &HRCount, 1, MPI_INT, MyRightOut, 0, MPI_COMM_WORLD,
-                     MPI_STATUS_IGNORE);
-
-        // Send GCount, Recieve FRCount
-        MPI_Sendrecv(&GCount, 1, MPI_INT, MyLeftOut, 0, &FRCount, 1, MPI_INT, MyRightIn, 0, MPI_COMM_WORLD,
-                     MPI_STATUS_IGNORE);
-
-        // Send FCount, Recieve GRCount
-        MPI_Sendrecv(&FCount, 1, MPI_INT, MyRightIn, 0, &GRCount, 1, MPI_INT, MyLeftOut, 0, MPI_COMM_WORLD,
-                     MPI_STATUS_IGNORE);
+        // NorthEast/SouthWest exchange number of nuclei in halo regions
+        MPI_Sendrecv(&NorthEastNucleiSendCount, 1, MPI_INT, NeighborRank_NorthEast, 0, &SouthWestNucleiRecvCount, 1,
+                     MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Sendrecv(&SouthWestNucleiSendCount, 1, MPI_INT, NeighborRank_SouthWest, 0, &NorthEastNucleiRecvCount, 1,
+                     MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 
-    if (MyLeft == MPI_PROC_NULL)
-        ARCount = 0;
-    if (MyRight == MPI_PROC_NULL)
-        BRCount = 0;
-    if (MyIn == MPI_PROC_NULL)
-        CRCount = 0;
-    if (MyOut == MPI_PROC_NULL)
-        DRCount = 0;
-    if (MyLeftIn == MPI_PROC_NULL)
-        ERCount = 0;
-    if (MyRightIn == MPI_PROC_NULL)
-        FRCount = 0;
-    if (MyLeftOut == MPI_PROC_NULL)
-        GRCount = 0;
-    if (MyRightOut == MPI_PROC_NULL)
-        HRCount = 0;
+    if (NeighborRank_South == MPI_PROC_NULL)
+        SouthNucleiRecvCount = 0;
+    if (NeighborRank_North == MPI_PROC_NULL)
+        NorthNucleiRecvCount = 0;
+    if (NeighborRank_East == MPI_PROC_NULL)
+        EastNucleiRecvCount = 0;
+    if (NeighborRank_West == MPI_PROC_NULL)
+        WestNucleiRecvCount = 0;
+    if (NeighborRank_NorthWest == MPI_PROC_NULL)
+        NorthWestNucleiRecvCount = 0;
+    if (NeighborRank_NorthEast == MPI_PROC_NULL)
+        NorthEastNucleiRecvCount = 0;
+    if (NeighborRank_SouthWest == MPI_PROC_NULL)
+        SouthWestNucleiRecvCount = 0;
+    if (NeighborRank_SouthEast == MPI_PROC_NULL)
+        SouthEastNucleiRecvCount = 0;
 
-    // Buffers for recieving ghost node data
-    ViewI_H GhostNodesAR("bufferAR", 4 * ARCount);
-    ViewI_H GhostNodesBR("bufferBR", 4 * BRCount);
-    ViewI_H GhostNodesCR("bufferCR", 4 * CRCount);
-    ViewI_H GhostNodesDR("bufferDR", 4 * DRCount);
-    ViewI_H GhostNodesER("bufferER", 3 * ERCount);
-    ViewI_H GhostNodesFR("bufferFR", 3 * FRCount);
-    ViewI_H GhostNodesGR("bufferGR", 3 * GRCount);
-    ViewI_H GhostNodesHR("bufferHR", 3 * HRCount);
+    // Buffers for recieving nuclei data
+    ViewI_H NucleiRecvBufferSouth("NucleiRecvBufferSouth", 4 * SouthNucleiRecvCount);
+    ViewI_H NucleiRecvBufferNorth("NucleiRecvBufferNorth", 4 * NorthNucleiRecvCount);
+    ViewI_H NucleiRecvBufferEast("NucleiRecvBufferEast", 4 * EastNucleiRecvCount);
+    ViewI_H NucleiRecvBufferWest("NucleiRecvBufferWest", 4 * WestNucleiRecvCount);
+    ViewI_H NucleiRecvBufferNorthWest("NucleiRecvBufferNorthWest", 3 * NorthWestNucleiRecvCount);
+    ViewI_H NucleiRecvBufferNorthEast("NucleiRecvBufferNorthEast", 3 * NorthEastNucleiRecvCount);
+    ViewI_H NucleiRecvBufferSouthWest("NucleiRecvBufferSouthWest", 3 * SouthWestNucleiRecvCount);
+    ViewI_H NucleiRecvBufferSouthEast("NucleiRecvBufferSouthEast", 3 * SouthEastNucleiRecvCount);
 
-    // MPI_Barrier(MPI_COMM_WORLD);
-
-    // Collect ghost node data and send to other ranks- left and right
-    if (ACount > 0) {
-        ViewI_H GhostNodesA("bufferA", 4 * ACount);
-        for (int i = 0; i < 4 * ACount; i++) {
-            GhostNodesA(i) = ANuc[i];
+    // Collect ghost node data and send to other ranks- south and north
+    if (SouthNucleiSendCount > 0) {
+        ViewI_H NucleiSendBufferSouth("NucleiSendBufferSouth", 4 * SouthNucleiSendCount);
+        for (int i = 0; i < 4 * SouthNucleiSendCount; i++) {
+            NucleiSendBufferSouth(i) = TempNucleiDataSouth[i];
         }
-        if (BRCount == 0) {
+        if (NorthNucleiRecvCount == 0) {
             // Sending data to id = id - 1 only
-            MPI_Send(GhostNodesA.data(), ACount * 4, MPI_INT, MyLeft, 0, MPI_COMM_WORLD);
+            MPI_Send(NucleiSendBufferSouth.data(), SouthNucleiSendCount * 4, MPI_INT, NeighborRank_South, 0,
+                     MPI_COMM_WORLD);
         }
         else {
             // Sending data to id = id - 1 and recieving data from id = id + 1
-            MPI_Sendrecv(GhostNodesA.data(), ACount * 4, MPI_INT, MyLeft, 0, GhostNodesBR.data(), BRCount * 4, MPI_INT,
-                         MyRight, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Sendrecv(NucleiSendBufferSouth.data(), SouthNucleiSendCount * 4, MPI_INT, NeighborRank_South, 0,
+                         NucleiRecvBufferNorth.data(), NorthNucleiRecvCount * 4, MPI_INT, NeighborRank_North, 0,
+                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
-    else if (BRCount > 0) {
+    else if (NorthNucleiRecvCount > 0) {
         // Recieving data from id = id + 1 only
-        MPI_Recv(GhostNodesBR.data(), BRCount * 4, MPI_INT, MyRight, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(NucleiRecvBufferNorth.data(), NorthNucleiRecvCount * 4, MPI_INT, NeighborRank_North, 0, MPI_COMM_WORLD,
+                 MPI_STATUS_IGNORE);
     }
 
-    if (BCount > 0) {
-        ViewI_H GhostNodesB("bufferB", 4 * BCount);
-        for (int i = 0; i < 4 * BCount; i++) {
-            GhostNodesB(i) = BNuc[i];
+    if (NorthNucleiSendCount > 0) {
+        ViewI_H NucleiSendBufferNorth("NucleiSendBufferNorth", 4 * NorthNucleiSendCount);
+        for (int i = 0; i < 4 * NorthNucleiSendCount; i++) {
+            NucleiSendBufferNorth(i) = TempNucleiDataNorth[i];
         }
-        if (ARCount == 0) {
+        if (SouthNucleiRecvCount == 0) {
             // Sending data to id = id + 1 only
-            MPI_Send(GhostNodesB.data(), BCount * 4, MPI_INT, MyRight, 1, MPI_COMM_WORLD);
+            MPI_Send(NucleiSendBufferNorth.data(), NorthNucleiSendCount * 4, MPI_INT, NeighborRank_North, 1,
+                     MPI_COMM_WORLD);
         }
         else {
             // Sending data to id = id + 1 and recieving data from id = id - 1
-            MPI_Sendrecv(GhostNodesB.data(), BCount * 4, MPI_INT, MyRight, 1, GhostNodesAR.data(), ARCount * 4, MPI_INT,
-                         MyLeft, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Sendrecv(NucleiSendBufferNorth.data(), NorthNucleiSendCount * 4, MPI_INT, NeighborRank_North, 1,
+                         NucleiRecvBufferSouth.data(), SouthNucleiRecvCount * 4, MPI_INT, NeighborRank_South, 1,
+                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
-    else if (ARCount > 0) {
+    else if (SouthNucleiRecvCount > 0) {
         // Recieving data from id = id - 1 only
-        MPI_Recv(GhostNodesAR.data(), ARCount * 4, MPI_INT, MyLeft, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(NucleiRecvBufferSouth.data(), SouthNucleiRecvCount * 4, MPI_INT, NeighborRank_South, 1, MPI_COMM_WORLD,
+                 MPI_STATUS_IGNORE);
     }
 
     if (DecompositionStrategy != 1) {
-        // Collect ghost node data and send to other ranks- in and out
-        if (CCount > 0) {
-            ViewI_H GhostNodesC("bufferC", 4 * CCount);
-            for (int i = 0; i < 4 * CCount; i++) {
-                GhostNodesC(i) = CNuc[i];
+        // Collect ghost node data and send to other ranks- East and West
+        if (EastNucleiSendCount > 0) {
+            ViewI_H NucleiSendBufferEast("NucleiSendBufferEast", 4 * EastNucleiSendCount);
+            for (int i = 0; i < 4 * EastNucleiSendCount; i++) {
+                NucleiSendBufferEast(i) = TempNucleiDataEast[i];
             }
 
-            if (DRCount == 0) {
+            if (WestNucleiRecvCount == 0) {
                 // Sending data only
-                MPI_Send(GhostNodesC.data(), CCount * 4, MPI_INT, MyIn, 0, MPI_COMM_WORLD);
+                MPI_Send(NucleiSendBufferEast.data(), EastNucleiSendCount * 4, MPI_INT, NeighborRank_East, 0,
+                         MPI_COMM_WORLD);
             }
             else {
                 // Sending data and recieving data
-                MPI_Sendrecv(GhostNodesC.data(), CCount * 4, MPI_INT, MyIn, 0, GhostNodesDR.data(), DRCount * 4,
-                             MPI_INT, MyOut, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Sendrecv(NucleiSendBufferEast.data(), EastNucleiSendCount * 4, MPI_INT, NeighborRank_East, 0,
+                             NucleiRecvBufferWest.data(), WestNucleiRecvCount * 4, MPI_INT, NeighborRank_West, 0,
+                             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }
-        else if (DRCount > 0) {
+        else if (WestNucleiRecvCount > 0) {
             // Recieving data only
-            MPI_Recv(GhostNodesDR.data(), DRCount * 4, MPI_INT, MyOut, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(NucleiRecvBufferWest.data(), WestNucleiRecvCount * 4, MPI_INT, NeighborRank_West, 0,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
 
-        if (DCount > 0) {
-            ViewI_H GhostNodesD("bufferD", 4 * DCount);
-            for (int i = 0; i < 4 * DCount; i++) {
-                GhostNodesD(i) = DNuc[i];
+        if (WestNucleiSendCount > 0) {
+            ViewI_H NucleiSendBufferWest("NucleiSendBufferWest", 4 * WestNucleiSendCount);
+            for (int i = 0; i < 4 * WestNucleiSendCount; i++) {
+                NucleiSendBufferWest(i) = TempNucleiDataWest[i];
             }
-            if (CRCount == 0) {
+            if (EastNucleiRecvCount == 0) {
                 // Sending data only
-                MPI_Send(GhostNodesD.data(), DCount * 4, MPI_INT, MyOut, 1, MPI_COMM_WORLD);
+                MPI_Send(NucleiSendBufferWest.data(), WestNucleiSendCount * 4, MPI_INT, NeighborRank_West, 1,
+                         MPI_COMM_WORLD);
             }
             else {
                 // Sending data and recieving data
-                MPI_Sendrecv(GhostNodesD.data(), DCount * 4, MPI_INT, MyOut, 1, GhostNodesCR.data(), CRCount * 4,
-                             MPI_INT, MyIn, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Sendrecv(NucleiSendBufferWest.data(), WestNucleiSendCount * 4, MPI_INT, NeighborRank_West, 1,
+                             NucleiRecvBufferEast.data(), EastNucleiRecvCount * 4, MPI_INT, NeighborRank_East, 1,
+                             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }
-        else if (CRCount > 0) {
+        else if (EastNucleiRecvCount > 0) {
             // Recieving data only
-            MPI_Recv(GhostNodesCR.data(), CRCount * 4, MPI_INT, MyIn, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(NucleiRecvBufferEast.data(), EastNucleiRecvCount * 4, MPI_INT, NeighborRank_East, 1,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
 
-        // Collect ghost node data and send to other ranks- MyLeftIn and MyRightOut
-        if (ECount > 0) {
-            ViewI_H GhostNodesE("bufferE", 3 * ECount);
-            for (int i = 0; i < 3 * ECount; i++) {
-                GhostNodesE(i) = ENuc[i];
+        // Collect ghost node data and send to other ranks- NorthWest and SouthEast
+        if (NorthWestNucleiSendCount > 0) {
+            ViewI_H NucleiSendBufferNorthWest("NucleiSendBufferNorthWest", 3 * NorthWestNucleiSendCount);
+            for (int i = 0; i < 3 * NorthWestNucleiSendCount; i++) {
+                NucleiSendBufferNorthWest(i) = TempNucleiDataNorthWest[i];
             }
-            if (HRCount == 0) {
+            if (SouthEastNucleiRecvCount == 0) {
                 // Sending data only
-                MPI_Send(GhostNodesE.data(), ECount * 3, MPI_INT, MyLeftIn, 0, MPI_COMM_WORLD);
+                MPI_Send(NucleiSendBufferNorthWest.data(), NorthWestNucleiSendCount * 3, MPI_INT,
+                         NeighborRank_NorthWest, 0, MPI_COMM_WORLD);
             }
             else {
                 // Sending data and recieving data
-                MPI_Sendrecv(GhostNodesE.data(), ECount * 3, MPI_INT, MyLeftIn, 0, GhostNodesHR.data(), HRCount * 3,
-                             MPI_INT, MyRightOut, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Sendrecv(NucleiSendBufferNorthWest.data(), NorthWestNucleiSendCount * 3, MPI_INT,
+                             NeighborRank_NorthWest, 0, NucleiRecvBufferSouthEast.data(), SouthEastNucleiRecvCount * 3,
+                             MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }
-        else if (HRCount > 0) {
+        else if (SouthEastNucleiRecvCount > 0) {
             // Recieving data only
-            MPI_Recv(GhostNodesHR.data(), HRCount * 3, MPI_INT, MyRightOut, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(NucleiRecvBufferSouthEast.data(), SouthEastNucleiRecvCount * 3, MPI_INT, NeighborRank_SouthEast, 0,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
 
-        if (HCount > 0) {
-            ViewI_H GhostNodesH("bufferH", 3 * HCount);
-            for (int i = 0; i < 3 * HCount; i++) {
-                GhostNodesH(i) = HNuc[i];
+        if (SouthEastNucleiSendCount > 0) {
+            ViewI_H NucleiSendBufferSouthEast("bufferH", 3 * SouthEastNucleiSendCount);
+            for (int i = 0; i < 3 * SouthEastNucleiSendCount; i++) {
+                NucleiSendBufferSouthEast(i) = TempNucleiDataSouthEast[i];
             }
-            if (ERCount == 0) {
+            if (NorthWestNucleiRecvCount == 0) {
                 // Sending data only
-                MPI_Send(GhostNodesH.data(), HCount * 3, MPI_INT, MyRightOut, 0, MPI_COMM_WORLD);
+                MPI_Send(NucleiSendBufferSouthEast.data(), SouthEastNucleiSendCount * 3, MPI_INT,
+                         NeighborRank_SouthEast, 0, MPI_COMM_WORLD);
             }
             else {
                 // Sending data and recieving data
-                MPI_Sendrecv(GhostNodesH.data(), HCount * 3, MPI_INT, MyRightOut, 0, GhostNodesER.data(), ERCount * 3,
-                             MPI_INT, MyLeftIn, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Sendrecv(NucleiSendBufferSouthEast.data(), SouthEastNucleiSendCount * 3, MPI_INT,
+                             NeighborRank_SouthEast, 0, NucleiRecvBufferNorthWest.data(), NorthWestNucleiRecvCount * 3,
+                             MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }
-        else if (ERCount > 0) {
+        else if (NorthWestNucleiRecvCount > 0) {
             // Recieving data only
-            MPI_Recv(GhostNodesER.data(), ERCount * 3, MPI_INT, MyLeftIn, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(NucleiRecvBufferNorthWest.data(), NorthWestNucleiRecvCount * 3, MPI_INT, NeighborRank_NorthWest, 0,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
 
-        // Collect ghost node data and send to other ranks- MyRightIn and MyLeftOut
-        if (FCount > 0) {
-            ViewI_H GhostNodesF("bufferF", 4 * FCount);
-            for (int i = 0; i < 4 * FCount; i++) {
-                GhostNodesF(i) = FNuc[i];
+        // Collect ghost node data and send to other ranks- NorthEast and SouthWest
+        if (NorthEastNucleiSendCount > 0) {
+            ViewI_H NucleiSendBufferNorthEast("NucleiSendBufferNorthEast", 4 * NorthEastNucleiSendCount);
+            for (int i = 0; i < 4 * NorthEastNucleiSendCount; i++) {
+                NucleiSendBufferNorthEast(i) = TempNucleiDataNorthEast[i];
             }
-            if (GRCount == 0) {
+            if (SouthWestNucleiRecvCount == 0) {
                 // Sending data only
-                MPI_Send(GhostNodesF.data(), FCount * 3, MPI_INT, MyRightIn, 1, MPI_COMM_WORLD);
+                MPI_Send(NucleiSendBufferNorthEast.data(), NorthEastNucleiSendCount * 3, MPI_INT,
+                         NeighborRank_NorthEast, 1, MPI_COMM_WORLD);
             }
             else {
                 // Sending data and recieving data
-                MPI_Sendrecv(GhostNodesF.data(), FCount * 3, MPI_INT, MyRightIn, 1, GhostNodesGR.data(), GRCount * 3,
-                             MPI_INT, MyLeftOut, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Sendrecv(NucleiSendBufferNorthEast.data(), NorthEastNucleiSendCount * 3, MPI_INT,
+                             NeighborRank_NorthEast, 1, NucleiRecvBufferSouthWest.data(), SouthWestNucleiRecvCount * 3,
+                             MPI_INT, NeighborRank_SouthWest, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }
-        else if (GRCount > 0) {
+        else if (SouthWestNucleiRecvCount > 0) {
             // Recieving data only
-            MPI_Recv(GhostNodesGR.data(), GRCount * 3, MPI_INT, MyLeftOut, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(NucleiRecvBufferSouthWest.data(), SouthWestNucleiRecvCount * 3, MPI_INT, NeighborRank_SouthWest, 1,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
 
-        if (GCount > 0) {
-            ViewI_H GhostNodesG("bufferG", 3 * GCount);
-            for (int i = 0; i < 3 * GCount; i++) {
-                GhostNodesG(i) = GNuc[i];
+        if (SouthWestNucleiSendCount > 0) {
+            ViewI_H NucleiSendBufferSouthWest("bufferG", 3 * SouthWestNucleiSendCount);
+            for (int i = 0; i < 3 * SouthWestNucleiSendCount; i++) {
+                NucleiSendBufferSouthWest(i) = TempNucleiDataSouthWest[i];
             }
-            if (FRCount == 0) {
+            if (NorthEastNucleiRecvCount == 0) {
                 // Sending data only
-                MPI_Send(GhostNodesG.data(), GCount * 3, MPI_INT, MyLeftOut, 1, MPI_COMM_WORLD);
+                MPI_Send(NucleiSendBufferSouthWest.data(), SouthWestNucleiSendCount * 3, MPI_INT,
+                         NeighborRank_SouthWest, 1, MPI_COMM_WORLD);
             }
             else {
                 // Sending data and recieving data
-                MPI_Sendrecv(GhostNodesG.data(), GCount * 3, MPI_INT, MyLeftOut, 1, GhostNodesFR.data(), FRCount * 3,
-                             MPI_INT, MyRightIn, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Sendrecv(NucleiRecvBufferSouthWest.data(), SouthWestNucleiSendCount * 3, MPI_INT,
+                             NeighborRank_SouthWest, 1, NucleiRecvBufferNorthEast.data(), NorthEastNucleiRecvCount * 3,
+                             MPI_INT, NeighborRank_NorthEast, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }
-        else if (FRCount > 0) {
+        else if (NorthEastNucleiRecvCount > 0) {
             // Recieving data only
-            MPI_Recv(GhostNodesFR.data(), FRCount * 3, MPI_INT, MyRightIn, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(NucleiRecvBufferNorthEast.data(), NorthEastNucleiRecvCount * 3, MPI_INT, NeighborRank_NorthEast, 1,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    // Place ghost node data recieved from the left (if needed)
-    if (ARCount > 0) {
-        for (int i = 0; i < ARCount; i++) {
-            int RankX = GhostNodesAR(4 * i);
+    // Place ghost node data recieved from the south (if needed)
+    if (SouthNucleiRecvCount > 0) {
+        for (int i = 0; i < SouthNucleiRecvCount; i++) {
+            int RankX = NucleiRecvBufferSouth(4 * i);
             int RankY = 0;
-            int RankZ = GhostNodesAR(4 * i + 1);
+            int RankZ = NucleiRecvBufferSouth(4 * i + 1);
             int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
             NucleiLocation(NEvent) = CellLocation;
-            NucleationTimes(NEvent) = GhostNodesAR(4 * i + 2);
+            NucleationTimes(NEvent) = NucleiRecvBufferSouth(4 * i + 2);
             CellType(CellLocation) = TemporaryInit;
-            GrainID(CellLocation) = GhostNodesAR(4 * i + 3);
+            GrainID(CellLocation) = NucleiRecvBufferSouth(4 * i + 3);
             NEvent++;
         }
     }
 
-    // Place ghost node data recieved from the right (if needed)
-    if (BRCount > 0) {
-        for (int i = 0; i < BRCount; i++) {
-            int RankX = GhostNodesBR(4 * i);
+    // Place ghost node data recieved from the north (if needed)
+    if (NorthNucleiRecvCount > 0) {
+        for (int i = 0; i < NorthNucleiRecvCount; i++) {
+            int RankX = NucleiRecvBufferNorth(4 * i);
             int RankY = MyYSlices - 1;
-            int RankZ = GhostNodesBR(4 * i + 1);
+            int RankZ = NucleiRecvBufferNorth(4 * i + 1);
             int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
             NucleiLocation(NEvent) = CellLocation;
-            NucleationTimes(NEvent) = GhostNodesBR(4 * i + 2);
+            NucleationTimes(NEvent) = NucleiRecvBufferNorth(4 * i + 2);
             CellType(CellLocation) = TemporaryInit;
-            GrainID(CellLocation) = GhostNodesBR(4 * i + 3);
+            GrainID(CellLocation) = NucleiRecvBufferNorth(4 * i + 3);
             NEvent++;
         }
     }
 
     if (DecompositionStrategy != 1) {
-        // Place ghost node data recieved from in plane (if needed)
-        if (CRCount > 0) {
-            for (int i = 0; i < CRCount; i++) {
+        // Place ghost node data recieved from the east (if needed)
+        if (EastNucleiRecvCount > 0) {
+            for (int i = 0; i < EastNucleiRecvCount; i++) {
                 int RankX = MyXSlices - 1;
-                int RankY = GhostNodesCR(4 * i);
-                int RankZ = GhostNodesCR(4 * i + 1);
+                int RankY = NucleiRecvBufferEast(4 * i);
+                int RankZ = NucleiRecvBufferEast(4 * i + 1);
                 int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                 NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = GhostNodesCR(4 * i + 2);
+                NucleationTimes(NEvent) = NucleiRecvBufferEast(4 * i + 2);
                 CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = GhostNodesCR(4 * i + 3);
+                GrainID(CellLocation) = NucleiRecvBufferEast(4 * i + 3);
                 NEvent++;
             }
         }
 
-        // Place ghost node data recieved from out of plane (if needed)
-        if (DRCount > 0) {
-            for (int i = 0; i < DRCount; i++) {
+        // Place ghost node data recieved from the west (if needed)
+        if (WestNucleiRecvCount > 0) {
+            for (int i = 0; i < WestNucleiRecvCount; i++) {
                 int RankX = 0;
-                int RankY = GhostNodesDR(4 * i);
-                int RankZ = GhostNodesDR(4 * i + 1);
+                int RankY = NucleiRecvBufferWest(4 * i);
+                int RankZ = NucleiRecvBufferWest(4 * i + 1);
                 int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                 NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = GhostNodesDR(4 * i + 2);
+                NucleationTimes(NEvent) = NucleiRecvBufferWest(4 * i + 2);
                 CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = GhostNodesDR(4 * i + 3);
+                GrainID(CellLocation) = NucleiRecvBufferWest(4 * i + 3);
                 NEvent++;
             }
         }
 
-        // Place ghost node data recieved from left and out of plane (if needed)
-        if (ERCount > 0) {
-            for (int i = 0; i < ERCount; i++) {
-                int RankX = MyXSlices - 1;
-                int RankY = 0;
-                int RankZ = GhostNodesER(3 * i);
-                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = GhostNodesER(3 * i + 1);
-                CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = GhostNodesER(3 * i + 2);
-                NEvent++;
-            }
-        }
-
-        // Place ghost node data recieved from right and out of plane (if needed)
-        if (FRCount > 0) {
-            for (int i = 0; i < FRCount; i++) {
-                int RankX = MyXSlices - 1;
-                int RankY = MyYSlices - 1;
-                int RankZ = GhostNodesFR(3 * i);
-                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = GhostNodesFR(3 * i + 1);
-                CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = GhostNodesFR(3 * i + 2);
-                NEvent++;
-            }
-        }
-
-        // Place ghost node data recieved from left and into plane (if needed)
-        if (GRCount > 0) {
-            for (int i = 0; i < GRCount; i++) {
-                int RankX = 0;
-                int RankY = 0;
-                int RankZ = GhostNodesGR(3 * i);
-                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = GhostNodesGR(3 * i + 1);
-                CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = GhostNodesGR(3 * i + 2);
-                NEvent++;
-            }
-        }
-
-        if (HRCount > 0) {
-            for (int i = 0; i < HRCount; i++) {
+        // Place ghost node data recieved from the northwest (if needed)
+        if (NorthWestNucleiRecvCount > 0) {
+            for (int i = 0; i < NorthWestNucleiRecvCount; i++) {
                 int RankX = 0;
                 int RankY = MyYSlices - 1;
-                int RankZ = GhostNodesHR(3 * i);
+                int RankZ = NucleiRecvBufferNorthWest(3 * i);
                 int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                 NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = GhostNodesHR(3 * i + 1);
+                NucleationTimes(NEvent) = NucleiRecvBufferNorthWest(3 * i + 1);
                 CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = GhostNodesHR(3 * i + 2);
+                GrainID(CellLocation) = NucleiRecvBufferNorthWest(3 * i + 2);
+                NEvent++;
+            }
+        }
+
+        // Place ghost node data recieved from the northeast (if needed)
+        if (NorthEastNucleiRecvCount > 0) {
+            for (int i = 0; i < NorthEastNucleiRecvCount; i++) {
+                int RankX = MyXSlices - 1;
+                int RankY = MyYSlices - 1;
+                int RankZ = NucleiRecvBufferNorthEast(3 * i);
+                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                NucleiLocation(NEvent) = CellLocation;
+                NucleationTimes(NEvent) = NucleiRecvBufferNorthEast(3 * i + 1);
+                CellType(CellLocation) = TemporaryInit;
+                GrainID(CellLocation) = NucleiRecvBufferNorthEast(3 * i + 2);
+                NEvent++;
+            }
+        }
+
+        // Place ghost node data recieved from the southwest (if needed)
+        if (SouthWestNucleiRecvCount > 0) {
+            for (int i = 0; i < SouthWestNucleiRecvCount; i++) {
+                int RankX = 0;
+                int RankY = 0;
+                int RankZ = NucleiRecvBufferSouthWest(3 * i);
+                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                NucleiLocation(NEvent) = CellLocation;
+                NucleationTimes(NEvent) = NucleiRecvBufferSouthWest(3 * i + 1);
+                CellType(CellLocation) = TemporaryInit;
+                GrainID(CellLocation) = NucleiRecvBufferSouthWest(3 * i + 2);
+                NEvent++;
+            }
+        }
+
+        // Place ghost node data recieved from the southeast (if needed)
+        if (SouthEastNucleiRecvCount > 0) {
+            for (int i = 0; i < SouthEastNucleiRecvCount; i++) {
+                int RankX = MyXSlices - 1;
+                int RankY = 0;
+                int RankZ = NucleiRecvBufferSouthEast(3 * i);
+                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                NucleiLocation(NEvent) = CellLocation;
+                NucleationTimes(NEvent) = NucleiRecvBufferSouthEast(3 * i + 1);
+                CellType(CellLocation) = TemporaryInit;
+                GrainID(CellLocation) = NucleiRecvBufferSouthEast(3 * i + 2);
                 NEvent++;
             }
         }
@@ -2721,32 +2752,34 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
 void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
                 ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY,
                 ViewI NeighborZ, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength,
-                ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC,
-                Buffer2D BufferD, Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH,
-                Buffer2D BufferAR, Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER,
-                Buffer2D BufferFR, Buffer2D BufferGR, Buffer2D BufferHR, int &ZBound_Low) {
+                ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
+                Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
+                Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
+                Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
+                Buffer2D BufferSouthWestRecv, int &ZBound_Low) {
 
     // Reset active cell data structures
     Kokkos::deep_copy(DiagonalLength, 0);
     Kokkos::deep_copy(DOCenter, 0);
     Kokkos::deep_copy(CritDiagonalLength, 0);
-    Kokkos::deep_copy(BufferA, 0.0);
-    Kokkos::deep_copy(BufferAR, 0.0);
-    Kokkos::deep_copy(BufferB, 0.0);
-    Kokkos::deep_copy(BufferBR, 0.0);
+    Kokkos::deep_copy(BufferSouthSend, 0.0);
+    Kokkos::deep_copy(BufferSouthRecv, 0.0);
+    Kokkos::deep_copy(BufferNorthSend, 0.0);
+    Kokkos::deep_copy(BufferNorthRecv, 0.0);
     if (DecompositionStrategy != 1) {
-        Kokkos::deep_copy(BufferC, 0.0);
-        Kokkos::deep_copy(BufferCR, 0.0);
-        Kokkos::deep_copy(BufferD, 0.0);
-        Kokkos::deep_copy(BufferDR, 0.0);
-        Kokkos::deep_copy(BufferE, 0.0);
-        Kokkos::deep_copy(BufferER, 0.0);
-        Kokkos::deep_copy(BufferF, 0.0);
-        Kokkos::deep_copy(BufferFR, 0.0);
-        Kokkos::deep_copy(BufferG, 0.0);
-        Kokkos::deep_copy(BufferGR, 0.0);
-        Kokkos::deep_copy(BufferH, 0.0);
-        Kokkos::deep_copy(BufferHR, 0.0);
+        Kokkos::deep_copy(BufferEastSend, 0.0);
+        Kokkos::deep_copy(BufferEastRecv, 0.0);
+        Kokkos::deep_copy(BufferWestSend, 0.0);
+        Kokkos::deep_copy(BufferWestRecv, 0.0);
+        Kokkos::deep_copy(BufferNorthWestSend, 0.0);
+        Kokkos::deep_copy(BufferNorthWestRecv, 0.0);
+        Kokkos::deep_copy(BufferNorthEastSend, 0.0);
+        Kokkos::deep_copy(BufferNorthEastRecv, 0.0);
+        Kokkos::deep_copy(BufferSouthWestSend, 0.0);
+        Kokkos::deep_copy(BufferSouthWestRecv, 0.0);
+        Kokkos::deep_copy(BufferSouthEastSend, 0.0);
+        Kokkos::deep_copy(BufferSouthEastRecv, 0.0);
     }
 
     Kokkos::parallel_for(

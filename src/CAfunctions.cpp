@@ -233,37 +233,38 @@ double MaxVal(double TestVec3[6], int NVals) {
 //*****************************************************************************/
 // Determine the mapping of processors to grid data
 void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection,
-                          int &ProcessorsInYDirection, int id, int np, int &MyLeft, int &MyRight, int &MyIn, int &MyOut,
-                          int &MyLeftIn, int &MyLeftOut, int &MyRightIn, int &MyRightOut) {
+                          int &ProcessorsInYDirection, int id, int np, int &NeighborRank_North, int &NeighborRank_South,
+                          int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
+                          int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest) {
 
     if (DecompositionStrategy == 1) {
     OneDim:
         ProcessorsInXDirection = 1;
         ProcessorsInYDirection = np;
         if (np > 1) {
-            MyLeft = id - 1;
-            MyRight = id + 1;
+            NeighborRank_South = id - 1;
+            NeighborRank_North = id + 1;
             if (id == 0)
-                MyLeft = MPI_PROC_NULL;
+                NeighborRank_South = MPI_PROC_NULL;
             if (id == np - 1)
-                MyRight = MPI_PROC_NULL;
-            MyIn = MPI_PROC_NULL;
-            MyRightIn = MPI_PROC_NULL;
-            MyOut = MPI_PROC_NULL;
-            MyRightOut = MPI_PROC_NULL;
-            MyLeftIn = MPI_PROC_NULL;
-            MyLeftOut = MPI_PROC_NULL;
+                NeighborRank_North = MPI_PROC_NULL;
+            NeighborRank_West = MPI_PROC_NULL;
+            NeighborRank_NorthWest = MPI_PROC_NULL;
+            NeighborRank_NorthEast = MPI_PROC_NULL;
+            NeighborRank_East = MPI_PROC_NULL;
+            NeighborRank_SouthWest = MPI_PROC_NULL;
+            NeighborRank_SouthEast = MPI_PROC_NULL;
         }
         else {
             // No MPI communication
-            MyLeft = MPI_PROC_NULL;
-            MyRight = MPI_PROC_NULL;
-            MyIn = MPI_PROC_NULL;
-            MyRightIn = MPI_PROC_NULL;
-            MyOut = MPI_PROC_NULL;
-            MyRightOut = MPI_PROC_NULL;
-            MyLeftIn = MPI_PROC_NULL;
-            MyLeftOut = MPI_PROC_NULL;
+            NeighborRank_West = MPI_PROC_NULL;
+            NeighborRank_East = MPI_PROC_NULL;
+            NeighborRank_North = MPI_PROC_NULL;
+            NeighborRank_NorthWest = MPI_PROC_NULL;
+            NeighborRank_NorthEast = MPI_PROC_NULL;
+            NeighborRank_South = MPI_PROC_NULL;
+            NeighborRank_SouthWest = MPI_PROC_NULL;
+            NeighborRank_SouthEast = MPI_PROC_NULL;
         }
     }
     else if (DecompositionStrategy == 2) {
@@ -276,31 +277,30 @@ void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &Proce
         }
         ProcessorsInXDirection = 2;
         ProcessorsInYDirection = np / 2;
-        MyLeft = id - 1;
-        MyRight = id + 1;
-        MyIn = id + ProcessorsInYDirection;
-        MyOut = id - ProcessorsInYDirection;
-        MyLeftIn = MyIn - 1;
-        MyRightIn = MyIn + 1;
-        ;
-        MyLeftOut = MyOut - 1;
-        MyRightOut = MyOut + 1;
+        NeighborRank_South = id - 1;
+        NeighborRank_North = id + 1;
+        NeighborRank_East = id + ProcessorsInYDirection;
+        NeighborRank_West = id - ProcessorsInYDirection;
+        NeighborRank_SouthEast = NeighborRank_East - 1;
+        NeighborRank_NorthEast = NeighborRank_East + 1;
+        NeighborRank_SouthWest = NeighborRank_West - 1;
+        NeighborRank_NorthWest = NeighborRank_West + 1;
         if (id % ProcessorsInYDirection == 0)
-            MyLeft = MPI_PROC_NULL;
+            NeighborRank_South = MPI_PROC_NULL;
         if (id % ProcessorsInYDirection == ProcessorsInYDirection - 1)
-            MyRight = MPI_PROC_NULL;
+            NeighborRank_North = MPI_PROC_NULL;
         if (id < ProcessorsInYDirection)
-            MyOut = MPI_PROC_NULL;
+            NeighborRank_West = MPI_PROC_NULL;
         if (id >= (np - ProcessorsInYDirection))
-            MyIn = MPI_PROC_NULL;
-        if ((MyLeft == MPI_PROC_NULL) || (MyIn == MPI_PROC_NULL))
-            MyLeftIn = MPI_PROC_NULL;
-        if ((MyRight == MPI_PROC_NULL) || (MyIn == MPI_PROC_NULL))
-            MyRightIn = MPI_PROC_NULL;
-        if ((MyLeft == MPI_PROC_NULL) || (MyOut == MPI_PROC_NULL))
-            MyLeftOut = MPI_PROC_NULL;
-        if ((MyRight == MPI_PROC_NULL) || (MyOut == MPI_PROC_NULL))
-            MyRightOut = MPI_PROC_NULL;
+            NeighborRank_East = MPI_PROC_NULL;
+        if ((NeighborRank_South == MPI_PROC_NULL) || (NeighborRank_East == MPI_PROC_NULL))
+            NeighborRank_SouthEast = MPI_PROC_NULL;
+        if ((NeighborRank_North == MPI_PROC_NULL) || (NeighborRank_East == MPI_PROC_NULL))
+            NeighborRank_NorthEast = MPI_PROC_NULL;
+        if ((NeighborRank_South == MPI_PROC_NULL) || (NeighborRank_West == MPI_PROC_NULL))
+            NeighborRank_SouthWest = MPI_PROC_NULL;
+        if ((NeighborRank_North == MPI_PROC_NULL) || (NeighborRank_West == MPI_PROC_NULL))
+            NeighborRank_NorthWest = MPI_PROC_NULL;
     }
     else if (DecompositionStrategy == 3) {
 
@@ -362,48 +362,54 @@ void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &Proce
         if (id == 0)
             std::cout << " Processors in X: " << ProcessorsInXDirection
                       << " Processors in Y: " << ProcessorsInYDirection << std::endl;
-        MyLeft = id - 1;
-        MyRight = id + 1;
-        MyIn = id + ProcessorsInYDirection;
-        MyOut = id - ProcessorsInYDirection;
-        MyLeftIn = MyIn - 1;
-        MyRightIn = MyIn + 1;
-        ;
-        MyLeftOut = MyOut - 1;
-        MyRightOut = MyOut + 1;
+        NeighborRank_South = id - 1;
+        NeighborRank_North = id + 1;
+        NeighborRank_East = id + ProcessorsInYDirection;
+        NeighborRank_West = id - ProcessorsInYDirection;
         if (id % ProcessorsInYDirection == 0)
-            MyLeft = MPI_PROC_NULL;
+            NeighborRank_South = MPI_PROC_NULL;
         if (id % ProcessorsInYDirection == ProcessorsInYDirection - 1)
-            MyRight = MPI_PROC_NULL;
+            NeighborRank_North = MPI_PROC_NULL;
         if (id < ProcessorsInYDirection)
-            MyOut = MPI_PROC_NULL;
+            NeighborRank_West = MPI_PROC_NULL;
         if (id >= (np - ProcessorsInYDirection))
-            MyIn = MPI_PROC_NULL;
-        if ((MyLeft == MPI_PROC_NULL) || (MyIn == MPI_PROC_NULL))
-            MyLeftIn = MPI_PROC_NULL;
-        if ((MyRight == MPI_PROC_NULL) || (MyIn == MPI_PROC_NULL))
-            MyRightIn = MPI_PROC_NULL;
-        if ((MyLeft == MPI_PROC_NULL) || (MyOut == MPI_PROC_NULL))
-            MyLeftOut = MPI_PROC_NULL;
-        if ((MyRight == MPI_PROC_NULL) || (MyOut == MPI_PROC_NULL))
-            MyRightOut = MPI_PROC_NULL;
+            NeighborRank_East = MPI_PROC_NULL;
+        if ((NeighborRank_South == MPI_PROC_NULL) || (NeighborRank_East == MPI_PROC_NULL))
+            NeighborRank_SouthEast = MPI_PROC_NULL;
+        else
+            NeighborRank_SouthEast = NeighborRank_East - 1;
+
+        if ((NeighborRank_North == MPI_PROC_NULL) || (NeighborRank_East == MPI_PROC_NULL))
+            NeighborRank_NorthEast = MPI_PROC_NULL;
+        else
+            NeighborRank_NorthEast = NeighborRank_East + 1;
+
+        if ((NeighborRank_South == MPI_PROC_NULL) || (NeighborRank_West == MPI_PROC_NULL))
+            NeighborRank_SouthWest = MPI_PROC_NULL;
+        else
+            NeighborRank_SouthWest = NeighborRank_West - 1;
+
+        if ((NeighborRank_North == MPI_PROC_NULL) || (NeighborRank_West == MPI_PROC_NULL))
+            NeighborRank_NorthWest = MPI_PROC_NULL;
+        else
+            NeighborRank_NorthWest = NeighborRank_West + 1;
     }
 }
 
 //*****************************************************************************/
 // Determine the scan limits for each rank in X and Y directions
-void XYLimitCalc(int &LLX, int &LLY, int &ULX, int &ULY, int MyXSlices, int MyYSlices, int MyLeft, int MyRight,
-                 int MyIn, int MyOut) {
+void XYLimitCalc(int &LLX, int &LLY, int &ULX, int &ULY, int MyXSlices, int MyYSlices, int NeighborRank_South,
+                 int NeighborRank_North, int NeighborRank_East, int NeighborRank_West) {
     LLX = 0;
     LLY = 0;
     ULX = MyXSlices - 1;
     ULY = MyYSlices - 1;
-    if (MyLeft == MPI_PROC_NULL)
+    if (NeighborRank_South == MPI_PROC_NULL)
         LLY = 1;
-    if (MyRight == MPI_PROC_NULL)
+    if (NeighborRank_North == MPI_PROC_NULL)
         ULY = MyYSlices - 2;
-    if (MyIn == MPI_PROC_NULL)
+    if (NeighborRank_East == MPI_PROC_NULL)
         ULX = MyXSlices - 2;
-    if (MyOut == MPI_PROC_NULL)
+    if (NeighborRank_West == MPI_PROC_NULL)
         LLX = 1;
 }

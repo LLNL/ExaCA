@@ -7,35 +7,38 @@
 
 //*****************************************************************************/
 // Initial placement of data in ghost nodes
-void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn,
-                    int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset,
-                    int MyYOffset, int ZBound_Low, int nzActive, int LocalActiveDomainSize, int NGrainOrientations,
-                    ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewI GrainOrientation,
-                    ViewI GrainID, ViewI CellType, ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength) {
+void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North, int NeighborRank_South,
+                    int NeighborRank_East, int NeighborRank_West, int NeighborRank_NorthEast,
+                    int NeighborRank_NorthWest, int NeighborRank_SouthEast, int NeighborRank_SouthWest, int MyXSlices,
+                    int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive,
+                    int LocalActiveDomainSize, int NGrainOrientations, ViewI NeighborX, ViewI NeighborY,
+                    ViewI NeighborZ, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI GrainID, ViewI CellType,
+                    ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength) {
 
     // Fill buffers with ghost node data following initialization of data on GPUs
     // Similar to the calls to GhostNodes1D/GhostNodes2D, but the information sent/received in the halo regions is
     // different Need to send and receive cell type data, grain id data from other ranks
-    Buffer3D BufferA(Kokkos::ViewAllocateWithoutInitializing("BufferA"), MyXSlices, nzActive, 2);
-    Buffer3D BufferB(Kokkos::ViewAllocateWithoutInitializing("BufferB"), MyXSlices, nzActive, 2);
-    Buffer3D BufferAR(Kokkos::ViewAllocateWithoutInitializing("BufferAR"), MyXSlices, nzActive, 2);
-    Buffer3D BufferBR(Kokkos::ViewAllocateWithoutInitializing("BufferBR"), MyXSlices, nzActive, 2);
+    Buffer3D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), MyXSlices, nzActive, 2);
+    Buffer3D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), MyXSlices, nzActive, 2);
+    Buffer3D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), MyXSlices, nzActive, 2);
+    Buffer3D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), MyXSlices, nzActive, 2);
 
-    Buffer3D BufferC, BufferD, BufferCR, BufferDR;
-    Buffer2D BufferE, BufferF, BufferG, BufferH, BufferER, BufferFR, BufferGR, BufferHR;
+    Buffer3D BufferWestSend, BufferEastSend, BufferWestRecv, BufferEastRecv;
+    Buffer2D BufferNorthEastSend, BufferNorthWestSend, BufferSouthWestSend, BufferSouthEastSend;
+    Buffer2D BufferNorthEastRecv, BufferNorthWestRecv, BufferSouthWestRecv, BufferSouthEastRecv;
     if (DecompositionStrategy > 1) {
-        BufferC = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferC"), MyYSlices, nzActive, 2);
-        BufferD = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferD"), MyYSlices, nzActive, 2);
-        BufferE = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferE"), nzActive, 2);
-        BufferF = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferF"), nzActive, 2);
-        BufferG = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferG"), nzActive, 2);
-        BufferH = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferH"), nzActive, 2);
-        BufferCR = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferCR"), MyYSlices, nzActive, 2);
-        BufferDR = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferDR"), MyYSlices, nzActive, 2);
-        BufferER = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferER"), nzActive, 2);
-        BufferFR = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferFR"), nzActive, 2);
-        BufferGR = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferGR"), nzActive, 2);
-        BufferHR = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferHR"), nzActive, 2);
+        BufferWestSend = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferWestSend"), MyYSlices, nzActive, 2);
+        BufferEastSend = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferEastSend"), MyYSlices, nzActive, 2);
+        BufferNorthEastSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastSend"), nzActive, 2);
+        BufferNorthWestSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestSend"), nzActive, 2);
+        BufferSouthWestSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestSend"), nzActive, 2);
+        BufferSouthEastSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastSend"), nzActive, 2);
+        BufferWestRecv = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferWestRecv"), MyYSlices, nzActive, 2);
+        BufferEastRecv = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferEastRecv"), MyYSlices, nzActive, 2);
+        BufferNorthEastRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastRecv"), nzActive, 2);
+        BufferNorthWestRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestRecv"), nzActive, 2);
+        BufferSouthWestRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestRecv"), nzActive, 2);
+        BufferSouthEastRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastRecv"), nzActive, 2);
     }
 
     // Load send buffers
@@ -51,37 +54,37 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight
             int GhostCT = CellType(D3D1ConvPositionGlobal);
             // Collect data for the ghost nodes:
             if (RankY == 1) {
-                BufferA(RankX, RankZ, 0) = GhostGID;
-                BufferA(RankX, RankZ, 1) = GhostCT;
+                BufferSouthSend(RankX, RankZ, 0) = GhostGID;
+                BufferSouthSend(RankX, RankZ, 1) = GhostCT;
             }
             else if (RankY == MyYSlices - 2) {
-                BufferB(RankX, RankZ, 0) = GhostGID;
-                BufferB(RankX, RankZ, 1) = GhostCT;
+                BufferNorthSend(RankX, RankZ, 0) = GhostGID;
+                BufferNorthSend(RankX, RankZ, 1) = GhostCT;
             }
             if (DecompositionStrategy > 1) {
                 if (RankX == MyXSlices - 2) {
-                    BufferC(RankY, RankZ, 0) = GhostGID;
-                    BufferC(RankY, RankZ, 1) = GhostCT;
+                    BufferEastSend(RankY, RankZ, 0) = GhostGID;
+                    BufferEastSend(RankY, RankZ, 1) = GhostCT;
                 }
                 else if (RankX == 1) {
-                    BufferD(RankY, RankZ, 0) = GhostGID;
-                    BufferD(RankY, RankZ, 1) = GhostCT;
+                    BufferWestSend(RankY, RankZ, 0) = GhostGID;
+                    BufferWestSend(RankY, RankZ, 1) = GhostCT;
                 }
-                if ((RankY == 1) && (RankX == MyXSlices - 2)) {
-                    BufferE(RankZ, 0) = GhostGID;
-                    BufferE(RankZ, 1) = GhostCT;
+                if ((RankY == 1) && (RankX == 1)) {
+                    BufferSouthWestSend(RankZ, 0) = GhostGID;
+                    BufferSouthWestSend(RankZ, 1) = GhostCT;
                 }
                 else if ((RankY == 1) && (RankX == MyXSlices - 2)) {
-                    BufferG(RankZ, 0) = GhostGID;
-                    BufferG(RankZ, 1) = GhostCT;
+                    BufferSouthEastSend(RankZ, 0) = GhostGID;
+                    BufferSouthEastSend(RankZ, 1) = GhostCT;
                 }
                 else if ((RankY == MyYSlices - 2) && (RankX == MyXSlices - 2)) {
-                    BufferF(RankZ, 0) = GhostGID;
-                    BufferF(RankZ, 1) = GhostCT;
+                    BufferNorthEastSend(RankZ, 0) = GhostGID;
+                    BufferNorthEastSend(RankZ, 1) = GhostCT;
                 }
                 else if ((RankY == MyYSlices - 2) && (RankX == 1)) {
-                    BufferH(RankZ, 0) = GhostGID;
-                    BufferH(RankZ, 1) = GhostCT;
+                    BufferNorthWestSend(RankZ, 0) = GhostGID;
+                    BufferNorthWestSend(RankZ, 1) = GhostCT;
                 }
             }
         });
@@ -95,27 +98,43 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight
     std::vector<MPI_Request> RecvRequests(NumberOfSends, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferA.data(), 2 * MyXSlices * nzActive, MPI_FLOAT, MyLeft, 0, MPI_COMM_WORLD, &SendRequests[0]);
-    MPI_Isend(BufferB.data(), 2 * MyXSlices * nzActive, MPI_FLOAT, MyRight, 0, MPI_COMM_WORLD, &SendRequests[1]);
+    MPI_Isend(BufferSouthSend.data(), 2 * MyXSlices * nzActive, MPI_INT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &SendRequests[0]);
+    MPI_Isend(BufferNorthSend.data(), 2 * MyXSlices * nzActive, MPI_INT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &SendRequests[1]);
     if (DecompositionStrategy > 1) {
-        MPI_Isend(BufferC.data(), 2 * MyYSlices * nzActive, MPI_FLOAT, MyIn, 0, MPI_COMM_WORLD, &SendRequests[2]);
-        MPI_Isend(BufferD.data(), 2 * MyYSlices * nzActive, MPI_FLOAT, MyOut, 0, MPI_COMM_WORLD, &SendRequests[3]);
-        MPI_Isend(BufferE.data(), 2 * nzActive, MPI_FLOAT, MyLeftIn, 0, MPI_COMM_WORLD, &SendRequests[4]);
-        MPI_Isend(BufferF.data(), 2 * nzActive, MPI_FLOAT, MyRightOut, 0, MPI_COMM_WORLD, &SendRequests[5]);
-        MPI_Isend(BufferG.data(), 2 * nzActive, MPI_FLOAT, MyRightIn, 0, MPI_COMM_WORLD, &SendRequests[6]);
-        MPI_Isend(BufferH.data(), 2 * nzActive, MPI_FLOAT, MyLeftOut, 0, MPI_COMM_WORLD, &SendRequests[7]);
+        MPI_Isend(BufferEastSend.data(), 2 * MyYSlices * nzActive, MPI_INT, NeighborRank_East, 0, MPI_COMM_WORLD,
+                  &SendRequests[2]);
+        MPI_Isend(BufferWestSend.data(), 2 * MyYSlices * nzActive, MPI_INT, NeighborRank_West, 0, MPI_COMM_WORLD,
+                  &SendRequests[3]);
+        MPI_Isend(BufferNorthWestSend.data(), 2 * nzActive, MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+                  &SendRequests[4]);
+        MPI_Isend(BufferNorthEastSend.data(), 2 * nzActive, MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+                  &SendRequests[5]);
+        MPI_Isend(BufferSouthWestSend.data(), 2 * nzActive, MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+                  &SendRequests[6]);
+        MPI_Isend(BufferSouthEastSend.data(), 2 * nzActive, MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+                  &SendRequests[7]);
     }
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferAR.data(), 2 * MyXSlices * nzActive, MPI_FLOAT, MyLeft, 0, MPI_COMM_WORLD, &RecvRequests[0]);
-    MPI_Irecv(BufferBR.data(), 2 * MyXSlices * nzActive, MPI_FLOAT, MyRight, 0, MPI_COMM_WORLD, &RecvRequests[1]);
+    MPI_Irecv(BufferSouthRecv.data(), 2 * MyXSlices * nzActive, MPI_INT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &RecvRequests[0]);
+    MPI_Irecv(BufferNorthRecv.data(), 2 * MyXSlices * nzActive, MPI_INT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &RecvRequests[1]);
     if (DecompositionStrategy > 1) {
-        MPI_Irecv(BufferCR.data(), 2 * MyYSlices * nzActive, MPI_FLOAT, MyIn, 0, MPI_COMM_WORLD, &RecvRequests[2]);
-        MPI_Irecv(BufferDR.data(), 2 * MyYSlices * nzActive, MPI_FLOAT, MyOut, 0, MPI_COMM_WORLD, &RecvRequests[3]);
-        MPI_Irecv(BufferER.data(), 2 * nzActive, MPI_FLOAT, MyLeftIn, 0, MPI_COMM_WORLD, &RecvRequests[4]);
-        MPI_Irecv(BufferFR.data(), 2 * nzActive, MPI_FLOAT, MyRightOut, 0, MPI_COMM_WORLD, &RecvRequests[5]);
-        MPI_Irecv(BufferGR.data(), 2 * nzActive, MPI_FLOAT, MyRightIn, 0, MPI_COMM_WORLD, &RecvRequests[6]);
-        MPI_Irecv(BufferHR.data(), 2 * nzActive, MPI_FLOAT, MyLeftOut, 0, MPI_COMM_WORLD, &RecvRequests[7]);
+        MPI_Irecv(BufferEastRecv.data(), 2 * MyYSlices * nzActive, MPI_INT, NeighborRank_East, 0, MPI_COMM_WORLD,
+                  &RecvRequests[2]);
+        MPI_Irecv(BufferWestRecv.data(), 2 * MyYSlices * nzActive, MPI_INT, NeighborRank_West, 0, MPI_COMM_WORLD,
+                  &RecvRequests[3]);
+        MPI_Irecv(BufferNorthWestRecv.data(), 2 * nzActive, MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+                  &RecvRequests[4]);
+        MPI_Irecv(BufferNorthEastRecv.data(), 2 * nzActive, MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+                  &RecvRequests[5]);
+        MPI_Irecv(BufferSouthWestRecv.data(), 2 * nzActive, MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+                  &RecvRequests[6]);
+        MPI_Irecv(BufferSouthEastRecv.data(), 2 * nzActive, MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+                  &RecvRequests[7]);
     }
 
     // unpack in any order
@@ -137,8 +156,9 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight
                     int GlobalZ = RankZ + ZBound_Low;
 
                     // Which rank was the data received from?
-                    if ((unpack_index == 0) || (unpack_index == 1)) {
-                        // Data receieved from MyLeft or MyRight
+                    if (((unpack_index == 0) && (NeighborRank_South != MPI_PROC_NULL)) ||
+                        ((unpack_index == 1) && (NeighborRank_North != MPI_PROC_NULL))) {
+                        // Data receieved from North or South
                         if (unpack_index == 0)
                             RankY = 0;
                         else
@@ -155,12 +175,12 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight
                         for (int RankX = XIterationRangeStart; RankX < XIterationRangeEnd; RankX++) {
                             int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                             if (unpack_index == 0) {
-                                GrainID(GlobalCellLocation) = BufferAR(RankX, RankZ, 0);
-                                CellType(GlobalCellLocation) = BufferAR(RankX, RankZ, 1);
+                                GrainID(GlobalCellLocation) = BufferSouthRecv(RankX, RankZ, 0);
+                                CellType(GlobalCellLocation) = BufferSouthRecv(RankX, RankZ, 1);
                             }
                             else {
-                                GrainID(GlobalCellLocation) = BufferBR(RankX, RankZ, 0);
-                                CellType(GlobalCellLocation) = BufferBR(RankX, RankZ, 1);
+                                GrainID(GlobalCellLocation) = BufferNorthRecv(RankX, RankZ, 0);
+                                CellType(GlobalCellLocation) = BufferNorthRecv(RankX, RankZ, 1);
                             }
                             if (CellType(GlobalCellLocation) == Active) {
                                 // Mark cell for later placement of octahedra, critical diagonal length calculations
@@ -169,8 +189,9 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight
                         }
                     }
 
-                    else if ((unpack_index == 2) || (unpack_index == 3)) {
-                        // Data received from MyIn or MyOut
+                    else if (((unpack_index == 2) && (NeighborRank_East != MPI_PROC_NULL)) ||
+                             ((unpack_index == 3) && (NeighborRank_West != MPI_PROC_NULL))) {
+                        // Data received from East or West
                         if (unpack_index == 2)
                             RankX = MyXSlices - 1;
                         else
@@ -180,12 +201,12 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight
                         for (int RankY = 1; RankY < MyYSlices - 1; RankY++) {
                             int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                             if (unpack_index == 2) {
-                                GrainID(GlobalCellLocation) = BufferCR(RankY, RankZ, 0);
-                                CellType(GlobalCellLocation) = BufferCR(RankY, RankZ, 1);
+                                GrainID(GlobalCellLocation) = BufferEastRecv(RankY, RankZ, 0);
+                                CellType(GlobalCellLocation) = BufferEastRecv(RankY, RankZ, 1);
                             }
                             else {
-                                GrainID(GlobalCellLocation) = BufferDR(RankY, RankZ, 0);
-                                CellType(GlobalCellLocation) = BufferDR(RankY, RankZ, 1);
+                                GrainID(GlobalCellLocation) = BufferWestRecv(RankY, RankZ, 0);
+                                CellType(GlobalCellLocation) = BufferWestRecv(RankY, RankZ, 1);
                             }
                             if (CellType(GlobalCellLocation) == Active) {
                                 // Mark cell for later placement of octahedra, critical diagonal length calculations
@@ -194,46 +215,49 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight
                         }
                     }
                     else {
-                        if (unpack_index == 4) {
-                            // Data received from MyLeftIn
-                            RankX = MyXSlices - 1;
-                            RankY = 0;
-                        }
-                        else if (unpack_index == 5) {
-                            // Data received from MyRightOut
-                            RankX = MyXSlices - 1;
-                            RankY = MyYSlices - 1;
-                        }
-                        else if (unpack_index == 6) {
-                            // Data received from MyRightIn
+                        if ((unpack_index == 4) && (NeighborRank_NorthWest != MPI_PROC_NULL)) {
+                            // Data received from NorthWest
                             RankX = 0;
                             RankY = MyYSlices - 1;
-                        }
-                        else {
-                            // Data received from MyLeftOut
-                            RankX = 0;
-                            RankY = 0;
-                        }
-                        int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                        if (unpack_index == 4) {
-                            GrainID(GlobalCellLocation) = BufferER(RankZ, 0);
-                            CellType(GlobalCellLocation) = BufferER(RankZ, 1);
-                        }
-                        else if (unpack_index == 5) {
-                            GrainID(GlobalCellLocation) = BufferFR(RankZ, 0);
-                            CellType(GlobalCellLocation) = BufferFR(RankZ, 1);
-                        }
-                        else if (unpack_index == 6) {
-                            GrainID(GlobalCellLocation) = BufferGR(RankZ, 0);
-                            CellType(GlobalCellLocation) = BufferGR(RankZ, 1);
-                        }
-                        else {
-                            GrainID(GlobalCellLocation) = BufferHR(RankZ, 0);
-                            CellType(GlobalCellLocation) = BufferHR(RankZ, 1);
-                        }
-                        if (CellType(GlobalCellLocation) == Active) {
+                            int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                            GrainID(GlobalCellLocation) = BufferNorthWestRecv(RankZ, 0);
+                            CellType(GlobalCellLocation) = BufferNorthWestRecv(RankZ, 1);
                             // Mark cell for later placement of octahedra, critical diagonal length calculations
-                            CellType(GlobalCellLocation) = Ghost;
+                            if (CellType(GlobalCellLocation) == Active)
+                                CellType(GlobalCellLocation) = Ghost;
+                        }
+                        else if ((unpack_index == 5) && (NeighborRank_NorthEast != MPI_PROC_NULL)) {
+                            // Data received from NorthEast
+                            RankX = MyXSlices - 1;
+                            RankY = MyYSlices - 1;
+                            int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                            GrainID(GlobalCellLocation) = BufferNorthEastRecv(RankZ, 0);
+                            CellType(GlobalCellLocation) = BufferNorthEastRecv(RankZ, 1);
+                            // Mark cell for later placement of octahedra, critical diagonal length calculations
+                            if (CellType(GlobalCellLocation) == Active)
+                                CellType(GlobalCellLocation) = Ghost;
+                        }
+                        else if ((unpack_index == 6) && (NeighborRank_SouthWest != MPI_PROC_NULL)) {
+                            // Data received from SouthWest
+                            RankX = 0;
+                            RankY = 0;
+                            int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                            GrainID(GlobalCellLocation) = BufferSouthWestRecv(RankZ, 0);
+                            CellType(GlobalCellLocation) = BufferSouthWestRecv(RankZ, 1);
+                            // Mark cell for later placement of octahedra, critical diagonal length calculations
+                            if (CellType(GlobalCellLocation) == Active)
+                                CellType(GlobalCellLocation) = Ghost;
+                        }
+                        else if ((unpack_index == 7) && (NeighborRank_SouthEast != MPI_PROC_NULL)) {
+                            // Data received from SouthEast
+                            RankX = MyXSlices - 1;
+                            RankY = 0;
+                            int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                            GrainID(GlobalCellLocation) = BufferSouthEastRecv(RankZ, 0);
+                            CellType(GlobalCellLocation) = BufferSouthEastRecv(RankZ, 1);
+                            // Mark cell for later placement of octahedra, critical diagonal length calculations
+                            if (CellType(GlobalCellLocation) == Active)
+                                CellType(GlobalCellLocation) = Ghost;
                         }
                     }
                 });
@@ -364,14 +388,17 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int MyLeft, int MyRight
 
 //*****************************************************************************/
 // 2D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes2D(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn, int MyLeftOut,
-                  int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, ViewI NeighborX,
-                  ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID,
-                  ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength,
-                  int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD,
-                  Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR,
-                  Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR,
-                  Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int ZBound_Low) {
+void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int NeighborRank_East,
+                  int NeighborRank_West, int NeighborRank_NorthEast, int NeighborRank_NorthWest,
+                  int NeighborRank_SouthEast, int NeighborRank_SouthWest, int MyXSlices, int MyYSlices, int MyXOffset,
+                  int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
+                  ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
+                  ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                  Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
+                  Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
+                  Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
+                  Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
+                  Buffer2D BufferSouthWestRecv, int BufSizeX, int BufSizeY, int BufSizeZ, int ZBound_Low) {
 
     Kokkos::fence();
     MPI_Barrier(MPI_COMM_WORLD);
@@ -381,24 +408,40 @@ void GhostNodes2D(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, int My
     std::vector<MPI_Request> RecvRequests(8, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferA.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, MyLeft, 0, MPI_COMM_WORLD, &SendRequests[0]);
-    MPI_Isend(BufferB.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, MyRight, 0, MPI_COMM_WORLD, &SendRequests[1]);
-    MPI_Isend(BufferC.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, MyIn, 0, MPI_COMM_WORLD, &SendRequests[2]);
-    MPI_Isend(BufferD.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, MyOut, 0, MPI_COMM_WORLD, &SendRequests[3]);
-    MPI_Isend(BufferE.data(), 5 * BufSizeZ, MPI_FLOAT, MyLeftIn, 0, MPI_COMM_WORLD, &SendRequests[4]);
-    MPI_Isend(BufferF.data(), 5 * BufSizeZ, MPI_FLOAT, MyRightOut, 0, MPI_COMM_WORLD, &SendRequests[5]);
-    MPI_Isend(BufferG.data(), 5 * BufSizeZ, MPI_FLOAT, MyRightIn, 0, MPI_COMM_WORLD, &SendRequests[6]);
-    MPI_Isend(BufferH.data(), 5 * BufSizeZ, MPI_FLOAT, MyLeftOut, 0, MPI_COMM_WORLD, &SendRequests[7]);
+    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &SendRequests[0]);
+    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &SendRequests[1]);
+    MPI_Isend(BufferEastSend.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_East, 0, MPI_COMM_WORLD,
+              &SendRequests[2]);
+    MPI_Isend(BufferWestSend.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_West, 0, MPI_COMM_WORLD,
+              &SendRequests[3]);
+    MPI_Isend(BufferNorthWestSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+              &SendRequests[4]);
+    MPI_Isend(BufferNorthEastSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+              &SendRequests[5]);
+    MPI_Isend(BufferSouthWestSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+              &SendRequests[6]);
+    MPI_Isend(BufferSouthEastSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+              &SendRequests[7]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferAR.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, MyLeft, 0, MPI_COMM_WORLD, &RecvRequests[0]);
-    MPI_Irecv(BufferBR.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, MyRight, 0, MPI_COMM_WORLD, &RecvRequests[1]);
-    MPI_Irecv(BufferCR.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, MyIn, 0, MPI_COMM_WORLD, &RecvRequests[2]);
-    MPI_Irecv(BufferDR.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, MyOut, 0, MPI_COMM_WORLD, &RecvRequests[3]);
-    MPI_Irecv(BufferER.data(), 5 * BufSizeZ, MPI_FLOAT, MyLeftIn, 0, MPI_COMM_WORLD, &RecvRequests[4]);
-    MPI_Irecv(BufferFR.data(), 5 * BufSizeZ, MPI_FLOAT, MyRightOut, 0, MPI_COMM_WORLD, &RecvRequests[5]);
-    MPI_Irecv(BufferGR.data(), 5 * BufSizeZ, MPI_FLOAT, MyRightIn, 0, MPI_COMM_WORLD, &RecvRequests[6]);
-    MPI_Irecv(BufferHR.data(), 5 * BufSizeZ, MPI_FLOAT, MyLeftOut, 0, MPI_COMM_WORLD, &RecvRequests[7]);
+    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &RecvRequests[0]);
+    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &RecvRequests[1]);
+    MPI_Irecv(BufferEastRecv.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_East, 0, MPI_COMM_WORLD,
+              &RecvRequests[2]);
+    MPI_Irecv(BufferWestRecv.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_West, 0, MPI_COMM_WORLD,
+              &RecvRequests[3]);
+    MPI_Irecv(BufferNorthWestRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+              &RecvRequests[4]);
+    MPI_Irecv(BufferNorthEastRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+              &RecvRequests[5]);
+    MPI_Irecv(BufferSouthWestRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+              &RecvRequests[6]);
+    MPI_Irecv(BufferSouthEastRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+              &RecvRequests[7]);
 
     // unpack in any order
     bool unpack_complete = false;
@@ -430,128 +473,128 @@ void GhostNodes2D(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, int My
                     bool Place = false;
                     float DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
                     // Which rank was the data received from?
-                    if (unpack_index == 0) {
-                        // Data receieved from MyLeft
+                    if ((unpack_index == 0) && (NeighborRank_South != MPI_PROC_NULL)) {
+                        // Data receieved from South
                         // Adjust X Position by +1 since X = 0 is not included in this buffer
                         RankX = BufPosition % BufSizeX + 1;
                         RankY = 0;
                         RankZ = BufPosition / BufSizeX;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferAR(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
                             Place = true;
-                            NewGrainID = (int)(BufferAR(BufPosition, 0));
-                            DOCenterX = BufferAR(BufPosition, 1);
-                            DOCenterY = BufferAR(BufPosition, 2);
-                            DOCenterZ = BufferAR(BufPosition, 3);
-                            NewDiagonalLength = BufferAR(BufPosition, 4);
+                            NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
+                            DOCenterX = BufferSouthRecv(BufPosition, 1);
+                            DOCenterY = BufferSouthRecv(BufPosition, 2);
+                            DOCenterZ = BufferSouthRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferSouthRecv(BufPosition, 4);
                         }
                     }
-                    else if (unpack_index == 1) {
-                        // Data received from MyRight
+                    else if ((unpack_index == 1) && (NeighborRank_North != MPI_PROC_NULL)) {
+                        // Data received from North
                         // Adjust X Position by +1 since X = 0 is not included in this buffer
                         RankX = BufPosition % BufSizeX + 1;
                         RankY = MyYSlices - 1;
                         RankZ = BufPosition / BufSizeX;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferBR(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
                             Place = true;
-                            NewGrainID = (int)(BufferBR(BufPosition, 0));
-                            DOCenterX = BufferBR(BufPosition, 1);
-                            DOCenterY = BufferBR(BufPosition, 2);
-                            DOCenterZ = BufferBR(BufPosition, 3);
-                            NewDiagonalLength = BufferBR(BufPosition, 4);
+                            NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
+                            DOCenterX = BufferNorthRecv(BufPosition, 1);
+                            DOCenterY = BufferNorthRecv(BufPosition, 2);
+                            DOCenterZ = BufferNorthRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferNorthRecv(BufPosition, 4);
                         }
                     }
-                    else if (unpack_index == 2) {
-                        // Data received from MyIn
+                    else if ((unpack_index == 2) && (NeighborRank_East != MPI_PROC_NULL)) {
+                        // Data received from East
                         // Adjust Y Position by +1 since Y = 0 is not included in this buffer
                         RankX = MyXSlices - 1;
                         RankY = BufPosition % BufSizeY + 1;
                         RankZ = BufPosition / BufSizeY;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferCR(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        if ((BufferEastRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
                             Place = true;
-                            NewGrainID = (int)(BufferCR(BufPosition, 0));
-                            DOCenterX = BufferCR(BufPosition, 1);
-                            DOCenterY = BufferCR(BufPosition, 2);
-                            DOCenterZ = BufferCR(BufPosition, 3);
-                            NewDiagonalLength = BufferCR(BufPosition, 4);
+                            NewGrainID = (int)(BufferEastRecv(BufPosition, 0));
+                            DOCenterX = BufferEastRecv(BufPosition, 1);
+                            DOCenterY = BufferEastRecv(BufPosition, 2);
+                            DOCenterZ = BufferEastRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferEastRecv(BufPosition, 4);
                         }
                     }
-                    else if (unpack_index == 3) {
-                        // Data received from MyOut
+                    else if ((unpack_index == 3) && (NeighborRank_West != MPI_PROC_NULL)) {
+                        // Data received from West
                         // Adjust Y Position by +1 since Y = 0 is not included in this buffer
                         RankX = 0;
                         RankY = BufPosition % BufSizeY + 1;
                         RankZ = BufPosition / BufSizeY;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferDR(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        if ((BufferWestRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
                             Place = true;
-                            NewGrainID = (int)(BufferDR(BufPosition, 0));
-                            DOCenterX = BufferDR(BufPosition, 1);
-                            DOCenterY = BufferDR(BufPosition, 2);
-                            DOCenterZ = BufferDR(BufPosition, 3);
-                            NewDiagonalLength = BufferDR(BufPosition, 4);
+                            NewGrainID = (int)(BufferWestRecv(BufPosition, 0));
+                            DOCenterX = BufferWestRecv(BufPosition, 1);
+                            DOCenterY = BufferWestRecv(BufPosition, 2);
+                            DOCenterZ = BufferWestRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferWestRecv(BufPosition, 4);
                         }
                     }
-                    else if (unpack_index == 4) {
-                        // Data received from MyLeftIn
-                        RankX = MyXSlices - 1;
-                        RankY = 0;
-                        RankZ = BufPosition;
-                        CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferER(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
-                            Place = true;
-                            NewGrainID = (int)(BufferER(BufPosition, 0));
-                            DOCenterX = BufferER(BufPosition, 1);
-                            DOCenterY = BufferER(BufPosition, 2);
-                            DOCenterZ = BufferER(BufPosition, 3);
-                            NewDiagonalLength = BufferER(BufPosition, 4);
-                        }
-                    }
-                    else if (unpack_index == 5) {
-                        // Data received from MyRightOut
-                        RankX = MyXSlices - 1;
-                        RankY = MyYSlices - 1;
-                        RankZ = BufPosition;
-                        CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferFR(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
-                            Place = true;
-                            NewGrainID = (int)(BufferFR(BufPosition, 0));
-                            DOCenterX = BufferFR(BufPosition, 1);
-                            DOCenterY = BufferFR(BufPosition, 2);
-                            DOCenterZ = BufferFR(BufPosition, 3);
-                            NewDiagonalLength = BufferFR(BufPosition, 4);
-                        }
-                    }
-                    else if (unpack_index == 6) {
-                        // Data received from MyRightIn
+                    else if ((unpack_index == 4) && (NeighborRank_NorthWest != MPI_PROC_NULL)) {
+                        // Data received from NorthWest
                         RankX = 0;
                         RankY = MyYSlices - 1;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferGR(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        if ((BufferNorthWestRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
                             Place = true;
-                            NewGrainID = (int)(BufferGR(BufPosition, 0));
-                            DOCenterX = BufferGR(BufPosition, 1);
-                            DOCenterY = BufferGR(BufPosition, 2);
-                            DOCenterZ = BufferGR(BufPosition, 3);
-                            NewDiagonalLength = BufferGR(BufPosition, 4);
+                            NewGrainID = (int)(BufferNorthWestRecv(BufPosition, 0));
+                            DOCenterX = BufferNorthWestRecv(BufPosition, 1);
+                            DOCenterY = BufferNorthWestRecv(BufPosition, 2);
+                            DOCenterZ = BufferNorthWestRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferNorthWestRecv(BufPosition, 4);
                         }
                     }
-                    else if (unpack_index == 7) {
-                        // Data received from MyLeftOut
+                    else if ((unpack_index == 5) && (NeighborRank_NorthEast != MPI_PROC_NULL)) {
+                        // Data received from NorthEast
+                        RankX = MyXSlices - 1;
+                        RankY = MyYSlices - 1;
+                        RankZ = BufPosition;
+                        CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
+                        if ((BufferNorthEastRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                            Place = true;
+                            NewGrainID = (int)(BufferNorthEastRecv(BufPosition, 0));
+                            DOCenterX = BufferNorthEastRecv(BufPosition, 1);
+                            DOCenterY = BufferNorthEastRecv(BufPosition, 2);
+                            DOCenterZ = BufferNorthEastRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferNorthEastRecv(BufPosition, 4);
+                        }
+                    }
+                    else if ((unpack_index == 6) && (NeighborRank_SouthWest != MPI_PROC_NULL)) {
+                        // Data received from SouthWest
                         RankX = 0;
                         RankY = 0;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferHR(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        if ((BufferSouthWestRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
                             Place = true;
-                            NewGrainID = (int)(BufferHR(BufPosition, 0));
-                            DOCenterX = BufferHR(BufPosition, 1);
-                            DOCenterY = BufferHR(BufPosition, 2);
-                            DOCenterZ = BufferHR(BufPosition, 3);
-                            NewDiagonalLength = BufferHR(BufPosition, 4);
+                            NewGrainID = (int)(BufferSouthWestRecv(BufPosition, 0));
+                            DOCenterX = BufferSouthWestRecv(BufPosition, 1);
+                            DOCenterY = BufferSouthWestRecv(BufPosition, 2);
+                            DOCenterZ = BufferSouthWestRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferSouthWestRecv(BufPosition, 4);
+                        }
+                    }
+                    else if ((unpack_index == 7) && (NeighborRank_SouthEast != MPI_PROC_NULL)) {
+                        // Data received from SouthEast
+                        RankX = MyXSlices - 1;
+                        RankY = 0;
+                        RankZ = BufPosition;
+                        CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
+                        if ((BufferSouthEastRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                            Place = true;
+                            NewGrainID = (int)(BufferSouthEastRecv(BufPosition, 0));
+                            DOCenterX = BufferSouthEastRecv(BufPosition, 1);
+                            DOCenterY = BufferSouthEastRecv(BufPosition, 2);
+                            DOCenterZ = BufferSouthEastRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferSouthEastRecv(BufPosition, 4);
                         }
                     }
 
@@ -676,22 +719,26 @@ void GhostNodes2D(int, int, int MyLeft, int MyRight, int MyIn, int MyOut, int My
 
 //*****************************************************************************/
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes1D(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
-                  ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID,
-                  ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength,
-                  int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferAR, Buffer2D BufferBR,
-                  int BufSizeX, int, int BufSizeZ, int ZBound_Low) {
+void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int MyXSlices, int MyYSlices, int MyXOffset,
+                  int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
+                  ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
+                  ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int BufSizeZ, int ZBound_Low) {
 
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferA.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, MyLeft, 0, MPI_COMM_WORLD, &SendRequests[0]);
-    MPI_Isend(BufferB.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, MyRight, 0, MPI_COMM_WORLD, &SendRequests[1]);
+    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &SendRequests[0]);
+    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &SendRequests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferAR.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, MyLeft, 0, MPI_COMM_WORLD, &RecvRequests[0]);
-    MPI_Irecv(BufferBR.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, MyRight, 0, MPI_COMM_WORLD, &RecvRequests[1]);
+    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &RecvRequests[0]);
+    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &RecvRequests[1]);
 
     // unpack in any order
     bool unpack_complete = false;
@@ -715,30 +762,30 @@ void GhostNodes1D(int, int, int MyLeft, int MyRight, int MyXSlices, int MyYSlice
                     RankZ = BufPosition / BufSizeX;
                     RankX = BufPosition % BufSizeX;
                     // Which rank was the data received from?
-                    if (unpack_index == 0) {
-                        // Data receieved from MyLeft
+                    if ((unpack_index == 0) && (NeighborRank_South != MPI_PROC_NULL)) {
+                        // Data receieved from South
                         RankY = 0;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferAR(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
                             Place = true;
-                            NewGrainID = (int)(BufferAR(BufPosition, 0));
-                            DOCenterX = BufferAR(BufPosition, 1);
-                            DOCenterY = BufferAR(BufPosition, 2);
-                            DOCenterZ = BufferAR(BufPosition, 3);
-                            NewDiagonalLength = BufferAR(BufPosition, 4);
+                            NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
+                            DOCenterX = BufferSouthRecv(BufPosition, 1);
+                            DOCenterY = BufferSouthRecv(BufPosition, 2);
+                            DOCenterZ = BufferSouthRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferSouthRecv(BufPosition, 4);
                         }
                     }
-                    else if (unpack_index == 1) {
-                        // Data received from MyRight
+                    else if ((unpack_index == 1) && (NeighborRank_North != MPI_PROC_NULL)) {
+                        // Data received from North
                         RankY = MyYSlices - 1;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferBR(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
                             Place = true;
-                            NewGrainID = (int)(BufferBR(BufPosition, 0));
-                            DOCenterX = BufferBR(BufPosition, 1);
-                            DOCenterY = BufferBR(BufPosition, 2);
-                            DOCenterZ = BufferBR(BufPosition, 3);
-                            NewDiagonalLength = BufferBR(BufPosition, 4);
+                            NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
+                            DOCenterX = BufferNorthRecv(BufPosition, 1);
+                            DOCenterY = BufferNorthRecv(BufPosition, 2);
+                            DOCenterZ = BufferNorthRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferNorthRecv(BufPosition, 4);
                         }
                     }
                     if (Place) {
