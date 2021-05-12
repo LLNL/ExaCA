@@ -1,4 +1,5 @@
-# ExaCA-Kokkos
+# LLNL-CODE- 821827
+# Exascale-capable cellular automaton for nucleation and grain growth (ExaCA)
 ExaCA is a cellular automata (CA) code for grain growth under additive
 manufacturing conditions by ExaAM within the Exascale Computing Project.
 
@@ -119,3 +120,4 @@ Run by calling the created executable from the ExaCA root directory:
 ```
 mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ```
+SPDX-License-Identifier: MIT

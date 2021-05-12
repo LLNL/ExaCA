@@ -1,3 +1,7 @@
+// Copyright 2019-2021 Lawrence Livermore National Security, LLC and other
+// ExaCA Project Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: MIT
 #ifndef EXACA_GHOST_HPP
 #define EXACA_GHOST_HPP
 
