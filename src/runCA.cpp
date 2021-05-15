@@ -12,7 +12,6 @@
 #include <vector>
 
 void RunProgram_Reduced(int id, int np, std::string InputFile) {
-
     double NuclTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
     double StartNuclTime, StartCaptureTime, StartGhostTime;
     double StartTime = MPI_Wtime();
@@ -38,8 +37,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
     // Variables characterizing local processor grids relative to global domain
-    int MyXSlices, MyXOffset, MyYSlices, MyYOffset, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut, MyRightIn,
-        MyRightOut;
+    int MyXSlices, MyXOffset, MyYSlices, MyYOffset;
+    // Variables characterizing process IDs of neighboring MPI ranks on the grid
+    // Positive X/Negative X directions are West/East, Positive Y/NegativeY directions are North/South
+    int NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast,
+        NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest;
     // Neighbor lists for cells
     ViewI_H NeighborX_H(Kokkos::ViewAllocateWithoutInitializing("NeighborX"), 26);
     ViewI_H NeighborY_H(Kokkos::ViewAllocateWithoutInitializing("NeighborY"), 26);
@@ -62,11 +64,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Initialization of the grid and decomposition, along with deltax and deltat
     // Read in temperature data
     ParallelMeshInit(DecompositionStrategy, NeighborX_H, NeighborY_H, NeighborZ_H, ItList_H, SimulationType, id, np,
-                     MyXSlices, MyYSlices, MyXOffset, MyYOffset, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyLeftOut,
-                     MyRightIn, MyRightOut, deltax, HT_deltax, nx, ny, nz, ProcessorsInXDirection,
-                     ProcessorsInYDirection, tempfile, XMin, XMax, YMin, YMax, ZMin, ZMax, FreezingRange, LayerHeight,
-                     NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, ZMinLayer, ZMaxLayer, FirstValue,
-                     LastValue, RawData);
+                     MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborRank_North, NeighborRank_South,
+                     NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
+                     NeighborRank_SouthEast, NeighborRank_SouthWest, deltax, HT_deltax, nx, ny, nz,
+                     ProcessorsInXDirection, ProcessorsInYDirection, tempfile, XMin, XMax, YMin, YMax, ZMin, ZMax,
+                     FreezingRange, LayerHeight, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints,
+                     ZMinLayer, ZMaxLayer, FirstValue, LastValue, RawData);
 
     long int LocalDomainSize = MyXSlices * MyYSlices * nz; // Number of cells on this MPI rank
 
@@ -144,7 +147,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                            ExtraWalls);
     }
     GrainInit(-1, NGrainOrientations, DecompositionStrategy, nz, LocalActiveDomainSize, MyXSlices, MyYSlices, MyXOffset,
-              MyYOffset, id, np, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, ItList_H,
+              MyYOffset, id, np, NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West,
+              NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest, ItList_H,
               NeighborX_H, NeighborY_H, NeighborZ_H, GrainOrientation_H, GrainUnitVector_H, DiagonalLength_H,
               CellType_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, deltax, NMax,
               NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low);
@@ -160,9 +164,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // potential nucleation events
     if (id == 0)
         std::cout << " Possible nucleation events (rank: # events): " << std::endl;
-    NucleiInit(DecompositionStrategy, MyXSlices, MyYSlices, nz, id, dTN, dTsigma, MyLeft, MyRight, MyIn, MyOut,
-               MyLeftIn, MyRightIn, MyLeftOut, MyRightOut, NucleiLocation_H, NucleationTimes_H, CellType_H, GrainID_H,
-               CritTimeStep_H, UndercoolingChange_H);
+    NucleiInit(DecompositionStrategy, MyXSlices, MyYSlices, nz, id, dTN, dTsigma, NeighborRank_North,
+               NeighborRank_South, NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
+               NeighborRank_SouthEast, NeighborRank_SouthWest, NucleiLocation_H, NucleationTimes_H, CellType_H,
+               GrainID_H, CritTimeStep_H, UndercoolingChange_H);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Nucleation initialized" << std::endl;
@@ -185,22 +190,22 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         BufSizeY = MyYSlices - 2;
         BufSizeZ = nzActive;
     }
-    Buffer2D BufferA("BufferA", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferB("BufferB", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferC("BufferC", BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferD("BufferD", BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferE("BufferE", BufSizeZ, 5);
-    Buffer2D BufferF("BufferF", BufSizeZ, 5);
-    Buffer2D BufferG("BufferG", BufSizeZ, 5);
-    Buffer2D BufferH("BufferH", BufSizeZ, 5);
-    Buffer2D BufferAR("BufferAR", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferBR("BufferBR", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferCR("BufferCR", BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferDR("BufferDR", BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferER("BufferER", BufSizeZ, 5);
-    Buffer2D BufferFR("BufferFR", BufSizeZ, 5);
-    Buffer2D BufferGR("BufferGR", BufSizeZ, 5);
-    Buffer2D BufferHR("BufferHR", BufSizeZ, 5);
+    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferEastSend"), BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferWestSend"), BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferNorthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastSend"), BufSizeZ, 5);
+    Buffer2D BufferNorthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestSend"), BufSizeZ, 5);
+    Buffer2D BufferSouthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastSend"), BufSizeZ, 5);
+    Buffer2D BufferSouthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestSend"), BufSizeZ, 5);
+    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferEastRecv"), BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferWestRecv"), BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferNorthEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastRecv"), BufSizeZ, 5);
+    Buffer2D BufferNorthWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestRecv"), BufSizeZ, 5);
+    Buffer2D BufferSouthEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastRecv"), BufSizeZ, 5);
+    Buffer2D BufferSouthWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestRecv"), BufSizeZ, 5);
 
     // Copy view data to GPU
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
@@ -230,8 +235,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     if (np > 1) {
         // Ghost nodes for initial microstructure state
-        GhostNodesInit(id, np, DecompositionStrategy, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut,
-                       MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive,
+        GhostNodesInit(id, np, DecompositionStrategy, NeighborRank_North, NeighborRank_South, NeighborRank_East,
+                       NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
+                       NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive,
                        LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G, NeighborZ_G,
                        GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G, DOCenter_G, DiagonalLength_G,
                        CritDiagonalLength_G);
@@ -266,26 +272,32 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList_G, NeighborX_G, NeighborY_G,
                         NeighborZ_G, CritTimeStep_G, UndercoolingCurrent_G, UndercoolingChange_G, GrainUnitVector_G,
                         CritDiagonalLength_G, DiagonalLength_G, GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G,
-                        NGrainOrientations, BufferA, BufferB, BufferC, BufferD, BufferE, BufferF, BufferG, BufferH,
-                        BufSizeX, BufSizeY, ZBound_Low, nzActive, nz, layernumber, LayerID_G, SteeringVector,
-                        numSteer_G, numSteer_H);
+                        NGrainOrientations, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend,
+                        BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, BufSizeX,
+                        BufSizeY, ZBound_Low, nzActive, nz, layernumber, LayerID_G, SteeringVector, numSteer_G,
+                        numSteer_H);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
                 // Update ghost nodes
                 StartGhostTime = MPI_Wtime();
                 if (DecompositionStrategy == 1)
-                    GhostNodes1D(cycle, id, MyLeft, MyRight, MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborX_G,
-                                 NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G, GrainUnitVector_G,
-                                 GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations,
-                                 BufferA, BufferB, BufferAR, BufferBR, BufSizeX, BufSizeY, BufSizeZ, ZBound_Low);
+                    GhostNodes1D(cycle, id, NeighborRank_North, NeighborRank_South, MyXSlices, MyYSlices, MyXOffset,
+                                 MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G,
+                                 GrainUnitVector_G, GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G,
+                                 NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv,
+                                 BufSizeX, BufSizeY, BufSizeZ, ZBound_Low);
                 else
-                    GhostNodes2D(cycle, id, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn, MyLeftOut, MyRightOut,
-                                 MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G,
-                                 CellType_G, DOCenter_G, GrainID_G, GrainUnitVector_G, GrainOrientation_G,
-                                 DiagonalLength_G, CritDiagonalLength_G, NGrainOrientations, BufferA, BufferB, BufferC,
-                                 BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR,
-                                 BufferER, BufferFR, BufferGR, BufferHR, BufSizeX, BufSizeY, BufSizeZ, ZBound_Low);
+                    GhostNodes2D(cycle, id, NeighborRank_North, NeighborRank_South, NeighborRank_East,
+                                 NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
+                                 NeighborRank_SouthEast, NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset,
+                                 MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G,
+                                 GrainUnitVector_G, GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G,
+                                 NGrainOrientations, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend,
+                                 BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend,
+                                 BufferWestRecv, BufferEastRecv, BufferNorthRecv, BufferSouthRecv, BufferNorthEastRecv,
+                                 BufferNorthWestRecv, BufferSouthEastRecv, BufferSouthWestRecv, BufSizeX, BufSizeY,
+                                 BufSizeZ, ZBound_Low);
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
@@ -311,23 +323,23 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             Kokkos::resize(DOCenter_G, 3 * LocalActiveDomainSize);
             Kokkos::resize(CritDiagonalLength_G, 26 * LocalActiveDomainSize);
 
-            Kokkos::resize(BufferA, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferB, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferC, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferD, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferE, BufSizeZ, 5);
-            Kokkos::resize(BufferF, BufSizeZ, 5);
-            Kokkos::resize(BufferG, BufSizeZ, 5);
-            Kokkos::resize(BufferH, BufSizeZ, 5);
+            Kokkos::resize(BufferNorthSend, BufSizeX * BufSizeZ, 5);
+            Kokkos::resize(BufferSouthSend, BufSizeX * BufSizeZ, 5);
+            Kokkos::resize(BufferEastSend, BufSizeY * BufSizeZ, 5);
+            Kokkos::resize(BufferWestSend, BufSizeY * BufSizeZ, 5);
+            Kokkos::resize(BufferNorthEastSend, BufSizeZ, 5);
+            Kokkos::resize(BufferNorthWestSend, BufSizeZ, 5);
+            Kokkos::resize(BufferSouthEastSend, BufSizeZ, 5);
+            Kokkos::resize(BufferSouthWestSend, BufSizeZ, 5);
 
-            Kokkos::resize(BufferAR, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferBR, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferCR, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferDR, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferER, BufSizeZ, 5);
-            Kokkos::resize(BufferFR, BufSizeZ, 5);
-            Kokkos::resize(BufferGR, BufSizeZ, 5);
-            Kokkos::resize(BufferHR, BufSizeZ, 5);
+            Kokkos::resize(BufferNorthRecv, BufSizeX * BufSizeZ, 5);
+            Kokkos::resize(BufferSouthRecv, BufSizeX * BufSizeZ, 5);
+            Kokkos::resize(BufferEastRecv, BufSizeY * BufSizeZ, 5);
+            Kokkos::resize(BufferWestRecv, BufSizeY * BufSizeZ, 5);
+            Kokkos::resize(BufferNorthEastRecv, BufSizeZ, 5);
+            Kokkos::resize(BufferNorthWestRecv, BufSizeZ, 5);
+            Kokkos::resize(BufferSouthEastRecv, BufSizeZ, 5);
+            Kokkos::resize(BufferSouthWestRecv, BufSizeZ, 5);
 
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0)
@@ -336,9 +348,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Update active cell data structures for simulation of next layer
             LayerSetup(MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, GrainOrientation_G,
                        NGrainOrientations, GrainUnitVector_G, NeighborX_G, NeighborY_G, NeighborZ_G, DiagonalLength_G,
-                       CellType_G, GrainID_G, CritDiagonalLength_G, DOCenter_G, DecompositionStrategy, BufferA, BufferB,
-                       BufferC, BufferD, BufferE, BufferF, BufferG, BufferH, BufferAR, BufferBR, BufferCR, BufferDR,
-                       BufferER, BufferFR, BufferGR, BufferHR, ZBound_Low);
+                       CellType_G, GrainID_G, CritDiagonalLength_G, DOCenter_G, DecompositionStrategy, BufferWestRecv,
+                       BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend,
+                       BufferSouthEastSend, BufferSouthWestSend, BufferWestRecv, BufferEastRecv, BufferNorthRecv,
+                       BufferSouthRecv, BufferNorthEastRecv, BufferNorthWestRecv, BufferSouthEastRecv,
+                       BufferSouthWestRecv, ZBound_Low);
 
             if (id == 0)
                 std::cout << "New layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY << " " << BufSizeZ
@@ -348,11 +362,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             if (id == 0)
                 std::cout << "New layer ghost nodes initialized" << std::endl;
             if (np > 1) {
-                GhostNodesInit(id, np, DecompositionStrategy, MyLeft, MyRight, MyIn, MyOut, MyLeftIn, MyRightIn,
-                               MyLeftOut, MyRightOut, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive,
-                               LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G, NeighborZ_G,
-                               GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G, DOCenter_G,
-                               DiagonalLength_G, CritDiagonalLength_G);
+                GhostNodesInit(id, np, DecompositionStrategy, NeighborRank_North, NeighborRank_South, NeighborRank_East,
+                               NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
+                               NeighborRank_SouthEast, NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset,
+                               MyYOffset, ZBound_Low, nzActive, LocalActiveDomainSize, NGrainOrientations, NeighborX_G,
+                               NeighborY_G, NeighborZ_G, GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G,
+                               DOCenter_G, DiagonalLength_G, CritDiagonalLength_G);
             }
             XSwitch = 0;
             MPI_Barrier(MPI_COMM_WORLD);

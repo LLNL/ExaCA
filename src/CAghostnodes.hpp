@@ -5,24 +5,28 @@
 
 #include <Kokkos_Core.hpp>
 
-void GhostNodesInit(int id, int np, int DecompositionStrategy, int MyLeft, int MyRight, int MyIn, int MyOut,
-                    int MyLeftIn, int MyRightIn, int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices,
-                    int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive, int LocalActiveDomainSize,
-                    int NGrainOrientations, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector,
-                    ViewI GrainOrientation, ViewI GrainID, ViewI CellType, ViewF DOCenter, ViewF DiagonalLength,
-                    ViewF CritDiagonalLength);
-void GhostNodes1D(int cycle, int id, int MyLeft, int MyRight, int MyXSlices, int MyYSlices, int MyXOffset,
+void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North, int NeighborRank_South,
+                    int NeighborRank_East, int NeighborRank_West, int NeighborRank_NorthEast,
+                    int NeighborRank_NorthWest, int NeighborRank_SouthEast, int NeighborRank_SouthWest, int MyXSlices,
+                    int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive,
+                    int LocalActiveDomainSize, int NGrainOrientations, ViewI NeighborX, ViewI NeighborY,
+                    ViewI NeighborZ, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI GrainID, ViewI CellType,
+                    ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength);
+void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int NeighborRank_East,
+                  int NeighborRank_West, int NeighborRank_NorthEast, int NeighborRank_NorthWest,
+                  int NeighborRank_SouthEast, int NeighborRank_SouthWest, int MyXSlices, int MyYSlices, int MyXOffset,
                   int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
                   ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
-                  ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB,
-                  Buffer2D BufferAR, Buffer2D BufferBR, int BufSizeX, int BufSizeY, int BufSizeZ, int ZBound_Low);
-void GhostNodes2D(int cycle, int id, int MyLeft, int MyRight, int MyIn, int MyOut, int MyLeftIn, int MyRightIn,
-                  int MyLeftOut, int MyRightOut, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
-                  ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID,
-                  ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength, ViewF CritDiagonalLength,
-                  int NGrainOrientations, Buffer2D BufferA, Buffer2D BufferB, Buffer2D BufferC, Buffer2D BufferD,
-                  Buffer2D BufferE, Buffer2D BufferF, Buffer2D BufferG, Buffer2D BufferH, Buffer2D BufferAR,
-                  Buffer2D BufferBR, Buffer2D BufferCR, Buffer2D BufferDR, Buffer2D BufferER, Buffer2D BufferFR,
-                  Buffer2D BufferGR, Buffer2D BufferHR, int BufSizeX, int BufSizeY, int BufSizeZ, int ZBound_Low);
+                  ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                  Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
+                  Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
+                  Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
+                  Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
+                  Buffer2D BufferSouthWestRecv, int BufSizeX, int BufSizeY, int BufSizeZ, int ZBound_Low);
+void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int MyXSlices, int MyYSlices, int MyXOffset,
+                  int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
+                  ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
+                  ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int BufSizeZ, int ZBound_Low);
 
 #endif
