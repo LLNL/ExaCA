@@ -1,3 +1,8 @@
+// Copyright 2021 Lawrence Livermore National Security, LLC and other ExaCA Project Developers.
+// See the top-level LICENSE file for details.
+//
+// SPDX-License-Identifier: MIT
+
 #include "runCA.hpp"
 
 #include "CAghostnodes.hpp"

@@ -1,4 +1,5 @@
-# ExaCA-Kokkos
+# ExaCA
+## An exascale-capable cellular automaton for nucleation and grain growth
 ExaCA is a cellular automata (CA) code for grain growth under additive
 manufacturing conditions by ExaAM within the Exascale Computing Project.
 
@@ -108,7 +109,7 @@ cd ../..
 
 ## Run
 
-ExaCA-Kokkos runs using an input file, passed on the command line. Three examples problems are given in the `examples/` directory:
+ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory:
 
  * `Inp_AMBenchMultilayer.txt` simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
  * `Inp_SimpleRaster.txt` simulates a single layer consisting of four overlapping melt pools
@@ -119,3 +120,16 @@ Run by calling the created executable from the ExaCA root directory:
 ```
 mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ```
+
+## Contributing
+
+We encourage you to contribute to ExaCA! Please check the
+[contribution guidelines](CONTRIBUTING.md).
+
+## License
+
+ExaCA is distributed under an [MIT license](LICENSE).
+
+## Release
+
+LLNL-CODE-821827
