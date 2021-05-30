@@ -5,6 +5,7 @@ set(EXACA_HEADERS
     CAprint.hpp
     CAupdate.hpp
     runCA.hpp
+    runCAremelt.hpp
 )
 set(EXACA_SOURCES
     CAfunctions.cpp
@@ -13,6 +14,7 @@ set(EXACA_SOURCES
     CAprint.cpp
     CAupdate.cpp
     runCA.cpp
+    runCAremelt.cpp
 )
 
 install(FILES ${EXACA_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

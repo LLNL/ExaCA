@@ -473,7 +473,7 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
             }
             Kokkos::parallel_for(
                 "BufferUnpack", RecvBufSize, KOKKOS_LAMBDA(const int &BufPosition) {
-                    int RankX, RankY, RankZ, NewGrainID;
+                    int RankX, RankY, RankZ, NewGrainID, GlobalZ, GlobalCellLocation;
                     long int CellLocation;
                     bool Place = false;
                     float DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
@@ -485,7 +485,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = 0;
                         RankZ = BufPosition / BufSizeX;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
                             DOCenterX = BufferSouthRecv(BufPosition, 1);
@@ -501,7 +503,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = MyYSlices - 1;
                         RankZ = BufPosition / BufSizeX;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
                             DOCenterX = BufferNorthRecv(BufPosition, 1);
@@ -517,7 +521,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = BufPosition % BufSizeY + 1;
                         RankZ = BufPosition / BufSizeY;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferEastRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferEastRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferEastRecv(BufPosition, 0));
                             DOCenterX = BufferEastRecv(BufPosition, 1);
@@ -533,7 +539,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = BufPosition % BufSizeY + 1;
                         RankZ = BufPosition / BufSizeY;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferWestRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferWestRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferWestRecv(BufPosition, 0));
                             DOCenterX = BufferWestRecv(BufPosition, 1);
@@ -548,7 +556,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = MyYSlices - 1;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferNorthWestRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferNorthWestRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferNorthWestRecv(BufPosition, 0));
                             DOCenterX = BufferNorthWestRecv(BufPosition, 1);
@@ -563,7 +573,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = MyYSlices - 1;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferNorthEastRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferNorthEastRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferNorthEastRecv(BufPosition, 0));
                             DOCenterX = BufferNorthEastRecv(BufPosition, 1);
@@ -578,7 +590,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = 0;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferSouthWestRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferSouthWestRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferSouthWestRecv(BufPosition, 0));
                             DOCenterX = BufferSouthWestRecv(BufPosition, 1);
@@ -593,7 +607,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = 0;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferSouthEastRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferSouthEastRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferSouthEastRecv(BufPosition, 0));
                             DOCenterX = BufferSouthEastRecv(BufPosition, 1);
@@ -605,8 +621,6 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
 
                     if (Place) {
                         // Update this ghost node cell's information with data from other rank
-                        int GlobalZ = RankZ + ZBound_Low;
-                        int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                         CellType(GlobalCellLocation) = Active;
                         GrainID(GlobalCellLocation) = NewGrainID;
                         DOCenter((long int)(3) * CellLocation) = DOCenterX;
@@ -760,7 +774,7 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
             int RecvBufSize = BufSizeX * BufSizeZ;
             Kokkos::parallel_for(
                 "BufferUnpack", RecvBufSize, KOKKOS_LAMBDA(const int &BufPosition) {
-                    int RankX, RankY, RankZ, NewGrainID;
+                    int RankX, RankY, RankZ, NewGrainID, GlobalZ, GlobalCellLocation;
                     long int CellLocation;
                     float DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
                     bool Place = false;
@@ -771,7 +785,9 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         // Data receieved from South
                         RankY = 0;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
                             DOCenterX = BufferSouthRecv(BufPosition, 1);
@@ -784,7 +800,9 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         // Data received from North
                         RankY = MyYSlices - 1;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
                             DOCenterX = BufferNorthRecv(BufPosition, 1);
@@ -794,9 +812,6 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         }
                     }
                     if (Place) {
-                        int GlobalZ = RankZ + ZBound_Low;
-                        int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-
                         // Update this ghost node cell's information with data from other rank
                         GrainID(GlobalCellLocation) = NewGrainID;
                         DOCenter((long int)(3) * CellLocation) = DOCenterX;

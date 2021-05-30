@@ -18,11 +18,12 @@ typedef Kokkos::View<int *, Kokkos::MemoryTraits<Kokkos::Atomic>> View_a;
 typedef Kokkos::View<float **> Buffer2D;
 typedef Kokkos::View<int ***> Buffer3D; // Used in ghost node initialization of integer structures CellType and GrainID
 typedef Kokkos::View<float *> TestView;
+typedef Kokkos::View<float ***> ViewF3D;
 
 using exe_space = Kokkos::DefaultExecutionSpace::execution_space;
 typedef typename exe_space::array_layout layout;
 typedef Kokkos::View<float *, layout, Kokkos::HostSpace> ViewF_H;
 typedef Kokkos::View<int *, layout, Kokkos::HostSpace> ViewI_H;
 typedef Kokkos::View<int **, layout, Kokkos::HostSpace> ViewI2D_H;
-
+typedef Kokkos::View<float ***, layout, Kokkos::HostSpace> ViewF3D_H;
 #endif
