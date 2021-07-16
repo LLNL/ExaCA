@@ -1692,7 +1692,22 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
             }
         }
     }
-
+    // Initialize solid cells where no temperature data exists, and liquid cells where temperature data exists
+    // This is done prior to initializing active cells, as active cells are initialized based on neighbor cell types
+    for (int k = 1; k < nz - 1; k++) {
+        for (int j = 0; j < MyYSlices; j++) {
+            for (int i = 0; i < MyXSlices; i++) {
+                int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                if (CritTimeStep(CAGridLocation) == 0) {
+                    CellType(CAGridLocation) = Solid;
+                }
+                else {
+                    // This cell has associated melting data and is initialized as liquid
+                    CellType(CAGridLocation) = Liquid;
+                }
+            }
+        }
+    }
     // Count number of active cells are at the solid-liquid boundary
     int SubstrateActCells_ThisRank = 0;
     for (int k = 1; k < nz - 1; k++) {
@@ -1736,14 +1751,6 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
                             break;
                         }
                     }
-                    if (LCount == 0) {
-                        // Not at the interface
-                        CellType(CAGridLocation) = Solid;
-                    }
-                }
-                else {
-                    // This cell has associated melting data and is initialized as liquid
-                    CellType(CAGridLocation) = Liquid;
                 }
             }
         }
