@@ -1680,6 +1680,8 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, bool Remelting, int n
                         // Do not pre-melt any of the grain structure if the simulation will consider re-melting
                         if (!(Remelting))
                             GrainID(CAGridLocation) = 0;
+                        else
+                            GrainID(CAGridLocation) = stoi(GIDVal, nullptr, 10);
                     }
                 }
             }
@@ -1915,6 +1917,20 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
         }
     }
 
+    for (int k = 1; k < nz - 1; k++) {
+        for (int j = 0; j < MyYSlices; j++) {
+            for (int i = 0; i < MyXSlices; i++) {
+                int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                if (CritTimeStep(CAGridLocation) == 0) {
+                    CellType(CAGridLocation) = Solid;
+                }
+                else {
+                    // This cell has associated melting data and is initialized as liquid
+                    CellType(CAGridLocation) = Liquid;
+                }
+            }
+        }
+    }
     // Count number of active cells are at the solid-liquid boundary
     int SubstrateActCells_ThisRank = 0;
     for (int k = 1; k < nz - 1; k++) {
@@ -1958,14 +1974,6 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
                             break;
                         }
                     }
-                    if (LCount == 0) {
-                        // Not at the interface
-                        CellType(CAGridLocation) = Solid;
-                    }
-                }
-                else {
-                    // This cell has associated melting data and is initialized as liquid
-                    CellType(CAGridLocation) = Liquid;
                 }
             }
         }
@@ -2386,7 +2394,7 @@ void GrainNucleiInitRemelt(int layernumber, int LocalActiveDomainSize, int MyXSl
                   << " : " << SolidCellCount << std::endl;
 
     // RNG for heterogenous nuclei locations
-    std::mt19937_64 gen(id * (layernumber + 1));
+    std::mt19937_64 gen((id + 1) * (layernumber + 1));
     std::uniform_real_distribution<double> dis(0.0, 1.0);
 
     // Probability that a given liquid site will be a potential nucleus location
@@ -2472,7 +2480,7 @@ void GrainNucleiInitRemelt(int layernumber, int LocalActiveDomainSize, int MyXSl
     // Gaussian distribution of nucleation undercooling
     std::default_random_engine generator;
     std::normal_distribution<double> distribution(dTN, dTsigma);
-    for (int i = 0; i < 120 * id; i++) {
+    for (int i = 0; i < 120 * (id + 1); i++) {
         distribution(generator);
     }
 

@@ -1177,3 +1177,93 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
         }
     }
 }
+
+// Prints intermediate code output to stdout, checks if solidification is complete in the case of an extended data format simulation
+void IntermediateOutputAndCheck_Remelt(int id, int &cycle, int MyXSlices, int MyYSlices, int LocalActiveDomainSize,
+                                       int nn, int &XSwitch, ViewI CellType, ViewI MeltTimeStep,
+                                int *FinishTimeStep, int layernumber, int,
+                                int ZBound_Low, ViewI LayerID) {
+
+    sample::ValueType CellTypeStorage;
+    Kokkos::parallel_reduce(
+        LocalActiveDomainSize,
+        KOKKOS_LAMBDA(const int &D3D1ConvPosition, sample::ValueType &upd) {
+            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankX = Rem / MyYSlices;
+            int RankY = Rem % MyYSlices;
+            int GlobalZ = RankZ + ZBound_Low;
+            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            if (CellType(GlobalD3D1ConvPosition) == Liquid)
+                upd.the_array[0] += 1;
+            else if (CellType(GlobalD3D1ConvPosition) == Active)
+                upd.the_array[1] += 1;
+            else if (CellType(GlobalD3D1ConvPosition) == Solid)
+                upd.the_array[2] += 1;
+            else if (CellType(GlobalD3D1ConvPosition) == Wall)
+                upd.the_array[3] += 1;
+        },
+        Kokkos::Sum<sample::ValueType>(CellTypeStorage));
+    unsigned long int Global_nn = 0;
+    unsigned long int LocalLiquidCells = CellTypeStorage.the_array[0];
+    unsigned long int LocalActiveCells = CellTypeStorage.the_array[1];
+    unsigned long int LocalSolidCells = CellTypeStorage.the_array[2];
+    unsigned long int LocalWallCells = CellTypeStorage.the_array[3];
+
+    unsigned long int GlobalLiquidCells,GlobalActiveCells, GlobalSolidCells, GlobalWallCells;
+    MPI_Reduce(&LocalLiquidCells, &GlobalLiquidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalActiveCells, &GlobalActiveCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalSolidCells, &GlobalSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalWallCells, &GlobalWallCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&nn, &Global_nn, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    if (id == 0) {
+        std::cout << "In layer number " << layernumber << " cycle = " << cycle << " Liquid cells = " << GlobalLiquidCells
+                  << " Active/solid cells = " << GlobalActiveCells + GlobalSolidCells
+                  << " Cells finished with solidification = " << GlobalWallCells
+                  << " Number of nucleation events this layer " << Global_nn
+                  << std::endl;
+        // Layer is done when all solid cells have become wall cells (they've finished melting and resolidifying)
+        // and when all liquid cells have solidified
+        if (GlobalSolidCells + GlobalLiquidCells == 0)
+            XSwitch = 1;
+    }
+    MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (XSwitch == 0) {
+        MPI_Bcast(&GlobalLiquidCells, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+        if (GlobalLiquidCells == 0) {
+            // Check when the next cells undergo melting
+            unsigned long int NextMTS;
+            Kokkos::parallel_reduce(
+                "NextMeltCheck", LocalActiveDomainSize,
+                KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &tempv) {
+                    int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+                    int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+                    int RankX = Rem / MyYSlices;
+                    int RankY = Rem % MyYSlices;
+                    int GlobalZ = RankZ + ZBound_Low;
+                    int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                    unsigned long int MeltTimeStep_ThisCell = (unsigned long int)(MeltTimeStep(GlobalD3D1ConvPosition));
+                    if ((LayerID(GlobalD3D1ConvPosition) == layernumber)&&(CellType(GlobalD3D1ConvPosition) != Wall)) {
+                        if (MeltTimeStep_ThisCell < tempv) {
+                            //if ((layernumber == 1)&&(cycle == 259000)) printf("MTS = %d \n",MeltTimeStep_ThisCell);
+                            tempv = MeltTimeStep_ThisCell;
+                        }
+                    }
+                },
+                Kokkos::Min<unsigned long int>(NextMTS));
+
+            unsigned long int GlobalNextMTS;
+            MPI_Allreduce(&NextMTS, &GlobalNextMTS, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
+            if ((GlobalNextMTS - cycle) > 5000) {
+                // Jump to next time step when melting/solidification starts again
+                cycle = GlobalNextMTS - 1;
+                if (id == 0)
+                    std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
+            }
+            if (cycle >= FinishTimeStep[layernumber])
+                XSwitch = 1;
+        }
+    }
+}

@@ -323,9 +323,10 @@ void RunProgram_Remelt(int id, int np, std::string SimulationType, std::string I
             }
 
             if (cycle % 1000 == 0) {
-                IntermediateOutputAndCheck(id, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nn,
-                                           XSwitch, CellType_G, CritTimeStep_G, SimulationType, FinishTimeStep,
-                                           layernumber, NumberOfLayers, ZBound_Low, LayerID_G);
+                 IntermediateOutputAndCheck_Remelt(id, cycle, MyXSlices, MyYSlices, LocalActiveDomainSize,
+                                                    nn, XSwitch, CellType_G, MeltTimeStep_G,
+                                                    FinishTimeStep, layernumber, NumberOfLayers,
+                                                   ZBound_Low, LayerID_G);
             }
 
         } while (XSwitch == 0);

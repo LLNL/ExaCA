@@ -32,5 +32,9 @@ void IntermediateOutputAndCheck(int pid, int &cycle, int MyXSlices, int MyYSlice
                                 int LocalActiveDomainSize, int nn, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
                                 std::string SimulationType, int *FinishTimeStep, int layernumber, int NumberOfLayers,
                                 int ZBound_Low, ViewI LayerID);
+void IntermediateOutputAndCheck_Remelt(int id, int &cycle, int MyXSlices, int MyYSlices, int LocalActiveDomainSize,
+                                       int nn, int &XSwitch, ViewI CellType, ViewI MeltTimeStep,
+                                int *FinishTimeStep, int layernumber, int,
+                                       int ZBound_Low, ViewI LayerID);
 
 #endif
