@@ -3,12 +3,15 @@
 //
 // SPDX-License-Identifier: MIT
 
+#include "CAinitialize.hpp"
 #include "runCA.hpp"
-
+#include "runCAremelt.hpp"
 #include <Kokkos_Core.hpp>
 
 #include "mpi.h"
 
+#include <fstream>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 
@@ -34,9 +37,25 @@ int main(int argc, char *argv[]) {
             throw std::runtime_error("Error: Must provide path to input file on the command line.");
         }
         else {
-            // Run CA code using reduced temperature data format
+            std::string SimulationType;
+            // Determine simulation type from the input file:
+            // If "C" - constrained solidification - no temperature data file nor remelting needed
+            // If "R" - reduced temperature format - temperature data needed, no remelting
+            // If "RM" - full time-temperature history - needs remelting
             std::string InputFile = argv[1];
-            RunProgram_Reduced(id, np, InputFile);
+            size_t backslash = InputFile.find_last_of("/");
+            std::string FilePath = InputFile.substr(0, backslash);
+            std::ifstream InputData;
+            InputData.open(InputFile);
+            if (id == 0)
+                std::cout << "Input file " << InputFile << " opened" << std::endl;
+            skipLines(InputData);
+            SimulationType = parseInput(InputData, "Problem type");
+            InputData.close();
+            if (SimulationType == "RM")
+                RunProgram_Remelt(id, np, SimulationType, InputFile);
+            else
+                RunProgram_Reduced(id, np, SimulationType, InputFile);
         }
     }
     // Finalize Kokkos

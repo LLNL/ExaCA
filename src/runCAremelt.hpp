@@ -3,11 +3,11 @@
 //
 // SPDX-License-Identifier: MIT
 
-#ifndef EXACA_RUN_HPP
-#define EXACA_RUN_HPP
+#ifndef EXACA_RUN_REMELT_HPP
+#define EXACA_RUN_REMELT_HPP
 
 #include <string>
 
-void RunProgram_Reduced(int id, int np, std::string SimulationType, std::string InputFile);
+void RunProgram_Remelt(int id, int np, std::string SimulationType, std::string InputFile);
 
 #endif

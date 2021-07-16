@@ -167,15 +167,14 @@ void CheckTemperatureDataPoint(std::string Label, float InputValue, int LineNumb
 
 //*****************************************************************************/
 // Read ExaCA input file.
-void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
+void InputReadFromFile(int id, std::string InputFile, std::string SimulationType, int &DecompositionStrategy,
                        double &AConst, double &BConst, double &CConst, double &DConst, double &FreezingRange,
                        double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
                        std::string &GrainOrientationFile, std::string &tempfile, int &TempFilesInSeries,
-                       bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
-                       int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
-                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput, bool (&FilesToPrint)[6],
-                       bool &PrintFilesYN) {
+                       bool &ExtraWalls, double &HT_deltax, double &deltat, int &NumberOfLayers, int &LayerHeight,
+                       std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
+                       double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
+                       bool (&FilesToPrint)[6], bool &PrintFilesYN) {
 
     size_t backslash = InputFile.find_last_of("/");
     std::string FilePath = InputFile.substr(0, backslash);
@@ -184,14 +183,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     std::string Colon = ":";
     std::string Quote = "'";
     InputData.open(InputFile);
-    if (id == 0)
-        std::cout << "Input file " << InputFile << " opened" << std::endl;
-    skipLines(InputData);
+    skipLines(InputData); // Header lines
+    std::string DummyLine;
+    getline(InputData, DummyLine); // Simulation type already read during first pass through the file - ignore
 
     std::string val;
-
-    // Simulation Type
-    SimulationType = parseInput(InputData, "Problem type");
 
     // Decomposition strategy
     val = parseInput(InputData, "Decomposition strategy");
@@ -247,10 +243,10 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     GrainOrientationFile = parseInput(InputData, "File of grain orientations");
     GrainOrientationFile = FilePath + "/Substrate/" + GrainOrientationFile;
 
-    if (SimulationType == "R") {
+    if (SimulationType != "C") {
         // Read input arguments for a reduced temperature data format solidification problem
         if (id == 0)
-            std::cout << "CA Simulation using reduced temperature data from file(s)" << std::endl;
+            std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
 
         // Heat transport mesh size
         val = parseInput(InputData, "Heat transport data mesh size");
@@ -258,6 +254,12 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         if (id == 0)
             std::cout << "Mesh size of the temperature data is " << HT_deltax << " microns" << std::endl;
 
+        // Check cell size/heat transport mesh size - must be equal if remelting is being considered
+        if ((SimulationType == "RM") && (HT_deltax != deltax)) {
+            std::string error =
+                "Error: for simulations with remelting, cell size must equal temperature field data spacing";
+            throw std::runtime_error(error);
+        }
         // Time step (s)
         val = parseInput(InputData, "Time step");
         deltat = atof(val.c_str()) * pow(10, -6);
@@ -286,9 +288,6 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // Temperature files in series
         val = parseInput(InputData, "Number of temperature files");
         TempFilesInSeries = stoi(val, nullptr, 10);
-
-        // For now, assuming no remelting
-        RemeltingYN = false;
 
         if (id == 0) {
             std::cout << "Temperature data file(s) is/are " << tempfile << " , and there are " << TempFilesInSeries
@@ -417,9 +416,9 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 }
 
 //*****************************************************************************/
-void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
-                      ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
-                      int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
+void ParallelMeshInit(int DecompositionStrategy, ViewI_H MaxSolidificationEvents, ViewI_H NeighborX, ViewI_H NeighborY,
+                      ViewI_H NeighborZ, ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices,
+                      int &MyYSlices, int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
                       int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
                       int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
                       double &deltax, double HT_deltax, int &nx, int &ny, int &nz, int &ProcessorsInXDirection,
@@ -585,13 +584,15 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         }
     }
 
-    if (SimulationType == "R") {
+    if ((SimulationType == "R") || (SimulationType == "RM")) {
         // Two passes through reading temperature data files- the first pass ("Loop 0" only reads the headers to
         // determine units and X/Y/Z bounds of the simulaton domain Using the X/Y/Z bounds of the simulation domain, nx,
         // ny, and nz can be calculated and the domain decomposed among MPI processes The second pass ("Loop 1") reads
         // the actual X/Y/Z/liquidus time/solidus time or X/Y/Z/liquidus time/cooling rate data and each rank stores the
         // data relevant to itself in "RawData" Note that if solidus time data is given, the liquidus/solidus times are
         // used to calculate a cooling rate - solidus time values are not placced into "RawData"
+        // With remelting (SimulationType == "RM"), this is the same except that some X/Y/Z coordinates may be repeated
+        // in a file, and a "melting time" value is given in addition to liquidus time and solidus time/cooling rate
 
         XMin = 1000000.0;
         YMin = 1000000.0;
@@ -630,16 +631,21 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     // First line is the number of temperature data points (currently not used by the CA code, but may
                     // be in the future)
                     std::string DummyVar_TemperatureDataPoints = parseInput(TemperatureFile, "temperature");
-                    // Second line is the number of remelting events in the file (should be 0 as we currently are
-                    // assuming no remelting)
+                    // Second line is the number of remelting events in the file
                     ZMinLayer[LayerReadCount - 1] = 1000000.0;
                     ZMaxLayer[LayerReadCount - 1] = -1000000.0;
                     std::string val = parseInput(TemperatureFile, "remelting");
-                    int RemeltingDummyVar = stoi(val, nullptr, 10);
-                    if ((id == 0) && (RemeltingDummyVar != 0))
-                        std::cout << "WARNING: ExaCA does not currently allow for multiple remelting events, remelting "
-                                     "events was set to "
-                                  << RemeltingDummyVar << " by design, errors will likely result" << std::endl;
+                    int MaxSolidificationEvents_ThisLayer = stoi(val, nullptr, 10) + 1;
+                    if (SimulationType == "RM") {
+                        MaxSolidificationEvents(LayerReadCount - 1) = MaxSolidificationEvents_ThisLayer;
+                    }
+                    else {
+                        if (MaxSolidificationEvents_ThisLayer > 1) {
+                            std::string error = "Remelting, as occurs in " + tempfile_thislayer +
+                                                " is not allowed in a reduced temperature simulation type";
+                            throw std::runtime_error(error);
+                        }
+                    }
                     // Third line contains the units of length (m or mm) and time (s or ms)
                     val = parseInput(TemperatureFile, "Units");
                     std::size_t findcommaseparator = val.find(",");
@@ -698,6 +704,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                         ZMax_ThisLayer = ZMax_ThisLayer / 1000.0;
                     }
                     // Make sure fifth line contains all required column names: x, y, z, tl, and either ts or cr
+                    // If simulation considers remelting, also check for tm
                     // Check mix of lower and uppercase letters just in case
                     std::string HeaderLine;
                     getline(TemperatureFile, HeaderLine);
@@ -710,6 +717,11 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     std::size_t zf = HeaderLine.find("z");
                     if (zf == std::string::npos)
                         zf = HeaderLine.find("Z");
+                    std::size_t col0 = HeaderLine.find("tm");
+                    if (col0 == std::string::npos)
+                        col0 = HeaderLine.find("Tm");
+                    if (col0 == std::string::npos)
+                        col0 = HeaderLine.find("TM");
                     std::size_t col1 = HeaderLine.find("tl");
                     if (col1 == std::string::npos)
                         col1 = HeaderLine.find("Tl");
@@ -721,6 +733,11 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                             "temperature input file: these are x, y, z, tl";
                         throw std::runtime_error(error);
                     }
+                    if ((col0 == std::string::npos) && (SimulationType == "RM")) {
+                        std::string error =
+                            "Error: Simulation with remelting requires melting data in all temperature files";
+                        throw std::runtime_error(error);
+                    }
                     std::size_t col2at1 = HeaderLine.find("ts");
                     std::size_t col2at2 = HeaderLine.find("Ts");
                     std::size_t col2at3 = HeaderLine.find("TS");
@@ -729,7 +746,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     if ((col2at1 == std::string::npos) && (col2at2 == std::string::npos) &&
                         (col2at3 == std::string::npos) && (col2at4 == std::string::npos) &&
                         (col2at5 == std::string::npos)) {
-                        std::string error = "The fifth column header must be either ts or cr";
+                        std::string error = "The last column header must be either ts or cr";
                         throw std::runtime_error(error);
                     }
                     else {
@@ -776,26 +793,36 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     FirstValue[LayerReadCount - 1] = NumberOfTemperatureDataPoints;
                     int HTtoCAratio = HT_deltax / deltax; // OpenFOAM/CA cell size ratio
                     int LowerXBound, LowerYBound, UpperXBound, UpperYBound;
-                    if (MyXOffset <= 2)
-                        LowerXBound = 2;
-                    else
-                        LowerXBound = MyXOffset - ((MyXOffset - 2) % HTtoCAratio);
-                    if (MyYOffset <= 2)
-                        LowerYBound = 2;
-                    else
-                        LowerYBound = MyYOffset - ((MyYOffset - 2) % HTtoCAratio);
+                    if (SimulationType == "RM") {
+                        // Simulations with remelting do not require interpolation,
+                        // temperature data bound for this MPI rank do not require extra
+                        // "padding" for CA interpolation
+                        LowerXBound = MyXOffset;
+                        UpperXBound = MyXOffset + MyXSlices - 1;
+                        LowerYBound = MyYOffset;
+                        UpperYBound = MyYOffset + MyYSlices - 1;
+                    }
+                    else {
+                        if (MyXOffset <= 2)
+                            LowerXBound = 2;
+                        else
+                            LowerXBound = MyXOffset - ((MyXOffset - 2) % HTtoCAratio);
+                        if (MyYOffset <= 2)
+                            LowerYBound = 2;
+                        else
+                            LowerYBound = MyYOffset - ((MyYOffset - 2) % HTtoCAratio);
 
-                    if (MyXOffset + MyXSlices - 1 >= nx - 3)
-                        UpperXBound = nx - 3;
-                    else
-                        UpperXBound =
-                            MyXOffset + MyXSlices - 1 + HTtoCAratio - ((MyXOffset + (MyXSlices - 1) - 2) % HTtoCAratio);
-                    if (MyYOffset + MyYSlices - 1 >= ny - 3)
-                        UpperYBound = ny - 3;
-                    else
-                        UpperYBound =
-                            MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + (MyYSlices - 1) - 2) % HTtoCAratio);
-
+                        if (MyXOffset + MyXSlices - 1 >= nx - 3)
+                            UpperXBound = nx - 3;
+                        else
+                            UpperXBound = MyXOffset + MyXSlices - 1 + HTtoCAratio -
+                                          ((MyXOffset + (MyXSlices - 1) - 2) % HTtoCAratio);
+                        if (MyYOffset + MyYSlices - 1 >= ny - 3)
+                            UpperYBound = ny - 3;
+                        else
+                            UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio -
+                                          ((MyYOffset + (MyYSlices - 1) - 2) % HTtoCAratio);
+                    }
                     // Second pass through the files - ignore header lines (there are now 5)
                     std::string DummyLine;
                     for (int line = 0; line < 5; line++) {
@@ -803,13 +830,19 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     }
                     // Read data from the remaining lines
                     int LineCounter = 5;
+                    int ValuesPerLine = 5;
+
+                    if (SimulationType == "RM")
+                        ValuesPerLine = 6; // melting time now included on each line
+
+                    int NumSubdivisions = ValuesPerLine - 1;
                     while (!TemperatureFile.eof()) {
                         std::string s;
                         getline(TemperatureFile, s);
                         if (s.empty())
                             break;
                         std::string XVal, YVal, ZVal, TLVal, TSVal;
-                        int Subdivisions[4];
+                        int Subdivisions[NumSubdivisions];
                         int SubdivisionCount = 0;
                         for (std::size_t i = 1; i < s.length(); i++) {
                             char ThisChar = s.at(i);
@@ -819,7 +852,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                             if ((isblank(ThisChar)) && (!isblank(PrevChar))) {
                                 Subdivisions[SubdivisionCount] = i;
                                 SubdivisionCount++;
-                                if (SubdivisionCount == 4) {
+                                if (SubdivisionCount == NumSubdivisions) {
                                     // Last division was made
                                     break;
                                 }
@@ -828,14 +861,15 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
 
                         int XInt = 0, YInt = 0;
                         float XConverted = 0.0, YConverted = 0.0;
-                        for (int i = 0; i < 5; i++) {
+
+                        for (int i = 0; i < ValuesPerLine; i++) {
                             int stringstart;
                             int stringlength;
                             if (i == 0)
                                 stringstart = 0;
                             else
                                 stringstart = Subdivisions[i - 1];
-                            if (i == 4)
+                            if (i == NumSubdivisions)
                                 stringlength = s.length();
                             else
                                 stringlength = Subdivisions[i] - stringstart;
@@ -882,10 +916,18 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                 else {
                                     // This data point is outside the bounds of interest for this MPI rank - set "i"
                                     // outside loop bounds to exit
-                                    i = 6;
+                                    i = 7;
                                 }
                             }
-                            else if (i == 3) {
+                            else if ((i == 3) && (SimulationType == "RM")) {
+                                // Melting time (remelting simulations only)
+                                float MeltingTime = MeshData;
+                                if (TimeUnits == "ms")
+                                    MeltingTime = MeshData / 1000.0;
+                                RawData[NumberOfTemperatureDataPoints] = MeltingTime;
+                                NumberOfTemperatureDataPoints++;
+                            }
+                            else if (((i == 3) && (SimulationType == "R")) || ((i == 4) && (SimulationType == "RM"))) {
                                 // Liquidus time
                                 if ((XInt >= LowerXBound) && (XInt <= UpperXBound) && (YInt >= LowerYBound) &&
                                     (YInt <= UpperYBound)) {
@@ -898,7 +940,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                                     NumberOfTemperatureDataPoints++;
                                 }
                             }
-                            else if (i == 4) {
+                            else if (((i == 4) && (SimulationType == "R")) || ((i == 5) && (SimulationType == "RM"))) {
                                 // Solidus time OR cooling rate (convert all to a positive cooling rate)
                                 if ((XInt >= LowerXBound) && (XInt <= UpperXBound) && (YInt >= LowerYBound) &&
                                     (YInt <= UpperYBound)) {
@@ -1000,12 +1042,16 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                             // translated from that of the first layer
                             FirstValue[LayerReadCount] = FirstValue[LayerReadCount - 1];
                             LastValue[LayerReadCount] = LastValue[LayerReadCount - 1];
+                            if (SimulationType == "RM")
+                                MaxSolidificationEvents[LayerReadCount] = MaxSolidificationEvents[LayerReadCount - 1];
                         }
                         else {
                             // All layers have different temperature data but in a repeating pattern
                             int RepeatedFile = (LayerReadCount) % TempFilesInSeries;
                             FirstValue[LayerReadCount] = FirstValue[RepeatedFile];
                             LastValue[LayerReadCount] = LastValue[RepeatedFile];
+                            if (SimulationType == "RM")
+                                MaxSolidificationEvents[LayerReadCount] = MaxSolidificationEvents[RepeatedFile];
                         }
                     }
                 }
@@ -1334,6 +1380,125 @@ void TempInit(int layernumber, double G, double R, std::string SimulationType, i
     }
 }
 //*****************************************************************************/
+
+//*****************************************************************************/
+void TempInitRemelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, int nz, int &MyXOffset, int &MyYOffset,
+                    double &deltax, double deltat, double FreezingRange, ViewF3D_H LayerTimeTempHistory,
+                    ViewI_H MaxSolidificationEvents, ViewI_H NumberOfSolidificationEvents,
+                    ViewI_H SolidificationEventCounter, ViewI_H MeltTimeStep, ViewI_H CritTimeStep,
+                    ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, bool *Melted,
+                    float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int ZBound_High,
+                    int *FinishTimeStep, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<float> RawData) {
+
+    if (id == 0)
+        std::cout << "Layer " << layernumber << " data belongs to global z coordinates of " << ZBound_Low << " through "
+                  << ZBound_High << std::endl;
+
+    if (layernumber == 0) {
+        // No sites have melted yet
+        for (int i = 0; i < MyXSlices * MyYSlices * nz; i++) {
+            Melted[i] = false;
+            LayerID(i) = -1;
+        }
+    }
+
+    // Initialize number of solidification events counter / max number solidification event views to 0, along with
+    // others
+    for (int i = 0; i < MyXSlices * MyYSlices * nzActive; i++) {
+        SolidificationEventCounter(i) = 0;
+        NumberOfSolidificationEvents(i) = 0;
+        for (int j = 0; j < MaxSolidificationEvents(layernumber); j++) {
+            for (int k = 0; k < 3; k++) {
+                LayerTimeTempHistory(i, j, k) = 0;
+            }
+        }
+    }
+    for (int i = 0; i < MyXSlices * MyYSlices * nz; i++) {
+        CritTimeStep(i) = 0;
+        UndercoolingChange(i) = 0.0;
+        UndercoolingCurrent(i) = 0.0;
+        MeltTimeStep(i) = 0;
+    }
+
+    // Data was already read into the "RawData" temporary data structure
+    // Determine which section of "RawData" is relevant for this layer of the overall domain
+    int StartRange = FirstValue[layernumber];
+    int EndRange = LastValue[layernumber];
+    int XInt = -1;
+    int YInt = -1;
+    int ZInt = -1;
+    int D3D1ConvPosition = 0;
+    double LargestTime = 0;
+    double LargestTime_Global = 0;
+    if (id == 0)
+        std::cout << "Range for layer " << layernumber << " on rank 0 is " << StartRange << " to " << EndRange
+                  << std::endl;
+    MPI_Barrier(MPI_COMM_WORLD);
+    for (int i = StartRange; i < EndRange; i++) {
+
+        int Pos = i % 6;
+        if (Pos == 0) {
+            XInt = round((RawData[i] - XMin) / deltax) + 2;
+        }
+        else if (Pos == 1) {
+            YInt = round((RawData[i] - YMin) / deltax) + 2;
+        }
+        else if (Pos == 2) {
+            ZInt = round((RawData[i] + deltax * LayerHeight * layernumber - ZMinLayer[layernumber]) / deltax);
+        }
+        else if (Pos == 3) {
+            // Melt time step
+            D3D1ConvPosition = ZInt * MyXSlices * MyYSlices + (XInt - MyXOffset) * MyYSlices + (YInt - MyYOffset);
+            LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 0) =
+                round(RawData[i] / deltat);
+        }
+        else if (Pos == 4) {
+            // Crit (liquidus) time step
+            LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 1) =
+                round(RawData[i] / deltat);
+        }
+        else if (Pos == 5) {
+            // Cooling rate per time step
+            LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 2) =
+                abs(RawData[i]) * deltat;
+            NumberOfSolidificationEvents(D3D1ConvPosition)++;
+            double SolidusTime = RawData[i - 1] + FreezingRange / RawData[i];
+            if (SolidusTime > LargestTime)
+                LargestTime = SolidusTime;
+        }
+    }
+    MPI_Allreduce(&LargestTime, &LargestTime_Global, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "Largest time globally for layer " << layernumber << " is " << LargestTime_Global << std::endl;
+    FinishTimeStep[layernumber] = round((LargestTime_Global) / deltat);
+    if (id == 0)
+        std::cout << " Layer " << layernumber << " FINISH TIME STEP IS " << FinishTimeStep[layernumber] << std::endl;
+    if (id == 0)
+        std::cout << "Layer " << layernumber << " temperatures read" << std::endl;
+
+    for (int k = 0; k < nzActive; k++) {
+        int GlobalZ = k + ZBound_Low;
+        for (int i = 0; i < MyXSlices; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
+                int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                if (LayerTimeTempHistory(D3D1ConvPosition, 0, 0) > 0) {
+                    // This cell undergoes solidification in layer "layernumber" at least once
+                    int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + i * MyYSlices + j;
+                    Melted[GlobalD3D1ConvPosition] = true;
+                    LayerID(GlobalD3D1ConvPosition) = layernumber;
+                    MeltTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(D3D1ConvPosition, 0, 0));
+                    CritTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(D3D1ConvPosition, 0, 1));
+                    UndercoolingChange(GlobalD3D1ConvPosition) = LayerTimeTempHistory(D3D1ConvPosition, 0, 2);
+                }
+            }
+        }
+    }
+    if (id == 0)
+        std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low << " to " << ZBound_High
+                  << " of the global domain" << std::endl;
+}
+//*****************************************************************************/
+
 // Initialize grain orientations and unit vectors
 void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
                      std::string GrainOrientationFile) {
@@ -1459,8 +1624,8 @@ void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlic
 }
 
 // Initializes Grain ID values where the substrate comes from a file
-void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
-                            int MyYOffset, int id, ViewI_H CritTimeStep, ViewI_H GrainID) {
+void SubstrateInit_FromFile(std::string SubstrateFileName, bool Remelting, int nz, int MyXSlices, int MyYSlices,
+                            int MyXOffset, int MyYOffset, int id, ViewI_H CritTimeStep, ViewI_H GrainID) {
 
     // Assign GrainID values to cells that are part of the substrate
     std::ifstream Substrate;
@@ -1512,7 +1677,11 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
                     }
                     else {
                         // This cell is part of at least one layer's melt pool footprint
-                        GrainID(CAGridLocation) = 0;
+                        // Do not pre-melt any of the grain structure if the simulation will consider re-melting
+                        if (!(Remelting))
+                            GrainID(CAGridLocation) = 0;
+                        else
+                            GrainID(CAGridLocation) = stoi(GIDVal, nullptr, 10);
                     }
                 }
             }
@@ -1526,9 +1695,10 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation,
 // while the remainder of the interface is seeded with CA-cell sized substrate grains (emulating bulk nucleation
 // alongside the edges of partially melted powder particles)
-void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int nz, int nzActive, int MyXSlices,
-                                    int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, int id,
-                                    int np, double deltax, ViewI_H GrainID, ViewI_H CritTimeStep) {
+void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting, int nx, int ny, int nz, int nzActive,
+                                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
+                                    int LocalActiveDomainSize, int id, int np, double deltax, ViewI_H GrainID,
+                                    ViewI_H CritTimeStep) {
 
     // Seed random number generator such that each rank generates the same baseplate grain center locations
     double SubstrateSeed = 1.0;
@@ -1575,15 +1745,16 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     ViewI CritTimeStep_G = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep);
     ViewI GrainID_G = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID);
-    Kokkos::parallel_for(
-        "CellCapture",
-        Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-            {1, 0, 0}, {nzActive, MyXSlices, MyYSlices}),
-        KOKKOS_LAMBDA(const int k, const int i, const int j) {
-            int GlobalX = i + MyXOffset;
-            int GlobalY = j + MyYOffset;
-            int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-            if (CritTimeStep_G(CAGridLocation) == 0) {
+    if (Remelting) {
+        std::cout << "Initializing substrate grain structure from Z = 1 through Z = " << nzActive + 2 << std::endl;
+        Kokkos::parallel_for(
+            "GrainGeneration_RM",
+            Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
+                {1, 0, 0}, {nzActive + 2, MyXSlices, MyYSlices}),
+            KOKKOS_LAMBDA(const int k, const int i, const int j) {
+                int GlobalX = i + MyXOffset;
+                int GlobalY = j + MyYOffset;
+                int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
                 // This cell is part of the substrate - determine which grain center the cell is closest to, in order to
                 // assign it a grain ID If closest to grain "n", assign grain ID "n+1" (grain ID = 0 is not used)
                 float MinDistanceToThisGrain = (float)(LocalActiveDomainSize);
@@ -1601,13 +1772,44 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
                     }
                 }
                 GrainID_G(CAGridLocation) = ClosestGrainIndex + 1;
-            }
-            else {
-                // This cell is part of layer 0's melt pool footprint
-                GrainID_G(CAGridLocation) = 0;
-            }
-        });
-
+            });
+    }
+    else {
+        Kokkos::parallel_for(
+            "GrainGeneration_NoRM",
+            Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
+                {1, 0, 0}, {nzActive, MyXSlices, MyYSlices}),
+            KOKKOS_LAMBDA(const int k, const int i, const int j) {
+                int GlobalX = i + MyXOffset;
+                int GlobalY = j + MyYOffset;
+                int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                if (CritTimeStep_G(CAGridLocation) == 0) {
+                    // This cell is part of the substrate - determine which grain center the cell is closest to, in
+                    // order to assign it a grain ID If closest to grain "n", assign grain ID "n+1" (grain ID = 0 is not
+                    // used)
+                    float MinDistanceToThisGrain = (float)(LocalActiveDomainSize);
+                    int ClosestGrainIndex = -1;
+                    for (int n = 0; n < NumBaseplateGrains_G(); n++) {
+                        float DistanceToThisGrainX = (float)(abs(BaseplateGrainX_G(n) - GlobalX));
+                        float DistanceToThisGrainY = (float)(abs(BaseplateGrainY_G(n) - GlobalY));
+                        float DistanceToThisGrainZ = (float)(abs(BaseplateGrainZ_G(n) - k));
+                        float DistanceToThisGrain = sqrtf(DistanceToThisGrainX * DistanceToThisGrainX +
+                                                          DistanceToThisGrainY * DistanceToThisGrainY +
+                                                          DistanceToThisGrainZ * DistanceToThisGrainZ);
+                        if (DistanceToThisGrain < MinDistanceToThisGrain) {
+                            ClosestGrainIndex = n;
+                            MinDistanceToThisGrain = DistanceToThisGrain;
+                        }
+                    }
+                    GrainID_G(CAGridLocation) = ClosestGrainIndex + 1;
+                }
+                else {
+                    // This cell is part of layer 0's melt pool footprint
+                    // Do not pre-melt any of the grain structure if the simulation will consider re-melting
+                    GrainID_G(CAGridLocation) = 0;
+                }
+            });
+    }
     // Copy Grain ID back to host
     Kokkos::deep_copy(GrainID, GrainID_G);
     MPI_Barrier(MPI_COMM_WORLD);
@@ -1615,17 +1817,30 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
         std::cout << "Baseplate grain structure initialized" << std::endl;
     // Initialize grain seeds above baseplate to emulate bulk nucleation at edge of melted powder particles
     int PowderLayerActCells_ThisRank = 0;
-    for (int k = nzActive; k < nz; k++) {
-        for (int i = 1; i < MyXSlices - 1; i++) {
-            for (int j = 1; j < MyYSlices - 1; j++) {
-                int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                if (CritTimeStep(CAGridLocation) == 0) {
+    if (Remelting) {
+        for (int k = nzActive + 2; k < nz; k++) {
+            for (int i = 1; i < MyXSlices - 1; i++) {
+                for (int j = 1; j < MyYSlices - 1; j++) {
                     // This cell is part of the powder layer - count how many of these exist on this rank
                     PowderLayerActCells_ThisRank++;
                 }
-                else {
-                    // This cell is part of one of the layer's melt pool footprint
-                    GrainID(CAGridLocation) = 0;
+            }
+        }
+    }
+    else {
+        for (int k = nzActive; k < nz; k++) {
+            for (int i = 1; i < MyXSlices - 1; i++) {
+                for (int j = 1; j < MyYSlices - 1; j++) {
+                    int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                    if (CritTimeStep(CAGridLocation) == 0) {
+                        // This cell is part of the powder layer - count how many of these exist on this rank
+                        PowderLayerActCells_ThisRank++;
+                    }
+                    else {
+                        // This cell is part of one of the layer's melt pool footprint
+                        // Do not pre-melt any of the grain structure if the simulation will consider re-melting
+                        GrainID(CAGridLocation) = 0;
+                    }
                 }
             }
         }
@@ -1651,11 +1866,20 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
             MPI_Send(&SBuf, 1, MPI_INT, id + 1, 0, MPI_COMM_WORLD);
         }
     }
-    for (int D3D1ConvPosition = MyXSlices * MyYSlices * nzActive; D3D1ConvPosition < MyXSlices * MyYSlices * nz;
-         D3D1ConvPosition++) {
-        if (CritTimeStep(D3D1ConvPosition) == 0) {
+    if (Remelting) {
+        for (int D3D1ConvPosition = MyXSlices * MyYSlices * (nzActive + 2);
+             D3D1ConvPosition < MyXSlices * MyYSlices * nz; D3D1ConvPosition++) {
             GrainID(D3D1ConvPosition) = FirstEpitaxialGrainID;
             FirstEpitaxialGrainID++;
+        }
+    }
+    else {
+        for (int D3D1ConvPosition = MyXSlices * MyYSlices * nzActive; D3D1ConvPosition < MyXSlices * MyYSlices * nz;
+             D3D1ConvPosition++) {
+            if (CritTimeStep(D3D1ConvPosition) == 0) {
+                GrainID(D3D1ConvPosition) = FirstEpitaxialGrainID;
+                FirstEpitaxialGrainID++;
+            }
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
@@ -1693,6 +1917,20 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
         }
     }
 
+    for (int k = 1; k < nz - 1; k++) {
+        for (int j = 0; j < MyYSlices; j++) {
+            for (int i = 0; i < MyXSlices; i++) {
+                int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                if (CritTimeStep(CAGridLocation) == 0) {
+                    CellType(CAGridLocation) = Solid;
+                }
+                else {
+                    // This cell has associated melting data and is initialized as liquid
+                    CellType(CAGridLocation) = Liquid;
+                }
+            }
+        }
+    }
     // Count number of active cells are at the solid-liquid boundary
     int SubstrateActCells_ThisRank = 0;
     for (int k = 1; k < nz - 1; k++) {
@@ -1736,14 +1974,6 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
                             break;
                         }
                     }
-                    if (LCount == 0) {
-                        // Not at the interface
-                        CellType(CAGridLocation) = Solid;
-                    }
-                }
-                else {
-                    // This cell has associated melting data and is initialized as liquid
-                    CellType(CAGridLocation) = Liquid;
                 }
             }
         }
@@ -2127,6 +2357,156 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
                 }
             }
         }
+    }
+}
+
+//*****************************************************************************/
+// Initializes cell types for simulations with remelting
+// Each layer starts at solid cells (where we have solidification data) and wall cells (where no solidification will
+// happen)
+void GrainNucleiInitRemelt(int layernumber, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int nzActive,
+                           int id, int np, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H CritTimeStep,
+                           ViewI_H NumberOfSolidificationEvents, ViewF3D_H LayerTimeTempHistory, double deltax,
+                           double NMax, double dTN, double dTsigma, int &NextLayer_FirstNucleatedGrainID,
+                           int &PossibleNuclei_ThisRank, ViewI_H NucleationTimes, ViewI_H NucleiLocation,
+                           ViewI_H NucleiGrainID, int ZBound_Low) {
+
+    // All cells are either solid (if solidification data) or wall (no data) at the start of the layer
+    int SolidCellCount_ThisRank = 0;
+    int SolidCellCount;
+    for (int k = 0; k < nzActive; k++) {
+        for (int i = 0; i < MyXSlices; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
+                int GlobalCAGridLocation = (k + ZBound_Low) * MyXSlices * MyYSlices + i * MyYSlices + j;
+                if (CritTimeStep(GlobalCAGridLocation) > 0) {
+                    CellType(GlobalCAGridLocation) = Solid;
+                    SolidCellCount_ThisRank++;
+                }
+                else {
+                    CellType(GlobalCAGridLocation) = Wall;
+                }
+            }
+        }
+    }
+    MPI_Reduce(&SolidCellCount_ThisRank, &SolidCellCount, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "Cells to undergo solidification (have associated temperature data) in layer " << layernumber
+                  << " : " << SolidCellCount << std::endl;
+
+    // RNG for heterogenous nuclei locations
+    std::mt19937_64 gen((id + 1) * (layernumber + 1));
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
+
+    // Probability that a given liquid site will be a potential nucleus location
+    double BulkProb = NMax * deltax * deltax * deltax;
+
+    // Count the number of nucleation events that may potentially occur on this rank (not counting ghost nodes, to avoid
+    // double counting cells are potential nucleation sites)
+    // A nucleation site may be used more than once if it remelts
+    // Only simulate nucleation occuring on this rank - not in ghost nodes/halo region
+    PossibleNuclei_ThisRank = 0;
+    for (int k = 0; k < nzActive; k++) {
+        for (int j = 1; j < MyYSlices - 1; j++) {
+            for (int i = 1; i < MyXSlices - 1; i++) {
+                int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                int GlobalCAGridLocation = (k + ZBound_Low) * MyXSlices * MyYSlices + i * MyYSlices + j;
+                if (CritTimeStep(GlobalCAGridLocation) != 0) {
+                    int NucProbabilityMultiplier = NumberOfSolidificationEvents(CAGridLocation);
+                    double R = NucProbabilityMultiplier * dis(gen);
+                    if (R < BulkProb) {
+                        NucleiLocation(PossibleNuclei_ThisRank) = GlobalCAGridLocation;
+                        PossibleNuclei_ThisRank++;
+                    }
+                }
+            }
+        }
+    }
+    int TotalNucleatedGrains;
+    MPI_Reduce(&PossibleNuclei_ThisRank, &TotalNucleatedGrains, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "Number of potential nucleated grains in layer " << layernumber << ": " << TotalNucleatedGrains
+                  << " , starting with grain id " << NextLayer_FirstNucleatedGrainID << std::endl;
+
+    int FirstNucleatedGID_Rank0;
+    if (layernumber == 0) {
+        FirstNucleatedGID_Rank0 = -1;
+    }
+    else {
+        FirstNucleatedGID_Rank0 = NextLayer_FirstNucleatedGrainID;
+    }
+    int MyFirstNGrainID; // First GrainID for nuclei on this rank, for this layer
+    if (np > 1) {
+        // Assign GrainIDs for nucleated grains (negative values)
+        // Grains for nucleated growth
+        if (id == 0) {
+            int SBuf = FirstNucleatedGID_Rank0 - PossibleNuclei_ThisRank;
+            MPI_Send(&SBuf, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+            MyFirstNGrainID = FirstNucleatedGID_Rank0;
+        }
+        else if (id == np - 1) {
+            int RBuf;
+            MPI_Recv(&RBuf, 1, MPI_INT, np - 2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MyFirstNGrainID = RBuf;
+            NextLayer_FirstNucleatedGrainID = MyFirstNGrainID - PossibleNuclei_ThisRank;
+        }
+        else {
+            int RBuf;
+            MPI_Recv(&RBuf, 1, MPI_INT, id - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MyFirstNGrainID = RBuf;
+            int SBuf = MyFirstNGrainID - PossibleNuclei_ThisRank;
+            MPI_Send(&SBuf, 1, MPI_INT, id + 1, 0, MPI_COMM_WORLD);
+        }
+        MPI_Bcast(&NextLayer_FirstNucleatedGrainID, 1, MPI_INT, np - 1, MPI_COMM_WORLD);
+    }
+    else {
+        // No communication among ranks
+        NextLayer_FirstNucleatedGrainID = FirstNucleatedGID_Rank0 - PossibleNuclei_ThisRank;
+        MyFirstNGrainID = FirstNucleatedGID_Rank0;
+    }
+
+    // Assign GrainIDs to nuclei sites
+    int NCounter = MyFirstNGrainID;
+
+    // Nonactive cells should start with diagonal lengths of 0
+    for (int i = 0; i < LocalActiveDomainSize; i++) {
+        DiagonalLength(i) = 0.0;
+    }
+
+    for (int NEvent = 0; NEvent < PossibleNuclei_ThisRank; NEvent++) {
+        NucleiGrainID(NEvent) = NCounter;
+        NCounter--;
+    }
+
+    // Gaussian distribution of nucleation undercooling
+    std::default_random_engine generator;
+    std::normal_distribution<double> distribution(dTN, dTsigma);
+    for (int i = 0; i < 120 * (id + 1); i++) {
+        distribution(generator);
+    }
+
+    // Collect data for ghost nodes' nucleation events
+    for (int NEvent = 0; NEvent < PossibleNuclei_ThisRank; NEvent++) {
+        // Event location in the domain
+        int GlobalCAGridLocation = NucleiLocation(NEvent);
+        int GlobalZ = GlobalCAGridLocation / (MyXSlices * MyYSlices);
+        int Rem = GlobalCAGridLocation % (MyXSlices * MyYSlices);
+        int RankX = Rem / MyYSlices;
+        int RankY = Rem % MyYSlices;
+        int RankZ = GlobalZ - ZBound_Low;
+        int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+        // If this cell solidifies multiple times, determine which remelt event is associated with nucleation
+        double EventNumProb = (double)(NumberOfSolidificationEvents(D3D1ConvPosition)) * dis(gen);
+        int EventNumNucleation = std::floor(EventNumProb);
+
+        // Undercooling for this nucleation event
+        double LocNucUnd = distribution(generator);
+
+        // Time steps to reach this undercooling after cell goes below the liquidus
+        int TimeToNucUnd = LayerTimeTempHistory(D3D1ConvPosition, EventNumNucleation, 1) +
+                           round(LocNucUnd / LayerTimeTempHistory(D3D1ConvPosition, EventNumNucleation, 2));
+        NucleationTimes(NEvent) = LayerTimeTempHistory(D3D1ConvPosition, EventNumNucleation, 1);
+        if (TimeToNucUnd > LayerTimeTempHistory(D3D1ConvPosition, EventNumNucleation, 1))
+            NucleationTimes(NEvent) = TimeToNucUnd;
     }
 }
 

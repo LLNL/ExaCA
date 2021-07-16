@@ -12,12 +12,12 @@
 
 #include <string>
 
-void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn, ViewI CellType,
-                ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewI GrainOrientation, ViewF DOCenter,
-                ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength,
-                ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank, int ZBound_Low,
-                int layernumber, ViewI LayerID);
-void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int LocalDomainSize,
+void Nucleation(bool Remelting, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn,
+                ViewI CellType, ViewI NucleiLocations, ViewI NucleationTimes, ViewI NucleiGrainID, ViewI GrainID,
+                ViewI GrainOrientation, ViewF DOCenter, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
+                ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, int NGrainOrientations,
+                int PossibleNuclei_ThisRank, int ZBound_Low, int layernumber, ViewI LayerID);
+void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, int LocalActiveDomainSize, int,
                  int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst,
                  int MyXOffset, int MyYOffset, ViewI2D ItList, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
                  ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector,
@@ -25,11 +25,16 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                  ViewI GrainID, int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
                  Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
                  Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX,
-                 int BufSizeY, int ZBound_Low, int nzActive, int nz, int layernumber, ViewI LayerID,
-                 ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H);
+                 int BufSizeY, int ZBound_Low, int nzActive, int, int layernumber, ViewI LayerID, ViewI SteeringVector,
+                 ViewI numSteer_G, ViewI_H numSteer_H, ViewI MeltTimeStep, ViewI SolidificationEventCounter,
+                 ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory);
 void IntermediateOutputAndCheck(int pid, int &cycle, int MyXSlices, int MyYSlices, int LocalDomainSize,
                                 int LocalActiveDomainSize, int nn, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
                                 std::string SimulationType, int *FinishTimeStep, int layernumber, int NumberOfLayers,
                                 int ZBound_Low, ViewI LayerID);
+void IntermediateOutputAndCheck_Remelt(int id, int &cycle, int MyXSlices, int MyYSlices, int LocalActiveDomainSize,
+                                       int nn, int &XSwitch, ViewI CellType, ViewI MeltTimeStep,
+                                int *FinishTimeStep, int layernumber, int,
+                                       int ZBound_Low, ViewI LayerID);
 
 #endif
