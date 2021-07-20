@@ -21,7 +21,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
                        bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
                        double &FractSurfaceSitesActive, std::string &PathToOutput, bool (&FilesToPrint)[6],
-                       bool &PrintFilesYN);
+                       bool &PrintFilesYN, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius);
 void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
                       ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
                       int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
@@ -32,12 +32,21 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                       float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight, int NumberOfLayers,
                       int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
                       float *ZMaxLayer, int *FirstValue, int *LastValue, std::vector<float> &RawData);
-void TempInit(int layernumber, double G, double R, std::string SimulationType, int id, int &MyXSlices, int &MyYSlices,
-              int &MyXOffset, int &MyYOffset, double &deltax, double HT_deltax, double deltat, int &nx, int &ny,
-              int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin,
-              float YMin, float ZMin, bool *Melted, float *ZMinLayer, float *ZMaxLayer, int LayerHeight,
-              int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int *FinishTimeStep,
-              double FreezingRange, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<float> RawData);
+void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices,
+              int &MyXOffset, int &MyYOffset, double deltax, double deltat, int nx, int ny,
+              int nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted,
+                                int &nzActive, int &ZBound_Low, int &ZBound_High, ViewI_H LayerID);
+void TempInit_SpotMelt(double G, double R, std::string SimulationType, int id, int &MyXSlices, int &MyYSlices,
+              int &MyXOffset, int &MyYOffset, double deltax, double deltat,
+              int nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight,
+              int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High,
+                       double FreezingRange, ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset);
+void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices,
+                  int &MyXOffset, int &MyYOffset, double &deltax, double HT_deltax, double deltat, int &nx, int &ny,
+                  int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin,
+                  float YMin, float ZMin, bool *Melted, float *ZMinLayer, float *ZMaxLayer, int LayerHeight,
+                  int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int *FinishTimeStep,
+                      double FreezingRange, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<float> RawData);
 void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
                      std::string GrainOrientationFile);
 void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx, int ny,
