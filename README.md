@@ -143,12 +143,16 @@ make install
 
 ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory:
 
- * `Inp_AMBenchMultilayer.txt` simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
- * `Inp_SimpleRaster.txt` simulates a single layer consisting of four overlapping melt pools
- * `Inp_DirSolidification.txt` does not use a thermal profile for a beam melting problem, but rather simulates grain growth from a surface with a fixed thermal gradient and cooling rate
- * `Inp_SmallDirSolidification.txt` the smallest and simplest example problem
+ * `Inp_DirSolidification.txt`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
+ * `Inp_SmallDirSolidification.txt`: a smaller and simpler version of the previous
+ * `Inp_SpotMelt.txt`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate
+ * `Inp_SmallSpotMelt.txt`: a smaller and simpler version of the previous
 
-Run by calling the created executable from the ExaCA root directory:
+Example problems only possible with external data:
+ * `Inp_AMBenchMultilayer.txt`: simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
+ * `Inp_SimpleRaster.txt`: simulates a single layer consisting of four overlapping melt pools
+
+Run by calling the created executable with an ExaCA input file:
 ```
 mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ```
