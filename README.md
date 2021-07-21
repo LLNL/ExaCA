@@ -12,20 +12,21 @@ ExaCA-Kokkos uses Kokkos and MPI for parallelism.
 |---------- | ------- |--------  |------- |
 |CMake      | 3.9+    | Yes       | Build system
 |Kokkos     | 3.0+   | Yes      | Provides portable on-node parallelism.
-|MPI        | GPU Aware if CUDA Enabled | Yes     | Message Passing Interface
+|MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Message Passing Interface
 |CUDA       | 9+      | No       | Programming model for NVIDIA GPUs
+|HIP       | 3.5+      | No       | Programming model for AMD GPUs
 
 Kokkos and MPI are available on many systems; if not, obtain the desired
 versions:
 ```
-git clone https://github.com/kokkos/kokkos.git --branch 3.0.00
+git clone https://github.com/kokkos/kokkos.git --branch 3.4.00
 ```
 
 ### Backend options
 Note that ExaCA runs with the default enabled Kokkos backend
  (see https://github.com/kokkos/kokkos/wiki/Initialization).
 
-ExaCA has been tested with Serial, OpenMP, Pthreads, and Cuda backends.
+ExaCA has been tested with Serial, OpenMP, Pthreads, CUDA, and HIP backends.
 
 ### Build CPU
 
@@ -104,7 +105,38 @@ cmake \
   -D CMAKE_INSTALL_PREFIX=install \
   ..;
 make install
-cd ../..
+```
+
+### Build HIP
+Again, first build Kokkos, this time with the `hipcc` compiler:
+```
+cd ./kokkos
+mkdir build
+cd build
+cmake \
+    -D CMAKE_BUILD_TYPE="Release" \
+    -D CMAKE_CXX_COMPILER=hipcc \
+    -D CMAKE_INSTALL_PREFIX=install \
+    -D Kokkos_ENABLE_HIP=ON \
+    -D Kokkos_ARCH_VEGA908=ON \
+    .. ;
+make install
+```
+And build ExaCA with the same compiler:
+```
+# Change this path to Kokkos installation
+export KOKKOS_INSTALL_DIR=./kokkos/build/install
+
+cd ./ExaCA
+mkdir build
+cd build
+cmake \
+    -D CMAKE_BUILD_TYPE="Release" \
+    -D CMAKE_CXX_COMPILER=hipcc \
+    -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL" \
+    -D CMAKE_INSTALL_PREFIX=install \
+    .. ;
+make install
 ```
 
 ## Run
