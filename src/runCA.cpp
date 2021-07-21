@@ -38,7 +38,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile,
                       TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
                       SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                      FractSurfaceSitesActive, PathToOutput, FilesToPrint, PrintFilesYN, NSpotsX, NSpotsY, SpotOffset, SpotRadius);
+                      FractSurfaceSitesActive, PathToOutput, FilesToPrint, PrintFilesYN, NSpotsX, NSpotsY, SpotOffset,
+                      SpotRadius);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -100,16 +101,17 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Initialize the temperature fields
     if (SimulationType == "R") {
         // input temperature data from files using reduced/sparse data format
-        TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx,
-                 ny, nz, CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted, ZMinLayer,
-                 ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FinishTimeStep, FreezingRange,
-                 LayerID_H, FirstValue, LastValue, RawData);
+        TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx, ny, nz,
+                         CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted,
+                         ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High,
+                         FinishTimeStep, FreezingRange, LayerID_H, FirstValue, LastValue, RawData);
     }
     else if (SimulationType == "S") {
         // spot melt array test problem
-        TempInit_SpotMelt(G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat,
-                      nz, CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, Melted, LayerHeight,
-                      NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FreezingRange, LayerID_H, NSpotsX, NSpotsY, SpotRadius, SpotOffset);
+        TempInit_SpotMelt(G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, nz,
+                          CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, Melted, LayerHeight,
+                          NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FreezingRange, LayerID_H, NSpotsX, NSpotsY,
+                          SpotRadius, SpotOffset);
     }
     else if (SimulationType == "C") {
         // directional/constrained solidification test problem

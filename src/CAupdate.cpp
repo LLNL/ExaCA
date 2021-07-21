@@ -776,7 +776,7 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
     }
     MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    if ((XSwitch == 0) && ((TemperatureDataType == "R")||(TemperatureDataType == "S"))) {
+    if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S"))) {
         MPI_Bcast(&GlobalUndercooledCells, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
         if (GlobalUndercooledCells == 0) {
             // Check when the next superheated cells go below the liquidus
@@ -807,7 +807,7 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
                 if (id == 0)
                     std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
             }
-            if ((TemperatureDataType == "R")&&(cycle >= FinishTimeStep[layernumber]))
+            if ((TemperatureDataType == "R") && (cycle >= FinishTimeStep[layernumber]))
                 XSwitch = 1;
         }
     }
