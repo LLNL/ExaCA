@@ -22,6 +22,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartTime = MPI_Wtime();
 
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
+    int NSpotsX, NSpotsY, SpotOffset, SpotRadius;
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     bool ExtraWalls = false; // If simulating a spot melt problem where the side walls are not part of the substrate,
                              // this is changed to true in the input file
@@ -37,7 +38,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile,
                       TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
                       SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                      FractSurfaceSitesActive, PathToOutput, FilesToPrint, PrintFilesYN);
+                      FractSurfaceSitesActive, PathToOutput, FilesToPrint, PrintFilesYN, NSpotsX, NSpotsY, SpotOffset,
+                      SpotRadius);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -92,15 +94,31 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // By default, the active domain bounds are the same as the global domain bounds
     // For multilayer problems, this is not the case and ZBound_High and nzActive will be adjusted in TempInit to
     // account for only the first layer of solidification
-    int ZBound_Low;
-    int ZBound_High;
-    int nzActive;
+    int ZBound_Low = -1;
+    int ZBound_High = -1;
+    int nzActive = -1;
 
     // Initialize the temperature fields
-    TempInit(-1, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx,
-             ny, nz, CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted, ZMinLayer,
-             ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FinishTimeStep, FreezingRange,
-             LayerID_H, FirstValue, LastValue, RawData);
+    if (SimulationType == "R") {
+        // input temperature data from files using reduced/sparse data format
+        TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx, ny, nz,
+                         CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted,
+                         ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High,
+                         FinishTimeStep, FreezingRange, LayerID_H, FirstValue, LastValue, RawData);
+    }
+    else if (SimulationType == "S") {
+        // spot melt array test problem
+        TempInit_SpotMelt(G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, nz,
+                          CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, Melted, LayerHeight,
+                          NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FreezingRange, LayerID_H, NSpotsX, NSpotsY,
+                          SpotRadius, SpotOffset);
+    }
+    else if (SimulationType == "C") {
+        // directional/constrained solidification test problem
+        TempInit_DirSolidification(G, R, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, nx, ny, nz,
+                                   CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, Melted, nzActive,
+                                   ZBound_Low, ZBound_High, LayerID_H);
+    }
     // Delete temporary data structure for temperature data read
     RawData.clear();
     MPI_Barrier(MPI_COMM_WORLD);
