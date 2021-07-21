@@ -94,9 +94,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // By default, the active domain bounds are the same as the global domain bounds
     // For multilayer problems, this is not the case and ZBound_High and nzActive will be adjusted in TempInit to
     // account for only the first layer of solidification
-    int ZBound_Low;
-    int ZBound_High;
-    int nzActive;
+    int ZBound_Low = -1;
+    int ZBound_High = -1;
+    int nzActive = -1;
 
     // Initialize the temperature fields
     if (SimulationType == "R") {
