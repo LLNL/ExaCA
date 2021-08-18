@@ -17,9 +17,13 @@ Domain size in y: 200
 Domain size in z: 200
 "N", where the time step = deltax/(Steady State Velocity * N): 25
 Fraction of surface sites active: 0.08
-Print file of grain orientations (Y or N)?:N
-Print csv file of grain id values (Y or N)?:N
-Print csv file of ExaConstit-formatted grain id values (Y or N)?:N
-Print Paraview vtk file of grain misorientation values (Y or N)?:Y
-Print file of grain area values (Y or N)?:N
-Print file of weighted grain area values (Y or N)?:N
+***Output data printing options: (Y or N) which data should be printed***
+Print Paraview vtk file of grain misorientation values (Y or N)?: Y
+Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y
+Print Grain ID data following initialization for debug check (Y or N)?: N
+Print Layer ID data following initialization for debug check (Y or N)?: N
+Print Crit Time Step (time each cell goes below liquidus) data following initialization for debug check (Y or N)?: N
+Print Cell Type data following initialization for debug check (Y or N)?: N
+Print Undercooling change (cooling rate) data following initialization for debug check (Y or N)?: N
+Print current undercooling data following initialization for debug check (Y or N)?: N
+Print data on whether or not each cell undergoes melting/solidification following initialization for debug check (Y or N)?: N

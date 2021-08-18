@@ -1,0 +1,37 @@
+Used in post-processing script to analyze select ExaCA outputs
+*****
+Path to/file of grain orientations (rotation matrix form): /ExaCA/examples/Substrate/GrainOrientationVectors_Robert.csv
+Path to/file of grain orientations (Euler angle form): /ExaCA/examples/Substrate/GrainOrientationVectors_Euler.csv
+**********
+Representative volume elements: lines have the format [size, center x, center y, center z, .ang print, .csv print]
+Multiple RVEs can be printed as long as they are formatted as above and on separate lines
+size of the RVE domain is given in cells (if > the domain size, size will be adjusted automatically)
+center x, center y, and center z are the location (in cells) of the center of this RVE (If "D" is given as any of the inputs, the RVE will be taken to be as close to the domain center in x and y as possible, and as close to the top of the domain in z as possible while avoiding the last layer's microstructure)
+.ang print and .csv print are Y/N options, whether or not to print an orientation file readable by pyEBSD to plot pole figures, and whether or not to print a file formatted for ExaConstit analysis of the microstructure
+*****
+[D, D, D, 200, Y, N]
+**********
+Cross-sections for .ang files: lines have the format [plane, out of plane coordinate]
+Plane should be XY, YZ, or XZ
+Out of plane coordinate is the location of the plane (for example [XY, 100] would be the XY plane located at Z = 100)
+If "D" is given as the out of plane coordinate, the plane that bisects the microstructure is chosen
+If "END" is given as the out of plane coordinate, the largest possible out of plane coordinate is used ([XY, END] gives the top surface)
+*****
+[XZ, 100]
+[XY, END]
+[XY, D]
+**********
+Y/N Options for data analysis of representative regions
+If "XY Size (in cells)" is specified, XY cross-section of region will be a specific size, centered in the plane
+If "XY Size (in cells)" is set to "D", the cross-section will crop out either 20 cells (for non-multilayer data sets) or as many cells as necessary to get a cross-section at least 20 cells from X and Y substrate boundaries (for multilayer data sets)
+Z Size will span domain top to bottom
+*****
+XY Size (in cells): D
+Print misorientation data (Y or N): Y
+Print grain volume data (Y or N): Y
+Print mean grain area as a function of build height (Y or N): Y
+Print mean weighted grain area as a function of build height (Y or N): Y 
+Print mean grain height/grain height distribution (Y or N): Y
+Print grain width distribution at a specific build height near the top surface (Y or N): Y
+Print grain width in X and Y as a function of build height (Y or N): Y
+Print mean volume-weighted aspect ratio/aspect ratio distribution (Y or N): Y

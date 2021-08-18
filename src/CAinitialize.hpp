@@ -20,8 +20,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
                        int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
                        bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput, bool (&FilesToPrint)[6],
-                       bool &PrintFilesYN, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius);
+                       double &FractSurfaceSitesActive, std::string &PathToOutput, bool (&DebugFilesToPrint)[7],
+                       bool &PrintDebug, bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius);
 void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
                       ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
                       int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
