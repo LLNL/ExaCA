@@ -12,6 +12,9 @@ on:
 jobs:
   CI:
     continue-on-error: ${{ matrix.kokkos_ver == 'develop' }}
+    env:
+      # Fix for "Read -1, expected xxx errno = 1" https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
+      OMPI_MCA_btl_vader_single_copy_mechanism: "none"
     strategy:
       matrix:
         distro: ['ubuntu:latest']
