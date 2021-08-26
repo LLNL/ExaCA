@@ -69,6 +69,12 @@ jobs:
             -D MPIEXEC_PREFLAGS="--oversubscribe"
           cmake --build build --parallel 2
           cmake --install build
+      - name: Format ExaCA
+        if: ${{ matrix.distro == 'ubuntu:latest' }}
+        working-directory: build
+        run: |
+          make format
+          git diff --exit-code
       - name: Test ExaCA
         working-directory: examples
         run: |
