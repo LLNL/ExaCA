@@ -177,8 +177,14 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        double &FractSurfaceSitesActive, std::string &PathToOutput, bool (&FilesToPrint)[6],
                        bool &PrintFilesYN, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius) {
 
+    // Get full path to input file.
+    std::string FilePath;
     size_t backslash = InputFile.find_last_of("/");
-    std::string FilePath = InputFile.substr(0, backslash);
+    // Edge case if running in the examples/ directory.
+    if (backslash == std::string::npos)
+        FilePath = ".";
+    else
+        FilePath = InputFile.substr(0, backslash);
 
     std::ifstream InputData, MaterialData;
     std::string Colon = ":";

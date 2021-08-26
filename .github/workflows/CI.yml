@@ -1,0 +1,87 @@
+name: CI
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron:  '0 4 * * *'
+
+jobs:
+  CI:
+    continue-on-error: ${{ matrix.kokkos_ver == 'develop' }}
+    env:
+      # Fix for "Read -1, expected xxx errno = 1" https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
+      OMPI_MCA_btl_vader_single_copy_mechanism: "none"
+    strategy:
+      matrix:
+        distro: ['ubuntu:latest']
+        cxx: ['g++', 'clang++']
+        backend: ['SERIAL', 'OPENMP']
+        cmake_build_type: ['Debug', 'Release']
+        kokkos_ver: ['3.4.01', 'master', 'develop']
+        include:
+          - distro: 'fedora:intel'
+            cxx: 'icpc'
+            backend: 'SERIAL'
+            cmake_build_type: 'Release'
+            kokkos_ver: 'master'
+          - distro: 'fedora:intel'
+            cxx: 'icpc'
+            backend: 'OPENMP'
+            cmake_build_type: 'Release'
+            kokkos_ver: 'master'
+    runs-on: ubuntu-20.04
+    container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
+    steps:
+      - name: Get trail license
+        if: ${{ matrix.cxx == 'icpc' }}
+        run: |
+          mkdir ~/Licenses
+          curl https://dynamicinstaller.intel.com/api/v2/license > ~/Licenses/intel.lic
+      - name: Checkout kokkos
+        uses: actions/checkout@v2.2.0
+        with:
+          repository: kokkos/kokkos
+          ref: ${{ matrix.kokkos_ver }}
+          path: kokkos
+      - name: Build kokkos
+        working-directory: kokkos
+        run: |
+          cmake -B build \
+            -DCMAKE_INSTALL_PREFIX=$HOME/kokkos \
+            -DKokkos_ENABLE_OPENMP=${{ matrix.openmp }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DKokkos_ENABLE_HWLOC=ON \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout ExaCA
+        uses: actions/checkout@v2.2.0
+      - name: Build ExaCA
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/exaca \
+            -D CMAKE_PREFIX_PATH="$HOME/kokkos" \
+            -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic" \
+            -D MPIEXEC_MAX_NUMPROCS=2 \
+            -D MPIEXEC_PREFLAGS="--oversubscribe"
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Format ExaCA
+        if: ${{ matrix.distro == 'ubuntu:latest' }}
+        working-directory: build
+        run: |
+          make format
+          git diff --exit-code
+      - name: Test ExaCA
+        working-directory: examples
+        run: |
+          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.txt
+          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.txt
+          mpirun -n 2 $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.txt
+          mpirun -n 2 $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.txt
