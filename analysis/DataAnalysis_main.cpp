@@ -20,17 +20,17 @@ int main(int argc, char *argv[]) {
     // Read command line input to obtain ExaCA microstructure file name - throw error if no file is given
     std::string InputFile, OutputAnalysisFile, BaseFileName;
     double deltax;
-    if (argc == 0) {
+    if (argc < 2) {
         throw std::runtime_error("Error: Neither ExaCA microstructure nor analysis file were given on the command line");
     }
-    else if (argc == 1) {
-        throw std::runtime_error("Error: One of the two required inptus (ExaCA microstructure file, output analysis file) was not given on the command line");
+    else if (argc != 3) {
+        throw std::runtime_error("Error: Either one of the two required inputs (ExaCA microstructure file, output analysis file) was not given on the command line, or an excessive number of inputs was given");
     }
     else {
         InputFile = argv[1];
         OutputAnalysisFile = argv[2];
         std::size_t StrLength = InputFile.length();
-        BaseFileName = InputFile.substr(0,StrLength-3);
+        BaseFileName = InputFile.substr(0,StrLength-4);
     }
     
     // Given the input file name, parse the paraview file for the cell size, x, y, and z dimensions, number of layers
@@ -59,22 +59,31 @@ int main(int argc, char *argv[]) {
     InitializeData(InputFile, nx, ny, nz, GrainID, LayerID, Melted);
     
     // Read analysis file ("ExaCA/examples/Outputs.txt") to determine which analysis should be done
-    // Determine the number of, and bounds of, specified RVEs and ANG (pyEBSD) cross-sections
-    bool AnalysisTypes[8] = {0};
+    // There are three parts to this analysis:
+    // Part 1: Determine the number of, and bounds of, specified RVEs for ExaConstits
     int NumberOfRVEs = 0;
-    int NumberOfANGCrossSections = 0;
-    std::vector<int> CenterX_RVE, CenterY_RVE, CenterZ_RVE, Size_RVE, ANGCrossSectionPlane, ANGCrossSectionLocation; // Contains data on each individual RVE/ANGCrossSection
-    std::vector<bool> ExaConstitPrint, pyEBSDPrint; // whether or not each RVE is printed to files for ExaConstit or pyEBSD
+    std::vector<int> XLow_RVE, XHigh_RVE, YLow_RVE, YHigh_RVE, ZLow_RVE, ZHigh_RVE; // Contains data on each individual RVE bounds
+    
+    // Part 2: Determine the number of, and planes for, cross-sections to be analyzed by pyEBSD/MTEX
+    int NumberOfCrossSections = 0;
+    std::vector<int> CrossSectionPlane, CrossSectionLocation; // Contains data on each individual ANG CrossSection
+    
+    // Part 3: Analysis options on a representative region in x, y, and z (can be different than the x, y, and z for ExaConstit)
+    bool AnalysisTypes[8] = {0}; // which analysis modes other than the defaults should be considered?
+    int XMin, XMax, YMin, YMax, ZMin, ZMax; // bounds of analysis region
+    
+    // Analysis also requires reading orientation files of specified names
+    int NumberOfOrientations;
     std::string RotationFilename, EulerFilename; // Names of orientation files specified by the analysis file
-    int XMin, XMax, YMin, YMax; // bounds of analysis cross-section
-    int NumberOfOrientations, NumberOfMeltedCells;
-    ParseAnalysisFile(OutputAnalysisFile, RotationFilename, EulerFilename, NumberOfOrientations, AnalysisTypes, CenterX_RVE, CenterY_RVE, CenterZ_RVE, Size_RVE, ExaConstitPrint, pyEBSDPrint, NumberOfRVEs, ANGCrossSectionPlane, ANGCrossSectionLocation, NumberOfANGCrossSections, XMin, XMax, YMin, YMax, nx, ny, nz, LayerID, Melted, NumberOfLayers);
-    // Allocate memory blocks for grain unit vectors (NumberOfOrientations by 3 by 3) and grain euler angles (NumberOfOrientations by 3)
+    ParseAnalysisFile(OutputAnalysisFile, RotationFilename, EulerFilename, NumberOfOrientations, AnalysisTypes, XLow_RVE, XHigh_RVE, YLow_RVE, YHigh_RVE, ZLow_RVE, ZHigh_RVE, NumberOfRVEs, CrossSectionPlane, CrossSectionLocation, NumberOfCrossSections, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz, LayerID, Melted, NumberOfLayers);
+    
+    // Allocate memory blocks for grain unit vectors (NumberOfOrientations by 3 by 3)
+    // grain euler angles (NumberOfOrientations by 3) will be used in the future for pyEBSD analysis/data printing
     float*** GrainUnitVector = new float**[NumberOfOrientations];
     float** GrainEulerAngles = new float*[NumberOfOrientations];
     for (int n = 0; n < NumberOfOrientations; n++) {
-        // Allocate memory blocks for rows of the 1D array
-        GrainEulerAngles[n] = new float[3];
+        // Allocate memory blocks for rows of the 1D array (GrainEulerAngles not yet used/allocated - part of future work with pyEBSD)
+        // GrainEulerAngles[n] = new float[3];
         // Allocate memory blocks for rows of the 2D array
         GrainUnitVector[n] = new float*[3];
         for (int i = 0; i < 3; i++) {
@@ -85,11 +94,21 @@ int main(int argc, char *argv[]) {
     ParseGrainOrientationFiles(RotationFilename, EulerFilename, NumberOfOrientations, GrainUnitVector, GrainEulerAngles);
     
     // Analysis routines
-    PrintRVEData(NumberOfRVEs, BaseFileName, nx, ny, nz, deltax, GrainID, CenterX_RVE, CenterY_RVE, CenterZ_RVE, Size_RVE, ExaConstitPrint, pyEBSDPrint); // if > 0 RVEs, print file(s) "n_ExaConstit.csv"
-    // PrintANGCrossSections();
-    PrintMisorientationData(AnalysisTypes, BaseFileName, XMin, XMax, YMin, YMax, nz, Melted, GrainUnitVector, GrainID, NumberOfOrientations, NumberOfMeltedCells); // if analysis options 0 or 1 are toggled, print data to std::out and/or file "_MisorientationFrequency.txt"
-    PrintVolumeData(AnalysisTypes, XMin, XMax, YMin, YMax, nz, NumberOfMeltedCells, Melted, GrainID); // Print volume fraction of nucleated grains, options for mean grain volume and volume distribution
-    PrintGrainAreaData(AnalysisTypes, BaseFileName, deltax, XMin, XMax, YMin, YMax, nz, GrainID);
+    // Part 1: ExaConstit-specific RVE(s)
+    PrintExaConstitRVEData(NumberOfRVEs, BaseFileName, nx, ny, nz, deltax, GrainID, XLow_RVE, XHigh_RVE, YLow_RVE, YHigh_RVE, ZLow_RVE, ZHigh_RVE); // if > 0 RVEs, print file(s) "n_ExaConstit.csv"
+    
+    // Part 2: Cross-sections for inverse pole figures
+    PrintInversePoleFigureCrossSections(NumberOfCrossSections, BaseFileName, CrossSectionPlane, CrossSectionLocation, nx, ny, nz, NumberOfOrientations, GrainID, GrainEulerAngles);
+
+    // Part 3: Representative volume grain statistics
+    // Print data to std::out and if analysis option 0 is toggled, to the file "[BaseFileName]_MisorientationFrequency.csv"
+    PrintMisorientationData(AnalysisTypes, BaseFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, Melted, GrainUnitVector, GrainID, NumberOfOrientations);
+    // Print data to std::out and if analysis options 1, 2, or 5 are toggled, print data to files "[BaseFileName]_VolumeFrequency.csv", "[BaseFileName]_AspectRatioFrequency.csv", and [BaseFileName]_GrainHeightDistribution.csv", respectively
+    PrintSizeData(AnalysisTypes, BaseFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz, Melted, GrainID, deltax);
+    // Print data to std::out and if analysis options 3, 4, or 6 are toggled, print data to files "[BaseFileName]_GrainAreas.csv", "[BaseFileName]_WeightedGrainAreas.csv", and "[BaseFileName]_GrainWidthDistribution.csv", respectively
+    PrintGrainAreaData(AnalysisTypes, BaseFileName, deltax, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainID);
+    // If analysis option 7 is toggled, print orientation data to files "[BaseFileName]_pyEBSDOrientations.csv" and "[BaseFileName]_MTEXOrientations.csv"
+    PrintPoleFigureData(AnalysisTypes, BaseFileName, NumberOfOrientations, GrainEulerAngles, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainID, Melted);
     
     return 0;
 }

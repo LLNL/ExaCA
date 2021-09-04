@@ -174,8 +174,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
                        int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
                        bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput, bool (&DebugFilesToPrint)[7],
-                       bool &PrintDebug, bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius) {
+                       double &FractSurfaceSitesActive, std::string &PathToOutput,
+                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius) {
 
     // Get full path to input file.
     std::string FilePath;
@@ -486,19 +486,21 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // New file print options specified - parse remaining lines
         PrintMisorientation = parseInputBool(InputData, "Paraview vtk file of grain misorientation");
         PrintFullOutput = parseInputBool(InputData, "Paraview vtk file of all ExaCA data");
-        // debug options - print values of data structures following code initialization
-        DebugFilesToPrint[0] = parseInputBool(InputData, "Grain ID data");
-        DebugFilesToPrint[1] = parseInputBool(InputData, "Layer ID data");
-        DebugFilesToPrint[2] = parseInputBool(InputData, "Crit Time Step");
-        DebugFilesToPrint[3] = parseInputBool(InputData, "Cell Type data");
-        DebugFilesToPrint[4] = parseInputBool(InputData, "Undercooling change");
-        DebugFilesToPrint[5] = parseInputBool(InputData, "current undercooling data");
-        DebugFilesToPrint[6] = parseInputBool(InputData, "whether or not each cell undergoes melting/solidification");
-        
-        if ((!(DebugFilesToPrint[0])) && (!(DebugFilesToPrint[1])) && (!(DebugFilesToPrint[2])) && (!(DebugFilesToPrint[3])) && (!(DebugFilesToPrint[4])) && (!(DebugFilesToPrint[5])) && (!(DebugFilesToPrint[6])))
-            PrintDebug = false;
-        else
-            PrintDebug = true;
+        bool PrintDebugA = parseInputBool(InputData, "Print data for main Kokkos views");
+        bool PrintDebugB = parseInputBool(InputData, "Print data for all main data structures");
+        // Which (if any) files should be printed following initialization for debugging?
+        // PrintDebug = 0 - none
+        // PrintDebug = 1 - CellType, LayerID, CritTimeStep only
+        // PrintDebug = 2 - all
+        if (!(PrintDebugA)&&(!(PrintDebugB))) {
+            PrintDebug = 0;
+        }
+        else {
+            if (PrintDebugA) {
+                if (PrintDebugB) PrintDebug = 2;
+                else PrintDebug = 1;
+            }
+        }
     }
     InputData.close();
 
