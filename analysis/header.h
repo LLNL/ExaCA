@@ -14,12 +14,6 @@
 
 // These are duplicated from CAinitialize.cpp - will not need if the analysis executable is
 // linked properly to the ExaCA-Kokkos executable
-void skipLines(std::ifstream &stream);
-std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon);
-std::string removeWhitespace(std::string line, std::size_t colon);
-std::string parseInput(std::ifstream &stream, std::string key);
-std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int &WhichKey);
-bool parseInputBool(std::ifstream &stream, std::string key);
 std::string parseCoordinatePair(std::string line, int val);
 int FindTopOrBottom(int*** LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow);
 

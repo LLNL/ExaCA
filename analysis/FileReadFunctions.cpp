@@ -6,6 +6,9 @@
 // These are duplicated from CAinitialize.cpp - will not need if the analysis executable is
 // linked properly to the ExaCA-Kokkos executable
 #include "header.h"
+
+#include <CAinitialize.hpp>
+
 #include <stdexcept>
 #include <string>
 #include <cmath>
@@ -14,89 +17,6 @@
 #include <sstream>
 #include <regex>
 
-// Skip initial lines in input files.
-void skipLines(std::ifstream &stream) {
-    std::string line;
-    while (getline(stream, line)) {
-        if (line == "*****")
-            break;
-    }
-}
-
-// Find the colon on a line read from a file, and return the value before the colon
-// Throw an error if no colon is found, get a new line and throw a warning if the value before
-// the colon is a deprecated input
-// Also store the location of the colon within the line
-std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon) {
-
-    bool DeprecatedInputCheck = true;
-    std::string actual_key;
-    while (DeprecatedInputCheck) {
-        std::getline(stream, line);
-        colon = line.find(":");
-        actual_key = line.substr(0, colon);
-        // Check for colon seperator
-        if (colon == std::string::npos) {
-            std::string error = "Input \"" + actual_key + "\" must be separated from value by \":\".";
-            throw std::runtime_error(error);
-        }
-        std::vector<std::string> deprecated_inputs = {"Burst buffer", "Source of input length unit"};
-        for (auto di : deprecated_inputs)
-            if (actual_key.find(di) != std::string::npos) {
-                std::cout << "WARNING - this input has been deprecated and has no effect, \"" << actual_key << "\""
-                          << std::endl;
-                // Ignore this line and get another line
-            }
-            else {
-                // Input was not a deprecated line - continue
-                DeprecatedInputCheck = false;
-            }
-    }
-    return actual_key;
-}
-
-// Remove whitespace from "line", taking only the portion of the line that comes after the colon
-std::string removeWhitespace(std::string line, std::size_t colon) {
-
-    std::string val = line.substr(colon + 1, std::string::npos);
-    std::regex r("\\s+");
-    val = std::regex_replace(val, r, "");
-    return val;
-}
-
-// Verify the required input was included with the correct format, and parse the input (with only 1 possibility for the
-// possible input)
-std::string parseInput(std::ifstream &stream, std::string key) {
-
-    std::size_t colon;
-    std::string line, val;
-    std::string actual_key = getKey(stream, line, colon);
-
-    // Check for keyword
-    if (actual_key.find(key) == std::string::npos) {
-        // Keyword not found
-        std::string error = "Required input not present: " + key + " not found in the input file";
-        throw std::runtime_error(error);
-    }
-    // Keyword was found
-    val = removeWhitespace(line, colon);
-    return val;
-}
-
-// Verify the required boolean input was included with the correct format.
-bool parseInputBool(std::ifstream &stream, std::string key) {
-    std::string val = parseInput(stream, key);
-    if (val == "N") {
-        return false;
-    }
-    else if (val == "Y") {
-        return true;
-    }
-    else {
-        std::string error = "Input \"" + key + "\" must be \"Y\" or \"N\".";
-        throw std::runtime_error(error);
-    }
-}
 
 // Parse a line that looks like [x,y], returning either val = 0 (x) or val = 1 (y)
 std::string parseCoordinatePair(std::string line, int val) {
