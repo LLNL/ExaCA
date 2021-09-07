@@ -174,8 +174,9 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
                        int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
                        bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput,
-                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius) {
+                       double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
+                       bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset,
+                       int &SpotRadius) {
 
     // Get full path to input file.
     std::string FilePath;
@@ -464,23 +465,35 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Which files should be printed?
     // Check if new (August 2021) or old file printing options are present
     int Fileprintoptions = 0;
-    val = parseInputMultiple(InputData, "Print file of grain orientations", "Output data printing options", Fileprintoptions);
+    val = parseInputMultiple(InputData, "Print file of grain orientations", "Output data printing options",
+                             Fileprintoptions);
     if (Fileprintoptions == 1) {
-        if (id == 0) std::cout << "Warning: old input file format detected - code no longer supports some printing options. The code will still output Paraview vtk file of grain misorientations if that option is toggled in the input file; other toggled output data options will trigger the printing of a separate vtk file of layer ID, grain ID, and melting status of all cells. Obtaining data from this (such as grain area values, of grain orientation frequencies) are now done via post-processing rather than as part of ExaCA" << std::endl;
+        if (id == 0)
+            std::cout << "Warning: old input file format detected - code no longer supports some printing options. The "
+                         "code will still output Paraview vtk file of grain misorientations if that option is toggled "
+                         "in the input file; other toggled output data options will trigger the printing of a separate "
+                         "vtk file of layer ID, grain ID, and melting status of all cells. Obtaining data from this "
+                         "(such as grain area values, of grain orientation frequencies) are now done via "
+                         "post-processing rather than as part of ExaCA"
+                      << std::endl;
         bool OldPrintValues[6] = {0};
         PrintDebug = false;
         // Old file print options specified
-        if (val == "Y") OldPrintValues[0] = true;
+        if (val == "Y")
+            OldPrintValues[0] = true;
         OldPrintValues[1] = parseInputBool(InputData, "Print csv file of grain id values");
         OldPrintValues[2] = parseInputBool(InputData, "Print csv file of ExaConstit-formatted grain id values");
         OldPrintValues[3] = parseInputBool(InputData, "Print Paraview vtk file of grain misorientation values");
         OldPrintValues[4] = parseInputBool(InputData, "Print file of grain area values");
         OldPrintValues[5] = parseInputBool(InputData, "Print file of weighted grain area value");
-        if (OldPrintValues[3]) PrintMisorientation = true;
-        else PrintMisorientation = false;
+        if (OldPrintValues[3])
+            PrintMisorientation = true;
+        else
+            PrintMisorientation = false;
         if (OldPrintValues[0] + OldPrintValues[1] + OldPrintValues[2] + OldPrintValues[4] + OldPrintValues[5] > 0)
             PrintFullOutput = true;
-        else PrintFullOutput = false;
+        else
+            PrintFullOutput = false;
     }
     else if (Fileprintoptions == 2) {
         // New file print options specified - parse remaining lines
@@ -492,13 +505,15 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // PrintDebug = 0 - none
         // PrintDebug = 1 - CellType, LayerID, CritTimeStep only
         // PrintDebug = 2 - all
-        if (!(PrintDebugA)&&(!(PrintDebugB))) {
+        if (!(PrintDebugA) && (!(PrintDebugB))) {
             PrintDebug = 0;
         }
         else {
             if (PrintDebugA) {
-                if (PrintDebugB) PrintDebug = 2;
-                else PrintDebug = 1;
+                if (PrintDebugB)
+                    PrintDebug = 2;
+                else
+                    PrintDebug = 1;
             }
         }
     }

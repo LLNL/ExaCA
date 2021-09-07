@@ -38,8 +38,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile,
                       TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
                       SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                      FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset,
-                      SpotRadius);
+                      FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput, NSpotsX,
+                      NSpotsY, SpotOffset, SpotRadius);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -268,9 +268,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (id == 0)
         std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
     if (PrintDebug) {
-        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
-                       ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
-                       LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
+        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
+                       GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
+                       UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
                        NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
@@ -422,10 +422,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     Kokkos::deep_copy(CellType_H, CellType_G);
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if ((PrintMisorientation)||(PrintFullOutput)) {
+    if ((PrintMisorientation) || (PrintFullOutput)) {
         if (id == 0)
             std::cout << "Collecting data on rank 0 and printing to files" << std::endl;
-        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, PrintMisorientation, PrintFullOutput);
+        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
+                       GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
+                       UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
+                       NGrainOrientations, Melted, PathToOutput, 0, PrintMisorientation, PrintFullOutput);
     }
     else {
         if (id == 0)
@@ -446,12 +449,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Allreduce(&OutTime, &OutMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
-    PrintExaCALog(id, np, InputFile, SimulationType, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset, AConst, BConst, CConst, DConst,
-                  FreezingRange, deltax, NMax, dTN, dTsigma, tempfile,
-                  TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
-                  SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                  FractSurfaceSitesActive, PathToOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime);
-    
+    PrintExaCALog(id, np, InputFile, SimulationType, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
+                  AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, tempfile,
+                  TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
+                  SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
+                  NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime);
+
     if (id == 0) {
         std::cout << "===================================================================================" << std::endl;
         std::cout << "Having run with = " << np << " processors" << std::endl;

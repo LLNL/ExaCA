@@ -15,7 +15,9 @@
 //*****************************************************************************/
 //*****************************************************************************/
 // On rank 0, collect data for one single int view
-void CollectIntField(std::vector<std::vector<std::vector<int>>> &IntVar_WholeDomain, ViewI_H IntVar, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int np, int* RecvXOffset, int* RecvYOffset, int* RecvXSlices, int* RecvYSlices, int* RBufSize) {
+void CollectIntField(std::vector<std::vector<std::vector<int>>> &IntVar_WholeDomain, ViewI_H IntVar, int nx, int ny,
+                     int nz, int MyXSlices, int MyYSlices, int np, int *RecvXOffset, int *RecvYOffset, int *RecvXSlices,
+                     int *RecvYSlices, int *RBufSize) {
 
     // Resize int variable for whole domain and place values for rank 0
     for (int k = 0; k < nz; k++) {
@@ -32,8 +34,7 @@ void CollectIntField(std::vector<std::vector<std::vector<int>>> &IntVar_WholeDom
     for (int k = 1; k < nz - 1; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
-                IntVar_WholeDomain[k][i - 1][j - 1] =
-                IntVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
+                IntVar_WholeDomain[k][i - 1][j - 1] = IntVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
             }
         }
     }
@@ -57,7 +58,9 @@ void CollectIntField(std::vector<std::vector<std::vector<int>>> &IntVar_WholeDom
 }
 
 // On rank 0, collect data for one single float view
-void CollectFloatField(std::vector<std::vector<std::vector<float>>> &FloatVar_WholeDomain, ViewF_H FloatVar, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int np, int* RecvXOffset, int* RecvYOffset, int* RecvXSlices, int* RecvYSlices, int* RBufSize) {
+void CollectFloatField(std::vector<std::vector<std::vector<float>>> &FloatVar_WholeDomain, ViewF_H FloatVar, int nx,
+                       int ny, int nz, int MyXSlices, int MyYSlices, int np, int *RecvXOffset, int *RecvYOffset,
+                       int *RecvXSlices, int *RecvYSlices, int *RBufSize) {
 
     // Resize float variable for whole domain and place values for rank 0
     for (int k = 0; k < nz; k++) {
@@ -74,8 +77,7 @@ void CollectFloatField(std::vector<std::vector<std::vector<float>>> &FloatVar_Wh
     for (int k = 1; k < nz - 1; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
-                FloatVar_WholeDomain[k][i - 1][j - 1] =
-                FloatVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
+                FloatVar_WholeDomain[k][i - 1][j - 1] = FloatVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
             }
         }
     }
@@ -99,7 +101,9 @@ void CollectFloatField(std::vector<std::vector<std::vector<float>>> &FloatVar_Wh
 }
 
 // On rank 0, collect data for one single bool array (and convert it to integer 0s and 1s for MPI)
-void CollectBoolField(std::vector<std::vector<std::vector<int>>> &IntVar_WholeDomain, bool* BoolVar, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int np, int* RecvXOffset, int* RecvYOffset, int* RecvXSlices, int* RecvYSlices, int* RBufSize) {
+void CollectBoolField(std::vector<std::vector<std::vector<int>>> &IntVar_WholeDomain, bool *BoolVar, int nx, int ny,
+                      int nz, int MyXSlices, int MyYSlices, int np, int *RecvXOffset, int *RecvYOffset,
+                      int *RecvXSlices, int *RecvYSlices, int *RBufSize) {
 
     // Resize bool variable for whole domain and place values for rank 0
     for (int k = 0; k < nz; k++) {
@@ -145,7 +149,7 @@ void CollectBoolField(std::vector<std::vector<std::vector<int>>> &IntVar_WholeDo
 //*****************************************************************************/
 // On rank > 0, send data for an integer view to rank 0
 void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize) {
-    
+
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     int *SendBuf = new int[SendBufSize];
@@ -162,7 +166,7 @@ void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int S
 
 // On rank > 0, send data for an float view to rank 0
 void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize) {
-    
+
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     float *SendBuf = new float[SendBufSize];
@@ -178,8 +182,8 @@ void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int
 }
 
 // On rank > 0, send data for a bool array (converted into integers for MPI) to rank 0
-void SendBoolField(bool* VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize) {
-    
+void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize) {
+
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     int *SendBuf = new int[SendBufSize];
@@ -200,7 +204,11 @@ void SendBoolField(bool* VarToSend, int nz, int MyXSlices, int MyYSlices, int Se
 //*****************************************************************************/
 // Prints values of selected data structures to Paraview files
 void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection,
-                      int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation, ViewI_H CritTimeStep, ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, std::string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool *Melted, std::string PathToOutput, int PrintDebug, bool PrintMisorientation, bool PrintFullOutput) {
+                    int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation, ViewI_H CritTimeStep,
+                    ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType, ViewF_H UndercoolingChange,
+                    ViewF_H UndercoolingCurrent, std::string BaseFileName, int DecompositionStrategy,
+                    int NGrainOrientations, bool *Melted, std::string PathToOutput, int PrintDebug,
+                    bool PrintMisorientation, bool PrintFullOutput) {
 
     // Collect all data on rank 0, for all data structures of interest
     if (id == 0) {
@@ -210,10 +218,11 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
         int *RecvXSlices = new int[np];
         int *RecvYSlices = new int[np];
         int *RBufSize = new int[np];
-        
+
         for (int p = 1; p < np; p++) {
             RecvXOffset[p] = XOffsetCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
-            RecvXSlices[p] = XMPSlicesCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
+            RecvXSlices[p] =
+                XMPSlicesCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
 
             RecvYOffset[p] = YOffsetCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy);
             RecvYSlices[p] = YMPSlicesCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy);
@@ -229,36 +238,55 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
             RBufSize[p] = RecvXSlices[p] * RecvYSlices[p] * (nz - 2);
         }
         // Create variables for each possible data structure being collected on rank 0
-        std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain, LayerID_WholeDomain, CellType_WholeDomain, CritTimeStep_WholeDomain;
+        std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain, LayerID_WholeDomain, CellType_WholeDomain,
+            CritTimeStep_WholeDomain;
         std::vector<std::vector<std::vector<float>>> UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain;
         std::vector<std::vector<std::vector<int>>> Melted_WholeDomain;
-        
-        // If PrintDebug = 0, we aren't printing any debug files after initialization, but we are printing either the misorientations (requiring Melted and GrainID) or we are printing the full end-of-run dataset (Melted, GrainID, LayerID)
-        // If PrintDebug = 1, we are plotting CellType, LayerID, and CritTimeStep
-        // If PrintDebug = 2, we are plotting all possible data structures
-        
-        if ((PrintMisorientation)||(PrintDebug == 2)||(PrintFullOutput)) CollectIntField(GrainID_WholeDomain, GrainID, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
-        if ((PrintMisorientation)||(PrintFullOutput)||(PrintDebug == 2)) CollectBoolField(Melted_WholeDomain, Melted, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,  RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
-        if ((PrintFullOutput)||(PrintDebug > 0)) CollectIntField(LayerID_WholeDomain, LayerID, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,  RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+
+        // If PrintDebug = 0, we aren't printing any debug files after initialization, but we are printing either the
+        // misorientations (requiring Melted and GrainID) or we are printing the full end-of-run dataset (Melted,
+        // GrainID, LayerID) If PrintDebug = 1, we are plotting CellType, LayerID, and CritTimeStep If PrintDebug = 2,
+        // we are plotting all possible data structures
+
+        if ((PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput))
+            CollectIntField(GrainID_WholeDomain, GrainID, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,
+                            RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+        if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2))
+            CollectBoolField(Melted_WholeDomain, Melted, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+                             RecvXSlices, RecvYSlices, RBufSize);
+        if ((PrintFullOutput) || (PrintDebug > 0))
+            CollectIntField(LayerID_WholeDomain, LayerID, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,
+                            RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         if (PrintDebug > 0) {
-            CollectIntField(CellType_WholeDomain, CellType, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
-            CollectIntField(CritTimeStep_WholeDomain, CritTimeStep, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectIntField(CellType_WholeDomain, CellType, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,
+                            RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectIntField(CritTimeStep_WholeDomain, CritTimeStep, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,
+                            RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
         if (PrintDebug == 2) {
-            CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
-            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange, nx, ny, nz, MyXSlices, MyYSlices, np,
+                              RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent, nx, ny, nz, MyXSlices, MyYSlices,
+                              np, RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
 
-        if (PrintMisorientation) PrintParaview(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain, GrainOrientation, GrainUnitVector, NGrainOrientations);
-        PrintParaviewGeneric(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain, CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain, Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput);
+        if (PrintMisorientation)
+            PrintParaview(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain,
+                          GrainOrientation, GrainUnitVector, NGrainOrientations);
+        PrintParaviewGeneric(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
+                             CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
+                             Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput);
     }
     else {
         int SendBufSize = (MyXSlices - 2) * (MyYSlices - 2) * (nz - 2);
 
         // Collect Melted/Grain ID data on rank 0
-        if ((PrintMisorientation)||(PrintDebug == 2)||(PrintFullOutput)) SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize);
-        if ((PrintMisorientation)||(PrintFullOutput)||(PrintDebug == 2)) SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize);
-        if ((PrintFullOutput)||(PrintDebug > 0)) SendIntField(LayerID, nz, MyXSlices, MyYSlices, SendBufSize);
+        if ((PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput))
+            SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize);
+        if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2))
+            SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize);
+        if ((PrintFullOutput) || (PrintDebug > 0))
+            SendIntField(LayerID, nz, MyXSlices, MyYSlices, SendBufSize);
         if (PrintDebug > 0) {
             SendIntField(CellType, nz, MyXSlices, MyYSlices, SendBufSize);
             SendIntField(CritTimeStep, nz, MyXSlices, MyYSlices, SendBufSize);
@@ -268,17 +296,24 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
             SendFloatField(UndercoolingCurrent, nz, MyXSlices, MyYSlices, SendBufSize);
         }
     }
-
 }
 
 //*****************************************************************************/
 // Print specified fields to a paraview file
-void PrintParaviewGeneric(int nx, int ny, int nz, std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain, std::vector<std::vector<std::vector<int>>> LayerID_WholeDomain, std::vector<std::vector<std::vector<int>>> CritTimeStep_WholeDomain, std::vector<std::vector<std::vector<int>>> CellType_WholeDomain, std::vector<std::vector<std::vector<float>>> UndercoolingChange_WholeDomain, std::vector<std::vector<std::vector<float>>> UndercoolingCurrent_WholeDomain, std::vector<std::vector<std::vector<int>>> Melted_WholeDomain, std::string PathToOutput, std::string BaseFileName, int PrintDebug, bool PrintFullOutput) {
-    
+void PrintParaviewGeneric(int nx, int ny, int nz, std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain,
+                          std::vector<std::vector<std::vector<int>>> LayerID_WholeDomain,
+                          std::vector<std::vector<std::vector<int>>> CritTimeStep_WholeDomain,
+                          std::vector<std::vector<std::vector<int>>> CellType_WholeDomain,
+                          std::vector<std::vector<std::vector<float>>> UndercoolingChange_WholeDomain,
+                          std::vector<std::vector<std::vector<float>>> UndercoolingCurrent_WholeDomain,
+                          std::vector<std::vector<std::vector<int>>> Melted_WholeDomain, std::string PathToOutput,
+                          std::string BaseFileName, int PrintDebug, bool PrintFullOutput) {
+
     std::string FName;
     if (PrintFullOutput) {
         FName = PathToOutput + BaseFileName + ".vtk";
-        std::cout << "Printing layer ID, grain ID, and melted 0/1 data to a vtk file " << FName << " for post-processing" << std::endl;
+        std::cout << "Printing layer ID, grain ID, and melted 0/1 data to a vtk file " << FName
+                  << " for post-processing" << std::endl;
     }
     else {
         FName = PathToOutput + BaseFileName + "_debug.vtk";
@@ -305,7 +340,7 @@ void PrintParaviewGeneric(int nx, int ny, int nz, std::vector<std::vector<std::v
         }
         Grainplot << std::endl;
     }
-    if ((PrintFullOutput)||(PrintDebug == 2)) {
+    if ((PrintFullOutput) || (PrintDebug == 2)) {
         // Print Grain ID data
         Grainplot << "SCALARS GrainID int 1" << std::endl;
         Grainplot << "LOOKUP_TABLE default" << std::endl;
@@ -385,7 +420,7 @@ void PrintParaview(std::string BaseFileName, std::string PathToOutput, int nx, i
                    std::vector<std::vector<std::vector<int>>> Melted_WholeDomain,
                    std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain, ViewI_H GrainOrientation,
                    ViewF_H GrainUnitVector, int NGrainOrientations) {
-    
+
     std::string FName = PathToOutput + BaseFileName + "_Misorientations.vtk";
     std::cout << "Printing Paraview file of grain misorientations" << std::endl;
     // Print grain orientations to file
@@ -442,11 +477,15 @@ void PrintParaview(std::string BaseFileName, std::string PathToOutput, int nx, i
 //*****************************************************************************/
 // Print a log file for this ExaCA run, containing information about the run parameters used
 // from the input file as well as the decomposition scheme
-void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int DecompositionStrategy, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, double AConst, double BConst, double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN, double dTsigma, std::string tempfile,
-                   int TempFilesInSeries, double HT_deltax, bool RemeltingYN, double deltat, int NumberOfLayers, int LayerHeight,
-                   std::string SubstrateFileName, double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
-                   double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset, int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime) {
-    
+void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int DecompositionStrategy,
+                   int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, double AConst, double BConst,
+                   double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN,
+                   double dTsigma, std::string tempfile, int TempFilesInSeries, double HT_deltax, bool RemeltingYN,
+                   double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
+                   double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
+                   double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
+                   int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime) {
+
     int *XSlices = new int[np];
     int *YSlices = new int[np];
     int *XOffset = new int[np];
@@ -455,48 +494,61 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
     MPI_Gather(&MyYSlices, 1, MPI_INT, YSlices, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Gather(&MyXOffset, 1, MPI_INT, XOffset, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Gather(&MyYOffset, 1, MPI_INT, YOffset, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    
+
     if (id == 0) {
-        
+
         std::string FName = PathToOutput + BaseFileName + ".log";
         std::cout << "Printing ExaCA log file" << std::endl;
         std::ofstream ExaCALog;
         ExaCALog.open(FName);
-        ExaCALog << "log file for a simulation run with input file " << InputFile << "  run on " << np << " MPI ranks" << std::endl;
-        ExaCALog << "This simulation took " << InitTime + RunTime + OutTime << " seconds to run, with the init/run/output breakdown as " << InitTime << "/" << RunTime << "/" << OutTime << std::endl;
+        ExaCALog << "log file for a simulation run with input file " << InputFile << "  run on " << np << " MPI ranks"
+                 << std::endl;
+        ExaCALog << "This simulation took " << InitTime + RunTime + OutTime
+                 << " seconds to run, with the init/run/output breakdown as " << InitTime << "/" << RunTime << "/"
+                 << OutTime << std::endl;
         ExaCALog << "This simulation was type: " << SimulationType << std::endl;
         ExaCALog << "Domain size in x: " << nx << std::endl;
         ExaCALog << "Domain size in y: " << ny << std::endl;
         ExaCALog << "Domain size in z: " << nz << std::endl;
         ExaCALog << "Cell size: " << deltax << " microns" << std::endl;
         ExaCALog << "Time step: " << deltat << " microseconds" << std::endl;
-        ExaCALog << "Nucleation density was " << NMax << " m^-3 , mean nucleation undercooling was " << dTN << " K, and standard deviation of nucleation undercooling was " << dTsigma << " K" << std::endl;
-        ExaCALog << "Interfacial response function parameters used were " << AConst << " , " << BConst << " , " << CConst << " , " << DConst << " , and the alloy freezing range was " << FreezingRange << std::endl;
+        ExaCALog << "Nucleation density was " << NMax << " m^-3 , mean nucleation undercooling was " << dTN
+                 << " K, and standard deviation of nucleation undercooling was " << dTsigma << " K" << std::endl;
+        ExaCALog << "Interfacial response function parameters used were " << AConst << " , " << BConst << " , "
+                 << CConst << " , " << DConst << " , and the alloy freezing range was " << FreezingRange << std::endl;
         if (SimulationType == "C") {
             ExaCALog << "The thermal gradient was " << G << " K/m, and the cooling rate " << R << " K/s" << std::endl;
             ExaCALog << "The fraction of surface sites active was " << FractSurfaceSitesActive << std::endl;
         }
         else if (SimulationType == "S") {
             ExaCALog << "A total of " << NSpotsX << " in X and " << NSpotsY << " in Y were considered" << std::endl;
-            ExaCALog << "The spots were offset by " << SpotOffset << " microns, and had radii of " << SpotRadius << " microns" << std::endl;
+            ExaCALog << "The spots were offset by " << SpotOffset << " microns, and had radii of " << SpotRadius
+                     << " microns" << std::endl;
             ExaCALog << "This pattern was repeated for " << NumberOfLayers << " layers" << std::endl;
         }
         else {
-            ExaCALog << NumberOfLayers << " layers were simulated, with an offset of " << LayerHeight << " cells" << std::endl;
-            if (RemeltingYN) ExaCALog << "Remelting was included" << std::endl;
-            else ExaCALog << "Remelting was not included" << std::endl;
-            if (SubstrateFile) ExaCALog << "The substrate file was " << SubstrateFileName << std::endl;
-            else ExaCALog << "The mean substrate grain size was " << SubstrateGrainSpacing << " microns" << std::endl;
+            ExaCALog << NumberOfLayers << " layers were simulated, with an offset of " << LayerHeight << " cells"
+                     << std::endl;
+            if (RemeltingYN)
+                ExaCALog << "Remelting was included" << std::endl;
+            else
+                ExaCALog << "Remelting was not included" << std::endl;
+            if (SubstrateFile)
+                ExaCALog << "The substrate file was " << SubstrateFileName << std::endl;
+            else
+                ExaCALog << "The mean substrate grain size was " << SubstrateGrainSpacing << " microns" << std::endl;
             if (SimulationType == "R") {
-                ExaCALog << "The " << TempFilesInSeries << " temperature file(s) used had the name " << tempfile << std::endl;
+                ExaCALog << "The " << TempFilesInSeries << " temperature file(s) used had the name " << tempfile
+                         << std::endl;
                 ExaCALog << "The temperature data resolution was " << HT_deltax << " microns" << std::endl;
             }
         }
         ExaCALog << "The decomposition scheme used was: " << DecompositionStrategy << std::endl;
-        for (int i=0; i<np; i++) {
-            ExaCALog << "Rank " << i << " contained " << XSlices[i] << " cells in x , " << YSlices[i] << " cells in y; subdomain was offset by " << XOffset[i] << " in x , " << YOffset[i] << " in y" << std::endl;
+        for (int i = 0; i < np; i++) {
+            ExaCALog << "Rank " << i << " contained " << XSlices[i] << " cells in x , " << YSlices[i]
+                     << " cells in y; subdomain was offset by " << XOffset[i] << " in x , " << YOffset[i] << " in y"
+                     << std::endl;
         }
         ExaCALog.close();
     }
-
 }
