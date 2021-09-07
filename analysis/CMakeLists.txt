@@ -1,5 +1,5 @@
 set(EXAGA_HEADERS
-    header.h
+    header.hpp
 )
 set(EXAGA_SOURCES
     DataAnalysis_PrintRoutines.cpp
