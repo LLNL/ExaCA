@@ -1,0 +1,65 @@
+pipeline {
+    triggers {
+        issueCommentTrigger('.*test this please.*')
+    }
+    agent none
+
+    stages {
+        stage('Build') {
+            parallel {
+                stage('CUDA-10.2-NVCC-DEBUG') {
+                    agent {
+                        dockerfile {
+                            filename 'Dockerfile.cuda'
+                            dir 'docker'
+                            additionalBuildArgs '--build-arg BASE=nvidia/cuda:10.2-devel'
+                            label 'nvidia-docker && volta'
+                            args '--env NVIDIA_VISIBLE_DEVICES=$NVIDIA_VISIBLE_DEVICES'
+                        }
+                    }
+                    steps {
+                        sh '''
+                            rm -rf build && \
+                            cmake -B build \
+                              -D CMAKE_BUILD_TYPE=Debug \
+                              -D CMAKE_CXX_COMPILER=$KOKKOS_DIR/bin/nvcc_wrapper \
+                              -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic" \
+                              -D CMAKE_INSTALL_PREFIX=$HOME/exaca \
+                              -D CMAKE_PREFIX_PATH="$KOKKOS_DIR" \
+                              -D MPIEXEC_MAX_NUMPROCS=1 \
+                              -D MPIEXEC_PREFLAGS="--allow-run-as-root;--mca;btl_smcuda_use_cuda_ipc;0" \
+                            cmake --build build --parallel ${NPROCS}
+                            cmake --install build
+                        '''
+                    }
+                }
+                stage('ROCM-4.2-HIPCC-DEBUG') {
+                    agent {
+                        dockerfile {
+                            filename 'Dockerfile.hipcc'
+                            dir 'docker'
+                            additionalBuildArgs '--build-arg BASE=rocm/dev-ubuntu-20.04:4.2'
+                            args '-v /tmp/ccache.kokkos:/tmp/ccache --device=/dev/kfd --device=/dev/dri --security-opt seccomp=unconfined --group-add video --env HIP_VISIBLE_DEVICES=$HIP_VISIBLE_DEVICES'
+                            label 'rocm-docker && vega && AMD_Radeon_Instinct_MI60'
+                        }
+                    }
+                    steps {
+                        sh '''
+                            rm -rf build && \
+                            cmake -B build \
+                              -D CMAKE_BUILD_TYPE=Debug \
+                              -D CMAKE_CXX_COMPILER=hipcc \
+                              -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic" \
+                              -D CMAKE_INSTALL_PREFIX=$HOME/exaca \
+                              -D CMAKE_PREFIX_PATH="$KOKKOS_DIR" \
+                              -D MPIEXEC_MAX_NUMPROCS=1 \
+                              -D MPIEXEC_PREFLAGS="--allow-run-as-root"
+                            cmake --build build --parallel ${NPROCS}
+                            cmake --install build
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}
