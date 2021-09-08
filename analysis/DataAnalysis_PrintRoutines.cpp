@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 //*****************************************************************************/
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
@@ -70,7 +71,7 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
 //*****************************************************************************/
 
 void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax, int ZMin,
-                   int ZMax, int nx, int ny, int nz, int ***Melted, int ***GrainID, double deltax) {
+                   int ZMax, int nx, int ny, int nz, int ***, int ***GrainID, double deltax) {
 
     // Get vector of unique GrainIDs
     int Counter = 0;
@@ -87,7 +88,7 @@ void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int 
             }
         }
     }
-    sort(UniqueGrainIDs.begin(), UniqueGrainIDs.end());
+    std::sort(UniqueGrainIDs.begin(), UniqueGrainIDs.end());
     std::vector<int>::iterator it;
     it = std::unique(UniqueGrainIDs.begin(), UniqueGrainIDs.end());
     UniqueGrainIDs.resize(std::distance(UniqueGrainIDs.begin(), it));
@@ -223,7 +224,7 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
         std::vector<int> GIDVals_ThisLayer;
         GIDVals_ThisLayer = GIDAllVals_ThisLayer;
         std::vector<int>::iterator it;
-        sort(GIDVals_ThisLayer.begin(), GIDVals_ThisLayer.end());
+        std::sort(GIDVals_ThisLayer.begin(), GIDVals_ThisLayer.end());
         it = std::unique(GIDVals_ThisLayer.begin(), GIDVals_ThisLayer.end());
         GIDVals_ThisLayer.resize(std::distance(GIDVals_ThisLayer.begin(), it));
         int GrainsThisLayer = GIDVals_ThisLayer.size();
@@ -259,7 +260,6 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
                     }
                     float GrainExtentX = TempTopX - TempBottomX + 1;
                     float GrainExtentY = TempTopY - TempBottomY + 1;
-                    float GrainWidth = 0.5 * (GrainExtentX + GrainExtentY);
                 }
                 Grainplot3.close();
             }
@@ -319,7 +319,7 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
         std::ofstream MTEXPlot;
         std::string FNameM = BaseFileName + "_MTEXOrientations.csv";
         MTEXPlot.open(FNameM);
-        int GOHistogram[NumberOfOrientations];
+        int *GOHistogram = new int[NGrainOrientations];
         for (int i = 0; i < NumberOfOrientations; i++) {
             GOHistogram[i] = 0;
         }
@@ -395,7 +395,7 @@ void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string 
 }
 
 //*****************************************************************************/
-void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int nx, int ny, int nz, double deltax,
+void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int, int, double deltax,
                             int ***GrainID, std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE,
                             std::vector<int> YLow_RVE, std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE,
                             std::vector<int> ZHigh_RVE) {

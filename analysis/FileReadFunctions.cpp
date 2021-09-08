@@ -36,14 +36,12 @@ std::string parseCoordinatePair(std::string line, int val) {
 // or the largest Z that doesn't contain any layer "L"
 int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow) {
 
-    int TopBottomZ;
+    int TopBottomZ = -1;
     bool SearchingForTop = true;
     int i = XLow;
     int j = YLow;
-    int k;
-    if (HighLow == "High")
-        k = nz - 2;
-    else if (HighLow == "Low")
+    int k = nz - 2;
+    if (HighLow == "Low")
         k = 3;
     while (SearchingForTop) {
         if (LayerID[k][i][j] != L) {
@@ -187,7 +185,7 @@ void ParseAnalysisFile(std::string OutputAnalysisFile, std::string &RotationFile
                        std::vector<int> &ZLow_RVE, std::vector<int> &ZHigh_RVE, int &NumberOfRVEs,
                        std::vector<int> &CrossSectionPlane, std::vector<int> &CrossSectionLocation,
                        int &NumberOfCrossSections, int &XMin, int &XMax, int &YMin, int &YMax, int &ZMin, int &ZMax,
-                       int nx, int ny, int nz, int ***LayerID, int ***Melted, int NumberOfLayers) {
+                       int nx, int ny, int nz, int ***LayerID, int ***, int NumberOfLayers) {
 
     int FullDomainCenterX = nx / 2;
     int FullDomainCenterY = ny / 2;
@@ -433,7 +431,7 @@ void ParseAnalysisFile(std::string OutputAnalysisFile, std::string &RotationFile
     Analysis.close();
 }
 
-void ParseGrainOrientationFiles(std::string RotationFilename, std::string EulerFilename, int NumberOfOrientations,
+void ParseGrainOrientationFiles(std::string RotationFilename, std::string, int NumberOfOrientations,
                                 float ***GrainUnitVector, float **) {
 
     // Read file of rotation matrix form grain orientations

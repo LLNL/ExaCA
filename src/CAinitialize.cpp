@@ -1507,7 +1507,7 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                             Melted[Coord3D1D] = true;
                             CritTimeStep(Coord3D1D) = round(CTLiq / deltat);
                             LayerID(Coord3D1D) = LayerCounter;
-                            UndercoolingChange(Coord3D1D) = abs(CR[k][ii - LowerXBound][jj - LowerYBound]) * deltat;
+                            UndercoolingChange(Coord3D1D) = std::abs(CR[k][ii - LowerXBound][jj - LowerYBound]) * deltat;
                         }
                     }
                 }

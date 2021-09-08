@@ -452,7 +452,7 @@ void PrintParaview(std::string BaseFileName, std::string PathToOutput, int nx, i
                         GrainOrientation(((abs(GrainID_WholeDomain[k][i][j]) - 1) % NGrainOrientations));
                     double AngleZmin = 62.7;
                     for (int ll = 0; ll < 3; ll++) {
-                        double AngleZ = abs((180 / M_PI) * acos(GrainUnitVector(9 * MyOrientation + 3 * ll + 2)));
+                        double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * MyOrientation + 3 * ll + 2)));
                         if (AngleZ < AngleZmin) {
                             AngleZmin = AngleZ;
                         }
