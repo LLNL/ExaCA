@@ -71,7 +71,7 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
 //*****************************************************************************/
 
 void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax, int ZMin,
-                   int ZMax, int nx, int ny, int nz, ViewI3D_H ***, ViewI3D_H ***GrainID, double deltax) {
+                   int ZMax, int nx, int ny, int nz, ViewI3D_H, ViewI3D_H GrainID, double deltax) {
 
     // Get vector of unique GrainIDs
     int Counter = 0;
@@ -246,7 +246,7 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
                     int TempBottomY = YMax;
                     for (int i = XMin; i <= XMax; i++) {
                         for (int j = YMin; j <= YMax; j++) {
-                            if (GrainID[k][i][j] == ThisGrainID) {
+                            if (GrainID(k,i,j) == ThisGrainID) {
                                 if (i > TempTopX)
                                     TempTopX = i;
                                 if (i < TempBottomX)
@@ -327,7 +327,7 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
         for (int k = ZMin; k <= ZMax; k++) {
             for (int j = YMin; j <= YMax; j++) {
                 for (int i = XMin; i <= XMax; i++) {
-                    if (Melted[k][i][j]) {
+                    if (Melted(k,i,j)) {
                         int GOVal = (abs(GrainID(k,i,j)) - 1) % NumberOfOrientations;
                         GOHistogram[GOVal]++;
                     }
@@ -396,7 +396,7 @@ void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string 
 
 //*****************************************************************************/
 void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int, int, double deltax,
-                            ViewI3D_H ***GrainID, std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE,
+                            ViewI3D_H GrainID, std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE,
                             std::vector<int> YLow_RVE, std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE,
                             std::vector<int> ZHigh_RVE) {
 

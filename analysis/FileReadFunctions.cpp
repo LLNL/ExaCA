@@ -3,8 +3,6 @@
 //
 // SPDX-License-Identifier: MIT
 
-// These are duplicated from CAinitialize.cpp - will not need if the analysis executable is
-// linked properly to the ExaCA-Kokkos executable
 #include "header.hpp"
 
 #include <CAinitialize.hpp>
