@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <cstddef>
 #include "CAtypes.hpp"
 #include <Kokkos_Core.hpp>
 
@@ -23,7 +24,7 @@ int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, in
 // These are used in reading/parsing ExaCA microstructure data
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers);
 void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest);
-void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename);
+void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename, std::string &BaseFileName);
 void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID, ViewI3D_H Melted);
 void ParseAnalysisFile(std::string AnalysisFilename, std::string RotationFilename, int &NumberOfOrientations, bool *AnalysisTypes, std::vector<int> &XMin_RVE,
                        std::vector<int> &XMax_RVE, std::vector<int> &YMin_RVE, std::vector<int> &YMax_RVE,

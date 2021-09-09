@@ -140,10 +140,9 @@ void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H
 }
 
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
-void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename) {
+void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename, std::string &BaseFileName) {
 
     // The analysis file should be in the analysis subdirectory of ExaCA
-    AnalysisFile = "analysis/" + BaseFileName + ".txt";
     std::cout << "Looking for analysis file: " << AnalysisFile << std::endl;
     std::ifstream Analysis;
     Analysis.open(AnalysisFile);
@@ -151,6 +150,10 @@ void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::st
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis);
 
+    // Microstructure/log files should have same name as the analysis file (other than .txt extension being either .vtk or .log)
+    std::size_t StartFName = AnalysisFile.find_last_of("/");
+    std::size_t EndFName = AnalysisFile.find_last_of(".");
+    BaseFileName = AnalysisFile.substr(StartFName + 1, EndFName - StartFName - 1);
     // Read names of path to the microstructure/log files
     std::string PathToMicrostructure;
     PathToMicrostructure = parseInput(Analysis, "Path to microstructure file");

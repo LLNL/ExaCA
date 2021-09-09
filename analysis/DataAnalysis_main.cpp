@@ -13,21 +13,20 @@
 #include <string>
 #include <vector>
 
-// The name of the ExaCA output analysis file (.txt, located in ExaCA/analysis), the ExaCA microstructure file (.vtk), and the ExaCA log file (.log) is given on the command line - these files should all have the same name, other than the file extension. The command line input should not include a file extension
+// The name of the ExaCA output analysis file (.txt, located in ExaCA/analysis), the ExaCA microstructure file (.vtk), and the ExaCA log file (.log) is given on the command line - these files should all have the same name, other than the file extension
 int main(int argc, char *argv[]) {
 
-    // Read command line input to obtain base file name - throw error if no file is given
+    // Read command line input to obtain name of analysis file
     std::string BaseFileName, AnalysisFile, LogFile, MicrostructureFile, RotationFilename;
     double deltax;
     if (argc < 2) {
         throw std::runtime_error(
-            "Error: Microstructure file name must be given on the command line");
+            "Error: Analysis file name must be given on the command line");
     }
     else {
-        // This should not have any file extension
-        BaseFileName = argv[1];
+        AnalysisFile = argv[1];
         // Get path to/name of all files of interest by reading the analysis file
-        ParseFilenames(BaseFileName, AnalysisFile, LogFile, MicrostructureFile, RotationFilename);
+        ParseFilenames(AnalysisFile, LogFile, MicrostructureFile, RotationFilename, BaseFileName);
     }
     std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile << " and the options specified in " << AnalysisFile << std::endl;
     
