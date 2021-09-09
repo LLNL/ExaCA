@@ -19,11 +19,11 @@ std::string parseCoordinatePair(std::string line, int val);
 int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow);
 
 // These are used in reading/parsing ExaCA microstructure data
-void ParseLogFile(std::string BaseFileName, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers);
+void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers);
 void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, int ***FieldOfInterest);
-void InitializeData(std::string InputFile, int nx, int ny, int nz, int ***GrainID, int ***LayerID, int ***Melted);
-void ParseAnalysisFile(std::string OutputAnalysisFile, std::string &RotationFilename, std::string &EulerFilename,
-                       int &NumberOfOrientations, bool *AnalysisTypes, std::vector<int> &XMin_RVE,
+void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename, std::string &EulerFilename);
+void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, int ***GrainID, int ***LayerID, int ***Melted);
+void ParseAnalysisFile(std::string AnalysisFilename, std::string RotationFilename, int &NumberOfOrientations, bool *AnalysisTypes, std::vector<int> &XMin_RVE,
                        std::vector<int> &XMax_RVE, std::vector<int> &YMin_RVE, std::vector<int> &YMax_RVE,
                        std::vector<int> &ZMin_RVE, std::vector<int> &ZMax_RVE, int &NumberOfRVEs,
                        std::vector<int> &ANGCrossSectionPlane, std::vector<int> &ANGCrossSectionLocation,

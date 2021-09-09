@@ -13,33 +13,26 @@
 #include <string>
 #include <vector>
 
-// Required inputs on the command line: first an ExaCA microstructure (.vtk format), then an ExaCA output analysis file
-// There should also exist a log file with the same name as the ExaCA microstructure (with .log instead of .vtk), in the
-// same directory as the ExaCA microstructure file
+// The name of the ExaCA output analysis file (.txt, located in ExaCA/analysis), the ExaCA microstructure file (.vtk), and the ExaCA log file (.log) is given on the command line - these files should all have the same name, other than the file extension. The command line input should not include a file extension
 int main(int argc, char *argv[]) {
 
-    // Read command line input to obtain ExaCA microstructure file name - throw error if no file is given
-    std::string InputFile, OutputAnalysisFile, BaseFileName;
+    // Read command line input to obtain base file name - throw error if no file is given
+    std::string BaseFileName, AnalysisFile, LogFile, MicrostructureFile, RotationFilename, EulerFilename;
     double deltax;
     if (argc < 2) {
         throw std::runtime_error(
-            "Error: Neither ExaCA microstructure nor analysis file were given on the command line");
-    }
-    else if (argc != 3) {
-        throw std::runtime_error(
-            "Error: Either one of the two required inputs (ExaCA microstructure file, output analysis file) was not "
-            "given on the command line, or an excessive number of inputs was given");
+            "Error: Microstructure file name must be given on the command line");
     }
     else {
-        InputFile = argv[1];
-        OutputAnalysisFile = argv[2];
-        std::size_t StrLength = InputFile.length();
-        BaseFileName = InputFile.substr(0, StrLength - 4);
+        // This should not have any file extension
+        BaseFileName = argv[1];
+        // Get path to/name of all files of interest by reading the analysis file
+        ParseFilenames(BaseFileName, AnalysisFile, LogFile, MicrostructureFile, RotationFilename, EulerFilename);
     }
-
+    std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile << " and the options specified in " << AnalysisFile << std::endl;
     // Given the input file name, parse the paraview file for the cell size, x, y, and z dimensions, number of layers
     int nx, ny, nz, NumberOfLayers;
-    ParseLogFile(BaseFileName, nx, ny, nz, deltax, NumberOfLayers);
+    ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers);
 
     // Allocate memory blocks for GrainID, LayerID, and Melted data
     // Alocate them as 2D arrays of size nx * ny x i.e., no of 2D Arrays
@@ -60,7 +53,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Fill arrays with data from paraview file
-    InitializeData(InputFile, nx, ny, nz, GrainID, LayerID, Melted);
+    InitializeData(MicrostructureFile, nx, ny, nz, GrainID, LayerID, Melted);
 
     // Read analysis file ("ExaCA/examples/Outputs.txt") to determine which analysis should be done
     // There are three parts to this analysis:
@@ -80,8 +73,7 @@ int main(int argc, char *argv[]) {
 
     // Analysis also requires reading orientation files of specified names
     int NumberOfOrientations;
-    std::string RotationFilename, EulerFilename; // Names of orientation files specified by the analysis file
-    ParseAnalysisFile(OutputAnalysisFile, RotationFilename, EulerFilename, NumberOfOrientations, AnalysisTypes,
+    ParseAnalysisFile(AnalysisFile, RotationFilename, NumberOfOrientations, AnalysisTypes,
                       XLow_RVE, XHigh_RVE, YLow_RVE, YHigh_RVE, ZLow_RVE, ZHigh_RVE, NumberOfRVEs, CrossSectionPlane,
                       CrossSectionLocation, NumberOfCrossSections, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz,
                       LayerID, Melted, NumberOfLayers);

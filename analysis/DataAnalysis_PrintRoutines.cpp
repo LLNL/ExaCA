@@ -319,7 +319,7 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
         std::ofstream MTEXPlot;
         std::string FNameM = BaseFileName + "_MTEXOrientations.csv";
         MTEXPlot.open(FNameM);
-        int *GOHistogram = new int[NGrainOrientations];
+        int *GOHistogram = new int[NumberOfOrientations];
         for (int i = 0; i < NumberOfOrientations; i++) {
             GOHistogram[i] = 0;
         }

@@ -78,10 +78,8 @@ int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, in
     return TopBottomZ;
 }
 
-void ParseLogFile(std::string BaseFileName, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers) {
+void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers) {
 
-    std::string LogFile = BaseFileName + ".log";
-    std::cout << "Looking for ExaCA log file with name " << LogFile << std::endl;
     std::ifstream InputDataStream;
     InputDataStream.open(LogFile);
     if (!(InputDataStream))
@@ -143,10 +141,34 @@ void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, int ***Fi
     }
 }
 
-void InitializeData(std::string InputFile, int nx, int ny, int nz, int ***GrainID, int ***LayerID, int ***Melted) {
+// Read the analysis file to determine the file names/paths for the microstructure and the orientations
+void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename, std::string &EulerFilename) {
+
+    // The analysis file should be in the analysis subdirectory of ExaCA
+    AnalysisFile = "analysis/" + BaseFileName + ".txt";
+    std::cout << "Looking for analysis file: " << AnalysisFile << std::endl;
+    std::ifstream Analysis;
+    Analysis.open(AnalysisFile);
+    if (!(Analysis))
+        throw std::runtime_error("Error: Cannot find ExaCA analysis file");
+    skipLines(Analysis);
+
+    // Read names of path to the microstructure/log files
+    std::string PathToMicrostructure;
+    PathToMicrostructure = parseInput(Analysis, "Path to microstructure file");
+    LogFile = PathToMicrostructure + BaseFileName + ".log";
+    MicrostructureFile = PathToMicrostructure + BaseFileName + ".vtk";
+    // Read names of paths/files containing the grain orientations, in rotation matrix and Euler angle forms
+    RotationFilename = parseInput(Analysis, "rotation matrix");
+    EulerFilename = parseInput(Analysis, "Euler angle");
+    Analysis.close();
+    
+}
+
+void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, int ***GrainID, int ***LayerID, int ***Melted) {
 
     std::ifstream InputDataStream;
-    InputDataStream.open(InputFile);
+    InputDataStream.open(MicrostructureFile);
     if (!(InputDataStream))
         throw std::runtime_error("Error: Cannot find ExaCA microstructure file");
     std::string line;
@@ -179,8 +201,7 @@ void InitializeData(std::string InputFile, int nx, int ny, int nz, int ***GrainI
 }
 
 // Read the analysis file to determine which analysis operations will be performed on the given ExaCA data
-void ParseAnalysisFile(std::string OutputAnalysisFile, std::string &RotationFilename, std::string &EulerFilename,
-                       int &NumberOfOrientations, bool *AnalysisTypes, std::vector<int> &XLow_RVE,
+void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, int &NumberOfOrientations, bool *AnalysisTypes, std::vector<int> &XLow_RVE,
                        std::vector<int> &XHigh_RVE, std::vector<int> &YLow_RVE, std::vector<int> &YHigh_RVE,
                        std::vector<int> &ZLow_RVE, std::vector<int> &ZHigh_RVE, int &NumberOfRVEs,
                        std::vector<int> &CrossSectionPlane, std::vector<int> &CrossSectionLocation,
@@ -191,23 +212,24 @@ void ParseAnalysisFile(std::string OutputAnalysisFile, std::string &RotationFile
     int FullDomainCenterY = ny / 2;
     int FullDomainCenterZ = nz / 2;
     std::ifstream Analysis;
-    Analysis.open(OutputAnalysisFile);
-    if (!(Analysis))
-        throw std::runtime_error("Error: Cannot find ExaCA analysis file");
-    skipLines(Analysis);
-
-    // Read names of files containing the grain orientations, in rotation matrix and Euler angle forms
-    RotationFilename = parseInput(Analysis, "rotation matrix");
-    std::ifstream GrainO;
+    Analysis.open(AnalysisFile);
+    // Skip lines that were already read as part of ParseFilenames
+    bool SkippingLines = true;
+    std::string dummyline;
+    while (SkippingLines) {
+        getline(Analysis, dummyline);
+        if (dummyline == "**********")
+            SkippingLines = false;
+    }
 
     // Get the number of orientations from the file of rotation matrices
+    std::ifstream GrainO;
     GrainO.open(RotationFilename);
     std::string NumberOfOrientationsString;
     getline(GrainO, NumberOfOrientationsString);
     std::cout << "Number of orientations " << NumberOfOrientationsString << std::endl;
     NumberOfOrientations = stoi(NumberOfOrientationsString, nullptr, 10);
     GrainO.close();
-    EulerFilename = parseInput(Analysis, "Euler angle");
     skipLines(Analysis);
 
     // Read some number of lines of RVE data

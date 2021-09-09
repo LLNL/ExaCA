@@ -158,15 +158,12 @@ mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ```
 ## Post-processing analysis
 
-If the "Print Paraview vtk file of all ExaCA data for post-processing" options is toggled within an input file, post-processing can be performed on the output data set using the code inside of the `analysis/` directory. An example of this is given for  `Inp_DirSolidification.txt`, which yields the output files `TestProblemDirS.vtk` and `TestProblemDirS.log`. To analyze this data, first compile the source files:
-```
-g++ analysis/*.cpp -std=c++11 -O3 -o grainanalysis
-```
-Then run this new executable, with one command line argument pointing to the .vtk microstructure file (note that the associated .log file must be in the same directory as its associated .vtk file- ExaCA prints both with the same file name and to the same location by default, with said location specified in `Inp_DirSolidification.txt`) and to a file for analysis options. In this case, to analyze the results of the directional solidification test problem:
+If the "Print Paraview vtk file of all ExaCA data for post-processing" options is toggled within an input file, post-processing can be performed on the output data set using the code inside of the `analysis/` directory. This code is compiled as a separate executable from, but linked to, ExaCA. Running ExaCA for the test problem  `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` and `TestProblemDirS.log`. To analyze this data, first compile the source files, then run the analysis program executable, with one command line argument pointing to the microstructure of interest. Within the `analysis/` directory, there should be a `.txt` file with analysis options corresponding to the problem of interest. In this case, to analyze the results of the directional solidification test problem:
 
 ```
-./grainanalysis -n 1 /path/to/ExaCAOutput/TestProblem1.vtk /path/to/ExaCA/analysis/AnalysisOptions_DirS.txt
+./build/install/bin/runExaGA TestProblemDirS
 ```
+Note that no file extension is given on the command line - the analysis program assumes that a file in the `analysis/` directory with the name `TestProblemDirS.txt` exists. The path to the associated files `TestProblemDirS.vtk` and `TestProblemDirS.log` is an input within `TestProblemDirS.txt`.
 
 ## Contributing
 
