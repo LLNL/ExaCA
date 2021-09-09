@@ -35,22 +35,9 @@ int main(int argc, char *argv[]) {
     ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers);
 
     // Allocate memory blocks for GrainID, LayerID, and Melted data
-    // Alocate them as 2D arrays of size nx * ny x i.e., no of 2D Arrays
-    int ***GrainID = new int **[nz];
-    int ***LayerID = new int **[nz];
-    int ***Melted = new int **[nz];
-    for (int k = 0; k < nz; k++) {
-        // Allocate memory blocks for rows of each 2D array
-        GrainID[k] = new int *[nx];
-        LayerID[k] = new int *[nx];
-        Melted[k] = new int *[nx];
-        for (int i = 0; i < nx; i++) {
-            // Allocate memory blocks for columns of each 2D array
-            GrainID[k][i] = new int[ny];
-            LayerID[k][i] = new int[ny];
-            Melted[k][i] = new int[ny];
-        }
-    }
+    ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, ny, ny);
+    ViewI3D_H LayerID(Kokkos::ViewAllocateWithoutInitializing("LayerID"), nz, ny, ny);
+    ViewI3D_H Melted(Kokkos::ViewAllocateWithoutInitializing("Melted"), nz, ny, ny);
 
     // Fill arrays with data from paraview file
     InitializeData(MicrostructureFile, nx, ny, nz, GrainID, LayerID, Melted);
@@ -78,19 +65,11 @@ int main(int argc, char *argv[]) {
                       CrossSectionLocation, NumberOfCrossSections, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz,
                       LayerID, Melted, NumberOfLayers);
 
-    // Allocate memory blocks for grain unit vectors (NumberOfOrientations by 3 by 3)
+    // Allocate memory for grain unit vectors (NumberOfOrientations by 3 by 3)
     // grain euler angles (NumberOfOrientations by 3) will be used in the future for pyEBSD analysis/data printing
-    float ***GrainUnitVector = new float **[NumberOfOrientations];
-    float **GrainEulerAngles = new float *[NumberOfOrientations];
-    for (int n = 0; n < NumberOfOrientations; n++) {
-        // Allocate memory blocks for rows of the 1D array (GrainEulerAngles not yet used/allocated - part of future
-        // work with pyEBSD) GrainEulerAngles[n] = new float[3]; Allocate memory blocks for rows of the 2D array
-        GrainUnitVector[n] = new float *[3];
-        for (int i = 0; i < 3; i++) {
-            // Allocate memory blocks for columns of the 2D array
-            GrainUnitVector[n][i] = new float[3];
-        }
-    }
+    ViewF3D_H GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), NumberOfOrientations, 3, 3);
+    ViewF2D_H GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"), NumberOfOrientations, 3);
+
     ParseGrainOrientationFiles(RotationFilename, EulerFilename, NumberOfOrientations, GrainUnitVector,
                                GrainEulerAngles);
 

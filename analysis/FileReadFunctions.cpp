@@ -34,7 +34,7 @@ std::string parseCoordinatePair(std::string line, int val) {
 
 // Search a specified region of LayerID in x and y for either the smallest Z that doesn't contain any layer "L",
 // or the largest Z that doesn't contain any layer "L"
-int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow) {
+int FindTopOrBottom(ViewI3D_H LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow) {
 
     int TopBottomZ = -1;
     bool SearchingForTop = true;
@@ -44,7 +44,7 @@ int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, in
     if (HighLow == "Low")
         k = 3;
     while (SearchingForTop) {
-        if (LayerID[k][i][j] != L) {
+        if (LayerID(k,i,j) != L) {
             j++;
             if (j > YHigh) {
                 if (i > XHigh) {
@@ -124,7 +124,7 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
 }
 
 // Reads portion of a paraview file and places data in the appropriate data structure
-void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, int ***FieldOfInterest) {
+void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest) {
     std::string line;
     for (int k = 0; k < nz; k++) {
         getline(InputDataStream, line);
@@ -135,7 +135,7 @@ void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, int ***Fi
             for (int i = 0; i < nx; i++) {
                 int val;
                 ss >> val;
-                FieldOfInterest[k][i][j] = val;
+                FieldOfInterest(k,i,j) = val;
             }
         }
     }
@@ -165,7 +165,7 @@ void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::st
     
 }
 
-void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, int ***GrainID, int ***LayerID, int ***Melted) {
+void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID, ViewI3D_H Melted) {
 
     std::ifstream InputDataStream;
     InputDataStream.open(MicrostructureFile);
@@ -206,7 +206,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        std::vector<int> &ZLow_RVE, std::vector<int> &ZHigh_RVE, int &NumberOfRVEs,
                        std::vector<int> &CrossSectionPlane, std::vector<int> &CrossSectionLocation,
                        int &NumberOfCrossSections, int &XMin, int &XMax, int &YMin, int &YMax, int &ZMin, int &ZMax,
-                       int nx, int ny, int nz, int ***LayerID, int ***, int NumberOfLayers) {
+                       int nx, int ny, int nz, ViewI3D_H LayerID, ViewI3D_H, int NumberOfLayers) {
 
     int FullDomainCenterX = nx / 2;
     int FullDomainCenterY = ny / 2;
@@ -454,7 +454,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
 }
 
 void ParseGrainOrientationFiles(std::string RotationFilename, std::string, int NumberOfOrientations,
-                                float ***GrainUnitVector, float **) {
+                                ViewF3D_H GrainUnitVector, ViewF2D_H) {
 
     // Read file of rotation matrix form grain orientations
     std::ifstream O;
@@ -478,7 +478,7 @@ void ParseGrainOrientationFiles(std::string RotationFilename, std::string, int N
                 break;
             float ReadGO = atof(s.c_str());
             // X,Y,Z of a single unit vector
-            GrainUnitVector[i][UVNumber][Comp] = ReadGO;
+            GrainUnitVector(i,UVNumber,Comp) = ReadGO;
             Comp++;
             if (Comp > 2) {
                 Comp = 0;

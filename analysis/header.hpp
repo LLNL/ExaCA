@@ -20,33 +20,33 @@ int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, in
 
 // These are used in reading/parsing ExaCA microstructure data
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers);
-void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, int ***FieldOfInterest);
+void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest);
 void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename, std::string &EulerFilename);
-void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, int ***GrainID, int ***LayerID, int ***Melted);
+void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewF3D_H GrainID, ViewF3D_H LayerID, ViewF3D_H Melted);
 void ParseAnalysisFile(std::string AnalysisFilename, std::string RotationFilename, int &NumberOfOrientations, bool *AnalysisTypes, std::vector<int> &XMin_RVE,
                        std::vector<int> &XMax_RVE, std::vector<int> &YMin_RVE, std::vector<int> &YMax_RVE,
                        std::vector<int> &ZMin_RVE, std::vector<int> &ZMax_RVE, int &NumberOfRVEs,
                        std::vector<int> &ANGCrossSectionPlane, std::vector<int> &ANGCrossSectionLocation,
                        int &NumberOfANGCrossSections, int &XMin, int &XMax, int &YMin, int &YMax, int &ZMin, int &ZMax,
-                       int nx, int ny, int nz, int ***LayerID, int ***Melted, int NumberOfLayers);
+                       int nx, int ny, int nz, ViewF3D_H LayerID, ViewF3D_H Melted, int NumberOfLayers);
 void ParseGrainOrientationFiles(std::string RotationFilename, std::string EulerFilename, int NumberOfOrientations,
-                                float ***GrainUnitVector, float **GrainEulerAngles);
+                                ViewF3D_H GrainUnitVector, ViewF2D_H GrainEulerAngles);
 
 void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int nx, int ny, int nz, double deltax,
-                            int ***GrainID, std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE,
+                            ViewI3D_H GrainID, std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE,
                             std::vector<int> YLow_RVE, std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE,
                             std::vector<int> ZHigh_RVE);
 void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string BaseFileName,
                                          std::vector<int> CrossSectionPlane, std::vector<int> CrossSectionLocation,
-                                         int nx, int ny, int nz, int NumberOfOrientations, int ***GrainID,
-                                         float **GrainEulerAngles);
+                                         int nx, int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
+                                         ViewF2D_H GrainEulerAngles);
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
-                             int ZMin, int ZMax, int ***Melted, float ***GrainUnitVector, int ***GrainID,
+                             int ZMin, int ZMax, ViewI3D_H Melted, ViewF3D_H GrainUnitVector, ViewI3D_H GrainID,
                              int NumberOfOrientations);
 void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax, int ZMin,
-                   int ZMax, int nx, int ny, int nz, int ***Melted, int ***GrainID_WholeDomain, double deltax);
+                   int ZMax, int nx, int ny, int nz, ViewI3D_H Melted, ViewI3D_H GrainID_WholeDomain, double deltax);
 void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double deltax, int XMin, int XMax, int YMin,
-                        int YMax, int ZMin, int ZMax, int ***GrainID);
+                        int YMax, int ZMin, int ZMax, ViewI3D_H GrainID);
 void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations,
-                         float **GrainEulerAngles, int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax,
-                         int ***GrainID, int ***Melted);
+                         ViewF2D_H GrainEulerAngles, int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax,
+                         ViewI3D_H GrainID, ViewI3D_H Melted);
