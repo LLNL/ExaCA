@@ -40,7 +40,10 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
                    double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
                    double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
-                   int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime);
+                   int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
+                   double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
+                   double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime, double GhostMinTime,
+                   double OutMaxTime, double OutMinTime);
 void PrintParaviewGeneric(int nx, int ny, int nz, std::vector<std::vector<std::vector<int>>> GrainID_WholeDomain,
                           std::vector<std::vector<std::vector<int>>> LayerID_WholeDomain,
                           std::vector<std::vector<std::vector<int>>> CritTimeStep_WholeDomain,
