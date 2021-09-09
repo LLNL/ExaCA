@@ -85,3 +85,8 @@ jobs:
           $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.txt
           mpirun -n 2 $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.txt
           mpirun -n 2 $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.txt
+      - name: Test GA
+        working directory: analysis
+        run: |
+           $HOME/exaca/bin/runExaGA TestProblemDirS.txt
+   
