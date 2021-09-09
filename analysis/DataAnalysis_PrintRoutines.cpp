@@ -233,11 +233,14 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
             std::cout << "Number of grains at the representative region top (Z = " << ZMax << "): " << GrainsThisLayer
                       << std::endl;
             if (AnalysisTypes[6]) {
-                std::string FName3 = BaseFileName + "_GrainWidthDistribution.csv";
+                std::string FName3 = BaseFileName + "_GrainWidthDistributionX.csv";
+                std::string FName4 = BaseFileName + "_GrainWidthDistributionY.csv";
                 std::ofstream Grainplot3;
-                std::cout << "Printing file " << FName3 << " of grain width distribution (in microns) at Z = " << ZMax
+                std::ofstream Grainplot4;
+                std::cout << "Printing files " << FName3 << " and " << FName4 << " of grain width distributions in x and y (in microns) at Z = " << ZMax
                           << std::endl;
                 Grainplot3.open(FName3);
+                Grainplot4.open(FName4);
                 for (int n = 0; n < GrainsThisLayer; n++) {
                     int ThisGrainID = GIDVals_ThisLayer[n];
                     int TempTopX = XMin;
@@ -260,8 +263,11 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
                     }
                     float GrainExtentX = TempTopX - TempBottomX + 1;
                     float GrainExtentY = TempTopY - TempBottomY + 1;
+                    Grainplot3 << GrainExtentX * deltax / pow(10,-6) << std::endl;
+                    Grainplot4 << GrainExtentY * deltax / pow(10,-6) << std::endl;
                 }
                 Grainplot3.close();
+                Grainplot4.close();
             }
         }
         if (((AnalysisTypes[3]) && (k % 5 == 0)) || (k == ZMax)) {
