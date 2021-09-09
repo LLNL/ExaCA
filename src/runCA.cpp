@@ -453,28 +453,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, tempfile,
                   TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
                   SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
-                  NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime);
-
-    if (id == 0) {
-        std::cout << "===================================================================================" << std::endl;
-        std::cout << "Having run with = " << np << " processors" << std::endl;
-        std::cout << "Output written at cycle = " << cycle << std::endl;
-        std::cout << "Total time = " << InitTime + RunTime + OutTime << std::endl;
-        std::cout << "Time spent initializing data = " << InitTime << " s" << std::endl;
-        std::cout << "Time spent performing CA calculations = " << RunTime << " s" << std::endl;
-        std::cout << "Time spent collecting and printing output data = " << OutTime << " s\n" << std::endl;
-
-        std::cout << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s\n"
-                  << std::endl;
-
-        std::cout << "===================================================================================" << std::endl;
-    }
+                  NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime);
+    
 }
