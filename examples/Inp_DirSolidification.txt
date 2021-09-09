@@ -20,5 +20,5 @@ Fraction of surface sites active: 0.08
 ***Output data printing options: (Y or N) which data should be printed***
 Print Paraview vtk file of grain misorientation values (Y or N)?: Y
 Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y
-Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check (Y or N)?: N
-Print data for all main data structures (CellType, GrainID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, Melted, LayerID) following initialization for debug check (Y or N)?: N
+Debug check (reduced)- Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check (Y or N)?: N
+Debug check (extensive) - Print data for all main data structures (CellType, GrainID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, Melted, LayerID) following initialization for debug check (Y or N)?: N
