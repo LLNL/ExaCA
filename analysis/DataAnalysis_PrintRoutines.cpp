@@ -300,26 +300,10 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
 }
 
 //*****************************************************************************/
-void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, ViewF2D_H, int XMin,
+void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin,
                          int XMax, int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H Melted) {
 
     if (AnalysisTypes[7]) {
-        //        writing pyEBSD print routines in progress
-        //        std::string FNamePYEBSD = BaseFileName + "_pyEBSDOrientations.csv";
-        //        std::ofstream PyEBSDPlot;
-        //        PyEBSDPlot.open(FNamePYEBSD);
-        //        int RepX = XMax-XMin;
-        //        for (int k=ZMin; k<=ZMax; k++) {
-        //            for (int i=XMin; i<=XMax; i++) {
-        //                int XMultiplier = (k-ZMin)*RepX; // used to offset each XY region in space
-        //                for (int j=YMin; j<=YMax; j++) {
-        //                    int GOVal = (abs(GrainID[k][i][j]) - 1) % NumberOfOrientations;
-        //                    PyEBSDPlot << XMultiplier*(i-XMin) << "," << j-YMin << " " << GrainEulerAngles[GOVal][0]
-        //                    << " " << GrainEulerAngles[GOVal][1] << " " << GrainEulerAngles[GOVal][2] << std::endl;
-        //                }
-        //            }
-        //        }
-        //        PyEBSDPlot.close();
 
         // Histogram of orientations for texture determination
         std::ofstream MTEXPlot;
@@ -350,7 +334,7 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
 //*****************************************************************************/
 void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string BaseFileName,
                                          std::vector<int> CrossSectionPlane, std::vector<int> CrossSectionLocation,
-                                         int nx, int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID, ViewF2D_H) {
+                                         int nx, int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID) {
 
     // Loop over each cross-section specified in the file "AnalysisOutputs.txt"
     for (int n = 0; n < NumberOfCrossSections; n++) {

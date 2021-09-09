@@ -140,7 +140,7 @@ void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H
 }
 
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
-void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename, std::string &EulerFilename) {
+void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename) {
 
     // The analysis file should be in the analysis subdirectory of ExaCA
     AnalysisFile = "analysis/" + BaseFileName + ".txt";
@@ -156,9 +156,9 @@ void ParseFilenames(std::string BaseFileName, std::string &AnalysisFile, std::st
     PathToMicrostructure = parseInput(Analysis, "Path to microstructure file");
     LogFile = PathToMicrostructure + BaseFileName + ".log";
     MicrostructureFile = PathToMicrostructure + BaseFileName + ".vtk";
-    // Read names of paths/files containing the grain orientations, in rotation matrix and Euler angle forms
+    // Read names of paths/files containing the grain orientations, in rotation matrix form
     RotationFilename = parseInput(Analysis, "rotation matrix");
-    EulerFilename = parseInput(Analysis, "Euler angle");
+    // In the future, read the name of the euler angle file here for printing pyEBSD data - for now, skip as it is not used
     Analysis.close();
     
 }
@@ -451,8 +451,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
     Analysis.close();
 }
 
-void ParseGrainOrientationFiles(std::string RotationFilename, std::string, int NumberOfOrientations,
-                                ViewF3D_H GrainUnitVector, ViewF2D_H) {
+void ParseGrainOrientationFiles(std::string RotationFilename, int NumberOfOrientations, ViewF3D_H GrainUnitVector) {
 
     // Read file of rotation matrix form grain orientations
     std::ifstream O;
@@ -486,25 +485,4 @@ void ParseGrainOrientationFiles(std::string RotationFilename, std::string, int N
     }
     O.close();
 
-    //    Read file of euler form grain orientations - to be used in the future with pyEBSD data analysis
-    //    std::ifstream OE;
-    //    OE.open(EulerFilename);
-    //    for (int i = 0; i < NumberOfOrientations; i++) {
-    //        std::string s;
-    //        if (!getline(O, s))
-    //            break;
-    //        std::istringstream ss(s);
-    //        int Comp = 0;
-    //        while (ss) { // This is the 3 grain orientation angles
-    //            std::string s;
-    //            if (!getline(ss, s, ','))
-    //                break;
-    //            float ReadGO = atof(s.c_str());
-    //            // X,Y,Z of a single unit vector
-    //            GrainEulerAngles[i][Comp] = ReadGO;
-    //            Comp++;
-    //            if (Comp > 2) Comp = 0;
-    //        }
-    //    }
-    //    OE.close();
 }

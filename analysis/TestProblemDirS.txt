@@ -1,8 +1,8 @@
 Used in post-processing script to analyze select ExaCA outputs
 *****
-Path to microstructure file (.vtk), log file (.log) (note that analysis input files (.txt) are assumed to be in /ExaCA/analysis), and these 3 files should have the same name as specified on the command line: /gpfs/alpine/world-shared/mat190/rolchigo/ExaCA-O/
+Path to microstructure file (.vtk), log file (.log) (note that analysis input files (.txt) are assumed to be in /ExaCA/analysis), and these 3 files should have the same name as specified on the command line: /gpfs/alpine/world-shared/mat190/rolchigo/TestProblemData/
 Path to/file of grain orientations (rotation matrix form): /gpfs/alpine/world-shared/mat190/rolchigo/ExaCA-O/examples/Substrate/GrainOrientationVectors_Robert.csv
-Path to/file of grain orientations (Euler angle form): /gpfs/alpine/world-shared/mat190/rolchigo/ExaCA-O/examples/GrainOrientationVectors_Euler.csv
+Path to/file of grain orientations (Euler angle form)- currently not used: /gpfs/alpine/world-shared/mat190/rolchigo/ExaCA-O/examples/GrainOrientationVectors_Euler.csv
 **********
 ExaConstit representative volume elements: lines have the format [size, center x, center y, center z]
 Multiple RVEs can be printed as long as they are formatted as above and on separate lines
