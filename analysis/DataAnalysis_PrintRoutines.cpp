@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 #include "header.hpp"
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -10,7 +11,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <algorithm>
 
 //*****************************************************************************/
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
@@ -35,11 +35,11 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
         for (int i = XMin; i <= XMax; i++) {
             for (int j = YMin; j <= YMax; j++) {
                 // Only take data from cells in the representative area that underwent melting
-                if (Melted(k,i,j) == 1) {
-                    int MyOrientation = ((abs(GrainID(k,i,j)) - 1) % NumberOfOrientations);
+                if (Melted(k, i, j) == 1) {
+                    int MyOrientation = ((abs(GrainID(k, i, j)) - 1) % NumberOfOrientations);
                     double AngleZmin = 62.7;
                     for (int ll = 0; ll < 3; ll++) {
-                        double AngleZ = abs((180 / M_PI) * acos(GrainUnitVector(MyOrientation,ll,2)));
+                        double AngleZ = abs((180 / M_PI) * acos(GrainUnitVector(MyOrientation, ll, 2)));
                         if (AngleZ < AngleZmin) {
                             AngleZmin = AngleZ;
                         }
@@ -81,9 +81,9 @@ void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int 
     for (int k = ZMin; k <= ZMax; k++) {
         for (int i = XMin; i <= XMax; i++) {
             for (int j = YMin; j <= YMax; j++) {
-                UniqueGrainIDs[Counter] = GrainID(k,i,j);
+                UniqueGrainIDs[Counter] = GrainID(k, i, j);
                 Counter++;
-                if (GrainID(k,i,j) < 0)
+                if (GrainID(k, i, j) < 0)
                     NucleatedGrainCells++;
             }
         }
@@ -120,7 +120,7 @@ void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int 
             for (int i = XMin; i <= XMax; i++) {
                 for (int j = YMin; j <= YMax; j++) {
                     // Only take data from cells in the representative area that underwent melting
-                    if (GrainID(k,i,j) == ThisGrainID) {
+                    if (GrainID(k, i, j) == ThisGrainID) {
                         VolGrain[n]++;
                         if (i > TempTopX)
                             TempTopX = i;
@@ -217,7 +217,7 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
         int Counter = 0;
         for (int i = XMin; i <= XMax; i++) {
             for (int j = YMin; j <= YMax; j++) {
-                GIDAllVals_ThisLayer[Counter] = GrainID(k,i,j);
+                GIDAllVals_ThisLayer[Counter] = GrainID(k, i, j);
                 Counter++;
             }
         }
@@ -237,8 +237,8 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
                 std::string FName4 = BaseFileName + "_GrainWidthDistributionY.csv";
                 std::ofstream Grainplot3;
                 std::ofstream Grainplot4;
-                std::cout << "Printing files " << FName3 << " and " << FName4 << " of grain width distributions in x and y (in microns) at Z = " << ZMax
-                          << std::endl;
+                std::cout << "Printing files " << FName3 << " and " << FName4
+                          << " of grain width distributions in x and y (in microns) at Z = " << ZMax << std::endl;
                 Grainplot3.open(FName3);
                 Grainplot4.open(FName4);
                 for (int n = 0; n < GrainsThisLayer; n++) {
@@ -249,7 +249,7 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
                     int TempBottomY = YMax;
                     for (int i = XMin; i <= XMax; i++) {
                         for (int j = YMin; j <= YMax; j++) {
-                            if (GrainID(k,i,j) == ThisGrainID) {
+                            if (GrainID(k, i, j) == ThisGrainID) {
                                 if (i > TempTopX)
                                     TempTopX = i;
                                 if (i < TempBottomX)
@@ -263,8 +263,8 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
                     }
                     float GrainExtentX = TempTopX - TempBottomX + 1;
                     float GrainExtentY = TempTopY - TempBottomY + 1;
-                    Grainplot3 << GrainExtentX * deltax / pow(10,-6) << std::endl;
-                    Grainplot4 << GrainExtentY * deltax / pow(10,-6) << std::endl;
+                    Grainplot3 << GrainExtentX * deltax / pow(10, -6) << std::endl;
+                    Grainplot4 << GrainExtentY * deltax / pow(10, -6) << std::endl;
                 }
                 Grainplot3.close();
                 Grainplot4.close();
@@ -300,8 +300,8 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
 }
 
 //*****************************************************************************/
-void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin,
-                         int XMax, int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H Melted) {
+void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin, int XMax,
+                         int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H Melted) {
 
     if (AnalysisTypes[7]) {
 
@@ -317,8 +317,8 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
         for (int k = ZMin; k <= ZMax; k++) {
             for (int j = YMin; j <= YMax; j++) {
                 for (int i = XMin; i <= XMax; i++) {
-                    if (Melted(k,i,j)) {
-                        int GOVal = (abs(GrainID(k,i,j)) - 1) % NumberOfOrientations;
+                    if (Melted(k, i, j)) {
+                        int GOVal = (abs(GrainID(k, i, j)) - 1) % NumberOfOrientations;
                         GOHistogram[GOVal]++;
                     }
                 }
@@ -359,7 +359,7 @@ void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string 
         if (CSType == "XZ") {
             for (int i = 0; i < nx; i++) {
                 for (int k = 1; k < nz - 1; k++) {
-                    int GOVal = (abs(GrainID(k,i,CrossSectionLocation[n])) - 1) % NumberOfOrientations;
+                    int GOVal = (abs(GrainID(k, i, CrossSectionLocation[n])) - 1) % NumberOfOrientations;
                     GrainplotCS2 << i << "," << k << "," << GOVal << std::endl;
                 }
             }
@@ -367,7 +367,7 @@ void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string 
         else if (CSType == "YZ") {
             for (int j = 0; j < ny; j++) {
                 for (int k = 1; k < nz - 1; k++) {
-                    int GOVal = (abs(GrainID(k,CrossSectionLocation[n],j)) - 1) % NumberOfOrientations;
+                    int GOVal = (abs(GrainID(k, CrossSectionLocation[n], j)) - 1) % NumberOfOrientations;
                     GrainplotCS2 << j << "," << k << "," << GOVal << std::endl;
                 }
             }
@@ -375,7 +375,7 @@ void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string 
         else {
             for (int i = 0; i < nx; i++) {
                 for (int j = 0; j < ny; j++) {
-                    int GOVal = (abs(GrainID(CrossSectionLocation[n],i,j)) - 1) % NumberOfOrientations;
+                    int GOVal = (abs(GrainID(CrossSectionLocation[n], i, j)) - 1) % NumberOfOrientations;
                     GrainplotCS2 << i << "," << j << "," << GOVal << std::endl;
                 }
             }
@@ -385,10 +385,9 @@ void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string 
 }
 
 //*****************************************************************************/
-void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int, int, double deltax,
-                            ViewI3D_H GrainID, std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE,
-                            std::vector<int> YLow_RVE, std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE,
-                            std::vector<int> ZHigh_RVE) {
+void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int, int, double deltax, ViewI3D_H GrainID,
+                            std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE, std::vector<int> YLow_RVE,
+                            std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE, std::vector<int> ZHigh_RVE) {
 
     // Loop over each RVE specified in the file "AnalysisOutputs.txt"
     for (int n = 0; n < NumberOfRVEs; n++) {
@@ -407,7 +406,7 @@ void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int
         for (int k = ZLow_RVE[n]; k <= ZHigh_RVE[n]; k++) {
             for (int i = XLow_RVE[n]; i <= XHigh_RVE[n]; i++) {
                 for (int j = YLow_RVE[n]; j <= YHigh_RVE[n]; j++) {
-                    GrainplotE << i << "," << j << "," << k << "," << GrainID(k,i,j) << std::endl;
+                    GrainplotE << i << "," << j << "," << k << "," << GrainID(k, i, j) << std::endl;
                 }
             }
         }

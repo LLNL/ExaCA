@@ -484,7 +484,10 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
                    double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
                    double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
-                   int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime) {
+                   int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
+                   double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
+                   double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime, double GhostMinTime,
+                   double OutMaxTime, double OutMinTime) {
 
     int *XSlices = new int[np];
     int *YSlices = new int[np];
@@ -501,7 +504,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         std::cout << "Printing ExaCA log file" << std::endl;
         std::ofstream ExaCALog;
         ExaCALog.open(FName);
-        ExaCALog << "log file for a simulation run with input file " << InputFile << "  run on " << np << " MPI ranks, output written at cycle " << cycle << std::endl;
+        ExaCALog << "log file for a simulation run with input file " << InputFile << "  run on " << np
+                 << " MPI ranks, output written at cycle " << cycle << std::endl;
         ExaCALog << "This simulation took " << InitTime + RunTime + OutTime
                  << " seconds to run, with the init/run/output breakdown as " << InitTime << "/" << RunTime << "/"
                  << OutTime << std::endl;
@@ -549,15 +553,15 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                      << std::endl;
         }
         ExaCALog << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime << " s"
-                  << std::endl;
+                 << std::endl;
         ExaCALog << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s"
-                  << std::endl;
+                 << std::endl;
         ExaCALog << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s"
-                  << std::endl;
+                 << std::endl;
         ExaCALog << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s"
-                  << std::endl;
+                 << std::endl;
         ExaCALog << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s\n"
-                  << std::endl;
+                 << std::endl;
         ExaCALog.close();
         // Also print this log information to the console
         std::cout << "===================================================================================" << std::endl;

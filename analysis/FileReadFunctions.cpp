@@ -42,7 +42,7 @@ int FindTopOrBottom(ViewI3D_H LayerID, int XLow, int XHigh, int YLow, int YHigh,
     if (HighLow == "Low")
         k = 3;
     while (SearchingForTop) {
-        if (LayerID(k,i,j) != L) {
+        if (LayerID(k, i, j) != L) {
             j++;
             if (j > YHigh) {
                 if (i > XHigh) {
@@ -133,14 +133,15 @@ void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H
             for (int i = 0; i < nx; i++) {
                 int val;
                 ss >> val;
-                FieldOfInterest(k,i,j) = val;
+                FieldOfInterest(k, i, j) = val;
             }
         }
     }
 }
 
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
-void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile, std::string &RotationFilename, std::string &BaseFileName) {
+void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
+                    std::string &RotationFilename, std::string &BaseFileName) {
 
     // The analysis file should be in the analysis subdirectory of ExaCA
     std::cout << "Looking for analysis file: " << AnalysisFile << std::endl;
@@ -150,7 +151,8 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis);
 
-    // Microstructure/log files should have same name as the analysis file (other than .txt extension being either .vtk or .log)
+    // Microstructure/log files should have same name as the analysis file (other than .txt extension being either .vtk
+    // or .log)
     std::size_t StartFName = AnalysisFile.find_last_of("/");
     std::size_t EndFName = AnalysisFile.find_last_of(".");
     BaseFileName = AnalysisFile.substr(StartFName + 1, EndFName - StartFName - 1);
@@ -161,12 +163,13 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     MicrostructureFile = PathToMicrostructure + BaseFileName + ".vtk";
     // Read names of paths/files containing the grain orientations, in rotation matrix form
     RotationFilename = parseInput(Analysis, "rotation matrix");
-    // In the future, read the name of the euler angle file here for printing pyEBSD data - for now, skip as it is not used
+    // In the future, read the name of the euler angle file here for printing pyEBSD data - for now, skip as it is not
+    // used
     Analysis.close();
-    
 }
 
-void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID, ViewI3D_H Melted) {
+void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID,
+                    ViewI3D_H Melted) {
 
     std::ifstream InputDataStream;
     InputDataStream.open(MicrostructureFile);
@@ -202,12 +205,13 @@ void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, View
 }
 
 // Read the analysis file to determine which analysis operations will be performed on the given ExaCA data
-void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, int &NumberOfOrientations, bool *AnalysisTypes, std::vector<int> &XLow_RVE,
-                       std::vector<int> &XHigh_RVE, std::vector<int> &YLow_RVE, std::vector<int> &YHigh_RVE,
-                       std::vector<int> &ZLow_RVE, std::vector<int> &ZHigh_RVE, int &NumberOfRVEs,
-                       std::vector<int> &CrossSectionPlane, std::vector<int> &CrossSectionLocation,
-                       int &NumberOfCrossSections, int &XMin, int &XMax, int &YMin, int &YMax, int &ZMin, int &ZMax,
-                       int nx, int ny, int nz, ViewI3D_H LayerID, ViewI3D_H, int NumberOfLayers) {
+void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, int &NumberOfOrientations,
+                       bool *AnalysisTypes, std::vector<int> &XLow_RVE, std::vector<int> &XHigh_RVE,
+                       std::vector<int> &YLow_RVE, std::vector<int> &YHigh_RVE, std::vector<int> &ZLow_RVE,
+                       std::vector<int> &ZHigh_RVE, int &NumberOfRVEs, std::vector<int> &CrossSectionPlane,
+                       std::vector<int> &CrossSectionLocation, int &NumberOfCrossSections, int &XMin, int &XMax,
+                       int &YMin, int &YMax, int &ZMin, int &ZMax, int nx, int ny, int nz, ViewI3D_H LayerID, ViewI3D_H,
+                       int NumberOfLayers) {
 
     int FullDomainCenterX = nx / 2;
     int FullDomainCenterY = ny / 2;
@@ -478,7 +482,7 @@ void ParseGrainOrientationFiles(std::string RotationFilename, int NumberOfOrient
                 break;
             float ReadGO = atof(s.c_str());
             // X,Y,Z of a single unit vector
-            GrainUnitVector(i,UVNumber,Comp) = ReadGO;
+            GrainUnitVector(i, UVNumber, Comp) = ReadGO;
             Comp++;
             if (Comp > 2) {
                 Comp = 0;
@@ -487,5 +491,4 @@ void ParseGrainOrientationFiles(std::string RotationFilename, int NumberOfOrient
         }
     }
     O.close();
-
 }
