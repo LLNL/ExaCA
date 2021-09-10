@@ -308,7 +308,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
         }
         // Center Z
         if (RVE[3] != "D") {
-            int CenterZ = stoi(RVE[2], nullptr, 10);
+            int CenterZ = stoi(RVE[3], nullptr, 10);
             ZLow_RVE.push_back(CenterZ - HalfSize_RVE);
             ZHigh_RVE.push_back(Size_RVE + ZLow_RVE[NumberOfRVEs] - 1);
         }
