@@ -110,8 +110,7 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
             getline(InputDataStream, line);
             std::size_t NLayersFound = line.find("layers");
             if (NLayersFound != std::string::npos) {
-                std::size_t ForFound = line.find("for");
-                std::string NumLayersString = line.substr(ForFound + 3, NLayersFound - (ForFound + 3));
+                std::string NumLayersString = line.substr(0, NLayersFound);
                 NumberOfLayers = stoi(NumLayersString, nullptr, 10);
                 FindingNumLayers = false;
             }
