@@ -60,9 +60,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     int *FinishTimeStep = new int[NumberOfLayers];
 
     // Data structure for storing raw temperature data from file(s)
+    // Store data as double - needed for small time steps to resolve local differences in solidification conditions
     // With no remelting, each data point has 5 values (X, Y, Z coordinates, liquidus time, and either solidus time OR
     // cooling rate) Initial estimate for size
-    std::vector<float> RawData(1000000);
+    std::vector<double> RawData(1000000);
 
     // Contains "NumberOfLayers" values corresponding to the location within "RawData" of the first data element in each
     // temperature file
