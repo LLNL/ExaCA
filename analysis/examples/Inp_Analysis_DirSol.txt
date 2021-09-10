@@ -1,7 +1,7 @@
 Used in post-processing script to analyze select ExaCA outputs
 *****
 Base file name for microstructure(.vtk)/log(.log) (without extension): TestProblemSmallDirS
-Path to microstructure/log files: ../../
+Path to microstructure/log files: ./
 Path to file of grain orientations (rotation matrix form): ../../examples/Substrate/GrainOrientationVectors_Robert.csv
 Path to file of grain orientations (Euler angle form)- currently not used: examples/Substrate/GrainOrientationVectors_Euler.csv
 **********

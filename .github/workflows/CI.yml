@@ -88,4 +88,5 @@ jobs:
       - name: Test GA
         working-directory: analysis/examples
         run: |
-           $HOME/exaca/bin/grain_analysis Inp_Analysis_DirSol.txt
+          $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.txt
+          $HOME/exaca/bin/grain_analysis Inp_Analysis_DirSol.txt
