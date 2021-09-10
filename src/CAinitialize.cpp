@@ -697,13 +697,12 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
 
     if (SimulationType == "R") {
         // Two passes through reading temperature data files- the first pass only reads the headers to
-        // determine units and X/Y/Z bounds of the simulaton domain. Using the X/Y/Z bounds of the simulation domain, nx,
-        // ny, and nz can be calculated and the domain decomposed among MPI processes. The maximum number of remelting events
-        // in the simulation can also be calculated. The second pass reads
-        // the actual X/Y/Z/liquidus time/cooling rate data and each rank stores the
-        // data relevant to itself in "RawData". With remelting (SimulationType == "RM"), this is
-        // the same except that some X/Y/Z coordinates may be repeated
-        // in a file, and a "melting time" value is stored in addition to liquidus time and cooling rate
+        // determine units and X/Y/Z bounds of the simulaton domain. Using the X/Y/Z bounds of the simulation domain,
+        // nx, ny, and nz can be calculated and the domain decomposed among MPI processes. The maximum number of
+        // remelting events in the simulation can also be calculated. The second pass reads the actual X/Y/Z/liquidus
+        // time/cooling rate data and each rank stores the data relevant to itself in "RawData". With remelting
+        // (SimulationType == "RM"), this is the same except that some X/Y/Z coordinates may be repeated in a file, and
+        // a "melting time" value is stored in addition to liquidus time and cooling rate
         XMin = 1000000.0;
         YMin = 1000000.0;
         ZMin = 1000000.0;
@@ -712,8 +711,9 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         ZMax = -1000000.0;
         int HTtoCAratio = HT_deltax / deltax; // OpenFOAM/CA cell size ratio
 
-        // Read the first temperature file, first line to determine if the "new" OpenFOAM output format (with a 1 line header)
-        // is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of the simulation domain) is
+        // Read the first temperature file, first line to determine if the "new" OpenFOAM output format (with a 1 line
+        // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
+        // the simulation domain) is
         std::string FirstLayerTempFile;
         if (TempFilesInSeries > 1) {
             std::size_t found = tempfile.find_last_of("/");
@@ -734,7 +734,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             std::string error = "Error: Old header and temperature file format no longer supported";
             throw std::runtime_error(error);
         }
-        
+
         // Read all data files to determine the domain bounds, max number of remelting events
         // for simulations with remelting
         int LayersToRead = std::min(NumberOfLayers, TempFilesInSeries); // was given in input file
@@ -800,9 +800,9 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             double YMax_ThisLayer = -1000000.0;
             double ZMin_ThisLayer = 1000000.0;
             double ZMax_ThisLayer = -100000.0;
-            
+
             // Units are assumed to be in meters, meters, seconds, seconds, and K/second
-            std::vector <double> XCoordinates(1000000), YCoordinates(1000000), ZCoordinates(1000000);
+            std::vector<double> XCoordinates(1000000), YCoordinates(1000000), ZCoordinates(1000000);
             long unsigned int XYZPointCounter = 0;
             while (!TemperatureFile.eof()) {
                 std::string s;
@@ -811,11 +811,11 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                     break;
                 // Find first three commas in this file
                 std::size_t FirstComma = s.find(",");
-                std::size_t SecondComma = s.find(",",FirstComma+1);
-                std::size_t ThirdComma = s.find(",",SecondComma+1);
-                std::string XCoordinateS = s.substr(0,FirstComma);
-                std::string YCoordinateS = s.substr(FirstComma+1,SecondComma-FirstComma-1);
-                std::string ZCoordinateS = s.substr(SecondComma+1,ThirdComma-SecondComma-1);
+                std::size_t SecondComma = s.find(",", FirstComma + 1);
+                std::size_t ThirdComma = s.find(",", SecondComma + 1);
+                std::string XCoordinateS = s.substr(0, FirstComma);
+                std::string YCoordinateS = s.substr(FirstComma + 1, SecondComma - FirstComma - 1);
+                std::string ZCoordinateS = s.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
                 XCoordinates[XYZPointCounter] = stod(XCoordinateS);
                 YCoordinates[XYZPointCounter] = stod(YCoordinateS);
                 ZCoordinates[XYZPointCounter] = stod(ZCoordinateS);
@@ -837,7 +837,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             XMax_ThisLayer = *max_element(XCoordinates.begin(), XCoordinates.end());
             YMax_ThisLayer = *max_element(YCoordinates.begin(), YCoordinates.end());
             ZMax_ThisLayer = *max_element(ZCoordinates.begin(), ZCoordinates.end());
-            
+
             // Based on the input file's layer offset, adjust ZMin/ZMax from the temperature data coordinate
             // system to the multilayer CA coordinate system Check to see in the XYZ bounds for this layer are
             // also limiting for the entire multilayer CA coordinate system
@@ -858,8 +858,8 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             ZMinLayer[LayerReadCount - 1] = ZMin_ThisLayer;
             ZMaxLayer[LayerReadCount - 1] = ZMax_ThisLayer;
             if (id == 0)
-                std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMin_ThisLayer << " "
-                          << ZMax_ThisLayer << std::endl;
+                std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMin_ThisLayer << " " << ZMax_ThisLayer
+                          << std::endl;
         }
         // Extend domain in Z (build) direction if the number of layers are simulated is greater than the number
         // of temperature files read
@@ -900,14 +900,13 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             std::cout << "Z Limits of domain: " << ZMin << " and " << ZMax << std::endl;
             std::cout << "================================================================" << std::endl;
         }
-        InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id,
-                             np, NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West,
+        InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id, np,
+                             NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West,
                              NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
                              NeighborRank_SouthWest);
 
         MyXOffset = XOffsetCalc(id, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
-        MyXSlices =
-            XMPSlicesCalc(id, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
+        MyXSlices = XMPSlicesCalc(id, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
 
         MyYOffset = YOffsetCalc(id, ny, ProcessorsInYDirection, np, DecompositionStrategy);
         MyYSlices = YMPSlicesCalc(id, ny, ProcessorsInYDirection, np, DecompositionStrategy);
@@ -925,13 +924,11 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         if (MyXOffset + MyXSlices - 1 >= nx - 3)
             UpperXBound = nx - 3;
         else
-            UpperXBound = MyXOffset + MyXSlices - 1 + HTtoCAratio -
-                          ((MyXOffset + (MyXSlices - 1) - 2) % HTtoCAratio);
+            UpperXBound = MyXOffset + MyXSlices - 1 + HTtoCAratio - ((MyXOffset + (MyXSlices - 1) - 2) % HTtoCAratio);
         if (MyYOffset + MyYSlices - 1 >= ny - 3)
             UpperYBound = ny - 3;
         else
-            UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio -
-                          ((MyYOffset + (MyYSlices - 1) - 2) % HTtoCAratio);
+            UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + (MyYSlices - 1) - 2) % HTtoCAratio);
 
         // Store raw data relevant to each rank in the vector structure RawData
         // With row/col 0 being wall cells and row/col 1 being solid cells outside of the melted area, the
@@ -967,24 +964,25 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             std::string DummyLine;
             // ignore header line
             getline(TemperatureFile, DummyLine);
-            
-            // Read data from the remaining lines - if temperature files have the old format (data separated by arbitrary number of spaces)
+
+            // Read data from the remaining lines - if temperature files have the old format (data separated by
+            // arbitrary number of spaces)
             while (!TemperatureFile.eof()) {
                 std::string s;
                 getline(TemperatureFile, s);
                 if (s.empty())
                     break;
                 std::size_t FirstComma = s.find(",");
-                std::size_t SecondComma = s.find(",",FirstComma+1);
-                std::size_t ThirdComma = s.find(",",SecondComma+1);
-                std::size_t FourthComma = s.find(",",ThirdComma+1);
-                std::size_t FifthComma = s.find(",",FourthComma+1);
-                std::string XCoordinateS = s.substr(0,FirstComma);
-                std::string YCoordinateS = s.substr(FirstComma+1,SecondComma-FirstComma-1);
-                std::string ZCoordinateS = s.substr(SecondComma+1,ThirdComma-SecondComma-1);
-                std::string MeltingTimeS = s.substr(ThirdComma+1,FourthComma-ThirdComma-1);
-                std::string LiquidusTimeS = s.substr(FourthComma+1,FifthComma-FourthComma-1);
-                std::string CoolingRateS = s.substr(FifthComma+1,std::string::npos);
+                std::size_t SecondComma = s.find(",", FirstComma + 1);
+                std::size_t ThirdComma = s.find(",", SecondComma + 1);
+                std::size_t FourthComma = s.find(",", ThirdComma + 1);
+                std::size_t FifthComma = s.find(",", FourthComma + 1);
+                std::string XCoordinateS = s.substr(0, FirstComma);
+                std::string YCoordinateS = s.substr(FirstComma + 1, SecondComma - FirstComma - 1);
+                std::string ZCoordinateS = s.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
+                std::string MeltingTimeS = s.substr(ThirdComma + 1, FourthComma - ThirdComma - 1);
+                std::string LiquidusTimeS = s.substr(FourthComma + 1, FifthComma - FourthComma - 1);
+                std::string CoolingRateS = s.substr(FifthComma + 1, std::string::npos);
                 double XCoordinate = stod(XCoordinateS);
                 double YCoordinate = stod(YCoordinateS);
                 double ZCoordinate = stod(ZCoordinateS);
