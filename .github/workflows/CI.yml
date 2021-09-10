@@ -88,4 +88,4 @@ jobs:
       - name: Test GA
         working-directory: analysis/examples
         run: |
-           $HOME/exaca/bin/grain_analysis TestProblemDirS.txt
+           $HOME/exaca/bin/grain_analysis Inp_Analysis_DirSol.txt

@@ -153,12 +153,10 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
 
     // Microstructure/log files should have same name as the analysis file (other than .txt extension being either .vtk
     // or .log)
-    std::size_t StartFName = AnalysisFile.find_last_of("/");
-    std::size_t EndFName = AnalysisFile.find_last_of(".");
-    BaseFileName = AnalysisFile.substr(StartFName + 1, EndFName - StartFName - 1);
+    BaseFileName = parseInput(Analysis, "Base file name");
     // Read names of path to the microstructure/log files
     std::string PathToMicrostructure;
-    PathToMicrostructure = parseInput(Analysis, "Path to microstructure file");
+    PathToMicrostructure = parseInput(Analysis, "Path to microstructure");
     LogFile = PathToMicrostructure + BaseFileName + ".log";
     MicrostructureFile = PathToMicrostructure + BaseFileName + ".vtk";
     // Read names of paths/files containing the grain orientations, in rotation matrix form
@@ -230,6 +228,8 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
     // Get the number of orientations from the file of rotation matrices
     std::ifstream GrainO;
     GrainO.open(RotationFilename);
+    if (!(GrainO))
+        throw std::runtime_error("Error: Cannot find ExaCA rotations file");
     std::string NumberOfOrientationsString;
     getline(GrainO, NumberOfOrientationsString);
     std::cout << "Number of orientations " << NumberOfOrientationsString << std::endl;
