@@ -505,7 +505,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // PrintDebug = 0 - none
         // PrintDebug = 1 - CellType, LayerID, CritTimeStep only
         // PrintDebug = 2 - all
-        if (!(PrintDebugA) && (!(PrintDebugB))) {
+        if (PrintDebugB)
+            PrintDebug = 2;
+        else if (PrintDebugA)
+            PrintDebug = 1;
+        else
             PrintDebug = 0;
     }
     InputData.close();

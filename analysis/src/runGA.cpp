@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "runGA.hpp"
-#include "GAutils.hpp"
 #include "GAprint.hpp"
+#include "GAutils.hpp"
 
 #include <cmath>
 #include <fstream>
@@ -103,7 +103,8 @@ int main(int argc, char *argv[]) {
         // "[OutputFileName]_GrainAreas.csv", "[OutputFileName]_WeightedGrainAreas.csv", and
         // "[OutputFileName]_GrainWidthDistribution.csv", respectively
         PrintGrainAreaData(AnalysisTypes, OutputFileName, deltax, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainID);
-        // If analysis option 7 is toggled, print orientation data to files "[OutputFileName]_pyEBSDOrientations.csv" and
+        // If analysis option 7 is toggled, print orientation data to files "[OutputFileName]_pyEBSDOrientations.csv"
+        // and
         // "[OutputFileName]_MTEXOrientations.csv"
         PrintPoleFigureData(AnalysisTypes, OutputFileName, NumberOfOrientations, XMin, XMax, YMin, YMax, ZMin, ZMax,
                             GrainID, Melted);
