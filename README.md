@@ -158,10 +158,10 @@ mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ```
 ## Post-processing analysis
 
-If the "Print Paraview vtk file of all ExaCA data for post-processing" options is toggled within an input file, post-processing can be performed on the output data set using the code inside of the `analysis/` directory. This code is compiled as a separate executable from, but linked to, ExaCA. Running ExaCA for the test problem  `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` and `TestProblemDirS.log`. To analyze this data, first compile the source files, then run the analysis program executable, with one command line argument pointing to the analysis file of interest. Within the `analysis/` directory, there should be a `.txt` file with analysis options corresponding to the problem of interest. In this case, to analyze the results of the directional solidification test problem:
+If the "Print Paraview vtk file of all ExaCA data for post-processing" options is toggled within an input file, post-processing can be performed on the output data set using the code inside of the `analysis/` directory. This code is compiled as a separate executable from, but linked to, ExaCA. Running ExaCA for the test problem  `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` and `TestProblemDirS.log`. To analyze this data, first compile the source files, then run the analysis program executable, with one command line argument pointing to the analysis file of interest. Within the `analysis/examples` directory, there should be a `.txt` file with analysis options corresponding to the problem of interest. In this case, to analyze the results of the directional solidification test problem:
 
 ```
-./build/install/bin/runExaGA analysis/TestProblemDirS.txt
+./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
 ```
 The path to the associated files `TestProblemDirS.vtk` and `TestProblemDirS.log` is an input within `TestProblemDirS.txt`.
 

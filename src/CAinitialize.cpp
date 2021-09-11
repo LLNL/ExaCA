@@ -507,15 +507,6 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // PrintDebug = 2 - all
         if (!(PrintDebugA) && (!(PrintDebugB))) {
             PrintDebug = 0;
-        }
-        else {
-            if (PrintDebugA) {
-                if (PrintDebugB)
-                    PrintDebug = 2;
-                else
-                    PrintDebug = 1;
-            }
-        }
     }
     InputData.close();
 

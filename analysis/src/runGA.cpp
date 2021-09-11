@@ -3,7 +3,9 @@
 //
 // SPDX-License-Identifier: MIT
 
-#include "header.hpp"
+#include "runGA.hpp"
+#include "GAutils.hpp"
+#include "GAprint.hpp"
 
 #include <cmath>
 #include <fstream>
@@ -19,7 +21,7 @@
 int main(int argc, char *argv[]) {
 
     // Read command line input to obtain name of analysis file
-    std::string BaseFileName, AnalysisFile, LogFile, MicrostructureFile, RotationFilename;
+    std::string AnalysisFile, LogFile, MicrostructureFile, RotationFilename, OutputFileName;
     double deltax;
     if (argc < 2) {
         throw std::runtime_error("Error: Analysis file name must be given on the command line");
@@ -27,7 +29,7 @@ int main(int argc, char *argv[]) {
     else {
         AnalysisFile = argv[1];
         // Get path to/name of all files of interest by reading the analysis file
-        ParseFilenames(AnalysisFile, LogFile, MicrostructureFile, RotationFilename, BaseFileName);
+        ParseFilenames(AnalysisFile, LogFile, MicrostructureFile, RotationFilename, OutputFileName);
     }
     std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile
               << " and the options specified in " << AnalysisFile << std::endl;
@@ -80,30 +82,30 @@ int main(int argc, char *argv[]) {
 
         // Analysis routines
         // Part 1: ExaConstit-specific RVE(s)
-        PrintExaConstitRVEData(NumberOfRVEs, BaseFileName, nx, ny, nz, deltax, GrainID, XLow_RVE, XHigh_RVE, YLow_RVE,
+        PrintExaConstitRVEData(NumberOfRVEs, OutputFileName, nx, ny, nz, deltax, GrainID, XLow_RVE, XHigh_RVE, YLow_RVE,
                                YHigh_RVE, ZLow_RVE, ZHigh_RVE); // if > 0 RVEs, print file(s) "n_ExaConstit.csv"
 
         // Part 2: Cross-sections for inverse pole figures
-        PrintInversePoleFigureCrossSections(NumberOfCrossSections, BaseFileName, CrossSectionPlane,
+        PrintInversePoleFigureCrossSections(NumberOfCrossSections, OutputFileName, CrossSectionPlane,
                                             CrossSectionLocation, nx, ny, nz, NumberOfOrientations, GrainID);
 
         // Part 3: Representative volume grain statistics
         // Print data to std::out and if analysis option 0 is toggled, to the file
-        // "[BaseFileName]_MisorientationFrequency.csv"
-        PrintMisorientationData(AnalysisTypes, BaseFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, Melted,
+        // "[OutputFileName]_MisorientationFrequency.csv"
+        PrintMisorientationData(AnalysisTypes, OutputFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, Melted,
                                 GrainUnitVector, GrainID, NumberOfOrientations);
         // Print data to std::out and if analysis options 1, 2, or 5 are toggled, print data to files
-        // "[BaseFileName]_VolumeFrequency.csv", "[BaseFileName]_AspectRatioFrequency.csv", and
-        // [BaseFileName]_GrainHeightDistribution.csv", respectively
-        PrintSizeData(AnalysisTypes, BaseFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz, Melted, GrainID,
+        // "[OutputFileName]_VolumeFrequency.csv", "[OutputFileName]_AspectRatioFrequency.csv", and
+        // [OutputFileName]_GrainHeightDistribution.csv", respectively
+        PrintSizeData(AnalysisTypes, OutputFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz, Melted, GrainID,
                       deltax);
         // Print data to std::out and if analysis options 3, 4, or 6 are toggled, print data to files
-        // "[BaseFileName]_GrainAreas.csv", "[BaseFileName]_WeightedGrainAreas.csv", and
-        // "[BaseFileName]_GrainWidthDistribution.csv", respectively
-        PrintGrainAreaData(AnalysisTypes, BaseFileName, deltax, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainID);
-        // If analysis option 7 is toggled, print orientation data to files "[BaseFileName]_pyEBSDOrientations.csv" and
-        // "[BaseFileName]_MTEXOrientations.csv"
-        PrintPoleFigureData(AnalysisTypes, BaseFileName, NumberOfOrientations, XMin, XMax, YMin, YMax, ZMin, ZMax,
+        // "[OutputFileName]_GrainAreas.csv", "[OutputFileName]_WeightedGrainAreas.csv", and
+        // "[OutputFileName]_GrainWidthDistribution.csv", respectively
+        PrintGrainAreaData(AnalysisTypes, OutputFileName, deltax, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainID);
+        // If analysis option 7 is toggled, print orientation data to files "[OutputFileName]_pyEBSDOrientations.csv" and
+        // "[OutputFileName]_MTEXOrientations.csv"
+        PrintPoleFigureData(AnalysisTypes, OutputFileName, NumberOfOrientations, XMin, XMax, YMin, YMax, ZMin, ZMax,
                             GrainID, Melted);
     }
     // Finalize kokkos and end program

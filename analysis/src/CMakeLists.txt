@@ -1,5 +1,7 @@
 set(EXAGA_HEADERS
-    header.hpp
+    runGA.hpp
+    GAprint.hpp
+    GAutils.hpp
 )
 set(EXAGA_SOURCES
     runGA.cpp

@@ -19,7 +19,6 @@ Extra set of wall cells around temperature field (used for spot melt problems, Y
 Number of layers: 1
 Offset between layers (if Number of layers > 1, in cells): 15
 ***Output data printing options: (Y or N) which data should be printed***
-***Output data printing options: (Y or N) which data should be printed***
 Print Paraview vtk file of grain misorientation values (Y or N)?: Y
 Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y
 Debug check (reduced)- Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check (Y or N)?: N

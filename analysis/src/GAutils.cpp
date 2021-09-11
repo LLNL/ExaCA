@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-#include "header.hpp"
+#include "GAutils.hpp"
 
 #include <CAinitialize.hpp>
 
@@ -140,7 +140,7 @@ void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H
 
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
-                    std::string &RotationFilename, std::string &BaseFileName) {
+                    std::string &RotationFilename, std::string &OutputFileName) {
 
     // The analysis file should be in the analysis subdirectory of ExaCA
     std::cout << "Looking for analysis file: " << AnalysisFile << std::endl;
@@ -150,18 +150,13 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis);
 
-    // Microstructure/log files should have same name as the analysis file (other than .txt extension being either .vtk
-    // or .log)
-    BaseFileName = parseInput(Analysis, "Base file name");
     // Read names of path to the microstructure/log files
-    std::string PathToMicrostructure;
-    PathToMicrostructure = parseInput(Analysis, "Path to microstructure");
-    LogFile = PathToMicrostructure + BaseFileName + ".log";
-    MicrostructureFile = PathToMicrostructure + BaseFileName + ".vtk";
+    LogFile = parseInput(Analysis, "name of log");
+    MicrostructureFile = parseInput(Analysis, "name of microstructure");
     // Read names of paths/files containing the grain orientations, in rotation matrix form
     RotationFilename = parseInput(Analysis, "rotation matrix");
-    // In the future, read the name of the euler angle file here for printing pyEBSD data - for now, skip as it is not
-    // used
+    // Path/name for output data
+    OutputFileName = parseInput(Analysis, "output");
     Analysis.close();
 }
 
