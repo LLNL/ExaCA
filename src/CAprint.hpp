@@ -21,12 +21,12 @@ void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nx, int n
 void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nx, int ny, int nz, int MyXSlices,
                        int MyYSlices, int np, ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices,
                        ViewI_H RecvYSlices, ViewI_H RBufSize);
-void CollectBoolField(ViewI3D_H IntVar_WholeDomain, ViewB_H BoolVar, int nx, int ny, int nz, int MyXSlices,
+void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool* BoolVar, int nx, int ny, int nz, int MyXSlices,
                       int MyYSlices, int np, ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices,
                       ViewI_H RecvYSlices, ViewI_H RBufSize);
 void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize);
 void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize);
-void SendBoolField(ViewB_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize);
+void SendBoolField(bool* VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize);
 void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection,
                     int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation, ViewI_H CritTimeStep,
                     ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType, ViewF_H UndercoolingChange,
