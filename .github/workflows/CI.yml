@@ -89,4 +89,4 @@ jobs:
         working-directory: analysis/examples
         run: |
           $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.txt
-          $HOME/exaca/bin/grain_analysis AnalysisSmallDirS.txt
+          $HOME/exaca/bin/grain_analysis analysis/examples/AnalysisSmallDirS.txt
