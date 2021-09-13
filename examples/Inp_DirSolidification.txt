@@ -7,7 +7,7 @@ Cell size (microns: 1
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
 Mean nucleation undercooling (in K): 5
 Standard deviation of nucleation undercooling: 0.5
-Path to output:/usr/WS2/rolchigo/
+Path to output:./
 Output file base name:TestProblemDirS
 File of grain orientations:GrainOrientationVectors_Robert.csv
 Thermal gradient (K/m): 500000

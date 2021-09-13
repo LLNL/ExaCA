@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     std::string AnalysisFile, LogFile, MicrostructureFile, RotationFilename, OutputFileName;
     double deltax;
     if (argc < 2) {
-        throw std::runtime_error("Error: Analysis file name must be given on the command line");
+        throw std::runtime_error("Error: Full path to and name of analysis file must be given on the command line");
     }
     else {
         AnalysisFile = argv[1];
@@ -104,8 +104,7 @@ int main(int argc, char *argv[]) {
         // "[OutputFileName]_GrainWidthDistribution.csv", respectively
         PrintGrainAreaData(AnalysisTypes, OutputFileName, deltax, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainID);
         // If analysis option 7 is toggled, print orientation data to files "[OutputFileName]_pyEBSDOrientations.csv"
-        // and
-        // "[OutputFileName]_MTEXOrientations.csv"
+        // and "[OutputFileName]_MTEXOrientations.csv"
         PrintPoleFigureData(AnalysisTypes, OutputFileName, NumberOfOrientations, XMin, XMax, YMin, YMax, ZMin, ZMax,
                             GrainID, Melted);
     }

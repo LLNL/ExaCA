@@ -11,7 +11,6 @@
 #include <Kokkos_Core.hpp>
 
 #include <string>
-#include <vector>
 
 void PrintGrainIDsForExaConstit(std::string FName, int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain,
                                 double deltax);

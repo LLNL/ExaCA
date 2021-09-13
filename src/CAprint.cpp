@@ -59,13 +59,6 @@ void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nx,
                        ViewI_H RecvYSlices, ViewI_H RBufSize) {
 
     // Set float variable to 0 for whole domain and place values for rank 0
-    for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < ny; j++) {
-                FloatVar_WholeDomain(k, i, j) = 0.0;
-            }
-        }
-    }
     for (int k = 1; k < nz - 1; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
@@ -98,13 +91,6 @@ void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nx, int n
                       ViewI_H RBufSize) {
 
     // Resize bool variable for whole domain and place values for rank 0
-    for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < ny; j++) {
-                IntVar_WholeDomain(k, i, j) = 0;
-            }
-        }
-    }
     for (int k = 1; k < nz - 1; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
@@ -232,16 +218,14 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
         // we are plotting all possible data structures
         // These views are allocated as size 0 x 0 x 0, and resized to nz by nx by ny, or size 0 by 0 by 0 if being
         // collected/printed on rank 0 (to avoid allocating memory unncessarily)
-        ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), 0, 0, 0);
-        ViewI3D_H LayerID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("LayerID_WholeDomain"), 0, 0, 0);
-        ViewI3D_H Melted_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("Melted_WholeDomain"), 0, 0, 0);
-        ViewI3D_H CritTimeStep_WholeDomain(
-            Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_WholeDomain_WholeDomain"), 0, 0, 0);
-        ViewI3D_H CellType_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("CellType_WholeDomain"), 0, 0, 0);
-        ViewF3D_H UndercoolingChange_WholeDomain(
-            Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_WholeDomain"), 0, 0, 0);
-        ViewF3D_H UndercoolingCurrent_WholeDomain(
-            Kokkos::ViewAllocateWithoutInitializing("UndercoolingCurrent_WholeDomain"), 0, 0, 0);
+        // Utilize the fact that kokkos automatically initializes all values in these views to 0
+        ViewI3D_H GrainID_WholeDomain("GrainID_WholeDomain", 0, 0, 0);
+        ViewI3D_H LayerID_WholeDomain("LayerID_WholeDomain", 0, 0, 0);
+        ViewI3D_H Melted_WholeDomain("Melted_WholeDomain", 0, 0, 0);
+        ViewI3D_H CritTimeStep_WholeDomain("CritTimeStep_WholeDomain_WholeDomain", 0, 0, 0);
+        ViewI3D_H CellType_WholeDomain("CellType_WholeDomain", 0, 0, 0);
+        ViewF3D_H UndercoolingChange_WholeDomain("UndercoolingChange_WholeDomain", 0, 0, 0);
+        ViewF3D_H UndercoolingCurrent_WholeDomain("UndercoolingCurrent_WholeDomain", 0, 0, 0);
 
         if ((PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput)) {
             Kokkos::resize(GrainID_WholeDomain, nz, nx, ny);
