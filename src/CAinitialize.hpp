@@ -88,7 +88,7 @@ void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
                 Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
                 Buffer2D BufferSouthWestRecv, int &ZBound_Low);
 
-void skipLines(std::ifstream &stream);
+void skipLines(std::ifstream &stream, std::string seperator = "*****");
 std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon);
 std::string removeWhitespace(std::string line, std::size_t colon);
 std::string parseInput(std::ifstream &stream, std::string key);

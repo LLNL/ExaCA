@@ -211,13 +211,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
     std::ifstream Analysis;
     Analysis.open(AnalysisFile);
     // Skip lines that were already read as part of ParseFilenames
-    bool SkippingLines = true;
-    std::string dummyline;
-    while (SkippingLines) {
-        getline(Analysis, dummyline);
-        if (dummyline == "**********")
-            SkippingLines = false;
-    }
+    skipLines(Analysis, "**********");
 
     // Get the number of orientations from the file of rotation matrices
     std::ifstream GrainO;

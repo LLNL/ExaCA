@@ -19,10 +19,10 @@
 
 //*****************************************************************************/
 // Skip initial lines in input files.
-void skipLines(std::ifstream &stream) {
+void skipLines(std::ifstream &stream, std::string seperator) {
     std::string line;
     while (getline(stream, line)) {
-        if (line == "*****")
+        if (line == seperator)
             break;
     }
 }
