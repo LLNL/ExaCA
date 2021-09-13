@@ -30,6 +30,8 @@ pipeline {
                               -D MPIEXEC_PREFLAGS="--allow-run-as-root;--mca;btl_smcuda_use_cuda_ipc;0" \
                             cmake --build build --parallel ${NPROCS}
                             cmake --install build
+                            ./build/bin/install/ExaCA-Kokkos examples/Inp_SmallDirSolidification.txt
+                            ./build/exaca/install/bin/ExaCA-Kokkos examples/Inp_SmallSpotMelt.txt
                         '''
                     }
                 }
@@ -56,6 +58,8 @@ pipeline {
                               -D MPIEXEC_PREFLAGS="--allow-run-as-root"
                             cmake --build build --parallel ${NPROCS}
                             cmake --install build
+                            ./build/bin/install/ExaCA-Kokkos examples/Inp_SmallDirSolidification.txt
+                            ./build/exaca/install/bin/ExaCA-Kokkos examples/Inp_SmallSpotMelt.txt
                         '''
                     }
                 }
