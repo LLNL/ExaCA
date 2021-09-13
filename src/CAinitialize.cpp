@@ -75,7 +75,6 @@ std::string parseInput(std::ifstream &stream, std::string key) {
     std::size_t colon;
     std::string line, val;
     std::string actual_key = getKey(stream, line, colon);
-
     // Check for keyword
     if (actual_key.find(key) == std::string::npos) {
         // Keyword not found
@@ -132,36 +131,43 @@ bool parseInputBool(std::ifstream &stream, std::string key) {
     }
 }
 
-// Verify that the temperature data read for X, Y, Z falls in bounds
-void CheckTemperatureCoordinateBound(std::string Label, float LowerBound, float UpperBound, float InputValue,
-                                     int LineNumber, std::string TemperatureFilename) {
-
-    if ((InputValue < LowerBound) || (InputValue > UpperBound)) {
-        std::string error = Label + " value " + std::to_string(InputValue) + " on line " + std::to_string(LineNumber) +
-                            " of file " + TemperatureFilename +
-                            " is invalid based on domain size limit given in the file header: must be greater than " +
-                            std::to_string(LowerBound) + " and less than " + std::to_string(UpperBound);
-        throw std::runtime_error(error);
+// Check to make sure that all expected column names appear in the header for this temperature file
+void checkForValues(std::string HeaderLine, std::string Check1, std::string Check2, std::string Check3) {
+    std::size_t Found1 = HeaderLine.find(Check1);
+    if (Found1 == std::string::npos) {
+        std::size_t Found2 = HeaderLine.find(Check2);
+        if (Found2 == std::string::npos) {
+            std::size_t Found3 = HeaderLine.find(Check3);
+            if (Found3 == std::string::npos) {
+                std::string error = "Error: the required column name " + Check1 + "/" + Check2 + "/" + Check3 +
+                                    " did not appear in the temperature file";
+                throw std::runtime_error(error);
+            }
+        }
     }
 }
 
-// Verify that the temperature data (liquidus time, solidus time or cooling rate) is physically reasonable
-void CheckTemperatureDataPoint(std::string Label, float InputValue, int LineNumber, std::string TemperatureFilename) {
-    if (Label == "Liquidus Time") {
-        if (InputValue <= 0) {
-            std::string error = Label + " value " + std::to_string(InputValue) + " on line " +
-                                std::to_string(LineNumber) + " of file " + TemperatureFilename +
-                                " is invalid: must be equal to or greater than zero";
-            throw std::runtime_error(error);
-        }
-    }
-    else {
-        if (InputValue < 0) {
-            std::string error = Label + " value " + std::to_string(InputValue) + " on line " +
-                                std::to_string(LineNumber) + " of file " + TemperatureFilename +
-                                " is invalid: must be greater than zero";
-            throw std::runtime_error(error);
-        }
+// From comma separated data on this line, obtain the x, y, and z coordinates
+// if AllColumns = true, also obtain the melting, liquidus, and cooling rate values
+void getTemperatureDataPoint(std::string s, double (&XYZTemperaturePoint)[6], bool AllColumns) {
+    std::size_t FirstComma = s.find(",");
+    std::size_t SecondComma = s.find(",", FirstComma + 1);
+    std::size_t ThirdComma = s.find(",", SecondComma + 1);
+    std::string XCoordinateS = s.substr(0, FirstComma);
+    std::string YCoordinateS = s.substr(FirstComma + 1, SecondComma - FirstComma - 1);
+    std::string ZCoordinateS = s.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
+    XYZTemperaturePoint[0] = stod(XCoordinateS);
+    XYZTemperaturePoint[1] = stod(YCoordinateS);
+    XYZTemperaturePoint[2] = stod(ZCoordinateS);
+    if (AllColumns) {
+        std::size_t FourthComma = s.find(",", ThirdComma + 1);
+        std::size_t FifthComma = s.find(",", FourthComma + 1);
+        std::string MeltingTimeS = s.substr(ThirdComma + 1, FourthComma - ThirdComma - 1);
+        std::string LiquidusTimeS = s.substr(FourthComma + 1, FifthComma - FourthComma - 1);
+        std::string CoolingRateS = s.substr(FifthComma + 1, std::string::npos);
+        XYZTemperaturePoint[3] = stod(MeltingTimeS);
+        XYZTemperaturePoint[4] = stod(LiquidusTimeS);
+        XYZTemperaturePoint[5] = stod(CoolingRateS);
     }
 }
 
@@ -760,39 +766,21 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
 
             // Read the header line data
             // Make sure the first line contains all required column names: x, y, z, tm, tl, cr
-            // Check mix of lower and uppercase letters just in case
+            // Check 2 mixes of lower and uppercase letters/similar possible column names just in case
             std::string HeaderLine;
             getline(TemperatureFile, HeaderLine);
-            std::size_t xf = HeaderLine.find("x");
-            if (xf == std::string::npos)
-                xf = HeaderLine.find("X");
-            std::size_t yf = HeaderLine.find("y");
-            if (yf == std::string::npos)
-                yf = HeaderLine.find("Y");
-            std::size_t zf = HeaderLine.find("z");
-            if (zf == std::string::npos)
-                zf = HeaderLine.find("Z");
-            std::size_t col0 = HeaderLine.find("tm");
-            if (col0 == std::string::npos)
-                col0 = HeaderLine.find("Tm");
-            if (col0 == std::string::npos)
-                col0 = HeaderLine.find("TM");
-            std::size_t col1 = HeaderLine.find("tl");
-            if (col1 == std::string::npos)
-                col1 = HeaderLine.find("Tl");
-            if (col1 == std::string::npos)
-                col1 = HeaderLine.find("TL");
-            if (col1 == std::string::npos)
-                col1 = HeaderLine.find("ts");
-            std::size_t col2 = HeaderLine.find("r");
-            if (col2 == std::string::npos)
-                col2 = HeaderLine.find("R");
-            if ((xf == std::string::npos) || (yf == std::string::npos) || (zf == std::string::npos) ||
-                (col1 == std::string::npos) || (col2 == std::string::npos)) {
-                std::string error = "One of the six required column headers did not appear in the "
-                                    "temperature input file: these are x, y, z, tm, tl, cr";
-                throw std::runtime_error(error);
-            }
+            // x coordinate
+            checkForValues(HeaderLine, "x", "X", "xval");
+            // y coordinate
+            checkForValues(HeaderLine, "y", "Y", "yval");
+            // z coordinate
+            checkForValues(HeaderLine, "z", "Z", "zval");
+            // melting time
+            checkForValues(HeaderLine, "tm", "Tm", "TM");
+            // liquidus (solidification start) time
+            checkForValues(HeaderLine, "tl", "Tl", "ts");
+            // cooling rate (instantaneous value, from liquidus temperature)
+            checkForValues(HeaderLine, "cr", "r", "R");
 
             double XMin_ThisLayer = 1000000.0;
             double XMax_ThisLayer = -1000000.0;
@@ -809,16 +797,12 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                 getline(TemperatureFile, s);
                 if (s.empty())
                     break;
-                // Find first three commas in this file
-                std::size_t FirstComma = s.find(",");
-                std::size_t SecondComma = s.find(",", FirstComma + 1);
-                std::size_t ThirdComma = s.find(",", SecondComma + 1);
-                std::string XCoordinateS = s.substr(0, FirstComma);
-                std::string YCoordinateS = s.substr(FirstComma + 1, SecondComma - FirstComma - 1);
-                std::string ZCoordinateS = s.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
-                XCoordinates[XYZPointCounter] = stod(XCoordinateS);
-                YCoordinates[XYZPointCounter] = stod(YCoordinateS);
-                ZCoordinates[XYZPointCounter] = stod(ZCoordinateS);
+                // Only get x, y, and z values
+                double XYZTemperaturePoint[6];
+                getTemperatureDataPoint(s, XYZTemperaturePoint, false);
+                XCoordinates[XYZPointCounter] = XYZTemperaturePoint[0];
+                YCoordinates[XYZPointCounter] = XYZTemperaturePoint[1];
+                ZCoordinates[XYZPointCounter] = XYZTemperaturePoint[2];
                 XYZPointCounter++;
                 if (XYZPointCounter == XCoordinates.size()) {
                     XCoordinates.resize(XYZPointCounter + 1000000);
@@ -965,48 +949,34 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             // ignore header line
             getline(TemperatureFile, DummyLine);
 
-            // Read data from the remaining lines - if temperature files have the old format (data separated by
-            // arbitrary number of spaces)
+            // Read data from the remaining lines - values should be separated by commas
+            // Space separated data is no longer accepted by ExaCA
             while (!TemperatureFile.eof()) {
                 std::string s;
                 getline(TemperatureFile, s);
                 if (s.empty())
                     break;
-                std::size_t FirstComma = s.find(",");
-                std::size_t SecondComma = s.find(",", FirstComma + 1);
-                std::size_t ThirdComma = s.find(",", SecondComma + 1);
-                std::size_t FourthComma = s.find(",", ThirdComma + 1);
-                std::size_t FifthComma = s.find(",", FourthComma + 1);
-                std::string XCoordinateS = s.substr(0, FirstComma);
-                std::string YCoordinateS = s.substr(FirstComma + 1, SecondComma - FirstComma - 1);
-                std::string ZCoordinateS = s.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
-                std::string MeltingTimeS = s.substr(ThirdComma + 1, FourthComma - ThirdComma - 1);
-                std::string LiquidusTimeS = s.substr(FourthComma + 1, FifthComma - FourthComma - 1);
-                std::string CoolingRateS = s.substr(FifthComma + 1, std::string::npos);
-                double XCoordinate = stod(XCoordinateS);
-                double YCoordinate = stod(YCoordinateS);
-                double ZCoordinate = stod(ZCoordinateS);
-                double MeltingTime = stod(MeltingTimeS);
-                double LiquidusTime = stod(LiquidusTimeS);
-                double CoolingRate = stod(CoolingRateS);
+                // Get x, y, z, melting, liquidus, and cooling rate values
+                double XYZTemperaturePoint[6];
+                getTemperatureDataPoint(s, XYZTemperaturePoint, true);
 
                 // Check the CA grid positions of the data point to see which rank(s) should store it
                 int XInt = 0, YInt = 0;
-                XInt = round((XCoordinate - XMin) / deltax) + 2;
-                YInt = round((YCoordinate - YMin) / deltax) + 2;
+                XInt = round((XYZTemperaturePoint[0] - XMin) / deltax) + 2;
+                YInt = round((XYZTemperaturePoint[1] - YMin) / deltax) + 2;
                 if ((XInt >= LowerXBound) && (XInt <= UpperXBound) && (YInt >= LowerYBound) && (YInt <= UpperYBound)) {
                     // This data point is inside the bounds of interest for this MPI rank - store inside of RawData
-                    RawData[NumberOfTemperatureDataPoints] = XCoordinate;
+                    RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[0];
                     NumberOfTemperatureDataPoints++;
-                    RawData[NumberOfTemperatureDataPoints] = YCoordinate;
+                    RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[1];
                     NumberOfTemperatureDataPoints++;
-                    RawData[NumberOfTemperatureDataPoints] = ZCoordinate;
+                    RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[2];
                     NumberOfTemperatureDataPoints++;
-                    RawData[NumberOfTemperatureDataPoints] = MeltingTime;
+                    RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[3];
                     NumberOfTemperatureDataPoints++;
-                    RawData[NumberOfTemperatureDataPoints] = LiquidusTime;
+                    RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[4];
                     NumberOfTemperatureDataPoints++;
-                    RawData[NumberOfTemperatureDataPoints] = CoolingRate;
+                    RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[5];
                     NumberOfTemperatureDataPoints++;
                     if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
                         int OldSize = RawData.size();
@@ -1274,7 +1244,7 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                       << std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
         for (int i = StartRange; i < EndRange; i++) {
-
+            // Pos = 3 contains melting time data - not currently used as CA does not yet include remelting
             int Pos = i % 6;
             if (Pos == 0) {
                 XInt = round((RawData[i] - XMin) / deltax) + 2;
@@ -1284,11 +1254,6 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
             }
             else if (Pos == 2) {
                 ZInt = round((RawData[i] + deltax * LayerHeight * LayerCounter - ZMinLayer[LayerCounter]) / deltax);
-            }
-            else if (Pos == 3) {
-                CritTL[ZInt][XInt - LowerXBound][YInt - LowerYBound] = RawData[i];
-                if (RawData[i] < SmallestTime)
-                    SmallestTime = RawData[i];
             }
             else if (Pos == 4) {
                 // Liquidus time - only keep the last time that this point went below the liquidus
