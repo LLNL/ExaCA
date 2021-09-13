@@ -132,17 +132,36 @@ bool parseInputBool(std::ifstream &stream, std::string key) {
 }
 
 // Check to make sure that all expected column names appear in the header for this temperature file
-void checkForValues(std::string HeaderLine, std::string Check1, std::string Check2, std::string Check3) {
-    std::size_t Found1 = HeaderLine.find(Check1);
-    if (Found1 == std::string::npos) {
-        std::size_t Found2 = HeaderLine.find(Check2);
-        if (Found2 == std::string::npos) {
-            std::size_t Found3 = HeaderLine.find(Check3);
-            if (Found3 == std::string::npos) {
-                std::string error = "Error: the required column name " + Check1 + "/" + Check2 + "/" + Check3 +
-                                    " did not appear in the temperature file";
-                throw std::runtime_error(error);
-            }
+void checkForValues(std::string HeaderLine) {
+
+    // Header values from file
+    std::string HeaderValues_Read[6];
+
+    // Alternate header columns possible
+    std::string HeaderValues[6] = {"x", "y", "z", "tm", "ts", "R"};
+    std::string HeaderValuesAlt[6] = {"X", "Y", "Z", "Tm", "Tl", "cr"};
+    std::string HeaderValuesSecondAlt[6] = {"xval", "yval", "zval", "TM", "tl", "r"};
+
+    std::size_t FirstComma = HeaderLine.find(",");
+    std::size_t SecondComma = HeaderLine.find(",", FirstComma + 1);
+    std::size_t ThirdComma = HeaderLine.find(",", SecondComma + 1);
+    std::size_t FourthComma = HeaderLine.find(",", ThirdComma + 1);
+    std::size_t FifthComma = HeaderLine.find(",", FourthComma + 1);
+    HeaderValues_Read[0] = HeaderLine.substr(0, FirstComma);
+    HeaderValues_Read[1] = HeaderLine.substr(FirstComma + 1, SecondComma - FirstComma - 1);
+    HeaderValues_Read[2] = HeaderLine.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
+    HeaderValues_Read[3] = HeaderLine.substr(ThirdComma + 1, FourthComma - ThirdComma - 1);
+    HeaderValues_Read[4] = HeaderLine.substr(FourthComma + 1, FifthComma - FourthComma - 1);
+    HeaderValues_Read[5] = HeaderLine.substr(FifthComma + 1, std::string::npos);
+
+    for (int n = 0; n < 6; n++) {
+        std::regex r("\\s+");
+        std::string val = std::regex_replace(HeaderValues_Read[n], r, "");
+        if ((val.compare(HeaderValues[n]) != 0) && (val.compare(HeaderValuesAlt[n]) != 0) &&
+            (val.compare(HeaderValuesSecondAlt[n]) != 0)) {
+            std::string error = "Error: expected header of temperature file to contain the value " + HeaderValues[n] +
+                                " at position " + std::to_string(n) + " : instead found " + HeaderValues[n];
+            throw std::runtime_error(error);
         }
     }
 }
@@ -769,18 +788,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             // Check 2 mixes of lower and uppercase letters/similar possible column names just in case
             std::string HeaderLine;
             getline(TemperatureFile, HeaderLine);
-            // x coordinate
-            checkForValues(HeaderLine, "x", "X", "xval");
-            // y coordinate
-            checkForValues(HeaderLine, "y", "Y", "yval");
-            // z coordinate
-            checkForValues(HeaderLine, "z", "Z", "zval");
-            // melting time
-            checkForValues(HeaderLine, "tm", "Tm", "TM");
-            // liquidus (solidification start) time
-            checkForValues(HeaderLine, "tl", "Tl", "ts");
-            // cooling rate (instantaneous value, from liquidus temperature)
-            checkForValues(HeaderLine, "cr", "r", "R");
+            checkForValues(HeaderLine);
 
             double XMin_ThisLayer = 1000000.0;
             double XMax_ThisLayer = -1000000.0;
