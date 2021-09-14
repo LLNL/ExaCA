@@ -15,18 +15,10 @@
 //*****************************************************************************/
 //*****************************************************************************/
 // On rank 0, collect data for one single int view
-void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
-                     int np, ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
+void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nz, int MyXSlices, int MyYSlices, int np,
+                     ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
                      ViewI_H RBufSize) {
 
-    // Set int variable to 0 for whole domain and place values for rank 0
-    for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < ny; j++) {
-                IntVar_WholeDomain(k, i, j) = 0;
-            }
-        }
-    }
     for (int k = 1; k < nz - 1; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
@@ -54,9 +46,9 @@ void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nx, int n
 }
 
 // On rank 0, collect data for one single float view
-void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nx, int ny, int nz, int MyXSlices,
-                       int MyYSlices, int np, ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices,
-                       ViewI_H RecvYSlices, ViewI_H RBufSize) {
+void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nz, int MyXSlices, int MyYSlices, int np,
+                       ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
+                       ViewI_H RBufSize) {
 
     // Set float variable to 0 for whole domain and place values for rank 0
     for (int k = 1; k < nz - 1; k++) {
@@ -86,8 +78,8 @@ void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nx,
 }
 
 // On rank 0, collect data for one single bool array (and convert it to integer 0s and 1s for MPI)
-void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
-                      int np, ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
+void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int MyXSlices, int MyYSlices, int np,
+                      ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
                       ViewI_H RBufSize) {
 
     // Resize bool variable for whole domain and place values for rank 0
@@ -96,8 +88,6 @@ void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nx, int n
             for (int j = 1; j < MyYSlices - 1; j++) {
                 if (BoolVar[k * MyXSlices * MyYSlices + i * MyYSlices + j])
                     IntVar_WholeDomain(k, i - 1, j - 1) = 1;
-                else
-                    IntVar_WholeDomain(k, i - 1, j - 1) = 0;
             }
         }
     }
@@ -219,44 +209,47 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
         // These views are allocated as size 0 x 0 x 0, and resized to nz by nx by ny, or size 0 by 0 by 0 if being
         // collected/printed on rank 0 (to avoid allocating memory unncessarily)
         // Utilize the fact that kokkos automatically initializes all values in these views to 0
-        ViewI3D_H GrainID_WholeDomain("GrainID_WholeDomain", 0, 0, 0);
-        ViewI3D_H LayerID_WholeDomain("LayerID_WholeDomain", 0, 0, 0);
-        ViewI3D_H Melted_WholeDomain("Melted_WholeDomain", 0, 0, 0);
-        ViewI3D_H CritTimeStep_WholeDomain("CritTimeStep_WholeDomain_WholeDomain", 0, 0, 0);
-        ViewI3D_H CellType_WholeDomain("CellType_WholeDomain", 0, 0, 0);
-        ViewF3D_H UndercoolingChange_WholeDomain("UndercoolingChange_WholeDomain", 0, 0, 0);
-        ViewF3D_H UndercoolingCurrent_WholeDomain("UndercoolingCurrent_WholeDomain", 0, 0, 0);
+        ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), 0, 0, 0);
+        ViewI3D_H LayerID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("LayerID_WholeDomain"), 0, 0, 0);
+        ViewI3D_H Melted_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("Melted_WholeDomain"), 0, 0, 0);
+        ViewI3D_H CritTimeStep_WholeDomain(
+            Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_WholeDomain_WholeDomain"), 0, 0, 0);
+        ViewI3D_H CellType_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("CellType_WholeDomain"), 0, 0, 0);
+        ViewF3D_H UndercoolingChange_WholeDomain(
+            Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_WholeDomain"), 0, 0, 0);
+        ViewF3D_H UndercoolingCurrent_WholeDomain(
+            Kokkos::ViewAllocateWithoutInitializing("UndercoolingCurrent_WholeDomain"), 0, 0, 0);
 
         if ((PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput)) {
             Kokkos::resize(GrainID_WholeDomain, nz, nx, ny);
-            CollectIntField(GrainID_WholeDomain, GrainID, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,
-                            RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectIntField(GrainID_WholeDomain, GrainID, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+                            RecvXSlices, RecvYSlices, RBufSize);
         }
         if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2)) {
             Kokkos::resize(Melted_WholeDomain, nz, nx, ny);
-            CollectBoolField(Melted_WholeDomain, Melted, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+            CollectBoolField(Melted_WholeDomain, Melted, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                              RecvXSlices, RecvYSlices, RBufSize);
         }
         if ((PrintFullOutput) || (PrintDebug > 0)) {
             Kokkos::resize(LayerID_WholeDomain, nz, nx, ny);
-            CollectIntField(LayerID_WholeDomain, LayerID, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,
-                            RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectIntField(LayerID_WholeDomain, LayerID, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+                            RecvXSlices, RecvYSlices, RBufSize);
         }
         if (PrintDebug > 0) {
             Kokkos::resize(CellType_WholeDomain, nz, nx, ny);
             Kokkos::resize(CritTimeStep_WholeDomain, nz, nx, ny);
-            CollectIntField(CellType_WholeDomain, CellType, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,
-                            RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
-            CollectIntField(CritTimeStep_WholeDomain, CritTimeStep, nx, ny, nz, MyXSlices, MyYSlices, np, RecvXOffset,
+            CollectIntField(CellType_WholeDomain, CellType, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+                            RecvXSlices, RecvYSlices, RBufSize);
+            CollectIntField(CritTimeStep_WholeDomain, CritTimeStep, nz, MyXSlices, MyYSlices, np, RecvXOffset,
                             RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
         if (PrintDebug == 2) {
             Kokkos::resize(UndercoolingChange_WholeDomain, nz, nx, ny);
             Kokkos::resize(UndercoolingCurrent_WholeDomain, nz, nx, ny);
-            CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange, nx, ny, nz, MyXSlices, MyYSlices, np,
+            CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange, nz, MyXSlices, MyYSlices, np,
                               RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
-            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent, nx, ny, nz, MyXSlices, MyYSlices,
-                              np, RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent, nz, MyXSlices, MyYSlices, np,
+                              RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
 
         if (PrintMisorientation)
