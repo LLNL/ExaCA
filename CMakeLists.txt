@@ -9,6 +9,11 @@ find_package(MPI REQUIRED)
 
 add_subdirectory(src)
 
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ExaCAconfig.cmakein
+  ${CMAKE_CURRENT_BINARY_DIR}/ExaCAconfig.cmake @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ExaCAconfig.cmake"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ExaCA)
+
 include(CTest)
 #add_subdirectory(unit_test)
 if(${BUILD_TESTING})

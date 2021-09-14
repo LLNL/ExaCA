@@ -23,8 +23,14 @@ target_link_libraries(ExaCA PUBLIC
     Kokkos::kokkos
 )
 target_include_directories(ExaCA PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-install(TARGETS ExaCA DESTINATION lib)
+
+install(TARGETS ExaCA
+  EXPORT ExaCA_Targets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_library(ExaCA::ExaCA ALIAS ExaCA)
 
 add_executable(ExaCA-Kokkos main.cpp)
 target_link_libraries(ExaCA-Kokkos ExaCA)
-install(TARGETS ExaCA-Kokkos DESTINATION bin)
+install(TARGETS ExaCA-Kokkos DESTINATION ${CMAKE_INSTALL_BINDIR})
