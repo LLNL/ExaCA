@@ -9,6 +9,7 @@
 
 #include "mpi.h"
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -131,62 +132,70 @@ bool parseInputBool(std::ifstream &stream, std::string key) {
     }
 }
 
+// Given a line "s", parse at the commas and return the parsed values as strings in "ParsedLine"
+// If AllColumns = true, return all 6 values; otherwise, only parse the first 3 commas/values
+void parseStringAtCommas(std::string s, bool AllColumns, std::string (&ParsedLine)[6]) {
+    std::size_t FirstComma = s.find(",");
+    std::size_t SecondComma = s.find(",", FirstComma + 1);
+    std::size_t ThirdComma = s.find(",", SecondComma + 1);
+    ParsedLine[0] = s.substr(0, FirstComma);
+    ParsedLine[1] = s.substr(FirstComma + 1, SecondComma - FirstComma - 1);
+    ParsedLine[2] = s.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
+    if (AllColumns) {
+        std::size_t FourthComma = s.find(",", ThirdComma + 1);
+        std::size_t FifthComma = s.find(",", FourthComma + 1);
+        ParsedLine[3] = s.substr(ThirdComma + 1, FourthComma - ThirdComma - 1);
+        ParsedLine[4] = s.substr(FourthComma + 1, FifthComma - FourthComma - 1);
+        ParsedLine[5] = s.substr(FifthComma + 1, std::string::npos);
+    }
+}
+
 // Check to make sure that all expected column names appear in the header for this temperature file
 void checkForValues(std::string HeaderLine) {
 
     // Header values from file
     std::string HeaderValues_Read[6];
+    parseStringAtCommas(HeaderLine, true, HeaderValues_Read);
 
-    // Alternate header columns possible
-    std::string HeaderValues[6] = {"x", "y", "z", "tm", "ts", "R"};
-    std::string HeaderValuesAlt[6] = {"X", "Y", "Z", "Tm", "Tl", "cr"};
-    std::string HeaderValuesSecondAlt[6] = {"xval", "yval", "zval", "TM", "tl", "r"};
-
-    std::size_t FirstComma = HeaderLine.find(",");
-    std::size_t SecondComma = HeaderLine.find(",", FirstComma + 1);
-    std::size_t ThirdComma = HeaderLine.find(",", SecondComma + 1);
-    std::size_t FourthComma = HeaderLine.find(",", ThirdComma + 1);
-    std::size_t FifthComma = HeaderLine.find(",", FourthComma + 1);
-    HeaderValues_Read[0] = HeaderLine.substr(0, FirstComma);
-    HeaderValues_Read[1] = HeaderLine.substr(FirstComma + 1, SecondComma - FirstComma - 1);
-    HeaderValues_Read[2] = HeaderLine.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
-    HeaderValues_Read[3] = HeaderLine.substr(ThirdComma + 1, FourthComma - ThirdComma - 1);
-    HeaderValues_Read[4] = HeaderLine.substr(FourthComma + 1, FifthComma - FourthComma - 1);
-    HeaderValues_Read[5] = HeaderLine.substr(FifthComma + 1, std::string::npos);
-
+    // Case insensitive comparisons - remove whitespace as well
+    std::string HeaderValues_lowercase[6];
     for (int n = 0; n < 6; n++) {
         std::regex r("\\s+");
         std::string val = std::regex_replace(HeaderValues_Read[n], r, "");
-        if ((val.compare(HeaderValues[n]) != 0) && (val.compare(HeaderValuesAlt[n]) != 0) &&
-            (val.compare(HeaderValuesSecondAlt[n]) != 0)) {
-            std::string error = "Error: expected header of temperature file to contain the value " + HeaderValues[n] +
-                                " at position " + std::to_string(n) + " : instead found " + HeaderValues[n];
-            throw std::runtime_error(error);
-        }
+        std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+        HeaderValues_lowercase[n] = val;
     }
+
+    // Check each header column label against the expected value(s) - throw error if no match
+    if (HeaderValues_lowercase[0] != "x")
+        throw std::runtime_error("x not found in temperature file header");
+    if (HeaderValues_lowercase[1] != "y")
+        throw std::runtime_error("y not found in temperature file header");
+    if (HeaderValues_lowercase[2] != "z")
+        throw std::runtime_error("z not found in temperature file header");
+    if (HeaderValues_lowercase[3] != "tm")
+        throw std::runtime_error("tm not found in temperature file header");
+    if ((HeaderValues_lowercase[4] != "tl") && (HeaderValues_lowercase[4] != "ts"))
+        throw std::runtime_error("tl/ts not found in temperature file header");
+    if ((HeaderValues_lowercase[5] != "r") && (HeaderValues_lowercase[5] != "cr"))
+        throw std::runtime_error("r/cr not found in temperature file header");
 }
 
 // From comma separated data on this line, obtain the x, y, and z coordinates
 // if AllColumns = true, also obtain the melting, liquidus, and cooling rate values
 void getTemperatureDataPoint(std::string s, double (&XYZTemperaturePoint)[6], bool AllColumns) {
-    std::size_t FirstComma = s.find(",");
-    std::size_t SecondComma = s.find(",", FirstComma + 1);
-    std::size_t ThirdComma = s.find(",", SecondComma + 1);
-    std::string XCoordinateS = s.substr(0, FirstComma);
-    std::string YCoordinateS = s.substr(FirstComma + 1, SecondComma - FirstComma - 1);
-    std::string ZCoordinateS = s.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
-    XYZTemperaturePoint[0] = stod(XCoordinateS);
-    XYZTemperaturePoint[1] = stod(YCoordinateS);
-    XYZTemperaturePoint[2] = stod(ZCoordinateS);
+
+    // temperature values from file as strings
+    std::string TemperatureValues_Read[6];
+    parseStringAtCommas(s, AllColumns, TemperatureValues_Read);
+    // temperature values from file as doubles
+    XYZTemperaturePoint[0] = stod(TemperatureValues_Read[0]);
+    XYZTemperaturePoint[1] = stod(TemperatureValues_Read[1]);
+    XYZTemperaturePoint[2] = stod(TemperatureValues_Read[2]);
     if (AllColumns) {
-        std::size_t FourthComma = s.find(",", ThirdComma + 1);
-        std::size_t FifthComma = s.find(",", FourthComma + 1);
-        std::string MeltingTimeS = s.substr(ThirdComma + 1, FourthComma - ThirdComma - 1);
-        std::string LiquidusTimeS = s.substr(FourthComma + 1, FifthComma - FourthComma - 1);
-        std::string CoolingRateS = s.substr(FifthComma + 1, std::string::npos);
-        XYZTemperaturePoint[3] = stod(MeltingTimeS);
-        XYZTemperaturePoint[4] = stod(LiquidusTimeS);
-        XYZTemperaturePoint[5] = stod(CoolingRateS);
+        XYZTemperaturePoint[3] = stod(TemperatureValues_Read[3]);
+        XYZTemperaturePoint[4] = stod(TemperatureValues_Read[4]);
+        XYZTemperaturePoint[5] = stod(TemperatureValues_Read[5]);
     }
 }
 
