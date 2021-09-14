@@ -418,6 +418,17 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
 
     int NucleatedGrainCells = 0;
     int MeltedCells = 0;
+    ViewI GrainMisorientation_Round(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NGrainOrientations);
+    for (int n = 0; n < NGrainOrientations; n++) {
+        double AngleZmin = 62.7;
+        for (int ll = 0; ll < 3; ll++) {
+            double AngleZ = abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
+            if (AngleZ < AngleZmin) {
+                AngleZmin = AngleZ;
+            }
+        }
+        GrainMisorientation_Round(n) = round(AngleZmin);
+    }
     for (int k = 1; k < nz - 1; k++) {
         for (int j = 1; j < ny - 1; j++) {
             for (int i = 1; i < nx - 1; i++) {
@@ -428,19 +439,12 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
                     int RoundedAngle;
                     int MyOrientation =
                         GrainOrientation(((abs(GrainID_WholeDomain(k, i, j)) - 1) % NGrainOrientations));
-                    double AngleZmin = 62.7;
-                    for (int ll = 0; ll < 3; ll++) {
-                        double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * MyOrientation + 3 * ll + 2)));
-                        if (AngleZ < AngleZmin) {
-                            AngleZmin = AngleZ;
-                        }
-                    }
                     if (GrainID_WholeDomain(k, i, j) < 0) {
-                        RoundedAngle = round(AngleZmin) + 100;
+                        RoundedAngle = GrainMisorientation_Round(MyOrientation) + 100;
                         NucleatedGrainCells++;
                     }
                     else
-                        RoundedAngle = round(AngleZmin);
+                        RoundedAngle = GrainMisorientation_Round(MyOrientation);
                     GrainplotM << RoundedAngle << " ";
                 }
             }

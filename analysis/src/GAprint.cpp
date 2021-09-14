@@ -32,24 +32,29 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
     long double MisorientationSum = 0.0;
     int NumberOfMeltedCellsTop = 0;
     long double MisorientationSumTop = 0.0;
+    ViewF GrainMisorientation(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NumberOfOrientations);
+    for (int n = 0; n < NumberOfOrientations; n++) {
+        double AngleZmin = 62.7;
+        for (int ll = 0; ll < 3; ll++) {
+            double AngleZ = abs((180 / M_PI) * acos(GrainUnitVector(0, ll, 2)));
+            if (AngleZ < AngleZmin) {
+                AngleZmin = AngleZ;
+            }
+        }
+        GrainMisorientation(n) = AngleZmin;
+    }
     for (int k = ZMin; k <= ZMax; k++) {
         for (int i = XMin; i <= XMax; i++) {
             for (int j = YMin; j <= YMax; j++) {
                 // Only take data from cells in the representative area that underwent melting
                 if (Melted(k, i, j) == 1) {
                     int MyOrientation = ((abs(GrainID(k, i, j)) - 1) % NumberOfOrientations);
-                    double AngleZmin = 62.7;
-                    for (int ll = 0; ll < 3; ll++) {
-                        double AngleZ = abs((180 / M_PI) * acos(GrainUnitVector(MyOrientation, ll, 2)));
-                        if (AngleZ < AngleZmin) {
-                            AngleZmin = AngleZ;
-                        }
-                    }
+                    float MyMisorientation = GrainMisorientation(MyOrientation);
                     if (AnalysisTypes[0])
-                        MisorientationPlot << AngleZmin << std::endl;
-                    MisorientationSum += AngleZmin;
+                        MisorientationPlot << MyMisorientation << std::endl;
+                    MisorientationSum += MyMisorientation;
                     if (k == ZMax) {
-                        MisorientationSumTop += AngleZmin;
+                        MisorientationSumTop += MyMisorientation;
                         NumberOfMeltedCellsTop++;
                     }
                     NumberOfMeltedCells++;
