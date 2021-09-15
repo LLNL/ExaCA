@@ -40,7 +40,7 @@ std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon)
         std::getline(stream, line);
         colon = line.find(":");
         actual_key = line.substr(0, colon);
-        // Check for colon seperator
+        // Check for colon separator
         if (colon == std::string::npos) {
             std::string error = "Input \"" + actual_key + "\" must be separated from value by \":\".";
             throw std::runtime_error(error);
@@ -61,9 +61,9 @@ std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon)
 }
 
 // Remove whitespace from "line", taking only the portion of the line that comes after the colon
-std::string removeWhitespace(std::string line, std::size_t colon) {
+std::string removeWhitespace(std::string line, int pos = -1) {
 
-    std::string val = line.substr(colon + 1, std::string::npos);
+    std::string val = line.substr(pos + 1, std::string::npos);
     std::regex r("\\s+");
     val = std::regex_replace(val, r, "");
     return val;
@@ -134,69 +134,55 @@ bool parseInputBool(std::ifstream &stream, std::string key) {
 
 // Given a line "s", parse at the commas and return the parsed values as strings in "ParsedLine"
 // If AllColumns = true, return all 6 values; otherwise, only parse the first 3 commas/values
-void parseStringAtCommas(std::string s, bool AllColumns, std::string (&ParsedLine)[6]) {
-    std::size_t FirstComma = s.find(",");
-    std::size_t SecondComma = s.find(",", FirstComma + 1);
-    std::size_t ThirdComma = s.find(",", SecondComma + 1);
-    ParsedLine[0] = s.substr(0, FirstComma);
-    ParsedLine[1] = s.substr(FirstComma + 1, SecondComma - FirstComma - 1);
-    ParsedLine[2] = s.substr(SecondComma + 1, ThirdComma - SecondComma - 1);
-    if (AllColumns) {
-        std::size_t FourthComma = s.find(",", ThirdComma + 1);
-        std::size_t FifthComma = s.find(",", FourthComma + 1);
-        ParsedLine[3] = s.substr(ThirdComma + 1, FourthComma - ThirdComma - 1);
-        ParsedLine[4] = s.substr(FourthComma + 1, FifthComma - FourthComma - 1);
-        ParsedLine[5] = s.substr(FifthComma + 1, std::string::npos);
+void splitString(std::string line, std::vector<std::string> &parsed_line, std::string separator = ",") {
+    std::size_t line_size = parsed_line.size();
+    for (std::size_t n = 0; n < line_size - 1; n++) {
+        std::size_t pos = line.find(separator);
+        parsed_line[n] = line.substr(0, pos);
+        line = line.substr(pos + 1, std::string::npos);
     }
+    parsed_line[line_size - 1] = line;
 }
 
 // Check to make sure that all expected column names appear in the header for this temperature file
-void checkForValues(std::string HeaderLine) {
+void checkForHeaderValues(std::string header_line) {
 
     // Header values from file
-    std::string HeaderValues_Read[6];
-    parseStringAtCommas(HeaderLine, true, HeaderValues_Read);
+    std::size_t header_size = 6;
+    std::vector<std::string> header_values(header_size, "");
+    splitString(header_line, header_values);
 
-    // Case insensitive comparisons - remove whitespace as well
-    std::string HeaderValues_lowercase[6];
-    for (int n = 0; n < 6; n++) {
-        std::regex r("\\s+");
-        std::string val = std::regex_replace(HeaderValues_Read[n], r, "");
+    std::vector<std::vector<std::string>> expected_values = {{"x"}, {"y"}, {"z"}, {"tm"}, {"tl", "ts"}, {"r", "cr"}};
+
+    // Case insensitive comparison
+    for (std::size_t n = 0; n < header_size; n++) {
+        auto val = removeWhitespace(header_values[n]);
         std::transform(val.begin(), val.end(), val.begin(), ::tolower);
-        HeaderValues_lowercase[n] = val;
-    }
 
-    // Check each header column label against the expected value(s) - throw error if no match
-    if (HeaderValues_lowercase[0] != "x")
-        throw std::runtime_error("x not found in temperature file header");
-    if (HeaderValues_lowercase[1] != "y")
-        throw std::runtime_error("y not found in temperature file header");
-    if (HeaderValues_lowercase[2] != "z")
-        throw std::runtime_error("z not found in temperature file header");
-    if (HeaderValues_lowercase[3] != "tm")
-        throw std::runtime_error("tm not found in temperature file header");
-    if ((HeaderValues_lowercase[4] != "tl") && (HeaderValues_lowercase[4] != "ts"))
-        throw std::runtime_error("tl/ts not found in temperature file header");
-    if ((HeaderValues_lowercase[5] != "r") && (HeaderValues_lowercase[5] != "cr"))
-        throw std::runtime_error("r/cr not found in temperature file header");
+        // Check each header column label against the expected value(s) - throw error if no match
+        std::size_t options_size = expected_values[n].size();
+        for (std::size_t e = 0; e < options_size; e++) {
+            auto ev = expected_values[n][e];
+            if (val == ev)
+                break;
+            else if (e == options_size - 1)
+                throw std::runtime_error(ev + " not found in temperature file header");
+        }
+    }
 }
 
 // From comma separated data on this line, obtain the x, y, and z coordinates
 // if AllColumns = true, also obtain the melting, liquidus, and cooling rate values
-void getTemperatureDataPoint(std::string s, double (&XYZTemperaturePoint)[6], bool AllColumns) {
+void getTemperatureDataPoint(std::string s, std::vector<double> &XYZTemperaturePoint) {
 
     // temperature values from file as strings
-    std::string TemperatureValues_Read[6];
-    parseStringAtCommas(s, AllColumns, TemperatureValues_Read);
-    // temperature values from file as doubles
-    XYZTemperaturePoint[0] = stod(TemperatureValues_Read[0]);
-    XYZTemperaturePoint[1] = stod(TemperatureValues_Read[1]);
-    XYZTemperaturePoint[2] = stod(TemperatureValues_Read[2]);
-    if (AllColumns) {
-        XYZTemperaturePoint[3] = stod(TemperatureValues_Read[3]);
-        XYZTemperaturePoint[4] = stod(TemperatureValues_Read[4]);
-        XYZTemperaturePoint[5] = stod(TemperatureValues_Read[5]);
-    }
+    std::size_t point_size = XYZTemperaturePoint.size();
+    std::vector<std::string> TemperatureValues_Read(point_size, "");
+    splitString(s, TemperatureValues_Read);
+
+    // convert to double
+    for (std::size_t n = 0; n < point_size; n++)
+        XYZTemperaturePoint[n] = stod(TemperatureValues_Read[n]);
 }
 
 //*****************************************************************************/
@@ -797,7 +783,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
             // Check 2 mixes of lower and uppercase letters/similar possible column names just in case
             std::string HeaderLine;
             getline(TemperatureFile, HeaderLine);
-            checkForValues(HeaderLine);
+            checkForHeaderValues(HeaderLine);
 
             double XMin_ThisLayer = 1000000.0;
             double XMax_ThisLayer = -1000000.0;
@@ -815,8 +801,8 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                 if (s.empty())
                     break;
                 // Only get x, y, and z values
-                double XYZTemperaturePoint[6];
-                getTemperatureDataPoint(s, XYZTemperaturePoint, false);
+                std::vector<double> XYZTemperaturePoint(3, 0);
+                getTemperatureDataPoint(s, XYZTemperaturePoint);
                 XCoordinates[XYZPointCounter] = XYZTemperaturePoint[0];
                 YCoordinates[XYZPointCounter] = XYZTemperaturePoint[1];
                 ZCoordinates[XYZPointCounter] = XYZTemperaturePoint[2];
@@ -974,8 +960,8 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                 if (s.empty())
                     break;
                 // Get x, y, z, melting, liquidus, and cooling rate values
-                double XYZTemperaturePoint[6];
-                getTemperatureDataPoint(s, XYZTemperaturePoint, true);
+                std::vector<double> XYZTemperaturePoint(6, 0);
+                getTemperatureDataPoint(s, XYZTemperaturePoint);
 
                 // Check the CA grid positions of the data point to see which rank(s) should store it
                 int XInt = 0, YInt = 0;
