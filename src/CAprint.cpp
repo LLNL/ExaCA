@@ -418,7 +418,8 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
 
     int NucleatedGrainCells = 0;
     int MeltedCells = 0;
-    ViewI GrainMisorientation_Round(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NGrainOrientations);
+    ViewI_H GrainMisorientation_Round(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"),
+                                      NGrainOrientations);
     for (int n = 0; n < NGrainOrientations; n++) {
         double AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {

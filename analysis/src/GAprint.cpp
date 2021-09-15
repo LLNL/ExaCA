@@ -32,7 +32,7 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
     long double MisorientationSum = 0.0;
     int NumberOfMeltedCellsTop = 0;
     long double MisorientationSumTop = 0.0;
-    ViewF GrainMisorientation(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NumberOfOrientations);
+    ViewF_H GrainMisorientation(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NumberOfOrientations);
     for (int n = 0; n < NumberOfOrientations; n++) {
         double AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
