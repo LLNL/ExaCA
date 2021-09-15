@@ -22,7 +22,10 @@ typedef Kokkos::View<float *> TestView;
 using exe_space = Kokkos::DefaultExecutionSpace::execution_space;
 typedef typename exe_space::array_layout layout;
 typedef Kokkos::View<float *, layout, Kokkos::HostSpace> ViewF_H;
+typedef Kokkos::View<float **, layout, Kokkos::HostSpace> ViewF2D_H;
+typedef Kokkos::View<float ***, layout, Kokkos::HostSpace> ViewF3D_H;
 typedef Kokkos::View<int *, layout, Kokkos::HostSpace> ViewI_H;
 typedef Kokkos::View<int **, layout, Kokkos::HostSpace> ViewI2D_H;
+typedef Kokkos::View<int ***, layout, Kokkos::HostSpace> ViewI3D_H;
 
 #endif

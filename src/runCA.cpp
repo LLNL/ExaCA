@@ -26,8 +26,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     bool ExtraWalls = false; // If simulating a spot melt problem where the side walls are not part of the substrate,
                              // this is changed to true in the input file
-    bool PrintFilesYN, RemeltingYN, UseSubstrateFile;
-    bool FilesToPrint[6] = {0}; // Which specific files to print are specified in the input file
+    int PrintDebug;
+    bool PrintMisorientation, PrintFullOutput, RemeltingYN, UseSubstrateFile;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange,
         NMax, dTN, dTsigma;
@@ -38,8 +38,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile,
                       TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
                       SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                      FractSurfaceSitesActive, PathToOutput, FilesToPrint, PrintFilesYN, NSpotsX, NSpotsY, SpotOffset,
-                      SpotRadius);
+                      FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput, NSpotsX,
+                      NSpotsY, SpotOffset, SpotRadius);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -127,9 +127,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   << nz << " cells in the Z direction" << std::endl;
 
     int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive; // Number of active cells on this MPI rank
-
-    // PrintTempValues(id,np,nx,ny,nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection, LayerID_H,
-    // DecompositionStrategy,PathToOutput);
 
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     ViewF_H GrainUnitVector_H(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
@@ -266,9 +263,19 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                        CritDiagonalLength_G);
     }
 
+    // If specified, print initial values in some views for debugging purposes
     double InitTime = MPI_Wtime() - StartTime;
     if (id == 0)
-        std::cout << "\nData initialized: Time spent: " << InitTime << " s" << std::endl;
+        std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
+    if (PrintDebug) {
+        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
+                       GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
+                       UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
+                       NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false);
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (id == 0)
+            std::cout << "Initialization data file(s) printed" << std::endl;
+    }
     cycle = 0;
 
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
@@ -415,12 +422,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     Kokkos::deep_copy(CellType_H, CellType_G);
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if (PrintFilesYN) {
+    if ((PrintMisorientation) || (PrintFullOutput)) {
         if (id == 0)
             std::cout << "Collecting data on rank 0 and printing to files" << std::endl;
-        CollectGrainData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
-                         GrainID_H, GrainOrientation_H, GrainUnitVector_H, OutputFile, DecompositionStrategy,
-                         NGrainOrientations, Melted, PathToOutput, FilesToPrint, deltax);
+        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
+                       GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
+                       UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
+                       NGrainOrientations, Melted, PathToOutput, 0, PrintMisorientation, PrintFullOutput);
     }
     else {
         if (id == 0)
@@ -441,26 +449,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Allreduce(&OutTime, &OutMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
-    if (id == 0) {
-        std::cout << "===================================================================================" << std::endl;
-        std::cout << "Having run with = " << np << " processors" << std::endl;
-        std::cout << "Output written at cycle = " << cycle << std::endl;
-        std::cout << "Total time = " << InitTime + RunTime + OutTime << std::endl;
-        std::cout << "Time spent initializing data = " << InitTime << " s" << std::endl;
-        std::cout << "Time spent performing CA calculations = " << RunTime << " s" << std::endl;
-        std::cout << "Time spent collecting and printing output data = " << OutTime << " s\n" << std::endl;
-
-        std::cout << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s\n"
-                  << std::endl;
-
-        std::cout << "===================================================================================" << std::endl;
-    }
+    PrintExaCALog(id, np, InputFile, SimulationType, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
+                  AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, tempfile,
+                  TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
+                  SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
+                  NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
+                  InitMinTime, NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
+                  OutMaxTime, OutMinTime);
 }

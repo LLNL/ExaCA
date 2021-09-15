@@ -19,10 +19,10 @@
 
 //*****************************************************************************/
 // Skip initial lines in input files.
-void skipLines(std::ifstream &stream) {
+void skipLines(std::ifstream &stream, std::string seperator) {
     std::string line;
     while (getline(stream, line)) {
-        if (line == "*****")
+        if (line == seperator)
             break;
     }
 }
@@ -174,8 +174,9 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
                        int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
                        bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput, bool (&FilesToPrint)[6],
-                       bool &PrintFilesYN, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius) {
+                       double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
+                       bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset,
+                       int &SpotRadius) {
 
     // Get full path to input file.
     std::string FilePath;
@@ -462,24 +463,55 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             std::cout << "The domain size is " << nx << " by " << ny << " by " << nz << " cells" << std::endl;
     }
     // Which files should be printed?
-    std::string FileYN;
-    // Orientations file
-    FilesToPrint[0] = parseInputBool(InputData, "Print file of grain orientations");
-    // csv file of grain ids
-    FilesToPrint[1] = parseInputBool(InputData, "Print csv file of grain id values");
-    // csv file of x,y,z,grainid for ExaConstit
-    FilesToPrint[2] = parseInputBool(InputData, "Print csv file of ExaConstit-formatted grain id values");
-    // vtk file of grain misorientations
-    FilesToPrint[3] = parseInputBool(InputData, "Print Paraview vtk file of grain misorientation values");
-    // file of grain areas
-    FilesToPrint[4] = parseInputBool(InputData, "Print file of grain area values");
-    // file of weighted grain areas
-    FilesToPrint[5] = parseInputBool(InputData, "Print file of weighted grain area value");
-    if ((!(FilesToPrint[0])) && (!(FilesToPrint[1])) && (!(FilesToPrint[2])) && (!(FilesToPrint[3])) &&
-        (!(FilesToPrint[4])) && (!(FilesToPrint[5])))
-        PrintFilesYN = false;
-    else
-        PrintFilesYN = true;
+    // Check if new (August 2021) or old file printing options are present
+    int Fileprintoptions = 0;
+    val = parseInputMultiple(InputData, "Print file of grain orientations", "Output data printing options",
+                             Fileprintoptions);
+    if (Fileprintoptions == 1) {
+        if (id == 0)
+            std::cout << "Warning: old input file format detected - code no longer supports some printing options. The "
+                         "code will still output Paraview vtk file of grain misorientations if that option is toggled "
+                         "in the input file; other toggled output data options will trigger the printing of a separate "
+                         "vtk file of layer ID, grain ID, and melting status of all cells. Obtaining data from this "
+                         "(such as grain area values, of grain orientation frequencies) are now done via "
+                         "post-processing rather than as part of ExaCA"
+                      << std::endl;
+        bool OldPrintValues[6] = {0};
+        PrintDebug = false;
+        // Old file print options specified
+        if (val == "Y")
+            OldPrintValues[0] = true;
+        OldPrintValues[1] = parseInputBool(InputData, "Print csv file of grain id values");
+        OldPrintValues[2] = parseInputBool(InputData, "Print csv file of ExaConstit-formatted grain id values");
+        OldPrintValues[3] = parseInputBool(InputData, "Print Paraview vtk file of grain misorientation values");
+        OldPrintValues[4] = parseInputBool(InputData, "Print file of grain area values");
+        OldPrintValues[5] = parseInputBool(InputData, "Print file of weighted grain area value");
+        if (OldPrintValues[3])
+            PrintMisorientation = true;
+        else
+            PrintMisorientation = false;
+        if (OldPrintValues[0] + OldPrintValues[1] + OldPrintValues[2] + OldPrintValues[4] + OldPrintValues[5] > 0)
+            PrintFullOutput = true;
+        else
+            PrintFullOutput = false;
+    }
+    else if (Fileprintoptions == 2) {
+        // New file print options specified - parse remaining lines
+        PrintMisorientation = parseInputBool(InputData, "Paraview vtk file of grain misorientation");
+        PrintFullOutput = parseInputBool(InputData, "Paraview vtk file of all ExaCA data");
+        bool PrintDebugA = parseInputBool(InputData, "Print data for main Kokkos views");
+        bool PrintDebugB = parseInputBool(InputData, "Print data for all main data structures");
+        // Which (if any) files should be printed following initialization for debugging?
+        // PrintDebug = 0 - none
+        // PrintDebug = 1 - CellType, LayerID, CritTimeStep only
+        // PrintDebug = 2 - all
+        if (PrintDebugB)
+            PrintDebug = 2;
+        else if (PrintDebugA)
+            PrintDebug = 1;
+        else
+            PrintDebug = 0;
+    }
     InputData.close();
 
     if (id == 0) {
@@ -1470,7 +1502,8 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                             Melted[Coord3D1D] = true;
                             CritTimeStep(Coord3D1D) = round(CTLiq / deltat);
                             LayerID(Coord3D1D) = LayerCounter;
-                            UndercoolingChange(Coord3D1D) = abs(CR[k][ii - LowerXBound][jj - LowerYBound]) * deltat;
+                            UndercoolingChange(Coord3D1D) =
+                                std::abs(CR[k][ii - LowerXBound][jj - LowerYBound]) * deltat;
                         }
                     }
                 }

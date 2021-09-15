@@ -156,6 +156,16 @@ Run by calling the created executable with an ExaCA input file:
 ```
 mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ```
+## Post-processing analysis
+
+If the "Print Paraview vtk file" option is turned on within an input file, post-processing can be performed on the output data set. This functionality is a separate executable from ExaCA, located in the `analysis/` directory and is linked to the ExaCA library for input utilities. 
+
+Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` and `TestProblemDirS.log`. To analyze this data, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with one command line argument pointing to the analysis input file. Within the `analysis/examples` directory, there are example analysis input files:
+
+```
+./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
+```
+Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file.
 
 ## Contributing
 

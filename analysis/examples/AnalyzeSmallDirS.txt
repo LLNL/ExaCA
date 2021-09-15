@@ -1,0 +1,41 @@
+Used in post-processing script to analyze select ExaCA outputs
+*****
+Path to/name of log (.log) file associated with the microstructure of interest: TestProblemSmallDirS.log
+Path to/name of microstructure (.vtk) file: TestProblemSmallDirS.vtk
+Path to file of grain orientations (rotation matrix form): ../../examples/Substrate/GrainOrientationVectors_Robert.csv
+Path to/base (without file extension) name of data files of output resulting from this analysis: TestProblemSmallDirS
+**********
+SECTION 1: ExaConstit representative volume elements: lines have the format [size, center x, center y, center z]
+Multiple RVEs can be printed as long as they are formatted as above and on separate lines
+Size of the RVE domain is given in cells (must be less than domain dimensions)
+Center x, center y, and center z are the location (in cells) of the center of this RVE (If "D" is given as any of the inputs, the RVE will be taken to be as close to the domain center in x and y as possible, and as close to the top of the domain in z as possible while avoiding the last layer's microstructure)
+If no ExaConstit data should be printed, no lines should exist between the short and long lines of asterisks below
+*****
+**********
+SECTION 2: Cross-sections for MTEX inverse pole figure plots: lines have the format [plane, out of plane coordinate]
+Plane should be XY, YZ, or XZ
+Out of plane coordinate is the location of the plane (for example [XY, 100] would be the XY plane located at Z = 100)
+If "D" is given as the out of plane coordinate, the plane that bisects the microstructure is chosen
+If "END" is given as the out of plane coordinate, the largest possible out of plane coordinate is used ([XY, END] gives the top surface)
+If no cross-section data should be printed, no lines should exist between the short and long lines of asterisks below
+*****
+[XZ, 10]
+[XY, END]
+**********
+SECTION 3: Y/N Options for data analysis of representative regions
+X Bounds (in cells) [XLow, XHigh] (Putting "D" as either option will take the full size in X minus 50 cells from each edge)
+Y Bounds (in cells) [YLow, High] (Putting "D" as either option will take the full size in Y minus 50 cells from each edge)
+Z Bounds (in cells) [ZLow, ZHigh] (Putting "D" as ZLow will attempt to start from the lowest Z that doesn't include substrate based on the XY size; putting "D" as ZHigh will attempt to end at the Z as close to the top of the domain in z as possible while avoiding the last layer's microstructure. If either of these aren't possible, it will default to using the entirety of the domain in Z)
+Regardless of toggled options, code will do some (relatively quick) default analysis on the XY cross-section as close to the top of the domain in z as possible while avoiding the last layer's microstructure, as well as on the representative region (spanning the domain in Z) as a whole
+*****
+X Bounds (in cells): [5, 45]
+Y Bounds (in cells): [5, 45]
+Z Bounds (in cells): [1, 49]
+Print misorientation data (Y or N): Y
+Print grain volume distribution (Y or N): Y
+Print mean aspect ratio distribution (Y or N): Y
+Print mean grain area as a function of build height (Y or N): Y
+Print mean weighted grain area as a function of build height (Y or N): Y 
+Print mean grain height distribution (Y or N): Y
+Print grain width distribution at a specific build height near the top surface (Y or N): Y
+Print volume for pole figure analysis in MTEX: Y

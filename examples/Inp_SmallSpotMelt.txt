@@ -7,8 +7,8 @@ Cell size (microns): 1
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
 Mean nucleation undercooling (in K): 5
 Standard deviation of nucleation undercooling: 0.5
-Path to output:/usr/WS2/rolchigo/
-Output file base name:TestProblemS
+Path to output:./
+Output file base name:TestProblemSmallSpot
 File of grain orientations:GrainOrientationVectors_Robert.csv
 Thermal gradient (K/m): 500000
 Cooling rate (K/s): 300000
@@ -20,9 +20,8 @@ Number of layers: 1
 Offset between layers (in cells): 20
 "N", where the time step = deltax/(Steady State Velocity * N): 25
 Substrate grain spacing (in microns): 25
-Print file of grain orientations (Y or N)?:N
-Print csv file of grain id values (Y or N)?:N
-Print csv file of ExaConstit-formatted grain id values (Y or N)?:N
-Print Paraview vtk file of grain misorientation values (Y or N)?:Y
-Print file of grain area values (Y or N)?:N
-Print file of weighted grain area values (Y or N)?:N
+***Output data printing options: (Y or N) which data should be printed***
+Print Paraview vtk file of grain misorientation values (Y or N)?: Y
+Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y
+Debug check (reduced)- Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check (Y or N)?: N
+Debug check (extensive) - Print data for all main data structures (CellType, GrainID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, Melted, LayerID) following initialization for debug check (Y or N)?: N
