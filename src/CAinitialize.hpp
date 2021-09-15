@@ -32,7 +32,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                       int &ProcessorsInYDirection, std::string tempfile, float &XMin, float &XMax, float &YMin,
                       float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight, int NumberOfLayers,
                       int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
-                      float *ZMaxLayer, int *FirstValue, int *LastValue, std::vector<float> &RawData);
+                      float *ZMaxLayer, int *FirstValue, int *LastValue, std::vector<double> &RawData);
 void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
                                 int &MyYOffset, double deltax, double deltat, int nx, int ny, int nz,
                                 ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
@@ -47,7 +47,7 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                       ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin,
                       bool *Melted, float *ZMinLayer, float *ZMaxLayer, int LayerHeight, int NumberOfLayers,
                       int &nzActive, int &ZBound_Low, int &ZBound_High, int *FinishTimeStep, double FreezingRange,
-                      ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<float> RawData);
+                      ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData);
 void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
                      std::string GrainOrientationFile);
 void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx, int ny,
@@ -89,8 +89,6 @@ void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
                 Buffer2D BufferSouthWestRecv, int &ZBound_Low);
 
 void skipLines(std::ifstream &stream, std::string seperator = "*****");
-std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon);
-std::string removeWhitespace(std::string line, std::size_t colon);
 std::string parseInput(std::ifstream &stream, std::string key);
 std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int &WhichKey);
 bool parseInputBool(std::ifstream &stream, std::string key);
