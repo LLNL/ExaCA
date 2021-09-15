@@ -234,7 +234,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
             break;
         std::string RVE[4];
         // Should be 4 inputs on this line - break it into its components
-        size_t compstart, compend;
+        size_t compstart = 0, compend = 0;
         for (int comp = 0; comp < 4; comp++) {
             if (comp == 0)
                 compstart = RVEline.find("[");

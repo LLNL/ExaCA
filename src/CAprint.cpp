@@ -423,7 +423,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     for (int n = 0; n < NGrainOrientations; n++) {
         double AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
-            double AngleZ = abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
+            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
             if (AngleZ < AngleZmin) {
                 AngleZmin = AngleZ;
             }
