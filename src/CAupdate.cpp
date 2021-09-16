@@ -30,6 +30,14 @@ struct array_type {
             the_array[i] = rhs.the_array[i];
         }
     }
+    KOKKOS_INLINE_FUNCTION // Assignment operator
+        array_type &
+        operator=(const array_type &src) {
+        for (int i = 0; i < N; i++) {
+            the_array[i] = src.the_array[i];
+        }
+        return *this;
+    }
     KOKKOS_INLINE_FUNCTION // add operator
         array_type &
         operator+=(const array_type &src) {
