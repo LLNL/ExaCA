@@ -1,4 +1,4 @@
-Test problem using a simple raster pattern (4 overlapping melt pool tracks): 
+Test problem using a simple raster pattern (4 overlapping melt pool tracks):
 *****
 Problem type: R
 Decomposition strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
@@ -13,7 +13,8 @@ File of grain orientations:GrainOrientationVectors_Robert.csv
 Heat transport data mesh size (microns): 5
 Time step (microseconds): 0.08333333
 Substrate grain spacing (in microns): 25
-Temperature filename: Master-Raster-150um.txt
+Path to temperature file(s): Temperatures
+Temperature filename (* glob before the name): Master-Raster-150um.txt
 Number of temperature files: 1
 Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: N
 Number of layers: 1

@@ -31,13 +31,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange,
         NMax, dTN, dTsigma;
-    std::string SubstrateFileName, tempfile, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
+    std::string SubstrateFileName, temppath, tempfile, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
+    std::vector<std::string> temp_paths;
 
     // Read input data
     InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
-                      FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile,
-                      TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
-                      SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
+                      FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath, tempfile,
+                      TempFilesInSeries, temp_paths, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
+                      LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
                       FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput, NSpotsX,
                       NSpotsY, SpotOffset, SpotRadius);
 
@@ -75,7 +76,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                      MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborRank_North, NeighborRank_South,
                      NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
                      NeighborRank_SouthEast, NeighborRank_SouthWest, deltax, HT_deltax, nx, ny, nz,
-                     ProcessorsInXDirection, ProcessorsInYDirection, tempfile, XMin, XMax, YMin, YMax, ZMin, ZMax,
+                     ProcessorsInXDirection, ProcessorsInYDirection, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax,
                      FreezingRange, LayerHeight, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints,
                      ZMinLayer, ZMaxLayer, FirstValue, LastValue, RawData);
 
