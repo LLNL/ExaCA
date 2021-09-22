@@ -93,6 +93,7 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                 }
             }
         });
+    Kokkos::fence();
 
     int NumberOfSends;
     if (DecompositionStrategy > 1)
@@ -266,6 +267,7 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                         }
                     }
                 });
+            Kokkos::fence();
         }
     }
     // Wait on send requests
@@ -389,6 +391,7 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                 }
             }
         });
+    Kokkos::fence();
 }
 
 //*****************************************************************************/
