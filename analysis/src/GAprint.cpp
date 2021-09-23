@@ -36,7 +36,7 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
     for (int n = 0; n < NumberOfOrientations; n++) {
         double AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
-            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(0, ll, 2)));
+            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(n, ll, 2)));
             if (AngleZ < AngleZmin) {
                 AngleZmin = AngleZ;
             }
