@@ -8,6 +8,6 @@
 
 #include <string>
 
-void RunProgram_Reduced(int id, int np, std::string SimulationType, std::string InputFile);
+void RunExaCA(int id, int np, std::string InputFile);
 
 #endif

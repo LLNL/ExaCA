@@ -3,11 +3,9 @@
 //
 // SPDX-License-Identifier: MIT
 
-#ifndef EXACA_RUN_REMELT_HPP
-#define EXACA_RUN_REMELT_HPP
+#ifndef GA_RUN_HPP
+#define GA_RUN_HPP
 
-#include <string>
-
-void RunProgram_Remelt(int id, int np, std::string SimulationType, std::string InputFile);
+int main(int argc, char *argv[]);
 
 #endif

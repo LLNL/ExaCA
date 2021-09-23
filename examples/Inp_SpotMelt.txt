@@ -1,22 +1,25 @@
-Test problem simulating constrained alloy solidification (Problem type 'C')
+Test problem simulating solidification of a series of overlapping spots (Problem type 'S')
 *****
-Problem type: C
+Problem type: S
 Decomposition strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
 Material:Inconel625
-Cell size (microns: 1
+Cell size (microns): 1
 Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
 Mean nucleation undercooling (in K): 5
 Standard deviation of nucleation undercooling: 0.5
 Path to output:./
-Output file base name:TestProblemDirS
+Output file base name:TestProblemSpot
 File of grain orientations:GrainOrientationVectors_Robert.csv
 Thermal gradient (K/m): 500000
 Cooling rate (K/s): 300000
-Domain size in x: 200
-Domain size in y: 200
-Domain size in z: 200
+Number of spots in x: 3
+Number of spots in y: 2
+Offset between spot centers (in microns): 100
+Radii of spots (in microns): 75
+Number of layers: 2
+Offset between layers (in cells): 20
 "N", where the time step = deltax/(Steady State Velocity * N): 25
-Fraction of surface sites active: 0.08
+Substrate grain spacing (in microns): 25
 ***Output data printing options: (Y or N) which data should be printed***
 Print Paraview vtk file of grain misorientation values (Y or N)?: Y
 Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y

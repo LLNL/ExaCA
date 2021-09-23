@@ -30,6 +30,14 @@ struct array_type {
             the_array[i] = rhs.the_array[i];
         }
     }
+    KOKKOS_INLINE_FUNCTION // Assignment operator
+        array_type &
+        operator=(const array_type &src) {
+        for (int i = 0; i < N; i++) {
+            the_array[i] = src.the_array[i];
+        }
+        return *this;
+    }
     KOKKOS_INLINE_FUNCTION // add operator
         array_type &
         operator+=(const array_type &src) {
@@ -1141,7 +1149,7 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
     }
     MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    if ((XSwitch == 0) && (TemperatureDataType == "R")) {
+    if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S"))) {
         MPI_Bcast(&GlobalUndercooledCells, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
         if (GlobalUndercooledCells == 0) {
             // Check when the next superheated cells go below the liquidus
@@ -1172,7 +1180,7 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
                 if (id == 0)
                     std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
             }
-            if (cycle >= FinishTimeStep[layernumber])
+            if ((TemperatureDataType == "R") && (cycle >= FinishTimeStep[layernumber]))
                 XSwitch = 1;
         }
     }

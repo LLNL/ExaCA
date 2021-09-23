@@ -13,51 +13,49 @@
 #include <string>
 #include <vector>
 
-// Input parsing functions
-void skipLines(std::ifstream &stream);
-std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon);
-std::string removeWhitespace(std::string line, std::size_t colon);
-std::string parseInput(std::ifstream &stream, std::string key);
-std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int &WhichKey);
-bool parseInputBool(std::ifstream &stream, std::string key);
-
-// Data point checks
-void CheckTemperatureCoordinateBound(std::string Label, float LowerBound, float UpperBound, float InputValue,
-                                     int LineNumber, std::string TemperatureFilename);
-void CheckTemperatureDataPoint(std::string Label, float InputValue, int LineNumber, std::string TemperatureFilename);
-
 // CA routines to initialize parameters, temperature field, grain structure, and nuclei
-void InputReadFromFile(int id, std::string InputFile, std::string SimulationType, int &DecompositionStrategy,
+void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
                        double &AConst, double &BConst, double &CConst, double &DConst, double &FreezingRange,
                        double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
                        std::string &GrainOrientationFile, std::string &tempfile, int &TempFilesInSeries,
-                       bool &ExtraWalls, double &HT_deltax, double &deltat, int &NumberOfLayers, int &LayerHeight,
-                       std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
-                       double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
-                       bool (&FilesToPrint)[6], bool &PrintFilesYN);
-void ParallelMeshInit(int DecompositionStrategy, ViewI_H MaxSolidificationEvents, ViewI_H NeighborX, ViewI_H NeighborY,
-                      ViewI_H NeighborZ, ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices,
+                       bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
+                       int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
+                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
+                       double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
+                       bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset,
+                       int &SpotRadius);
+void AssignNeighbors(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI2D_H ItList);
+void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H MaxSolidificationEvents, int id, int np, int &MyXSlices,
                       int &MyYSlices, int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
                       int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
                       int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
                       double &deltax, double HT_deltax, int &nx, int &ny, int &nz, int &ProcessorsInXDirection,
                       int &ProcessorsInYDirection, std::string tempfile, float &XMin, float &XMax, float &YMin,
-                      float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight, int NumberOfLayers,
+                      float &YMax, float &ZMin, float &ZMax, float, int &LayerHeight, int NumberOfLayers,
                       int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
-                      float *ZMaxLayer, int *FirstValue, int *LastValue, std::vector<float> &RawData);
-void TempInit(int layernumber, double G, double R, std::string SimulationType, int id, int &MyXSlices, int &MyYSlices,
-              int &MyXOffset, int &MyYOffset, double &deltax, double HT_deltax, double deltat, int &nx, int &ny,
-              int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin,
-              float YMin, float ZMin, bool *Melted, float *ZMinLayer, float *ZMaxLayer, int LayerHeight,
-              int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, int *FinishTimeStep,
-              double FreezingRange, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<float> RawData);
-void TempInitRemelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, int nz, int &MyXOffset, int &MyYOffset,
+                          float *ZMaxLayer, int *FirstValue, int *LastValue, int &ZBound_Low, int &nzActive, int &ZBound_High, int &LocalActiveDomainSize, std::vector<double> &RawData);
+void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, int nz, int &MyXOffset, int &MyYOffset,
                     double &deltax, double deltat, double FreezingRange, ViewF3D_H LayerTimeTempHistory,
                     ViewI_H MaxSolidificationEvents, ViewI_H NumberOfSolidificationEvents,
                     ViewI_H SolidificationEventCounter, ViewI_H MeltTimeStep, ViewI_H CritTimeStep,
                     ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, bool *Melted,
                     float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int ZBound_High,
-                    int *FinishTimeStep, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<float> RawData);
+                    int *FinishTimeStep, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData);
+void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
+                                int &MyYOffset, double deltax, double deltat, int nx, int ny, int nz,
+                                ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
+                                bool *Melted, int &nzActive, int &ZBound_Low, int &ZBound_High, ViewI_H LayerID);
+void TempInit_SpotMelt(double G, double R, std::string SimulationType, int id, int &MyXSlices, int &MyYSlices,
+                       int &MyXOffset, int &MyYOffset, double deltax, double deltat, int nz, ViewI_H CritTimeStep,
+                       ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight,
+                       int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, double FreezingRange,
+                       ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset);
+void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double &deltax,
+                      double HT_deltax, double deltat, int &nx, int &ny, int &nz, ViewI_H CritTimeStep,
+                      ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin,
+                      bool *Melted, float *ZMinLayer, float *ZMaxLayer, int LayerHeight, int NumberOfLayers,
+                      int &nzActive, int &ZBound_Low, int &ZBound_High, int *FinishTimeStep, double FreezingRange,
+                      ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData);
 void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
                      std::string GrainOrientationFile);
 void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx, int ny,
@@ -104,5 +102,10 @@ void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
                 Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
                 Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
                 Buffer2D BufferSouthWestRecv, int &ZBound_Low);
+
+void skipLines(std::ifstream &stream, std::string seperator = "*****");
+std::string parseInput(std::ifstream &stream, std::string key);
+std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int &WhichKey);
+bool parseInputBool(std::ifstream &stream, std::string key);
 
 #endif

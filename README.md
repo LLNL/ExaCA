@@ -12,20 +12,21 @@ ExaCA-Kokkos uses Kokkos and MPI for parallelism.
 |---------- | ------- |--------  |------- |
 |CMake      | 3.9+    | Yes       | Build system
 |Kokkos     | 3.0+   | Yes      | Provides portable on-node parallelism.
-|MPI        | GPU Aware if CUDA Enabled | Yes     | Message Passing Interface
+|MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Message Passing Interface
 |CUDA       | 9+      | No       | Programming model for NVIDIA GPUs
+|HIP       | 3.5+      | No       | Programming model for AMD GPUs
 
 Kokkos and MPI are available on many systems; if not, obtain the desired
 versions:
 ```
-git clone https://github.com/kokkos/kokkos.git --branch 3.0.00
+git clone https://github.com/kokkos/kokkos.git --branch 3.4.00
 ```
 
 ### Backend options
 Note that ExaCA runs with the default enabled Kokkos backend
  (see https://github.com/kokkos/kokkos/wiki/Initialization).
 
-ExaCA has been tested with Serial, OpenMP, Pthreads, and Cuda backends.
+ExaCA has been tested with Serial, OpenMP, Pthreads, CUDA, and HIP backends.
 
 ### Build CPU
 
@@ -104,22 +105,67 @@ cmake \
   -D CMAKE_INSTALL_PREFIX=install \
   ..;
 make install
-cd ../..
+```
+
+### Build HIP
+Again, first build Kokkos, this time with the `hipcc` compiler:
+```
+cd ./kokkos
+mkdir build
+cd build
+cmake \
+    -D CMAKE_BUILD_TYPE="Release" \
+    -D CMAKE_CXX_COMPILER=hipcc \
+    -D CMAKE_INSTALL_PREFIX=install \
+    -D Kokkos_ENABLE_HIP=ON \
+    -D Kokkos_ARCH_VEGA908=ON \
+    .. ;
+make install
+```
+And build ExaCA with the same compiler:
+```
+# Change this path to Kokkos installation
+export KOKKOS_INSTALL_DIR=./kokkos/build/install
+
+cd ./ExaCA
+mkdir build
+cd build
+cmake \
+    -D CMAKE_BUILD_TYPE="Release" \
+    -D CMAKE_CXX_COMPILER=hipcc \
+    -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL" \
+    -D CMAKE_INSTALL_PREFIX=install \
+    .. ;
+make install
 ```
 
 ## Run
 
 ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory:
 
- * `Inp_AMBenchMultilayer.txt` simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
- * `Inp_SimpleRaster.txt` simulates a single layer consisting of four overlapping melt pools
- * `Inp_DirSolidification.txt` does not use a thermal profile for a beam melting problem, but rather simulates grain growth from a surface with a fixed thermal gradient and cooling rate
- * `Inp_SmallDirSolidification.txt` the smallest and simplest example problem
+ * `Inp_DirSolidification.txt`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
+ * `Inp_SmallDirSolidification.txt`: a smaller and simpler version of the previous
+ * `Inp_SpotMelt.txt`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate
+ * `Inp_SmallSpotMelt.txt`: a smaller and simpler version of the previous
 
-Run by calling the created executable from the ExaCA root directory:
+Example problems only possible with external data:
+ * `Inp_AMBenchMultilayer.txt`: simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
+ * `Inp_SimpleRaster.txt`: simulates a single layer consisting of four overlapping melt pools
+
+Run by calling the created executable with an ExaCA input file:
 ```
 mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ```
+## Post-processing analysis
+
+If the "Print Paraview vtk file" option is turned on within an input file, post-processing can be performed on the output data set. This functionality is a separate executable from ExaCA, located in the `analysis/` directory and is linked to the ExaCA library for input utilities. 
+
+Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` and `TestProblemDirS.log`. To analyze this data, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with one command line argument pointing to the analysis input file. Within the `analysis/examples` directory, there are example analysis input files:
+
+```
+./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
+```
+Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file.
 
 ## Contributing
 
