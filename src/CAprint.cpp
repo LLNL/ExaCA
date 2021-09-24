@@ -255,9 +255,10 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
         if (PrintMisorientation)
             PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain,
                                       GrainOrientation, GrainUnitVector, NGrainOrientations);
-        PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
-                      CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
-                      Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput);
+        if ((PrintFullOutput) || (PrintDebug > 0))
+            PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
+                          CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
+                          Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput);
     }
     else {
         int SendBufSize = (MyXSlices - 2) * (MyYSlices - 2) * (nz - 2);

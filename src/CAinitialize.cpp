@@ -908,7 +908,7 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
                    1; // (note this doesn't include the 2 rows of wall/active cells at the bottom surface)
     ZBound_High = ZBound_Low + nzActive;
     LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
-    std::cout << " First layer temperature data bounds are at " << ZBound_Low << " and " << ZBound_High << std::endl;
+    if (id == 0) std::cout << " First layer temperature data bounds are at " << ZBound_Low << " and " << ZBound_High << std::endl;
     
     // Second pass through files - store raw data relevant to each rank in the vector structure RawData
     // With row/col 0 being wall cells and row/col 1 being solid cells outside of the melted area, the
@@ -970,8 +970,8 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
         if (RemeltingYN) {
             TempSizeX = UpperXBound - LowerXBound + 1;
             TempSizeY = UpperYBound - LowerYBound + 1;
-            ZMinLayerInt = ZMinLayer[LayerReadCount-1] / deltax;
-            int ZMaxLayerInt = ZMaxLayer[LayerReadCount-1] / deltax;
+            ZMinLayerInt = round((ZMinLayer[LayerReadCount-1] - ZMin) / deltax);
+            int ZMaxLayerInt = round((ZMaxLayer[LayerReadCount-1] - ZMin) / deltax);
             TempSizeZ = ZMaxLayerInt - ZMinLayerInt + 1;
         }
         ViewI3D_H TempMeltCount(Kokkos::ViewAllocateWithoutInitializing("TempMeltCount"), TempSizeZ, TempSizeX, TempSizeY);
@@ -982,7 +982,6 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
                 }
             }
         }
-        std::cout << TempSizeX << " " << TempSizeY << " " << TempSizeZ << std::endl;
         std::string DummyLine;
         // ignore header line
         getline(TemperatureFile, DummyLine);
@@ -1017,7 +1016,7 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
                 RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[5];
                 NumberOfTemperatureDataPoints++;
                 if (RemeltingYN) {
-                    int ZInt = (XYZTemperaturePoint[2] - ZMinLayer[LayerReadCount-1]) / deltax;
+                    int ZInt = round((XYZTemperaturePoint[2] + deltax * LayerHeight *(LayerReadCount - 1) - ZMinLayer[LayerReadCount-1]) / deltax);
                     TempMeltCount(ZInt - ZMinLayerInt, XInt - LowerXBound, YInt - LowerYBound)++;
                 }
                 if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
@@ -1058,7 +1057,13 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
             }
         }
     }
-    
+    // Make "MaxSolidificationEvents" the same size on each rank
+    for (int n=0; n<NumberOfLayers; n++) {
+        int LocalMaxSEvents = MaxSolidificationEvents(n);
+        int GlobalMaxSEvents;
+        MPI_Allreduce(&LocalMaxSEvents, &GlobalMaxSEvents, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+        MaxSolidificationEvents(n) = GlobalMaxSEvents;
+    }
 }
 
 //*****************************************************************************/
@@ -1473,6 +1478,10 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
         UndercoolingCurrent(i) = 0.0;
         MeltTimeStep(i) = 0;
     }
+    for (int i = 0; i < MyXSlices * MyYSlices * nzActive; i++) {
+        NumberOfSolidificationEvents(i) = 0;
+        SolidificationEventCounter(i) = 0;
+    }
 
     // Data was already read into the "RawData" temporary data structure
     // Determine which section of "RawData" is relevant for this layer of the overall domain
@@ -1502,9 +1511,16 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
         }
         else if (Pos == 3) {
             // Melt time step
-            D3D1ConvPosition = ZInt * MyXSlices * MyYSlices + (XInt - MyXOffset) * MyYSlices + (YInt - MyYOffset);
-            LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 0) =
-                round(RawData[i] / deltat);
+            if ((XInt >= MyXOffset) && (XInt < MyXOffset + MyXSlices) && (YInt >= MyYOffset) &&
+                (YInt < MyYOffset + MyYSlices)) {
+                D3D1ConvPosition = ZInt * MyXSlices * MyYSlices + (XInt - MyXOffset) * MyYSlices + (YInt - MyYOffset);
+                LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 0) =
+                    round(RawData[i] / deltat);
+            }
+            else {
+                // skip to next data point
+                i = i + 2;
+            }
         }
         else if (Pos == 4) {
             // Crit (liquidus) time step
@@ -1532,10 +1548,11 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
 
     // Reorder solidification events in LayerTimeTempHistory(location,event number,component) so that they are in order
     // based on the melting time values (component = 0)
-    for (int n = 0; n < MyXSlices * MyYSlices * nz; n++) {
+    for (int n = 0; n < MyXSlices * MyYSlices * nzActive; n++) {
         if (NumberOfSolidificationEvents(n) > 0) {
-            for (int i = 1; i <= NumberOfSolidificationEvents(n); i++) {
-                for (int j = (i+1); j <= NumberOfSolidificationEvents(n); j++) {
+            for (int i = 0; i < NumberOfSolidificationEvents(n)-1; i++) {
+                for (int j = (i+1); j < NumberOfSolidificationEvents(n); j++) {
+                    
                     if (LayerTimeTempHistory(n, i, 0) > LayerTimeTempHistory(n, j, 0)) {
                         // Swap these two points - melting event "j" happens before event "i"
                         float OldMeltVal = LayerTimeTempHistory(n, i, 0);
@@ -1822,7 +1839,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting,
     ViewI CritTimeStep_G = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep);
     ViewI GrainID_G = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID);
     if (Remelting) {
-        std::cout << "Initializing substrate grain structure from Z = 1 through Z = " << nzActive + 2 << std::endl;
+        if (id == 0) std::cout << "Initializing substrate grain structure from Z = 1 through Z = " << nzActive + 2 << std::endl;
         Kokkos::parallel_for(
             "GrainGeneration_RM",
             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(

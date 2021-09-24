@@ -74,7 +74,6 @@ void RunExaCA(int id, int np, std::string InputFile) {
     // ****** End parameters used when reading and using temperature data from files ******
     
     // Local (MPI rank) domain size
-    long int LocalDomainSize = MyXSlices * MyYSlices * nz; // Number of cells on this MPI rank
     int ZBound_Low, ZBound_High, nzActive, LocalActiveDomainSize; // These characterize the "active" portion of the solidification domain
     // i.e, the current layer being modeled. They are set either after reading the data, or, if no data needs to be read, they are set
     // after initializing the temperature data created
@@ -106,6 +105,8 @@ void RunExaCA(int id, int np, std::string InputFile) {
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Mesh initialized" << std::endl;
+
+    long int LocalDomainSize = MyXSlices * MyYSlices * nz; // Number of cells on this MPI rank
 
     // Temperature fields characterized by these variables:
     // For simulations that include remelting (initialize 0 size, resize only if they will be used):
@@ -327,15 +328,15 @@ void RunExaCA(int id, int np, std::string InputFile) {
     double InitTime = MPI_Wtime() - StartTime;
     if (id == 0)
         std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
-    if (PrintDebug) {
-        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
-                       GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
-                       UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
-                       NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false);
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
-            std::cout << "Initialization data file(s) printed" << std::endl;
-    }
+//    if (PrintDebug) {
+//        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
+//                       GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
+//                       UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
+//                       NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false);
+//        MPI_Barrier(MPI_COMM_WORLD);
+//        if (id == 0)
+//            std::cout << "Initialization data file(s) printed" << std::endl;
+//    }
     cycle = 0;
 
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
@@ -401,6 +402,18 @@ void RunExaCA(int id, int np, std::string InputFile) {
                                            XSwitch, CellType_G, CritTimeStep_G, SimulationType, FinishTimeStep,
                                            layernumber, NumberOfLayers, ZBound_Low, LayerID_G);
             }
+//            if (cycle == 10000) {
+//                Kokkos::deep_copy(GrainID_H, GrainID_G);
+//                Kokkos::deep_copy(CellType_H, CellType_G);
+//                Kokkos::deep_copy(CritTimeStep_H, CritTimeStep_G);
+//                PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
+//                               GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
+//                               UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
+//                               NGrainOrientations, Melted, PathToOutput, PrintDebug, true, false);
+//                MPI_Barrier(MPI_COMM_WORLD);
+//                if (id == 0)
+//                    std::cout << "Initialization data file(s) printed" << std::endl;
+//            }
 
         } while (XSwitch == 0);
 
