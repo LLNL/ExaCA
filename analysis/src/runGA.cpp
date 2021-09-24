@@ -44,9 +44,9 @@ int main(int argc, char *argv[]) {
         ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers);
 
         // Allocate memory blocks for GrainID, LayerID, and Melted data
-        ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, ny, ny);
-        ViewI3D_H LayerID(Kokkos::ViewAllocateWithoutInitializing("LayerID"), nz, ny, ny);
-        ViewI3D_H Melted(Kokkos::ViewAllocateWithoutInitializing("Melted"), nz, ny, ny);
+        ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
+        ViewI3D_H LayerID(Kokkos::ViewAllocateWithoutInitializing("LayerID"), nz, nx, ny);
+        ViewI3D_H Melted(Kokkos::ViewAllocateWithoutInitializing("Melted"), nz, nx, ny);
 
         // Fill arrays with data from paraview file
         InitializeData(MicrostructureFile, nx, ny, nz, GrainID, LayerID, Melted);
