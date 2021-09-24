@@ -166,8 +166,10 @@ void RunExaCA(int id, int np, std::string InputFile) {
                                    CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, Melted, nzActive,
                                    ZBound_Low, ZBound_High, LayerID_H);
     }
-    // Delete temporary data structure for temperature data read
-    RawData.clear();
+    // Delete temporary data structure for temperature data read if remelting isn't considered
+    // With remelting, each layer's temperature data is initialized at the end of the previous layer, so RawData
+    // will need to be accessed again for multilayer simulations
+    if ((NumberOfLayers == 1)||(!(RemeltingYN))) RawData.clear();
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of "
@@ -419,12 +421,24 @@ void RunExaCA(int id, int np, std::string InputFile) {
 
         if (layernumber != NumberOfLayers - 1) {
             
+            
             if (RemeltingYN) {
                 ZBound_Low = round((ZMinLayer[layernumber + 1] - ZMin) / deltax) + 2;
                 nzActive = round((ZMaxLayer[layernumber + 1] - ZMinLayer[layernumber + 1]) / deltax) +
                            1; // (note this doesn't include the 2 rows of wall/active cells at the bottom surface)
                 ZBound_High = ZBound_Low + nzActive;
                 LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
+                
+                Kokkos::resize(NumberOfSolidificationEvents_H, LocalActiveDomainSize);
+                Kokkos::resize(SolidificationEventCounter_H, LocalActiveDomainSize);
+                Kokkos::resize(LayerTimeTempHistory_H, LocalActiveDomainSize,  MaxSolidificationEvents_H(layernumber+1), 3);
+                
+                // Initialize temperature field for the next layer
+                TempInit_Remelt(layernumber+1, id, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, deltax, deltat, FreezingRange,
+                               LayerTimeTempHistory_H, MaxSolidificationEvents_H, NumberOfSolidificationEvents_H,
+                               SolidificationEventCounter_H, MeltTimeStep_H, CritTimeStep_H, UndercoolingChange_H,
+                               UndercoolingCurrent_H, XMin, YMin, Melted, ZMinLayer, LayerHeight, nzActive, ZBound_Low, ZBound_High,
+                               FinishTimeStep, LayerID_H, FirstValue, LastValue, RawData);
                 
                 // Re-initialize solid cells (part of this layer that will melt/solidify) and wall cells (cells that are
                 // ignored in this layer) Estimate number of nuclei on each rank (resize later when
@@ -438,6 +452,12 @@ void RunExaCA(int id, int np, std::string InputFile) {
                                       LayerTimeTempHistory_H, deltax, NMax, dTN, dTsigma, NextLayer_FirstNucleatedGrainID,
                                       PossibleNuclei_ThisRank, NucleationTimes_H, NucleiLocation_H, NucleiGrainID_H,
                                       ZBound_Low);
+                Kokkos::resize(NucleationTimes_H, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleiLocation_H, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleiGrainID_H, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleationTimes_G, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleiLocation_G, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleiGrainID_G, PossibleNuclei_ThisRank);
             }
             else {
                 // Determine new active cell domain size and offset from bottom of global domain
