@@ -719,7 +719,7 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
                       int &ProcessorsInYDirection, std::string tempfile, float &XMin, float &XMax, float &YMin,
                       float &YMax, float &ZMin, float &ZMax, float, int &LayerHeight, int NumberOfLayers,
                       int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
-                      float *ZMaxLayer, int *FirstValue, int *LastValue, int &ZBound_Low, int &nzActive, int &ZBound_High, int &LocalActiveDomainSize, std::vector<double> &RawData) {
+                      float *ZMaxLayer, int *FirstValue, int *LastValue, int &ZBound_Low, int &nzActive, int &ZBound_High, int &LocalActiveDomainSize, long int &LocalDomainSize, std::vector<double> &RawData, int &BufSizeX, int &BufSizeY, int &BufSizeZ) {
     
     // Two passes through reading temperature data files- the first pass only reads the headers to
     // determine units and X/Y/Z bounds of the simulaton domain. Using the X/Y/Z bounds of the simulation domain,
@@ -832,6 +832,7 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
         // Based on the input file's layer offset, adjust ZMin/ZMax from the temperature data coordinate
         // system to the multilayer CA coordinate system Check to see in the XYZ bounds for this layer are
         // also limiting for the entire multilayer CA coordinate system
+        std::cout << ZMin_ThisLayer << " " << ZMax_ThisLayer << std::endl;
         ZMin_ThisLayer += deltax * LayerHeight * (LayerReadCount - 1);
         ZMax_ThisLayer += deltax * LayerHeight * (LayerReadCount - 1);
         if (XMin_ThisLayer < XMin)
@@ -849,7 +850,7 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
         ZMinLayer[LayerReadCount - 1] = ZMin_ThisLayer;
         ZMaxLayer[LayerReadCount - 1] = ZMax_ThisLayer;
         if (id == 0)
-            std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMin_ThisLayer << " " << ZMax_ThisLayer
+            std::cout << "Layer = " << LayerReadCount-1 << " Z Bounds are " << ZMin_ThisLayer << " " << ZMax_ThisLayer
                       << std::endl;
     }
     // Extend domain in Z (build) direction if the number of layers are simulated is greater than the number
@@ -863,6 +864,8 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
                 ZMinLayer[LayerReadCount] = ZMinLayer[LayerReadCount - 1] + deltax * LayerHeight;
                 ZMaxLayer[LayerReadCount] = ZMaxLayer[LayerReadCount - 1] + deltax * LayerHeight;
                 ZMax += deltax * LayerHeight;
+                std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMinLayer[LayerReadCount] << " " << ZMaxLayer[LayerReadCount]
+                          << std::endl;
             }
             else {
                 // "TempFilesInSeries" temperature files was read, so the upper Z bound should account for
@@ -874,16 +877,20 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
                 ZMaxLayer[LayerReadCount] =
                     ZMaxLayer[RepeatedFile] + RepeatUnit * TempFilesInSeries * deltax * LayerHeight;
                 ZMax += deltax * LayerHeight;
+                std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMinLayer[LayerReadCount] << " " << ZMaxLayer[LayerReadCount]
+                          << std::endl;
             }
         }
     }
 
     // Now that the temperature bounds are known, the decomposition can be performed
-    // CA nodes in each direction (+2 for wall cells at the boundaries)
+    // CA nodes in each direction
     // (+2 for solid cells at X/Y boundaries, +1 for solid cells at lower Z boundary)
     nx = round((XMax - XMin) / deltax) + 1 + 4;
     ny = round((YMax - YMin) / deltax) + 1 + 4;
-    nz = round((ZMax - ZMin) / deltax) + 1 + 3;
+    nz = round((ZMax - ZMin) / deltax) + 1 + 2;
+    LocalDomainSize = MyXSlices * MyYSlices * nz;
+    
     if (id == 0) {
         std::cout << "Domain size: " << nx << " by " << ny << " by " << nz << std::endl;
         std::cout << "X Limits of domain: " << XMin << " and " << XMax << std::endl;
@@ -902,14 +909,19 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
     MyYOffset = YOffsetCalc(id, ny, ProcessorsInYDirection, np, DecompositionStrategy);
     MyYSlices = YMPSlicesCalc(id, ny, ProcessorsInYDirection, np, DecompositionStrategy);
 
-    // Set bounds of active domain (first layer's temperature data)
-    ZBound_Low = round((ZMinLayer[0] - ZMin) / deltax) + 2;
-    nzActive = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) +
-                   1; // (note this doesn't include the 2 rows of wall/active cells at the bottom surface)
-    ZBound_High = ZBound_Low + nzActive;
-    LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
-    if (id == 0) std::cout << " First layer temperature data bounds are at " << ZBound_Low << " and " << ZBound_High << std::endl;
+    if (DecompositionStrategy == 1) {
+        BufSizeX = MyXSlices;
+        BufSizeY = 0;
+    }
+    else {
+        BufSizeX = MyXSlices - 2;
+        BufSizeY = MyYSlices - 2;
+    }
     
+    // Set bounds of active domain (first layer's temperature data)
+    DomainShiftAndResize(id, MyXSlices, MyYSlices, ZBound_Low, ZBound_High, ZMin, ZMinLayer, ZMaxLayer, deltax,
+                         nzActive, LocalActiveDomainSize, BufSizeZ, -1);
+
     // Second pass through files - store raw data relevant to each rank in the vector structure RawData
     // With row/col 0 being wall cells and row/col 1 being solid cells outside of the melted area, the
     // domain starts at row/col 2 As the wall cells are not part of the physical domain (solid cells at
@@ -966,13 +978,10 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
         int TempSizeX = 0;
         int TempSizeY = 0;
         int TempSizeZ = 0;
-        int ZMinLayerInt = 0;
         if (RemeltingYN) {
             TempSizeX = UpperXBound - LowerXBound + 1;
             TempSizeY = UpperYBound - LowerYBound + 1;
-            ZMinLayerInt = round((ZMinLayer[LayerReadCount-1] - ZMin) / deltax);
-            int ZMaxLayerInt = round((ZMaxLayer[LayerReadCount-1] - ZMin) / deltax);
-            TempSizeZ = ZMaxLayerInt - ZMinLayerInt + 1;
+            TempSizeZ = round((ZMaxLayer[LayerReadCount-1] - ZMinLayer[LayerReadCount-1])/deltax) + 1;
         }
         ViewI3D_H TempMeltCount(Kokkos::ViewAllocateWithoutInitializing("TempMeltCount"), TempSizeZ, TempSizeX, TempSizeY);
         for (int k=0; k<TempSizeZ; k++) {
@@ -1016,8 +1025,8 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
                 RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[5];
                 NumberOfTemperatureDataPoints++;
                 if (RemeltingYN) {
-                    int ZInt = round((XYZTemperaturePoint[2] + deltax * LayerHeight *(LayerReadCount - 1) - ZMinLayer[LayerReadCount-1]) / deltax);
-                    TempMeltCount(ZInt - ZMinLayerInt, XInt - LowerXBound, YInt - LowerYBound)++;
+                    int ZInt = round((XYZTemperaturePoint[2] + deltax * LayerHeight * (LayerReadCount - 1) - ZMinLayer[LayerReadCount-1]) / deltax);
+                    TempMeltCount(ZInt, XInt - LowerXBound, YInt - LowerYBound)++;
                 }
                 if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
                     int OldSize = RawData.size();
@@ -1026,7 +1035,7 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
             }
         }
         LastValue[LayerReadCount - 1] = NumberOfTemperatureDataPoints;
-        // Determine max number of remelting events for each layer
+        // Determine max number of remelting events for each layer (may be different on each MPI rank)
         int MaxCount = 0;
         for (int k=0; k<TempSizeZ; k++) {
             for (int i=0; i<TempSizeX; i++) {
@@ -1240,8 +1249,6 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         LayerID(i) = -1;
     }
 
-    // removed unused LayerwiseTSOffset variable
-
     for (int LayerCounter = 0; LayerCounter < NumberOfLayers; LayerCounter++) {
 
         double SmallestTime = 1000000000;
@@ -1249,18 +1256,8 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         double LargestTime = 0;
         double LargestTime_Global = 0;
 
-        // How many CA cells in the vertical direction are needed to hold this layer's temperature data?
-        int nzTempValuesThisLayer =
-            round((ZMaxLayer[LayerCounter] - ZMinLayer[LayerCounter]) / deltax) +
-            1; // (note this doesn't include the 2 rows of wall/active cells at the bottom surface)
-        if (id == 0)
-            std::cout << "Initializing temporary temperature data structures with " << nzTempValuesThisLayer
-                      << " cells in z direction" << std::endl;
-        if (id == 0)
-            std::cout << "Layer " << LayerCounter << " rank " << id << " ZMin this layer is " << ZMinLayer[LayerCounter]
-                      << std::endl;
         std::vector<std::vector<std::vector<double>>> CR, CritTL;
-        for (int k = 0; k < nzTempValuesThisLayer; k++) {
+        for (int k = 0; k < nzActive; k++) {
             std::vector<std::vector<double>> TemperatureXX;
             for (int i = LowerXBound; i <= UpperXBound; i++) {
                 std::vector<double> TemperatureX;
@@ -1340,12 +1337,12 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
 
         // Data interpolation between heat transport and CA grids, if necessary
         if (HTtoCAratio != 1) {
-            for (int k = 0; k < nzTempValuesThisLayer; k++) {
+            for (int k = 0; k < nzActive; k++) {
                 int LowZ = k - (k % HTtoCAratio);
                 int HighZ = LowZ + HTtoCAratio;
                 double FHighZ = (double)(k - LowZ) / (double)(HTtoCAratio);
                 double FLowZ = 1.0 - FHighZ;
-                if (HighZ > nzTempValuesThisLayer - 1)
+                if (HighZ > nzActive - 1)
                     HighZ = LowZ;
                 for (int i = 0; i <= UpperXBound - LowerXBound; i++) {
                     int LowX = i - (i % HTtoCAratio);
@@ -1409,18 +1406,9 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         // Convert CritTL, CritTS matrices into CritTimeStep and UndercoolingChange (change in undercooling with
         // time step) "ZMin" is the global Z coordinate that corresponds to cells at Z = 2 (Z = 0 is the domain's
         // bottom wall, Z = 1 are the active cells just outside of the melt pool) "ZMax" is the global Z coordinate
-        // that corresponds to cells at Z = nz-2 (Z = nz-1 is the domain's top wall)
-        if (LayerCounter == 0) {
-            ZBound_Low = 0;
-            ZBound_High = round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 + nzTempValuesThisLayer - 1;
-            nzActive = ZBound_High - ZBound_Low + 1;
-        }
-        if (id == 0)
-            std::cout << "Layer " << LayerCounter << " data belongs to global z coordinates of "
-                      << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 << " through "
-                      << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 + nzTempValuesThisLayer - 1 << std::endl;
-
-        for (int k = 0; k < nzTempValuesThisLayer; k++) {
+        // that corresponds to cells at Z = nz-1
+        if (id == 0) std::cout << "Layer " << LayerCounter << " temperature data placed at Z = " << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 << " through " << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 + nzActive - 1 << std::endl;
+        for (int k = 0; k < nzActive; k++) {
             for (int ii = LowerXBound; ii <= UpperXBound; ii++) {
                 for (int jj = LowerYBound; jj <= UpperYBound; jj++) {
                     if ((ii >= MyXOffset) && (ii < MyXOffset + MyXSlices) && (jj >= MyYOffset) &&
@@ -1446,8 +1434,6 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         }
     } // End read over all temperature files and placement of data
 
-    if (id == 0)
-        std::cout << "First layer Z bounds are " << ZBound_Low << " and " << ZBound_High << std::endl;
 }
 //*****************************************************************************/
 
@@ -1459,10 +1445,6 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
                     ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, bool *Melted,
                     float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int ZBound_High,
                     int *FinishTimeStep, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData) {
-
-    if (id == 0)
-        std::cout << "Layer " << layernumber << " data belongs to global z coordinates of " << ZBound_Low << " through "
-                  << ZBound_High << std::endl;
 
     if (layernumber == 0) {
         // No sites have melted yet
@@ -1481,6 +1463,11 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
     for (int i = 0; i < MyXSlices * MyYSlices * nzActive; i++) {
         NumberOfSolidificationEvents(i) = 0;
         SolidificationEventCounter(i) = 0;
+        for (int j=0; j<MaxSolidificationEvents(layernumber); j++) {
+            for (int k=0; k<3; k++) {
+                LayerTimeTempHistory(i,j,k) = 0.0;
+            }
+        }
     }
 
     // Data was already read into the "RawData" temporary data structure
@@ -1494,7 +1481,7 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
     double LargestTime = 0;
     double LargestTime_Global = 0;
     if (id == 0)
-        std::cout << "Range for layer " << layernumber << " on rank 0 is " << StartRange << " to " << EndRange
+        std::cout << "Range of raw data for layer " << layernumber << " on rank 0 is " << StartRange << " to " << EndRange
                   << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
     for (int i = StartRange; i < EndRange; i++) {
@@ -1587,7 +1574,7 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
         }
     }
     if (id == 0)
-        std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low << " to " << ZBound_High
+        std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low << " through " << nzActive-1+ZBound_Low
                   << " of the global domain" << std::endl;
 }
 //*****************************************************************************/
@@ -2460,7 +2447,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
 // Each layer starts at solid cells (where we have solidification data) and wall cells (where no solidification will
 // happen)
 void GrainNucleiInitRemelt(int layernumber, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int nzActive,
-                           int id, int np, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H CritTimeStep,
+                           int id, int np, ViewI_H CellType, ViewI_H CritTimeStep,
                            ViewI_H NumberOfSolidificationEvents, ViewF3D_H LayerTimeTempHistory, double deltax,
                            double NMax, double dTN, double dTsigma, int &NextLayer_FirstNucleatedGrainID,
                            int &PossibleNuclei_ThisRank, ViewI_H NucleationTimes, ViewI_H NucleiLocation,
@@ -2518,9 +2505,6 @@ void GrainNucleiInitRemelt(int layernumber, int LocalActiveDomainSize, int MyXSl
     }
     int TotalNucleatedGrains;
     MPI_Reduce(&PossibleNuclei_ThisRank, &TotalNucleatedGrains, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "Number of potential nucleated grains in layer " << layernumber << ": " << TotalNucleatedGrains
-                  << " , starting with grain id " << NextLayer_FirstNucleatedGrainID << std::endl;
 
     int FirstNucleatedGID_Rank0;
     if (layernumber == 0) {
@@ -2529,6 +2513,11 @@ void GrainNucleiInitRemelt(int layernumber, int LocalActiveDomainSize, int MyXSl
     else {
         FirstNucleatedGID_Rank0 = NextLayer_FirstNucleatedGrainID;
     }
+    
+    if (id == 0)
+        std::cout << "Number of potential nucleated grains in layer " << layernumber << ": " << TotalNucleatedGrains
+                  << " , starting with grain id " << FirstNucleatedGID_Rank0 << std::endl;
+    
     int MyFirstNGrainID; // First GrainID for nuclei on this rank, for this layer
     if (np > 1) {
         // Assign GrainIDs for nucleated grains (negative values)
@@ -2561,11 +2550,6 @@ void GrainNucleiInitRemelt(int layernumber, int LocalActiveDomainSize, int MyXSl
 
     // Assign GrainIDs to nuclei sites
     int NCounter = MyFirstNGrainID;
-
-    // Nonactive cells should start with diagonal lengths of 0
-    for (int i = 0; i < LocalActiveDomainSize; i++) {
-        DiagonalLength(i) = 0.0;
-    }
 
     for (int NEvent = 0; NEvent < PossibleNuclei_ThisRank; NEvent++) {
         NucleiGrainID(NEvent) = NCounter;
@@ -3169,76 +3153,39 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
 }
 
 //*****************************************************************************/
-void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int &ZBound_Low, int &ZBound_High,
-                          int &nzActive, int LocalDomainSize, int &LocalActiveDomainSize, int &BufSizeZ,
-                          int LayerHeight, ViewI CellType, int layernumber, ViewI LayerID) {
+void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZBound_Low, int &ZBound_High,
+                          float ZMin, float* ZMinLayer, float* ZMaxLayer, double deltax, 
+                          int &nzActive, int &LocalActiveDomainSize, int &BufSizeZ,
+                          int layernumber) {
 
-    int ZBound_LowOld = ZBound_Low;
-
-    // The top "top" of the active domain is a shift of "LayerHeight" from the previous domain top
-    ZBound_High += LayerHeight;
-
-    // The new "bottom" of the active domain is located just below the lowest active cells remaining in the domain
-    int NewMin;
-    Kokkos::parallel_reduce(
-        "MinReduce", LocalDomainSize,
-        KOKKOS_LAMBDA(const int &D3D1ConvPosition, int &lmin) {
-            if (CellType(D3D1ConvPosition) == Active) {
-                // Check Z position of this active cell
-                int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-                if (RankZ < lmin)
-                    lmin = RankZ;
-            }
-        },
-        Kokkos::Min<int>(NewMin));
-    NewMin--;
-    MPI_Allreduce(&NewMin, &ZBound_Low, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-    // Shift in +Z direction for the bottom of the active region
-    ZShift = ZBound_Low - ZBound_LowOld;
-
-    if (id == 0)
-        std::cout << "New domain bottom at Z = " << ZBound_Low << ", a shift of " << ZShift << " cells" << std::endl;
-
-    // The new "top" of the active domain is located at the highest location with cells solidifying during the next
-    // layer
-    int NewMax;
-    Kokkos::parallel_reduce(
-        "MaxReduce", LocalDomainSize,
-        KOKKOS_LAMBDA(const int &D3D1ConvPosition, int &lmax) {
-            if (LayerID(D3D1ConvPosition) == layernumber + 1) {
-                // Check Z position of this active cell
-                int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-                if (RankZ > lmax)
-                    lmax = RankZ;
-            }
-        },
-        Kokkos::Max<int>(NewMax));
-    MPI_Allreduce(&NewMax, &ZBound_High, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "New domain top at Z = " << ZBound_High << std::endl;
-    // Change in active region data structures' sizes
+    // Determine which portion of the overall domain is considered "active" for the next layer ("layernumber + 1")
+    ZBound_Low = round((ZMinLayer[layernumber + 1] - ZMin) / deltax);
+    ZBound_High = round((ZMaxLayer[layernumber + 1] - ZMinLayer[layernumber + 1]) / deltax);
     nzActive = ZBound_High - ZBound_Low + 1;
+    
+    // There is a set of wall cells at Z = 0 of the overall domain: if ZMin[layer] = ZMin, the
+    // temperature data starts at Z = 2
+    // The lower bound of the domain is one CA cell below the bottom of the temperature data.
+    // since we need cells that bound the temperature data)
+    // These two things together lead to the "+1" in the ZBound_Low calculation
+    ZBound_
     LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
 
     // Change in height of buffers
     BufSizeZ = nzActive;
 
     if (id == 0)
-        std::cout << "New active domain height is " << nzActive << std::endl;
+        std::cout << "Layer " << layernumber+1 << " : active domain height = " << nzActive << " , associated with Z = " << ZBound_Low << " through " << ZBound_High << " of the overall simulation domain" << std::endl;
 }
 
-//*****************************************************************************/
-void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
-                ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY,
-                ViewI NeighborZ, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength,
-                ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
-                Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
-                Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
-                Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
-                Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
-                Buffer2D BufferSouthWestRecv, int &ZBound_Low) {
-
+void ZeroInitViews(ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                    Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
+                    Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
+                    Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
+                    Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
+                    Buffer2D BufferSouthWestRecv) {
+    
+    // Reset active cell data structures and MPI buffers to 0 on GPUs
     // Reset active cell data structures
     Kokkos::deep_copy(DiagonalLength, 0);
     Kokkos::deep_copy(DOCenter, 0);
@@ -3261,6 +3208,13 @@ void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
         Kokkos::deep_copy(BufferSouthEastSend, 0.0);
         Kokkos::deep_copy(BufferSouthEastRecv, 0.0);
     }
+    
+}
+//*****************************************************************************/
+void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
+                ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY,
+                ViewI NeighborZ, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength,
+                ViewF DOCenter, int DecompositionStrategy, int &ZBound_Low) {
 
     Kokkos::parallel_for(
         "NewActiveCellInit", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {

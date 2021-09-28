@@ -33,7 +33,7 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
                       int &ProcessorsInYDirection, std::string tempfile, float &XMin, float &XMax, float &YMin,
                       float &YMax, float &ZMin, float &ZMax, float, int &LayerHeight, int NumberOfLayers,
                       int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
-                          float *ZMaxLayer, int *FirstValue, int *LastValue, int &ZBound_Low, int &nzActive, int &ZBound_High, int &LocalActiveDomainSize, std::vector<double> &RawData);
+                          float *ZMaxLayer, int *FirstValue, int *LastValue, int &ZBound_Low, int &nzActive, int &ZBound_High, int &LocalActiveDomainSize, long int &LocalDomainSize, std::vector<double> &RawData, int &BufSizeX, int &BufSizeY, int &BufSizeZ);
 void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, int nz, int &MyXOffset, int &MyYOffset,
                     double &deltax, double deltat, double FreezingRange, ViewF3D_H LayerTimeTempHistory,
                     ViewI_H MaxSolidificationEvents, ViewI_H NumberOfSolidificationEvents,
@@ -80,7 +80,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
                ViewF_H CritDiagonalLength, ViewF_H DOCenter, ViewI_H CritTimeStep, double deltax, double NMax,
                int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low);
 void GrainNucleiInitRemelt(int layernumber, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int nzActive,
-                           int id, int np, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H CritTimeStep,
+                           int id, int np, ViewI_H CellType, ViewI_H CritTimeStep,
                            ViewI_H NumberOfSolidificationEvents, ViewF3D_H LayerTimeTempHistory, double deltax,
                            double NMax, double dTN, double dTsigma, int &NextLayer_FirstNucleatedGrainID,
                            int &PossibleNuclei_ThisRank, ViewI_H NucleationTimes, ViewI_H NucleiLocation,
@@ -90,18 +90,19 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
                 int NeighborRank_NorthEast, int NeighborRank_NorthWest, int NeighborRank_SouthEast,
                 int NeighborRank_SouthWest, ViewI_H NucleiLocation, ViewI_H NucleationTimes, ViewI_H CellType,
                 ViewI_H GrainID, ViewI_H CritTimeStep, ViewF_H UndercoolingChange);
-void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int &ZBound_Low, int &ZBound_High,
-                          int &nzActive, int LocalDomainSize, int &LocalActiveDomainSize, int &BufSizeZ,
-                          int LayerHeight, ViewI CellType, int layernumber, ViewI LayerID);
+void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZBound_Low, int &ZBound_High,
+                          float ZMin, float* ZMinLayer, float* ZMaxLayer, double deltax, 
+                          int &nzActive, int &LocalActiveDomainSize, int &BufSizeZ, int layernumber);
+void ZeroInitViews(ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                   Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
+                   Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
+                   Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
+                   Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
+                   Buffer2D BufferSouthWestRecv);
 void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
                 ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY,
                 ViewI NeighborZ, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength,
-                ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
-                Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
-                Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
-                Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
-                Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
-                Buffer2D BufferSouthWestRecv, int &ZBound_Low);
+                ViewF DOCenter, int DecompositionStrategy, int &ZBound_Low);
 
 void skipLines(std::ifstream &stream, std::string seperator = "*****");
 std::string parseInput(std::ifstream &stream, std::string key);

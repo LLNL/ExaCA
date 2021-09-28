@@ -75,8 +75,9 @@ void RunExaCA(int id, int np, std::string InputFile) {
     
     // Local (MPI rank) domain size
     int ZBound_Low, ZBound_High, nzActive, LocalActiveDomainSize; // These characterize the "active" portion of the solidification domain
-    // i.e, the current layer being modeled. They are set either after reading the data, or, if no data needs to be read, they are set
-    // after initializing the temperature data created
+    long int LocalDomainSize; // This is the total number of cells on each MPI rank
+    // Buffers for ghost node data (fixed size in X/Y, adjust size in Z with active domain size)
+    int BufSizeX, BufSizeY, BufSizeZ;
     
     // Read in temperature data and perform the domain decomposition (ReadTemperatureFiles, which calls the decomposition functions)
     // Otherwise, no temperature data needs to be read; only need to call the decomposition functions
@@ -87,7 +88,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
                          NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest, deltax, HT_deltax, nx, ny,
                          nz, ProcessorsInXDirection, ProcessorsInYDirection, tempfile, XMin, XMax, YMin, YMax, ZMin, ZMax,
                          FreezingRange, LayerHeight, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints,
-                         ZMinLayer, ZMaxLayer, FirstValue, LastValue, ZBound_Low, nzActive, ZBound_High, LocalActiveDomainSize, RawData);
+                         ZMinLayer, ZMaxLayer, FirstValue, LastValue, ZBound_Low, nzActive, ZBound_High, LocalActiveDomainSize, LocalDomainSize, RawData, BufSizeX, BufSizeY, BufSizeZ);
     }
     else {
         InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id, np,
@@ -105,8 +106,6 @@ void RunExaCA(int id, int np, std::string InputFile) {
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Mesh initialized" << std::endl;
-
-    long int LocalDomainSize = MyXSlices * MyYSlices * nz; // Number of cells on this MPI rank
 
     // Temperature fields characterized by these variables:
     // For simulations that include remelting (initialize 0 size, resize only if they will be used):
@@ -175,8 +174,6 @@ void RunExaCA(int id, int np, std::string InputFile) {
         std::cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of "
                   << nz << " cells in the Z direction" << std::endl;
 
-    LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive; // Number of active cells on this MPI rank (if not already calculated)
-
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     ViewF_H GrainUnitVector_H(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
     ViewI_H GrainOrientation_H(Kokkos::ViewAllocateWithoutInitializing("GrainOrientation"), NGrainOrientations);
@@ -234,10 +231,14 @@ void RunExaCA(int id, int np, std::string InputFile) {
                    GrainID_H, CritTimeStep_H, UndercoolingChange_H);
     }
     else {
-        GrainNucleiInitRemelt(0, LocalActiveDomainSize, MyXSlices, MyYSlices, nzActive, id, np, DiagonalLength_H,
+        GrainNucleiInitRemelt(0, LocalActiveDomainSize, MyXSlices, MyYSlices, nzActive, id, np, 
                               CellType_H, CritTimeStep_H, NumberOfSolidificationEvents_H, LayerTimeTempHistory_H, deltax,
                               NMax, dTN, dTsigma, NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank,
                               NucleationTimes_H, NucleiLocation_H, NucleiGrainID_H, ZBound_Low);
+        // Initialize active cell data structures to zero
+        Kokkos::deep_copy(DiagonalLength_H, 0);
+        Kokkos::deep_copy(DOCenter_H, 0);
+        Kokkos::deep_copy(CritDiagonalLength_H, 0);
     }
     Kokkos::resize(NucleationTimes_H, PossibleNuclei_ThisRank);
     Kokkos::resize(NucleiLocation_H, PossibleNuclei_ThisRank);
@@ -253,18 +254,6 @@ void RunExaCA(int id, int np, std::string InputFile) {
     CConst = CConst * deltat / deltax;
     int cycle;
 
-    // Buffers for ghost node data (fixed size)
-    int BufSizeX, BufSizeY, BufSizeZ;
-    if (DecompositionStrategy == 1) {
-        BufSizeX = MyXSlices;
-        BufSizeY = 0;
-        BufSizeZ = nzActive;
-    }
-    else {
-        BufSizeX = MyXSlices - 2;
-        BufSizeY = MyYSlices - 2;
-        BufSizeZ = nzActive;
-    }
     Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX * BufSizeZ, 5);
     Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX * BufSizeZ, 5);
     Buffer2D BufferEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferEastSend"), BufSizeY * BufSizeZ, 5);
@@ -421,54 +410,13 @@ void RunExaCA(int id, int np, std::string InputFile) {
 
         if (layernumber != NumberOfLayers - 1) {
             
+            // Determine new active cell domain size and offset from bottom of global domain
+            DomainShiftAndResize(id, MyXSlices, MyYSlices, ZBound_Low, ZBound_High, ZMin, ZMinLayer, ZMaxLayer, deltax, nzActive,
+                                 LocalActiveDomainSize, BufSizeZ, layernumber);
             
-            if (RemeltingYN) {
-                ZBound_Low = round((ZMinLayer[layernumber + 1] - ZMin) / deltax) + 2;
-                nzActive = round((ZMaxLayer[layernumber + 1] - ZMinLayer[layernumber + 1]) / deltax) +
-                           1; // (note this doesn't include the 2 rows of wall/active cells at the bottom surface)
-                ZBound_High = ZBound_Low + nzActive;
-                LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
-                
-                Kokkos::resize(NumberOfSolidificationEvents_H, LocalActiveDomainSize);
-                Kokkos::resize(SolidificationEventCounter_H, LocalActiveDomainSize);
-                Kokkos::resize(LayerTimeTempHistory_H, LocalActiveDomainSize,  MaxSolidificationEvents_H(layernumber+1), 3);
-                
-                // Initialize temperature field for the next layer
-                TempInit_Remelt(layernumber+1, id, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, deltax, deltat, FreezingRange,
-                               LayerTimeTempHistory_H, MaxSolidificationEvents_H, NumberOfSolidificationEvents_H,
-                               SolidificationEventCounter_H, MeltTimeStep_H, CritTimeStep_H, UndercoolingChange_H,
-                               UndercoolingCurrent_H, XMin, YMin, Melted, ZMinLayer, LayerHeight, nzActive, ZBound_Low, ZBound_High,
-                               FinishTimeStep, LayerID_H, FirstValue, LastValue, RawData);
-                
-                // Re-initialize solid cells (part of this layer that will melt/solidify) and wall cells (cells that are
-                // ignored in this layer) Estimate number of nuclei on each rank (resize later when
-                // "PossibleNuclei_ThisRank" is known)
-                Kokkos::resize(NucleationTimes_H, LocalActiveDomainSize);
-                Kokkos::resize(NucleiLocation_H, LocalActiveDomainSize);
-                Kokkos::resize(NucleiGrainID_H, LocalActiveDomainSize);
-
-                GrainNucleiInitRemelt(layernumber + 1, LocalActiveDomainSize, MyXSlices, MyYSlices, nzActive, id, np,
-                                      DiagonalLength_H, CellType_H, CritTimeStep_H, NumberOfSolidificationEvents_H,
-                                      LayerTimeTempHistory_H, deltax, NMax, dTN, dTsigma, NextLayer_FirstNucleatedGrainID,
-                                      PossibleNuclei_ThisRank, NucleationTimes_H, NucleiLocation_H, NucleiGrainID_H,
-                                      ZBound_Low);
-                Kokkos::resize(NucleationTimes_H, PossibleNuclei_ThisRank);
-                Kokkos::resize(NucleiLocation_H, PossibleNuclei_ThisRank);
-                Kokkos::resize(NucleiGrainID_H, PossibleNuclei_ThisRank);
-                Kokkos::resize(NucleationTimes_G, PossibleNuclei_ThisRank);
-                Kokkos::resize(NucleiLocation_G, PossibleNuclei_ThisRank);
-                Kokkos::resize(NucleiGrainID_G, PossibleNuclei_ThisRank);
-            }
-            else {
-                // Determine new active cell domain size and offset from bottom of global domain
-                int ZShift;
-                DomainShiftAndResize(id, MyXSlices, MyYSlices, ZShift, ZBound_Low, ZBound_High, nzActive, LocalDomainSize,
-                                     LocalActiveDomainSize, BufSizeZ, LayerHeight, CellType_G, layernumber, LayerID_G);
-            }
-
             // Resize steering vector as LocalActiveDomainSize may have changed
             Kokkos::resize(SteeringVector, LocalActiveDomainSize);
-
+            
             // Resize active cell data structures
             Kokkos::resize(DiagonalLength_G, LocalActiveDomainSize);
             Kokkos::resize(DOCenter_G, 3 * LocalActiveDomainSize);
@@ -491,24 +439,51 @@ void RunExaCA(int id, int np, std::string InputFile) {
             Kokkos::resize(BufferNorthWestRecv, BufSizeZ, 5);
             Kokkos::resize(BufferSouthEastRecv, BufSizeZ, 5);
             Kokkos::resize(BufferSouthWestRecv, BufSizeZ, 5);
-
-            MPI_Barrier(MPI_COMM_WORLD);
-            if (id == 0)
-                std::cout << "Resize executed" << std::endl;
-
-            // Update active cell data structures for simulation of next layer
-            LayerSetup(MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, GrainOrientation_G,
-                       NGrainOrientations, GrainUnitVector_G, NeighborX_G, NeighborY_G, NeighborZ_G, DiagonalLength_G,
-                       CellType_G, GrainID_G, CritDiagonalLength_G, DOCenter_G, DecompositionStrategy, BufferWestRecv,
-                       BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend,
-                       BufferSouthEastSend, BufferSouthWestSend, BufferWestRecv, BufferEastRecv, BufferNorthRecv,
-                       BufferSouthRecv, BufferNorthEastRecv, BufferNorthWestRecv, BufferSouthEastRecv,
-                       BufferSouthWestRecv, ZBound_Low);
-
-            if (id == 0)
-                std::cout << "New layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY << " " << BufSizeZ
-                          << std::endl;
+            
+            // Re-zero views for active cell data structures/buffers on GPU
+            ZeroInitViews(DiagonalLength_G, CritDiagonalLength_G, DOCenter_G, DecompositionStrategy, BufferWestSend, BufferEastSend,
+                          BufferNorthSend, BufferSouthSend, BufferNorthEastSend,
+                          BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend,
+                          BufferWestRecv, BufferEastRecv, BufferNorthRecv, BufferSouthRecv,
+                          BufferNorthEastRecv, BufferNorthWestRecv, BufferSouthEastRecv,
+                          BufferSouthWestRecv);
+            
             if (RemeltingYN) {
+                // Also resize temperature data structures exclusive to runs with remelting
+                Kokkos::resize(NumberOfSolidificationEvents_H, LocalActiveDomainSize);
+                Kokkos::resize(SolidificationEventCounter_H, LocalActiveDomainSize);
+                Kokkos::resize(LayerTimeTempHistory_H, LocalActiveDomainSize,  MaxSolidificationEvents_H(layernumber+1), 3);
+                
+                Kokkos::resize(NumberOfSolidificationEvents_G, LocalActiveDomainSize);
+                Kokkos::resize(SolidificationEventCounter_G, LocalActiveDomainSize);
+                Kokkos::resize(LayerTimeTempHistory_G, LocalActiveDomainSize,  MaxSolidificationEvents_H(layernumber+1), 3);
+                
+                // Initialize temperature field for the next layer
+                TempInit_Remelt(layernumber+1, id, MyXSlices, MyYSlices, nz, MyXOffset, MyYOffset, deltax, deltat, FreezingRange,
+                               LayerTimeTempHistory_H, MaxSolidificationEvents_H, NumberOfSolidificationEvents_H,
+                               SolidificationEventCounter_H, MeltTimeStep_H, CritTimeStep_H, UndercoolingChange_H,
+                               UndercoolingCurrent_H, XMin, YMin, Melted, ZMinLayer, LayerHeight, nzActive, ZBound_Low, ZBound_High,
+                               FinishTimeStep, LayerID_H, FirstValue, LastValue, RawData);
+                
+                // Re-initialize solid cells (part of this layer that will melt/solidify) and wall cells (cells that are
+                // ignored in this layer) Estimate number of nuclei on each rank (resize later when
+                // "PossibleNuclei_ThisRank" is known)
+                Kokkos::resize(NucleationTimes_H, LocalActiveDomainSize);
+                Kokkos::resize(NucleiLocation_H, LocalActiveDomainSize);
+                Kokkos::resize(NucleiGrainID_H, LocalActiveDomainSize);
+
+                GrainNucleiInitRemelt(layernumber + 1, LocalActiveDomainSize, MyXSlices, MyYSlices, nzActive, id, np,
+                                      CellType_H, CritTimeStep_H, NumberOfSolidificationEvents_H,
+                                      LayerTimeTempHistory_H, deltax, NMax, dTN, dTsigma, NextLayer_FirstNucleatedGrainID,
+                                      PossibleNuclei_ThisRank, NucleationTimes_H, NucleiLocation_H, NucleiGrainID_H,
+                                      ZBound_Low);
+                Kokkos::resize(NucleationTimes_H, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleiLocation_H, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleiGrainID_H, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleationTimes_G, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleiLocation_G, PossibleNuclei_ThisRank);
+                Kokkos::resize(NucleiGrainID_G, PossibleNuclei_ThisRank);
+                
                 // Deep copy updated views from host
                 Kokkos::deep_copy(CellType_G, CellType_H);
                 Kokkos::deep_copy(CritTimeStep_G, CritTimeStep_H);
@@ -522,12 +497,20 @@ void RunExaCA(int id, int np, std::string InputFile) {
                 Kokkos::deep_copy(NucleationTimes_G, NucleationTimes_H);
                 Kokkos::deep_copy(NucleiLocation_G, NucleiLocation_H);
                 Kokkos::deep_copy(NucleiGrainID_G, NucleiGrainID_H);
+                
             }
+            else {
+                // Update active cell data structures for simulation of next layer
+                LayerSetup(MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, GrainOrientation_G,
+                           NGrainOrientations, GrainUnitVector_G, NeighborX_G, NeighborY_G, NeighborZ_G, DiagonalLength_G,
+                           CellType_G, GrainID_G, CritDiagonalLength_G, DOCenter_G, DecompositionStrategy, ZBound_Low);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            if (id == 0)
+                std::cout << "Resize executed and new layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY << " " << BufSizeZ << std::endl;
             
             // Update ghost nodes for grain locations and attributes
             MPI_Barrier(MPI_COMM_WORLD);
-            if (id == 0)
-                std::cout << "New layer ghost nodes initialized" << std::endl;
             if (np > 1) {
                 GhostNodesInit(id, np, DecompositionStrategy, NeighborRank_North, NeighborRank_South, NeighborRank_East,
                                NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
