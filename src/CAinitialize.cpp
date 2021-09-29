@@ -889,8 +889,6 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
     nx = round((XMax - XMin) / deltax) + 1 + 4;
     ny = round((YMax - YMin) / deltax) + 1 + 4;
     nz = round((ZMax - ZMin) / deltax) + 1 + 2;
-    LocalDomainSize = MyXSlices * MyYSlices * nz;
-    
     if (id == 0) {
         std::cout << "Domain size: " << nx << " by " << ny << " by " << nz << std::endl;
         std::cout << "X Limits of domain: " << XMin << " and " << XMax << std::endl;
@@ -909,6 +907,7 @@ void ReadTemperatureFiles(bool RemeltingYN, int DecompositionStrategy, ViewI_H M
     MyYOffset = YOffsetCalc(id, ny, ProcessorsInYDirection, np, DecompositionStrategy);
     MyYSlices = YMPSlicesCalc(id, ny, ProcessorsInYDirection, np, DecompositionStrategy);
 
+    LocalDomainSize = MyXSlices * MyYSlices * nz;
     if (DecompositionStrategy == 1) {
         BufSizeX = MyXSlices;
         BufSizeY = 0;
@@ -1256,8 +1255,9 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         double LargestTime = 0;
         double LargestTime_Global = 0;
 
+        int nzTempValuesThisLayer = round((ZMaxLayer[LayerCounter] - ZMinLayer[LayerCounter])/deltax) + 1;
         std::vector<std::vector<std::vector<double>>> CR, CritTL;
-        for (int k = 0; k < nzActive; k++) {
+        for (int k = 0; k < nzTempValuesThisLayer; k++) {
             std::vector<std::vector<double>> TemperatureXX;
             for (int i = LowerXBound; i <= UpperXBound; i++) {
                 std::vector<double> TemperatureX;
@@ -1337,12 +1337,12 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
 
         // Data interpolation between heat transport and CA grids, if necessary
         if (HTtoCAratio != 1) {
-            for (int k = 0; k < nzActive; k++) {
+            for (int k = 0; k < nzTempValuesThisLayer; k++) {
                 int LowZ = k - (k % HTtoCAratio);
                 int HighZ = LowZ + HTtoCAratio;
                 double FHighZ = (double)(k - LowZ) / (double)(HTtoCAratio);
                 double FLowZ = 1.0 - FHighZ;
-                if (HighZ > nzActive - 1)
+                if (HighZ > nzTempValuesThisLayer - 1)
                     HighZ = LowZ;
                 for (int i = 0; i <= UpperXBound - LowerXBound; i++) {
                     int LowX = i - (i % HTtoCAratio);
@@ -1407,8 +1407,10 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         // time step) "ZMin" is the global Z coordinate that corresponds to cells at Z = 2 (Z = 0 is the domain's
         // bottom wall, Z = 1 are the active cells just outside of the melt pool) "ZMax" is the global Z coordinate
         // that corresponds to cells at Z = nz-1
-        if (id == 0) std::cout << "Layer " << LayerCounter << " temperature data placed at Z = " << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 << " through " << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 + nzActive - 1 << std::endl;
-        for (int k = 0; k < nzActive; k++) {
+        int ZBound_Low_ThisLayer = round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 1;
+        
+        if (id == 0) std::cout << "Layer " << LayerCounter << " temperature data placed at Z = " << ZBound_Low_ThisLayer + 1 << " through " << nzTempValuesThisLayer + ZBound_Low_ThisLayer << std::endl;
+        for (int k = 0; k < nzTempValuesThisLayer; k++) {
             for (int ii = LowerXBound; ii <= UpperXBound; ii++) {
                 for (int jj = LowerYBound; jj <= UpperYBound; jj++) {
                     if ((ii >= MyXOffset) && (ii < MyXOffset + MyXSlices) && (jj >= MyYOffset) &&
@@ -1420,7 +1422,7 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                         if (CTLiq > 0) {
                             // Where does this layer's temperature data belong on the global (including all layers)
                             // grid? Adjust Z coordinate by ZMin
-                            int ZOffset = round((ZMinLayer[LayerCounter] - ZMin) / deltax) + k + 2;
+                            int ZOffset = k + ZBound_Low_ThisLayer + 1;
                             int Coord3D1D = ZOffset * MyXSlices * MyYSlices + Adj_i * MyYSlices + Adj_j;
                             Melted[Coord3D1D] = true;
                             CritTimeStep(Coord3D1D) = round(CTLiq / deltat);
@@ -1556,8 +1558,8 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             }
         }
     }
-    for (int k = 0; k < nzActive; k++) {
-        int GlobalZ = k + ZBound_Low;
+    for (int k = 0; k < nzActive-1; k++) {
+        int GlobalZ = k + ZBound_Low + 1;
         for (int i = 0; i < MyXSlices; i++) {
             for (int j = 0; j < MyYSlices; j++) {
                 int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -1574,7 +1576,7 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
         }
     }
     if (id == 0)
-        std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low << " through " << nzActive-1+ZBound_Low
+        std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low + 1 << " through " << nzActive+ZBound_Low-1
                   << " of the global domain" << std::endl;
 }
 //*****************************************************************************/
@@ -1826,11 +1828,11 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting,
     ViewI CritTimeStep_G = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep);
     ViewI GrainID_G = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID);
     if (Remelting) {
-        if (id == 0) std::cout << "Initializing substrate grain structure from Z = 1 through Z = " << nzActive + 2 << std::endl;
+        if (id == 0) std::cout << "Initializing substrate grain structure from Z = 1 through Z = " << nzActive << std::endl;
         Kokkos::parallel_for(
             "GrainGeneration_RM",
             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-                {1, 0, 0}, {nzActive + 2, MyXSlices, MyYSlices}),
+                {1, 0, 0}, {nzActive, MyXSlices, MyYSlices}),
             KOKKOS_LAMBDA(const int k, const int i, const int j) {
                 int GlobalX = i + MyXOffset;
                 int GlobalY = j + MyYOffset;
@@ -3159,16 +3161,17 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZBound_Low,
                           int layernumber) {
 
     // Determine which portion of the overall domain is considered "active" for the next layer ("layernumber + 1")
-    ZBound_Low = round((ZMinLayer[layernumber + 1] - ZMin) / deltax);
-    ZBound_High = round((ZMaxLayer[layernumber + 1] - ZMinLayer[layernumber + 1]) / deltax);
-    nzActive = ZBound_High - ZBound_Low + 1;
-    
+    int BottomTemperatureData = round((ZMinLayer[layernumber + 1] - ZMin) / deltax);
+    int TopTemperatureData = round((ZMaxLayer[layernumber + 1] - ZMin) / deltax);
     // There is a set of wall cells at Z = 0 of the overall domain: if ZMin[layer] = ZMin, the
     // temperature data starts at Z = 2
-    // The lower bound of the domain is one CA cell below the bottom of the temperature data.
-    // since we need cells that bound the temperature data)
+    // But the lower edge of the active layer should go one set of cells below the bottom of the temperature data,
+    // since active cells will need to be created around the edges of the melted area
     // These two things together lead to the "+1" in the ZBound_Low calculation
-    ZBound_
+    // and "+2" in the ZBound_High calculation;
+    ZBound_Low = BottomTemperatureData + 1;
+    ZBound_High = TopTemperatureData + 2;
+    nzActive = ZBound_High - ZBound_Low + 1;
     LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
 
     // Change in height of buffers

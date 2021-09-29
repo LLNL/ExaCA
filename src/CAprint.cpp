@@ -410,10 +410,10 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     GrainplotM << "vtk output" << std::endl;
     GrainplotM << "ASCII" << std::endl;
     GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
-    GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 2 << std::endl;
+    GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 1 << std::endl;
     GrainplotM << "ORIGIN 0 0 0" << std::endl;
     GrainplotM << "SPACING 1 1 1" << std::endl;
-    GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 2) << std::endl;
+    GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 1) << std::endl;
     GrainplotM << "SCALARS Angle_z int 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
@@ -431,7 +431,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
         }
         GrainMisorientation_Round(n) = round(AngleZmin);
     }
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 1; k < nz; k++) {
         for (int j = 1; j < ny - 1; j++) {
             for (int i = 1; i < nx - 1; i++) {
                 if (Melted_WholeDomain(k, i, j) == 0)

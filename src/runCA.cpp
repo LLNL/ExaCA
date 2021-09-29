@@ -106,7 +106,6 @@ void RunExaCA(int id, int np, std::string InputFile) {
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Mesh initialized" << std::endl;
-
     // Temperature fields characterized by these variables:
     // For simulations that include remelting (initialize 0 size, resize only if they will be used):
     // A view that holds melting time step, liquidus time step, and cooling rate/time step data for all cells this layer
@@ -197,22 +196,22 @@ void RunExaCA(int id, int np, std::string InputFile) {
     // Initialize the grain structure - for either a constrained solidification problem, using a substrate from a file,
     // or generating a substrate using the existing CA algorithm
     int PossibleNuclei_ThisRank, NextLayer_FirstNucleatedGrainID;
-    if (SimulationType == "C") {
-        SubstrateInit_ConstrainedGrowth(FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, nz, MyXOffset, MyYOffset,
-                                        id, np, CellType_H, GrainID_H);
-    }
-    else {
-        if (UseSubstrateFile)
-            SubstrateInit_FromFile(SubstrateFileName, RemeltingYN, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id,
-                                   CritTimeStep_H, GrainID_H);
-        else
-            SubstrateInit_FromGrainSpacing(SubstrateGrainSpacing, RemeltingYN, nx, ny, nz, nzActive, MyXSlices,
-                                           MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, id, np, deltax,
-                                           GrainID_H, CritTimeStep_H);
-        if (SimulationType != "RM") ActiveCellWallInit(id, MyXSlices, MyYSlices, nx, ny, nz, MyXOffset, MyYOffset, CellType_H, GrainID_H,
-                           CritTimeStep_H, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, UndercoolingChange_H,
-                           ExtraWalls);
-    }
+//    if (SimulationType == "C") {
+//        SubstrateInit_ConstrainedGrowth(FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, nz, MyXOffset, MyYOffset,
+//                                        id, np, CellType_H, GrainID_H);
+//    }
+//    else {
+//        if (UseSubstrateFile)
+//            SubstrateInit_FromFile(SubstrateFileName, RemeltingYN, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id,
+//                                   CritTimeStep_H, GrainID_H);
+//        else
+//            SubstrateInit_FromGrainSpacing(SubstrateGrainSpacing, RemeltingYN, nx, ny, nz, nzActive, MyXSlices,
+//                                           MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, id, np, deltax,
+//                                           GrainID_H, CritTimeStep_H);
+//        if (SimulationType != "RM") ActiveCellWallInit(id, MyXSlices, MyYSlices, nx, ny, nz, MyXOffset, MyYOffset, CellType_H, GrainID_H,
+//                           CritTimeStep_H, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, UndercoolingChange_H,
+//                           ExtraWalls);
+//    }
     
     // Nuclei data structures - initial estimates for size, to be resized later when "PossibleNuclei_ThisRank" is known on each MPI rank
     ViewI_H NucleiGrainID_H(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"), LocalActiveDomainSize);
@@ -332,81 +331,81 @@ void RunExaCA(int id, int np, std::string InputFile) {
 
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
 
-        int nn = 0; // Counter for the number of nucleation events
-        int XSwitch = 0;
+//        int nn = 0; // Counter for the number of nucleation events
+//        int XSwitch = 0;
         double LayerTime1 = MPI_Wtime();
-
-        // Loop continues until all liquid cells claimed by solid grains
-        do {
-            cycle++;
-
-            // Update cells on GPU - undercooling and diagonal length updates, nucleation
-            StartNuclTime = MPI_Wtime();
-            Nucleation(RemeltingYN, MyXSlices, MyYSlices, MyXOffset, MyYOffset, cycle, nn, CellType_G, NucleiLocation_G,
-                       NucleationTimes_G, NucleiGrainID_G, GrainID_G, GrainOrientation_G, DOCenter_G, NeighborX_G,
-                       NeighborY_G, NeighborZ_G, GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G,
-                       NGrainOrientations, PossibleNuclei_ThisRank, ZBound_Low, layernumber, LayerID_G);
-            NuclTime += MPI_Wtime() - StartNuclTime;
-
-            // Update cells on GPU - new active cells, solidification of old active cells
-            StartCaptureTime = MPI_Wtime();
-            CellCapture(np, cycle, RemeltingYN, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize,
-                        MyXSlices, MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList_G,
-                        NeighborX_G, NeighborY_G, NeighborZ_G, CritTimeStep_G, UndercoolingCurrent_G,
-                        UndercoolingChange_G, GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G,
-                        GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferWestSend,
-                        BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend,
-                        BufferSouthEastSend, BufferSouthWestSend, BufSizeX, BufSizeY, ZBound_Low, nzActive, nz,
-                        layernumber, LayerID_G, SteeringVector, numSteer_G, numSteer_H, MeltTimeStep_G, SolidificationEventCounter_G,
-                        NumberOfSolidificationEvents_G, LayerTimeTempHistory_G);
-            CaptureTime += MPI_Wtime() - StartCaptureTime;
-
-            if (np > 1) {
-                // Update ghost nodes
-                StartGhostTime = MPI_Wtime();
-                if (DecompositionStrategy == 1)
-                    GhostNodes1D(cycle, id, NeighborRank_North, NeighborRank_South, MyXSlices, MyYSlices, MyXOffset,
-                                 MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G,
-                                 GrainUnitVector_G, GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G,
-                                 NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv,
-                                 BufSizeX, BufSizeY, BufSizeZ, ZBound_Low);
-                else
-                    GhostNodes2D(cycle, id, NeighborRank_North, NeighborRank_South, NeighborRank_East,
-                                 NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
-                                 NeighborRank_SouthEast, NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset,
-                                 MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G,
-                                 GrainUnitVector_G, GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G,
-                                 NGrainOrientations, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend,
-                                 BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend,
-                                 BufferWestRecv, BufferEastRecv, BufferNorthRecv, BufferSouthRecv, BufferNorthEastRecv,
-                                 BufferNorthWestRecv, BufferSouthEastRecv, BufferSouthWestRecv, BufSizeX, BufSizeY,
-                                 BufSizeZ, ZBound_Low);
-                GhostTime += MPI_Wtime() - StartGhostTime;
-            }
-
-            if (cycle % 1000 == 0) {
-                if (RemeltingYN) IntermediateOutputAndCheck_Remelt(id, cycle, MyXSlices, MyYSlices, LocalActiveDomainSize,
-                                                                   nn, XSwitch, CellType_G, MeltTimeStep_G,
-                                                                   FinishTimeStep, layernumber, NumberOfLayers,
-                                                                   ZBound_Low, LayerID_G);
-                else IntermediateOutputAndCheck(id, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nn,
-                                           XSwitch, CellType_G, CritTimeStep_G, SimulationType, FinishTimeStep,
-                                           layernumber, NumberOfLayers, ZBound_Low, LayerID_G);
-            }
-//            if (cycle == 10000) {
-//                Kokkos::deep_copy(GrainID_H, GrainID_G);
-//                Kokkos::deep_copy(CellType_H, CellType_G);
-//                Kokkos::deep_copy(CritTimeStep_H, CritTimeStep_G);
-//                PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
-//                               GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
-//                               UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
-//                               NGrainOrientations, Melted, PathToOutput, PrintDebug, true, false);
-//                MPI_Barrier(MPI_COMM_WORLD);
-//                if (id == 0)
-//                    std::cout << "Initialization data file(s) printed" << std::endl;
+//
+//        // Loop continues until all liquid cells claimed by solid grains
+//        do {
+//            cycle++;
+//
+//            // Update cells on GPU - undercooling and diagonal length updates, nucleation
+//            StartNuclTime = MPI_Wtime();
+//            Nucleation(RemeltingYN, MyXSlices, MyYSlices, MyXOffset, MyYOffset, cycle, nn, CellType_G, NucleiLocation_G,
+//                       NucleationTimes_G, NucleiGrainID_G, GrainID_G, GrainOrientation_G, DOCenter_G, NeighborX_G,
+//                       NeighborY_G, NeighborZ_G, GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G,
+//                       NGrainOrientations, PossibleNuclei_ThisRank, ZBound_Low, layernumber, LayerID_G);
+//            NuclTime += MPI_Wtime() - StartNuclTime;
+//
+//            // Update cells on GPU - new active cells, solidification of old active cells
+//            StartCaptureTime = MPI_Wtime();
+//            CellCapture(np, cycle, RemeltingYN, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize,
+//                        MyXSlices, MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, ItList_G,
+//                        NeighborX_G, NeighborY_G, NeighborZ_G, CritTimeStep_G, UndercoolingCurrent_G,
+//                        UndercoolingChange_G, GrainUnitVector_G, CritDiagonalLength_G, DiagonalLength_G,
+//                        GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, BufferWestSend,
+//                        BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend,
+//                        BufferSouthEastSend, BufferSouthWestSend, BufSizeX, BufSizeY, ZBound_Low, nzActive, nz,
+//                        layernumber, LayerID_G, SteeringVector, numSteer_G, numSteer_H, MeltTimeStep_G, SolidificationEventCounter_G,
+//                        NumberOfSolidificationEvents_G, LayerTimeTempHistory_G);
+//            CaptureTime += MPI_Wtime() - StartCaptureTime;
+//
+//            if (np > 1) {
+//                // Update ghost nodes
+//                StartGhostTime = MPI_Wtime();
+//                if (DecompositionStrategy == 1)
+//                    GhostNodes1D(cycle, id, NeighborRank_North, NeighborRank_South, MyXSlices, MyYSlices, MyXOffset,
+//                                 MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G,
+//                                 GrainUnitVector_G, GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G,
+//                                 NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv,
+//                                 BufSizeX, BufSizeY, BufSizeZ, ZBound_Low);
+//                else
+//                    GhostNodes2D(cycle, id, NeighborRank_North, NeighborRank_South, NeighborRank_East,
+//                                 NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
+//                                 NeighborRank_SouthEast, NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset,
+//                                 MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G,
+//                                 GrainUnitVector_G, GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G,
+//                                 NGrainOrientations, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend,
+//                                 BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend,
+//                                 BufferWestRecv, BufferEastRecv, BufferNorthRecv, BufferSouthRecv, BufferNorthEastRecv,
+//                                 BufferNorthWestRecv, BufferSouthEastRecv, BufferSouthWestRecv, BufSizeX, BufSizeY,
+//                                 BufSizeZ, ZBound_Low);
+//                GhostTime += MPI_Wtime() - StartGhostTime;
 //            }
-
-        } while (XSwitch == 0);
+//
+//            if (cycle % 1000 == 0) {
+//                if (RemeltingYN) IntermediateOutputAndCheck_Remelt(id, cycle, MyXSlices, MyYSlices, LocalActiveDomainSize,
+//                                                                   nn, XSwitch, CellType_G, MeltTimeStep_G,
+//                                                                   FinishTimeStep, layernumber, NumberOfLayers,
+//                                                                   ZBound_Low, LayerID_G);
+//                else IntermediateOutputAndCheck(id, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nn,
+//                                           XSwitch, CellType_G, CritTimeStep_G, SimulationType, FinishTimeStep,
+//                                           layernumber, NumberOfLayers, ZBound_Low, LayerID_G);
+//            }
+////            if (cycle == 10000) {
+////                Kokkos::deep_copy(GrainID_H, GrainID_G);
+////                Kokkos::deep_copy(CellType_H, CellType_G);
+////                Kokkos::deep_copy(CritTimeStep_H, CritTimeStep_G);
+////                PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
+////                               GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
+////                               UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
+////                               NGrainOrientations, Melted, PathToOutput, PrintDebug, true, false);
+////                MPI_Barrier(MPI_COMM_WORLD);
+////                if (id == 0)
+////                    std::cout << "Initialization data file(s) printed" << std::endl;
+////            }
+//
+//        } while (XSwitch == 0);
 
         if (layernumber != NumberOfLayers - 1) {
             
@@ -519,7 +518,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
                                NeighborY_G, NeighborZ_G, GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G,
                                DOCenter_G, DiagonalLength_G, CritDiagonalLength_G);
             }
-            XSwitch = 0;
+           // XSwitch = 0;
             MPI_Barrier(MPI_COMM_WORLD);
             double LayerTime2 = MPI_Wtime();
             cycle = 0;
