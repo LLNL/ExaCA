@@ -19,7 +19,7 @@ void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nz, int M
                      ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
                      ViewI_H RBufSize) {
 
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 0; k < nz; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
                 IntVar_WholeDomain(k, i - 1, j - 1) = IntVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
@@ -34,7 +34,7 @@ void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nz, int M
         MPI_Recv(RecvBufIntVar.data(), RecvBufSize_ThisRank, MPI_INT, p, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         int DataCounter = 0;
-        for (int k = 1; k < nz - 1; k++) {
+        for (int k = 0; k < nz; k++) {
             for (int i = 0; i < RecvXSlices(p); i++) {
                 for (int j = 0; j < RecvYSlices(p); j++) {
                     IntVar_WholeDomain(k, i + RecvXOffset(p), j + RecvYOffset(p)) = RecvBufIntVar(DataCounter);
@@ -51,7 +51,7 @@ void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nz,
                        ViewI_H RBufSize) {
 
     // Set float variable to 0 for whole domain and place values for rank 0
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 0; k < nz; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
                 FloatVar_WholeDomain(k, i - 1, j - 1) = FloatVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
@@ -62,11 +62,11 @@ void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nz,
     // Recieve values from other ranks - message size different for different ranks
     for (int p = 1; p < np; p++) {
         int RecvBufSize_ThisRank = RBufSize(p);
-        ViewI_H RecvBufFloatVar(Kokkos::ViewAllocateWithoutInitializing("RecvBufFloatVar"), RecvBufSize_ThisRank);
+        ViewF_H RecvBufFloatVar(Kokkos::ViewAllocateWithoutInitializing("RecvBufFloatVar"), RecvBufSize_ThisRank);
         MPI_Recv(RecvBufFloatVar.data(), RecvBufSize_ThisRank, MPI_FLOAT, p, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         int DataCounter = 0;
-        for (int k = 1; k < nz - 1; k++) {
+        for (int k = 0; k < nz; k++) {
             for (int i = 0; i < RecvXSlices(p); i++) {
                 for (int j = 0; j < RecvYSlices(p); j++) {
                     FloatVar_WholeDomain(k, i + RecvXOffset(p), j + RecvYOffset(p)) = RecvBufFloatVar(DataCounter);
@@ -83,7 +83,7 @@ void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int M
                       ViewI_H RBufSize) {
 
     // Resize bool variable for whole domain and place values for rank 0
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 0; k < nz; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
                 if (BoolVar[k * MyXSlices * MyYSlices + i * MyYSlices + j])
@@ -99,7 +99,7 @@ void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int M
         MPI_Recv(RecvBufIntVar.data(), RecvBufSize_ThisRank, MPI_INT, p, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         int DataCounter = 0;
-        for (int k = 1; k < nz - 1; k++) {
+        for (int k = 0; k < nz; k++) {
             for (int i = 0; i < RecvXSlices[p]; i++) {
                 for (int j = 0; j < RecvYSlices[p]; j++) {
                     IntVar_WholeDomain(k, i + RecvXOffset(p), j + RecvYOffset(p)) = RecvBufIntVar(DataCounter);
@@ -117,7 +117,7 @@ void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int S
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     ViewI_H SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 0; k < nz; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
                 SendBuf(DataCounter) = VarToSend(k * MyXSlices * MyYSlices + i * MyYSlices + j);
@@ -134,7 +134,7 @@ void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     ViewF_H SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 0; k < nz; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
                 SendBuf(DataCounter) = VarToSend(k * MyXSlices * MyYSlices + i * MyYSlices + j);
@@ -151,7 +151,7 @@ void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int Se
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     ViewI_H SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 0; k < nz; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
                 if (VarToSend[k * MyXSlices * MyYSlices + i * MyYSlices + j])
@@ -199,7 +199,7 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
             RecvYOffset(p)++;
             RecvXOffset(p)++;
 
-            RBufSize(p) = RecvXSlices(p) * RecvYSlices(p) * (nz - 2);
+            RBufSize(p) = RecvXSlices(p) * RecvYSlices(p) * nz;
         }
         // Create variables for each possible data structure being collected on rank 0
         // If PrintDebug = 0, we aren't printing any debug files after initialization, but we are printing either the
@@ -261,7 +261,7 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
                           Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput);
     }
     else {
-        int SendBufSize = (MyXSlices - 2) * (MyYSlices - 2) * (nz - 2);
+        int SendBufSize = (MyXSlices - 2) * (MyYSlices - 2) * nz;
 
         // Collect Melted/Grain ID data on rank 0
         if ((PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput))
@@ -381,7 +381,7 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
             Grainplot << std::endl;
         }
         // Print Undercooling current data
-        Grainplot << "SCALARS Melted float 1" << std::endl;
+        Grainplot << "SCALARS UndercoolingCurrent float 1" << std::endl;
         Grainplot << "LOOKUP_TABLE default" << std::endl;
         for (int k = 0; k < nz; k++) {
             for (int j = 0; j < ny; j++) {
@@ -410,10 +410,10 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     GrainplotM << "vtk output" << std::endl;
     GrainplotM << "ASCII" << std::endl;
     GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
-    GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 1 << std::endl;
+    GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz << std::endl;
     GrainplotM << "ORIGIN 0 0 0" << std::endl;
     GrainplotM << "SPACING 1 1 1" << std::endl;
-    GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 1) << std::endl;
+    GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * nz << std::endl;
     GrainplotM << "SCALARS Angle_z int 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
@@ -431,7 +431,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
         }
         GrainMisorientation_Round(n) = round(AngleZmin);
     }
-    for (int k = 1; k < nz; k++) {
+    for (int k = 0; k < nz; k++) {
         for (int j = 1; j < ny - 1; j++) {
             for (int i = 1; i < nx - 1; i++) {
                 if (Melted_WholeDomain(k, i, j) == 0)

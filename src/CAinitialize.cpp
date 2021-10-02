@@ -1496,7 +1496,7 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             YInt = round((RawData[i] - YMin) / deltax) + 2;
         }
         else if (Pos == 2) {
-            ZInt = round((RawData[i] + deltax * LayerHeight * layernumber - ZMinLayer[layernumber]) / deltax);
+            ZInt = round((RawData[i] + deltax * LayerHeight * layernumber - ZMinLayer[layernumber]) / deltax) + 1;
         }
         else if (Pos == 3) {
             // Melt time step
@@ -1505,6 +1505,9 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
                 D3D1ConvPosition = ZInt * MyXSlices * MyYSlices + (XInt - MyXOffset) * MyYSlices + (YInt - MyYOffset);
                 LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 0) =
                     round(RawData[i] / deltat);
+//                if (D3D1ConvPosition == 6543822) {
+//                    std::cout << "X = " << RawData[i-3] << " Y = " << RawData[i-2] << " Z = " << RawData[i-1] << " Melting event " << NumberOfSolidificationEvents(D3D1ConvPosition) << " Melting time " << RawData[i] << std::endl;
+//                }
             }
             else {
                 // skip to next data point
@@ -1515,6 +1518,9 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             // Crit (liquidus) time step
             LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 1) =
                 round(RawData[i] / deltat);
+//            if (D3D1ConvPosition == 6543822) {
+//                std::cout << "X = " << RawData[i-4] << " Y = " << RawData[i-3] << " Z = " << RawData[i-2] << " Melting event " << NumberOfSolidificationEvents(D3D1ConvPosition) << " Liquidus time " << RawData[i] << std::endl;
+//            }
         }
         else if (Pos == 5) {
             // Cooling rate per time step
@@ -1558,12 +1564,44 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             }
         }
     }
-    for (int k = 0; k < nzActive-1; k++) {
-        int GlobalZ = k + ZBound_Low + 1;
+    
+    // If a cell melts twice before reaching the liquidus temperature, this is a double counted solidification
+    // event and should be removed
+    for (int n = 0; n < MyXSlices * MyYSlices * nzActive; n++) {
+        if (NumberOfSolidificationEvents(n) > 1) {
+            for (int i = 0; i < NumberOfSolidificationEvents(n)-1; i++) {
+                if (LayerTimeTempHistory(n, i+1, 0) < LayerTimeTempHistory(n, i, 1)) {
+                    std::cout << "Cell " << n << " removing anomalous event " << i+1 << " out of " << NumberOfSolidificationEvents(n)-1 << std::endl;
+                    // Keep whichever event has the larger liquidus time
+                    if (LayerTimeTempHistory(n, i+1, 1) > LayerTimeTempHistory(n, i, 1)) {
+                        LayerTimeTempHistory(n, i, 0) = LayerTimeTempHistory(n, i+1, 0);
+                        LayerTimeTempHistory(n, i, 1) = LayerTimeTempHistory(n, i+1, 1);
+                        LayerTimeTempHistory(n, i, 2) = LayerTimeTempHistory(n, i+1, 2);
+                    }
+                    LayerTimeTempHistory(n, i+1, 0) = 0.0;
+                    LayerTimeTempHistory(n, i+1, 1) = 0.0;
+                    LayerTimeTempHistory(n, i+1, 2) = 0.0;
+                    // Reshuffle other solidification events over if needed
+                    for (int ii=(i + 1); ii<NumberOfSolidificationEvents(n)-1; ii++) {
+                        LayerTimeTempHistory(n, ii, 0) = LayerTimeTempHistory(n, ii+1, 0);
+                        LayerTimeTempHistory(n, ii, 1) = LayerTimeTempHistory(n, ii+1, 1);
+                        LayerTimeTempHistory(n, ii, 2) = LayerTimeTempHistory(n, ii+1, 2);
+                    }
+                    NumberOfSolidificationEvents(n)--;
+                }
+            }
+        }
+    }
+    int ZLOW = 10000;
+    int ZHIGH = -1;
+    for (int k = 1; k < nzActive; k++) {
+        int GlobalZ = k + ZBound_Low;
         for (int i = 0; i < MyXSlices; i++) {
             for (int j = 0; j < MyYSlices; j++) {
                 int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
                 if (LayerTimeTempHistory(D3D1ConvPosition, 0, 0) > 0) {
+                    if (GlobalZ < ZLOW) ZLOW = GlobalZ;
+                    if (GlobalZ > ZHIGH) ZHIGH = GlobalZ;
                     // This cell undergoes solidification in layer "layernumber" at least once
                     int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + i * MyYSlices + j;
                     Melted[GlobalD3D1ConvPosition] = true;
@@ -1575,6 +1613,7 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             }
         }
     }
+    std::cout << "On rank " << id << " , temperature field is actually located from " << ZLOW << " THROUGH " << ZHIGH << std::endl;
     if (id == 0)
         std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low + 1 << " through " << nzActive+ZBound_Low-1
                   << " of the global domain" << std::endl;
@@ -1798,10 +1837,13 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting,
 
     // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain
     // centers This will eventually be done on the device when random number generation with Kokkos is more efficient
-    for (int k = 1; k <= nzActive; k++) {
+    for (int k = 1; k < nzActive+1; k++) {
         for (int i = 1; i < nx - 1; i++) {
             for (int j = 1; j < ny - 1; j++) {
                 double R = dis(gen);
+                //*****
+//                int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+//                GrainID(CAGridLocation) = round(10000.0*R);
                 if (R < BaseplateGrainProb) {
                     int OldIndexValue = NumBaseplateGrains_H(0);
                     BaseplateGrainX_H(OldIndexValue) = i;
@@ -1832,7 +1874,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting,
         Kokkos::parallel_for(
             "GrainGeneration_RM",
             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-                {1, 0, 0}, {nzActive, MyXSlices, MyYSlices}),
+                {1, 0, 0}, {nzActive+1, MyXSlices, MyYSlices}),
             KOKKOS_LAMBDA(const int k, const int i, const int j) {
                 int GlobalX = i + MyXOffset;
                 int GlobalY = j + MyYOffset;
@@ -1860,7 +1902,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting,
         Kokkos::parallel_for(
             "GrainGeneration_NoRM",
             Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-                {1, 0, 0}, {nzActive, MyXSlices, MyYSlices}),
+                {1, 0, 0}, {nzActive+1, MyXSlices, MyYSlices}),
             KOKKOS_LAMBDA(const int k, const int i, const int j) {
                 int GlobalX = i + MyXOffset;
                 int GlobalY = j + MyYOffset;
@@ -1900,7 +1942,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting,
     // Initialize grain seeds above baseplate to emulate bulk nucleation at edge of melted powder particles
     int PowderLayerActCells_ThisRank = 0;
     if (Remelting) {
-        for (int k = nzActive + 2; k < nz; k++) {
+        for (int k = nzActive + 1; k < nz; k++) {
             for (int i = 1; i < MyXSlices - 1; i++) {
                 for (int j = 1; j < MyYSlices - 1; j++) {
                     // This cell is part of the powder layer - count how many of these exist on this rank
@@ -1910,7 +1952,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting,
         }
     }
     else {
-        for (int k = nzActive; k < nz; k++) {
+        for (int k = nzActive + 3; k < nz; k++) {
             for (int i = 1; i < MyXSlices - 1; i++) {
                 for (int j = 1; j < MyYSlices - 1; j++) {
                     int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -1928,11 +1970,12 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting,
         }
     }
     // Assign grain IDs to bulk grain nuclei
-    int FirstEpitaxialGrainID = NumBaseplateGrains_H(0) + 1;
+    int FirstEpitaxialGrainID = -1; //NumBaseplateGrains_H(0) + 1;
     if (np > 1) {
         // Grains for epitaxial growth - determine GrainIDs on each MPI rank
         if (id == 0) {
-            int SBuf = FirstEpitaxialGrainID + PowderLayerActCells_ThisRank;
+            int SBuf = FirstEpitaxialGrainID - PowderLayerActCells_ThisRank;
+            //int SBuf = FirstEpitaxialGrainID + PowderLayerActCells_ThisRank;
             MPI_Send(&SBuf, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
         }
         else if (id == np - 1) {
@@ -1944,16 +1987,21 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting,
             int RBuf;
             MPI_Recv(&RBuf, 1, MPI_INT, id - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             FirstEpitaxialGrainID = RBuf;
-            int SBuf = RBuf + PowderLayerActCells_ThisRank;
+            int SBuf = RBuf - PowderLayerActCells_ThisRank;
+
+            //            int SBuf = RBuf + PowderLayerActCells_ThisRank;
             MPI_Send(&SBuf, 1, MPI_INT, id + 1, 0, MPI_COMM_WORLD);
         }
     }
     if (Remelting) {
-        for (int D3D1ConvPosition = MyXSlices * MyYSlices * (nzActive + 2);
+        std::cout << "First ep GID rank " << id << " = " << FirstEpitaxialGrainID << std::endl;
+        for (int D3D1ConvPosition = MyXSlices * MyYSlices * (nzActive + 1);
              D3D1ConvPosition < MyXSlices * MyYSlices * nz; D3D1ConvPosition++) {
             GrainID(D3D1ConvPosition) = FirstEpitaxialGrainID;
-            FirstEpitaxialGrainID++;
+            FirstEpitaxialGrainID--;
+            //FirstEpitaxialGrainID++;
         }
+        std::cout << "Last ep GID rank " << id << " = " << FirstEpitaxialGrainID+1 << std::endl;
     }
     else {
         for (int D3D1ConvPosition = MyXSlices * MyYSlices * nzActive; D3D1ConvPosition < MyXSlices * MyYSlices * nz;
@@ -1983,8 +2031,7 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
                 int GlobalX = i + MyXOffset;
                 int GlobalY = j + MyYOffset;
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                if ((GlobalX == -1) || (GlobalX == nx) || (GlobalY == -1) || (GlobalY == ny) || (k == 0) ||
-                    (k == nz - 1)) {
+                if ((GlobalX == -1) || (GlobalX == nx) || (GlobalY == -1) || (GlobalY == ny) || (k == 0)) {
                     CellType(CAGridLocation) = Wall;
                     GrainID(CAGridLocation) = 0;
                 }
@@ -2001,7 +2048,7 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
 
     // Initialize solid cells where no temperature data exists, and liquid cells where temperature data exists
     // This is done prior to initializing active cells, as active cells are initialized based on neighbor cell types
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 1; k < nz; k++) {
         for (int j = 0; j < MyYSlices; j++) {
             for (int i = 0; i < MyXSlices; i++) {
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -2017,7 +2064,7 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
     }
     // Count number of active cells are at the solid-liquid boundary
     int SubstrateActCells_ThisRank = 0;
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 1; k < nz; k++) {
         for (int j = 0; j < MyYSlices; j++) {
             for (int i = 0; i < MyXSlices; i++) {
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -2089,7 +2136,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
     // Count the number of nucleation events that may potentially occur on this rank (not counting ghost nodes, to avoid
     // double counting cells are potential nucleation sites)
     PossibleNuclei_ThisRank = 0;
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 1; k < nz; k++) {
         for (int j = 1; j < MyYSlices - 1; j++) {
             for (int i = 1; i < MyXSlices - 1; i++) {
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -2165,7 +2212,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
     for (int i = 0; i < LocalActiveDomainSize; i++) {
         DiagonalLength(i) = 0.0;
     }
-    for (int GlobalZ = 1; GlobalZ < nz - 1; GlobalZ++) {
+    for (int GlobalZ = 1; GlobalZ < nz; GlobalZ++) {
         for (int RankX = 0; RankX < MyXSlices; RankX++) {
             for (int RankY = 0; RankY < MyYSlices; RankY++) {
                 long int D3D1ConvPositionGlobal = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
@@ -2400,7 +2447,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
          NorthWestNucleiRecvCount + NorthEastNucleiRecvCount + SouthWestNucleiRecvCount + SouthEastNucleiRecvCount);
 
     // Remove delay cells not bordering others
-    for (int RankZ = 1; RankZ < nz - 1; RankZ++) {
+    for (int RankZ = 1; RankZ < nz; RankZ++) {
         for (int RankX = 1; RankX < MyXSlices - 1; RankX++) {
             for (int RankY = 1; RankY < MyYSlices - 1; RankY++) {
                 int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;

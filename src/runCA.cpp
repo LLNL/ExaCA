@@ -392,17 +392,20 @@ void RunExaCA(int id, int np, std::string InputFile) {
                                            XSwitch, CellType_G, CritTimeStep_G, SimulationType, FinishTimeStep,
                                            layernumber, NumberOfLayers, ZBound_Low, LayerID_G);
             }
-//            if (cycle == 10000) {
+//            if (cycle == 12500000) {
 //                Kokkos::deep_copy(GrainID_H, GrainID_G);
 //                Kokkos::deep_copy(CellType_H, CellType_G);
 //                Kokkos::deep_copy(CritTimeStep_H, CritTimeStep_G);
+//                Kokkos::deep_copy(UndercoolingCurrent_H, UndercoolingCurrent_G);
+//                Kokkos::deep_copy(UndercoolingChange_H, UndercoolingChange_G);
 //                PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
 //                               GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
 //                               UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
 //                               NGrainOrientations, Melted, PathToOutput, PrintDebug, true, false);
 //                MPI_Barrier(MPI_COMM_WORLD);
 //                if (id == 0)
-//                    std::cout << "Initialization data file(s) printed" << std::endl;
+//                    std::cout << "Debug file printed" << std::endl;
+//                XSwitch = 1;
 //            }
 
         } while (XSwitch == 0);
