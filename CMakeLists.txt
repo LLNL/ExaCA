@@ -15,6 +15,14 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ExaCAconfig.cmakein
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ExaCAconfig.cmake"
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ExaCA)
 
+# Install data files
+file(GLOB MATERIALS examples/Materials/Inconel625)
+file(GLOB SUBSTRATE examples/Substrate/GrainOrientationVectors*.csv)
+install(FILES ${MATERIALS}
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/ExaCA/Materials)
+install(FILES ${SUBSTRATE}
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/ExaCA/Substrate)
+
 include(CTest)
 #add_subdirectory(unit_test)
 if(${BUILD_TESTING})

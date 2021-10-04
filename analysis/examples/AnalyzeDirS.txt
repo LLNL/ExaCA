@@ -2,7 +2,7 @@ Used in post-processing script to analyze select ExaCA outputs
 *****
 Path to/name of log (.log) file associated with the microstructure of interest: TestProblemDirS.log
 Path to/name of microstructure (.vtk) file: TestProblemDirS.vtk
-Path to file of grain orientations (rotation matrix form): ../../examples/Substrate/GrainOrientationVectors_Robert.csv
+Path to file of grain orientations (rotation matrix form): GrainOrientationVectors_Robert.csv
 Path to/base (without file extension) name of data files of output resulting from this analysis: TestProblemDirS
 **********
 SECTION 1: ExaConstit representative volume elements: lines have the format [size, center x, center y, center z]

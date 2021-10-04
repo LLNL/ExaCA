@@ -1,6 +1,6 @@
 Test problem simulating constrained (no thermal gradient) alloy solidification (Problem type 'C') as a small test problem with a few grains that can be run on a single rank/GPU
 *****
-Problem type: C     
+Problem type: C
 Decomposition strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
 Material: Inconel625
 Cell size (microns: 1

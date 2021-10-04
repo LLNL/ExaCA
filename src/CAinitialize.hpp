@@ -16,23 +16,24 @@
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
                        double &AConst, double &BConst, double &CConst, double &DConst, double &FreezingRange,
                        double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
-                       std::string &GrainOrientationFile, std::string &tempfile, int &TempFilesInSeries,
-                       bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
-                       int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
-                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
-                       bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset,
-                       int &SpotRadius);
+                       std::string &GrainOrientationFile, std::string &temppath, std::string &tempfile,
+                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, bool &ExtraWalls,
+                       double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
+                       std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
+                       double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
+                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY,
+                       int &SpotOffset, int &SpotRadius);
 void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
                       ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
                       int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
                       int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
                       int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
                       double &deltax, double HT_deltax, int &nx, int &ny, int &nz, int &ProcessorsInXDirection,
-                      int &ProcessorsInYDirection, std::string tempfile, float &XMin, float &XMax, float &YMin,
-                      float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight, int NumberOfLayers,
-                      int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
-                      float *ZMaxLayer, int *FirstValue, int *LastValue, std::vector<double> &RawData);
+                      int &ProcessorsInYDirection, std::vector<std::string> &temp_paths, float &XMin, float &XMax,
+                      float &YMin, float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight,
+                      int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
+                      float *ZMinLayer, float *ZMaxLayer, int *FirstValue, int *LastValue,
+                      std::vector<double> &RawData);
 void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
                                 int &MyYOffset, double deltax, double deltat, int nx, int ny, int nz,
                                 ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
@@ -92,5 +93,6 @@ void skipLines(std::ifstream &stream, std::string seperator = "*****");
 std::string parseInput(std::ifstream &stream, std::string key);
 std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int &WhichKey);
 bool parseInputBool(std::ifstream &stream, std::string key);
+std::string checkFileInstalled(const std::string name, const std::string type, const int id);
 
 #endif

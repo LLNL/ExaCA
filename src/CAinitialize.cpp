@@ -5,6 +5,7 @@
 
 #include "CAinitialize.hpp"
 
+#include "CAconfig.hpp"
 #include "CAfunctions.hpp"
 
 #include "mpi.h"
@@ -79,7 +80,7 @@ std::string parseInput(std::ifstream &stream, std::string key) {
     // Check for keyword
     if (actual_key.find(key) == std::string::npos) {
         // Keyword not found
-        std::string error = "Required input not present: " + key + " not found in the input file";
+        std::string error = "Required input not present: \"" + key + "\" not found in the input file";
         throw std::runtime_error(error);
     }
     // Keyword was found
@@ -185,34 +186,65 @@ void getTemperatureDataPoint(std::string s, std::vector<double> &XYZTemperatureP
         XYZTemperaturePoint[n] = stod(TemperatureValues_Read[n]);
 }
 
+void getTemperatureFilePaths(const std::string path, const std::string name, std::vector<std::string> &all_paths) {
+    std::size_t num_files = all_paths.size();
+    for (std::size_t i = 1; i < num_files + 1; i++) {
+        std::string curr_path = path + "/";
+        if (num_files > 1)
+            curr_path += std::to_string(i) + name;
+        else
+            curr_path += name;
+        all_paths[i - 1] = curr_path;
+    }
+}
+
+bool checkFileExists(const std::string path, const std::string type, const int id, const bool error = true) {
+    std::ifstream stream;
+    stream.open(path);
+    if (!(stream.is_open())) {
+        stream.close();
+        if (error)
+            throw std::runtime_error("Could not locate/open " + type + " file");
+        else
+            return false;
+    }
+    stream.close();
+    if (id == 0)
+        std::cout << type + " file " << path << " opened" << std::endl;
+    return true;
+}
+
+std::string checkFileInstalled(const std::string name, const std::string type, const int id) {
+    // Path to file. Prefer installed location; if not installed use source location.
+    std::string path = ExaCA_DATA_INSTALL;
+    // Note type must match directory.
+    std::string file = path + "/" + type + "/" + name;
+    bool files_installed = checkFileExists(file, type, id, false);
+    if (!files_installed) {
+        path = ExaCA_DATA_SOURCE;
+        file = path + "/" + type + "/" + name;
+        checkFileExists(file, type, id);
+    }
+    return file;
+}
 //*****************************************************************************/
 // Read ExaCA input file.
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
                        double &AConst, double &BConst, double &CConst, double &DConst, double &FreezingRange,
                        double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
-                       std::string &GrainOrientationFile, std::string &tempfile, int &TempFilesInSeries,
-                       bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
-                       int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
-                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
-                       bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset,
-                       int &SpotRadius) {
+                       std::string &GrainOrientationFile, std::string &temppath, std::string &tempfile,
+                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, bool &ExtraWalls,
+                       double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
+                       std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
+                       double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
+                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY,
+                       int &SpotOffset, int &SpotRadius) {
 
-    // Get full path to input file.
-    std::string FilePath;
-    size_t backslash = InputFile.find_last_of("/");
-    // Edge case if running in the examples/ directory.
-    if (backslash == std::string::npos)
-        FilePath = ".";
-    else
-        FilePath = InputFile.substr(0, backslash);
-
-    std::ifstream InputData, MaterialData;
     std::string Colon = ":";
     std::string Quote = "'";
+    checkFileExists(InputFile, "Input", id);
+    std::ifstream InputData;
     InputData.open(InputFile);
-    if (id == 0)
-        std::cout << "Input file " << InputFile << " opened" << std::endl;
     skipLines(InputData);
 
     std::string val;
@@ -225,8 +257,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     DecompositionStrategy = stoi(val, nullptr, 10);
 
     // Material (opening a separate file to obtain values for A, B, C, and D for the interfacial reponse function)
-    std::string MaterialFile = parseInput(InputData, "Material");
-    MaterialData.open(FilePath + "/Materials/" + MaterialFile);
+    std::string MaterialName = parseInput(InputData, "Material");
+    std::string MaterialFile = checkFileInstalled(MaterialName, "Materials", id);
+
+    std::ifstream MaterialData;
+    MaterialData.open(MaterialFile);
     skipLines(MaterialData);
 
     // Interfacial response function A
@@ -271,8 +306,17 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     OutputFile = parseInput(InputData, "Output file base name");
 
     // File of grain orientations
-    GrainOrientationFile = parseInput(InputData, "File of grain orientations");
-    GrainOrientationFile = FilePath + "/Substrate/" + GrainOrientationFile;
+    std::string GrainOrientationFile_Read = parseInput(InputData, "File of grain orientations");
+
+    // Path to file of grain orientations based on install/source location
+    GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, "Substrate", id);
+
+    std::ifstream GrainOrientationData;
+    GrainOrientationData.open(GrainOrientationFile);
+    // Make sure file contains data
+    std::string TestLine;
+    std::getline(GrainOrientationData, TestLine);
+    GrainOrientationData.close();
 
     if (SimulationType == "R") {
         // Read input arguments for a reduced temperature data format solidification problem
@@ -293,12 +337,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
         // Name of substrate file OR average spacing of substrate grains in microns
         int SubstrateDataType = 0;
-        val = parseInputMultiple(InputData, "Substrate file name", "Substrate grain spacing", SubstrateDataType);
+        val = parseInputMultiple(InputData, "Path to substrate file", "Substrate grain spacing", SubstrateDataType);
         if (SubstrateDataType == 1) {
-            SubstrateFileName = FilePath + "/Substrate/" + val;
+            SubstrateFileName = parseInput(InputData, "Substrate file name");
+            SubstrateFileName = val + "/" + SubstrateFileName;
             UseSubstrateFile = true;
-            if (id == 0)
-                std::cout << "The substrate file used is " << SubstrateFileName << std::endl;
+            // Check if substrate file exists
+            checkFileExists(SubstrateFileName, "Substrate", id);
         }
         else if (SubstrateDataType == 2) {
             SubstrateGrainSpacing = atof(val.c_str());
@@ -307,8 +352,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // Burst buffer/Truchas multilayer simulation input (no longer supported)
 
         // File containing temperature data
+        temppath = parseInput(InputData, "Path to temperature file");
         tempfile = parseInput(InputData, "Temperature filename");
-        tempfile = FilePath + "/Temperatures/" + tempfile;
 
         // Temperature files in series
         val = parseInput(InputData, "Number of temperature files");
@@ -318,34 +363,18 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         RemeltingYN = false;
 
         if (id == 0) {
-            std::cout << "Temperature data file(s) is/are " << tempfile << " , and there are " << TempFilesInSeries
-                      << " in the series" << std::endl;
+            if (TempFilesInSeries > 1)
+                std::cout << "Temperature data files are *" << tempfile << " , and there are " << TempFilesInSeries
+                          << " in the series" << std::endl;
+            else
+                std::cout << "The temperature data file is " << tempfile << std::endl;
         }
         // Check to ensure all temperature files exist - obtain number of temperature data values and data units from
         // each file
+        temp_paths.resize(TempFilesInSeries, "");
+        getTemperatureFilePaths(temppath, tempfile, temp_paths);
         for (int i = 0; i < TempFilesInSeries; i++) {
-            std::string CurrentTempFile = tempfile;
-            if (TempFilesInSeries > 1) {
-                int NextLayerFile = i + 1;
-                std::string NextLayerFileS = std::to_string(NextLayerFile);
-                std::size_t found = tempfile.find_last_of("/");
-                std::string FPath = tempfile.substr(0, found + 1);
-                std::string FName = tempfile.substr(found + 1);
-                CurrentTempFile = FPath + NextLayerFileS + FName;
-            }
-            std::ifstream TemperatureFile;
-            TemperatureFile.open(CurrentTempFile);
-            if (TemperatureFile.is_open()) {
-                if (id == 0)
-                    std::cout << "Successfully opened file" << std::endl;
-                TemperatureFile.close();
-            }
-            else {
-                if (id == 0)
-                    std::cout << "Failed to open file " << CurrentTempFile << std::endl;
-                if (id == 0)
-                    throw std::runtime_error("Input \"Could not find or open temperature file(s)\"  \".");
-            }
+            checkFileExists(temp_paths[i], "Temperature", id);
         }
 
         // Usage of second set of wall cells around temperature field (for spot melt problems, where the melt pool
@@ -463,12 +492,12 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
         // Name of substrate file OR average spacing of substrate grains in microns
         int SubstrateDataType = 0;
-        val = parseInputMultiple(InputData, "Substrate file name", "Substrate grain spacing", SubstrateDataType);
+        val = parseInputMultiple(InputData, "Path to substrate file", "Substrate grain spacing", SubstrateDataType);
         if (SubstrateDataType == 1) {
-            SubstrateFileName = FilePath + "/Substrate/" + val;
+            SubstrateFileName = parseInput(InputData, "Substrate file name");
+            SubstrateFileName = val + "/" + SubstrateFileName;
             UseSubstrateFile = true;
-            if (id == 0)
-                std::cout << "The substrate file used is " << SubstrateFileName << std::endl;
+            checkFileExists(SubstrateFileName, "Substrate", id);
         }
         else if (SubstrateDataType == 2) {
             SubstrateGrainSpacing = atof(val.c_str());
@@ -536,7 +565,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     if (id == 0) {
         std::cout << "Decomposition Strategy is " << DecompositionStrategy << std::endl;
-        std::cout << "Material simulated is " << MaterialFile
+        std::cout << "Material simulated is " << MaterialName
                   << ", interfacial response function constants are A = " << AConst << ", B = " << BConst
                   << ", C = " << CConst << ", and D = " << DConst << std::endl;
         std::cout << "CA cell size is " << deltax * pow(10, 6) << " microns" << std::endl;
@@ -553,8 +582,8 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
                       int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
                       int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
                       double &deltax, double HT_deltax, int &nx, int &ny, int &nz, int &ProcessorsInXDirection,
-                      int &ProcessorsInYDirection, std::string tempfile, float &XMin, float &XMax, float &YMin,
-                      float &YMax, float &ZMin, float &ZMax, float, int &LayerHeight, int NumberOfLayers,
+                      int &ProcessorsInYDirection, std::vector<std::string> &temp_paths, float &XMin, float &XMax,
+                      float &YMin, float &YMax, float &ZMin, float &ZMax, float, int &LayerHeight, int NumberOfLayers,
                       int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
                       float *ZMaxLayer, int *FirstValue, int *LastValue, std::vector<double> &RawData) {
 
@@ -734,18 +763,8 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         // Read the first temperature file, first line to determine if the "new" OpenFOAM output format (with a 1 line
         // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
         // the simulation domain) is
-        std::string FirstLayerTempFile;
-        if (TempFilesInSeries > 1) {
-            std::size_t found = tempfile.find_last_of("/");
-            std::string FPath = tempfile.substr(0, found + 1);
-            std::string FName = tempfile.substr(found + 1);
-            FirstLayerTempFile = FPath + "1" + FName;
-        }
-        else {
-            FirstLayerTempFile = tempfile;
-        }
         std::ifstream FirstTemperatureFile;
-        FirstTemperatureFile.open(FirstLayerTempFile);
+        FirstTemperatureFile.open(temp_paths[0]);
         std::string FirstLineFirstFile;
         getline(FirstTemperatureFile, FirstLineFirstFile);
         std::size_t found = FirstLineFirstFile.find("Number of temperature data points");
@@ -760,21 +779,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         int LayersToRead = std::min(NumberOfLayers, TempFilesInSeries); // was given in input file
         for (int LayerReadCount = 1; LayerReadCount <= LayersToRead; LayerReadCount++) {
 
-            std::string tempfile_thislayer;
-            if (TempFilesInSeries > 1) {
-                std::string NextLayerFileS = std::to_string(LayerReadCount);
-                int NextLayerFile = LayerReadCount % TempFilesInSeries;
-                if (NextLayerFile == 0)
-                    NextLayerFile = TempFilesInSeries;
-                NextLayerFileS = std::to_string(NextLayerFile);
-                std::size_t found = tempfile.find_last_of("/");
-                std::string FPath = tempfile.substr(0, found + 1);
-                std::string FName = tempfile.substr(found + 1);
-                tempfile_thislayer = FPath + NextLayerFileS + FName;
-            }
-            else {
-                tempfile_thislayer = tempfile;
-            }
+            std::string tempfile_thislayer = temp_paths[LayerReadCount - 1];
             std::ifstream TemperatureFile;
             TemperatureFile.open(tempfile_thislayer);
 
@@ -929,21 +934,7 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         // Second pass through the files - ignore header line
         for (int LayerReadCount = 1; LayerReadCount <= LayersToRead; LayerReadCount++) {
 
-            std::string tempfile_thislayer;
-            if (TempFilesInSeries > 1) {
-                std::string NextLayerFileS = std::to_string(LayerReadCount);
-                int NextLayerFile = LayerReadCount % TempFilesInSeries;
-                if (NextLayerFile == 0)
-                    NextLayerFile = TempFilesInSeries;
-                NextLayerFileS = std::to_string(NextLayerFile);
-                std::size_t found = tempfile.find_last_of("/");
-                std::string FPath = tempfile.substr(0, found + 1);
-                std::string FName = tempfile.substr(found + 1);
-                tempfile_thislayer = FPath + NextLayerFileS + FName;
-            }
-            else {
-                tempfile_thislayer = tempfile;
-            }
+            std::string tempfile_thislayer = temp_paths[LayerReadCount - 1];
             std::ifstream TemperatureFile;
             TemperatureFile.open(tempfile_thislayer);
             FirstValue[LayerReadCount - 1] = NumberOfTemperatureDataPoints;
@@ -1544,8 +1535,6 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
     // Assign GrainID values to cells that are part of the substrate
     std::ifstream Substrate;
     Substrate.open(SubstrateFileName);
-    if (id == 0)
-        std::cout << "Opened substrate file " << SubstrateFileName << std::endl;
     int Substrate_LowX = MyXOffset;
     int Substrate_HighX = MyXOffset + MyXSlices;
     int Substrate_LowY = MyYOffset;
