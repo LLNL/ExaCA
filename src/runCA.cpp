@@ -25,7 +25,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintDebug;
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     bool PrintMisorientation, PrintFullOutput, UseSubstrateFile, ExtraWalls, RemeltingYN;
-    float SubstrateGrainSpacing;
+    float BaseplateGrainSpacing, PowderGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange,
         NMax, dTN, dTsigma;
     std::string SimulationType, SubstrateFileName, tempfile, OutputFile, GrainOrientationFile, PathToOutput;
@@ -34,7 +34,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
     InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
                       FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, tempfile,
                       TempFilesInSeries, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
-                      SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
+                      SubstrateFileName, BaseplateGrainSpacing, PowderGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
                       FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput, NSpotsX,
                       NSpotsY, SpotOffset, SpotRadius);
     
@@ -205,7 +205,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
             SubstrateInit_FromFile(SubstrateFileName, RemeltingYN, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id,
                                    CritTimeStep_H, GrainID_H);
         else
-            SubstrateInit_FromGrainSpacing(SubstrateGrainSpacing, RemeltingYN, nx, ny, nz, nzActive, MyXSlices,
+            SubstrateInit_FromGrainSpacing(BaseplateGrainSpacing, PowderGrainSpacing, nx, ny, nz, nzActive, MyXSlices,
                                            MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, id, np, deltax,
                                            GrainID_H, CritTimeStep_H, LayerHeight, NumberOfLayers);
         if (SimulationType != "RM") ActiveCellWallInit(id, MyXSlices, MyYSlices, nx, ny, nz, MyXOffset, MyYOffset, CellType_H, GrainID_H,
@@ -574,7 +574,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
     PrintExaCALog(id, np, InputFile, SimulationType, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
                   AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, tempfile,
                   TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
-                  SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
+                  BaseplateGrainSpacing, PowderGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
                   NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
                   InitMinTime, NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
                   OutMaxTime, OutMinTime);

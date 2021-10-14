@@ -37,7 +37,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN,
                    double dTsigma, std::string tempfile, int TempFilesInSeries, double HT_deltax, bool RemeltingYN,
                    double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
-                   double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
+                   float BaseplateGrainSpacing, float PowderGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
                    double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
                    int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
                    double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,

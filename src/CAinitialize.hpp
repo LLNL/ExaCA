@@ -19,7 +19,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
                        std::string &GrainOrientationFile, std::string &tempfile, int &TempFilesInSeries,
                        bool &ExtraWalls, double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers,
-                       int &LayerHeight, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
+                       int &LayerHeight, std::string &SubstrateFileName, float &BaseplateGrainSpacing, float &PowderGrainSpacing,
                        bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
                        double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
                        bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset,
@@ -62,11 +62,11 @@ void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlic
                                      int nz, int MyXOffset, int MyYOffset, int pid, int np, ViewI_H CellType,
                                      ViewI_H GrainID);
 void SubstrateInit_FromFile(std::string SubstrateFileName, bool Remelting, int nz, int MyXSlices, int MyYSlices,
-                            int MyXOffset, int MyYOffset, int pid, ViewI_H CritTimeStep, ViewI_H GrainID, int LayerHeight, int NumberOfLayers);
-void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting, int nx, int ny, int nz, int nzActive,
+                            int MyXOffset, int MyYOffset, int pid, ViewI_H CritTimeStep, ViewI_H GrainID);
+void SubstrateInit_FromGrainSpacing(float BaseplateGrainSpacing, float PowderGrainSpacing, int nx, int ny, int nz, int nzActive,
                                     int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
                                     int LocalActiveDomainSize, int pid, int np, double deltax, ViewI_H GrainID,
-                                    ViewI_H CritTimeStep);
+                                    ViewI_H CritTimeStep, int LayerHeight, int NumberOfLayers);
 void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, int nz, int MyXOffset, int MyYOffset,
                         ViewI_H CellType_H, ViewI_H GrainID_H, ViewI_H CritTimeStep_H, ViewI2D_H ItList_H,
                         ViewI_H NeighborX_H, ViewI_H NeighborY_H, ViewI_H NeighborZ_H, ViewF_H UndercoolingChange_H,
