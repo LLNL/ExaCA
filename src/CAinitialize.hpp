@@ -62,7 +62,7 @@ void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlic
                                      int nz, int MyXOffset, int MyYOffset, int pid, int np, ViewI_H CellType,
                                      ViewI_H GrainID);
 void SubstrateInit_FromFile(std::string SubstrateFileName, bool Remelting, int nz, int MyXSlices, int MyYSlices,
-                            int MyXOffset, int MyYOffset, int pid, ViewI_H CritTimeStep, ViewI_H GrainID);
+                            int MyXOffset, int MyYOffset, int pid, ViewI_H CritTimeStep, ViewI_H GrainID, int LayerHeight, int NumberOfLayers);
 void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting, int nx, int ny, int nz, int nzActive,
                                     int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
                                     int LocalActiveDomainSize, int pid, int np, double deltax, ViewI_H GrainID,

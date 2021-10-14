@@ -1819,7 +1819,7 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, bool Remelting, int n
 void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, bool Remelting, int nx, int ny, int nz, int nzActive,
                                     int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
                                     int LocalActiveDomainSize, int id, int np, double deltax, ViewI_H GrainID,
-                                    ViewI_H CritTimeStep) {
+                                    ViewI_H CritTimeStep, int LayerHeight, int NumberOfLayers) {
 
     // Seed random number generator such that each rank generates the same baseplate grain center locations
     double SubstrateSeed = 1.0;

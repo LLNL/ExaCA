@@ -207,7 +207,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
         else
             SubstrateInit_FromGrainSpacing(SubstrateGrainSpacing, RemeltingYN, nx, ny, nz, nzActive, MyXSlices,
                                            MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, id, np, deltax,
-                                           GrainID_H, CritTimeStep_H);
+                                           GrainID_H, CritTimeStep_H, LayerHeight, NumberOfLayers);
         if (SimulationType != "RM") ActiveCellWallInit(id, MyXSlices, MyYSlices, nx, ny, nz, MyXOffset, MyYOffset, CellType_H, GrainID_H,
                            CritTimeStep_H, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, UndercoolingChange_H,
                            ExtraWalls);
