@@ -13,8 +13,8 @@ File of grain orientations:GrainOrientationVectors_Robert.csv
 Heat transport data mesh size (microns): 5
 Time step (microseconds): 0.3
 Substrate grain spacing (in microns): 25
-Path to temperature file(s): Temperatures
-Temperature filename (* glob before the name): leg
+Path to temperature file(s): examples/Temperatures
+Temperature filename (* glob before the name): leg.txt
 Number of temperature files: 2
 Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: N
 Number of layers: 20
