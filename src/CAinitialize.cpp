@@ -312,7 +312,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             // separate powder / baseplate values?
             std::size_t foundslash = val.find("/");
             if (foundslash != std::string::npos) {
-                std::string BaseplateGrainSpacingS = val.substr(0,foundslash-1);
+                std::string BaseplateGrainSpacingS = val.substr(0,foundslash);
                 std::string PowderGrainSpacingS = val.substr(foundslash+1,std::string::npos);
                 BaseplateGrainSpacing = atof(BaseplateGrainSpacingS.c_str());
                 PowderGrainSpacing = atof(PowderGrainSpacingS.c_str());
@@ -1859,10 +1859,10 @@ void SubstrateInit_FromGrainSpacing(float BaseplateGrainSpacing, float PowderGra
     int LayerZBoundLow[NumberOfLayers]; // bounds are inclusive of low and high
     int LayerZBoundHigh[NumberOfLayers];
     LayerZBoundLow[0] = 1;
-    LayerZBoundHigh[0] = nzActive-1;
-    std::cout << "Layer 0 substrate from 1 through " << nzActive-1 << std::endl;
+    LayerZBoundHigh[0] = nzActive;
+    std::cout << "Layer 0 substrate from 1 through " << nzActive << std::endl;
     for (int n=1; n<NumberOfLayers; n++) {
-        LayerZBoundLow[n] = nzActive + (n - 1) * LayerHeight;
+        LayerZBoundLow[n] = nzActive + (n - 1) * LayerHeight + 1;
         LayerZBoundHigh[n] = LayerZBoundLow[n] + LayerHeight - 1;
         std::cout << "Layer " << n << " substrate from " << LayerZBoundLow[n] << " through " << LayerZBoundHigh[n] << std::endl;
     }
@@ -1881,14 +1881,14 @@ void SubstrateInit_FromGrainSpacing(float BaseplateGrainSpacing, float PowderGra
 
         // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain
         // centers This will eventually be done on the device when random number generation with Kokkos is more efficient
-        int GrainProbability;
+        float GrainProbability;
         if (layer == 0) GrainProbability = BaseplateGrainProb;
         else GrainProbability = PowderGrainProb;
         for (int k = 0; k < SizeLayer; k++) {
             for (int i = 1; i < nx - 1; i++) {
                 for (int j = 1; j < ny - 1; j++) {
                     double R = dis(gen);
-                    if (R < BaseplateGrainProb) {
+                    if (R < GrainProbability) {
                         int OldIndexValue = NumGrainsThisLayer_H(0);
                         GrainX_H(OldIndexValue) = i;
                         GrainY_H(OldIndexValue) = j;
@@ -1935,11 +1935,12 @@ void SubstrateInit_FromGrainSpacing(float BaseplateGrainSpacing, float PowderGra
                     }
                 }
                 if (layer == 0) GrainID_G(CAGridLocation) = ClosestGrainIndex + 1 + LastGrainIDLastLayer;
-                else GrainID_G(CAGridLocation) = - (ClosestGrainIndex + 1 + LastGrainIDLastLayer);
+                else GrainID_G(CAGridLocation) = (-1) * (ClosestGrainIndex + 1 + LastGrainIDLastLayer);
 
             });
             if (layer == 0) LastGrainIDLastLayer = 0;
             else LastGrainIDLastLayer += NumGrainsThisLayer_H(0);
+        std::cout << "LayerGrainIDLayer " << layer << " is " << LastGrainIDLastLayer << std::endl;
     }
 
     // Copy Grain ID back to host
