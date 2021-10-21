@@ -405,8 +405,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         val = parseInput(InputData, "Cooling rate");
         R = atof(val.c_str());
         if (id == 0)
-            std::cout << "CA Simulation using a fixed thermal gradient of " << G << " K/m and a cooling rate of " << R
-                      << " K/s" << std::endl;
+            std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << G
+                      << " K/m and a cooling rate of " << R << " K/s" << std::endl;
 
         // Domain size in x
         val = parseInput(InputData, "Domain size in x");
@@ -421,9 +421,10 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // Domain size in z
         val = parseInput(InputData, "Domain size in z");
         nz = stoi(val, nullptr, 10);
-        nz = nz + 2;
-        if (id == 0)
-            std::cout << "The domain size is " << nx << " by " << ny << " by " << nz << " cells" << std::endl;
+        // The Z = 0 cells are wall cells
+        // The Z = 1 active cells start at the liquidus temperature
+        // The Z = (nz value given in the file) cells are at the top of the liquid domain (no wall cells at top)
+        nz = nz + 1; // +1 to account for the wall cells at the bottom surface
 
         // delta t (using ratio between cooling rate R, thermal gradient G, and cell size delta x
         val = parseInput(InputData, "\"N\"");
@@ -450,8 +451,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         val = parseInput(InputData, "Cooling rate");
         R = atof(val.c_str());
         if (id == 0)
-            std::cout << "CA Simulation using a fixed thermal gradient of " << G << " K/m and a cooling rate of " << R
-                      << " K/s" << std::endl;
+            std::cout << "CA Simulation using a radial, fixed thermal gradient of " << G
+                      << " K/m as a series of hemispherical spots, and a cooling rate of " << R << " K/s" << std::endl;
 
         // Number of spots in x
         val = parseInput(InputData, "Number of spots in x");
@@ -505,11 +506,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         }
 
         // Calculate nx, ny, and nz based on spot array pattern and number of layers
-        nz = SpotRadius + 3 + (NumberOfLayers - 1) * LayerHeight;
+        // Z = 0 consists of wall cells, Z = 1 is active cells just outside of the melt pool footprint
+        // Z = 2 is the lowest Z coordinate with the first layers spot melt data
+        nz = SpotRadius + 2 + (NumberOfLayers - 1) * LayerHeight;
         nx = 4 + 2 * SpotRadius + SpotOffset * (NSpotsX - 1);
         ny = 4 + 2 * SpotRadius + SpotOffset * (NSpotsY - 1);
-        if (id == 0)
-            std::cout << "The domain size is " << nx << " by " << ny << " by " << nz << " cells" << std::endl;
     }
     // Which files should be printed?
     // Check if new (August 2021) or old file printing options are present
@@ -880,11 +881,12 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
         }
 
         // Now at the conclusion of "Loop 0", the decomposition can be performed as the domain bounds are known
-        // (all header lines from all files have been read) CA nodes in each direction (+2 for wall cells at the
-        // boundaries) (+2 for solid cells at X/Y boundaries, +1 for solid cells at lower Z boundary)
+        // (all header lines from all files have been read)
+        // CA nodes in each direction: (+2 for wall cells at the +/- X/Y boundaries
+        // +2 for active/wall cells at the -Z boundary, no wall at the top Z boundary
         nx = round((XMax - XMin) / deltax) + 1 + 4;
         ny = round((YMax - YMin) / deltax) + 1 + 4;
-        nz = round((ZMax - ZMin) / deltax) + 1 + 3;
+        nz = round((ZMax - ZMin) / deltax) + 1 + 2;
         if (id == 0) {
             std::cout << "Domain size: " << nx << " by " << ny << " by " << nz << std::endl;
             std::cout << "X Limits of domain: " << XMin << " and " << XMax << std::endl;
@@ -1001,10 +1003,19 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
     }
 
     else {
-        // For constrained solidification test problems, nx/ny/nz are already known and the decomposition can be
+        // Using fixed G/R values to set temperature field - no temperature data to read
+        // Setting physical domain bounds for consistency with problems that use input temperature data
+        // Let XMin/YMin/ZMin be equal to 0, XMax/YMax/ZMax equal to nx*deltax, ny*deltax, nz*deltax
+        XMin = 0.0;
+        YMin = 0.0;
+        ZMin = 0.0;
+        XMax = nx * deltax;
+        YMax = ny * deltax;
+        ZMax = nx * deltax;
+        // nx/ny/nz are already known based on the values in the input file and the decomposition can be
         // performed immediately
         if (id == 0) {
-            std::cout << "Constrained solidification domain size: " << nx << " by " << ny << " by " << nz << std::endl;
+            std::cout << "Fixed G/R problem domain size: " << nx << " by " << ny << " by " << nz << std::endl;
             std::cout << "================================================================" << std::endl;
         }
         InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id, np,
@@ -1022,15 +1033,20 @@ void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H Neig
 
 //*****************************************************************************/
 // Initialize temperature data for a constrained solidification test problem
-void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,
-                                double deltax, double deltat, int nx, int ny, int nz, ViewI_H CritTimeStep,
-                                ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int &nzActive,
-                                int &ZBound_Low, int &ZBound_High, ViewI_H LayerID) {
+void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
+                                int &MyYOffset, double deltax, double deltat, int nx, int ny, int nz,
+                                ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
+                                bool *Melted, int &nzActive, int &ZBound_Low, int &ZBound_High, ViewI_H LayerID) {
 
     // Contrained solidification test problem
-    ZBound_Low = 0;
+    // Since Z = 0 cells will be initialized as wall cells, it isn't necessary to iterate over them
+    // Z = 1 through Z = nz - 1 are the cells of interest for solidification
+    ZBound_Low = 1;
     ZBound_High = nz - 1;
-    nzActive = nz;
+    nzActive = ZBound_High - ZBound_Low + 1;
+    if (id == 0)
+        std::cout << "Constrained solidification problem's active domain is from Z = " << ZBound_Low << " through "
+                  << ZBound_High << std::endl;
 
     // Initialize temperature field in Z direction with thermal gradient G set in input file
     for (int k = 0; k < nz; k++) {
@@ -1043,7 +1059,7 @@ void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &My
                 CritTimeStep(GlobalD3D1ConvPosition) = (int)(((k - 1) * G * deltax) / (R * deltat));
                 int GlobalX = i + MyXOffset;
                 int GlobalY = j + MyYOffset;
-                if ((GlobalX > -1) && (GlobalX < nx) && (GlobalY > -1) && (GlobalY < ny) && (k > 0) && (k < nz - 1)) {
+                if ((GlobalX > -1) && (GlobalX < nx) && (GlobalY > -1) && (GlobalY < ny) && (k > 0)) {
                     Melted[GlobalD3D1ConvPosition] = true;
                 }
                 else {
@@ -1061,11 +1077,13 @@ void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, 
                        int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, double FreezingRange,
                        ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset) {
 
-    // First layer
-    ZBound_Low = 0;
+    // First layer: bottom is at Z = 1 (Z = 0 is a wall)
+    // Z = 2 through Z = SpotRadius + 1 contains temperature data
+    ZBound_Low = 1;
     ZBound_High = SpotRadius + 1;
-    nzActive = SpotRadius + 2;
-
+    nzActive = ZBound_High - ZBound_Low + 1;
+    if (id == 0)
+        std::cout << "Layer 0's active domain is from Z = " << ZBound_Low << " through " << ZBound_High << std::endl;
     // No cells intitially have undercooling, nor have melting/solidification data
     for (int k = 0; k < nz; k++) {
         for (int i = 0; i < MyXSlices; i++) {
@@ -1096,8 +1114,8 @@ void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, 
             // Initialize critical time step/cooling rate values for this spot/this layer
             int XSpotPos = 2 + SpotRadius + (n % NSpotsX) * SpotOffset;
             int YSpotPos = 2 + SpotRadius + (n / NSpotsX) * SpotOffset;
-            int ZSpotPos = SpotRadius + 2 + LayerHeight * layernumber;
-            for (int k = 0; k < nzActive; k++) {
+            int ZSpotPos = SpotRadius + 1 + LayerHeight * layernumber;
+            for (int k = 2; k <= SpotRadius + 1; k++) {
                 // Distance of this cell from the spot center
                 float DistZ = (float)(ZSpotPos - (k + LayerHeight * layernumber));
                 for (int i = 0; i < MyXSlices; i++) {
@@ -1365,9 +1383,11 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         // bottom wall, Z = 1 are the active cells just outside of the melt pool) "ZMax" is the global Z coordinate
         // that corresponds to cells at Z = nz-2 (Z = nz-1 is the domain's top wall)
         if (LayerCounter == 0) {
-            ZBound_Low = 0;
-            ZBound_High = round((ZMinLayer[LayerCounter] - ZMin) / deltax) + 2 + nzTempValuesThisLayer - 1;
+            ZBound_Low = 1;
+            ZBound_High = nzTempValuesThisLayer + 1;
             nzActive = ZBound_High - ZBound_Low + 1;
+            if (id == 0)
+                std::cout << "Active domain for layer 0 is Z = 1 through " << ZBound_High << std::endl;
         }
         if (id == 0)
             std::cout << "Layer " << LayerCounter << " data belongs to global z coordinates of "
@@ -1467,16 +1487,15 @@ void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlic
     // Counter for the number of active cells
     int SubstrateActCells_ThisRank = 0;
 
-    // Wall cells at global domain boundaries
+    // Wall cells at global domain boundaries (other than the top Z boundary)
     // Other cells are either regions that will melt, or part of the substrate
-    for (int k = 0; k < nz; k++) {
+    for (int k = 1; k < nz; k++) {
         for (int i = 0; i < MyXSlices; i++) {
             for (int j = 0; j < MyYSlices; j++) {
                 int GlobalX = i + MyXOffset;
                 int GlobalY = j + MyYOffset;
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                if ((GlobalX == -1) || (GlobalX == nx) || (GlobalY == -1) || (GlobalY == ny) || (k == 0) ||
-                    (k == nz - 1)) {
+                if ((GlobalX == -1) || (GlobalX == nx) || (GlobalY == -1) || (GlobalY == ny) || (k == 0)) {
                     CellType(CAGridLocation) = Wall;
                     GrainID(CAGridLocation) = 0;
                 }
@@ -1564,7 +1583,7 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
 
     // Assign GrainID values to cells that are part of the substrate
     // Cells that border the melted region are type active, others are type solid
-    for (int k = 0; k < nzS; k++) {
+    for (int k = 1; k < nzS; k++) {
         if (k == nz)
             break;
         for (int j = 0; j < nyS; j++) {
@@ -1614,6 +1633,8 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 
     // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain
     // centers This will eventually be done on the device when random number generation with Kokkos is more efficient
+    if (id == 0)
+        std::cout << "Baseplate spanning domain coordinates Z = 1 through " << nzActive << std::endl;
     for (int k = 1; k <= nzActive; k++) {
         for (int i = 1; i < nx - 1; i++) {
             for (int j = 1; j < ny - 1; j++) {
@@ -1646,7 +1667,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
     Kokkos::parallel_for(
         "CellCapture",
         Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-            {1, 0, 0}, {nzActive, MyXSlices, MyYSlices}),
+            {1, 0, 0}, {nzActive + 1, MyXSlices, MyYSlices}),
         KOKKOS_LAMBDA(const int k, const int i, const int j) {
             int GlobalX = i + MyXOffset;
             int GlobalY = j + MyYOffset;
@@ -1683,7 +1704,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
         std::cout << "Baseplate grain structure initialized" << std::endl;
     // Initialize grain seeds above baseplate to emulate bulk nucleation at edge of melted powder particles
     int PowderLayerActCells_ThisRank = 0;
-    for (int k = nzActive; k < nz; k++) {
+    for (int k = nzActive + 1; k < nz; k++) {
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -1719,7 +1740,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
             MPI_Send(&SBuf, 1, MPI_INT, id + 1, 0, MPI_COMM_WORLD);
         }
     }
-    for (int D3D1ConvPosition = MyXSlices * MyYSlices * nzActive; D3D1ConvPosition < MyXSlices * MyYSlices * nz;
+    for (int D3D1ConvPosition = MyXSlices * MyYSlices * (nzActive + 1); D3D1ConvPosition < MyXSlices * MyYSlices * nz;
          D3D1ConvPosition++) {
         if (CritTimeStep(D3D1ConvPosition) == 0) {
             GrainID(D3D1ConvPosition) = FirstEpitaxialGrainID;
@@ -1745,8 +1766,8 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
                 int GlobalX = i + MyXOffset;
                 int GlobalY = j + MyYOffset;
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                if ((GlobalX == -1) || (GlobalX == nx) || (GlobalY == -1) || (GlobalY == ny) || (k == 0) ||
-                    (k == nz - 1)) {
+                // Walls at X/Y boundaries, bottom Z boundary but not top Z boundary
+                if ((GlobalX == -1) || (GlobalX == nx) || (GlobalY == -1) || (GlobalY == ny) || (k == 0)) {
                     CellType(CAGridLocation) = Wall;
                     GrainID(CAGridLocation) = 0;
                 }
@@ -1762,7 +1783,7 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
     }
     // Initialize solid cells where no temperature data exists, and liquid cells where temperature data exists
     // This is done prior to initializing active cells, as active cells are initialized based on neighbor cell types
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 1; k < nz; k++) {
         for (int j = 0; j < MyYSlices; j++) {
             for (int i = 0; i < MyXSlices; i++) {
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -1778,7 +1799,7 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
     }
     // Count number of active cells are at the solid-liquid boundary
     int SubstrateActCells_ThisRank = 0;
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 1; k < nz; k++) {
         for (int j = 0; j < MyYSlices; j++) {
             for (int i = 0; i < MyXSlices; i++) {
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -1808,15 +1829,17 @@ void ActiveCellWallInit(int id, int MyXSlices, int MyYSlices, int nx, int ny, in
                         int MyNeighborZ = k + NeighborZ(l);
                         int NeighborD3D1ConvPosition =
                             MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                        if ((CritTimeStep(NeighborD3D1ConvPosition) > 0) &&
-                            (CellType(NeighborD3D1ConvPosition) != Wall)) {
-                            LCount++;
-                            // At the interface - assign this cell a value for undercooling change taken from one of its
-                            // neighbors
-                            CellType(CAGridLocation) = Active;
-                            UndercoolingChange(CAGridLocation) = UndercoolingChange(NeighborD3D1ConvPosition);
-                            SubstrateActCells_ThisRank++;
-                            break;
+                        if (MyNeighborZ < nz) {
+                            if ((CritTimeStep(NeighborD3D1ConvPosition) > 0) &&
+                                (CellType(NeighborD3D1ConvPosition) != Wall)) {
+                                LCount++;
+                                // At the interface - assign this cell a value for undercooling change taken from one of
+                                // its neighbors
+                                CellType(CAGridLocation) = Active;
+                                UndercoolingChange(CAGridLocation) = UndercoolingChange(NeighborD3D1ConvPosition);
+                                SubstrateActCells_ThisRank++;
+                                break;
+                            }
                         }
                     }
                 }
@@ -1850,7 +1873,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
     // Count the number of nucleation events that may potentially occur on this rank (not counting ghost nodes, to avoid
     // double counting cells are potential nucleation sites)
     PossibleNuclei_ThisRank = 0;
-    for (int k = 1; k < nz - 1; k++) {
+    for (int k = 1; k < nz; k++) {
         for (int j = 1; j < MyYSlices - 1; j++) {
             for (int i = 1; i < MyXSlices - 1; i++) {
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -1926,7 +1949,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
     for (int i = 0; i < LocalActiveDomainSize; i++) {
         DiagonalLength(i) = 0.0;
     }
-    for (int GlobalZ = 1; GlobalZ < nz - 1; GlobalZ++) {
+    for (int GlobalZ = 1; GlobalZ < nz; GlobalZ++) {
         for (int RankX = 0; RankX < MyXSlices; RankX++) {
             for (int RankY = 0; RankY < MyYSlices; RankY++) {
                 long int D3D1ConvPositionGlobal = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
@@ -2161,7 +2184,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
          NorthWestNucleiRecvCount + NorthEastNucleiRecvCount + SouthWestNucleiRecvCount + SouthEastNucleiRecvCount);
 
     // Remove delay cells not bordering others
-    for (int RankZ = 1; RankZ < nz - 1; RankZ++) {
+    for (int RankZ = 1; RankZ < nz; RankZ++) {
         for (int RankX = 1; RankX < MyXSlices - 1; RankX++) {
             for (int RankY = 1; RankY < MyYSlices - 1; RankY++) {
                 int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
@@ -2188,11 +2211,13 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
                         int MyNeighborX = RankX + NeighborX(l);
                         int MyNeighborY = RankY + NeighborY(l);
                         int MyNeighborZ = RankZ + NeighborZ(l);
-                        int NeighborD3D1ConvPosition =
-                            MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                        if ((CellType(NeighborD3D1ConvPosition) != Solid) &&
-                            (CellType(NeighborD3D1ConvPosition) != Wall)) {
-                            LCount++;
+                        if (MyNeighborZ < nz) {
+                            int NeighborD3D1ConvPosition =
+                                MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                            if ((CellType(NeighborD3D1ConvPosition) != Solid) &&
+                                (CellType(NeighborD3D1ConvPosition) != Wall)) {
+                                LCount++;
+                            }
                         }
                     }
                     if (LCount == 0) {
