@@ -22,7 +22,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
                        double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY,
-                       int &SpotOffset, int &SpotRadius);
+                       int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
+                       bool &PrintIdleTimeSeriesFrames);
 void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
                       ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
                       int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
