@@ -432,9 +432,12 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     ViewI_H GrainMisorientation_Round(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"),
                                       NGrainOrientations);
     for (int n = 0; n < NGrainOrientations; n++) {
-        double AngleZmin = 62.7;
+        // Find the smallest possible misorientation between the domain +Z direction, and this grain orientations' 6
+        // possible 001 directions (where 62.7 degrees is the largest possible misorientation between two 001 directions
+        // for a cubic crystal system)
+        float AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
-            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
+            float AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
             if (AngleZ < AngleZmin) {
                 AngleZmin = AngleZ;
             }
@@ -601,6 +604,9 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
     std::cout << "Printing file " << FName << " : Z coordinates of 1 through " << ZPrintSize << std::endl;
     ViewF_H GrainMisorientation(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NGrainOrientations);
     for (int n = 0; n < NGrainOrientations; n++) {
+        // Find the smallest possible misorientation between the domain +Z direction, and this grain orientations' 6
+        // possible 001 directions (where 62.7 degrees is the largest possible misorientation between two 001 directions
+        // for a cubic crystal system)
         float AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
             float AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
