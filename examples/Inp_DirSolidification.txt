@@ -24,5 +24,5 @@ Debug check (reduced)- Print data for main Kokkos views (CellType, LayerID, Crit
 Debug check (extensive) - Print data for all main data structures (CellType, GrainID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, Melted, LayerID) following initialization for debug check (Y or N)?: N
 ***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
 Print intermediate output frames (Y or N): Y
-If printing intermediate frames, how many microseconds should separate frames: 100
+If printing intermediate frames, how many microseconds should separate frames: 350
 Print intermediate output even if system is unchanged from last printed file (Y or N): N
