@@ -437,7 +437,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
         // for a cubic crystal system)
         float AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
-            float AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
+            float AngleZ = std::abs((180 / M_PI) * std::acos(GrainUnitVector(9 * n + 3 * ll + 2)));
             if (AngleZ < AngleZmin) {
                 AngleZmin = AngleZ;
             }
@@ -609,7 +609,7 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
         // for a cubic crystal system)
         float AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
-            float AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
+            float AngleZ = std::abs((180 / M_PI) * std::acos(GrainUnitVector(9 * n + 3 * ll + 2)));
             if (AngleZ < AngleZmin) {
                 AngleZmin = AngleZ;
             }
