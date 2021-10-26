@@ -167,12 +167,14 @@ void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int Se
 
 //*****************************************************************************/
 // Prints values of selected data structures to Paraview files
-void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int ProcessorsInXDirection,
-                    int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation, ViewI_H CritTimeStep,
-                    ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType, ViewF_H UndercoolingChange,
-                    ViewF_H UndercoolingCurrent, std::string BaseFileName, int DecompositionStrategy,
-                    int NGrainOrientations, bool *Melted, std::string PathToOutput, int PrintDebug,
-                    bool PrintMisorientation, bool PrintFullOutput) {
+void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
+                    int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation,
+                    ViewI_H CritTimeStep, ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType,
+                    ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, std::string BaseFileName,
+                    int DecompositionStrategy, int NGrainOrientations, bool *Melted, std::string PathToOutput,
+                    int PrintDebug, bool PrintMisorientation, bool PrintFullOutput, bool PrintTimeSeries,
+                    int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, float XMin, float YMin,
+                    float ZMin) {
 
     // Collect all data on rank 0, for all data structures of interest
     if (id == 0) {
@@ -220,7 +222,7 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
         ViewF3D_H UndercoolingCurrent_WholeDomain(
             Kokkos::ViewAllocateWithoutInitializing("UndercoolingCurrent_WholeDomain"), 0, 0, 0);
 
-        if ((PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput)) {
+        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput)) {
             Kokkos::resize(GrainID_WholeDomain, nz, nx, ny);
             CollectIntField(GrainID_WholeDomain, GrainID, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                             RecvXSlices, RecvYSlices, RBufSize);
@@ -235,10 +237,12 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
             CollectIntField(LayerID_WholeDomain, LayerID, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                             RecvXSlices, RecvYSlices, RBufSize);
         }
-        if (PrintDebug > 0) {
+        if ((PrintDebug > 0) || (PrintTimeSeries)) {
             Kokkos::resize(CellType_WholeDomain, nz, nx, ny);
             CollectIntField(CellType_WholeDomain, CellType, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                             RecvXSlices, RecvYSlices, RBufSize);
+        }
+        if (PrintDebug > 0) {
             Kokkos::resize(CritTimeStep_WholeDomain, nz, nx, ny);
             CollectIntField(CritTimeStep_WholeDomain, CritTimeStep, nz, MyXSlices, MyYSlices, np, RecvXOffset,
                             RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
@@ -259,19 +263,25 @@ void PrintExaCAData(int id, int np, int nx, int ny, int nz, int MyXSlices, int M
             PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
                           Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput);
+        if (PrintTimeSeries)
+            PrintIntermediateExaCAState(IntermediateFileCounter, layernumber, BaseFileName, PathToOutput, ZBound_Low,
+                                        nzActive, nx, ny, GrainID_WholeDomain, CellType_WholeDomain, GrainOrientation,
+                                        GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
     }
     else {
         int SendBufSize = (MyXSlices - 2) * (MyYSlices - 2) * nz;
 
         // Collect Melted/Grain ID data on rank 0
-        if ((PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput))
+        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput))
             SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize);
         if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2))
             SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize);
         if ((PrintFullOutput) || (PrintDebug > 0))
             SendIntField(LayerID, nz, MyXSlices, MyYSlices, SendBufSize);
-        if (PrintDebug > 0) {
+        if ((PrintDebug > 0) || (PrintTimeSeries)) {
             SendIntField(CellType, nz, MyXSlices, MyYSlices, SendBufSize);
+        }
+        if (PrintDebug > 0) {
             SendIntField(CritTimeStep, nz, MyXSlices, MyYSlices, SendBufSize);
         }
         if (PrintDebug == 2) {
@@ -422,9 +432,12 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     ViewI_H GrainMisorientation_Round(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"),
                                       NGrainOrientations);
     for (int n = 0; n < NGrainOrientations; n++) {
-        double AngleZmin = 62.7;
+        // Find the smallest possible misorientation between the domain +Z direction, and this grain orientations' 6
+        // possible 001 directions (where 62.7 degrees is the largest possible misorientation between two 001 directions
+        // for a cubic crystal system)
+        float AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
-            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
+            float AngleZ = std::abs((180 / M_PI) * std::acos(GrainUnitVector(9 * n + 3 * ll + 2)));
             if (AngleZ < AngleZmin) {
                 AngleZmin = AngleZ;
             }
@@ -569,4 +582,71 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
 
         std::cout << "===================================================================================" << std::endl;
     }
+}
+
+// Prints grain misorientation and cell type at some intermediate time during the simulation
+// Files are named with the ending "_[FrameNumber].vtk", allowing Paraview to read these in as a series to make videos
+// Cells that are liquid are given the value -1
+// Epitaxial grains are colored 0-62 (by misorientation with +Z direction)
+// Nucleated grains are colored 100-162 (by misorientation with +Z direction plus 100)
+void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, std::string BaseFileName,
+                                 std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
+                                 ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain,
+                                 ViewI_H GrainOrientation, ViewF_H GrainUnitVector, int NGrainOrientations,
+                                 double deltax, float XMin, float YMin, float ZMin) {
+
+    std::string FName = PathToOutput + BaseFileName + "_layer" + std::to_string(layernumber) + "_" +
+                        std::to_string(IntermediateFileCounter) + ".vtk";
+
+    // Size of output in Z will depend on the current layer bounds - always start from Z = 1, but only collect data up
+    // to Z = ZBound_Low + nzActive - 1
+    int ZPrintSize = ZBound_Low + nzActive - 1;
+    std::cout << "Printing file " << FName << " : Z coordinates of 1 through " << ZPrintSize << std::endl;
+    ViewF_H GrainMisorientation(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NGrainOrientations);
+    for (int n = 0; n < NGrainOrientations; n++) {
+        // Find the smallest possible misorientation between the domain +Z direction, and this grain orientations' 6
+        // possible 001 directions (where 62.7 degrees is the largest possible misorientation between two 001 directions
+        // for a cubic crystal system)
+        float AngleZmin = 62.7;
+        for (int ll = 0; ll < 3; ll++) {
+            float AngleZ = std::abs((180 / M_PI) * std::acos(GrainUnitVector(9 * n + 3 * ll + 2)));
+            if (AngleZ < AngleZmin) {
+                AngleZmin = AngleZ;
+            }
+        }
+        GrainMisorientation(n) = AngleZmin;
+    }
+    std::ofstream GrainplotM;
+
+    GrainplotM.open(FName);
+    GrainplotM << "# vtk DataFile Version 3.0" << std::endl;
+    GrainplotM << "vtk output" << std::endl;
+    GrainplotM << "ASCII" << std::endl;
+    GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
+    GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << ZPrintSize << std::endl;
+    GrainplotM << "ORIGIN " << XMin - deltax << " " << YMin - deltax << " " << ZMin - deltax << std::endl;
+    GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
+    GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * ZPrintSize << std::endl;
+    GrainplotM << "SCALARS Angle_z float 1" << std::endl;
+    GrainplotM << "LOOKUP_TABLE default" << std::endl;
+    for (int k = 1; k <= ZPrintSize; k++) {
+        for (int j = 1; j < ny - 1; j++) {
+            for (int i = 1; i < nx - 1; i++) {
+                if (CellType_WholeDomain(k, i, j) != Liquid) {
+                    if (GrainID_WholeDomain(k, i, j) == 0)
+                        std::cout << i << " " << j << " " << k << " " << CellType_WholeDomain(k, i, j) << std::endl;
+                    int MyOrientation =
+                        GrainOrientation(((abs(GrainID_WholeDomain(k, i, j)) - 1) % NGrainOrientations));
+                    if (GrainID_WholeDomain(k, i, j) < 0)
+                        GrainplotM << GrainMisorientation(MyOrientation) + 100.0 << " ";
+                    else
+                        GrainplotM << GrainMisorientation(MyOrientation) << " ";
+                }
+                else
+                    GrainplotM << -1.0 << " ";
+            }
+        }
+        GrainplotM << std::endl;
+    }
+    GrainplotM.close();
 }

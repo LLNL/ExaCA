@@ -26,8 +26,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     bool ExtraWalls = false; // If simulating a spot melt problem where the side walls are not part of the substrate,
                              // this is changed to true in the input file
-    int PrintDebug;
-    bool PrintMisorientation, PrintFullOutput, RemeltingYN, UseSubstrateFile;
+    int PrintDebug, TimeSeriesInc;
+    bool PrintMisorientation, PrintFullOutput, RemeltingYN, UseSubstrateFile, PrintTimeSeries,
+        PrintIdleTimeSeriesFrames;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange,
         NMax, dTN, dTsigma;
@@ -40,7 +41,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       TempFilesInSeries, temp_paths, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
                       LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
                       FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput, NSpotsX,
-                      NSpotsY, SpotOffset, SpotRadius);
+                      NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -270,16 +271,17 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (id == 0)
         std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
     if (PrintDebug) {
-        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
+        PrintExaCAData(id, -1, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
                        GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
                        UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
-                       NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false);
+                       NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false, false, 0, ZBound_Low,
+                       nzActive, deltax, XMin, YMin, ZMin);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Initialization data file(s) printed" << std::endl;
     }
     cycle = 0;
-
+    int IntermediateFileCounter = 0;
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
 
         int nn = 0; // Counter for the number of nucleation events
@@ -288,6 +290,18 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
         // Loop continues until all liquid cells claimed by solid grains
         do {
+            // Start of time step - check and see if intermediate system output is to be printed to files
+            if ((PrintTimeSeries) && (cycle % TimeSeriesInc == 0)) {
+                // Print current state of ExaCA simulation (up to and including the current layer's data)
+                Kokkos::deep_copy(GrainID_H, GrainID_G);
+                Kokkos::deep_copy(CellType_H, CellType_G);
+                PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
+                               ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
+                               LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
+                               DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false, false, true,
+                               IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
+                IntermediateFileCounter++;
+            }
             cycle++;
 
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
@@ -334,14 +348,23 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             }
 
             if (cycle % 1000 == 0) {
-                IntermediateOutputAndCheck(id, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nn,
-                                           XSwitch, CellType_G, CritTimeStep_G, SimulationType, FinishTimeStep,
-                                           layernumber, NumberOfLayers, ZBound_Low, LayerID_G);
+                IntermediateOutputAndCheck(
+                    id, np, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nx, ny, nz, nzActive,
+                    deltax, XMin, YMin, ZMin, DecompositionStrategy, ProcessorsInXDirection, ProcessorsInYDirection, nn,
+                    XSwitch, CellType_G, CellType_H, CritTimeStep_G, CritTimeStep_H, GrainID_G, GrainID_H,
+                    SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low, NGrainOrientations, Melted,
+                    LayerID_G, LayerID_H, GrainOrientation_H, GrainUnitVector_H, UndercoolingChange_H,
+                    UndercoolingCurrent_H, PathToOutput, OutputFile, PrintIdleTimeSeriesFrames, TimeSeriesInc,
+                    IntermediateFileCounter);
             }
 
         } while (XSwitch == 0);
 
         if (layernumber != NumberOfLayers - 1) {
+            // Reset intermediate file counter to zero if printing video files
+            if (PrintTimeSeries)
+                IntermediateFileCounter = 0;
+
             // Determine new active cell domain size and offset from bottom of global domain
             int ZShift;
             DomainShiftAndResize(id, MyXSlices, MyYSlices, ZShift, ZBound_Low, ZBound_High, nzActive, LocalDomainSize,
@@ -427,10 +450,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if ((PrintMisorientation) || (PrintFullOutput)) {
         if (id == 0)
             std::cout << "Collecting data on rank 0 and printing to files" << std::endl;
-        PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
-                       GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
-                       UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
-                       NGrainOrientations, Melted, PathToOutput, 0, PrintMisorientation, PrintFullOutput);
+        PrintExaCAData(id, NumberOfLayers - 1, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
+                       ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
+                       LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
+                       DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, PrintMisorientation,
+                       PrintFullOutput, false, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
     }
     else {
         if (id == 0)
