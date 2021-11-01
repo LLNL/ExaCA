@@ -78,8 +78,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading
     // temperature data files and parsing the coordinates
-    FindXYZBounds(SimulationType, id, deltax, nx, ny, nz, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax,
-                  LayerHeight, NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer);
+    FindXYZBounds(SimulationType, id, deltax, nx, ny, nz, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerHeight,
+                  NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer);
 
     // Decompose the domain into subdomains on each MPI rank: Each subdomain contains "MyXSlices" cells in X, and
     // "MyYSlices" in Y. Each subdomain is offset from the full domain origin by "MyXOffset" cells in X, and "MyYOffset"
