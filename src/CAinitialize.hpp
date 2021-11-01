@@ -25,7 +25,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames);
 void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI2D_H ItList);
-void FindXYZBounds(std::string SimulationType, int id, double &deltax, double HT_deltax, int &nx, int &ny, int &nz,
+void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
                    std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
                    float &ZMin, float &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
                    float *ZMinLayer, float *ZMaxLayer);
