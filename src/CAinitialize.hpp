@@ -24,17 +24,20 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY,
                        int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames);
-void ParallelMeshInit(int DecompositionStrategy, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
-                      ViewI2D_H ItList, std::string SimulationType, int id, int np, int &MyXSlices, int &MyYSlices,
-                      int &MyXOffset, int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South,
-                      int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
-                      int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
-                      double &deltax, double HT_deltax, int &nx, int &ny, int &nz, int &ProcessorsInXDirection,
-                      int &ProcessorsInYDirection, std::vector<std::string> &temp_paths, float &XMin, float &XMax,
-                      float &YMin, float &YMax, float &ZMin, float &ZMax, float FreezingRange, int &LayerHeight,
-                      int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
-                      float *ZMinLayer, float *ZMaxLayer, int *FirstValue, int *LastValue,
-                      std::vector<double> &RawData);
+void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI2D_H ItList);
+void FindXYZBounds(std::string SimulationType, int id, double &deltax, double HT_deltax, int &nx, int &ny, int &nz,
+                   std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
+                   float &ZMin, float &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
+                   float *ZMinLayer, float *ZMaxLayer);
+void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset,
+                         int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South, int &NeighborRank_East,
+                         int &NeighborRank_West, int &NeighborRank_NorthEast, int &NeighborRank_NorthWest,
+                         int &NeighborRank_SouthEast, int &NeighborRank_SouthWest, int &nx, int &ny, int &nz,
+                         int &ProcessorsInXDirection, int &ProcessorsInYDirection, long int &LocalDomainSize);
+void ReadTemperatureData(double deltax, double HT_deltax, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
+                         int nx, int ny, float XMin, float YMin, std::vector<std::string> &temp_paths,
+                         int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
+                         std::vector<double> &RawData, int *FirstValue, int *LastValue);
 void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
                                 int &MyYOffset, double deltax, double deltat, int nx, int ny, int nz,
                                 ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
