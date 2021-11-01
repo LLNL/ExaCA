@@ -769,7 +769,7 @@ void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, V
 
 // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading temperature
 // data files and parsing the coordinates
-void FindXYZBounds(std::string SimulationType, int id, double &deltax, double HT_deltax, int &nx, int &ny, int &nz,
+void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
                    std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
                    float &ZMin, float &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
                    float *ZMinLayer, float *ZMaxLayer) {
