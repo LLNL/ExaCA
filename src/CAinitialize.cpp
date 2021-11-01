@@ -787,7 +787,6 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, double HT
         XMax = -1000000.0;
         YMax = -1000000.0;
         ZMax = -1000000.0;
-        int HTtoCAratio = HT_deltax / deltax; // OpenFOAM/CA cell size ratio
 
         // Read the first temperature file, first line to determine if the "new" OpenFOAM output format (with a 1 line
         // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
