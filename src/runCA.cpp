@@ -47,6 +47,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     int ProcessorsInXDirection, ProcessorsInYDirection;
     // Variables characterizing local processor grids relative to global domain
     int MyXSlices, MyXOffset, MyYSlices, MyYOffset;
+    long int LocalDomainSize;
     // Variables characterizing process IDs of neighboring MPI ranks on the grid
     // Positive X/Negative X directions are West/East, Positive Y/NegativeY directions are North/South
     int NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast,
@@ -71,21 +72,33 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // temperature file
     int *FirstValue = new int[NumberOfLayers];
     int *LastValue = new int[NumberOfLayers];
-    // Initialization of the grid and decomposition, along with deltax and deltat
-    // Read in temperature data
-    ParallelMeshInit(DecompositionStrategy, NeighborX_H, NeighborY_H, NeighborZ_H, ItList_H, SimulationType, id, np,
-                     MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborRank_North, NeighborRank_South,
-                     NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
-                     NeighborRank_SouthEast, NeighborRank_SouthWest, deltax, HT_deltax, nx, ny, nz,
-                     ProcessorsInXDirection, ProcessorsInYDirection, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax,
-                     FreezingRange, LayerHeight, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints,
-                     ZMinLayer, ZMaxLayer, FirstValue, LastValue, RawData);
 
-    long int LocalDomainSize = MyXSlices * MyYSlices * nz; // Number of cells on this MPI rank
+    // Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ, and ItList)
+    NeighborListInit(NeighborX_H, NeighborY_H, NeighborZ_H, ItList_H);
+
+    // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading
+    // temperature data files and parsing the coordinates
+    FindXYZBounds(SimulationType, id, deltax, nx, ny, nz, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerHeight,
+                  NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer);
+
+    // Decompose the domain into subdomains on each MPI rank: Each subdomain contains "MyXSlices" cells in X, and
+    // "MyYSlices" in Y. Each subdomain is offset from the full domain origin by "MyXOffset" cells in X, and "MyYOffset"
+    // cells in Y
+    DomainDecomposition(DecompositionStrategy, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborRank_North,
+                        NeighborRank_South, NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast,
+                        NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest, nx, ny, nz,
+                        ProcessorsInXDirection, ProcessorsInYDirection, LocalDomainSize);
+
+    // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate
+    // data
+    if (SimulationType == "R")
+        ReadTemperatureData(deltax, HT_deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nx, ny, XMin, YMin,
+                            temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
+                            FirstValue, LastValue);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        std::cout << "Mesh initialized" << std::endl;
+        std::cout << "Mesh initialized and (if being used), temperature data read" << std::endl;
 
     // Temperature fields characterized by these variables:
     ViewI_H CritTimeStep_H(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep"), LocalDomainSize);
