@@ -119,4 +119,4 @@ endmacro()
 
 ExaCA_add_tests_nobackend(NAMES Init)
 
-#ExaCA_add_tests(NAMES)
+ExaCA_add_tests(NAMES SubstrateInitFGS)
