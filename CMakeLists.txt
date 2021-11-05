@@ -7,6 +7,8 @@ include(GNUInstallDirs)
 find_package(Kokkos 3 REQUIRED)
 find_package(MPI REQUIRED)
 
+set(EXACA_SUPPORTED_DEVICES SERIAL PTHREAD OPENMP CUDA HIP)
+
 add_subdirectory(src)
 add_subdirectory(analysis)
 
@@ -23,17 +25,18 @@ install(FILES ${MATERIALS}
 install(FILES ${SUBSTRATE}
   DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/ExaCA/Substrate)
 
-include(CTest)
-#add_subdirectory(unit_test)
-if(${BUILD_TESTING})
-    add_test(NAME ExaCA-Test COMMAND ExaCA-Kokkos)
+option(ExaCA_ENABLE_TESTING "Build unit tests" OFF)
+
+if(ExaCA_ENABLE_TESTING)
+  enable_testing()
+  add_subdirectory(unit_test)
 endif()
 
 # clang-format
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 find_package( CLANG_FORMAT 10)
 if(CLANG_FORMAT_FOUND)
-  file(GLOB_RECURSE FORMAT_SOURCES src/*.cpp src/*.hpp analysis/*.cpp analysis/*.hpp)
+  file(GLOB_RECURSE FORMAT_SOURCES src/*.[c,h]pp analysis/*.[c,h]pp unit_test/*.[c,h]pp)
   add_custom_target(format
     COMMAND ${CLANG_FORMAT_EXECUTABLE} -i -style=file ${FORMAT_SOURCES}
     DEPENDS ${FORMAT_SOURCES})

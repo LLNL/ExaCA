@@ -69,7 +69,8 @@ jobs:
             -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror" \
             -D MPIEXEC_MAX_NUMPROCS=2 \
-            -D MPIEXEC_PREFLAGS="--oversubscribe"
+            -D MPIEXEC_PREFLAGS="--oversubscribe" \
+            -D ExaCA_ENABLE_TESTING=ON
           cmake --build build --parallel 2
           cmake --install build
       - name: Format ExaCA
@@ -78,6 +79,9 @@ jobs:
         run: |
           make format
           git diff --exit-code
+      - name: Unit test ExaCA
+        run: |
+          CTEST_OUTPUT_ON_FAILURE=1 cmake --build build --target test
       - name: Test ExaCA
         working-directory: examples
         run: |
