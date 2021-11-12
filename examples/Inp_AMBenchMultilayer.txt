@@ -1,30 +1,30 @@
 Test problem using alternating odd-even layers of a cross-hatching scan pattern (with large CA cell size to keep the problem tractable):
 *****
 Problem type: R
-Decomposition strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
+Decomposition strategy: 1
 Material:Inconel625
-Cell size (microns): 5
-Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 0
-Mean nucleation undercooling (in K): 5
-Standard deviation of nucleation undercooling: 0.5
+Cell size: 5
+Nucleation density: 0
+Mean nucleation undercooling: 5
+Standard deviation nucleation undercooling: 0.5
 Path to output:./
-Output file base name:TestProblemAMB
-File of grain orientations:GrainOrientationVectors_Robert.csv
-Heat transport data mesh size (microns): 5
-Time step (microseconds): 0.3
-Substrate grain spacing (in microns): 25
-Path to temperature file(s): Temperatures
-Temperature filename (* glob before the name): CA-FOAM-fluidflow.dat
+Output base filename:TestProblemAMB
+Grain orientations file:GrainOrientationVectors_Robert.csv
+HT grid spacing: 5
+Time step: 0.3
+Sub grain size: 25
+Path to temperature file(s): examples/Temperatures
+Temperature filename(s): CA-FOAM-fluidflow.txt
 Number of temperature files: 2
-Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: N
+Extra lateral wall cells: N
 Number of layers: 4
-Offset between layers (if Number of layers > 1, in cells): 3
+Layer offset: 3
 ***Output data printing options: (Y or N) which data should be printed***
-Print Paraview vtk file of grain misorientation values (Y or N)?: Y
-Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y
-Debug check (reduced)- Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check (Y or N)?: N
-Debug check (extensive) - Print data for all main data structures (CellType, GrainID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, Melted, LayerID) following initialization for debug check (Y or N)?: N
+Print misorientations: Y
+Print full output: Y
+Debug check (reduced): N
+Debug check (extensive): N
 ***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
-Print intermediate output frames (Y or N): N
-If printing intermediate frames, how many microseconds should separate frames: 1000
-Print intermediate output even if system is unchanged from last printed file (Y or N): Y
+Print intermediate frames: N
+Frame separation: 1000
+Print intermediate frames strict: N

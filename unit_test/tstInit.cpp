@@ -133,9 +133,184 @@ void testReadTemperatureData() {
     }
 }
 
+void testInputReadFromFile() {
+
+    int id;
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    // Three input files - one of each type
+    std::vector<std::string> InputFilenames = {"TestC.txt", "TestS.txt", "TestR.txt"};
+    if (id == 0) {
+        // Write dummy input file for directional solidification (problem type C, iteration 0), spot melt (problem type
+        // S, iteration 1), and read temperature data (problem type R, iteration 2)
+        for (int FileNumber = 0; FileNumber < 3; FileNumber++) {
+            std::ofstream TestDataFile;
+            TestDataFile.open(InputFilenames[FileNumber]);
+            // Write required inputs to all files
+            TestDataFile << "Test problem data set" << std::endl;
+            TestDataFile << "*****" << std::endl;
+            if (FileNumber == 0)
+                TestDataFile << "Problem type: C" << std::endl;
+            else if (FileNumber == 1)
+                TestDataFile << "Problem type: S" << std::endl;
+            else if (FileNumber == 2)
+                TestDataFile << "Problem type: R" << std::endl;
+            TestDataFile << "Decomposition strategy: 2" << std::endl;
+            TestDataFile << "Material: Inconel625" << std::endl;
+            TestDataFile << "Cell size: 1" << std::endl;
+            TestDataFile << "Nucleation density: 6" << std::endl;
+            TestDataFile << "Mean nucleation undercooling: 3" << std::endl;
+            TestDataFile << "Standard deviation nucleation undercooling: 0.11" << std::endl;
+            TestDataFile << "Path to output: ExaCA" << std::endl;
+            TestDataFile << "Output base filename: Test" << std::endl;
+            TestDataFile << "Grain orientations file: GrainOrientationVectors_Robert.csv" << std::endl;
+            TestDataFile << "Print misorientations: Y" << std::endl;
+            TestDataFile << "Print full output: N" << std::endl;
+            // Print optional file inputs for 2 of the 3 problems, but not the 3rd
+            // to check for proper behavior in both situations
+            if ((FileNumber == 0) || (FileNumber == 1)) {
+                // Print optional inputs, and problem type specific inputs
+                TestDataFile << "Debug check (reduced): Y" << std::endl;
+                TestDataFile << "Debug check (extensive): N" << std::endl;
+                TestDataFile << "Print intermediate frames: Y" << std::endl;
+                TestDataFile << "Frame separation: 2" << std::endl;
+                TestDataFile << "Print intermediate frames strict: N" << std::endl;
+            }
+            // Problem type specific required inputs/optional inputs
+            if (FileNumber == 0) {
+                TestDataFile << "Thermal gradient: 1000" << std::endl;
+                TestDataFile << "Cooling rate: 100" << std::endl;
+                TestDataFile << "Time step ratio: 25" << std::endl;
+                TestDataFile << "nx: 10" << std::endl;
+                TestDataFile << "ny: 15" << std::endl;
+                TestDataFile << "nz: 20" << std::endl;
+                TestDataFile << "Fract sites active: 0.35" << std::endl;
+            }
+            else if (FileNumber == 1) {
+                TestDataFile << "Thermal gradient: 1000" << std::endl;
+                TestDataFile << "Cooling rate: 100" << std::endl;
+                TestDataFile << "Time step ratio: 25" << std::endl;
+                TestDataFile << "Sx: 1" << std::endl;
+                TestDataFile << "Sy: 5" << std::endl;
+                TestDataFile << "Spot offset: 5" << std::endl;
+                TestDataFile << "Spot radii: 10" << std::endl;
+                TestDataFile << "Number of layers: 2" << std::endl;
+                TestDataFile << "Layer offset: 1" << std::endl;
+                TestDataFile << "Sub grain size: 10" << std::endl;
+            }
+            else if (FileNumber == 2) {
+                TestDataFile << "Time step: 1.5" << std::endl;
+                TestDataFile << "Temperature filename(s): DummyTemperature.txt" << std::endl;
+                TestDataFile << "Number of temperature files: 2" << std::endl;
+                TestDataFile << "Number of layers: 2" << std::endl;
+                TestDataFile << "Layer offset: 1" << std::endl;
+                TestDataFile << "Extra lateral wall cells: N" << std::endl;
+                TestDataFile << "Sub filename: DummySubstrate.txt" << std::endl;
+                TestDataFile << "HT grid spacing: 12" << std::endl;
+                TestDataFile << "Path to temperature file(s): ./" << std::endl;
+            }
+            TestDataFile.close();
+        }
+        // Create test temperature files "1DummyTemperature.txt", "2DummyTemperature.txt"
+        std::ofstream TestTemp1, TestTemp2;
+        TestTemp1.open("1DummyTemperature.txt");
+        TestTemp2.open("2DummyTemperature.txt");
+        TestTemp1 << "X" << std::endl;
+        TestTemp2 << "X" << std::endl;
+        TestTemp1.close();
+        TestTemp2.close();
+        // Create test substrate file "DummySubstrate.txt"
+        std::ofstream TestSub;
+        TestSub.open("DummySubstrate.txt");
+        TestSub << "X" << std::endl;
+        TestSub.close();
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // Read and parse each input file
+    for (int FileNumber = 0; FileNumber < 3; FileNumber++) {
+        if (id == 0)
+            std::cout << "Start it loop " << FileNumber << std::endl;
+        int DecompositionStrategy, TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, PrintDebug, NSpotsX,
+            NSpotsY, SpotOffset, SpotRadius, TimeSeriesInc;
+        float SubstrateGrainSpacing;
+        double AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R,
+            FractSurfaceSitesActive;
+        bool RemeltingYN, ExtraWalls, PrintMisorientation, PrintFullOutput, PrintTimeSeries, UseSubstrateFile,
+            PrintIdleTimeSeriesFrames;
+        std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
+            PathToOutput;
+        std::vector<std::string> temp_paths;
+        InputReadFromFile(id, InputFilenames[FileNumber], SimulationType, DecompositionStrategy, AConst, BConst, CConst,
+                          DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath,
+                          tempfile, TempFilesInSeries, temp_paths, ExtraWalls, HT_deltax, RemeltingYN, deltat,
+                          NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R,
+                          nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+                          PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
+                          PrintIdleTimeSeriesFrames);
+
+        // Check the results - required inputs for all problems
+        // The existence of the specified orientation, substrate, and temperature filenames was already checked within
+        // InputReadFromFile
+        EXPECT_EQ(DecompositionStrategy, 2);
+        EXPECT_DOUBLE_EQ(AConst, -0.00000010302);
+        EXPECT_DOUBLE_EQ(BConst, 0.00010533);
+        EXPECT_DOUBLE_EQ(CConst, 0.0022196);
+        EXPECT_DOUBLE_EQ(DConst, 0);
+        EXPECT_DOUBLE_EQ(FreezingRange, 210);
+        EXPECT_DOUBLE_EQ(deltax, 1.0 * pow(10, -6));
+        EXPECT_DOUBLE_EQ(NMax, 6.0 * pow(10, 12));
+        EXPECT_DOUBLE_EQ(dTN, 3.0);
+        EXPECT_DOUBLE_EQ(dTsigma, 0.11);
+        EXPECT_TRUE(OutputFile == "Test");
+        EXPECT_TRUE(PrintMisorientation);
+        EXPECT_FALSE(PrintFullOutput);
+        // Input file specific results to check
+        if (FileNumber == 0) {
+            EXPECT_EQ(PrintDebug, 1);
+            EXPECT_TRUE(PrintTimeSeries);
+            EXPECT_EQ(TimeSeriesInc, 5);
+            EXPECT_FALSE(PrintIdleTimeSeriesFrames);
+            EXPECT_DOUBLE_EQ(G, 1000.0);
+            EXPECT_DOUBLE_EQ(R, 100.0);
+            EXPECT_DOUBLE_EQ(deltat, 0.4 * pow(10, -6)); // based on N, deltax, G, and R from input file
+            EXPECT_EQ(nx, 12);                           // +2 from input due to wall cells
+            EXPECT_EQ(ny, 17);                           // +2 from input due to wall cells
+            EXPECT_EQ(nz, 21);                           // +1 from input due to wall cells
+            EXPECT_DOUBLE_EQ(FractSurfaceSitesActive, 0.35);
+        }
+        else if (FileNumber == 1) {
+            EXPECT_EQ(PrintDebug, 1);
+            EXPECT_TRUE(PrintTimeSeries);
+            EXPECT_EQ(TimeSeriesInc, 5);
+            EXPECT_FALSE(PrintIdleTimeSeriesFrames);
+            EXPECT_DOUBLE_EQ(G, 1000.0);
+            EXPECT_DOUBLE_EQ(R, 100.0);
+            EXPECT_DOUBLE_EQ(deltat, 0.4 * pow(10, -6)); // based on N, deltax, G, and R from input file
+            EXPECT_EQ(NSpotsX, 1);
+            EXPECT_EQ(NSpotsY, 5);
+            EXPECT_EQ(SpotOffset, 5);
+            EXPECT_EQ(SpotRadius, 10);
+            EXPECT_EQ(NumberOfLayers, 2);
+            EXPECT_EQ(LayerHeight, 1);
+            EXPECT_FALSE(UseSubstrateFile);
+            EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 10.0);
+        }
+        else if (FileNumber == 2) {
+            EXPECT_DOUBLE_EQ(deltat, 1.5 * pow(10, -6));
+            EXPECT_EQ(TempFilesInSeries, 2);
+            EXPECT_EQ(NumberOfLayers, 2);
+            EXPECT_EQ(LayerHeight, 1);
+            EXPECT_FALSE(ExtraWalls);
+            EXPECT_TRUE(UseSubstrateFile);
+            EXPECT_DOUBLE_EQ(HT_deltax, 12.0 * pow(10, -6));
+        }
+    }
+}
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, temperature_init_test) { testReadTemperatureData(); }
+TEST(TEST_CATEGORY, fileread_test) { testInputReadFromFile(); }
 
 } // end namespace Test

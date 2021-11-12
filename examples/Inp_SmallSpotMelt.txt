@@ -1,31 +1,27 @@
 Test problem simulating solidification of a series of overlapping spots (Problem type 'S')
 *****
 Problem type: S
-Decomposition strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
+Decomposition strategy: 1
 Material:Inconel625
-Cell size (microns): 1
-Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
-Mean nucleation undercooling (in K): 5
-Standard deviation of nucleation undercooling: 0.5
+Cell size: 1
+Nucleation density: 10
+Mean nucleation undercooling: 5
+Standard deviation nucleation undercooling: 0.5
 Path to output:./
-Output file base name:TestProblemSmallSpot
-File of grain orientations:GrainOrientationVectors_Robert.csv
-Thermal gradient (K/m): 500000
-Cooling rate (K/s): 300000
-Number of spots in x: 1
-Number of spots in y: 2
-Offset between spot centers (in microns): 25
-Radii of spots (in microns): 25
+Output base filename:TestProblemSmallSpot
+Grain orientations file:GrainOrientationVectors_Robert.csv
+Thermal gradient: 500000
+Cooling rate: 300000
+Sx: 1
+Sy: 2
+Spot offset: 25
+Spot radii: 25
 Number of layers: 1
-Offset between layers (in cells): 20
-"N", where the time step = deltax/(Steady State Velocity * N): 25
-Substrate grain spacing (in microns): 25
+Layer offset: 20
+Time step ratio: 25
+Sub grain size: 25
 ***Output data printing options: (Y or N) which data should be printed***
-Print Paraview vtk file of grain misorientation values (Y or N)?: Y
-Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y
-Debug check (reduced)- Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check (Y or N)?: N
-Debug check (extensive) - Print data for all main data structures (CellType, GrainID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, Melted, LayerID) following initialization for debug check (Y or N)?: N
-***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
-Print intermediate output frames (Y or N): N
-If printing intermediate frames, how many microseconds should separate frames: 0
-Print intermediate output even if system is unchanged from last printed file (Y or N): Y
+Print misorientations: Y
+Print full output: Y
+Debug check (reduced): N
+Debug check (extensive): N
