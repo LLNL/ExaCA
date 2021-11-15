@@ -87,8 +87,6 @@ void testReadTemperatureData() {
         for (int i = 0; i < AllRanks_NDataPoints; i++) {
             TestDataFile << TestData[i][0] << "," << TestData[i][1] << "," << TestData[i][2] << "," << TestData[i][3]
                          << "," << TestData[i][4] << "," << TestData[i][5] << std::endl;
-            std::cout << TestData[i][0] << "," << TestData[i][1] << "," << TestData[i][2] << "," << TestData[i][3]
-                      << "," << TestData[i][4] << "," << TestData[i][5] << std::endl;
         }
         TestDataFile.close();
     }
@@ -158,55 +156,55 @@ void testInputReadFromFile() {
             TestDataFile << "Decomposition strategy: 2" << std::endl;
             TestDataFile << "Material: Inconel625" << std::endl;
             TestDataFile << "Cell size: 1" << std::endl;
-            TestDataFile << "Nucleation density: 6" << std::endl;
+            TestDataFile << "Heterogeneous nucleation density: 6" << std::endl;
             TestDataFile << "Mean nucleation undercooling: 3" << std::endl;
-            TestDataFile << "Standard deviation nucleation undercooling: 0.11" << std::endl;
+            TestDataFile << "Standard deviation of nucleation undercooling: 0.11" << std::endl;
             TestDataFile << "Path to output: ExaCA" << std::endl;
-            TestDataFile << "Output base filename: Test" << std::endl;
-            TestDataFile << "Grain orientations file: GrainOrientationVectors_Robert.csv" << std::endl;
-            TestDataFile << "Print misorientations: Y" << std::endl;
-            TestDataFile << "Print full output: N" << std::endl;
+            TestDataFile << "Output file base name: Test" << std::endl;
+            TestDataFile << "File of grain orientations: GrainOrientationVectors_Robert.csv" << std::endl;
+            TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
+            TestDataFile << "Print file of all ExaCA data: N" << std::endl;
             // Print optional file inputs for 2 of the 3 problems, but not the 3rd
             // to check for proper behavior in both situations
             if ((FileNumber == 0) || (FileNumber == 1)) {
                 // Print optional inputs, and problem type specific inputs
                 TestDataFile << "Debug check (reduced): Y" << std::endl;
                 TestDataFile << "Debug check (extensive): N" << std::endl;
-                TestDataFile << "Print intermediate frames: Y" << std::endl;
-                TestDataFile << "Frame separation: 2" << std::endl;
-                TestDataFile << "Print intermediate frames strict: N" << std::endl;
+                TestDataFile << "Print intermediate output frames: Y" << std::endl;
+                TestDataFile << "Increment to separate frames: 2" << std::endl;
+                TestDataFile << "Intermediate output even if system is unchanged from previous state: N" << std::endl;
             }
             // Problem type specific required inputs/optional inputs
             if (FileNumber == 0) {
                 TestDataFile << "Thermal gradient: 1000" << std::endl;
                 TestDataFile << "Cooling rate: 100" << std::endl;
-                TestDataFile << "Time step ratio: 25" << std::endl;
-                TestDataFile << "nx: 10" << std::endl;
-                TestDataFile << "ny: 15" << std::endl;
-                TestDataFile << "nz: 20" << std::endl;
-                TestDataFile << "Fract sites active: 0.35" << std::endl;
+                TestDataFile << "Time step ratio (from steady-state Velocity): 25" << std::endl;
+                TestDataFile << "Domain size in x: 10" << std::endl;
+                TestDataFile << "Domain size in y: 15" << std::endl;
+                TestDataFile << "Domain size in z: 20" << std::endl;
+                TestDataFile << "Fraction surface sites active: 0.35" << std::endl;
             }
             else if (FileNumber == 1) {
                 TestDataFile << "Thermal gradient: 1000" << std::endl;
                 TestDataFile << "Cooling rate: 100" << std::endl;
-                TestDataFile << "Time step ratio: 25" << std::endl;
-                TestDataFile << "Sx: 1" << std::endl;
-                TestDataFile << "Sy: 5" << std::endl;
-                TestDataFile << "Spot offset: 5" << std::endl;
-                TestDataFile << "Spot radii: 10" << std::endl;
+                TestDataFile << "Time step ratio (from steady-state Velocity): 25" << std::endl;
+                TestDataFile << "Num spots in x: 1" << std::endl;
+                TestDataFile << "Num spots in y: 5" << std::endl;
+                TestDataFile << "Offset between spot centers: 5" << std::endl;
+                TestDataFile << "Radii of spots: 10" << std::endl;
                 TestDataFile << "Number of layers: 2" << std::endl;
-                TestDataFile << "Layer offset: 1" << std::endl;
-                TestDataFile << "Sub grain size: 10" << std::endl;
+                TestDataFile << "Offset between layers: 1" << std::endl;
+                TestDataFile << "Substrate grain spacing: 10" << std::endl;
             }
             else if (FileNumber == 2) {
                 TestDataFile << "Time step: 1.5" << std::endl;
                 TestDataFile << "Temperature filename(s): DummyTemperature.txt" << std::endl;
                 TestDataFile << "Number of temperature files: 2" << std::endl;
                 TestDataFile << "Number of layers: 2" << std::endl;
-                TestDataFile << "Layer offset: 1" << std::endl;
-                TestDataFile << "Extra lateral wall cells: N" << std::endl;
-                TestDataFile << "Sub filename: DummySubstrate.txt" << std::endl;
-                TestDataFile << "HT grid spacing: 12" << std::endl;
+                TestDataFile << "Offset between layers: 1" << std::endl;
+                TestDataFile << "Extra set of wall cells in lateral domain directions: N" << std::endl;
+                TestDataFile << "Substrate filename: DummySubstrate.txt" << std::endl;
+                TestDataFile << "Heat transport data mesh size: 12" << std::endl;
                 TestDataFile << "Path to temperature file(s): ./" << std::endl;
             }
             TestDataFile.close();
@@ -229,8 +227,6 @@ void testInputReadFromFile() {
 
     // Read and parse each input file
     for (int FileNumber = 0; FileNumber < 3; FileNumber++) {
-        if (id == 0)
-            std::cout << "Start it loop " << FileNumber << std::endl;
         int DecompositionStrategy, TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, PrintDebug, NSpotsX,
             NSpotsY, SpotOffset, SpotRadius, TimeSeriesInc;
         float SubstrateGrainSpacing;

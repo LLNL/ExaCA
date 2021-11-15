@@ -29,39 +29,7 @@ void skipLines(std::ifstream &stream, std::string seperator) {
     }
 }
 
-// Find the colon on a line read from a file, and return the value before the colon
-// Throw an error if no colon is found, get a new line and throw a warning if the value before
-// the colon is a deprecated input
-// Also store the location of the colon within the line
-std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon) {
-
-    bool DeprecatedInputCheck = true;
-    std::string actual_key;
-    while (DeprecatedInputCheck) {
-        std::getline(stream, line);
-        colon = line.find(":");
-        actual_key = line.substr(0, colon);
-        // Check for colon separator
-        if (colon == std::string::npos) {
-            std::string error = "Input \"" + actual_key + "\" must be separated from value by \":\".";
-            throw std::runtime_error(error);
-        }
-        std::vector<std::string> deprecated_inputs = {"Burst buffer", "Source of input length unit"};
-        for (auto di : deprecated_inputs)
-            if (actual_key.find(di) != std::string::npos) {
-                std::cout << "WARNING - this input has been deprecated and has no effect, \"" << actual_key << "\""
-                          << std::endl;
-                // Ignore this line and get another line
-            }
-            else {
-                // Input was not a deprecated line - continue
-                DeprecatedInputCheck = false;
-            }
-    }
-    return actual_key;
-}
-
-// Remove whitespace from "line", taking only the portion of the line that comes after the colon
+// Remove whitespace from "line", optional argument to take only portion of the line after position "pos"
 std::string removeWhitespace(std::string line, int pos = -1) {
 
     std::string val = line.substr(pos + 1, std::string::npos);
@@ -70,13 +38,42 @@ std::string removeWhitespace(std::string line, int pos = -1) {
     return val;
 }
 
+// From a line read from the input file, determine which input it matches and store the appropriate portion of the line.
+// Return whether a match was found for the input or not
+bool parseInputFromList(std::string line, int NumInputs, std::vector<std::string> Inputs,
+                        std::vector<bool> &InputsPresent, std::vector<std::string> &InputsRead) {
+    // First, check that there is a colon separating the parameter name from the value
+    std::size_t colon = line.find(":");
+    if (colon == std::string::npos) {
+        // No colon on this line - throw error
+        std::string error = "Unable to parse line " + line + " ; no colon separating variable name from value";
+        throw std::runtime_error(error);
+    }
+    std::string BeforeColon = line.substr(0, colon);
+    // Check line against the "NumInputs" number of possible matches from the vector "Inputs"
+    bool FoundInput = false;
+    for (int inputnumber = 0; inputnumber < NumInputs; inputnumber++) {
+        if (BeforeColon.find(Inputs[inputnumber]) != std::string::npos) {
+            // This is required input number "inputnumber"
+            InputsPresent[inputnumber] = true;
+            FoundInput = true;
+            // Take the potion of the line following the colon and store in the appropriate position in "InputsRead"
+            std::string AfterColon = line.substr(colon + 1, std::string::npos);
+            InputsRead[inputnumber] = removeWhitespace(AfterColon);
+        }
+    }
+    return FoundInput;
+}
+
 // Verify the required input was included with the correct format, and parse the input (with only 1 possibility for the
 // possible input)
 std::string parseInput(std::ifstream &stream, std::string key) {
 
     std::size_t colon;
     std::string line, val;
-    std::string actual_key = getKey(stream, line, colon);
+    std::getline(stream, line);
+    colon = line.find(":");
+    std::string actual_key = line.substr(0, colon);
     // Check for keyword
     if (actual_key.find(key) == std::string::npos) {
         // Keyword not found
@@ -88,47 +85,17 @@ std::string parseInput(std::ifstream &stream, std::string key) {
     return val;
 }
 
-// Verify the required input was included with the correct format, and parse the input
-// 2 possible keywords to check against - WhichKey denotes which of the two was found
-std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int &WhichKey) {
-
-    std::size_t colon;
-    std::string line, val;
-    std::string actual_key = getKey(stream, line, colon);
-
-    // Check for keywords
-    if (actual_key.find(key1) == std::string::npos) {
-        // Keyword 1 not found - check for Keyword 2
-        if (actual_key.find(key2) == std::string::npos) {
-            // Neither possible input found
-            std::string error =
-                "Required input not present: Neither " + key1 + " nor " + key2 + " was found in the input file";
-            throw std::runtime_error(error);
-        }
-        else {
-            // The second keyword was found
-            WhichKey = 2;
-        }
-    }
-    else {
-        // First keyword was found
-        WhichKey = 1;
-    }
-    val = removeWhitespace(line, colon);
-    return val;
-}
-
-// Verify the required boolean input was included with the correct format.
-bool parseInputBool(std::ifstream &stream, std::string key) {
-    std::string val = parseInput(stream, key);
-    if (val == "N") {
+// Check if a string is Y (true) or N (false)
+bool checkInputBool(std::string val) {
+    std::string val2 = removeWhitespace(val);
+    if (val2 == "N") {
         return false;
     }
-    else if (val == "Y") {
+    else if (val2 == "Y") {
         return true;
     }
     else {
-        std::string error = "Input \"" + key + "\" must be \"Y\" or \"N\".";
+        std::string error = "Input \"" + val2 + "\" must be \"Y\" or \"N\".";
         throw std::runtime_error(error);
     }
 }
@@ -228,41 +195,6 @@ std::string checkFileInstalled(const std::string name, const std::string type, c
     return file;
 }
 
-// Take a string, parse the value that appears after the colon, remove whitespace, and return another string
-std::string returnBeforeColon(std::string line) {
-    std::size_t colon = line.find(":");
-    std::string BeforeColon = line.substr(0, colon);
-    return BeforeColon;
-}
-
-// Take a string, parse the value that appears after the colon, remove whitespace, and return another string
-std::string returnAfterColon(std::string line) {
-    std::size_t colon = line.find(":");
-    std::string AfterColon = line.substr(colon + 1, std::string::npos);
-    // Check for colon separator
-    if (colon == std::string::npos) {
-        std::string error = "Input \"" + line + "\" must be separated from value by \":\".";
-        throw std::runtime_error(error);
-    }
-    std::string ReturnVal = removeWhitespace(AfterColon);
-    return ReturnVal;
-}
-
-// Take a string, determine if it is a Y or an N, and return the appropriate bool
-// If the string is not Y or N, throw an error
-bool checkBoolValue(std::string line, std::string linename) {
-    bool ReturnVal;
-    if (line == "Y")
-        ReturnVal = true;
-    else if (line == "N")
-        ReturnVal = false;
-    else {
-        std::string error = "Input \"" + linename + "\" must be either Y or N";
-        throw std::runtime_error(error);
-    }
-    return ReturnVal;
-}
-
 //*****************************************************************************/
 // Read ExaCA input file.
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
@@ -282,35 +214,33 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs = {
-        "Decomposition strategy",                     // Required input 0
-        "Material",                                   // Required input 1
-        "Cell size",                                  // Required input 2
-        "Nucleation density",                         // Required input 3
-        "Mean nucleation undercooling",               // Required input 4
-        "Standard deviation nucleation undercooling", // Required input 5
-        "Path to output",                             // Required input 6
-        "Output base filename",                       // Required input 7
-        "Grain orientations file",                    // Required input 8
-        "Print misorientations",                      // Required input 9
-        "Print full output"                           // Required input 10
+        "Decomposition strategy",                        // Required input 0
+        "Material",                                      // Required input 1
+        "Cell size",                                     // Required input 2
+        "Heterogeneous nucleation density",              // Required input 3
+        "Mean nucleation undercooling",                  // Required input 4
+        "Standard deviation of nucleation undercooling", // Required input 5
+        "Path to output",                                // Required input 6
+        "Output file base name",                         // Required input 7
+        "File of grain orientations",                    // Required input 8
+        "grain misorientation values",                   // Required input 9
+        "all ExaCA data"                                 // Required input 10
     };
 
     // Optional inputs that may be present in the input file, regardless of problem type
     std::vector<std::string> OptionalInputs = {
-        "Debug check (reduced)",            // Optional input 0
-        "Debug check (extensive)",          // Optional input 1
-        "Print intermediate frames",        // Optional input 2
-        "Frame separation",                 // Optional input 3
-        "Print intermediate frames strict", // Optional input 4
+        "Debug check (reduced)",              // Optional input 0
+        "Debug check (extensive)",            // Optional input 1
+        "Print intermediate output frames",   // Optional input 2
+        "separate frames",                    // Optional input 3
+        "output even if system is unchanged", // Optional input 4
     };
 
     // Values used temporarily to store information from the file
     int NRatio = 0;
     float SpotOffsetFloat = 0.0;
     float SpotRadiusFloat = 0.0;
-    double TimeSeriesFrameInc_time;
-    bool PrintDebugA = false;
-    bool PrintDebugB = false;
+    double TimeSeriesFrameInc_time = 0.0;
     std::string MaterialName, GrainOrientationFile_Read;
 
     // Read the input file provided on the command line - determine which problem type is being simulated
@@ -320,41 +250,34 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     skipLines(InputData, "*****"); // Skip lines until past the header lines above the asterisks
     // First line after the header must be the problem type: either R, C, or S
     // Additional required/optional inputs depending on problem type
-    std::string line;
-    std::getline(InputData, line);
-    if (line.find("Problem type") == std::string::npos) {
-        std::string error = "Error: problem type must be the first input given in the file";
-        throw std::runtime_error(error);
-    }
-    std::string ThisLineActualValue = returnAfterColon(line);
-    SimulationType = ThisLineActualValue;
+    SimulationType = parseInput(InputData, "Problem type");
     if (SimulationType == "C") {
         std::vector<std::string> RequiredInputsC = {
-            "Thermal gradient",   // Required input 11
-            "Cooling rate",       // Required input 12
-            "Time step ratio",    // Required input 13
-            "nx",                 // Required input 14
-            "ny",                 // Required input 15
-            "nz",                 // Required input 16
-            "Fract sites active", // Required input 17
+            "Thermal gradient",     // Required input 11
+            "Cooling rate",         // Required input 12
+            "Velocity",             // Required input 13
+            "Domain size in x",     // Required input 14
+            "Domain size in y",     // Required input 15
+            "Domain size in z",     // Required input 16
+            "surface sites active", // Required input 17
         };
         RequiredInputs.insert(RequiredInputs.end(), RequiredInputsC.begin(), RequiredInputsC.end());
     }
     else if (SimulationType == "S") {
         std::vector<std::string> RequiredInputsS = {
-            "Thermal gradient", // Required input 11
-            "Cooling rate",     // Required input 12
-            "Time step ratio",  // Required input 13
-            "Sx",               // Required input 14
-            "Sy",               // Required input 15
-            "Spot offset",      // Required input 16
-            "Spot radii",       // Required input 17
-            "Number of layers", // Required input 18
-            "Layer offset",     // Required input 19
+            "Thermal gradient",            // Required input 11
+            "Cooling rate",                // Required input 12
+            "Velocity",                    // Required input 13
+            "spots in x",                  // Required input 14
+            "spots in y",                  // Required input 15
+            "Offset between spot centers", // Required input 16
+            "Radii of spots",              // Required input 17
+            "Number of layers",            // Required input 18
+            "Offset between layers",       // Required input 19
         };
         std::vector<std::string> OptionalInputsS = {
-            "Sub grain size", // optional input 5
-            "Sub filename",   // optional input 6
+            "Substrate grain spacing", // optional input 5
+            "Substrate filename",      // optional input 6
         };
         OptionalInputs.insert(OptionalInputs.end(), OptionalInputsS.begin(), OptionalInputsS.end());
         RequiredInputs.insert(RequiredInputs.end(), RequiredInputsS.begin(), RequiredInputsS.end());
@@ -362,17 +285,17 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     else if (SimulationType == "R") {
         std::vector<std::string> RequiredInputsR = {
             "Time step",                   // Required input 11
-            "Temperature filename(s)",     // Required input 12
+            "Temperature filename",        // Required input 12
             "Number of temperature files", // Required input 13
             "Number of layers",            // Required input 14
-            "Layer offset",                // Required input 15
-            "Extra lateral wall cells",    // Required input 16
+            "Offset between layers",       // Required input 15
+            "Extra set of wall cells",     // Required input 16
         };
         std::vector<std::string> OptionalInputsR = {
-            "Sub grain size",              // optional input 5
-            "Sub filename",                // optional input 6
-            "HT grid spacing",             // optional input 7
-            "Path to temperature file(s)", // optional input 8
+            "Substrate grain spacing",       // optional input 5
+            "Substrate filename",            // optional input 6
+            "Heat transport data mesh size", // optional input 7
+            "Path to temperature file(s)",   // optional input 8
         };
         RequiredInputs.insert(RequiredInputs.end(), RequiredInputsR.begin(), RequiredInputsR.end());
         OptionalInputs.insert(OptionalInputs.end(), OptionalInputsR.begin(), OptionalInputsR.end());
@@ -384,6 +307,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     int NumRequiredInputs = RequiredInputs.size();
     int NumOptionalInputs = OptionalInputs.size();
     std::vector<bool> RequiredInputsPresent(NumRequiredInputs), OptionalInputsPresent(NumOptionalInputs);
+    std::vector<std::string> RequiredInputsRead(NumRequiredInputs), OptionalInputsRead(NumOptionalInputs);
     for (int i = 0; i < NumRequiredInputs; i++) {
         RequiredInputsPresent[i] = false;
     }
@@ -392,178 +316,78 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     }
 
     // Read the rest of the input file to initialize required and optional input parameters
+    std::string line;
     while (std::getline(InputData, line)) {
-        if (line.find("*") == std::string::npos) {
-            std::string BeforeColon = returnBeforeColon(line);
-            bool ThisLineRequired = false;
-            bool ThisLineOptional = false;
-            for (int inputnumber = 0; inputnumber < NumRequiredInputs; inputnumber++) {
-                if (BeforeColon == RequiredInputs[inputnumber]) {
-                    // This is required input number "inputnumber"
-                    RequiredInputsPresent[inputnumber] = true;
-                    ThisLineRequired = true;
-                    // Parse line and initialize the appropriate variable
-                    std::string ThisLineActualValue = returnAfterColon(line);
-                    switch (inputnumber) {
-                    case 0:
-                        DecompositionStrategy = stoi(ThisLineActualValue, nullptr, 10);
-                        break;
-                    case 1:
-                        MaterialName = ThisLineActualValue;
-                        break;
-                    case 2:
-                        deltax = atof(ThisLineActualValue.c_str()) * pow(10, -6);
-                        break;
-                    case 3:
-                        NMax = atof(ThisLineActualValue.c_str()) * pow(10, 12);
-                        break;
-                    case 4:
-                        dTN = atof(ThisLineActualValue.c_str());
-                        break;
-                    case 5:
-                        dTsigma = atof(ThisLineActualValue.c_str());
-                        break;
-                    case 6:
-                        PathToOutput = ThisLineActualValue;
-                        break;
-                    case 7:
-                        OutputFile = ThisLineActualValue;
-                        break;
-                    case 8:
-                        GrainOrientationFile_Read = ThisLineActualValue;
-                        break;
-                    case 9:
-                        PrintMisorientation = checkBoolValue(ThisLineActualValue, RequiredInputs[inputnumber]);
-                        break;
-                    case 10:
-                        PrintFullOutput = checkBoolValue(ThisLineActualValue, RequiredInputs[inputnumber]);
-                        break;
-                    case 11:
-                        if (SimulationType == "R")
-                            deltat = atof(ThisLineActualValue.c_str()) * pow(10, -6);
-                        else
-                            G = atof(ThisLineActualValue.c_str());
-                        break;
-                    case 12:
-                        if (SimulationType == "R")
-                            tempfile = ThisLineActualValue;
-                        else
-                            R = atof(ThisLineActualValue.c_str());
-                        break;
-                    case 13:
-                        if (SimulationType == "R")
-                            TempFilesInSeries = stoi(ThisLineActualValue, nullptr, 10);
-                        else
-                            NRatio = stoi(ThisLineActualValue, nullptr, 10);
-                        break;
-                    case 14:
-                        if (SimulationType == "R")
-                            NumberOfLayers = stoi(ThisLineActualValue, nullptr, 10);
-                        else if (SimulationType == "C") {
-                            nx = stoi(ThisLineActualValue, nullptr, 10);
-                            nx = nx + 2; // Domain size in x, wall cells at boundaries
-                        }
-                        else if (SimulationType == "S")
-                            NSpotsX = stoi(ThisLineActualValue, nullptr, 10);
-                        break;
-                    case 15:
-                        if (SimulationType == "R")
-                            LayerHeight = stoi(ThisLineActualValue, nullptr, 10);
-                        else if (SimulationType == "C") {
-                            ny = stoi(ThisLineActualValue, nullptr, 10);
-                            ny = ny + 2; // Domain size in y, wall cells at boundaries
-                        }
-                        else if (SimulationType == "S")
-                            NSpotsY = stoi(ThisLineActualValue, nullptr, 10);
-                        break;
-                    case 16:
-                        if (SimulationType == "R")
-                            ExtraWalls = checkBoolValue(ThisLineActualValue, RequiredInputs[inputnumber]);
-                        else if (SimulationType == "C") {
-                            nz = stoi(ThisLineActualValue, nullptr, 10);
-                            nz = nz + 1; // Domain size in z, wall cells at Z = 0, but not Z = nz-1
-                        }
-                        else if (SimulationType == "S")
-                            SpotOffsetFloat = atof(ThisLineActualValue.c_str());
-                        break;
-                    case 17:
-                        if (SimulationType == "C")
-                            FractSurfaceSitesActive = atof(ThisLineActualValue.c_str());
-                        else if (SimulationType == "S")
-                            SpotRadiusFloat = atof(ThisLineActualValue.c_str());
-                        break;
-                    case 18:
-                        NumberOfLayers = stoi(ThisLineActualValue, nullptr, 10);
-                        break;
-                    case 19:
-                        LayerHeight = stoi(ThisLineActualValue, nullptr, 10);
-                        break;
-                    } // end switch statement specifying which required input is given on this input file line
-                }     // end if loop to check if this input file line matches a required input
-            }         // end for loop over all possible required inputs
-            if (!(ThisLineRequired)) {
-                // If this line wasn't a required input, is this line an optional input?
-                for (int inputnumber = 0; inputnumber < NumOptionalInputs; inputnumber++) {
-                    if (BeforeColon == OptionalInputs[inputnumber]) {
-                        // This is optional input number "inputnumber"
-                        OptionalInputsPresent[inputnumber] = true;
-                        ThisLineOptional = true;
-                        // Parse line and figure out which optional input it is
-                        std::string ThisLineActualValue = returnAfterColon(line);
-                        switch (inputnumber) {
-                        case 0:
-                            PrintDebugA = checkBoolValue(ThisLineActualValue, OptionalInputs[inputnumber]);
-                            break;
-                        case 1:
-                            PrintDebugB = checkBoolValue(ThisLineActualValue, OptionalInputs[inputnumber]);
-                            break;
-                        case 2:
-                            PrintTimeSeries = checkBoolValue(ThisLineActualValue, OptionalInputs[inputnumber]);
-                            break;
-                        case 3:
-                            TimeSeriesFrameInc_time = stod(ThisLineActualValue) * pow(10, -6);
-                            break;
-                        case 4:
-                            PrintIdleTimeSeriesFrames =
-                                checkBoolValue(ThisLineActualValue, OptionalInputs[inputnumber]);
-                            break;
-                        case 5:
-                            SubstrateGrainSpacing = atof(ThisLineActualValue.c_str());
-                            break;
-                        case 6:
-                            SubstrateFileName = ThisLineActualValue;
-                            break;
-                        case 7:
-                            HT_deltax = atof(ThisLineActualValue.c_str()) * pow(10, -6);
-                            break;
-                        case 8:
-                            temppath = ThisLineActualValue;
-                            break;
-                        }
-                    }
-                }
-                if (!(ThisLineOptional)) {
-                    // This line wasn't a required input for this problem type, and also doesn't seem to be an optional
-                    // input Print a warning that this line is being ignored
-                    if (id == 0)
-                        std::cout << "WARNING: Unexpected input line " << line << " for simulation of type "
-                                  << SimulationType << " ; ignoring this line" << std::endl;
+        // Ignore lines with *, as these are not inputs
+        if (line.find("***") == std::string::npos) {
+            // Check if this is a required input
+            bool RequiredYN =
+                parseInputFromList(line, NumRequiredInputs, RequiredInputs, RequiredInputsPresent, RequiredInputsRead);
+            if (!(RequiredYN)) {
+                bool OptionalYN = parseInputFromList(line, NumOptionalInputs, OptionalInputs, OptionalInputsPresent,
+                                                     OptionalInputsRead);
+                if (!(OptionalYN) && (id == 0)) {
+                    std::cout << "WARNING: input " << line
+                              << " did not match any optional nor required inputs known to ExaCA and will be ignored"
+                              << std::endl;
                 }
             }
         }
     }
     InputData.close();
 
-    // Now that the file is read completely, ensure that all required inputs were present
-    for (int inputnumber = 0; inputnumber < NumRequiredInputs; inputnumber++) {
-        if (!(RequiredInputsPresent[inputnumber])) {
-            std::string error = "Required input " + RequiredInputs[inputnumber] + " not present in the input file";
+    // Ensure that all required inputs were given
+    for (int i = 0; i < NumRequiredInputs; i++) {
+        if (!(RequiredInputsPresent[i])) {
+            std::string error = "Error: Required input " + RequiredInputs[i] + " was not present in the input file";
             throw std::runtime_error(error);
         }
     }
 
-    // Extract ExaCA values that depended on multiple inputs from the file
-    if (SimulationType == "C") {
+    // Convert information read from the file into values usable by ExaCA
+    // Required inputs for all problems
+    DecompositionStrategy = stoi(RequiredInputsRead[0], nullptr, 10);
+    MaterialName = RequiredInputsRead[1];
+    deltax = atof(RequiredInputsRead[2].c_str()) * pow(10, -6);
+    NMax = atof(RequiredInputsRead[3].c_str()) * pow(10, 12);
+    dTN = atof(RequiredInputsRead[4].c_str());
+    dTsigma = atof(RequiredInputsRead[5].c_str());
+    PathToOutput = RequiredInputsRead[6];
+    OutputFile = RequiredInputsRead[7];
+    GrainOrientationFile_Read = RequiredInputsRead[8];
+    PrintMisorientation = checkInputBool(RequiredInputsRead[9]);
+    PrintFullOutput = checkInputBool(RequiredInputsRead[10]);
+    // Problem type-specific inputs
+    if (SimulationType == "R") {
+        deltat = atof(RequiredInputsRead[11].c_str()) * pow(10, -6);
+        tempfile = RequiredInputsRead[12];
+        TempFilesInSeries = stoi(RequiredInputsRead[13], nullptr, 10);
+        NumberOfLayers = stoi(RequiredInputsRead[14], nullptr, 10);
+        LayerHeight = stoi(RequiredInputsRead[15], nullptr, 10);
+        ExtraWalls = checkInputBool(RequiredInputsRead[16]);
+        if (id == 0) {
+            std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
+            std::cout << "The time step is " << deltat << " seconds" << std::endl;
+            if (TempFilesInSeries > 1)
+                std::cout << "Temperature data files are *" << tempfile << " , and there are " << TempFilesInSeries
+                          << " in the series" << std::endl;
+            else
+                std::cout << "The temperature data file is " << tempfile << std::endl;
+            std::cout << "A total of " << NumberOfLayers << " layers of solidification offset by " << LayerHeight
+                      << " CA cells will be simulated" << std::endl;
+        }
+    }
+    else if (SimulationType == "C") {
+        G = atof(RequiredInputsRead[11].c_str());
+        R = atof(RequiredInputsRead[12].c_str());
+        NRatio = stoi(RequiredInputsRead[13], nullptr, 10);
+        nx = stoi(RequiredInputsRead[14], nullptr, 10);
+        nx = nx + 2; // Domain size in x, wall cells at boundaries
+        ny = stoi(RequiredInputsRead[15], nullptr, 10);
+        ny = ny + 2; // Domain size in y, wall cells at boundaries
+        nz = stoi(RequiredInputsRead[16], nullptr, 10);
+        nz = nz + 1; // Domain size in z, wall cells at Z = 0, but not Z = nz-1
+        FractSurfaceSitesActive = atof(RequiredInputsRead[17].c_str());
         deltat = deltax / (NRatio * (R / G));
         NumberOfLayers = 1;
         LayerHeight = nz;
@@ -576,23 +400,15 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         }
     }
     else if (SimulationType == "S") {
-        // Exactly one of the two inputs "sub grain size" and "sub filename" should be present
-        if ((OptionalInputsPresent[5]) && (OptionalInputsPresent[6]))
-            throw std::runtime_error("Error: only one of substrate grain size and substrate structure filename should "
-                                     "be provided in the input file");
-        else if ((!(OptionalInputsPresent[5])) && (!(OptionalInputsPresent[6])))
-            throw std::runtime_error(
-                "Error: neither substrate grain size nor substrate structure filename was provided in the input file");
-        else {
-            if (OptionalInputsPresent[5]) {
-                UseSubstrateFile = false;
-            }
-            else {
-                // Check that substrate file exists
-                UseSubstrateFile = true;
-                checkFileExists(SubstrateFileName, "Substrate", id);
-            }
-        }
+        G = atof(RequiredInputsRead[11].c_str());
+        R = atof(RequiredInputsRead[12].c_str());
+        NRatio = stoi(RequiredInputsRead[13], nullptr, 10);
+        NSpotsX = stoi(RequiredInputsRead[14], nullptr, 10);
+        NSpotsY = stoi(RequiredInputsRead[15], nullptr, 10);
+        SpotOffsetFloat = atof(RequiredInputsRead[16].c_str());
+        SpotRadiusFloat = atof(RequiredInputsRead[17].c_str());
+        NumberOfLayers = stoi(RequiredInputsRead[18], nullptr, 10);
+        LayerHeight = stoi(RequiredInputsRead[19], nullptr, 10);
         deltat = deltax / (NRatio * (R / G));
         SpotOffset = SpotOffsetFloat * 1.0 * pow(10, -6) / deltax;
         SpotRadius = SpotRadiusFloat * 1.0 * pow(10, -6) / deltax;
@@ -610,7 +426,48 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
         }
     }
-    else if (SimulationType == "R") {
+    // Optional inputs - should files post-initialization be printed for debugging?
+    bool PrintDebugA = false;
+    bool PrintDebugB = false;
+    if (OptionalInputsPresent[0])
+        PrintDebugA = checkInputBool(OptionalInputsRead[0]);
+    if (OptionalInputsPresent[1])
+        PrintDebugB = checkInputBool(OptionalInputsRead[1]);
+    if (OptionalInputsPresent[0] + OptionalInputsPresent[1] == 0)
+        PrintDebug = 0;
+    if (PrintDebugB)
+        PrintDebug = 2;
+    else if (PrintDebugA)
+        PrintDebug = 1;
+    else
+        PrintDebug = 0;
+    // Should intermediate output be printed?
+    if (OptionalInputsPresent[2]) {
+        PrintTimeSeries = checkInputBool(OptionalInputsRead[2]);
+        if (PrintTimeSeries) {
+            if (OptionalInputsPresent[3]) {
+                TimeSeriesFrameInc_time = stod(OptionalInputsRead[3]) * pow(10, -6);
+                TimeSeriesInc = round(TimeSeriesFrameInc_time / deltat);
+                if (OptionalInputsPresent[4])
+                    PrintIdleTimeSeriesFrames = checkInputBool(OptionalInputsRead[4]);
+                else
+                    PrintIdleTimeSeriesFrames = false;
+            }
+            else
+                throw std::runtime_error(
+                    "Error: Cannot print intermediate output data without a specified output increment");
+        }
+        else {
+            PrintTimeSeries = false;
+            PrintIdleTimeSeriesFrames = false;
+        }
+    }
+    else {
+        PrintTimeSeries = false;
+        PrintIdleTimeSeriesFrames = false;
+    }
+    // For simulations with substrate grain structures, should an input grain spacing or a substrate file be used?
+    if ((SimulationType == "S") || (SimulationType == "R")) {
         // Exactly one of the two inputs "sub grain size" and "sub filename" should be present
         if ((OptionalInputsPresent[5]) && (OptionalInputsPresent[6]))
             throw std::runtime_error("Error: only one of substrate grain size and substrate structure filename should "
@@ -621,18 +478,29 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         else {
             if (OptionalInputsPresent[5]) {
                 UseSubstrateFile = false;
+                SubstrateGrainSpacing = atof(OptionalInputsRead[5].c_str());
             }
             else {
                 // Check that substrate file exists
                 UseSubstrateFile = true;
+                SubstrateFileName = OptionalInputsRead[6];
                 checkFileExists(SubstrateFileName, "Substrate", id);
             }
         }
+    }
+    // Input temperature data spacing or path to temperature data may be given
+    // If not given, it is assumed HT_deltax = CA cell size and temperature data is located in examples/Temperatures
+    if (SimulationType == "R") {
         if (!(OptionalInputsPresent[7]))
-            HT_deltax = deltax; // input temperature data spacing assumed equal to the CA cell spacing
-        if (!(OptionalInputsPresent[8])) {
+            HT_deltax = deltax;
+        else
+            HT_deltax = atof(OptionalInputsRead[7].c_str()) * pow(10, -6);
+
+        if (!(OptionalInputsPresent[8]))
             temppath = "examples/Temperatures";
-        }
+        else
+            temppath = OptionalInputsRead[8];
+
         // Check that temperature file(s) exist
         temp_paths.resize(TempFilesInSeries, "");
         getTemperatureFilePaths(temppath, tempfile, temp_paths);
@@ -641,36 +509,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                 std::cout << "Checking file " << temp_paths[i] << std::endl;
             checkFileExists(temp_paths[i], "Temperature", id);
         }
-        if (id == 0) {
-            std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
-            std::cout << "Mesh size of the temperature data is " << HT_deltax << " microns" << std::endl;
-            std::cout << "The time step is " << deltat << " seconds" << std::endl;
-            if (TempFilesInSeries > 1)
-                std::cout << "Temperature data files are *" << tempfile << " , and there are " << TempFilesInSeries
-                          << " in the series" << std::endl;
-            else
-                std::cout << "The temperature data file is " << tempfile << std::endl;
-            std::cout << "A total of " << NumberOfLayers << " of solidification offset by " << LayerHeight
-                      << " CA cells will be simulated" << std::endl;
-        }
     }
-
-    // Check which optional inputs were given, assign them default values if they were not given
-    // Extract ExaCA values that depended on multiple inputs from the file
-    if (!(OptionalInputsPresent[2])) {
-        PrintTimeSeries = false; // Don't print intermediate output files
-    }
-    else {
-        TimeSeriesInc = round(TimeSeriesFrameInc_time / deltat);
-    }
-    if (!(OptionalInputsPresent[4]))
-        PrintIdleTimeSeriesFrames = false;
-    if (PrintDebugB)
-        PrintDebug = 2;
-    else if (PrintDebugA)
-        PrintDebug = 1;
-    else
-        PrintDebug = 0;
 
     // Read material file (specified from main input file) to obtain values for A, B, C, and D for the interfacial
     // reponse function

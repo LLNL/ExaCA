@@ -4,28 +4,28 @@ Problem type: S
 Decomposition strategy: 1
 Material:Inconel625
 Cell size: 1
-Nucleation density: 10
+Heterogeneous nucleation density: 10
 Mean nucleation undercooling: 5
-Standard deviation nucleation undercooling: 0.5
+Standard deviation of nucleation undercooling: 0.5
 Path to output:./
-Output base filename:TestProblemSpot
-Grain orientations file:GrainOrientationVectors_Robert.csv
+Output file base name:TestProblemSpot
+File of grain orientations:GrainOrientationVectors_Robert.csv
 Thermal gradient: 500000
 Cooling rate: 300000
-Sx: 3
-Sy: 2
-Spot offset: 100
-Spot radii: 75
+Num spots in x: 3
+Num spots in y: 2
+Offset between spot centers: 100
+Radii of spots: 75
 Number of layers: 2
-Layer offset: 20
-Time step ratio: 25
-Sub grain size: 25
+Offset between layers: 20
+Time step ratio (from steady-state Velocity): 25
+Substrate grain spacing: 25
 ***Output data printing options: (Y or N) which data should be printed***
-Print misorientations: Y
-Print full output: Y
+Print file of grain misorientation values: Y
+Print file of all ExaCA data: Y
 Debug check (reduced): N
 Debug check (extensive): N
 ***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
-Print intermediate frames: Y
-Frame separation: 2500
-Print intermediate frames strict: Y
+Print intermediate output frames: Y
+Increment to separate frames: 2500
+Intermediate output even if system is unchanged from previous state: Y

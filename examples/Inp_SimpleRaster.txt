@@ -4,27 +4,27 @@ Problem type: R
 Decomposition strategy: 1
 Material:Inconel625
 Cell size: 1
-Nucleation density: 10
+Heterogeneous nucleation density: 10
 Mean nucleation undercooling: 5
-Standard deviation nucleation undercooling: 0.5
+Standard deviation of nucleation undercooling: 0.5
 Path to output:./
-Output base filename:TestProblemSimpleRaster
-Grain orientations file:GrainOrientationVectors_Robert.csv
-HT grid spacing: 5
+Output file base name:TestProblemSimpleRaster
+File of grain orientations:GrainOrientationVectors_Robert.csv
+Heat transport data mesh size: 5
 Time step: 0.08333333
-Sub grain size: 25
+Substrate grain spacing: 25
 Path to temperature file(s): examples/Temperatures
 Temperature filename(s): Master-Raster-150um.txt
 Number of temperature files: 1
-Extra lateral wall cells: N
+Extra set of wall cells in lateral domain directions: N
 Number of layers: 1
-Layer offset: 15
+Offset between layers: 15
 ***Output data printing options: (Y or N) which data should be printed***
-Print misorientations: Y
-Print full output: Y
+Print file of grain misorientation values: Y
+Print file of all ExaCA data: Y
 Debug check (reduced): N
 Debug check (extensive): N
 ***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
-Print intermediate frames: N
-Frame separation: 1000
-Print intermediate frames strict: Y
+Print intermediate output frames: N
+Increment to separate frames: 1000
+Intermediate output even if system is unchanged from previous state: Y

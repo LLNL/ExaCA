@@ -95,8 +95,9 @@ void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
 
 void skipLines(std::ifstream &stream, std::string seperator = "*****");
 std::string parseInput(std::ifstream &stream, std::string key);
-std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int &WhichKey);
-bool parseInputBool(std::ifstream &stream, std::string key);
+bool parseInputFromList(std::string line, int NumInputs, std::vector<std::string> Inputs,
+                        std::vector<bool> &InputsPresent, std::vector<std::string> &InputsRead);
+bool checkInputBool(std::string val);
 std::string checkFileInstalled(const std::string name, const std::string type, const int id);
 
 #endif

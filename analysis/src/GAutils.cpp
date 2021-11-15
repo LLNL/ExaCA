@@ -150,16 +150,26 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis);
 
-    // Read names of path to the microstructure/log files
-    LogFile = parseInput(Analysis, "name of log");
-    MicrostructureFile = parseInput(Analysis, "name of microstructure");
-    // Read names of paths/files containing the grain orientations, in rotation matrix form
-    std::string RotationFilename_Read = parseInput(Analysis, "rotation matrix");
-    // Path to file of grain orientations based on install/source location
-    RotationFilename = checkFileInstalled(RotationFilename_Read, "Substrate", 0);
-    // Path/name for output data
-    OutputFileName = parseInput(Analysis, "output");
+    std::vector<std::string> NamesOfFiles = {"name of log", "name of microstructure", "rotation matrix", "output"};
+    std::vector<bool> FilesPresent(4);
+    std::vector<std::string> FilesRead(4);
+
+    for (int i = 0; i < 4; i++) {
+        std::string line;
+        std::getline(Analysis, line);
+        bool FileFound = parseInputFromList(line, 4, NamesOfFiles, FilesPresent, FilesRead);
+        if (!(FileFound)) {
+            std::string error = "Error: Required input file name " + NamesOfFiles[i] + " not found in analysis file";
+            throw std::runtime_error(error);
+        }
+    }
+    LogFile = FilesRead[0];
+    MicrostructureFile = FilesRead[1];
+    RotationFilename = FilesRead[2];
+    OutputFileName = FilesRead[3];
     Analysis.close();
+    // Path to file of grain orientations based on install/source location
+    RotationFilename = checkFileInstalled(RotationFilename, "Substrate", 0);
 }
 
 void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID,
@@ -437,14 +447,30 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
     std::cout << "XYZ region for grain statistics is X = " << XMin << " through " << XMax << "; Y = " << YMin
               << " through " << YMax << "; Z = " << ZMin << " through " << ZMax << std::endl;
     // Read Y/N options for analyzing microstructure data
-    AnalysisTypes[0] = parseInputBool(Analysis, "misorientation");
-    AnalysisTypes[1] = parseInputBool(Analysis, "grain volume");
-    AnalysisTypes[2] = parseInputBool(Analysis, "mean aspect ratio");
-    AnalysisTypes[3] = parseInputBool(Analysis, "mean grain area");
-    AnalysisTypes[4] = parseInputBool(Analysis, "mean weighted grain area");
-    AnalysisTypes[5] = parseInputBool(Analysis, "mean grain height");
-    AnalysisTypes[6] = parseInputBool(Analysis, "grain width distribution");
-    AnalysisTypes[7] = parseInputBool(Analysis, "volume for pole figure analysis");
+    std::vector<std::string> AnalysisOptions = {
+        "misorientation",           "grain volume",      "mean aspect ratio",        "mean grain area",
+        "mean weighted grain area", "mean grain height", "grain width distribution", "volume for pole figure analysis"};
+    int NumAnalysisOptions = AnalysisOptions.size();
+    std::vector<bool> AnalysisOptionsPresent(NumAnalysisOptions);
+    std::vector<std::string> AnalysisOptionsYN(NumAnalysisOptions);
+
+    // Read files to get Y/N values for possible analysis options from the list "AnalysisOptions", storing results in
+    // AnalysisOptionsYN
+    for (int i = 0; i < NumAnalysisOptions; i++) {
+        std::string line;
+        std::getline(Analysis, line);
+        bool AnalysisOptionFound =
+            parseInputFromList(line, NumAnalysisOptions, AnalysisOptions, AnalysisOptionsPresent, AnalysisOptionsYN);
+        if (!(AnalysisOptionFound))
+            std::cout << "Warning: unknown analysis option " << line << std::endl;
+    }
+    // Check which analysis options were found in the file and store their results as bools
+    for (int i = 0; i < NumAnalysisOptions; i++) {
+        if (AnalysisOptionsPresent[i])
+            AnalysisTypes[i] = checkInputBool(AnalysisOptionsYN[i]);
+        else
+            AnalysisTypes[i] = false;
+    }
     Analysis.close();
 }
 
