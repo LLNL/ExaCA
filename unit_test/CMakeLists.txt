@@ -35,6 +35,15 @@ foreach(_device ${EXACA_SUPPORTED_DEVICES})
 endforeach()
 
 ##--------------------------------------------------------------------------##
+## Install example files used in tests
+##--------------------------------------------------------------------------##
+configure_file(  ${CMAKE_CURRENT_SOURCE_DIR}/../examples/*.txt
+  ${CMAKE_CURRENT_BINARY_DIR}/../examples/*.txt
+  COPYONLY)
+install(FILES ${EXAMPLES}
+  DESTINATION ${CMAKE_CURRENT_BINARY_DIRECTORY})
+
+##--------------------------------------------------------------------------##
 ## Create tests without Kokkos
 ##--------------------------------------------------------------------------##
 macro(ExaCA_add_tests_nobackend)

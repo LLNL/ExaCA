@@ -150,16 +150,16 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis);
 
-    std::vector<std::string> NamesOfFiles = {"name of log", "name of microstructure", "rotation matrix", "output"};
+    std::vector<std::string> NamesOfFiles = {"name of log (.log) file", "name of microstructure (.vtk) file", "file of grain orientations", "name of data files of output resulting from this analysis"};
     std::vector<bool> FilesPresent(4);
     std::vector<std::string> FilesRead(4);
 
     for (int i = 0; i < 4; i++) {
         std::string line;
         std::getline(Analysis, line);
-        bool FileFound = parseInputFromList(line, 4, NamesOfFiles, FilesPresent, FilesRead);
+        bool FileFound = parseInputFromList(line, NamesOfFiles, FilesPresent, FilesRead, 4);
         if (!(FileFound)) {
-            std::string error = "Error: Required input file name " + NamesOfFiles[i] + " not found in analysis file";
+            std::string error = "Error: Required input " + NamesOfFiles[i] + " not found in analysis file";
             throw std::runtime_error(error);
         }
     }
@@ -460,14 +460,14 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
         std::string line;
         std::getline(Analysis, line);
         bool AnalysisOptionFound =
-            parseInputFromList(line, NumAnalysisOptions, AnalysisOptions, AnalysisOptionsPresent, AnalysisOptionsYN);
+            parseInputFromList(line, AnalysisOptions, AnalysisOptionsPresent, AnalysisOptionsYN, NumAnalysisOptions);
         if (!(AnalysisOptionFound))
             std::cout << "Warning: unknown analysis option " << line << std::endl;
     }
     // Check which analysis options were found in the file and store their results as bools
     for (int i = 0; i < NumAnalysisOptions; i++) {
         if (AnalysisOptionsPresent[i])
-            AnalysisTypes[i] = checkInputBool(AnalysisOptionsYN[i]);
+            AnalysisTypes[i] = parseInputBool(AnalysisOptionsYN[i]);
         else
             AnalysisTypes[i] = false;
     }

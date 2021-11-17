@@ -25,8 +25,8 @@
 
 ### Depending on the problem type, other required inputs should also be given. For Problem type C:
 
-|Input                       | Required Y/N | Details |
-|----------------------------| -------------|---------|
+|Input                       | Details |
+|----------------------------| --------|
 | Thermal gradient  | Thermal gradient in the build (+Z) directions, in K/m
 | Cooling rate      | Cooling rate (uniform across the domain), in K/s
 | Time step ratio (from steady-state Velocity)   | Used to set the time step: time step = cell size/(cooling rate/thermal gradient) x N)
@@ -42,8 +42,8 @@
 | Thermal gradient  | Thermal gradient in each hemispherical spot, in K/m
 | Cooling rate      | Cooling rate (uniform for each spot), in K/s
 | Time step ratio   | Used to set the time step: time step = cell size/(cooling rate/thermal gradient) x N)
-| Num spots in x    | Number of spots in the x direction
-| Num spots in y    | Number of spots in the y direction
+| Number of spots in x    | Number of spots in the x direction
+| Number of spots in y    | Number of spots in the y direction
 | Offset between spot centers | Offset of spot centers along the x and y axes, in microns
 | Radii of spots    | Spot radii, in microns
 | Number of layers  | Number of times this pattern is repeated, offset in the +Z (build) direction

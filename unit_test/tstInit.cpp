@@ -137,78 +137,38 @@ void testInputReadFromFile() {
     // Get individual process ID
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     // Three input files - one of each type
-    std::vector<std::string> InputFilenames = {"TestC.txt", "TestS.txt", "TestR.txt"};
+    // Inp_DirSolidification.txt and Inp_SpotMelt.txt were installed from the examples directory
+    std::vector<std::string> InputFilenames = {"Inp_DirSolidification.txt", "Inp_SpotMelt.txt", "Inp_TemperatureTest.txt"};
     if (id == 0) {
-        // Write dummy input file for directional solidification (problem type C, iteration 0), spot melt (problem type
-        // S, iteration 1), and read temperature data (problem type R, iteration 2)
-        for (int FileNumber = 0; FileNumber < 3; FileNumber++) {
-            std::ofstream TestDataFile;
-            TestDataFile.open(InputFilenames[FileNumber]);
-            // Write required inputs to all files
-            TestDataFile << "Test problem data set" << std::endl;
-            TestDataFile << "*****" << std::endl;
-            if (FileNumber == 0)
-                TestDataFile << "Problem type: C" << std::endl;
-            else if (FileNumber == 1)
-                TestDataFile << "Problem type: S" << std::endl;
-            else if (FileNumber == 2)
-                TestDataFile << "Problem type: R" << std::endl;
-            TestDataFile << "Decomposition strategy: 2" << std::endl;
-            TestDataFile << "Material: Inconel625" << std::endl;
-            TestDataFile << "Cell size: 1" << std::endl;
-            TestDataFile << "Heterogeneous nucleation density: 6" << std::endl;
-            TestDataFile << "Mean nucleation undercooling: 3" << std::endl;
-            TestDataFile << "Standard deviation of nucleation undercooling: 0.11" << std::endl;
-            TestDataFile << "Path to output: ExaCA" << std::endl;
-            TestDataFile << "Output file base name: Test" << std::endl;
-            TestDataFile << "File of grain orientations: GrainOrientationVectors_Robert.csv" << std::endl;
-            TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
-            TestDataFile << "Print file of all ExaCA data: N" << std::endl;
-            // Print optional file inputs for 2 of the 3 problems, but not the 3rd
-            // to check for proper behavior in both situations
-            if ((FileNumber == 0) || (FileNumber == 1)) {
-                // Print optional inputs, and problem type specific inputs
-                TestDataFile << "Debug check (reduced): Y" << std::endl;
-                TestDataFile << "Debug check (extensive): N" << std::endl;
-                TestDataFile << "Print intermediate output frames: Y" << std::endl;
-                TestDataFile << "Increment to separate frames: 2" << std::endl;
-                TestDataFile << "Intermediate output even if system is unchanged from previous state: N" << std::endl;
-            }
-            // Problem type specific required inputs/optional inputs
-            if (FileNumber == 0) {
-                TestDataFile << "Thermal gradient: 1000" << std::endl;
-                TestDataFile << "Cooling rate: 100" << std::endl;
-                TestDataFile << "Time step ratio (from steady-state Velocity): 25" << std::endl;
-                TestDataFile << "Domain size in x: 10" << std::endl;
-                TestDataFile << "Domain size in y: 15" << std::endl;
-                TestDataFile << "Domain size in z: 20" << std::endl;
-                TestDataFile << "Fraction surface sites active: 0.35" << std::endl;
-            }
-            else if (FileNumber == 1) {
-                TestDataFile << "Thermal gradient: 1000" << std::endl;
-                TestDataFile << "Cooling rate: 100" << std::endl;
-                TestDataFile << "Time step ratio (from steady-state Velocity): 25" << std::endl;
-                TestDataFile << "Num spots in x: 1" << std::endl;
-                TestDataFile << "Num spots in y: 5" << std::endl;
-                TestDataFile << "Offset between spot centers: 5" << std::endl;
-                TestDataFile << "Radii of spots: 10" << std::endl;
-                TestDataFile << "Number of layers: 2" << std::endl;
-                TestDataFile << "Offset between layers: 1" << std::endl;
-                TestDataFile << "Substrate grain spacing: 10" << std::endl;
-            }
-            else if (FileNumber == 2) {
-                TestDataFile << "Time step: 1.5" << std::endl;
-                TestDataFile << "Temperature filename(s): DummyTemperature.txt" << std::endl;
-                TestDataFile << "Number of temperature files: 2" << std::endl;
-                TestDataFile << "Number of layers: 2" << std::endl;
-                TestDataFile << "Offset between layers: 1" << std::endl;
-                TestDataFile << "Extra set of wall cells in lateral domain directions: N" << std::endl;
-                TestDataFile << "Substrate filename: DummySubstrate.txt" << std::endl;
-                TestDataFile << "Heat transport data mesh size: 12" << std::endl;
-                TestDataFile << "Path to temperature file(s): ./" << std::endl;
-            }
-            TestDataFile.close();
-        }
+        // Write dummy input file for using read temperature data
+        std::ofstream TestDataFile;
+        TestDataFile.open(InputFilenames[2]);
+        // Write required inputs to all files
+        TestDataFile << "Test problem data set" << std::endl;
+        TestDataFile << "*****" << std::endl;
+        TestDataFile << "Problem type: R" << std::endl;
+        TestDataFile << "Decomposition strategy: 1" << std::endl;
+        TestDataFile << "Material: Inconel625" << std::endl;
+        TestDataFile << "Cell size: 1" << std::endl;
+        TestDataFile << "Heterogeneous nucleation density: 10" << std::endl;
+        TestDataFile << "Mean nucleation undercooling: 5" << std::endl;
+        TestDataFile << "Standard deviation of nucleation undercooling: 0.5" << std::endl;
+        TestDataFile << "Path to output: ExaCA" << std::endl;
+        TestDataFile << "Output file base name: Test" << std::endl;
+        TestDataFile << "File of grain orientations: GrainOrientationVectors_Robert.csv" << std::endl;
+        TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
+        TestDataFile << "Print file of all ExaCA data: N" << std::endl;
+        TestDataFile << "Time step: 1.5" << std::endl;
+        TestDataFile << "Temperature filename(s): DummyTemperature.txt" << std::endl;
+        TestDataFile << "Number of temperature files: 2" << std::endl;
+        TestDataFile << "Number of layers: 2" << std::endl;
+        TestDataFile << "Offset between layers: 1" << std::endl;
+        TestDataFile << "Extra set of wall cells in lateral domain directions: N" << std::endl;
+        TestDataFile << "Substrate filename: DummySubstrate.txt" << std::endl;
+        TestDataFile << "Heat transport data mesh size: 12" << std::endl;
+        TestDataFile << "Path to temperature file(s): ./" << std::endl;
+        TestDataFile.close();
+        
         // Create test temperature files "1DummyTemperature.txt", "2DummyTemperature.txt"
         std::ofstream TestTemp1, TestTemp2;
         TestTemp1.open("1DummyTemperature.txt");
@@ -217,6 +177,7 @@ void testInputReadFromFile() {
         TestTemp2 << "X" << std::endl;
         TestTemp1.close();
         TestTemp2.close();
+        
         // Create test substrate file "DummySubstrate.txt"
         std::ofstream TestSub;
         TestSub.open("DummySubstrate.txt");
@@ -245,52 +206,53 @@ void testInputReadFromFile() {
                           PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
                           PrintIdleTimeSeriesFrames);
 
-        // Check the results - required inputs for all problems
+        // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
         // InputReadFromFile
-        EXPECT_EQ(DecompositionStrategy, 2);
+        // These should be the same for all 3 test problems
+        EXPECT_EQ(DecompositionStrategy, 1);
         EXPECT_DOUBLE_EQ(AConst, -0.00000010302);
         EXPECT_DOUBLE_EQ(BConst, 0.00010533);
         EXPECT_DOUBLE_EQ(CConst, 0.0022196);
         EXPECT_DOUBLE_EQ(DConst, 0);
         EXPECT_DOUBLE_EQ(FreezingRange, 210);
         EXPECT_DOUBLE_EQ(deltax, 1.0 * pow(10, -6));
-        EXPECT_DOUBLE_EQ(NMax, 6.0 * pow(10, 12));
-        EXPECT_DOUBLE_EQ(dTN, 3.0);
-        EXPECT_DOUBLE_EQ(dTsigma, 0.11);
-        EXPECT_TRUE(OutputFile == "Test");
-        EXPECT_TRUE(PrintMisorientation);
-        EXPECT_FALSE(PrintFullOutput);
-        // Input file specific results to check
+        EXPECT_DOUBLE_EQ(NMax, 1.0 * pow(10, 13));
+        EXPECT_DOUBLE_EQ(dTN, 5.0);
+        EXPECT_DOUBLE_EQ(dTsigma, 0.5);
+        EXPECT_EQ(PrintDebug, 0);
+        EXPECT_TRUE(PrintFullOutput);
+        // These are different for all 3 test problems
         if (FileNumber == 0) {
-            EXPECT_EQ(PrintDebug, 1);
             EXPECT_TRUE(PrintTimeSeries);
-            EXPECT_EQ(TimeSeriesInc, 5);
+            EXPECT_EQ(TimeSeriesInc, 5250);
             EXPECT_FALSE(PrintIdleTimeSeriesFrames);
-            EXPECT_DOUBLE_EQ(G, 1000.0);
-            EXPECT_DOUBLE_EQ(R, 100.0);
-            EXPECT_DOUBLE_EQ(deltat, 0.4 * pow(10, -6)); // based on N, deltax, G, and R from input file
-            EXPECT_EQ(nx, 12);                           // +2 from input due to wall cells
-            EXPECT_EQ(ny, 17);                           // +2 from input due to wall cells
-            EXPECT_EQ(nz, 21);                           // +1 from input due to wall cells
-            EXPECT_DOUBLE_EQ(FractSurfaceSitesActive, 0.35);
+            EXPECT_DOUBLE_EQ(G, 500000.0);
+            EXPECT_DOUBLE_EQ(R, 300000.0);
+            EXPECT_DOUBLE_EQ(deltat, pow(10, -6)/15.0); // based on N, deltax, G, and R from input file
+            EXPECT_EQ(nx, 202);                           // +2 from input due to wall cells
+            EXPECT_EQ(ny, 202);                           // +2 from input due to wall cells
+            EXPECT_EQ(nz, 201);                           // +1 from input due to wall cells
+            EXPECT_DOUBLE_EQ(FractSurfaceSitesActive, 0.08);
+            EXPECT_TRUE(OutputFile == "TestProblemDirS");
+            EXPECT_TRUE(PrintMisorientation);
         }
         else if (FileNumber == 1) {
-            EXPECT_EQ(PrintDebug, 1);
             EXPECT_TRUE(PrintTimeSeries);
-            EXPECT_EQ(TimeSeriesInc, 5);
-            EXPECT_FALSE(PrintIdleTimeSeriesFrames);
-            EXPECT_DOUBLE_EQ(G, 1000.0);
-            EXPECT_DOUBLE_EQ(R, 100.0);
-            EXPECT_DOUBLE_EQ(deltat, 0.4 * pow(10, -6)); // based on N, deltax, G, and R from input file
-            EXPECT_EQ(NSpotsX, 1);
-            EXPECT_EQ(NSpotsY, 5);
-            EXPECT_EQ(SpotOffset, 5);
-            EXPECT_EQ(SpotRadius, 10);
+            EXPECT_EQ(TimeSeriesInc, 37500);
+            EXPECT_TRUE(PrintIdleTimeSeriesFrames);
+            EXPECT_DOUBLE_EQ(G, 500000.0);
+            EXPECT_DOUBLE_EQ(R, 300000.0);
+            EXPECT_DOUBLE_EQ(deltat, pow(10, -6)/15.0); // based on N, deltax, G, and R from input file
+            EXPECT_EQ(NSpotsX, 3);
+            EXPECT_EQ(NSpotsY, 2);
+            EXPECT_EQ(SpotOffset, 100);
+            EXPECT_EQ(SpotRadius, 75);
             EXPECT_EQ(NumberOfLayers, 2);
-            EXPECT_EQ(LayerHeight, 1);
+            EXPECT_EQ(LayerHeight, 20);
             EXPECT_FALSE(UseSubstrateFile);
-            EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 10.0);
+            EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 25.0);
+            EXPECT_TRUE(OutputFile == "TestProblemSpot");
         }
         else if (FileNumber == 2) {
             EXPECT_DOUBLE_EQ(deltat, 1.5 * pow(10, -6));
@@ -300,6 +262,9 @@ void testInputReadFromFile() {
             EXPECT_FALSE(ExtraWalls);
             EXPECT_TRUE(UseSubstrateFile);
             EXPECT_DOUBLE_EQ(HT_deltax, 12.0 * pow(10, -6));
+            EXPECT_TRUE(OutputFile == "Test");
+            EXPECT_TRUE(PrintMisorientation);
+            EXPECT_FALSE(PrintFullOutput);
         }
     }
 }
