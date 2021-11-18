@@ -22,17 +22,17 @@ jobs:
         backend: ['SERIAL', 'OPENMP']
         cmake_build_type: ['Debug', 'Release']
         kokkos_ver: ['3.4.01', 'master', 'develop']
-        #include:
-        #  - distro: 'fedora:intel'
-        #    cxx: 'icpc'
-        #    backend: 'SERIAL'
-        #    cmake_build_type: 'Release'
-        #    kokkos_ver: 'master'
-        #  - distro: 'fedora:intel'
-        #    cxx: 'icpc'
-        #    backend: 'OPENMP'
-        #    cmake_build_type: 'Release'
-        #    kokkos_ver: 'master'
+        include:
+          - distro: 'fedora:intel'
+            cxx: 'icpc'
+            backend: 'SERIAL'
+            cmake_build_type: 'Release'
+            kokkos_ver: 'master'
+          - distro: 'fedora:intel'
+            cxx: 'icpc'
+            backend: 'OPENMP'
+            cmake_build_type: 'Release'
+            kokkos_ver: 'master'
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
