@@ -37,11 +37,10 @@ endforeach()
 ##--------------------------------------------------------------------------##
 ## Install example files used in tests
 ##--------------------------------------------------------------------------##
-configure_file(  ${CMAKE_CURRENT_SOURCE_DIR}/../examples/*.txt
-  ${CMAKE_CURRENT_BINARY_DIR}/../examples/*.txt
-  COPYONLY)
-install(FILES ${EXAMPLES}
-  DESTINATION ${CMAKE_CURRENT_BINARY_DIRECTORY})
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_DirSolidification.txt
+  ${CMAKE_CURRENT_BINARY_DIR}/Inp_SmallDirSolidification.txt COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SpotMelt.txt
+  ${CMAKE_CURRENT_BINARY_DIR}/Inp_SmallSpotMelt.txt COPYONLY)
 
 ##--------------------------------------------------------------------------##
 ## Create tests without Kokkos
