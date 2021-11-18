@@ -187,7 +187,7 @@ void testInputReadFromFile() {
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Read and parse each input file
-    for (int FileNumber = 0; FileNumber < 3; FileNumber++) {
+    for (auto FileName : InputFilenames) {
         int DecompositionStrategy, TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, PrintDebug, NSpotsX,
             NSpotsY, SpotOffset, SpotRadius, TimeSeriesInc;
         float SubstrateGrainSpacing;
@@ -198,7 +198,7 @@ void testInputReadFromFile() {
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput;
         std::vector<std::string> temp_paths;
-        InputReadFromFile(id, InputFilenames[FileNumber], SimulationType, DecompositionStrategy, AConst, BConst, CConst,
+        InputReadFromFile(id, FileName, SimulationType, DecompositionStrategy, AConst, BConst, CConst,
                           DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath,
                           tempfile, TempFilesInSeries, temp_paths, ExtraWalls, HT_deltax, RemeltingYN, deltat,
                           NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R,
@@ -223,7 +223,7 @@ void testInputReadFromFile() {
         EXPECT_EQ(PrintDebug, 0);
         EXPECT_TRUE(PrintFullOutput);
         // These are different for all 3 test problems
-        if (FileNumber == 0) {
+        if (FileName == "Inp_DirSolidification.txt") {
             EXPECT_TRUE(PrintTimeSeries);
             EXPECT_EQ(TimeSeriesInc, 5250);
             EXPECT_FALSE(PrintIdleTimeSeriesFrames);
@@ -237,7 +237,7 @@ void testInputReadFromFile() {
             EXPECT_TRUE(OutputFile == "TestProblemDirS");
             EXPECT_TRUE(PrintMisorientation);
         }
-        else if (FileNumber == 1) {
+        else if (FileName == "Inp_SpotMelt.txt") {
             EXPECT_TRUE(PrintTimeSeries);
             EXPECT_EQ(TimeSeriesInc, 37500);
             EXPECT_TRUE(PrintIdleTimeSeriesFrames);
@@ -254,7 +254,7 @@ void testInputReadFromFile() {
             EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 25.0);
             EXPECT_TRUE(OutputFile == "TestProblemSpot");
         }
-        else if (FileNumber == 2) {
+        else if (FileName == "Inp_TemperatureTest.txt"  ) {
             EXPECT_DOUBLE_EQ(deltat, 1.5 * pow(10, -6));
             EXPECT_EQ(TempFilesInSeries, 2);
             EXPECT_EQ(NumberOfLayers, 2);
