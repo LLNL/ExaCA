@@ -1,0 +1,12 @@
+// Copyright 2021 Lawrence Livermore National Security, LLC and other ExaCA Project Developers.
+// See the top-level LICENSE file for details.
+//
+// SPDX-License-Identifier: MIT
+
+#ifndef EXACA_CONFIG_HPP
+#define EXACA_CONFIG_HPP
+
+#define ExaCA_DATA_SOURCE "@CMAKE_SOURCE_DIR@/examples"
+#define ExaCA_DATA_INSTALL "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_DATADIR@/ExaCA"
+
+#endif

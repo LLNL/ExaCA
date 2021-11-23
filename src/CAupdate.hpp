@@ -28,13 +28,27 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
                  int BufSizeY, int ZBound_Low, int nzActive, int, int layernumber, ViewI LayerID, ViewI SteeringVector,
                  ViewI numSteer_G, ViewI_H numSteer_H, ViewI MeltTimeStep, ViewI SolidificationEventCounter,
                  ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory);
-void IntermediateOutputAndCheck(int pid, int &cycle, int MyXSlices, int MyYSlices, int LocalDomainSize,
-                                int LocalActiveDomainSize, int nn, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
-                                std::string SimulationType, int *FinishTimeStep, int layernumber, int NumberOfLayers,
-                                int ZBound_Low, ViewI LayerID);
-void IntermediateOutputAndCheck_Remelt(int id, int &cycle, int MyXSlices, int MyYSlices, int LocalActiveDomainSize,
-                                       int nn, int &XSwitch, ViewI CellType, ViewI MeltTimeStep,
-                                int *FinishTimeStep, int layernumber, int,
-                                       int ZBound_Low, ViewI LayerID);
+void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int LocalDomainSize,
+                                int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
+                                float XMin, float YMin, float ZMin, int DecompositionStrategy,
+                                int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch,
+                                ViewI CellType, ViewI_H CellType_H, ViewI CritTimeStep, ViewI_H CritTimeStep_H,
+                                ViewI GrainID, ViewI_H GrainID_H, std::string TemperatureDataType, int *FinishTimeStep,
+                                int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
+                                ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H, ViewF_H GrainUnitVector_H,
+                                ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
+                                std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
+                                int &IntermediateFileCounter);
+void IntermediateOutputAndCheck_Remelt(int id, int np, int &cycle, int MyXSlices, int MyYSlices,
+                                       int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
+                                       float XMin, float YMin, float ZMin, int DecompositionStrategy,
+                                       int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch,
+                                       ViewI CellType, ViewI_H CellType_H, ViewI_H CritTimeStep_H, ViewI MeltTimeStep,
+                                       ViewI GrainID, ViewI_H GrainID_H, 
+                                       int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
+                                       ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H, ViewF_H GrainUnitVector_H,
+                                       ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
+                                       std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
+                                       int &IntermediateFileCounter);
 
 #endif

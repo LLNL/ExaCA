@@ -1,4 +1,4 @@
-Test problem using alternating odd-even layers of a cross-hatching scan pattern (with large CA cell size to keep the problem tractable): 
+Test problem using alternating odd-even layers of a cross-hatching scan pattern (with large CA cell size to keep the problem tractable):
 *****
 Problem type: R
 Decomposition strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
@@ -13,7 +13,8 @@ File of grain orientations:GrainOrientationVectors_Robert.csv
 Heat transport data mesh size (microns): 5
 Time step (microseconds): 0.3
 Substrate grain spacing (in microns): 25
-Temperature filename: CA-FOAM-fluidflow.dat
+Path to temperature file(s): Temperatures
+Temperature filename (* glob before the name): CA-FOAM-fluidflow.dat
 Number of temperature files: 2
 Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: N
 Number of layers: 4
@@ -23,3 +24,7 @@ Print Paraview vtk file of grain misorientation values (Y or N)?: Y
 Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y
 Debug check (reduced)- Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check (Y or N)?: N
 Debug check (extensive) - Print data for all main data structures (CellType, GrainID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, Melted, LayerID) following initialization for debug check (Y or N)?: N
+***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
+Print intermediate output frames (Y or N): N
+If printing intermediate frames, how many microseconds should separate frames: 1000
+Print intermediate output even if system is unchanged from last printed file (Y or N): Y

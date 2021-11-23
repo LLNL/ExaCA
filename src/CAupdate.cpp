@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "CAupdate.hpp"
+#include "CAprint.hpp"
 
 #include "mpi.h"
 
@@ -461,6 +462,8 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
                                     DOCenter(DOX) = GlobalX + 0.5;
                                     DOCenter(DOY) = GlobalY + 0.5;
                                     DOCenter(DOZ) = GlobalZ + 0.5;
+                                    if (MyGrainID == 0)
+                                        printf("GID ZERO %d %d %d \n",RankX,RankY,GlobalZ);
                                     // The orientation for the new grain will depend on its Grain ID
                                     int MyOrientation = GrainOrientation(((abs(MyGrainID) - 1) % NGrainOrientations));
                                     //  Calculate critical values at which this active cell leads to the activation of a
@@ -1103,10 +1106,17 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
 
 //*****************************************************************************/
 // Prints intermediate code output to stdout, checks to see if solidification is complete
-void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices, int LocalDomainSize,
-                                int LocalActiveDomainSize, int nn, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
-                                std::string TemperatureDataType, int *FinishTimeStep, int layernumber, int,
-                                int ZBound_Low, ViewI LayerID) {
+void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int LocalDomainSize,
+                                int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
+                                float XMin, float YMin, float ZMin, int DecompositionStrategy,
+                                int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch,
+                                ViewI CellType, ViewI_H CellType_H, ViewI CritTimeStep, ViewI_H CritTimeStep_H,
+                                ViewI GrainID, ViewI_H GrainID_H, std::string TemperatureDataType, int *FinishTimeStep,
+                                int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
+                                ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H, ViewF_H GrainUnitVector_H,
+                                ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
+                                std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
+                                int &IntermediateFileCounter) {
 
     sample::ValueType CellTypeStorage;
     Kokkos::parallel_reduce(
@@ -1184,6 +1194,23 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
             unsigned long int GlobalNextCTS;
             MPI_Allreduce(&NextCTS, &GlobalNextCTS, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
             if ((GlobalNextCTS - cycle) > 5000) {
+                if (PrintIdleMovieFrames) {
+                    // Print any movie frames that occur during the skipped time steps
+                    for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextCTS; cycle_jump++) {
+                        if (cycle_jump % MovieFrameInc == 0) {
+                            // Print current state of ExaCA simulation (up to and including the current layer's data)
+                            Kokkos::deep_copy(GrainID_H, GrainID);
+                            Kokkos::deep_copy(CellType_H, CellType);
+                            PrintExaCAData(
+                                id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
+                                ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H,
+                                GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H,
+                                OutputFile, DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false,
+                                false, true, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
+                            IntermediateFileCounter++;
+                        }
+                    }
+                }
                 // Jump to next time step when solidification starts again
                 cycle = GlobalNextCTS - 1;
                 if (id == 0)
@@ -1196,10 +1223,17 @@ void IntermediateOutputAndCheck(int id, int &cycle, int MyXSlices, int MyYSlices
 }
 
 // Prints intermediate code output to stdout, checks if solidification is complete in the case of an extended data format simulation
-void IntermediateOutputAndCheck_Remelt(int id, int &cycle, int MyXSlices, int MyYSlices, int LocalActiveDomainSize,
-                                       int nn, int &XSwitch, ViewI CellType, ViewI MeltTimeStep,
-                                int *FinishTimeStep, int layernumber, int,
-                                int ZBound_Low, ViewI LayerID) {
+void IntermediateOutputAndCheck_Remelt(int id, int np, int &cycle, int MyXSlices, int MyYSlices,
+                                       int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
+                                       float XMin, float YMin, float ZMin, int DecompositionStrategy,
+                                       int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch,
+                                       ViewI CellType, ViewI_H CellType_H, ViewI_H CritTimeStep_H, ViewI MeltTimeStep,
+                                       ViewI GrainID, ViewI_H GrainID_H,
+                                       int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
+                                       ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H, ViewF_H GrainUnitVector_H,
+                                       ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
+                                       std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
+                                       int &IntermediateFileCounter) {
 
     sample::ValueType CellTypeStorage;
     Kokkos::parallel_reduce(
@@ -1273,13 +1307,28 @@ void IntermediateOutputAndCheck_Remelt(int id, int &cycle, int MyXSlices, int My
             unsigned long int GlobalNextMTS;
             MPI_Allreduce(&NextMTS, &GlobalNextMTS, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
             if ((GlobalNextMTS - cycle) > 5000) {
+                if (PrintIdleMovieFrames) {
+                    // Print any movie frames that occur during the skipped time steps
+                    for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextMTS; cycle_jump++) {
+                        if (cycle_jump % MovieFrameInc == 0) {
+                            // Print current state of ExaCA simulation (up to and including the current layer's data)
+                            Kokkos::deep_copy(GrainID_H, GrainID);
+                            Kokkos::deep_copy(CellType_H, CellType);
+                            PrintExaCAData(
+                                id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
+                                ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H,
+                                GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H,
+                                OutputFile, DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false,
+                                false, true, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
+                            IntermediateFileCounter++;
+                        }
+                    }
+                }
                 // Jump to next time step when melting/solidification starts again
                 cycle = GlobalNextMTS - 1;
                 if (id == 0)
                     std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
             }
-            if (cycle >= FinishTimeStep[layernumber])
-                XSwitch = 1;
         }
     }
 }

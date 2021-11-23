@@ -1,3 +1,5 @@
+configure_file(CAconfig.hpp.cmakein CAconfig.hpp)
+
 set(EXACA_HEADERS
     CAfunctions.hpp
     CAghostnodes.hpp
@@ -17,12 +19,17 @@ set(EXACA_SOURCES
 
 install(FILES ${EXACA_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/CAconfig.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
 add_library(ExaCA STATIC ${EXACA_SOURCES} ${EXACA_HEADERS})
 target_link_libraries(ExaCA PUBLIC
     MPI::MPI_CXX
     Kokkos::kokkos
 )
-target_include_directories(ExaCA PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(ExaCA PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 install(TARGETS ExaCA
   EXPORT ExaCA_Targets

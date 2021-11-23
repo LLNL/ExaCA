@@ -36,7 +36,7 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
     for (int n = 0; n < NumberOfOrientations; n++) {
         double AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
-            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(0, ll, 2)));
+            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(n, ll, 2)));
             if (AngleZ < AngleZmin) {
                 AngleZmin = AngleZ;
             }
@@ -360,11 +360,12 @@ void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string 
         std::string FNameCS2 = BaseFileName + "-" + std::to_string(n) + "_" + CSType + "MTEXCrossSection.txt";
         std::cout << "Cross-section number " << n + 1 << " being printed to file " << FNameCS2 << " for MTEX"
                   << std::endl;
+        // Z = 0 cells are wall cells; physical solidification domain spans Z = 1 through Z = nz - 1
         std::ofstream GrainplotCS2;
         GrainplotCS2.open(FNameCS2);
         if (CSType == "XZ") {
             for (int i = 0; i < nx; i++) {
-                for (int k = 1; k < nz - 1; k++) {
+                for (int k = 1; k < nz; k++) {
                     int GOVal = (abs(GrainID(k, i, CrossSectionLocation[n])) - 1) % NumberOfOrientations;
                     GrainplotCS2 << i << "," << k << "," << GOVal << std::endl;
                 }
@@ -372,7 +373,7 @@ void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string 
         }
         else if (CSType == "YZ") {
             for (int j = 0; j < ny; j++) {
-                for (int k = 1; k < nz - 1; k++) {
+                for (int k = 1; k < nz; k++) {
                     int GOVal = (abs(GrainID(k, CrossSectionLocation[n], j)) - 1) % NumberOfOrientations;
                     GrainplotCS2 << j << "," << k << "," << GOVal << std::endl;
                 }

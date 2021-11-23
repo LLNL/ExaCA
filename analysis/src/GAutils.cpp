@@ -154,7 +154,9 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     LogFile = parseInput(Analysis, "name of log");
     MicrostructureFile = parseInput(Analysis, "name of microstructure");
     // Read names of paths/files containing the grain orientations, in rotation matrix form
-    RotationFilename = parseInput(Analysis, "rotation matrix");
+    std::string RotationFilename_Read = parseInput(Analysis, "rotation matrix");
+    // Path to file of grain orientations based on install/source location
+    RotationFilename = checkFileInstalled(RotationFilename_Read, "Substrate", 0);
     // Path/name for output data
     OutputFileName = parseInput(Analysis, "output");
     Analysis.close();
