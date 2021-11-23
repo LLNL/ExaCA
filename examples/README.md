@@ -1,7 +1,8 @@
 # ExaCA input files
-## The .txt files in the examples subdirectory are provided on the command line to let ExaCA know which problem is being simulated. Any lines prior to the first string of asterisks are ignored, as are any lines starting with an asterisk.
+The .txt files in the examples subdirectory are provided on the command line to let ExaCA know which problem is being simulated. Any lines prior to the first string of asterisks are ignored, as are any lines starting with an asterisk.
 
-### The below lines are required regardless of problem type. They can be in any order, except Problem type must be given first:
+## All problems
+The below lines are required regardless of problem type. They can be in any order, except Problem type must be given first:
 
 |Input                   | Details |
 |------------------------|---------|
@@ -23,7 +24,10 @@
 | Print file of grain misorientation values | (Y or N) Print a Paraview vtk file of grain misorientation relative to the build (+Z) direction: epitaxial grains will have values 0-62, while nucleated grains have values 100-162 (the +100 offset is used to differentiate the two types of grains)
 | Print file of all ExaCA data | (Y or N) Print Paraview vtk files of all relevant ExaCA cell parameters (GrainID, LayerID, Melted) for use in post-processing
 
-### Depending on the problem type, other required inputs should also be given. For Problem type C:
+## Problem type specific inputs
+
+### Problem type C
+All inputs are required.
 
 |Input                       | Details |
 |----------------------------| --------|
@@ -35,7 +39,8 @@
 | Domain size in z  | Domain size in z
 | Fraction surface sites active| What fraction of cells at the bottom surface of the domain are the source of a grain?
 
-### For Problem type S, these inputs are required - with the exception of sub grain size and sub filename: one of the two should be provided, but not both
+### Problem type S
+All inputs are required - with the exception of sub grain size and sub filename: one of the two should be provided, but not both.
 
 |Input                       | Details |
 |----------------------------|---------|
@@ -52,7 +57,8 @@
 | Substrate filename| Filename for substrate data (either this OR Sub grain size should be provided, but not both)
 
 
-### For Problem type R, some additional inputs are optional while others are required. As was the case for Problem type S, sub grain size and sub filename are both optional inputs, but one of the two must be provided:
+### Problem type R
+Some additional inputs are optional while others are required. As was the case for Problem type S, sub grain size and sub filename are both optional inputs, but one of the two must be provided.
 
 |Input              | Required Y/N | Details |
 |-------------------| - |---------|
@@ -67,7 +73,9 @@
 | Heat transport data mesh size | N | Resolution of temperature data provided, in microns (if argument not provided, assumed to be equal to CA cell size)
 | Path to temperature file(s) | N | Location of temperature data (if not provided, assumed to be located in examples/Temperatures)
 
-### Additional optional inputs for all problem types regarding printing intermediate data, for debugging or visualization
+### Additional optional inputs for all problem types 
+These values govern the printing intermediate data, for debugging or visualization, either following initialization or at specified increments during simulation
+
 |Input                       | Details |
 |----------------------------|---------|
 | Debug check (reduced)  | (Y or N) Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check

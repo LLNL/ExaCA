@@ -150,14 +150,15 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis);
 
-    std::vector<std::string> NamesOfFiles = {"name of log (.log) file", "name of microstructure (.vtk) file", "file of grain orientations", "name of data files of output resulting from this analysis"};
-    std::vector<bool> FilesPresent(4);
+    std::vector<std::string> NamesOfFiles = {"name of log (.log) file", "name of microstructure (.vtk) file",
+                                             "file of grain orientations",
+                                             "name of data files of output resulting from this analysis"};
     std::vector<std::string> FilesRead(4);
 
     for (int i = 0; i < 4; i++) {
         std::string line;
         std::getline(Analysis, line);
-        bool FileFound = parseInputFromList(line, NamesOfFiles, FilesPresent, FilesRead, 4);
+        bool FileFound = parseInputFromList(line, NamesOfFiles, FilesRead, 4);
         if (!(FileFound)) {
             std::string error = "Error: Required input " + NamesOfFiles[i] + " not found in analysis file";
             throw std::runtime_error(error);
@@ -451,7 +452,6 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
         "misorientation",           "grain volume",      "mean aspect ratio",        "mean grain area",
         "mean weighted grain area", "mean grain height", "grain width distribution", "volume for pole figure analysis"};
     int NumAnalysisOptions = AnalysisOptions.size();
-    std::vector<bool> AnalysisOptionsPresent(NumAnalysisOptions);
     std::vector<std::string> AnalysisOptionsYN(NumAnalysisOptions);
 
     // Read files to get Y/N values for possible analysis options from the list "AnalysisOptions", storing results in
@@ -459,15 +459,14 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
     for (int i = 0; i < NumAnalysisOptions; i++) {
         std::string line;
         std::getline(Analysis, line);
-        bool AnalysisOptionFound =
-            parseInputFromList(line, AnalysisOptions, AnalysisOptionsPresent, AnalysisOptionsYN, NumAnalysisOptions);
+        bool AnalysisOptionFound = parseInputFromList(line, AnalysisOptions, AnalysisOptionsYN, NumAnalysisOptions);
         if (!(AnalysisOptionFound))
             std::cout << "Warning: unknown analysis option " << line << std::endl;
     }
     // Check which analysis options were found in the file and store their results as bools
     for (int i = 0; i < NumAnalysisOptions; i++) {
-        if (AnalysisOptionsPresent[i])
-            AnalysisTypes[i] = parseInputBool(AnalysisOptionsYN[i]);
+        if (!(AnalysisOptionsYN[i].empty()))
+            AnalysisTypes[i] = getInputBool(AnalysisOptionsYN[i]);
         else
             AnalysisTypes[i] = false;
     }

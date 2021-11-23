@@ -138,7 +138,8 @@ void testInputReadFromFile() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     // Three input files - one of each type
     // Inp_DirSolidification.txt and Inp_SpotMelt.txt were installed from the examples directory
-    std::vector<std::string> InputFilenames = {"Inp_DirSolidification.txt", "Inp_SpotMelt.txt", "Inp_TemperatureTest.txt"};
+    std::vector<std::string> InputFilenames = {"Inp_DirSolidification.txt", "Inp_SpotMelt.txt",
+                                               "Inp_TemperatureTest.txt"};
     if (id == 0) {
         // Write dummy input file for using read temperature data
         std::ofstream TestDataFile;
@@ -168,7 +169,7 @@ void testInputReadFromFile() {
         TestDataFile << "Heat transport data mesh size: 12" << std::endl;
         TestDataFile << "Path to temperature file(s): ./" << std::endl;
         TestDataFile.close();
-        
+
         // Create test temperature files "1DummyTemperature.txt", "2DummyTemperature.txt"
         std::ofstream TestTemp1, TestTemp2;
         TestTemp1.open("1DummyTemperature.txt");
@@ -177,7 +178,7 @@ void testInputReadFromFile() {
         TestTemp2 << "X" << std::endl;
         TestTemp1.close();
         TestTemp2.close();
-        
+
         // Create test substrate file "DummySubstrate.txt"
         std::ofstream TestSub;
         TestSub.open("DummySubstrate.txt");
@@ -198,8 +199,8 @@ void testInputReadFromFile() {
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput;
         std::vector<std::string> temp_paths;
-        InputReadFromFile(id, FileName, SimulationType, DecompositionStrategy, AConst, BConst, CConst,
-                          DConst, FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath,
+        InputReadFromFile(id, FileName, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
+                          FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath,
                           tempfile, TempFilesInSeries, temp_paths, ExtraWalls, HT_deltax, RemeltingYN, deltat,
                           NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R,
                           nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
@@ -221,7 +222,6 @@ void testInputReadFromFile() {
         EXPECT_DOUBLE_EQ(dTN, 5.0);
         EXPECT_DOUBLE_EQ(dTsigma, 0.5);
         EXPECT_EQ(PrintDebug, 0);
-        EXPECT_TRUE(PrintFullOutput);
         // These are different for all 3 test problems
         if (FileName == "Inp_DirSolidification.txt") {
             EXPECT_TRUE(PrintTimeSeries);
@@ -229,13 +229,14 @@ void testInputReadFromFile() {
             EXPECT_FALSE(PrintIdleTimeSeriesFrames);
             EXPECT_DOUBLE_EQ(G, 500000.0);
             EXPECT_DOUBLE_EQ(R, 300000.0);
-            EXPECT_DOUBLE_EQ(deltat, pow(10, -6)/15.0); // based on N, deltax, G, and R from input file
+            EXPECT_DOUBLE_EQ(deltat, pow(10, -6) / 15.0); // based on N, deltax, G, and R from input file
             EXPECT_EQ(nx, 202);                           // +2 from input due to wall cells
             EXPECT_EQ(ny, 202);                           // +2 from input due to wall cells
             EXPECT_EQ(nz, 201);                           // +1 from input due to wall cells
             EXPECT_DOUBLE_EQ(FractSurfaceSitesActive, 0.08);
             EXPECT_TRUE(OutputFile == "TestProblemDirS");
             EXPECT_TRUE(PrintMisorientation);
+            EXPECT_TRUE(PrintFullOutput);
         }
         else if (FileName == "Inp_SpotMelt.txt") {
             EXPECT_TRUE(PrintTimeSeries);
@@ -243,7 +244,7 @@ void testInputReadFromFile() {
             EXPECT_TRUE(PrintIdleTimeSeriesFrames);
             EXPECT_DOUBLE_EQ(G, 500000.0);
             EXPECT_DOUBLE_EQ(R, 300000.0);
-            EXPECT_DOUBLE_EQ(deltat, pow(10, -6)/15.0); // based on N, deltax, G, and R from input file
+            EXPECT_DOUBLE_EQ(deltat, pow(10, -6) / 15.0); // based on N, deltax, G, and R from input file
             EXPECT_EQ(NSpotsX, 3);
             EXPECT_EQ(NSpotsY, 2);
             EXPECT_EQ(SpotOffset, 100);
@@ -253,8 +254,9 @@ void testInputReadFromFile() {
             EXPECT_FALSE(UseSubstrateFile);
             EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 25.0);
             EXPECT_TRUE(OutputFile == "TestProblemSpot");
+            EXPECT_TRUE(PrintFullOutput);
         }
-        else if (FileName == "Inp_TemperatureTest.txt"  ) {
+        else if (FileName == "Inp_TemperatureTest.txt") {
             EXPECT_DOUBLE_EQ(deltat, 1.5 * pow(10, -6));
             EXPECT_EQ(TempFilesInSeries, 2);
             EXPECT_EQ(NumberOfLayers, 2);
