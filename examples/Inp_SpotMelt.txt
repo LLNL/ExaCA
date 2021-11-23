@@ -12,7 +12,7 @@ Output file base name:TestProblemSpot
 File of grain orientations:GrainOrientationVectors_Robert.csv
 Thermal gradient (K/m): 500000
 Cooling rate (K/s): 300000
-Number of spots in x: 1
+Number of spots in x: 3
 Number of spots in y: 2
 Offset between spot centers (in microns): 100
 Radii of spots (in microns): 75
@@ -22,7 +22,7 @@ Offset between layers (in cells): 20
 Substrate grain spacing (in microns): 25
 ***Output data printing options: (Y or N) which data should be printed***
 Print Paraview vtk file of grain misorientation values (Y or N)?: Y
-Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y
+Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: N
 Debug check (reduced)- Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check (Y or N)?: Y
 Debug check (extensive) - Print data for all main data structures (CellType, GrainID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, Melted, LayerID) following initialization for debug check (Y or N)?: N
 ***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***

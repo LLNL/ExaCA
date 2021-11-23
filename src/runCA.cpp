@@ -501,7 +501,6 @@ void RunExaCA(int id, int np, std::string InputFile) {
                 Kokkos::resize(NumberOfSolidificationEvents_H, LocalActiveDomainSize);
                 Kokkos::resize(SolidificationEventCounter_H, LocalActiveDomainSize);
                 Kokkos::resize(LayerTimeTempHistory_H, LocalActiveDomainSize,  MaxSolidificationEvents_H(layernumber+1), 3);
-                
                 Kokkos::resize(NumberOfSolidificationEvents_G, LocalActiveDomainSize);
                 Kokkos::resize(SolidificationEventCounter_G, LocalActiveDomainSize);
                 Kokkos::resize(LayerTimeTempHistory_G, LocalActiveDomainSize,  MaxSolidificationEvents_H(layernumber+1), 3);
@@ -514,7 +513,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
                                UndercoolingCurrent_H, XMin, YMin, Melted, ZMinLayer, LayerHeight, nzActive, ZBound_Low,
                                FinishTimeStep, LayerID_H, FirstValue, LastValue, RawData);
                 else if (SimulationType == "SM")
-                    TempInit_SpotMelt(RemeltingYN, layernumber, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, nz, MeltTimeStep_H,
+                    TempInit_SpotMelt(RemeltingYN, layernumber+1, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, nz, MeltTimeStep_H,
                                       CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, Melted, LayerHeight,
                                       NumberOfLayers, FreezingRange, LayerID_H, NSpotsX, NSpotsY,
                                       SpotRadius, SpotOffset, ZBound_Low, nzActive, LayerTimeTempHistory_H, NumberOfSolidificationEvents_H, SolidificationEventCounter_H);
