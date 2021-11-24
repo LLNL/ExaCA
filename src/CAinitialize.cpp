@@ -2042,7 +2042,7 @@ void SubstrateInit_FromGrainSpacing(bool RemeltingYN, float SubstrateGrainSpacin
         for (int i = 1; i < MyXSlices - 1; i++) {
             for (int j = 1; j < MyYSlices - 1; j++) {
                 int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                if ((CritTimeStep_G(CAGridLocation) == 0) || (RemeltingYN)) {
+                if ((CritTimeStep(CAGridLocation) == 0) || (RemeltingYN)) {
                     // This cell is part of the powder layer - count how many of these exist on this rank
                     PowderLayerActCells_ThisRank++;
                 }
@@ -3303,7 +3303,7 @@ void DomainShiftAndResize(std::string SimulationType, int id, int MyXSlices, int
         // since active cells will need to be created around the edges of the melted area (Z = 1)
         // These two things together lead to the "-1" in the ZBound_Low/ZBound_High calculations
         ZBound_Low = BottomTemperatureData - 1;
-        ZBound_High = TopTemperatureData + 2;
+        ZBound_High = TopTemperatureData;
     }
     nzActive = ZBound_High - ZBound_Low + 1;
     LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
