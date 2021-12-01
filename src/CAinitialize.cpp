@@ -52,6 +52,7 @@ bool parseInputFromList(std::string line, std::vector<std::string> InputKeys, st
     }
     std::string BeforeColon = line.substr(0, colon);
     // Check line against the "NumInputs" number of possible matches from the vector "InputKeys"
+    // Break when first match is found
     bool FoundInput = false;
     for (int inputnumber = 0; inputnumber < NumInputs; inputnumber++) {
         if (BeforeColon.find(InputKeys[inputnumber]) != std::string::npos) {
@@ -60,6 +61,7 @@ bool parseInputFromList(std::string line, std::vector<std::string> InputKeys, st
             // Take the potion of the line following the colon and store in the appropriate position in "ParsedInputs"
             std::string AfterColon = line.substr(colon + 1, std::string::npos);
             ParsedInputs[inputnumber] = removeWhitespace(AfterColon);
+            break;
         }
     }
     return FoundInput;
@@ -228,11 +230,11 @@ void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst,
     std::string val;
     // Interfacial response function A, B, C, D, and the solidification range for the alloy
     std::vector<std::string> MaterialInputs = {
-        "A",                    // Required input 0
-        "B",                    // Required input 1
-        "C",                    // Required input 2
-        "D",                    // Required input 3
-        "Alloy freezing range", // Required input 4
+        "Alloy freezing range", // Required input 0
+        "A",                    // Required input 1
+        "B",                    // Required input 2
+        "C",                    // Required input 3
+        "D",                    // Required input 4
     };
     int NumMaterialInputs = MaterialInputs.size();
     std::vector<std::string> MaterialInputsRead(NumMaterialInputs);
@@ -246,11 +248,11 @@ void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst,
         }
     }
 
-    AConst = getInputDouble(MaterialInputsRead[0]);
-    BConst = getInputDouble(MaterialInputsRead[1]);
-    CConst = getInputDouble(MaterialInputsRead[2]);
-    DConst = getInputDouble(MaterialInputsRead[3]);
-    FreezingRange = getInputDouble(MaterialInputsRead[4]);
+    FreezingRange = getInputDouble(MaterialInputsRead[0]);
+    AConst = getInputDouble(MaterialInputsRead[1]);
+    BConst = getInputDouble(MaterialInputsRead[2]);
+    CConst = getInputDouble(MaterialInputsRead[3]);
+    DConst = getInputDouble(MaterialInputsRead[4]);
 
     MaterialData.close();
 }
