@@ -226,22 +226,31 @@ void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst,
     MaterialData.open(MaterialFile);
     skipLines(MaterialData);
     std::string val;
+    // Interfacial response function A, B, C, D, and the solidification range for the alloy
+    std::vector<std::string> MaterialInputs = {
+        "A",                    // Required input 0
+        "B",                    // Required input 1
+        "C",                    // Required input 2
+        "D",                    // Required input 3
+        "Alloy freezing range", // Required input 4
+    };
+    int NumMaterialInputs = MaterialInputs.size();
+    std::vector<std::string> MaterialInputsRead(NumMaterialInputs);
+    while (std::getline(MaterialData, val)) {
+        // Check if this is one of the expected inputs - otherwise throw an error
+        bool FoundInput = parseInputFromList(val, MaterialInputs, MaterialInputsRead, NumMaterialInputs);
+        if (!(FoundInput)) {
+            std::string error = "Error: Unexpected line " + val + " present in material file " + MaterialFile +
+                                " : file should only contain A, B, C, D, and Alloy freezing range";
+            throw std::runtime_error(error);
+        }
+    }
 
-    // Interfacial response function A
-    val = parseInput(MaterialData, "A");
-    AConst = getInputDouble(val);
-    // Interfacial response function B
-    val = parseInput(MaterialData, "B");
-    BConst = getInputDouble(val);
-    // Interfacial response function C
-    val = parseInput(MaterialData, "C");
-    CConst = getInputDouble(val);
-    // Interfacial response function D
-    val = parseInput(MaterialData, "D");
-    DConst = getInputDouble(val);
-    // Alloy freezing range
-    val = parseInput(MaterialData, "Alloy freezing range");
-    FreezingRange = getInputDouble(val);
+    AConst = getInputDouble(MaterialInputsRead[0]);
+    BConst = getInputDouble(MaterialInputsRead[1]);
+    CConst = getInputDouble(MaterialInputsRead[2]);
+    DConst = getInputDouble(MaterialInputsRead[3]);
+    FreezingRange = getInputDouble(MaterialInputsRead[4]);
 
     MaterialData.close();
 }

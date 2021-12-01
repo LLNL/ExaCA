@@ -73,7 +73,7 @@ Some additional inputs are optional while others are required. As was the case f
 | Heat transport data mesh size | N | Resolution of temperature data provided, in microns (if argument not provided, assumed to be equal to CA cell size)
 | Path to temperature file(s) | N | Location of temperature data (if not provided, assumed to be located in examples/Temperatures)
 
-### Additional optional inputs for all problem types 
+## Additional optional inputs for all problem types 
 These values govern the printing intermediate data, for debugging or visualization, either following initialization or at specified increments during simulation
 
 |Input                       | Details |

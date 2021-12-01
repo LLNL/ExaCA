@@ -163,6 +163,9 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
             std::string error = "Error: Required input " + NamesOfFiles[i] + " not found in analysis file";
             throw std::runtime_error(error);
         }
+        else {
+            checkFileNotEmpty(FilesRead[i]);
+        }
     }
     LogFile = FilesRead[0];
     MicrostructureFile = FilesRead[1];

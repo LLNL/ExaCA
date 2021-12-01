@@ -41,8 +41,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_DirSolidification.txt
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_DirSolidification.txt COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SpotMelt.txt
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_SpotMelt.txt COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_AMBenchMultilayer.txt
-  ${CMAKE_CURRENT_BINARY_DIR}/Inp_AMBenchMultilayer.txt COPYONLY)
 
 ##--------------------------------------------------------------------------##
 ## Create tests without Kokkos

@@ -99,5 +99,6 @@ bool parseInputFromList(std::string line, std::vector<std::string> Inputs, std::
                         int NumInputs);
 bool getInputBool(std::string val);
 std::string checkFileInstalled(const std::string name, const std::string type, const int id);
+void checkFileNotEmpty(std::string testfilename);
 
 #endif
