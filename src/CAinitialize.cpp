@@ -229,6 +229,8 @@ void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst,
     skipLines(MaterialData);
     std::string val;
     // Interfacial response function A, B, C, D, and the solidification range for the alloy
+    // The order of these is important: "Alloy freezing range" should be before "A", as a search for "A" in either
+    // string will return true
     std::vector<std::string> MaterialInputs = {
         "Alloy freezing range", // Required input 0
         "A",                    // Required input 1

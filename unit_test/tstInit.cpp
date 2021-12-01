@@ -138,6 +138,9 @@ void testInputReadFromFile() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     // Three input files - one of each type
     // Inp_DirSolidification.txt and Inp_SpotMelt.txt were installed from the examples directory
+    // Since no temperature files exist in the repo, and there is no ability to write temperature files to a different
+    // directory ( would need examples/Temperatures) using the C++11 standard, a dummy input file is written and parsed
+    // to test an example problem that uses temperature data from a file.
     std::vector<std::string> InputFilenames = {"Inp_DirSolidification.txt", "Inp_SpotMelt.txt",
                                                "Inp_TemperatureTest.txt"};
     if (id == 0) {
