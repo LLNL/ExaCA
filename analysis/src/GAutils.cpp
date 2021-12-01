@@ -163,9 +163,6 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
             std::string error = "Error: Required input " + NamesOfFiles[i] + " not found in analysis file";
             throw std::runtime_error(error);
         }
-        else {
-            checkFileNotEmpty(FilesRead[i]);
-        }
     }
     LogFile = FilesRead[0];
     MicrostructureFile = FilesRead[1];
@@ -174,6 +171,10 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     Analysis.close();
     // Path to file of grain orientations based on install/source location
     RotationFilename = checkFileInstalled(RotationFilename, "Substrate", 0);
+    // Check that files are not empty
+    checkFileNotEmpty(LogFile);
+    checkFileNotEmpty(MicrostructureFile);
+    checkFileNotEmpty(RotationFilename);
 }
 
 void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID,
