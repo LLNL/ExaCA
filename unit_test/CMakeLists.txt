@@ -35,6 +35,14 @@ foreach(_device ${EXACA_SUPPORTED_DEVICES})
 endforeach()
 
 ##--------------------------------------------------------------------------##
+## Install example files used in tests
+##--------------------------------------------------------------------------##
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_DirSolidification.txt
+  ${CMAKE_CURRENT_BINARY_DIR}/Inp_DirSolidification.txt COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SpotMelt.txt
+  ${CMAKE_CURRENT_BINARY_DIR}/Inp_SpotMelt.txt COPYONLY)
+
+##--------------------------------------------------------------------------##
 ## Create tests without Kokkos
 ##--------------------------------------------------------------------------##
 macro(ExaCA_add_tests_nobackend)
@@ -119,4 +127,4 @@ endmacro()
 
 ExaCA_add_tests_nobackend(NAMES Init)
 
-ExaCA_add_tests(NAMES SubstrateInitFGS)
+ExaCA_add_tests(NAMES KokkosInit)

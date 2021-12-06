@@ -29,39 +29,7 @@ void skipLines(std::ifstream &stream, std::string seperator) {
     }
 }
 
-// Find the colon on a line read from a file, and return the value before the colon
-// Throw an error if no colon is found, get a new line and throw a warning if the value before
-// the colon is a deprecated input
-// Also store the location of the colon within the line
-std::string getKey(std::ifstream &stream, std::string &line, std::size_t &colon) {
-
-    bool DeprecatedInputCheck = true;
-    std::string actual_key;
-    while (DeprecatedInputCheck) {
-        std::getline(stream, line);
-        colon = line.find(":");
-        actual_key = line.substr(0, colon);
-        // Check for colon separator
-        if (colon == std::string::npos) {
-            std::string error = "Input \"" + actual_key + "\" must be separated from value by \":\".";
-            throw std::runtime_error(error);
-        }
-        std::vector<std::string> deprecated_inputs = {"Burst buffer", "Source of input length unit"};
-        for (auto di : deprecated_inputs)
-            if (actual_key.find(di) != std::string::npos) {
-                std::cout << "WARNING - this input has been deprecated and has no effect, \"" << actual_key << "\""
-                          << std::endl;
-                // Ignore this line and get another line
-            }
-            else {
-                // Input was not a deprecated line - continue
-                DeprecatedInputCheck = false;
-            }
-    }
-    return actual_key;
-}
-
-// Remove whitespace from "line", taking only the portion of the line that comes after the colon
+// Remove whitespace from "line", optional argument to take only portion of the line after position "pos"
 std::string removeWhitespace(std::string line, int pos = -1) {
 
     std::string val = line.substr(pos + 1, std::string::npos);
@@ -70,57 +38,54 @@ std::string removeWhitespace(std::string line, int pos = -1) {
     return val;
 }
 
-// Verify the required input was included with the correct format, and parse the input (with only 1 possibility for the
-// possible input)
+// From a line read from the input file, check against NumInputs possible matches to see if there is a match with a key
+// from InputKeys Store the appropriate portion of the line read from the file in ParsedInputs Return whether a match
+// was found for the input or not
+bool parseInputFromList(std::string line, std::vector<std::string> InputKeys, std::vector<std::string> &ParsedInputs,
+                        int NumInputs = 1) {
+    // First, check that there is a colon separating the parameter name from the value
+    std::size_t colon = line.find(":");
+    if (colon == std::string::npos) {
+        // No colon on this line - throw error
+        std::string error = "Unable to parse line " + line + " ; no colon separating variable name from value";
+        throw std::runtime_error(error);
+    }
+    std::string BeforeColon = line.substr(0, colon);
+    // Check line against the "NumInputs" number of possible matches from the vector "InputKeys"
+    // Break when first match is found
+    bool FoundInput = false;
+    for (int inputnumber = 0; inputnumber < NumInputs; inputnumber++) {
+        if (BeforeColon.find(InputKeys[inputnumber]) != std::string::npos) {
+            // This is required input number "inputnumber"
+            FoundInput = true;
+            // Take the potion of the line following the colon and store in the appropriate position in "ParsedInputs"
+            std::string AfterColon = line.substr(colon + 1, std::string::npos);
+            ParsedInputs[inputnumber] = removeWhitespace(AfterColon);
+            break;
+        }
+    }
+    return FoundInput;
+}
+
+// Get a line from a file, verify the required input was included with the correct format, and parse the input
 std::string parseInput(std::ifstream &stream, std::string key) {
 
-    std::size_t colon;
-    std::string line, val;
-    std::string actual_key = getKey(stream, line, colon);
-    // Check for keyword
-    if (actual_key.find(key) == std::string::npos) {
+    std::string line;
+    std::getline(stream, line);
+    std::vector<std::string> ParsedInputs(1);
+    std::vector<std::string> InputKeys = {key};
+    bool FoundInput = parseInputFromList(line, InputKeys, ParsedInputs);
+    if (!(FoundInput)) {
         // Keyword not found
         std::string error = "Required input not present: \"" + key + "\" not found in the input file";
         throw std::runtime_error(error);
     }
-    // Keyword was found
-    val = removeWhitespace(line, colon);
-    return val;
+    return ParsedInputs[0];
 }
 
-// Verify the required input was included with the correct format, and parse the input
-// 2 possible keywords to check against - WhichKey denotes which of the two was found
-std::string parseInputMultiple(std::ifstream &stream, std::string key1, std::string key2, int &WhichKey) {
-
-    std::size_t colon;
-    std::string line, val;
-    std::string actual_key = getKey(stream, line, colon);
-
-    // Check for keywords
-    if (actual_key.find(key1) == std::string::npos) {
-        // Keyword 1 not found - check for Keyword 2
-        if (actual_key.find(key2) == std::string::npos) {
-            // Neither possible input found
-            std::string error =
-                "Required input not present: Neither " + key1 + " nor " + key2 + " was found in the input file";
-            throw std::runtime_error(error);
-        }
-        else {
-            // The second keyword was found
-            WhichKey = 2;
-        }
-    }
-    else {
-        // First keyword was found
-        WhichKey = 1;
-    }
-    val = removeWhitespace(line, colon);
-    return val;
-}
-
-// Verify the required boolean input was included with the correct format.
-bool parseInputBool(std::ifstream &stream, std::string key) {
-    std::string val = parseInput(stream, key);
+// Check if a string is Y (true) or N (false)
+bool getInputBool(std::string val_input) {
+    std::string val = removeWhitespace(val_input);
     if (val == "N") {
         return false;
     }
@@ -128,9 +93,27 @@ bool parseInputBool(std::ifstream &stream, std::string key) {
         return true;
     }
     else {
-        std::string error = "Input \"" + key + "\" must be \"Y\" or \"N\".";
+        std::string error = "Input \"" + val + "\" must be \"Y\" or \"N\".";
         throw std::runtime_error(error);
     }
+}
+
+// Convert string "val_input" to base 10 integer
+int getInputInt(std::string val_input) {
+    int IntFromString = stoi(val_input, nullptr, 10);
+    return IntFromString;
+}
+
+// Convert string "val_input" to float value multipled by 10^(factor)
+float getInputFloat(std::string val_input, int factor = 0) {
+    float FloatFromString = atof(val_input.c_str()) * pow(10, factor);
+    return FloatFromString;
+}
+
+// Convert string "val_input" to double value multipled by 10^(factor)
+double getInputDouble(std::string val_input, int factor = 0) {
+    double DoubleFromString = std::stod(val_input.c_str()) * pow(10, factor);
+    return DoubleFromString;
 }
 
 // Given a line "s", parse at the commas and return the parsed values as strings in "ParsedLine"
@@ -227,6 +210,55 @@ std::string checkFileInstalled(const std::string name, const std::string type, c
     }
     return file;
 }
+
+// Make sure file contains data
+void checkFileNotEmpty(std::string testfilename) {
+    std::ifstream testfilestream;
+    testfilestream.open(testfilename);
+    std::string testline;
+    std::getline(testfilestream, testline);
+    if (testline.empty())
+        throw std::runtime_error("First line of file " + testfilename + " appears empty");
+    testfilestream.close();
+}
+
+void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst, double &CConst, double &DConst,
+                       double &FreezingRange) {
+    std::ifstream MaterialData;
+    MaterialData.open(MaterialFile);
+    skipLines(MaterialData);
+    std::string val;
+    // Interfacial response function A, B, C, D, and the solidification range for the alloy
+    // The order of these is important: "Alloy freezing range" should be before "A", as a search for "A" in either
+    // string will return true
+    std::vector<std::string> MaterialInputs = {
+        "Alloy freezing range", // Required input 0
+        "A",                    // Required input 1
+        "B",                    // Required input 2
+        "C",                    // Required input 3
+        "D",                    // Required input 4
+    };
+    int NumMaterialInputs = MaterialInputs.size();
+    std::vector<std::string> MaterialInputsRead(NumMaterialInputs);
+    while (std::getline(MaterialData, val)) {
+        // Check if this is one of the expected inputs - otherwise throw an error
+        bool FoundInput = parseInputFromList(val, MaterialInputs, MaterialInputsRead, NumMaterialInputs);
+        if (!(FoundInput)) {
+            std::string error = "Error: Unexpected line " + val + " present in material file " + MaterialFile +
+                                " : file should only contain A, B, C, D, and Alloy freezing range";
+            throw std::runtime_error(error);
+        }
+    }
+
+    FreezingRange = getInputDouble(MaterialInputsRead[0]);
+    AConst = getInputDouble(MaterialInputsRead[1]);
+    BConst = getInputDouble(MaterialInputsRead[2]);
+    CConst = getInputDouble(MaterialInputsRead[3]);
+    DConst = getInputDouble(MaterialInputsRead[4]);
+
+    MaterialData.close();
+}
+
 //*****************************************************************************/
 // Read ExaCA input file.
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
@@ -241,361 +273,315 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames) {
 
-    std::string Colon = ":";
-    std::string Quote = "'";
+    // Required inputs that should be present in the input file, regardless of problem type
+    std::vector<std::string> RequiredInputs = {
+        "Decomposition strategy",                        // Required input 0
+        "Material",                                      // Required input 1
+        "Cell size",                                     // Required input 2
+        "Heterogeneous nucleation density",              // Required input 3
+        "Mean nucleation undercooling",                  // Required input 4
+        "Standard deviation of nucleation undercooling", // Required input 5
+        "Path to output",                                // Required input 6
+        "Output file base name",                         // Required input 7
+        "File of grain orientations",                    // Required input 8
+        "grain misorientation values",                   // Required input 9
+        "all ExaCA data"                                 // Required input 10
+    };
+
+    // Optional inputs that may be present in the input file, regardless of problem type
+    std::vector<std::string> OptionalInputs = {
+        "Debug check (reduced)",              // Optional input 0
+        "Debug check (extensive)",            // Optional input 1
+        "Print intermediate output frames",   // Optional input 2
+        "separate frames",                    // Optional input 3
+        "output even if system is unchanged", // Optional input 4
+    };
+
+    // Values used temporarily to store information from the file
+    int NRatio = 0;
+    float SpotOffsetFloat = 0.0;
+    float SpotRadiusFloat = 0.0;
+    double TimeSeriesFrameInc_time = 0.0;
+    std::string MaterialName, GrainOrientationFile_Read;
+
+    // Read the input file provided on the command line - determine which problem type is being simulated
     checkFileExists(InputFile, "Input", id);
     std::ifstream InputData;
     InputData.open(InputFile);
-    skipLines(InputData);
-
-    std::string val;
-
-    // Simulation Type - this can be one of a few possibilities:
+    skipLines(InputData, "*****"); // Skip lines until past the header lines above the asterisks
+    // First line after the header must be the problem type - this can be one of a few possibilities:
     // "C": constrained solidification (unidirectional G/R)
     // "S": spot melt solidification (no remelting) - array of spots with fixed G/R in each
     // "SM": spot melt with melting considered/multiple solidification events possible
     // "R": solidification from reduced/sparse data in file (no remelting)
     // "RM" solidification from extended data in file (with remelting/multiple solidification events possible)
+    // Additional required/optional inputs depending on problem type
     SimulationType = parseInput(InputData, "Problem type");
-    if ((SimulationType == "SM")||(SimulationType == "RM")) RemeltingYN = true;
-    else RemeltingYN = false;
-    
-    // Decomposition strategy
-    val = parseInput(InputData, "Decomposition strategy");
-    DecompositionStrategy = stoi(val, nullptr, 10);
+    if ((SimulationType == "RM") || (SimulationType == "SM"))
+        RemeltingYN = true;
+    else
+        RemeltingYN = false;
+    if (SimulationType == "C") {
+        std::vector<std::string> RequiredInputsC = {
+            "Thermal gradient",     // Required input 11
+            "Cooling rate",         // Required input 12
+            "Velocity",             // Required input 13
+            "Domain size in x",     // Required input 14
+            "Domain size in y",     // Required input 15
+            "Domain size in z",     // Required input 16
+            "surface sites active", // Required input 17
+        };
+        RequiredInputs.insert(RequiredInputs.end(), RequiredInputsC.begin(), RequiredInputsC.end());
+    }
+    else if ((SimulationType == "S") || (SimulationType == "SM")) {
+        std::vector<std::string> RequiredInputsS = {
+            "Thermal gradient",            // Required input 11
+            "Cooling rate",                // Required input 12
+            "Velocity",                    // Required input 13
+            "spots in x",                  // Required input 14
+            "spots in y",                  // Required input 15
+            "Offset between spot centers", // Required input 16
+            "Radii of spots",              // Required input 17
+            "Number of layers",            // Required input 18
+            "Offset between layers",       // Required input 19
+        };
+        std::vector<std::string> OptionalInputsS = {
+            "Substrate grain spacing", // optional input 5
+            "Substrate filename",      // optional input 6
+        };
+        OptionalInputs.insert(OptionalInputs.end(), OptionalInputsS.begin(), OptionalInputsS.end());
+        RequiredInputs.insert(RequiredInputs.end(), RequiredInputsS.begin(), RequiredInputsS.end());
+    }
+    else if ((SimulationType == "R") || (SimulationType == "RM")) {
+        std::vector<std::string> RequiredInputsR = {
+            "Time step",                   // Required input 11
+            "Temperature filename",        // Required input 12
+            "Number of temperature files", // Required input 13
+            "Number of layers",            // Required input 14
+            "Offset between layers",       // Required input 15
+            "Extra set of wall cells",     // Required input 16
+        };
+        std::vector<std::string> OptionalInputsR = {
+            "Substrate grain spacing",       // optional input 5
+            "Substrate filename",            // optional input 6
+            "Heat transport data mesh size", // optional input 7
+            "Path to temperature file(s)",   // optional input 8
+        };
+        RequiredInputs.insert(RequiredInputs.end(), RequiredInputsR.begin(), RequiredInputsR.end());
+        OptionalInputs.insert(OptionalInputs.end(), OptionalInputsR.begin(), OptionalInputsR.end());
+    }
+    else {
+        std::string error = "Error: unknown problem type " + SimulationType + " ; valid options are C, S, R, SM, RM";
+        throw std::runtime_error(error);
+    }
+    int NumRequiredInputs = RequiredInputs.size();
+    int NumOptionalInputs = OptionalInputs.size();
+    std::vector<std::string> RequiredInputsRead(NumRequiredInputs), OptionalInputsRead(NumOptionalInputs);
 
-    // Material (opening a separate file to obtain values for A, B, C, and D for the interfacial reponse function)
-    std::string MaterialName = parseInput(InputData, "Material");
-    std::string MaterialFile = checkFileInstalled(MaterialName, "Materials", id);
-
-    std::ifstream MaterialData;
-    MaterialData.open(MaterialFile);
-    skipLines(MaterialData);
-
-    // Interfacial response function A
-    val = parseInput(MaterialData, "A");
-    AConst = atof(val.c_str());
-    // Interfacial response function B
-    val = parseInput(MaterialData, "B");
-    BConst = atof(val.c_str());
-    // Interfacial response function C
-    val = parseInput(MaterialData, "C");
-    CConst = atof(val.c_str());
-    // Interfacial response function D
-    val = parseInput(MaterialData, "D");
-    DConst = atof(val.c_str());
-    // Alloy freezing range
-    val = parseInput(MaterialData, "Alloy freezing range");
-    FreezingRange = atof(val.c_str());
-
-    MaterialData.close();
-
-    // CA cell size
-    val = parseInput(InputData, "Cell size");
-    deltax = atof(val.c_str()) * pow(10, -6);
-
-    // Nucleation density
-    val = parseInput(InputData, "Heterogeneous nucleation density");
-    double NRead = atof(val.c_str());
-    NMax = NRead * pow(10, 12);
-
-    // Mean nucleation undercooling
-    val = parseInput(InputData, "Mean nucleation undercooling");
-    dTN = atof(val.c_str());
-
-    // Standard deviation of nucleation undercooling
-    val = parseInput(InputData, "Standard deviation of nucleation undercooling");
-    dTsigma = atof(val.c_str());
-
-    // Path to output
-    PathToOutput = parseInput(InputData, "Path to output");
-
-    // Output base file name
-    OutputFile = parseInput(InputData, "Output file base name");
-
-    // File of grain orientations
-    std::string GrainOrientationFile_Read = parseInput(InputData, "File of grain orientations");
-
-    // Path to file of grain orientations based on install/source location
-    GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, "Substrate", id);
-
-    std::ifstream GrainOrientationData;
-    GrainOrientationData.open(GrainOrientationFile);
-    // Make sure file contains data
-    std::string TestLine;
-    std::getline(GrainOrientationData, TestLine);
-    GrainOrientationData.close();
-
-    if ((SimulationType == "R")||(SimulationType == "RM")) {
-        // Read input arguments for a reduced or extended temperature data format solidification problem
-        if (id == 0)
-            std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
-
-        // Heat transport mesh size
-        val = parseInput(InputData, "Heat transport data mesh size");
-        HT_deltax = atof(val.c_str()) * pow(10, -6);
-        if (id == 0)
-            std::cout << "Mesh size of the temperature data is " << HT_deltax << " microns" << std::endl;
-
-        // Time step (s)
-        val = parseInput(InputData, "Time step");
-        deltat = atof(val.c_str()) * pow(10, -6);
-        if (id == 0)
-            std::cout << "The time step is " << val << " microseconds" << std::endl;
-
-        // Name of substrate file OR average spacing of substrate grains in microns
-        int SubstrateDataType = 0;
-        val = parseInputMultiple(InputData, "Path to substrate file", "Substrate grain spacing", SubstrateDataType);
-        if (SubstrateDataType == 1) {
-            SubstrateFileName = parseInput(InputData, "Substrate file name");
-            SubstrateFileName = val + "/" + SubstrateFileName;
-            UseSubstrateFile = true;
-            // Check if substrate file exists
-            checkFileExists(SubstrateFileName, "Substrate", id);
+    // Read the rest of the input file to initialize required and optional input parameters
+    std::string line;
+    while (std::getline(InputData, line)) {
+        // Ignore lines with *, as these are not inputs
+        if (line.find("***") == std::string::npos) {
+            // Check if this is a required input
+            bool RequiredYN = parseInputFromList(line, RequiredInputs, RequiredInputsRead, NumRequiredInputs);
+            if (!(RequiredYN)) {
+                bool OptionalYN = parseInputFromList(line, OptionalInputs, OptionalInputsRead, NumOptionalInputs);
+                if (!(OptionalYN) && (id == 0)) {
+                    std::cout << "WARNING: input " << line
+                              << " did not match any optional nor required inputs known to ExaCA and will be ignored"
+                              << std::endl;
+                }
+            }
         }
-        else if (SubstrateDataType == 2) {
-            SubstrateGrainSpacing = atof(val.c_str());
-            UseSubstrateFile = false;
+    }
+    InputData.close();
+
+    // Ensure that all required inputs were given
+    for (int i = 0; i < NumRequiredInputs; i++) {
+        if (RequiredInputsRead[i].empty()) {
+            std::string error = "Error: Required input " + RequiredInputs[i] + " was not present in the input file";
+            throw std::runtime_error(error);
         }
-        // Burst buffer/Truchas multilayer simulation input (no longer supported)
+    }
 
-        // File containing temperature data
-        temppath = parseInput(InputData, "Path to temperature file");
-        tempfile = parseInput(InputData, "Temperature filename");
-
-        // Temperature files in series
-        val = parseInput(InputData, "Number of temperature files");
-        TempFilesInSeries = stoi(val, nullptr, 10);
-
+    // Convert information read from the file into values usable by ExaCA
+    // Required inputs for all problems
+    DecompositionStrategy = getInputInt(RequiredInputsRead[0]);
+    MaterialName = RequiredInputsRead[1];
+    deltax = getInputDouble(RequiredInputsRead[2], -6);
+    NMax = getInputDouble(RequiredInputsRead[3], 12);
+    dTN = getInputDouble(RequiredInputsRead[4]);
+    dTsigma = getInputDouble(RequiredInputsRead[5]);
+    PathToOutput = RequiredInputsRead[6];
+    OutputFile = RequiredInputsRead[7];
+    GrainOrientationFile_Read = RequiredInputsRead[8];
+    PrintMisorientation = getInputBool(RequiredInputsRead[9]);
+    PrintFullOutput = getInputBool(RequiredInputsRead[10]);
+    // Problem type-specific inputs
+    if ((SimulationType == "R") || (SimulationType == "RM")) {
+        deltat = getInputDouble(RequiredInputsRead[11], -6);
+        tempfile = RequiredInputsRead[12];
+        TempFilesInSeries = getInputInt(RequiredInputsRead[13]);
+        NumberOfLayers = getInputInt(RequiredInputsRead[14]);
+        LayerHeight = getInputInt(RequiredInputsRead[15]);
+        ExtraWalls = getInputBool(RequiredInputsRead[16]);
         if (id == 0) {
+            std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
+            std::cout << "The time step is " << deltat << " seconds" << std::endl;
             if (TempFilesInSeries > 1)
                 std::cout << "Temperature data files are *" << tempfile << " , and there are " << TempFilesInSeries
                           << " in the series" << std::endl;
             else
                 std::cout << "The temperature data file is " << tempfile << std::endl;
-        }
-        // Check to ensure all temperature files exist - obtain number of temperature data values and data units from
-        // each file
-        temp_paths.resize(TempFilesInSeries, "");
-        getTemperatureFilePaths(temppath, tempfile, temp_paths);
-        for (int i = 0; i < TempFilesInSeries; i++) {
-            checkFileExists(temp_paths[i], "Temperature", id);
-        }
-
-        // Usage of second set of wall cells around temperature field (for spot melt problems, where the melt pool
-        // boundaries are right at the walls)
-        ExtraWalls = parseInputBool(InputData, "Extra set of wall cells around temperature field");
-
-        // Number of layers (for non script-based coupling)
-        val = parseInput(InputData, "Number of layers");
-        NumberOfLayers = stoi(val, nullptr, 10);
-
-        // Layer height (for non script-based coupling)
-        val = parseInput(InputData, "Offset between layers");
-        LayerHeight = stoi(val, nullptr, 10);
-        if (id == 0)
-            std::cout << "A total of " << NumberOfLayers << " of solidification offset by " << LayerHeight
+            std::cout << "A total of " << NumberOfLayers << " layers of solidification offset by " << LayerHeight
                       << " CA cells will be simulated" << std::endl;
+        }
     }
     else if (SimulationType == "C") {
-        // Read input arguments for a constrained growth solidification problem
+        G = getInputDouble(RequiredInputsRead[11]);
+        R = getInputDouble(RequiredInputsRead[12]);
+        NRatio = getInputInt(RequiredInputsRead[13]);
+        nx = getInputInt(RequiredInputsRead[14]);
+        nx = nx + 2; // Domain size in x, wall cells at boundaries
+        ny = getInputInt(RequiredInputsRead[15]);
+        ny = ny + 2; // Domain size in y, wall cells at boundaries
+        nz = getInputInt(RequiredInputsRead[16]);
+        nz = nz + 1; // Domain size in z, wall cells at Z = 0, but not Z = nz-1
+        FractSurfaceSitesActive = getInputDouble(RequiredInputsRead[17]);
+        deltat = deltax / ((double)(NRatio) * (R / G));
         NumberOfLayers = 1;
         LayerHeight = nz;
-
-        // Thermal gradient
-        val = parseInput(InputData, "Thermal gradient");
-        G = atof(val.c_str());
-
-        // Cooling rate
-        val = parseInput(InputData, "Cooling rate");
-        R = atof(val.c_str());
-        if (id == 0)
+        if (id == 0) {
             std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << G
                       << " K/m and a cooling rate of " << R << " K/s" << std::endl;
-
-        // Domain size in x
-        val = parseInput(InputData, "Domain size in x");
-        nx = stoi(val, nullptr, 10);
-        nx = nx + 2;
-
-        // Domain size in y
-        val = parseInput(InputData, "Domain size in y");
-        ny = stoi(val, nullptr, 10);
-        ny = ny + 2;
-
-        // Domain size in z
-        val = parseInput(InputData, "Domain size in z");
-        nz = stoi(val, nullptr, 10);
-        // The Z = 0 cells are wall cells
-        // The Z = 1 active cells start at the liquidus temperature
-        // The Z = (nz value given in the file) cells are at the top of the liquid domain (no wall cells at top)
-        nz = nz + 1; // +1 to account for the wall cells at the bottom surface
-
-        // delta t (using ratio between cooling rate R, thermal gradient G, and cell size delta x
-        val = parseInput(InputData, "\"N\"");
-        int NRatio = stoi(val, nullptr, 10);
-        deltat = deltax / (NRatio * (R / G));
-        if (id == 0)
             std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
-
-        // Fraction of bottom surface sites active
-        val = parseInput(InputData, "Fraction of surface sites active");
-        FractSurfaceSitesActive = atof(val.c_str());
-        if (id == 0)
             std::cout << "The fraction of CA cells at the bottom surface that are active is " << FractSurfaceSitesActive
                       << std::endl;
+        }
     }
-    else if ((SimulationType == "S")||(SimulationType == "SM")) {
-        // Read input arguments for an array of multiple overlapping spot melts
-
-        // Thermal gradient
-        val = parseInput(InputData, "Thermal gradient");
-        G = atof(val.c_str());
-
-        // Cooling rate
-        val = parseInput(InputData, "Cooling rate");
-        R = atof(val.c_str());
-        if (id == 0)
-            std::cout << "CA Simulation using a radial, fixed thermal gradient of " << G
-                      << " K/m as a series of hemispherical spots, and a cooling rate of " << R << " K/s" << std::endl;
-
-        // Number of spots in x
-        val = parseInput(InputData, "Number of spots in x");
-        NSpotsX = stoi(val, nullptr, 10);
-
-        // Number of spots in y
-        val = parseInput(InputData, "Number of spots in y");
-        NSpotsY = stoi(val, nullptr, 10);
-
-        // Offset between spot centers (convert from microns to CA cells)
-        val = parseInput(InputData, "Offset between spot centers");
-        float SpotOffsetFloat = atof(val.c_str());
-        SpotOffset = SpotOffsetFloat * 1.0 * pow(10, -6) / deltax;
-
-        // Radii of spots (convert from microns to CA cells)
-        val = parseInput(InputData, "Radii of spots");
-        float SpotRadiusFloat = atof(val.c_str());
-        SpotRadius = SpotRadiusFloat * 1.0 * pow(10, -6) / deltax;
-
-        // Number of layers
-        val = parseInput(InputData, "Number of layers");
-        NumberOfLayers = stoi(val, nullptr, 10);
-
-        // Layer height (input already in cells)
-        val = parseInput(InputData, "Offset between layers");
-        LayerHeight = stoi(val, nullptr, 10);
-
-        if (id == 0)
-            std::cout << "A total of " << NumberOfLayers << " spots per layer, with layers offset by " << LayerHeight
-                      << " CA cells will be simulated" << std::endl;
-
-        // delta t (using ratio between cooling rate R, thermal gradient G, and cell size delta x
-        val = parseInput(InputData, "\"N\"");
-        int NRatio = stoi(val, nullptr, 10);
+    else if ((SimulationType == "S") || (SimulationType == "SM")) {
+        G = getInputFloat(RequiredInputsRead[11]);
+        R = getInputFloat(RequiredInputsRead[12]);
+        NRatio = getInputInt(RequiredInputsRead[13]);
+        NSpotsX = getInputInt(RequiredInputsRead[14]);
+        NSpotsY = getInputInt(RequiredInputsRead[15]);
+        SpotOffsetFloat = getInputFloat(RequiredInputsRead[16]);
+        SpotRadiusFloat = getInputFloat(RequiredInputsRead[17]);
+        NumberOfLayers = getInputInt(RequiredInputsRead[18]);
+        LayerHeight = getInputInt(RequiredInputsRead[19]);
         deltat = deltax / (NRatio * (R / G));
-        if (id == 0)
-            std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
-
-        // Name of substrate file OR average spacing of substrate grains in microns
-        int SubstrateDataType = 0;
-        val = parseInputMultiple(InputData, "Path to substrate file", "Substrate grain spacing", SubstrateDataType);
-        if (SubstrateDataType == 1) {
-            SubstrateFileName = parseInput(InputData, "Substrate file name");
-            SubstrateFileName = val + "/" + SubstrateFileName;
-            UseSubstrateFile = true;
-            checkFileExists(SubstrateFileName, "Substrate", id);
-        }
-        else if (SubstrateDataType == 2) {
-            SubstrateGrainSpacing = atof(val.c_str());
-            UseSubstrateFile = false;
-        }
-
+        SpotOffset = SpotOffsetFloat * 1.0 * pow(10, -6) / deltax;
+        SpotRadius = SpotRadiusFloat * 1.0 * pow(10, -6) / deltax;
         // Calculate nx, ny, and nz based on spot array pattern and number of layers
         // Z = 0 consists of wall cells, Z = 1 is active cells just outside of the melt pool footprint
         // Z = 2 is the lowest Z coordinate with the first layers spot melt data
         nz = SpotRadius + 2 + (NumberOfLayers - 1) * LayerHeight;
         nx = 4 + 2 * SpotRadius + SpotOffset * (NSpotsX - 1);
         ny = 4 + 2 * SpotRadius + SpotOffset * (NSpotsY - 1);
+        if (id == 0) {
+            std::cout << "CA Simulation using a radial, fixed thermal gradient of " << G
+                      << " K/m as a series of hemispherical spots, and a cooling rate of " << R << " K/s" << std::endl;
+            std::cout << "A total of " << NumberOfLayers << " spots per layer, with layers offset by " << LayerHeight
+                      << " CA cells will be simulated" << std::endl;
+            std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
+        }
     }
-    // Which files should be printed?
-    // Check if new (August 2021) or old file printing options are present
-    int Fileprintoptions = 0;
-    val = parseInputMultiple(InputData, "Print file of grain orientations", "Output data printing options",
-                             Fileprintoptions);
-    if (Fileprintoptions == 1) {
-        if (id == 0)
-            std::cout << "Warning: old input file format detected - code no longer supports some printing options. The "
-                         "code will still output Paraview vtk file of grain misorientations if that option is toggled "
-                         "in the input file; other toggled output data options will trigger the printing of a separate "
-                         "vtk file of layer ID, grain ID, and melting status of all cells. Obtaining data from this "
-                         "(such as grain area values, of grain orientation frequencies) are now done via "
-                         "post-processing rather than as part of ExaCA"
-                      << std::endl;
-        bool OldPrintValues[6] = {0};
-        PrintDebug = false;
-        // Old file print options specified
-        if (val == "Y")
-            OldPrintValues[0] = true;
-        OldPrintValues[1] = parseInputBool(InputData, "Print csv file of grain id values");
-        OldPrintValues[2] = parseInputBool(InputData, "Print csv file of ExaConstit-formatted grain id values");
-        OldPrintValues[3] = parseInputBool(InputData, "Print Paraview vtk file of grain misorientation values");
-        OldPrintValues[4] = parseInputBool(InputData, "Print file of grain area values");
-        OldPrintValues[5] = parseInputBool(InputData, "Print file of weighted grain area value");
-        if (OldPrintValues[3])
-            PrintMisorientation = true;
-        else
-            PrintMisorientation = false;
-        if (OldPrintValues[0] + OldPrintValues[1] + OldPrintValues[2] + OldPrintValues[4] + OldPrintValues[5] > 0)
-            PrintFullOutput = true;
-        else
-            PrintFullOutput = false;
-    }
-    else if (Fileprintoptions == 2) {
-        // New file print options specified - parse remaining lines
-        PrintMisorientation = parseInputBool(InputData, "Paraview vtk file of grain misorientation");
-        PrintFullOutput = parseInputBool(InputData, "Paraview vtk file of all ExaCA data");
-        bool PrintDebugA = parseInputBool(InputData, "Print data for main Kokkos views");
-        bool PrintDebugB = parseInputBool(InputData, "Print data for all main data structures");
-        // Which (if any) files should be printed following initialization for debugging?
-        // PrintDebug = 0 - none
-        // PrintDebug = 1 - CellType, LayerID, CritTimeStep only
-        // PrintDebug = 2 - all
-        if (PrintDebugB)
-            PrintDebug = 2;
-        else if (PrintDebugA)
-            PrintDebug = 1;
-        else
-            PrintDebug = 0;
-    }
-    // Should intermediate data of the microstructure evolution be printed?
-    std::string DummyLine;
-    getline(InputData, DummyLine); // empty line
-    if (DummyLine.empty()) {
-        // No intermediate data printing options in this file
-        PrintTimeSeries = false;
-        PrintIdleTimeSeriesFrames = false;
-    }
-    else {
-        PrintTimeSeries = parseInputBool(InputData, "intermediate output frames");
+    // Optional inputs - should files post-initialization be printed for debugging?
+    bool PrintDebugA = false;
+    bool PrintDebugB = false;
+    if (!(OptionalInputsRead[0].empty()))
+        PrintDebugA = getInputBool(OptionalInputsRead[0]);
+    if (!(OptionalInputsRead[1].empty()))
+        PrintDebugB = getInputBool(OptionalInputsRead[1]);
+    if ((OptionalInputsRead[0].empty()) && (OptionalInputsRead[1].empty()))
+        PrintDebug = 0;
+    if (PrintDebugB)
+        PrintDebug = 2;
+    else if (PrintDebugA)
+        PrintDebug = 1;
+    else
+        PrintDebug = 0;
+    // Should intermediate output be printed?
+    if (!(OptionalInputsRead[2].empty())) {
+        PrintTimeSeries = getInputBool(OptionalInputsRead[2]);
         if (PrintTimeSeries) {
-            // Obtain the increment in time of printing data to files
-            val = parseInput(InputData, "how many microseconds should separate frames");
-            double TimeSeriesFrameInc_time = stod(val) * pow(10, -6);
-            TimeSeriesInc = round(TimeSeriesFrameInc_time / deltat);
-            if (id == 0)
-                std::cout << "Intermediate output for movie frames will be printed every " << TimeSeriesInc
-                          << " time steps (or every " << TimeSeriesFrameInc_time << " microseconds)" << std::endl;
-            // Should files be printed every TimeSeriesInc time steps no matter what, or should frames where no
-            // solidification is occurring be skipped?
-            PrintIdleTimeSeriesFrames = parseInputBool(
-                InputData, "Print intermediate output even if system is unchanged from last printed file");
+            if (!(OptionalInputsRead[3].empty())) {
+                TimeSeriesFrameInc_time = getInputFloat(OptionalInputsRead[3], -6);
+                TimeSeriesInc = round(TimeSeriesFrameInc_time / deltat);
+                if (!(OptionalInputsRead[4].empty()))
+                    PrintIdleTimeSeriesFrames = getInputBool(OptionalInputsRead[4]);
+                else
+                    PrintIdleTimeSeriesFrames = false;
+            }
+            else
+                throw std::runtime_error(
+                    "Error: Cannot print intermediate output data without a specified output increment");
         }
         else {
-            // Do not print movie frames - PrintIdleTimeSeriesFrames should be false
+            PrintTimeSeries = false;
             PrintIdleTimeSeriesFrames = false;
         }
     }
-    InputData.close();
+    else {
+        PrintTimeSeries = false;
+        PrintIdleTimeSeriesFrames = false;
+    }
+    // For simulations with substrate grain structures, should an input grain spacing or a substrate file be used?
+    if (SimulationType != "C") {
+        // Exactly one of the two inputs "sub grain size" and "sub filename" should be present
+        if ((!(OptionalInputsRead[5].empty())) && (!(OptionalInputsRead[6].empty())))
+            throw std::runtime_error("Error: only one of substrate grain size and substrate structure filename should "
+                                     "be provided in the input file");
+        else if ((OptionalInputsRead[5].empty()) && (OptionalInputsRead[6].empty()))
+            throw std::runtime_error(
+                "Error: neither substrate grain size nor substrate structure filename was provided in the input file");
+        else {
+            if (!(OptionalInputsRead[5].empty())) {
+                UseSubstrateFile = false;
+                SubstrateGrainSpacing = getInputFloat(OptionalInputsRead[5]);
+            }
+            else {
+                // Check that substrate file exists
+                UseSubstrateFile = true;
+                SubstrateFileName = OptionalInputsRead[6];
+                checkFileExists(SubstrateFileName, "Substrate", id);
+            }
+        }
+    }
+    // Input temperature data spacing or path to temperature data may be given
+    // If not given, it is assumed HT_deltax = CA cell size and temperature data is located in examples/Temperatures
+    if ((SimulationType == "R") || (SimulationType == "RM")) {
+        if (OptionalInputsRead[7].empty())
+            HT_deltax = deltax;
+        else
+            HT_deltax = getInputDouble(OptionalInputsRead[7], -6);
+
+        if (OptionalInputsRead[8].empty())
+            temppath = "examples/Temperatures";
+        else
+            temppath = OptionalInputsRead[8];
+
+        // Check that temperature file(s) exist
+        temp_paths.resize(TempFilesInSeries, "");
+        getTemperatureFilePaths(temppath, tempfile, temp_paths);
+        for (int i = 0; i < TempFilesInSeries; i++) {
+            if (id == 0)
+                std::cout << "Checking file " << temp_paths[i] << std::endl;
+            checkFileExists(temp_paths[i], "Temperature", id);
+        }
+    }
+
+    // Path to file of materials constants based on install/source location
+    std::string MaterialFile = checkFileInstalled(MaterialName, "Materials", id);
+    checkFileNotEmpty(MaterialFile);
+    // Read material file (specified from main input file) to obtain values for A, B, C, and D for the interfacial
+    // reponse function
+    parseMaterialFile(MaterialFile, AConst, BConst, CConst, DConst, FreezingRange);
+
+    // Path to file of grain orientations based on install/source location
+    GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, "Substrate", id);
+    checkFileNotEmpty(GrainOrientationFile);
 
     if (id == 0) {
         std::cout << "Decomposition Strategy is " << DecompositionStrategy << std::endl;
@@ -603,9 +589,12 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                   << ", interfacial response function constants are A = " << AConst << ", B = " << BConst
                   << ", C = " << CConst << ", and D = " << DConst << std::endl;
         std::cout << "CA cell size is " << deltax * pow(10, 6) << " microns" << std::endl;
-        std::cout << "Nucleation density is " << NRead << " x 10^12 per m^3" << std::endl;
+        std::cout << "Nucleation density is " << NMax << " per m^3" << std::endl;
         std::cout << "Mean nucleation undercooling is " << dTN << " K, standard deviation of distribution is "
                   << dTsigma << "K" << std::endl;
+        if (PrintTimeSeries)
+            std::cout << "Intermediate output for movie frames will be printed every " << TimeSeriesInc
+                      << " time steps (or every " << TimeSeriesFrameInc_time << " microseconds)" << std::endl;
     }
 }
 
@@ -963,12 +952,13 @@ void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlic
 }
 
 // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate data
-void ReadTemperatureData(int, bool RemeltingYN, ViewI_H MaxSolidificationEvents, int &MyXSlices,
-                      int &MyYSlices, int &MyXOffset, int &MyYOffset,
-                      double &deltax, double HT_deltax, int &nx, int &ny, float &XMin, float &YMin, std::vector<std::string> &temp_paths, float, int &LayerHeight, int NumberOfLayers,
-                      int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints, float *ZMinLayer,
-                      float *ZMaxLayer, int *FirstValue, int *LastValue, std::vector<double> &RawData) {
-    
+void ReadTemperatureData(int, bool RemeltingYN, ViewI_H MaxSolidificationEvents, int &MyXSlices, int &MyYSlices,
+                         int &MyXOffset, int &MyYOffset, double &deltax, double HT_deltax, int &nx, int &ny,
+                         float &XMin, float &YMin, std::vector<std::string> &temp_paths, float, int &LayerHeight,
+                         int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
+                         float *ZMinLayer, float *ZMaxLayer, int *FirstValue, int *LastValue,
+                         std::vector<double> &RawData) {
+
     int HTtoCAratio = HT_deltax / deltax; // OpenFOAM/CA cell size ratio
     int LowerXBound, LowerYBound, UpperXBound, UpperYBound;
     if (MyXOffset <= 2)
@@ -1023,13 +1013,14 @@ void ReadTemperatureData(int, bool RemeltingYN, ViewI_H MaxSolidificationEvents,
         if (RemeltingYN) {
             TempSizeX = UpperXBound - LowerXBound + 1;
             TempSizeY = UpperYBound - LowerYBound + 1;
-            TempSizeZ = round((ZMaxLayer[LayerReadCount-1] - ZMinLayer[LayerReadCount-1])/deltax) + 1;
+            TempSizeZ = round((ZMaxLayer[LayerReadCount - 1] - ZMinLayer[LayerReadCount - 1]) / deltax) + 1;
         }
-        ViewI3D_H TempMeltCount(Kokkos::ViewAllocateWithoutInitializing("TempMeltCount"), TempSizeZ, TempSizeX, TempSizeY);
-        for (int k=0; k<TempSizeZ; k++) {
-            for (int i=0; i<TempSizeX; i++) {
-                for (int j=0; j<TempSizeY; j++) {
-                    TempMeltCount(k,i,j) = 0;
+        ViewI3D_H TempMeltCount(Kokkos::ViewAllocateWithoutInitializing("TempMeltCount"), TempSizeZ, TempSizeX,
+                                TempSizeY);
+        for (int k = 0; k < TempSizeZ; k++) {
+            for (int i = 0; i < TempSizeX; i++) {
+                for (int j = 0; j < TempSizeY; j++) {
+                    TempMeltCount(k, i, j) = 0;
                 }
             }
         }
@@ -1064,7 +1055,9 @@ void ReadTemperatureData(int, bool RemeltingYN, ViewI_H MaxSolidificationEvents,
                 RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[5];
                 NumberOfTemperatureDataPoints++;
                 if (RemeltingYN) {
-                    int ZInt = round((XYZTemperaturePoint[2] + deltax * LayerHeight * (LayerReadCount - 1) - ZMinLayer[LayerReadCount-1]) / deltax);
+                    int ZInt = round((XYZTemperaturePoint[2] + deltax * LayerHeight * (LayerReadCount - 1) -
+                                      ZMinLayer[LayerReadCount - 1]) /
+                                     deltax);
                     TempMeltCount(ZInt, XInt - LowerXBound, YInt - LowerYBound)++;
                 }
                 if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
@@ -1076,14 +1069,15 @@ void ReadTemperatureData(int, bool RemeltingYN, ViewI_H MaxSolidificationEvents,
         LastValue[LayerReadCount - 1] = NumberOfTemperatureDataPoints;
         // Determine max number of remelting events for each layer (may be different on each MPI rank)
         int MaxCount = 0;
-        for (int k=0; k<TempSizeZ; k++) {
-            for (int i=0; i<TempSizeX; i++) {
-                for (int j=0; j<TempSizeY; j++) {
-                    if (TempMeltCount(k,i,j) > MaxCount) MaxCount = TempMeltCount(k,i,j);
+        for (int k = 0; k < TempSizeZ; k++) {
+            for (int i = 0; i < TempSizeX; i++) {
+                for (int j = 0; j < TempSizeY; j++) {
+                    if (TempMeltCount(k, i, j) > MaxCount)
+                        MaxCount = TempMeltCount(k, i, j);
                 }
             }
         }
-        MaxSolidificationEvents(LayerReadCount-1) = MaxCount;
+        MaxSolidificationEvents(LayerReadCount - 1) = MaxCount;
     } // End loop over all files read for all layers
     RawData.resize(NumberOfTemperatureDataPoints);
     // Determine start values for each layer's data within "RawData"
@@ -1094,7 +1088,7 @@ void ReadTemperatureData(int, bool RemeltingYN, ViewI_H MaxSolidificationEvents,
                 // translated from that of the first layer
                 FirstValue[LayerReadCount] = FirstValue[LayerReadCount - 1];
                 LastValue[LayerReadCount] = LastValue[LayerReadCount - 1];
-                MaxSolidificationEvents(LayerReadCount) = MaxSolidificationEvents(LayerReadCount-1);
+                MaxSolidificationEvents(LayerReadCount) = MaxSolidificationEvents(LayerReadCount - 1);
             }
             else {
                 // All layers have different temperature data but in a repeating pattern
@@ -1106,7 +1100,7 @@ void ReadTemperatureData(int, bool RemeltingYN, ViewI_H MaxSolidificationEvents,
         }
     }
     // Make "MaxSolidificationEvents" the same size on each rank
-    for (int n=0; n<NumberOfLayers; n++) {
+    for (int n = 0; n < NumberOfLayers; n++) {
         int LocalMaxSEvents = MaxSolidificationEvents(n);
         int GlobalMaxSEvents;
         MPI_Allreduce(&LocalMaxSEvents, &GlobalMaxSEvents, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
@@ -1115,7 +1109,8 @@ void ReadTemperatureData(int, bool RemeltingYN, ViewI_H MaxSolidificationEvents,
 }
 
 // Determine the maximum number of times a cell will undergo solidification from a spot melt pattern
-void MaxSolidificationEventSpotCount(int nx, int ny, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset, int NumberOfLayers, ViewI_H MaxSolidificationEvents) {
+void MaxSolidificationEventSpotCount(int nx, int ny, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset,
+                                     int NumberOfLayers, ViewI_H MaxSolidificationEvents) {
 
     int NumberOfSpots = NSpotsX * NSpotsY;
     ViewI2D_H MaxSolidificationEvents_Temp("SEvents_Temp", nx, ny);
@@ -1137,22 +1132,21 @@ void MaxSolidificationEventSpotCount(int nx, int ny, int NSpotsX, int NSpotsY, i
     int TempMax = 0;
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
-            if (MaxSolidificationEvents_Temp(i,j) > TempMax)
-                TempMax = MaxSolidificationEvents_Temp(i,j);
+            if (MaxSolidificationEvents_Temp(i, j) > TempMax)
+                TempMax = MaxSolidificationEvents_Temp(i, j);
         }
     }
-    for (int n=0; n<NumberOfLayers; n++) {
+    for (int n = 0; n < NumberOfLayers; n++) {
         MaxSolidificationEvents(n) = TempMax;
     }
-    
 }
-    
+
 //*****************************************************************************/
 // Initialize temperature data for a constrained solidification test problem
-void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &MyYSlices, int &MyXOffset,
-                                int &MyYOffset, double deltax, double deltat, int nx, int ny, int nz,
-                                ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
-                                bool *Melted, ViewI_H LayerID) {
+void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset,
+                                double deltax, double deltat, int nx, int ny, int nz, ViewI_H CritTimeStep,
+                                ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted,
+                                ViewI_H LayerID) {
 
     // Initialize temperature field in Z direction with thermal gradient G set in input file
     for (int k = 0; k < nz; k++) {
@@ -1177,11 +1171,13 @@ void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &My
 }
 
 // Initialize temperature data for an array of overlapping spot melts
-void TempInit_SpotMelt(bool RemeltingYN, int layernumber, double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
-                       int &MyYOffset, double deltax, double deltat, int nz, ViewI_H MeltTimeStep, ViewI_H CritTimeStep,
-                       ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight,
-                       int NumberOfLayers, double FreezingRange,
-                       ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset, int ZBound_Low, int nzActive, ViewF3D_H LayerTimeTempHistory, ViewI_H NumberOfSolidificationEvents, ViewI_H SolidificationEventCounter) {
+void TempInit_SpotMelt(bool RemeltingYN, int layernumber, double G, double R, std::string, int id, int &MyXSlices,
+                       int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax, double deltat, int nz,
+                       ViewI_H MeltTimeStep, ViewI_H CritTimeStep, ViewF_H UndercoolingChange,
+                       ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight, int NumberOfLayers,
+                       double FreezingRange, ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset,
+                       int ZBound_Low, int nzActive, ViewF3D_H LayerTimeTempHistory,
+                       ViewI_H NumberOfSolidificationEvents, ViewI_H SolidificationEventCounter) {
 
     // Starting the layer, no cells intitially have undercooling, nor have melting/solidification data
     for (int k = 0; k < nz; k++) {
@@ -1192,7 +1188,8 @@ void TempInit_SpotMelt(bool RemeltingYN, int layernumber, double G, double R, st
                 UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
                 Melted[GlobalD3D1ConvPosition] = false;
                 if (layernumber == 0) {
-                    // If this is the first layer, initialize layer ID to -1 everywhere (marking cells that aren't part of the melt pool)
+                    // If this is the first layer, initialize layer ID to -1 everywhere (marking cells that aren't part
+                    // of the melt pool)
                     LayerID(GlobalD3D1ConvPosition) = -1;
                 }
                 if (RemeltingYN)
@@ -1250,9 +1247,9 @@ void TempInit_SpotMelt(bool RemeltingYN, int layernumber, double G, double R, st
     else {
         // Set solidification events counter to 0 to start the layer
         // If this is the first layer, also set the total number of solidification events for all cells to 0
-        for (int k=0; k<nzActive; k++) {
-            for (int i=0; i<MyXSlices; i++) {
-                for (int j=0; j<MyYSlices; j++) {
+        for (int k = 0; k < nzActive; k++) {
+            for (int i = 0; i < MyXSlices; i++) {
+                for (int j = 0; j < MyYSlices; j++) {
                     int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
                     SolidificationEventCounter(D3D1ConvPosition) = 0;
                     if (layernumber == 0)
@@ -1260,8 +1257,9 @@ void TempInit_SpotMelt(bool RemeltingYN, int layernumber, double G, double R, st
                 }
             }
         }
-        // Time-temperature history, and the number of solidification events in each cell, is the same for the active domain each layer
-        // Only initialize temperature field for this layer's spots - store all melt/solidification events
+        // Time-temperature history, and the number of solidification events in each cell, is the same for the active
+        // domain each layer Only initialize temperature field for this layer's spots - store all melt/solidification
+        // events
         if (layernumber == 0) {
             for (int n = 0; n < NumberOfSpots; n++) {
                 if (id == 0)
@@ -1283,7 +1281,8 @@ void TempInit_SpotMelt(bool RemeltingYN, int layernumber, double G, double R, st
                             if (TotDist <= SpotRadius) {
                                 int D3D1ConvPosition = (k - ZBound_Low) * MyXSlices * MyYSlices + i * MyYSlices + j;
                                 int SolidificationEventNumber = NumberOfSolidificationEvents(D3D1ConvPosition);
-                                LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 0) = n * TimeBetweenSpots;
+                                LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 0) =
+                                    n * TimeBetweenSpots;
                                 LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 1) =
                                     1 + (int)(((float)(SpotRadius)-TotDist) / IsothermVelocity) + TimeBetweenSpots * n;
                                 LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 2) = R * deltat;
@@ -1295,10 +1294,11 @@ void TempInit_SpotMelt(bool RemeltingYN, int layernumber, double G, double R, st
             }
         }
         // Set MeltTimeStep, CritTimeStep, UndercoolingChange for the first solidification event in all cells
-        // Unlike LayerTimeTempHistory, NumberOfSolidificationEvents, and SolidificationEventCounter, these quantites are defined in the global (all layers) domain as opposed to the active (this layer only) domain
-        for (int k=0; k<nzActive; k++) {
-            for (int i=0; i<MyXSlices; i++) {
-                for (int j=0; j<MyYSlices; j++) {
+        // Unlike LayerTimeTempHistory, NumberOfSolidificationEvents, and SolidificationEventCounter, these quantites
+        // are defined in the global (all layers) domain as opposed to the active (this layer only) domain
+        for (int k = 0; k < nzActive; k++) {
+            for (int i = 0; i < MyXSlices; i++) {
+                for (int j = 0; j < MyYSlices; j++) {
                     int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
                     if (LayerTimeTempHistory(D3D1ConvPosition, 0, 1) > 0) {
                         int GlobalD3D1ConvPosition = (k + ZBound_Low) * MyXSlices * MyYSlices + i * MyYSlices + j;
@@ -1320,8 +1320,8 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                       double HT_deltax, double deltat, int &nx, int &ny, int &nz, ViewI_H CritTimeStep,
                       ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin,
                       bool *Melted, float *ZMinLayer, float *ZMaxLayer, int LayerHeight, int NumberOfLayers,
-                      int *FinishTimeStep, double FreezingRange,
-                      ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData) {
+                      int *FinishTimeStep, double FreezingRange, ViewI_H LayerID, int *FirstValue, int *LastValue,
+                      std::vector<double> RawData) {
 
     // Initialize temperature views to 0
     for (int k = 0; k < nz; k++) {
@@ -1392,7 +1392,7 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         double LargestTime = 0;
         double LargestTime_Global = 0;
 
-        int nzTempValuesThisLayer = round((ZMaxLayer[LayerCounter] - ZMinLayer[LayerCounter])/deltax) + 1;
+        int nzTempValuesThisLayer = round((ZMaxLayer[LayerCounter] - ZMinLayer[LayerCounter]) / deltax) + 1;
         std::vector<std::vector<std::vector<double>>> CR, CritTL;
         for (int k = 0; k < nzTempValuesThisLayer; k++) {
             std::vector<std::vector<double>> TemperatureXX;
@@ -1575,18 +1575,17 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
             }
         }
     } // End read over all temperature files and placement of data
-
 }
 //*****************************************************************************/
 
 //*****************************************************************************/
 void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, int nz, int &MyXOffset, int &MyYOffset,
-                    double &deltax, double deltat, double FreezingRange, ViewF3D_H LayerTimeTempHistory,
-                    ViewI_H MaxSolidificationEvents, ViewI_H NumberOfSolidificationEvents,
-                    ViewI_H SolidificationEventCounter, ViewI_H MeltTimeStep, ViewI_H CritTimeStep,
-                    ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, bool *Melted,
-                    float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low,
-                    int *FinishTimeStep, ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData) {
+                     double &deltax, double deltat, double FreezingRange, ViewF3D_H LayerTimeTempHistory,
+                     ViewI_H MaxSolidificationEvents, ViewI_H NumberOfSolidificationEvents,
+                     ViewI_H SolidificationEventCounter, ViewI_H MeltTimeStep, ViewI_H CritTimeStep,
+                     ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, bool *Melted,
+                     float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
+                     ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData) {
 
     if (layernumber == 0) {
         // No sites have melted yet
@@ -1605,9 +1604,9 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
     for (int i = 0; i < MyXSlices * MyYSlices * nzActive; i++) {
         NumberOfSolidificationEvents(i) = 0;
         SolidificationEventCounter(i) = 0;
-        for (int j=0; j<MaxSolidificationEvents(layernumber); j++) {
-            for (int k=0; k<3; k++) {
-                LayerTimeTempHistory(i,j,k) = 0.0;
+        for (int j = 0; j < MaxSolidificationEvents(layernumber); j++) {
+            for (int k = 0; k < 3; k++) {
+                LayerTimeTempHistory(i, j, k) = 0.0;
             }
         }
     }
@@ -1623,8 +1622,8 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
     double LargestTime = 0;
     double LargestTime_Global = 0;
     if (id == 0)
-        std::cout << "Range of raw data for layer " << layernumber << " on rank 0 is " << StartRange << " to " << EndRange
-                  << std::endl;
+        std::cout << "Range of raw data for layer " << layernumber << " on rank 0 is " << StartRange << " to "
+                  << EndRange << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
     for (int i = StartRange; i < EndRange; i++) {
 
@@ -1645,9 +1644,12 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
                 D3D1ConvPosition = ZInt * MyXSlices * MyYSlices + (XInt - MyXOffset) * MyYSlices + (YInt - MyYOffset);
                 LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 0) =
                     round(RawData[i] / deltat);
-//                if (D3D1ConvPosition == 6543822) {
-//                    std::cout << "X = " << RawData[i-3] << " Y = " << RawData[i-2] << " Z = " << RawData[i-1] << " Melting event " << NumberOfSolidificationEvents(D3D1ConvPosition) << " Melting time " << RawData[i] << std::endl;
-//                }
+                //                if (D3D1ConvPosition == 6543822) {
+                //                    std::cout << "X = " << RawData[i-3] << " Y = " << RawData[i-2] << " Z = " <<
+                //                    RawData[i-1] << " Melting event " <<
+                //                    NumberOfSolidificationEvents(D3D1ConvPosition) << " Melting time " << RawData[i]
+                //                    << std::endl;
+                //                }
             }
             else {
                 // skip to next data point
@@ -1658,9 +1660,11 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             // Crit (liquidus) time step
             LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 1) =
                 round(RawData[i] / deltat);
-//            if (D3D1ConvPosition == 6543822) {
-//                std::cout << "X = " << RawData[i-4] << " Y = " << RawData[i-3] << " Z = " << RawData[i-2] << " Melting event " << NumberOfSolidificationEvents(D3D1ConvPosition) << " Liquidus time " << RawData[i] << std::endl;
-//            }
+            //            if (D3D1ConvPosition == 6543822) {
+            //                std::cout << "X = " << RawData[i-4] << " Y = " << RawData[i-3] << " Z = " << RawData[i-2]
+            //                << " Melting event " << NumberOfSolidificationEvents(D3D1ConvPosition) << " Liquidus time
+            //                " << RawData[i] << std::endl;
+            //            }
         }
         else if (Pos == 5) {
             // Cooling rate per time step
@@ -1685,9 +1689,9 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
     // based on the melting time values (component = 0)
     for (int n = 0; n < MyXSlices * MyYSlices * nzActive; n++) {
         if (NumberOfSolidificationEvents(n) > 0) {
-            for (int i = 0; i < NumberOfSolidificationEvents(n)-1; i++) {
-                for (int j = (i+1); j < NumberOfSolidificationEvents(n); j++) {
-                    
+            for (int i = 0; i < NumberOfSolidificationEvents(n) - 1; i++) {
+                for (int j = (i + 1); j < NumberOfSolidificationEvents(n); j++) {
+
                     if (LayerTimeTempHistory(n, i, 0) > LayerTimeTempHistory(n, j, 0)) {
                         // Swap these two points - melting event "j" happens before event "i"
                         float OldMeltVal = LayerTimeTempHistory(n, i, 0);
@@ -1704,28 +1708,29 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             }
         }
     }
-    
+
     // If a cell melts twice before reaching the liquidus temperature, this is a double counted solidification
     // event and should be removed
     for (int n = 0; n < MyXSlices * MyYSlices * nzActive; n++) {
         if (NumberOfSolidificationEvents(n) > 1) {
-            for (int i = 0; i < NumberOfSolidificationEvents(n)-1; i++) {
-                if (LayerTimeTempHistory(n, i+1, 0) < LayerTimeTempHistory(n, i, 1)) {
-                    std::cout << "Cell " << n << " removing anomalous event " << i+1 << " out of " << NumberOfSolidificationEvents(n)-1 << std::endl;
+            for (int i = 0; i < NumberOfSolidificationEvents(n) - 1; i++) {
+                if (LayerTimeTempHistory(n, i + 1, 0) < LayerTimeTempHistory(n, i, 1)) {
+                    std::cout << "Cell " << n << " removing anomalous event " << i + 1 << " out of "
+                              << NumberOfSolidificationEvents(n) - 1 << std::endl;
                     // Keep whichever event has the larger liquidus time
-                    if (LayerTimeTempHistory(n, i+1, 1) > LayerTimeTempHistory(n, i, 1)) {
-                        LayerTimeTempHistory(n, i, 0) = LayerTimeTempHistory(n, i+1, 0);
-                        LayerTimeTempHistory(n, i, 1) = LayerTimeTempHistory(n, i+1, 1);
-                        LayerTimeTempHistory(n, i, 2) = LayerTimeTempHistory(n, i+1, 2);
+                    if (LayerTimeTempHistory(n, i + 1, 1) > LayerTimeTempHistory(n, i, 1)) {
+                        LayerTimeTempHistory(n, i, 0) = LayerTimeTempHistory(n, i + 1, 0);
+                        LayerTimeTempHistory(n, i, 1) = LayerTimeTempHistory(n, i + 1, 1);
+                        LayerTimeTempHistory(n, i, 2) = LayerTimeTempHistory(n, i + 1, 2);
                     }
-                    LayerTimeTempHistory(n, i+1, 0) = 0.0;
-                    LayerTimeTempHistory(n, i+1, 1) = 0.0;
-                    LayerTimeTempHistory(n, i+1, 2) = 0.0;
+                    LayerTimeTempHistory(n, i + 1, 0) = 0.0;
+                    LayerTimeTempHistory(n, i + 1, 1) = 0.0;
+                    LayerTimeTempHistory(n, i + 1, 2) = 0.0;
                     // Reshuffle other solidification events over if needed
-                    for (int ii=(i + 1); ii<NumberOfSolidificationEvents(n)-1; ii++) {
-                        LayerTimeTempHistory(n, ii, 0) = LayerTimeTempHistory(n, ii+1, 0);
-                        LayerTimeTempHistory(n, ii, 1) = LayerTimeTempHistory(n, ii+1, 1);
-                        LayerTimeTempHistory(n, ii, 2) = LayerTimeTempHistory(n, ii+1, 2);
+                    for (int ii = (i + 1); ii < NumberOfSolidificationEvents(n) - 1; ii++) {
+                        LayerTimeTempHistory(n, ii, 0) = LayerTimeTempHistory(n, ii + 1, 0);
+                        LayerTimeTempHistory(n, ii, 1) = LayerTimeTempHistory(n, ii + 1, 1);
+                        LayerTimeTempHistory(n, ii, 2) = LayerTimeTempHistory(n, ii + 1, 2);
                     }
                     NumberOfSolidificationEvents(n)--;
                 }
@@ -1740,8 +1745,10 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             for (int j = 0; j < MyYSlices; j++) {
                 int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
                 if (LayerTimeTempHistory(D3D1ConvPosition, 0, 0) > 0) {
-                    if (GlobalZ < ZLOW) ZLOW = GlobalZ;
-                    if (GlobalZ > ZHIGH) ZHIGH = GlobalZ;
+                    if (GlobalZ < ZLOW)
+                        ZLOW = GlobalZ;
+                    if (GlobalZ > ZHIGH)
+                        ZHIGH = GlobalZ;
                     // This cell undergoes solidification in layer "layernumber" at least once
                     int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + i * MyYSlices + j;
                     Melted[GlobalD3D1ConvPosition] = true;
@@ -1753,10 +1760,11 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             }
         }
     }
-    std::cout << "On rank " << id << " , temperature field is actually located from " << ZLOW << " THROUGH " << ZHIGH << std::endl;
+    std::cout << "On rank " << id << " , temperature field is actually located from " << ZLOW << " THROUGH " << ZHIGH
+              << std::endl;
     if (id == 0)
-        std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low + 1 << " through " << nzActive+ZBound_Low-1
-                  << " of the global domain" << std::endl;
+        std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low + 1 << " through "
+                  << nzActive + ZBound_Low - 1 << " of the global domain" << std::endl;
 }
 //*****************************************************************************/
 
@@ -2029,7 +2037,7 @@ void SubstrateInit_FromGrainSpacing(bool RemeltingYN, float SubstrateGrainSpacin
                 }
                 GrainID_G(CAGridLocation) = ClosestGrainIndex + 1;
             }
-    });
+        });
 
     // Copy Grain ID back to host
     Kokkos::deep_copy(GrainID, GrainID_G);
@@ -2571,12 +2579,11 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
 // Initializes cell types for simulations with remelting
 // Each layer starts at solid cells (where we have solidification data) and wall cells (where no solidification will
 // happen)
-void GrainNucleiInitRemelt(int layernumber, int MyXSlices, int MyYSlices, int nzActive,
-                           int id, int np, ViewI_H CellType, ViewI_H CritTimeStep,
-                           ViewI_H NumberOfSolidificationEvents, ViewF3D_H LayerTimeTempHistory, double deltax,
-                           double NMax, double dTN, double dTsigma, int &NextLayer_FirstNucleatedGrainID,
-                           int &PossibleNuclei_ThisRank, ViewI_H NucleationTimes, ViewI_H NucleiLocation,
-                           ViewI_H NucleiGrainID, int ZBound_Low) {
+void GrainNucleiInitRemelt(int layernumber, int MyXSlices, int MyYSlices, int nzActive, int id, int np,
+                           ViewI_H CellType, ViewI_H CritTimeStep, ViewI_H NumberOfSolidificationEvents,
+                           ViewF3D_H LayerTimeTempHistory, double deltax, double NMax, double dTN, double dTsigma,
+                           int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, ViewI_H NucleationTimes,
+                           ViewI_H NucleiLocation, ViewI_H NucleiGrainID, int ZBound_Low) {
 
     // All cells are either solid (if solidification data) or wall (no data) at the start of the layer
     int SolidCellCount_ThisRank = 0;
@@ -2638,11 +2645,11 @@ void GrainNucleiInitRemelt(int layernumber, int MyXSlices, int MyYSlices, int nz
     else {
         FirstNucleatedGID_Rank0 = NextLayer_FirstNucleatedGrainID;
     }
-    
+
     if (id == 0)
         std::cout << "Number of potential nucleated grains in layer " << layernumber << ": " << TotalNucleatedGrains
                   << " , starting with grain id " << FirstNucleatedGID_Rank0 << std::endl;
-    
+
     int MyFirstNGrainID; // First GrainID for nuclei on this rank, for this layer
     if (np > 1) {
         // Assign GrainIDs for nucleated grains (negative values)
@@ -3278,9 +3285,10 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
 
 //*****************************************************************************/
 // Set up bounds for "active" region of simulation for the next layer (layer "layernumber")
-void DomainShiftAndResize(std::string SimulationType, int id, int MyXSlices, int MyYSlices, int &ZBound_Low, int &ZBound_High,
-                          float ZMin, float* ZMinLayer, float* ZMaxLayer, double deltax, 
-                          int &nzActive, int nz, int SpotRadius, int &LocalActiveDomainSize, int layernumber, int LayerHeight) {
+void DomainShiftAndResize(std::string SimulationType, int id, int MyXSlices, int MyYSlices, int &ZBound_Low,
+                          int &ZBound_High, float ZMin, float *ZMinLayer, float *ZMaxLayer, double deltax,
+                          int &nzActive, int nz, int SpotRadius, int &LocalActiveDomainSize, int layernumber,
+                          int LayerHeight) {
 
     if (SimulationType == "C") {
         // Entire domain except the bottom wall (Z = 0) is considered part of the active domain
@@ -3309,18 +3317,19 @@ void DomainShiftAndResize(std::string SimulationType, int id, int MyXSlices, int
     LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
 
     if (id == 0) {
-        std::cout << "Layer " << layernumber << " : active domain height = " << nzActive << " , associated with Z = " << ZBound_Low << " through " << ZBound_High << " of the overall simulation domain" << std::endl;
-        
+        std::cout << "Layer " << layernumber << " : active domain height = " << nzActive
+                  << " , associated with Z = " << ZBound_Low << " through " << ZBound_High
+                  << " of the overall simulation domain" << std::endl;
     }
 }
 
-void ZeroInitViews(ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
-                    Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
-                    Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
-                    Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
-                    Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
-                    Buffer2D BufferSouthWestRecv) {
-    
+void ZeroInitViews(ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF DOCenter, int DecompositionStrategy,
+                   Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                   Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                   Buffer2D BufferSouthWestSend, Buffer2D BufferWestRecv, Buffer2D BufferEastRecv,
+                   Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, Buffer2D BufferNorthEastRecv,
+                   Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv, Buffer2D BufferSouthWestRecv) {
+
     // Reset active cell data structures and MPI buffers to 0 on GPUs
     // Reset active cell data structures
     Kokkos::deep_copy(DiagonalLength, 0);
@@ -3344,7 +3353,6 @@ void ZeroInitViews(ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF DOCente
         Kokkos::deep_copy(BufferSouthEastSend, 0.0);
         Kokkos::deep_copy(BufferSouthEastRecv, 0.0);
     }
-    
 }
 //*****************************************************************************/
 void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,

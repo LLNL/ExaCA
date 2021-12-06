@@ -1,30 +1,30 @@
 Test problem using alternating odd-even layers of a cross-hatching scan pattern (with large CA cell size to keep the problem tractable):
 *****
 Problem type: R
-Decomposition strategy (1 for 1D domain decomposition, 2 for simple 2D decomposition, 3 for complex 2D decomposition): 1
+Decomposition strategy: 1
 Material:Inconel625
-Cell size (microns): 2.5
-Heterogeneous nucleation density (normalized by 1*10^12 per m^3): 10
-Mean nucleation undercooling (in K): 5
+Cell size: 2.5
+Heterogeneous nucleation density: 10
+Mean nucleation undercooling: 5
 Standard deviation of nucleation undercooling: 0.5
 Path to output:./
 Output file base name:ExaCA_workflowoutput
 File of grain orientations:GrainOrientationVectors_Robert.csv
-Heat transport data mesh size (microns): 5
-Time step (microseconds): 0.3
-Substrate grain spacing (in microns): 25
+Heat transport data mesh size: 5
+Time step: 0.3
+Substrate grain spacing: 25
 Path to temperature file(s): examples/Temperatures
-Temperature filename (* glob before the name): leg.txt
+Temperature filename(s): leg.txt
 Number of temperature files: 2
-Extra set of wall cells around temperature field (used for spot melt problems, Y or N)?: N
+Extra set of wall cells in lateral domain directions: N
 Number of layers: 20
-Offset between layers (if Number of layers > 1, in cells): 6
+Offset between layers: 6
 ***Output data printing options: (Y or N) which data should be printed***
-Print Paraview vtk file of grain misorientation values (Y or N)?: N
-Print Paraview vtk file of all ExaCA data for post-processing (Y or N)?: Y
-Debug check (reduced)- Print data for main Kokkos views (CellType, LayerID, CritTimeStep) following initialization for debug check (Y or N)?: N
-Debug check (extensive) - Print data for all main data structures (CellType, GrainID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, Melted, LayerID) following initialization for debug check (Y or N)?: N
+Print file of grain misorientation values: N
+Print file of all ExaCA data: N
+Debug check (reduced): N
+Debug check (extensive): N
 ***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
-Print intermediate output frames (Y or N): N
-If printing intermediate frames, how many microseconds should separate frames: 0
-Print intermediate output even if system is unchanged from last printed file (Y or N): N
+Print intermediate output frames: N
+Increment to separate frames: 0
+Intermediate output even if system is unchanged from previous state: N

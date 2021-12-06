@@ -256,19 +256,20 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
                     // Check if any solid cells need to be melted
                     int pastMeltTime = (cycle >= MeltTimeStep(GlobalD3D1ConvPosition));
                     int atCritTime = (cycle == CritTimeStep(GlobalD3D1ConvPosition));
-                    
-                    //if (GlobalD3D1ConvPosition == 7025030)
-                    //    printf("cycle %d Cell type %d Undercooling %f \n",cycle,CellType(GlobalD3D1ConvPosition),UndercoolingCurrent(GlobalD3D1ConvPosition));
-                    
+
+                    // if (GlobalD3D1ConvPosition == 7025030)
+                    //    printf("cycle %d Cell type %d Undercooling %f
+                    //    \n",cycle,CellType(GlobalD3D1ConvPosition),UndercoolingCurrent(GlobalD3D1ConvPosition));
+
                     if ((pastMeltTime) && (!(pastCritTime)) && (cellType != Liquid)) {
                         // Keep GrainID in case this cell becomes an active cell later
                         // Cell will later become liquid - in the meantime, delete data from send buffers
                         // if this cell is in the halo region
                         CellType(GlobalD3D1ConvPosition) = TemporaryUpdate;
-                        
+
                         // Current undercooling is 0 as the cell has remelted
                         UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
-                        
+
                         // Diagonal length (which is used in ghost nodes to check if a cell is
                         if (np > 1) {
                             // Reset and send 0 values to clear buffer, as this active/solid cell has melted
@@ -463,7 +464,7 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
                                     DOCenter(DOY) = GlobalY + 0.5;
                                     DOCenter(DOZ) = GlobalZ + 0.5;
                                     if (MyGrainID == 0)
-                                        printf("GID ZERO %d %d %d \n",RankX,RankY,GlobalZ);
+                                        printf("GID ZERO %d %d %d \n", RankX, RankY, GlobalZ);
                                     // The orientation for the new grain will depend on its Grain ID
                                     int MyOrientation = GrainOrientation(((abs(MyGrainID) - 1) % NGrainOrientations));
                                     //  Calculate critical values at which this active cell leads to the activation of a
@@ -604,9 +605,10 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
             int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
             // Update local diagonal length of active cell
             double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
-//            if (cycle == 12500000) {
-//                printf("Active cell at %d (%d %d %d) has undercooling %f \n",GlobalD3D1ConvPosition,RankX,RankY,GlobalZ,UndercoolingCurrent(GlobalD3D1ConvPosition));
-//            }
+            //            if (cycle == 12500000) {
+            //                printf("Active cell at %d (%d %d %d) has undercooling %f
+            //                \n",GlobalD3D1ConvPosition,RankX,RankY,GlobalZ,UndercoolingCurrent(GlobalD3D1ConvPosition));
+            //            }
             LocU = min(210.0, LocU);
             double V = AConst * pow(LocU, 3.0) + BConst * pow(LocU, 2.0) + CConst * LocU + DConst;
             V = max(0.0, V);
@@ -1083,20 +1085,23 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
                         // If so, this cell is done solidifying for now - change to wall type to ignore until next layer
                         // (if needed)
                         CellType(GlobalD3D1ConvPosition) = Wall;
-                        //printf("Cell at %d %d %d is done, undercooling is %f \n",RankX,RankY,GlobalZ,UndercoolingChange(GlobalD3D1ConvPosition));
+                        // printf("Cell at %d %d %d is done, undercooling is %f
+                        // \n",RankX,RankY,GlobalZ,UndercoolingChange(GlobalD3D1ConvPosition));
                     }
                     else {
                         // Update MeltTimeStep, CritTimeStep, and UndercoolingChange with values for the next
                         // solidification event
-                        MeltTimeStep(GlobalD3D1ConvPosition) =
-                            (int)(LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 0));
-                        CritTimeStep(GlobalD3D1ConvPosition) =
-                            (int)(LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 1));
+                        MeltTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(
+                            D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 0));
+                        CritTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(
+                            D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 1));
                         UndercoolingChange(GlobalD3D1ConvPosition) =
                             LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 2);
-//                        if (MeltTimeStep(GlobalD3D1ConvPosition) < cycle) {
-//                            printf("This cell previously melted at %f and solidified at %f ; next is melting at %f and solidifying at %f \n",LayerTimeTempHistory(D3D1ConvPosition,SolidificationEventCounter(D3D1ConvPosition)-1,0),LayerTimeTempHistory(D3D1ConvPosition,SolidificationEventCounter(D3D1ConvPosition)-1,1),LayerTimeTempHistory(D3D1ConvPosition,SolidificationEventCounter(D3D1ConvPosition),0),LayerTimeTempHistory(D3D1ConvPosition,SolidificationEventCounter(D3D1ConvPosition),1));
-//                        }
+                        //                        if (MeltTimeStep(GlobalD3D1ConvPosition) < cycle) {
+                        //                            printf("This cell previously melted at %f and solidified at %f ;
+                        //                            next is melting at %f and solidifying at %f
+                        //                            \n",LayerTimeTempHistory(D3D1ConvPosition,SolidificationEventCounter(D3D1ConvPosition)-1,0),LayerTimeTempHistory(D3D1ConvPosition,SolidificationEventCounter(D3D1ConvPosition)-1,1),LayerTimeTempHistory(D3D1ConvPosition,SolidificationEventCounter(D3D1ConvPosition),0),LayerTimeTempHistory(D3D1ConvPosition,SolidificationEventCounter(D3D1ConvPosition),1));
+                        //                        }
                     }
                 }
             }
@@ -1222,18 +1227,16 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
     }
 }
 
-// Prints intermediate code output to stdout, checks if solidification is complete in the case of an extended data format simulation
-void IntermediateOutputAndCheck_Remelt(int id, int np, int &cycle, int MyXSlices, int MyYSlices,
-                                       int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
-                                       float XMin, float YMin, float ZMin, int DecompositionStrategy,
-                                       int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch,
-                                       ViewI CellType, ViewI_H CellType_H, ViewI_H CritTimeStep_H, ViewI MeltTimeStep,
-                                       ViewI GrainID, ViewI_H GrainID_H,
-                                       int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
-                                       ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H, ViewF_H GrainUnitVector_H,
-                                       ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
-                                       std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
-                                       int &IntermediateFileCounter) {
+// Prints intermediate code output to stdout, checks if solidification is complete in the case of an extended data
+// format simulation
+void IntermediateOutputAndCheck_Remelt(
+    int id, int np, int &cycle, int MyXSlices, int MyYSlices, int LocalActiveDomainSize, int nx, int ny, int nz,
+    int nzActive, double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
+    int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch, ViewI CellType, ViewI_H CellType_H,
+    ViewI_H CritTimeStep_H, ViewI MeltTimeStep, ViewI GrainID, ViewI_H GrainID_H, int layernumber, int, int ZBound_Low,
+    int NGrainOrientations, bool *Melted, ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H,
+    ViewF_H GrainUnitVector_H, ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
+    std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc, int &IntermediateFileCounter) {
 
     sample::ValueType CellTypeStorage;
     Kokkos::parallel_reduce(
@@ -1261,7 +1264,7 @@ void IntermediateOutputAndCheck_Remelt(int id, int np, int &cycle, int MyXSlices
     unsigned long int LocalSolidCells = CellTypeStorage.the_array[2];
     unsigned long int LocalWallCells = CellTypeStorage.the_array[3];
 
-    unsigned long int GlobalLiquidCells,GlobalActiveCells, GlobalSolidCells, GlobalWallCells;
+    unsigned long int GlobalLiquidCells, GlobalActiveCells, GlobalSolidCells, GlobalWallCells;
     MPI_Reduce(&LocalLiquidCells, &GlobalLiquidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&LocalActiveCells, &GlobalActiveCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&LocalSolidCells, &GlobalSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -1269,11 +1272,11 @@ void IntermediateOutputAndCheck_Remelt(int id, int np, int &cycle, int MyXSlices
     MPI_Reduce(&nn, &Global_nn, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if (id == 0) {
-        std::cout << "In layer number " << layernumber << " cycle = " << cycle << " Liquid cells = " << GlobalLiquidCells
+        std::cout << "In layer number " << layernumber << " cycle = " << cycle
+                  << " Liquid cells = " << GlobalLiquidCells
                   << " Active/solid cells = " << GlobalActiveCells + GlobalSolidCells
                   << " Cells finished with solidification = " << GlobalWallCells
-                  << " Number of nucleation events this layer " << Global_nn
-                  << std::endl;
+                  << " Number of nucleation events this layer " << Global_nn << std::endl;
         // Layer is done when all solid cells have become wall cells (they've finished melting and resolidifying)
         // and when all liquid cells have solidified
         if (GlobalSolidCells + GlobalLiquidCells == 0)
@@ -1296,7 +1299,8 @@ void IntermediateOutputAndCheck_Remelt(int id, int np, int &cycle, int MyXSlices
                     int GlobalZ = RankZ + ZBound_Low;
                     int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                     unsigned long int MeltTimeStep_ThisCell = (unsigned long int)(MeltTimeStep(GlobalD3D1ConvPosition));
-                    if ((LayerID(GlobalD3D1ConvPosition) == layernumber)&&(CellType(GlobalD3D1ConvPosition) != Wall)) {
+                    if ((LayerID(GlobalD3D1ConvPosition) == layernumber) &&
+                        (CellType(GlobalD3D1ConvPosition) != Wall)) {
                         if (MeltTimeStep_ThisCell < tempv) {
                             tempv = MeltTimeStep_ThisCell;
                         }

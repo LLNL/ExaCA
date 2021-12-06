@@ -39,16 +39,13 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                                 ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
                                 std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
                                 int &IntermediateFileCounter);
-void IntermediateOutputAndCheck_Remelt(int id, int np, int &cycle, int MyXSlices, int MyYSlices,
-                                       int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
-                                       float XMin, float YMin, float ZMin, int DecompositionStrategy,
-                                       int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch,
-                                       ViewI CellType, ViewI_H CellType_H, ViewI_H CritTimeStep_H, ViewI MeltTimeStep,
-                                       ViewI GrainID, ViewI_H GrainID_H, 
-                                       int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
-                                       ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H, ViewF_H GrainUnitVector_H,
-                                       ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
-                                       std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
-                                       int &IntermediateFileCounter);
+void IntermediateOutputAndCheck_Remelt(
+    int id, int np, int &cycle, int MyXSlices, int MyYSlices, int LocalActiveDomainSize, int nx, int ny, int nz,
+    int nzActive, double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
+    int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch, ViewI CellType, ViewI_H CellType_H,
+    ViewI_H CritTimeStep_H, ViewI MeltTimeStep, ViewI GrainID, ViewI_H GrainID_H, int layernumber, int, int ZBound_Low,
+    int NGrainOrientations, bool *Melted, ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H,
+    ViewF_H GrainUnitVector_H, ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
+    std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc, int &IntermediateFileCounter);
 
 #endif
