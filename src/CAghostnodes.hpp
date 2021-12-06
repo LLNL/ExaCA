@@ -27,11 +27,11 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                   Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
                   Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
                   Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
-                  Buffer2D BufferSouthWestRecv, int BufSizeX, int BufSizeY, int BufSizeZ, int ZBound_Low);
+                  Buffer2D BufferSouthWestRecv, int BufSizeX, int BufSizeY, int nzActive, int ZBound_Low);
 void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int MyXSlices, int MyYSlices, int MyXOffset,
                   int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
                   ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
                   ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int BufSizeZ, int ZBound_Low);
+                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int nzActive, int ZBound_Low);
 
 #endif

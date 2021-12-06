@@ -406,7 +406,7 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                   Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
                   Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
                   Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
-                  Buffer2D BufferSouthWestRecv, int BufSizeX, int BufSizeY, int BufSizeZ, int ZBound_Low) {
+                  Buffer2D BufferSouthWestRecv, int BufSizeX, int BufSizeY, int nzActive, int ZBound_Low) {
 
     Kokkos::fence();
     MPI_Barrier(MPI_COMM_WORLD);
@@ -416,39 +416,39 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
     std::vector<MPI_Request> RecvRequests(8, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &SendRequests[1]);
-    MPI_Isend(BufferEastSend.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_East, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferEastSend.data(), 5 * BufSizeY * nzActive, MPI_FLOAT, NeighborRank_East, 0, MPI_COMM_WORLD,
               &SendRequests[2]);
-    MPI_Isend(BufferWestSend.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_West, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferWestSend.data(), 5 * BufSizeY * nzActive, MPI_FLOAT, NeighborRank_West, 0, MPI_COMM_WORLD,
               &SendRequests[3]);
-    MPI_Isend(BufferNorthWestSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthWestSend.data(), 5 * nzActive, MPI_FLOAT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
               &SendRequests[4]);
-    MPI_Isend(BufferNorthEastSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthEastSend.data(), 5 * nzActive, MPI_FLOAT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
               &SendRequests[5]);
-    MPI_Isend(BufferSouthWestSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthWestSend.data(), 5 * nzActive, MPI_FLOAT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
               &SendRequests[6]);
-    MPI_Isend(BufferSouthEastSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthEastSend.data(), 5 * nzActive, MPI_FLOAT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
               &SendRequests[7]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &RecvRequests[1]);
-    MPI_Irecv(BufferEastRecv.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_East, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferEastRecv.data(), 5 * BufSizeY * nzActive, MPI_FLOAT, NeighborRank_East, 0, MPI_COMM_WORLD,
               &RecvRequests[2]);
-    MPI_Irecv(BufferWestRecv.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_West, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferWestRecv.data(), 5 * BufSizeY * nzActive, MPI_FLOAT, NeighborRank_West, 0, MPI_COMM_WORLD,
               &RecvRequests[3]);
-    MPI_Irecv(BufferNorthWestRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthWestRecv.data(), 5 * nzActive, MPI_FLOAT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
               &RecvRequests[4]);
-    MPI_Irecv(BufferNorthEastRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthEastRecv.data(), 5 * nzActive, MPI_FLOAT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
               &RecvRequests[5]);
-    MPI_Irecv(BufferSouthWestRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthWestRecv.data(), 5 * nzActive, MPI_FLOAT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
               &RecvRequests[6]);
-    MPI_Irecv(BufferSouthEastRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthEastRecv.data(), 5 * nzActive, MPI_FLOAT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
               &RecvRequests[7]);
 
     // unpack in any order
@@ -466,13 +466,13 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
         else {
             int RecvBufSize;
             if (unpack_index <= 1) {
-                RecvBufSize = BufSizeX * BufSizeZ;
+                RecvBufSize = BufSizeX * nzActive;
             }
             else if (unpack_index >= 4) {
-                RecvBufSize = BufSizeZ;
+                RecvBufSize = nzActive;
             }
             else {
-                RecvBufSize = BufSizeY * BufSizeZ;
+                RecvBufSize = BufSizeY * nzActive;
             }
             Kokkos::parallel_for(
                 "BufferUnpack", RecvBufSize, KOKKOS_LAMBDA(const int &BufPosition) {
@@ -745,21 +745,21 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                   int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
                   ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
                   ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int BufSizeZ, int ZBound_Low) {
+                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int nzActive, int ZBound_Low) {
 
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &SendRequests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &RecvRequests[1]);
 
     // unpack in any order
@@ -774,7 +774,7 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
         }
         // Otherwise unpack the next buffer.
         else {
-            int RecvBufSize = BufSizeX * BufSizeZ;
+            int RecvBufSize = BufSizeX * nzActive;
             Kokkos::parallel_for(
                 "BufferUnpack", RecvBufSize, KOKKOS_LAMBDA(const int &BufPosition) {
                     int RankX, RankY, RankZ, NewGrainID, GlobalZ, GlobalCellLocation;

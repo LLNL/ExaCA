@@ -278,33 +278,31 @@ void RunExaCA(int id, int np, std::string InputFile) {
     int cycle;
 
     // Buffers for ghost node data (fixed size)
-    int BufSizeX, BufSizeY, BufSizeZ;
+    int BufSizeX, BufSizeY;
     if (DecompositionStrategy == 1) {
         BufSizeX = MyXSlices;
         BufSizeY = 0;
-        BufSizeZ = nzActive;
     }
     else {
         BufSizeX = MyXSlices - 2;
         BufSizeY = MyYSlices - 2;
-        BufSizeZ = nzActive;
     }
-    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferEastSend"), BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferWestSend"), BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferNorthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastSend"), BufSizeZ, 5);
-    Buffer2D BufferNorthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestSend"), BufSizeZ, 5);
-    Buffer2D BufferSouthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastSend"), BufSizeZ, 5);
-    Buffer2D BufferSouthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestSend"), BufSizeZ, 5);
-    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferEastRecv"), BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferWestRecv"), BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferNorthEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastRecv"), BufSizeZ, 5);
-    Buffer2D BufferNorthWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestRecv"), BufSizeZ, 5);
-    Buffer2D BufferSouthEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastRecv"), BufSizeZ, 5);
-    Buffer2D BufferSouthWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestRecv"), BufSizeZ, 5);
+    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX * nzActive, 5);
+    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX * nzActive, 5);
+    Buffer2D BufferEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferEastSend"), BufSizeY * nzActive, 5);
+    Buffer2D BufferWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferWestSend"), BufSizeY * nzActive, 5);
+    Buffer2D BufferNorthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastSend"), nzActive, 5);
+    Buffer2D BufferNorthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestSend"), nzActive, 5);
+    Buffer2D BufferSouthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastSend"), nzActive, 5);
+    Buffer2D BufferSouthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestSend"), nzActive, 5);
+    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSizeX * nzActive, 5);
+    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSizeX * nzActive, 5);
+    Buffer2D BufferEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferEastRecv"), BufSizeY * nzActive, 5);
+    Buffer2D BufferWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferWestRecv"), BufSizeY * nzActive, 5);
+    Buffer2D BufferNorthEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastRecv"), nzActive, 5);
+    Buffer2D BufferNorthWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestRecv"), nzActive, 5);
+    Buffer2D BufferSouthEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastRecv"), nzActive, 5);
+    Buffer2D BufferSouthWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestRecv"), nzActive, 5);
 
     // Copy view data to GPU
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
@@ -417,7 +415,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
                                  MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G,
                                  GrainUnitVector_G, GrainOrientation_G, DiagonalLength_G, CritDiagonalLength_G,
                                  NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv,
-                                 BufSizeX, BufSizeY, BufSizeZ, ZBound_Low);
+                                 BufSizeX, BufSizeY, nzActive, ZBound_Low);
                 else
                     GhostNodes2D(cycle, id, NeighborRank_North, NeighborRank_South, NeighborRank_East,
                                  NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
@@ -428,7 +426,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
                                  BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend,
                                  BufferWestRecv, BufferEastRecv, BufferNorthRecv, BufferSouthRecv, BufferNorthEastRecv,
                                  BufferNorthWestRecv, BufferSouthEastRecv, BufferSouthWestRecv, BufSizeX, BufSizeY,
-                                 BufSizeZ, ZBound_Low);
+                                 nzActive, ZBound_Low);
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
@@ -451,24 +449,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
                         UndercoolingChange_H, UndercoolingCurrent_H, PathToOutput, OutputFile,
                         PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter);
             }
-            //            if (cycle == 12500000) {
-            //                Kokkos::deep_copy(GrainID_H, GrainID_G);
-            //                Kokkos::deep_copy(CellType_H, CellType_G);
-            //                Kokkos::deep_copy(CritTimeStep_H, CritTimeStep_G);
-            //                Kokkos::deep_copy(UndercoolingCurrent_H, UndercoolingCurrent_G);
-            //                Kokkos::deep_copy(UndercoolingChange_H, UndercoolingChange_G);
-            //                PrintExaCAData(id, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
-            //                ProcessorsInYDirection,
-            //                               GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
-            //                               LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H,
-            //                               OutputFile, DecompositionStrategy, NGrainOrientations, Melted,
-            //                               PathToOutput, PrintDebug, true, false);
-            //                MPI_Barrier(MPI_COMM_WORLD);
-            //                if (id == 0)
-            //                    std::cout << "Debug file printed" << std::endl;
-            //                XSwitch = 1;
-            //            }
-
+            
         } while (XSwitch == 0);
 
         if (layernumber != NumberOfLayers - 1) {
@@ -490,23 +471,23 @@ void RunExaCA(int id, int np, std::string InputFile) {
             Kokkos::resize(DOCenter_G, 3 * LocalActiveDomainSize);
             Kokkos::resize(CritDiagonalLength_G, 26 * LocalActiveDomainSize);
 
-            Kokkos::resize(BufferNorthSend, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferSouthSend, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferEastSend, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferWestSend, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferNorthEastSend, BufSizeZ, 5);
-            Kokkos::resize(BufferNorthWestSend, BufSizeZ, 5);
-            Kokkos::resize(BufferSouthEastSend, BufSizeZ, 5);
-            Kokkos::resize(BufferSouthWestSend, BufSizeZ, 5);
+            Kokkos::resize(BufferNorthSend, BufSizeX * nzActive, 5);
+            Kokkos::resize(BufferSouthSend, BufSizeX * nzActive, 5);
+            Kokkos::resize(BufferEastSend, BufSizeY * nzActive, 5);
+            Kokkos::resize(BufferWestSend, BufSizeY * nzActive, 5);
+            Kokkos::resize(BufferNorthEastSend, nzActive, 5);
+            Kokkos::resize(BufferNorthWestSend, nzActive, 5);
+            Kokkos::resize(BufferSouthEastSend, nzActive, 5);
+            Kokkos::resize(BufferSouthWestSend, nzActive, 5);
 
-            Kokkos::resize(BufferNorthRecv, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferSouthRecv, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferEastRecv, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferWestRecv, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferNorthEastRecv, BufSizeZ, 5);
-            Kokkos::resize(BufferNorthWestRecv, BufSizeZ, 5);
-            Kokkos::resize(BufferSouthEastRecv, BufSizeZ, 5);
-            Kokkos::resize(BufferSouthWestRecv, BufSizeZ, 5);
+            Kokkos::resize(BufferNorthRecv, BufSizeX * nzActive, 5);
+            Kokkos::resize(BufferSouthRecv, BufSizeX * nzActive, 5);
+            Kokkos::resize(BufferEastRecv, BufSizeY * nzActive, 5);
+            Kokkos::resize(BufferWestRecv, BufSizeY * nzActive, 5);
+            Kokkos::resize(BufferNorthEastRecv, nzActive, 5);
+            Kokkos::resize(BufferNorthWestRecv, nzActive, 5);
+            Kokkos::resize(BufferSouthEastRecv, nzActive, 5);
+            Kokkos::resize(BufferSouthWestRecv, nzActive, 5);
 
             // Re-zero views for active cell data structures/buffers on GPU
             ZeroInitViews(DiagonalLength_G, CritDiagonalLength_G, DOCenter_G, DecompositionStrategy, BufferWestSend,
@@ -583,7 +564,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0)
                 std::cout << "Resize executed and new layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY
-                          << " " << BufSizeZ << std::endl;
+                          << " " << nzActive << std::endl;
 
             // Update ghost nodes for grain locations and attributes
             MPI_Barrier(MPI_COMM_WORLD);
