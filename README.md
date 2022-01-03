@@ -148,7 +148,7 @@ ExaCA-Kokkos runs using an input file, passed on the command line. Example probl
  * `Inp_SpotMelt.txt`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate
  * `Inp_SmallSpotMelt.txt`: a smaller and simpler version of the previous
 
-Example problems only possible with external data:
+Example problems only possible with external data (available via https://github.com/LLNL/ExaCA-Data):
  * `Inp_AMBenchMultilayer.txt`: simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
  * `Inp_SimpleRaster.txt`: simulates a single layer consisting of four overlapping melt pools
 
