@@ -21,7 +21,7 @@ Number of layers: 20
 Offset between layers: 6
 ***Output data printing options: (Y or N) which data should be printed***
 Print file of grain misorientation values: N
-Print file of all ExaCA data: N
+Print file of all ExaCA data: Y
 Debug check (reduced): N
 Debug check (extensive): N
 ***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
