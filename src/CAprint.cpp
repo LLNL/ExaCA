@@ -258,11 +258,12 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
 
         if (PrintMisorientation)
             PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain,
-                                      GrainOrientation, GrainUnitVector, NGrainOrientations);
+                                      GrainOrientation, GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
         if ((PrintFullOutput) || (PrintDebug > 0))
             PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
-                          Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput);
+                          Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput, deltax, XMin,
+                          YMin, ZMin);
         if (PrintTimeSeries)
             PrintIntermediateExaCAState(IntermediateFileCounter, layernumber, BaseFileName, PathToOutput, ZBound_Low,
                                         nzActive, nx, ny, GrainID_WholeDomain, CellType_WholeDomain, GrainOrientation,
@@ -297,7 +298,7 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
                    ViewI3D_H CritTimeStep_WholeDomain, ViewI3D_H CellType_WholeDomain,
                    ViewF3D_H UndercoolingChange_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain,
                    ViewI3D_H Melted_WholeDomain, std::string PathToOutput, std::string BaseFileName, int PrintDebug,
-                   bool PrintFullOutput) {
+                   bool PrintFullOutput, double deltax, float XMin, float YMin, float ZMin) {
 
     std::string FName;
     if (PrintFullOutput) {
@@ -316,8 +317,8 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
     Grainplot << "ASCII" << std::endl;
     Grainplot << "DATASET STRUCTURED_POINTS" << std::endl;
     Grainplot << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
-    Grainplot << "ORIGIN 0 0 0" << std::endl;
-    Grainplot << "SPACING 1 1 1" << std::endl;
+    Grainplot << "ORIGIN " << XMin - deltax << " " << YMin - deltax << " " << ZMin - deltax << std::endl;
+    Grainplot << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
     Grainplot << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
     // Print Layer ID data
     Grainplot << "SCALARS LayerID int 1" << std::endl;
@@ -408,7 +409,8 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
 // Print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview file
 void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H Melted_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewI_H GrainOrientation,
-                               ViewF_H GrainUnitVector, int NGrainOrientations) {
+                               ViewF_H GrainUnitVector, int NGrainOrientations, double deltax, float XMin, float YMin,
+                               float ZMin) {
 
     std::string FName = PathToOutput + BaseFileName + "_Misorientations.vtk";
     std::cout << "Printing Paraview file of grain misorientations" << std::endl;
@@ -421,8 +423,8 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     GrainplotM << "ASCII" << std::endl;
     GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
     GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 1 << std::endl;
-    GrainplotM << "ORIGIN 0 0 0" << std::endl;
-    GrainplotM << "SPACING 1 1 1" << std::endl;
+    GrainplotM << "ORIGIN " << XMin - deltax << " " << YMin - deltax << " " << ZMin - deltax << std::endl;
+    GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
     GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 1) << std::endl;
     GrainplotM << "SCALARS Angle_z int 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
