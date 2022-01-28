@@ -317,6 +317,8 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
     Grainplot << "ASCII" << std::endl;
     Grainplot << "DATASET STRUCTURED_POINTS" << std::endl;
     Grainplot << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
+    // The CA domain is technically 2 cells bigger than the temperature field in all dimensions (except the top surface)
+    // The start of the data in X, Y, Z is actually the XMin, YMin, ZMin from the temperature file minus 1 cell size
     Grainplot << "ORIGIN " << XMin - deltax << " " << YMin - deltax << " " << ZMin - deltax << std::endl;
     Grainplot << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
     Grainplot << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
@@ -423,6 +425,8 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     GrainplotM << "ASCII" << std::endl;
     GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
     GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 1 << std::endl;
+    // The CA domain is technically 2 cells bigger than the temperature field in all dimensions (except the top surface)
+    // The start of the data in X, Y, Z is actually the XMin, YMin, ZMin from the temperature file minus 1 cell size
     GrainplotM << "ORIGIN " << XMin - deltax << " " << YMin - deltax << " " << ZMin - deltax << std::endl;
     GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
     GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 1) << std::endl;
@@ -626,6 +630,8 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
     GrainplotM << "ASCII" << std::endl;
     GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
     GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << ZPrintSize << std::endl;
+    // The CA domain is technically 2 cells bigger than the temperature field in all dimensions (except the top surface)
+    // The start of the data in X, Y, Z is actually the XMin, YMin, ZMin from the temperature file minus 1 cell size
     GrainplotM << "ORIGIN " << XMin - deltax << " " << YMin - deltax << " " << ZMin - deltax << std::endl;
     GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
     GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * ZPrintSize << std::endl;
