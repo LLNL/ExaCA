@@ -49,10 +49,11 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
                    ViewI3D_H CritTimeStep_WholeDomain, ViewI3D_H CellType_WholeDomain,
                    ViewF3D_H UndercoolingChange_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain,
                    ViewI3D_H Melted_WholeDomain, std::string PathToOutput, std::string BaseFileName, int PrintDebug,
-                   bool PrintFullOutput);
+                   bool PrintFullOutput, double deltax, float XMin, float YMin, float ZMin);
 void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H Melted_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewI_H GrainOrientation,
-                               ViewF_H GrainUnitVector, int NGrainOrientations);
+                               ViewF_H GrainUnitVector, int NGrainOrientations, double deltax, float XMin, float YMin,
+                               float ZMin);
 void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, std::string BaseFileName,
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain,
