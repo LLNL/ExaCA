@@ -19,7 +19,7 @@
 void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double NuclTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
     double StartNuclTime, StartCaptureTime, StartGhostTime;
-    double StartTime = MPI_Wtime();
+    double StartInitTime = MPI_Wtime();
 
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius;
@@ -280,7 +280,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     }
 
     // If specified, print initial values in some views for debugging purposes
-    double InitTime = MPI_Wtime() - StartTime;
+    double InitTime = MPI_Wtime() - StartInitTime;
     if (id == 0)
         std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
     if (PrintDebug) {
@@ -295,6 +295,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     }
     cycle = 0;
     int IntermediateFileCounter = 0;
+    double StartRunTime = MPI_Wtime();
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
 
         int nn = 0; // Counter for the number of nucleation events
@@ -453,7 +454,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         }
     }
 
-    double RunTime = MPI_Wtime() - InitTime;
+    double RunTime = MPI_Wtime() - StartRunTime;
+    double StartOutTime = MPI_Wtime();
 
     // Copy GPU results for GrainID back to CPU for printing to file(s)
     Kokkos::deep_copy(GrainID_H, GrainID_G);
@@ -474,7 +476,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             std::cout << "No output files to be printed, exiting program" << std::endl;
     }
 
-    double OutTime = MPI_Wtime() - RunTime - InitTime;
+    double OutTime = MPI_Wtime() - StartOutTime;
     double InitMaxTime, InitMinTime, OutMaxTime, OutMinTime = 0.0;
     double NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime = 0.0;
     MPI_Allreduce(&InitTime, &InitMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
