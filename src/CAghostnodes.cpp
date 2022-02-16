@@ -15,7 +15,7 @@
 void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North, int NeighborRank_South,
                     int NeighborRank_East, int NeighborRank_West, int NeighborRank_NorthEast,
                     int NeighborRank_NorthWest, int NeighborRank_SouthEast, int NeighborRank_SouthWest, int MyXSlices,
-                    int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive,
+                    int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive, int nz,
                     int LocalActiveDomainSize, int NGrainOrientations, ViewI NeighborX, ViewI NeighborY,
                     ViewI NeighborZ, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI GrainID, ViewI CellType,
                     ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength) {
@@ -23,73 +23,72 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
     // Fill buffers with ghost node data following initialization of data on GPUs
     // Similar to the calls to GhostNodes1D/GhostNodes2D, but the information sent/received in the halo regions is
     // different Need to send and receive cell type data, grain id data from other ranks
-    Buffer3D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), MyXSlices, nzActive, 2);
-    Buffer3D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), MyXSlices, nzActive, 2);
-    Buffer3D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), MyXSlices, nzActive, 2);
-    Buffer3D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), MyXSlices, nzActive, 2);
+    // Need to send and receive data for the entire domain height in Z, as powder layer grains were not initialized in the ghost nodes
+    Buffer3D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), MyXSlices, nz, 2);
+    Buffer3D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), MyXSlices, nz, 2);
+    Buffer3D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), MyXSlices, nz, 2);
+    Buffer3D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), MyXSlices, nz, 2);
 
     Buffer3D BufferWestSend, BufferEastSend, BufferWestRecv, BufferEastRecv;
     Buffer2D BufferNorthEastSend, BufferNorthWestSend, BufferSouthWestSend, BufferSouthEastSend;
     Buffer2D BufferNorthEastRecv, BufferNorthWestRecv, BufferSouthWestRecv, BufferSouthEastRecv;
     if (DecompositionStrategy > 1) {
-        BufferWestSend = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferWestSend"), MyYSlices, nzActive, 2);
-        BufferEastSend = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferEastSend"), MyYSlices, nzActive, 2);
-        BufferNorthEastSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastSend"), nzActive, 2);
-        BufferNorthWestSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestSend"), nzActive, 2);
-        BufferSouthWestSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestSend"), nzActive, 2);
-        BufferSouthEastSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastSend"), nzActive, 2);
-        BufferWestRecv = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferWestRecv"), MyYSlices, nzActive, 2);
-        BufferEastRecv = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferEastRecv"), MyYSlices, nzActive, 2);
-        BufferNorthEastRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastRecv"), nzActive, 2);
-        BufferNorthWestRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestRecv"), nzActive, 2);
-        BufferSouthWestRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestRecv"), nzActive, 2);
-        BufferSouthEastRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastRecv"), nzActive, 2);
+        BufferWestSend = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferWestSend"), MyYSlices, nz, 2);
+        BufferEastSend = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferEastSend"), MyYSlices, nz, 2);
+        BufferNorthEastSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastSend"), nz, 2);
+        BufferNorthWestSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestSend"), nz, 2);
+        BufferSouthWestSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestSend"), nz, 2);
+        BufferSouthEastSend = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastSend"), nz, 2);
+        BufferWestRecv = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferWestRecv"), MyYSlices, nz, 2);
+        BufferEastRecv = Buffer3D(Kokkos::ViewAllocateWithoutInitializing("BufferEastRecv"), MyYSlices, nz, 2);
+        BufferNorthEastRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastRecv"), nz, 2);
+        BufferNorthWestRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestRecv"), nz, 2);
+        BufferSouthWestRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestRecv"), nz, 2);
+        BufferSouthEastRecv = Buffer2D(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastRecv"), nz, 2);
     }
 
     // Load send buffers
     Kokkos::parallel_for(
-        "GNInit", LocalActiveDomainSize, KOKKOS_LAMBDA(const long int &D3D1ConvPosition) {
-            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+        "GNInit", MyXSlices * MyYSlices * nz, KOKKOS_LAMBDA(const long int &D3D1ConvPositionGlobal) {
+            int GlobalZ = D3D1ConvPositionGlobal / (MyXSlices * MyYSlices);
+            int Rem = D3D1ConvPositionGlobal % (MyXSlices * MyYSlices);
             int RankX = Rem / MyYSlices;
             int RankY = Rem % MyYSlices;
-            int GlobalZ = RankZ + ZBound_Low;
-            int D3D1ConvPositionGlobal = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
             int GhostGID = GrainID(D3D1ConvPositionGlobal);
             int GhostCT = CellType(D3D1ConvPositionGlobal);
             // Collect data for the ghost nodes:
             if (RankY == 1) {
-                BufferSouthSend(RankX, RankZ, 0) = GhostGID;
-                BufferSouthSend(RankX, RankZ, 1) = GhostCT;
+                BufferSouthSend(RankX, GlobalZ, 0) = GhostGID;
+                BufferSouthSend(RankX, GlobalZ, 1) = GhostCT;
             }
             else if (RankY == MyYSlices - 2) {
-                BufferNorthSend(RankX, RankZ, 0) = GhostGID;
-                BufferNorthSend(RankX, RankZ, 1) = GhostCT;
+                BufferNorthSend(RankX, GlobalZ, 0) = GhostGID;
+                BufferNorthSend(RankX, GlobalZ, 1) = GhostCT;
             }
             if (DecompositionStrategy > 1) {
                 if (RankX == MyXSlices - 2) {
-                    BufferEastSend(RankY, RankZ, 0) = GhostGID;
-                    BufferEastSend(RankY, RankZ, 1) = GhostCT;
+                    BufferEastSend(RankY, GlobalZ, 0) = GhostGID;
+                    BufferEastSend(RankY, GlobalZ, 1) = GhostCT;
                 }
                 else if (RankX == 1) {
-                    BufferWestSend(RankY, RankZ, 0) = GhostGID;
-                    BufferWestSend(RankY, RankZ, 1) = GhostCT;
+                    BufferWestSend(RankY, GlobalZ, 0) = GhostGID;
+                    BufferWestSend(RankY, GlobalZ, 1) = GhostCT;
                 }
                 if ((RankY == 1) && (RankX == 1)) {
-                    BufferSouthWestSend(RankZ, 0) = GhostGID;
-                    BufferSouthWestSend(RankZ, 1) = GhostCT;
+                    BufferSouthWestSend(GlobalZ, 0) = GhostGID;
+                    BufferSouthWestSend(GlobalZ, 1) = GhostCT;
                 }
                 else if ((RankY == 1) && (RankX == MyXSlices - 2)) {
-                    BufferSouthEastSend(RankZ, 0) = GhostGID;
-                    BufferSouthEastSend(RankZ, 1) = GhostCT;
+                    BufferSouthEastSend(GlobalZ, 0) = GhostGID;
+                    BufferSouthEastSend(GlobalZ, 1) = GhostCT;
                 }
                 else if ((RankY == MyYSlices - 2) && (RankX == MyXSlices - 2)) {
-                    BufferNorthEastSend(RankZ, 0) = GhostGID;
-                    BufferNorthEastSend(RankZ, 1) = GhostCT;
+                    BufferNorthEastSend(GlobalZ, 0) = GhostGID;
+                    BufferNorthEastSend(GlobalZ, 1) = GhostCT;
                 }
                 else if ((RankY == MyYSlices - 2) && (RankX == 1)) {
-                    BufferNorthWestSend(RankZ, 0) = GhostGID;
-                    BufferNorthWestSend(RankZ, 1) = GhostCT;
+                    BufferNorthWestSend(GlobalZ, 0) = GhostGID;
+                    BufferNorthWestSend(GlobalZ, 1) = GhostCT;
                 }
             }
         });
@@ -104,42 +103,42 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
     std::vector<MPI_Request> RecvRequests(NumberOfSends, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), 2 * MyXSlices * nzActive, MPI_INT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthSend.data(), 2 * MyXSlices * nz, MPI_INT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), 2 * MyXSlices * nzActive, MPI_INT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthSend.data(), 2 * MyXSlices * nz, MPI_INT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &SendRequests[1]);
     if (DecompositionStrategy > 1) {
-        MPI_Isend(BufferEastSend.data(), 2 * MyYSlices * nzActive, MPI_INT, NeighborRank_East, 0, MPI_COMM_WORLD,
+        MPI_Isend(BufferEastSend.data(), 2 * MyYSlices * nz, MPI_INT, NeighborRank_East, 0, MPI_COMM_WORLD,
                   &SendRequests[2]);
-        MPI_Isend(BufferWestSend.data(), 2 * MyYSlices * nzActive, MPI_INT, NeighborRank_West, 0, MPI_COMM_WORLD,
+        MPI_Isend(BufferWestSend.data(), 2 * MyYSlices * nz, MPI_INT, NeighborRank_West, 0, MPI_COMM_WORLD,
                   &SendRequests[3]);
-        MPI_Isend(BufferNorthWestSend.data(), 2 * nzActive, MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+        MPI_Isend(BufferNorthWestSend.data(), 2 * nz, MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
                   &SendRequests[4]);
-        MPI_Isend(BufferNorthEastSend.data(), 2 * nzActive, MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+        MPI_Isend(BufferNorthEastSend.data(), 2 * nz, MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
                   &SendRequests[5]);
-        MPI_Isend(BufferSouthWestSend.data(), 2 * nzActive, MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+        MPI_Isend(BufferSouthWestSend.data(), 2 * nz, MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
                   &SendRequests[6]);
-        MPI_Isend(BufferSouthEastSend.data(), 2 * nzActive, MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+        MPI_Isend(BufferSouthEastSend.data(), 2 * nz, MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
                   &SendRequests[7]);
     }
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), 2 * MyXSlices * nzActive, MPI_INT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthRecv.data(), 2 * MyXSlices * nz, MPI_INT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), 2 * MyXSlices * nzActive, MPI_INT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthRecv.data(), 2 * MyXSlices * nz, MPI_INT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &RecvRequests[1]);
     if (DecompositionStrategy > 1) {
-        MPI_Irecv(BufferEastRecv.data(), 2 * MyYSlices * nzActive, MPI_INT, NeighborRank_East, 0, MPI_COMM_WORLD,
+        MPI_Irecv(BufferEastRecv.data(), 2 * MyYSlices * nz, MPI_INT, NeighborRank_East, 0, MPI_COMM_WORLD,
                   &RecvRequests[2]);
-        MPI_Irecv(BufferWestRecv.data(), 2 * MyYSlices * nzActive, MPI_INT, NeighborRank_West, 0, MPI_COMM_WORLD,
+        MPI_Irecv(BufferWestRecv.data(), 2 * MyYSlices * nz, MPI_INT, NeighborRank_West, 0, MPI_COMM_WORLD,
                   &RecvRequests[3]);
-        MPI_Irecv(BufferNorthWestRecv.data(), 2 * nzActive, MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+        MPI_Irecv(BufferNorthWestRecv.data(), 2 * nz, MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
                   &RecvRequests[4]);
-        MPI_Irecv(BufferNorthEastRecv.data(), 2 * nzActive, MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+        MPI_Irecv(BufferNorthEastRecv.data(), 2 * nz, MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
                   &RecvRequests[5]);
-        MPI_Irecv(BufferSouthWestRecv.data(), 2 * nzActive, MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+        MPI_Irecv(BufferSouthWestRecv.data(), 2 * nz, MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
                   &RecvRequests[6]);
-        MPI_Irecv(BufferSouthEastRecv.data(), 2 * nzActive, MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+        MPI_Irecv(BufferSouthEastRecv.data(), 2 * nz, MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
                   &RecvRequests[7]);
     }
 
@@ -157,9 +156,8 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
         // Otherwise unpack the next buffer.
         else {
             Kokkos::parallel_for(
-                "BufferUnpack", nzActive, KOKKOS_LAMBDA(const int &RankZ) {
+                "BufferUnpack", nz, KOKKOS_LAMBDA(const int &GlobalZ) {
                     int RankX, RankY;
-                    int GlobalZ = RankZ + ZBound_Low;
 
                     // Which rank was the data received from?
                     if (((unpack_index == 0) && (NeighborRank_South != MPI_PROC_NULL)) ||
@@ -181,12 +179,12 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                         for (int RankX = XIterationRangeStart; RankX < XIterationRangeEnd; RankX++) {
                             int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                             if (unpack_index == 0) {
-                                GrainID(GlobalCellLocation) = BufferSouthRecv(RankX, RankZ, 0);
-                                CellType(GlobalCellLocation) = BufferSouthRecv(RankX, RankZ, 1);
+                                GrainID(GlobalCellLocation) = BufferSouthRecv(RankX, GlobalZ, 0);
+                                CellType(GlobalCellLocation) = BufferSouthRecv(RankX, GlobalZ, 1);
                             }
                             else {
-                                GrainID(GlobalCellLocation) = BufferNorthRecv(RankX, RankZ, 0);
-                                CellType(GlobalCellLocation) = BufferNorthRecv(RankX, RankZ, 1);
+                                GrainID(GlobalCellLocation) = BufferNorthRecv(RankX, GlobalZ, 0);
+                                CellType(GlobalCellLocation) = BufferNorthRecv(RankX, GlobalZ, 1);
                             }
                             if (CellType(GlobalCellLocation) == Active) {
                                 // Mark cell for later placement of octahedra, critical diagonal length calculations
@@ -207,12 +205,12 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                         for (int RankY = 1; RankY < MyYSlices - 1; RankY++) {
                             int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                             if (unpack_index == 2) {
-                                GrainID(GlobalCellLocation) = BufferEastRecv(RankY, RankZ, 0);
-                                CellType(GlobalCellLocation) = BufferEastRecv(RankY, RankZ, 1);
+                                GrainID(GlobalCellLocation) = BufferEastRecv(RankY, GlobalZ, 0);
+                                CellType(GlobalCellLocation) = BufferEastRecv(RankY, GlobalZ, 1);
                             }
                             else {
-                                GrainID(GlobalCellLocation) = BufferWestRecv(RankY, RankZ, 0);
-                                CellType(GlobalCellLocation) = BufferWestRecv(RankY, RankZ, 1);
+                                GrainID(GlobalCellLocation) = BufferWestRecv(RankY, GlobalZ, 0);
+                                CellType(GlobalCellLocation) = BufferWestRecv(RankY, GlobalZ, 1);
                             }
                             if (CellType(GlobalCellLocation) == Active) {
                                 // Mark cell for later placement of octahedra, critical diagonal length calculations
@@ -226,8 +224,8 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                             RankX = 0;
                             RankY = MyYSlices - 1;
                             int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                            GrainID(GlobalCellLocation) = BufferNorthWestRecv(RankZ, 0);
-                            CellType(GlobalCellLocation) = BufferNorthWestRecv(RankZ, 1);
+                            GrainID(GlobalCellLocation) = BufferNorthWestRecv(GlobalZ, 0);
+                            CellType(GlobalCellLocation) = BufferNorthWestRecv(GlobalZ, 1);
                             // Mark cell for later placement of octahedra, critical diagonal length calculations
                             if (CellType(GlobalCellLocation) == Active)
                                 CellType(GlobalCellLocation) = Ghost;
@@ -237,8 +235,8 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                             RankX = MyXSlices - 1;
                             RankY = MyYSlices - 1;
                             int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                            GrainID(GlobalCellLocation) = BufferNorthEastRecv(RankZ, 0);
-                            CellType(GlobalCellLocation) = BufferNorthEastRecv(RankZ, 1);
+                            GrainID(GlobalCellLocation) = BufferNorthEastRecv(GlobalZ, 0);
+                            CellType(GlobalCellLocation) = BufferNorthEastRecv(GlobalZ, 1);
                             // Mark cell for later placement of octahedra, critical diagonal length calculations
                             if (CellType(GlobalCellLocation) == Active)
                                 CellType(GlobalCellLocation) = Ghost;
@@ -248,8 +246,8 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                             RankX = 0;
                             RankY = 0;
                             int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                            GrainID(GlobalCellLocation) = BufferSouthWestRecv(RankZ, 0);
-                            CellType(GlobalCellLocation) = BufferSouthWestRecv(RankZ, 1);
+                            GrainID(GlobalCellLocation) = BufferSouthWestRecv(GlobalZ, 0);
+                            CellType(GlobalCellLocation) = BufferSouthWestRecv(GlobalZ, 1);
                             // Mark cell for later placement of octahedra, critical diagonal length calculations
                             if (CellType(GlobalCellLocation) == Active)
                                 CellType(GlobalCellLocation) = Ghost;
@@ -259,8 +257,8 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                             RankX = MyXSlices - 1;
                             RankY = 0;
                             int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                            GrainID(GlobalCellLocation) = BufferSouthEastRecv(RankZ, 0);
-                            CellType(GlobalCellLocation) = BufferSouthEastRecv(RankZ, 1);
+                            GrainID(GlobalCellLocation) = BufferSouthEastRecv(GlobalZ, 0);
+                            CellType(GlobalCellLocation) = BufferSouthEastRecv(GlobalZ, 1);
                             // Mark cell for later placement of octahedra, critical diagonal length calculations
                             if (CellType(GlobalCellLocation) == Active)
                                 CellType(GlobalCellLocation) = Ghost;
@@ -276,118 +274,112 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
     // Octahedra for active cells that were marked in the previous loop, initially have centers aligned with cell
     // centers, Diagonal lengths of 0.01
     Kokkos::parallel_for(
-        "GNInit", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &CellLocation) {
-            int RankZ = CellLocation / (MyXSlices * MyYSlices);
-            int Rem = CellLocation % (MyXSlices * MyYSlices);
+        "GNInit", MyXSlices * MyYSlices * nz, KOKKOS_LAMBDA(const int &GlobalCellLocation) {
+            int GlobalZ = GlobalCellLocation / (MyXSlices * MyYSlices);
+            int Rem = GlobalCellLocation % (MyXSlices * MyYSlices);
             int RankX = Rem / MyYSlices;
             int RankY = Rem % MyYSlices;
-            int GlobalZ = RankZ + ZBound_Low;
-            int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            int RankZ = GlobalZ - ZBound_Low;
+            int LocalCellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
             if (CellType(GlobalCellLocation) == Ghost) {
                 CellType(GlobalCellLocation) = Active;
-                DOCenter((long int)(3) * CellLocation) = RankX + MyXOffset + 0.5;
-                DOCenter((long int)(3) * CellLocation + (long int)(1)) = RankY + MyYOffset + 0.5;
-                DOCenter((long int)(3) * CellLocation + (long int)(2)) = GlobalZ + 0.5;
-                int MyOrientation = GrainOrientation(((abs(GrainID(GlobalCellLocation)) - 1) % NGrainOrientations));
-                DiagonalLength(CellLocation) = 0.01;
-                // Global coordinates of cell center
-                double xp = RankX + MyXOffset + 0.5;
-                double yp = RankY + MyYOffset + 0.5;
-                double zp = GlobalZ + 0.5;
-                // Calculate critical values at which this active cell leads to the activation of a neighboring liquid
-                // cell
-                for (int n = 0; n < 26; n++) {
+                if (GlobalZ < nzActive) {
+                    DOCenter((long int)(3) * LocalCellLocation) = RankX + MyXOffset + 0.5;
+                    DOCenter((long int)(3) * LocalCellLocation + (long int)(1)) = RankY + MyYOffset + 0.5;
+                    DOCenter((long int)(3) * LocalCellLocation + (long int)(2)) = GlobalZ + 0.5;
+                    int MyOrientation = GrainOrientation(((abs(GrainID(GlobalCellLocation)) - 1) % NGrainOrientations));
+                    DiagonalLength(LocalCellLocation) = 0.01;
+                    // Global coordinates of cell center
+                    double xp = RankX + MyXOffset + 0.5;
+                    double yp = RankY + MyYOffset + 0.5;
+                    double zp = GlobalZ + 0.5;
+                    // Calculate critical values at which this active cell leads to the activation of a neighboring liquid
+                    // cell
+                    for (int n = 0; n < 26; n++) {
 
-                    int MyNeighborX = RankX + NeighborX(n);
-                    int MyNeighborY = RankY + NeighborY(n);
-                    int MyNeighborZ = RankZ + NeighborZ(n);
-                    long int NeighborPosition =
-                        MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        int MyNeighborX = RankX + NeighborX(n);
+                        int MyNeighborY = RankY + NeighborY(n);
+                        int MyNeighborZ = RankZ + NeighborZ(n);
 
-                    if (NeighborPosition == CellLocation) {
-                        // Do not calculate critical diagonal length req'd for the newly captured cell to capture the
-                        // original
-                        CritDiagonalLength((long int)(26) * NeighborPosition + (long int)(n)) = 10000000.0;
-                    }
+                        // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the global coordinates
+                        // of the center of a neighbor cell
+                        double x0 = xp + NeighborX(n) - (RankX + MyXOffset + 0.5);
+                        double y0 = yp + NeighborY(n) - (RankY + MyYOffset + 0.5);
+                        double z0 = zp + NeighborZ(n) - (GlobalZ + 0.5);
+                        // mag0 is the magnitude of (x0,y0,z0)
+                        double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
 
-                    // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the global coordinates
-                    // of the center of a neighbor cell
-                    double x0 = xp + NeighborX(n) - (RankX + MyXOffset + 0.5);
-                    double y0 = yp + NeighborY(n) - (RankY + MyYOffset + 0.5);
-                    double z0 = zp + NeighborZ(n) - (GlobalZ + 0.5);
-                    // mag0 is the magnitude of (x0,y0,z0)
-                    double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
+                        // Calculate unit vectors for the octahedron that intersect the new cell center
+                        double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                        double Angle1 =
+                            (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                             GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                            mag0;
+                        if (Angle1 < 0) {
+                            Diag1X = GrainUnitVector(9 * MyOrientation);
+                            Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
+                            Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
+                        }
+                        else {
+                            Diag1X = -GrainUnitVector(9 * MyOrientation);
+                            Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
+                            Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
+                        }
 
-                    // Calculate unit vectors for the octahedron that intersect the new cell center
-                    double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                    double Angle1 =
-                        (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                         GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                        mag0;
-                    if (Angle1 < 0) {
-                        Diag1X = GrainUnitVector(9 * MyOrientation);
-                        Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
-                        Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
-                    }
-                    else {
-                        Diag1X = -GrainUnitVector(9 * MyOrientation);
-                        Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
-                        Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
-                    }
+                        double Angle2 =
+                            (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                             GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                            mag0;
+                        if (Angle2 < 0) {
+                            Diag2X = GrainUnitVector(9 * MyOrientation + 3);
+                            Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
+                            Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
+                        }
+                        else {
+                            Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
+                            Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
+                            Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
+                        }
 
-                    double Angle2 =
-                        (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                         GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                        mag0;
-                    if (Angle2 < 0) {
-                        Diag2X = GrainUnitVector(9 * MyOrientation + 3);
-                        Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
-                        Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
-                    }
-                    else {
-                        Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
-                        Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
-                        Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
-                    }
+                        double Angle3 =
+                            (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                             GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                            mag0;
+                        if (Angle3 < 0) {
+                            Diag3X = GrainUnitVector(9 * MyOrientation + 6);
+                            Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
+                            Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
+                        }
+                        else {
+                            Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
+                            Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
+                            Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
+                        }
 
-                    double Angle3 =
-                        (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                         GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                        mag0;
-                    if (Angle3 < 0) {
-                        Diag3X = GrainUnitVector(9 * MyOrientation + 6);
-                        Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
-                        Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
+                        double U1[3], U2[3], UU[3], Norm[3];
+                        U1[0] = Diag2X - Diag1X;
+                        U1[1] = Diag2Y - Diag1Y;
+                        U1[2] = Diag2Z - Diag1Z;
+                        U2[0] = Diag3X - Diag1X;
+                        U2[1] = Diag3Y - Diag1Y;
+                        U2[2] = Diag3Z - Diag1Z;
+                        UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                        UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                        UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                        double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                        Norm[0] = UU[0] / NDem;
+                        Norm[1] = UU[1] / NDem;
+                        Norm[2] = UU[2] / NDem;
+                        // normal to capturing plane
+                        double normx = Norm[0];
+                        double normy = Norm[1];
+                        double normz = Norm[2];
+                        double ParaT =
+                            (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
+                        float CDLVal =
+                            pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
+                        CritDiagonalLength((long int)(26) * LocalCellLocation + (long int)(n)) = CDLVal;
                     }
-                    else {
-                        Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
-                        Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
-                        Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
-                    }
-
-                    double U1[3], U2[3], UU[3], Norm[3];
-                    U1[0] = Diag2X - Diag1X;
-                    U1[1] = Diag2Y - Diag1Y;
-                    U1[2] = Diag2Z - Diag1Z;
-                    U2[0] = Diag3X - Diag1X;
-                    U2[1] = Diag3Y - Diag1Y;
-                    U2[2] = Diag3Z - Diag1Z;
-                    UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                    UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                    UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                    double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-                    Norm[0] = UU[0] / NDem;
-                    Norm[1] = UU[1] / NDem;
-                    Norm[2] = UU[2] / NDem;
-                    // normal to capturing plane
-                    double normx = Norm[0];
-                    double normy = Norm[1];
-                    double normz = Norm[2];
-                    double ParaT =
-                        (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
-                    float CDLVal =
-                        pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
-                    CritDiagonalLength((long int)(26) * CellLocation + (long int)(n)) = CDLVal;
                 }
             }
         });

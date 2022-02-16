@@ -11,6 +11,110 @@
 
 namespace Test {
 //---------------------------------------------------------------------------//
+void testReadTemperatureData() {
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    // Create test data
+    int MyXOffset, MyYOffset;
+    double deltax = 1 * pow(10, -6);
+    double HT_deltax = 1 * pow(10, -6);
+    // Domain size: 6 by 6, with each MPI rank getting a 4 by 4 subdomain
+    int nx = 6;
+    int ny = 6;
+    // Each rank gets 1/4th of the overall domain - with ghost nodes at interior boundaries
+    int MyXSlices = 4;
+    int MyYSlices = 4;
+    int ProcRow, ProcCol;
+    if (id % 4 == 0) {
+        // Top left corner (low X, low Y)
+        MyXOffset = 0;
+        MyYOffset = 0;
+        ProcRow = 0;
+        ProcCol = 0;
+    }
+    else if (id % 4 == 1) {
+        // Bottom left corner (high X, low Y)
+        MyXOffset = 2;
+        MyYOffset = 0;
+        ProcRow = 1;
+        ProcCol = 0;
+    }
+    else if (id % 4 == 2) {
+        // Top right corner (low X, high Y)
+        MyXOffset = 0;
+        MyYOffset = 2;
+        ProcRow = 0;
+        ProcCol = 1;
+    }
+    else if (id % 4 == 3) {
+        // Bottom right corner (high X, high Y)
+        MyXOffset = 2;
+        MyYOffset = 2;
+        ProcRow = 1;
+        ProcCol = 1;
+    }
+    float XMin = 0.0;
+    float YMin = 0.0;
+    std::string TestTempFileName = "TestData.txt";
+    std::vector<std::string> temp_paths(1);
+    temp_paths[0] = TestTempFileName;
+    int NumberOfLayers = 1;
+    int TempFilesInSeries = 1;
+    int *FirstValue = new int[NumberOfLayers];
+    int *LastValue = new int[NumberOfLayers];
+    unsigned int NumberOfTemperatureDataPoints = 0;
+    // Write fake OpenFOAM data - only rank 0.
+    if (id == 0) {
+        std::ofstream TestDataFile;
+        TestDataFile.open(TestTempFileName);
+        TestDataFile << "x, y, z, tm, tl, cr" << std::endl;
+        for (int i = 0; i < nx; i++) {
+            for (int j = 0; j < ny; j++) {
+                TestDataFile << i * deltax << "," << j * deltax << "," << 0.0 << "," << (float)(i * j)
+                             << "," << (float)(i * j + i) << "," << (float)(i * j + j) << std::endl;
+            }
+        }
+        TestDataFile.close();
+    }
+    // Wait for data to be printed before continuing
+    MPI_Barrier(MPI_COMM_WORLD);
+    // Read in data to "RawData"
+    std::vector <double> RawData(12);
+    ReadTemperatureData(id, deltax, HT_deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin, temp_paths,
+                        NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue,
+                        LastValue);
+    // Check the results.
+    // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr) for each of the 16 cells in the subdomain
+    EXPECT_EQ(NumberOfTemperatureDataPoints, 96);
+    int NumberOfCellsPerRank = 16;
+    // Does each rank have the right temperature data values?
+    for (int n=0; n<NumberOfCellsPerRank; n++) {
+        double ExpectedValues_ThisDataPoint[6];
+        // X Coordinate
+        ExpectedValues_ThisDataPoint[0] = ((n / 4) + 2 * ProcRow) * deltax;
+        // Y Coordinate
+        ExpectedValues_ThisDataPoint[1] = ((n % 4) + 2 * ProcCol) * deltax;
+        // Z Coordinate
+        ExpectedValues_ThisDataPoint[2] = 0.0;
+        int XInt = ExpectedValues_ThisDataPoint[0]/deltax;
+        int YInt = ExpectedValues_ThisDataPoint[1]/deltax;
+        // Melting time
+        ExpectedValues_ThisDataPoint[3] = XInt * YInt;
+        // Liquidus time
+        ExpectedValues_ThisDataPoint[4] = XInt * YInt + XInt;
+        // Cooling rate
+        ExpectedValues_ThisDataPoint[5] = XInt * YInt + YInt;
+        for (int nn=0; nn<6; nn++) {
+            if (id == 1) std::cout << "Point " << n << " component " << nn << std::endl;
+            EXPECT_DOUBLE_EQ(ExpectedValues_ThisDataPoint[nn],RawData[6 * n + nn]);
+        }
+    }
+}
+
 void testInputReadFromFile() {
 
     int id;
@@ -77,14 +181,14 @@ void testInputReadFromFile() {
         float SubstrateGrainSpacing;
         double AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R,
             FractSurfaceSitesActive;
-        bool RemeltingYN, ExtraWalls, PrintMisorientation, PrintFullOutput, PrintTimeSeries, UseSubstrateFile,
+        bool RemeltingYN, PrintMisorientation, PrintFullOutput, PrintTimeSeries, UseSubstrateFile,
             PrintIdleTimeSeriesFrames;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput;
         std::vector<std::string> temp_paths;
         InputReadFromFile(id, FileName, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
                           FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath,
-                          tempfile, TempFilesInSeries, temp_paths, ExtraWalls, HT_deltax, RemeltingYN, deltat,
+                          tempfile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
                           NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R,
                           nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
                           PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
@@ -113,9 +217,9 @@ void testInputReadFromFile() {
             EXPECT_DOUBLE_EQ(G, 500000.0);
             EXPECT_DOUBLE_EQ(R, 300000.0);
             EXPECT_DOUBLE_EQ(deltat, pow(10, -6) / 15.0); // based on N, deltax, G, and R from input file
-            EXPECT_EQ(nx, 202);                           // +2 from input due to wall cells
-            EXPECT_EQ(ny, 202);                           // +2 from input due to wall cells
-            EXPECT_EQ(nz, 201);                           // +1 from input due to wall cells
+            EXPECT_EQ(nx, 200);                           // +2 from input due to wall cells
+            EXPECT_EQ(ny, 200);                           // +2 from input due to wall cells
+            EXPECT_EQ(nz, 200);                           // +1 from input due to wall cells
             EXPECT_DOUBLE_EQ(FractSurfaceSitesActive, 0.08);
             EXPECT_TRUE(OutputFile == "TestProblemDirS");
             EXPECT_TRUE(PrintMisorientation);
@@ -144,7 +248,6 @@ void testInputReadFromFile() {
             EXPECT_EQ(TempFilesInSeries, 2);
             EXPECT_EQ(NumberOfLayers, 2);
             EXPECT_EQ(LayerHeight, 1);
-            EXPECT_FALSE(ExtraWalls);
             EXPECT_TRUE(UseSubstrateFile);
             EXPECT_DOUBLE_EQ(HT_deltax, 12.0 * pow(10, -6));
             EXPECT_TRUE(OutputFile == "Test");
@@ -156,6 +259,7 @@ void testInputReadFromFile() {
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
+TEST(TEST_CATEGORY, temperature_init_test) { testReadTemperatureData(); }
 TEST(TEST_CATEGORY, fileread_test) { testInputReadFromFile(); }
 
 } // end namespace Test

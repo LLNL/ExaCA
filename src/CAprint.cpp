@@ -20,9 +20,9 @@ void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nz, int M
                      ViewI_H RBufSize) {
 
     for (int k = 0; k < nz; k++) {
-        for (int i = 1; i < MyXSlices - 1; i++) {
-            for (int j = 1; j < MyYSlices - 1; j++) {
-                IntVar_WholeDomain(k, i - 1, j - 1) = IntVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
+        for (int i = 0; i < MyXSlices; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
+                IntVar_WholeDomain(k, i, j) = IntVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
             }
         }
     }
@@ -52,9 +52,9 @@ void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nz,
 
     // Set float variable to 0 for whole domain and place values for rank 0
     for (int k = 0; k < nz; k++) {
-        for (int i = 1; i < MyXSlices - 1; i++) {
-            for (int j = 1; j < MyYSlices - 1; j++) {
-                FloatVar_WholeDomain(k, i - 1, j - 1) = FloatVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
+        for (int i = 0; i < MyXSlices; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
+                FloatVar_WholeDomain(k, i, j) = FloatVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
             }
         }
     }
@@ -84,10 +84,10 @@ void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int M
 
     // Resize bool variable for whole domain and place values for rank 0
     for (int k = 0; k < nz; k++) {
-        for (int i = 1; i < MyXSlices - 1; i++) {
-            for (int j = 1; j < MyYSlices - 1; j++) {
+        for (int i = 0; i < MyXSlices; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
                 if (BoolVar[k * MyXSlices * MyYSlices + i * MyYSlices + j])
-                    IntVar_WholeDomain(k, i - 1, j - 1) = 1;
+                    IntVar_WholeDomain(k, i, j) = 1;
             }
         }
     }
@@ -112,14 +112,14 @@ void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int M
 
 //*****************************************************************************/
 // On rank > 0, send data for an integer view to rank 0
-void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize) {
+void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX, int SendBufEndX, int SendBufStartY, int SendBufEndY) {
 
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     ViewI_H SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
     for (int k = 0; k < nz; k++) {
-        for (int i = 1; i < MyXSlices - 1; i++) {
-            for (int j = 1; j < MyYSlices - 1; j++) {
+        for (int i = SendBufStartX; i < SendBufEndX; i++) {
+            for (int j = SendBufStartY; j < SendBufEndY; j++) {
                 SendBuf(DataCounter) = VarToSend(k * MyXSlices * MyYSlices + i * MyYSlices + j);
                 DataCounter++;
             }
@@ -129,14 +129,14 @@ void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int S
 }
 
 // On rank > 0, send data for an float view to rank 0
-void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize) {
+void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX, int SendBufEndX, int SendBufStartY, int SendBufEndY) {
 
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     ViewF_H SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
     for (int k = 0; k < nz; k++) {
-        for (int i = 1; i < MyXSlices - 1; i++) {
-            for (int j = 1; j < MyYSlices - 1; j++) {
+        for (int i = SendBufStartX; i < SendBufEndX; i++) {
+            for (int j = SendBufStartY; j < SendBufEndY; j++) {
                 SendBuf(DataCounter) = VarToSend(k * MyXSlices * MyYSlices + i * MyYSlices + j);
                 DataCounter++;
             }
@@ -146,14 +146,14 @@ void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int
 }
 
 // On rank > 0, send data for a bool array (converted into integers for MPI) to rank 0
-void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize) {
+void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX, int SendBufEndX, int SendBufStartY, int SendBufEndY) {
 
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     ViewI_H SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
     for (int k = 0; k < nz; k++) {
-        for (int i = 1; i < MyXSlices - 1; i++) {
-            for (int j = 1; j < MyYSlices - 1; j++) {
+        for (int i = SendBufStartX; i < SendBufEndX; i++) {
+            for (int j = SendBufStartY; j < SendBufEndY; j++) {
                 if (VarToSend[k * MyXSlices * MyYSlices + i * MyYSlices + j])
                     SendBuf(DataCounter) = 1;
                 else
@@ -167,8 +167,8 @@ void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int Se
 
 //*****************************************************************************/
 // Prints values of selected data structures to Paraview files
-void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
-                    int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation,
+void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
+                    int ProcessorsInXDirection, int ProcessorsInYDirection, int NeighborRank_North, int NeighborRank_South, int NeighborRank_East, int NeighborRank_West, ViewI_H GrainID, ViewI_H GrainOrientation,
                     ViewI_H CritTimeStep, ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType,
                     ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, std::string BaseFileName,
                     int DecompositionStrategy, int NGrainOrientations, bool *Melted, std::string PathToOutput,
@@ -187,21 +187,12 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
 
         for (int p = 1; p < np; p++) {
             RecvXOffset(p) = XOffsetCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
-            RecvXSlices(p) =
-                XMPSlicesCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
-
+            RecvXSlices(p) = XMPSlicesCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy, NeighborRank_West, NeighborRank_East);
             RecvYOffset(p) = YOffsetCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy);
-            RecvYSlices(p) = YMPSlicesCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy);
-
-            // No ghost nodes in send and recieved data
-            RecvYSlices(p) = RecvYSlices(p) - 2;
-            RecvXSlices(p) = RecvXSlices(p) - 2;
-
-            // Readjust X and Y offsets of incoming data based on the lack of ghost nodes
-            RecvYOffset(p)++;
-            RecvXOffset(p)++;
+            RecvYSlices(p) = YMPSlicesCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy, NeighborRank_North, NeighborRank_South);
 
             RBufSize(p) = RecvXSlices(p) * RecvYSlices(p) * nz;
+            std::cout << "From rank " << p << ", expecting to receive " << RBufSize(p) << " data points, with " << RecvXSlices(p) << " in x and " << RecvYSlices(p) << " in y" << std::endl;
         }
         // Create variables for each possible data structure being collected on rank 0
         // If PrintDebug = 0, we aren't printing any debug files after initialization, but we are printing either the
@@ -269,24 +260,45 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                                         GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
     }
     else {
-        int SendBufSize = (MyXSlices - 2) * (MyYSlices - 2) * nz;
+        
+        // No ghost nodes in sent data:
+        int SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY;
+        if (MyYOffset == 0)
+            SendBufStartY = 0;
+        else
+            SendBufStartY = 1;
+        if (MyYSlices + MyYOffset == ny)
+            SendBufEndY = MyYSlices;
+        else
+            SendBufEndY = MyYSlices-1;
+        if (MyXOffset == 0)
+            SendBufStartX = 0;
+        else
+            SendBufStartX = 1;
+        if (MyXSlices + MyXOffset == nx)
+            SendBufEndX = MyXSlices;
+        else
+            SendBufEndX = MyXSlices-1;
+
+        int SendBufSize = (SendBufEndX - SendBufStartX) * (SendBufEndY - SendBufStartY) * nz;
+        std::cout << "On rank " << id << ", expecting to send " << SendBufSize << " data points, with " << SendBufEndX-SendBufStartX << " in x and " << SendBufEndY-SendBufStartY << " in y" << std::endl;
 
         // Collect Melted/Grain ID data on rank 0
         if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput))
-            SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize);
+            SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
         if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2))
-            SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize);
+            SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
         if ((PrintFullOutput) || (PrintDebug > 0))
-            SendIntField(LayerID, nz, MyXSlices, MyYSlices, SendBufSize);
+            SendIntField(LayerID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
         if ((PrintDebug > 0) || (PrintTimeSeries)) {
-            SendIntField(CellType, nz, MyXSlices, MyYSlices, SendBufSize);
+            SendIntField(CellType, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
         }
         if (PrintDebug > 0) {
-            SendIntField(CritTimeStep, nz, MyXSlices, MyYSlices, SendBufSize);
+            SendIntField(CritTimeStep, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
         }
         if (PrintDebug == 2) {
-            SendFloatField(UndercoolingChange, nz, MyXSlices, MyYSlices, SendBufSize);
-            SendFloatField(UndercoolingCurrent, nz, MyXSlices, MyYSlices, SendBufSize);
+            SendFloatField(UndercoolingChange, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
+            SendFloatField(UndercoolingCurrent, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
         }
     }
 }
@@ -316,8 +328,8 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
     Grainplot << "ASCII" << std::endl;
     Grainplot << "DATASET STRUCTURED_POINTS" << std::endl;
     Grainplot << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
-    Grainplot << "ORIGIN 0 0 0" << std::endl;
-    Grainplot << "SPACING 1 1 1" << std::endl;
+    Grainplot << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
+    Grainplot << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
     Grainplot << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
     // Print Layer ID data
     Grainplot << "SCALARS LayerID int 1" << std::endl;
@@ -420,10 +432,10 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     GrainplotM << "vtk output" << std::endl;
     GrainplotM << "ASCII" << std::endl;
     GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
-    GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << nz - 1 << std::endl;
-    GrainplotM << "ORIGIN 0 0 0" << std::endl;
-    GrainplotM << "SPACING 1 1 1" << std::endl;
-    GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * (nz - 1) << std::endl;
+    GrainplotM << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
+    GrainplotM << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
+    GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
+    GrainplotM << std::fixed << "POINT_DATA " << nx  * ny * nz << std::endl;
     GrainplotM << "SCALARS Angle_z int 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
@@ -444,9 +456,9 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
         }
         GrainMisorientation_Round(n) = round(AngleZmin);
     }
-    for (int k = 1; k < nz; k++) {
-        for (int j = 1; j < ny - 1; j++) {
-            for (int i = 1; i < nx - 1; i++) {
+    for (int k = 0; k < nz; k++) {
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
                 if (Melted_WholeDomain(k, i, j) == 0)
                     GrainplotM << 200 << " ";
                 else {
@@ -623,15 +635,15 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
     GrainplotM << "vtk output" << std::endl;
     GrainplotM << "ASCII" << std::endl;
     GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
-    GrainplotM << "DIMENSIONS " << nx - 2 << " " << ny - 2 << " " << ZPrintSize << std::endl;
-    GrainplotM << "ORIGIN " << XMin - deltax << " " << YMin - deltax << " " << ZMin - deltax << std::endl;
+    GrainplotM << "DIMENSIONS " << nx << " " << ny << " " << ZPrintSize << std::endl;
+    GrainplotM << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
     GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
-    GrainplotM << std::fixed << "POINT_DATA " << (nx - 2) * (ny - 2) * ZPrintSize << std::endl;
+    GrainplotM << std::fixed << "POINT_DATA " << nx * ny * ZPrintSize << std::endl;
     GrainplotM << "SCALARS Angle_z float 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
-    for (int k = 1; k <= ZPrintSize; k++) {
-        for (int j = 1; j < ny - 1; j++) {
-            for (int i = 1; i < nx - 1; i++) {
+    for (int k = 0; k <= ZPrintSize; k++) {
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
                 if (CellType_WholeDomain(k, i, j) != Liquid) {
                     if (GrainID_WholeDomain(k, i, j) == 0)
                         std::cout << i << " " << j << " " << k << " " << CellType_WholeDomain(k, i, j) << std::endl;

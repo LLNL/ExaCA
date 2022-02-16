@@ -13,7 +13,7 @@
 void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North, int NeighborRank_South,
                     int NeighborRank_East, int NeighborRank_West, int NeighborRank_NorthEast,
                     int NeighborRank_NorthWest, int NeighborRank_SouthEast, int NeighborRank_SouthWest, int MyXSlices,
-                    int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive,
+                    int MyYSlices, int MyXOffset, int MyYOffset, int ZBound_Low, int nzActive, int nz,
                     int LocalActiveDomainSize, int NGrainOrientations, ViewI NeighborX, ViewI NeighborY,
                     ViewI NeighborZ, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI GrainID, ViewI CellType,
                     ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength);

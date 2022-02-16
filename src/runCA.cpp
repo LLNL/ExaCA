@@ -27,6 +27,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     bool ExtraWalls = false; // If simulating a spot melt problem where the side walls are not part of the substrate,
                              // this is changed to true in the input file
+    int PrintDebug, TimeSeriesInc;
     bool PrintMisorientation, PrintFullOutput, RemeltingYN, UseSubstrateFile, PrintTimeSeries,
         PrintIdleTimeSeriesFrames;
     float SubstrateGrainSpacing;
@@ -38,7 +39,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
     // Read input file given on the command line
     InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
                       FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath, tempfile,
-                      TempFilesInSeries, temp_paths, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
+                      TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
                       LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
                       FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput, NSpotsX,
                       NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames);
@@ -93,18 +94,12 @@ void RunExaCA(int id, int np, std::string InputFile) {
                         NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest, nx, ny, nz,
                         ProcessorsInXDirection, ProcessorsInYDirection, LocalDomainSize);
 
-    // Set bounds for the "active" portion of the domain for layer 0: Z = ZBound_Low through Z = ZBoundHigh, for a total
-    // of nzActive sets of cells in the Z direction Each MPI rank has "LocalActiveDomainSize" number of cells For
-    // directional solidification, all cells but the bottom wall (Z = 0) are part of the active domain For spot melts,
-    // all cells for a given layer, starting at Z = 1, to the top of each layer's spots) are part of the active domain.
-    // Temperature data starts at Z = 2, while active cells pad the data starting at Z = 1 For problems using input
-    // temperature data, the data stretches from Z = 2 through the top of the layer's data, depending on values for
-    // ZMinLayer[layernumber] and ZMaxLayer[layernumber], where data at Z = ZMinLayer[0] corresponds to data starting at
-    // Z = 2 of the global domain
-    int ZBound_Low, ZBound_High, nzActive,
-        LocalActiveDomainSize; // Number of active cells on this MPI rank - to be set in ReadTemperatureData
-    DomainShiftAndResize(SimulationType, id, MyXSlices, MyYSlices, ZBound_Low, ZBound_High, ZMin, ZMinLayer, ZMaxLayer,
-                         deltax, nzActive, nz, SpotRadius, LocalActiveDomainSize, 0, LayerHeight);
+    // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate
+    // data
+    if (SimulationType == "R")
+        ReadTemperatureData(id, deltax, HT_deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin,
+                            temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
+                            FirstValue, LastValue);
 
     // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate
     // data based on the domain decomposition. Also obtain the maximum number of times a cell will solidify for each
@@ -157,7 +152,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
     // Initialize the temperature fields
     if (SimulationType == "R") {
         // input temperature data from files using reduced/sparse data format
-        TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx, ny, nz,
+        TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nz,
                          CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted,
                          ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, FinishTimeStep, FreezingRange, LayerID_H,
                          FirstValue, LastValue, RawData);
@@ -233,6 +228,11 @@ void RunExaCA(int id, int np, std::string InputFile) {
                                CritTimeStep_H, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, UndercoolingChange_H,
                                ExtraWalls);
     }
+    GrainInit(-1, NGrainOrientations, DecompositionStrategy, nx, ny, nz, LocalActiveDomainSize, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, np, NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West,
+              NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest, ItList_H,
+              NeighborX_H, NeighborY_H, NeighborZ_H, GrainOrientation_H, GrainUnitVector_H, DiagonalLength_H,
+              CellType_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, deltax, NMax,
+              NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low);
 
     // Nuclei data structures - initial estimates for size, to be resized later when "PossibleNuclei_ThisRank" is known
     // on each MPI rank
@@ -342,7 +342,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
         // Ghost nodes for initial microstructure state
         GhostNodesInit(id, np, DecompositionStrategy, NeighborRank_North, NeighborRank_South, NeighborRank_East,
                        NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
-                       NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive,
+                       NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive, nz,
                        LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G, NeighborZ_G,
                        GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G, DOCenter_G, DiagonalLength_G,
                        CritDiagonalLength_G);
@@ -353,7 +353,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
     if (id == 0)
         std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
     if (PrintDebug) {
-        PrintExaCAData(id, -1, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
+        PrintExaCAData(id, -1, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection, ProcessorsInYDirection, NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West,
                        GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
                        UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
                        NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false, false, 0, ZBound_Low,
@@ -377,8 +377,8 @@ void RunExaCA(int id, int np, std::string InputFile) {
                 // Print current state of ExaCA simulation (up to and including the current layer's data)
                 Kokkos::deep_copy(GrainID_H, GrainID_G);
                 Kokkos::deep_copy(CellType_H, CellType_G);
-                PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
-                               ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
+                PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection,
+                               ProcessorsInYDirection, NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
                                LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
                                DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false, false, true,
                                IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
@@ -441,13 +441,13 @@ void RunExaCA(int id, int np, std::string InputFile) {
                         PathToOutput, OutputFile, PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter);
                 else
                     IntermediateOutputAndCheck(
-                        id, np, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nx, ny, nz,
-                        nzActive, deltax, XMin, YMin, ZMin, DecompositionStrategy, ProcessorsInXDirection,
-                        ProcessorsInYDirection, nn, XSwitch, CellType_G, CellType_H, CritTimeStep_G, CritTimeStep_H,
-                        GrainID_G, GrainID_H, SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low,
-                        NGrainOrientations, Melted, LayerID_G, LayerID_H, GrainOrientation_H, GrainUnitVector_H,
-                        UndercoolingChange_H, UndercoolingCurrent_H, PathToOutput, OutputFile,
-                        PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter);
+                    id, np, cycle, MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborRank_North, NeighborRank_South, NeighborRank_West, NeighborRank_East, LocalDomainSize, LocalActiveDomainSize, nx, ny, nz, nzActive,
+                    deltax, XMin, YMin, ZMin, DecompositionStrategy, ProcessorsInXDirection, ProcessorsInYDirection, nn,
+                    XSwitch, CellType_G, CellType_H, CritTimeStep_G, CritTimeStep_H, GrainID_G, GrainID_H,
+                    SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low, NGrainOrientations, Melted,
+                    LayerID_G, LayerID_H, GrainOrientation_H, GrainUnitVector_H, UndercoolingChange_H,
+                    UndercoolingCurrent_H, PathToOutput, OutputFile, PrintIdleTimeSeriesFrames, TimeSeriesInc,
+                    IntermediateFileCounter);
             }
             
         } while (XSwitch == 0);
@@ -572,7 +572,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
                 GhostNodesInit(id, np, DecompositionStrategy, NeighborRank_North, NeighborRank_South, NeighborRank_East,
                                NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
                                NeighborRank_SouthEast, NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset,
-                               MyYOffset, ZBound_Low, nzActive, LocalActiveDomainSize, NGrainOrientations, NeighborX_G,
+                               MyYOffset, ZBound_Low, nzActive, nz, LocalActiveDomainSize, NGrainOrientations, NeighborX_G,
                                NeighborY_G, NeighborZ_G, GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G,
                                DOCenter_G, DiagonalLength_G, CritDiagonalLength_G);
             }
@@ -602,8 +602,8 @@ void RunExaCA(int id, int np, std::string InputFile) {
     if ((PrintMisorientation) || (PrintFullOutput)) {
         if (id == 0)
             std::cout << "Collecting data on rank 0 and printing to files" << std::endl;
-        PrintExaCAData(id, NumberOfLayers - 1, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
-                       ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
+        PrintExaCAData(id, NumberOfLayers - 1, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection,
+                       ProcessorsInYDirection, NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
                        LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
                        DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, PrintMisorientation,
                        PrintFullOutput, false, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);

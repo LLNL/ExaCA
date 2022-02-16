@@ -31,10 +31,10 @@ double CrossP3(double TestVec1[3], double TestVec2[3]) {
 }
 
 //*****************************************************************************/
-int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy) {
+int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy, int NeighborRank_West, int NeighborRank_East) {
     int XRemoteMPSlices = 0;
     if (DecompositionStrategy == 1) {
-        XRemoteMPSlices = nx;
+        XRemoteMPSlices = nx; // no ghost nodes, domain not divided up in the x direction
     }
     else if (DecompositionStrategy >= 2) {
         int XSlicesPerP = nx / ProcessorsInXDirection;
@@ -52,8 +52,6 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
             }
         }
     }
-    // Add "ghost nodes" for other processors
-    XRemoteMPSlices = XRemoteMPSlices + 2;
     return XRemoteMPSlices;
 }
 
@@ -61,6 +59,7 @@ int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDi
 int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy) {
     int RemoteXOffset = 0;
     if (DecompositionStrategy == 1) {
+        // No decomposition in the x direction, so no ghost nodes to affect the local domain offset
         RemoteXOffset = 0;
     }
     else if (DecompositionStrategy >= 2) {
@@ -80,13 +79,12 @@ int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDire
             }
         }
     }
-    // Account for "ghost nodes" for other processors
-    RemoteXOffset--;
+
     return RemoteXOffset;
 }
 
 //*****************************************************************************/
-int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy) {
+int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy, int NeighborRank_North, int NeighborRank_South) {
     int YRemoteMPSlices = 0;
     if (DecompositionStrategy == 1) {
         int YSlicesPerP = ny / np;
@@ -119,8 +117,6 @@ int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decompo
             }
         }
     }
-    // Add "ghost nodes" for other processors
-    YRemoteMPSlices = YRemoteMPSlices + 2;
 
     return YRemoteMPSlices;
 }
@@ -160,9 +156,35 @@ int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int Decomposi
             }
         }
     }
-    // Account for "ghost nodes" for other processors
-    RemoteYOffset--;
     return RemoteYOffset;
+}
+
+// Add ghost nodes to the appropriate subdomains (added where the subdomains overlap, but not at edges of physical domain)
+void AddGhostNodes(int DecompositionStrategy, int NeighborRank_West, int NeighborRank_East, int NeighborRank_North, int NeighborRank_South, int &XRemoteMPSlices, int &RemoteXOffset, int &YRemoteMPSlices, int &RemoteYOffset) {
+    
+    if (DecompositionStrategy > 1) {
+        // Decomposing domain in X and Y directions
+        // Add halo regions in X if this subdomain borders subdomains on other processors
+        // If only 1 rank in the x direction, no halo regions - subdomain is coincident with overall simulation domain
+        // If multiple ranks in the x direction, either 1 halo region (borders another rank's subdomain in either the +x or -x direction) or 2 halo regions (if it borders other rank's subdomains in both the +x and -x directions)
+        if (NeighborRank_West != MPI_PROC_NULL) {
+            XRemoteMPSlices++;
+            // Also adjust subdomain offset, as these ghost nodes were added on the -x side of the subdomain
+            RemoteXOffset--;
+        }
+        if (NeighborRank_East != MPI_PROC_NULL)
+            XRemoteMPSlices++;
+    }
+    // Add halo regions in Y direction if this subdomain borders subdomains on other processors
+    // If only 1 rank in the y direction, no halo regions - subdomain is coincident with overall simulation domain
+    // If multiple ranks in the y direction, either 1 halo region (borders another rank's subdomain in either the +y or -y direction) or 2 halo regions (if it borders other rank's subdomains in both the +y and -y directions)
+    if (NeighborRank_North != MPI_PROC_NULL)
+        YRemoteMPSlices++;
+    if (NeighborRank_South != MPI_PROC_NULL) {
+        YRemoteMPSlices++;
+        // Also adjust subdomain offset, as these ghost nodes were added on the -y side of the subdomain
+        RemoteYOffset--;
+    }
 }
 
 //*****************************************************************************/

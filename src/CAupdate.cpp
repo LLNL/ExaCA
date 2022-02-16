@@ -669,7 +669,7 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
                 int MyNeighborY = RankY + NeighborY(l);
                 int MyNeighborZ = RankZ + NeighborZ(l);
 
-                if (MyNeighborZ < nzActive) {
+                if ((MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
                     long int NeighborD3D1ConvPosition =
                         MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
                     long int GlobalNeighborD3D1ConvPosition =
@@ -1094,7 +1094,7 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
 
 //*****************************************************************************/
 // Prints intermediate code output to stdout, checks to see if solidification is complete
-void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int LocalDomainSize,
+void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int NeighborRank_North, int NeighborRank_South, int NeighborRank_West, int NeighborRank_East, int LocalDomainSize,
                                 int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
                                 float XMin, float YMin, float ZMin, int DecompositionStrategy,
                                 int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch,
@@ -1190,8 +1190,8 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                             Kokkos::deep_copy(GrainID_H, GrainID);
                             Kokkos::deep_copy(CellType_H, CellType);
                             PrintExaCAData(
-                                id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
-                                ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H,
+                                id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection,
+                                ProcessorsInYDirection, NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West, GrainID_H, GrainOrientation_H, CritTimeStep_H,
                                 GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H,
                                 OutputFile, DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false,
                                 false, true, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);

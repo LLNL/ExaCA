@@ -11,10 +11,11 @@ double CrossP2(double TestVec1[3], double TestVec2[3]);
 double CrossP3(double TestVec1[3], double TestVec2[3]);
 int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices);
 int MaxIndex(double TestVec3[6]);
-int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy);
+int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy, int NeighborRank_North, int NeighborRank_South);
 int XOffsetCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy);
-int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
+int YMPSlicesCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy, int NeighborRank_West, int NeighborRank_East);
 int YOffsetCalc(int p, int ny, int ProcessorsInYDirection, int np, int DecompositionStrategy);
+void AddGhostNodes(int DecompositionStrategy, int NeighborRank_West, int NeighborRank_East, int NeighborRank_North, int NeighborRank_South, int &XRemoteMPSlices, int &RemoteXOffset, int &YRemoteMPSlices, int &RemoteYOffset);
 double MaxVal(double TestVec3[6], int NVals);
 void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection,
                           int &ProcessorsInYDirection, int id, int np, int &NeighborRank_North, int &NeighborRank_South,
