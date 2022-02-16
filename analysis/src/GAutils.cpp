@@ -5,7 +5,7 @@
 
 #include "GAutils.hpp"
 
-#include <CAinitialize.hpp>
+#include <CAparsefiles.hpp>
 
 #include <cmath>
 #include <fstream>
@@ -14,21 +14,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-
-// Parse a line that looks like [x,y], returning either val = 0 (x) or val = 1 (y)
-std::string parseCoordinatePair(std::string line, int val) {
-    size_t linestart = line.find("[");
-    size_t linebreak = line.find(",");
-    size_t lineend = line.find("]");
-    std::string SplitStr;
-    if (val == 0)
-        SplitStr = line.substr(linestart + 1, linebreak - linestart - 1);
-    else if (val == 1)
-        SplitStr = line.substr(linebreak + 1, lineend - linebreak - 1);
-    std::regex r("\\s+");
-    SplitStr = std::regex_replace(SplitStr, r, "");
-    return SplitStr;
-}
 
 // Search a specified region of LayerID in x and y for either the smallest Z that doesn't contain any layer "L",
 // or the largest Z that doesn't contain any layer "L"
@@ -148,7 +133,7 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     Analysis.open(AnalysisFile);
     if (!(Analysis))
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
-    skipLines(Analysis);
+    skipLines(Analysis, "*****");
 
     std::vector<std::string> NamesOfFiles = {"name of log (.log) file", "name of microstructure (.vtk) file",
                                              "file of grain orientations",
@@ -240,7 +225,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
     std::cout << "Number of orientations " << NumberOfOrientationsString << std::endl;
     NumberOfOrientations = stoi(NumberOfOrientationsString, nullptr, 10);
     GrainO.close();
-    skipLines(Analysis);
+    skipLines(Analysis, "*****");
 
     // Read some number of lines of RVE data
     bool ReadingRVEs = true;
@@ -340,7 +325,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                   << ZHigh_RVE[NumberOfRVEs] << std::endl;
         NumberOfRVEs++;
     }
-    skipLines(Analysis);
+    skipLines(Analysis, "*****");
     // Read some number of lines of cross-section data
     bool ReadingCrossSections = true;
     while (ReadingCrossSections) {
@@ -403,7 +388,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                   << std::endl;
         NumberOfCrossSections++;
     }
-    skipLines(Analysis);
+    skipLines(Analysis, "*****");
 
     // Should be 2 inputs on this line (x lower and upper bounds)- break it into its components
     std::string XYZCoordLine;
