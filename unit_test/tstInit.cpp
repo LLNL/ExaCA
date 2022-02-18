@@ -23,6 +23,7 @@ void testReadTemperatureData() {
     // Create test data
     double deltax = 1 * pow(10, -6);
     double HT_deltax = 1 * pow(10, -6);
+    int HTtoCAratio;
     // Domain size in y is variable based on the number of ranks
     // Each MPI rank contains a 3 by 3 subdomain
     int nx = 6;
@@ -68,13 +69,15 @@ void testReadTemperatureData() {
     MPI_Barrier(MPI_COMM_WORLD);
     // Read in data to "RawData"
     std::vector<double> RawData(12);
-    ReadTemperatureData(id, deltax, HT_deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin, temp_paths,
-                        NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue,
-                        LastValue);
+    ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin,
+                        temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
+                        FirstValue, LastValue);
     // Check the results.
     // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr) for
     // each of the 9 cells in the subdomain
     EXPECT_EQ(NumberOfTemperatureDataPoints, 54);
+    // Ratio of HT cell size and CA cell size should be 1
+    EXPECT_EQ(HTtoCAratio, 1);
     int NumberOfCellsPerRank = 9;
     // Does each rank have the right temperature data values?
     for (int n = 0; n < NumberOfCellsPerRank; n++) {

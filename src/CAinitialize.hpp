@@ -34,8 +34,8 @@ void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlic
                          int &NeighborRank_West, int &NeighborRank_NorthEast, int &NeighborRank_NorthWest,
                          int &NeighborRank_SouthEast, int &NeighborRank_SouthWest, int &nx, int &ny, int &nz,
                          int &ProcessorsInXDirection, int &ProcessorsInYDirection, long int &LocalDomainSize);
-void ReadTemperatureData(int id, double deltax, double HT_deltax, int MyXSlices, int MyYSlices, int MyXOffset,
-                         int MyYOffset, float XMin, float YMin, std::vector<std::string> &temp_paths,
+void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyXSlices, int MyYSlices,
+                         int MyXOffset, int MyYOffset, float XMin, float YMin, std::vector<std::string> &temp_paths,
                          int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
                          std::vector<double> &RawData, int *FirstValue, int *LastValue);
 void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, double deltax,
@@ -47,8 +47,8 @@ void TempInit_SpotMelt(double G, double R, std::string SimulationType, int id, i
                        ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight,
                        int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, double FreezingRange,
                        ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset);
-void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double &deltax,
-                      double HT_deltax, double deltat, int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange,
+void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax,
+                      int HTtoCAratio, double deltat, int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange,
                       ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin, bool *Melted, float *ZMinLayer,
                       float *ZMaxLayer, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low,
                       int &ZBound_High, int *FinishTimeStep, double FreezingRange, ViewI_H LayerID, int *FirstValue,
