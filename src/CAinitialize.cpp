@@ -38,7 +38,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     RemeltingYN = false;
 
     // Required inputs that should be present in the input file, regardless of problem type
-    std::vector<std::string> RequiredInputs = {
+    std::vector<std::string> RequiredInputs_General = {
         "Decomposition strategy",                        // Required input 0
         "Material",                                      // Required input 1
         "Cell size",                                     // Required input 2
@@ -53,7 +53,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     };
 
     // Optional inputs that may be present in the input file, regardless of problem type
-    std::vector<std::string> OptionalInputs = {
+    std::vector<std::string> OptionalInputs_General = {
         "Debug check (reduced)",              // Optional input 0
         "Debug check (extensive)",            // Optional input 1
         "Print intermediate output frames",   // Optional input 2
@@ -76,72 +76,82 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // First line after the header must be the problem type: either R, C, or S
     // Additional required/optional inputs depending on problem type
     SimulationType = parseInput(InputData, "Problem type");
+    std::vector<std::string> RequiredInputs_ProblemSpecific, OptionalInputs_ProblemSpecific;
     if (SimulationType == "C") {
-        std::vector<std::string> RequiredInputsC = {
-            "Thermal gradient",     // Required input 11
-            "Cooling rate",         // Required input 12
-            "Velocity",             // Required input 13
-            "Domain size in x",     // Required input 14
-            "Domain size in y",     // Required input 15
-            "Domain size in z",     // Required input 16
-            "surface sites active", // Required input 17
-        };
-        RequiredInputs.insert(RequiredInputs.end(), RequiredInputsC.begin(), RequiredInputsC.end());
+        RequiredInputs_ProblemSpecific.resize(7);
+        RequiredInputs_ProblemSpecific[0] = "Thermal gradient";
+        RequiredInputs_ProblemSpecific[1] = "Cooling rate";
+        RequiredInputs_ProblemSpecific[2] = "Velocity";
+        RequiredInputs_ProblemSpecific[3] = "Domain size in x";
+        RequiredInputs_ProblemSpecific[4] = "Domain size in y";
+        RequiredInputs_ProblemSpecific[5] = "Domain size in z";
+        RequiredInputs_ProblemSpecific[6] = "surface sites active";
     }
     else if (SimulationType == "S") {
-        std::vector<std::string> RequiredInputsS = {
-            "Thermal gradient",            // Required input 11
-            "Cooling rate",                // Required input 12
-            "Velocity",                    // Required input 13
-            "spots in x",                  // Required input 14
-            "spots in y",                  // Required input 15
-            "Offset between spot centers", // Required input 16
-            "Radii of spots",              // Required input 17
-            "Number of layers",            // Required input 18
-            "Offset between layers",       // Required input 19
-        };
-        std::vector<std::string> OptionalInputsS = {
-            "Substrate grain spacing", // optional input 5
-            "Substrate filename",      // optional input 6
-        };
-        OptionalInputs.insert(OptionalInputs.end(), OptionalInputsS.begin(), OptionalInputsS.end());
-        RequiredInputs.insert(RequiredInputs.end(), RequiredInputsS.begin(), RequiredInputsS.end());
+        RequiredInputs_ProblemSpecific.resize(9);
+        RequiredInputs_ProblemSpecific[0] = "Thermal gradient";
+        RequiredInputs_ProblemSpecific[1] = "Cooling rate";
+        RequiredInputs_ProblemSpecific[2] = "Velocity";
+        RequiredInputs_ProblemSpecific[3] = "spots in x";
+        RequiredInputs_ProblemSpecific[4] = "spots in y";
+        RequiredInputs_ProblemSpecific[5] = "Offset between spot centers";
+        RequiredInputs_ProblemSpecific[6] = "Radii of spots";
+        RequiredInputs_ProblemSpecific[7] = "Number of layers";
+        RequiredInputs_ProblemSpecific[8] = "Offset between layers";
+        OptionalInputs_ProblemSpecific.resize(2);
+        OptionalInputs_ProblemSpecific[0] = "Substrate grain spacing";
+        OptionalInputs_ProblemSpecific[1] = "Substrate filename";
     }
     else if (SimulationType == "R") {
-        std::vector<std::string> RequiredInputsR = {
-            "Time step",                   // Required input 11
-            "Temperature filename",        // Required input 12
-            "Number of temperature files", // Required input 13
-            "Number of layers",            // Required input 14
-            "Offset between layers",       // Required input 15
-            "Extra set of wall cells",     // Required input 16
-        };
-        std::vector<std::string> OptionalInputsR = {
-            "Substrate grain spacing",       // optional input 5
-            "Substrate filename",            // optional input 6
-            "Heat transport data mesh size", // optional input 7
-            "Path to temperature file(s)",   // optional input 8
-        };
-        RequiredInputs.insert(RequiredInputs.end(), RequiredInputsR.begin(), RequiredInputsR.end());
-        OptionalInputs.insert(OptionalInputs.end(), OptionalInputsR.begin(), OptionalInputsR.end());
+        RequiredInputs_ProblemSpecific.resize(6);
+        RequiredInputs_ProblemSpecific[0] = "Time step";
+        RequiredInputs_ProblemSpecific[1] = "Temperature filename";
+        RequiredInputs_ProblemSpecific[2] = "Number of temperature files";
+        RequiredInputs_ProblemSpecific[3] = "Number of layers";
+        RequiredInputs_ProblemSpecific[4] = "Offset between layers";
+        RequiredInputs_ProblemSpecific[5] = "Extra set of wall cells";
+        OptionalInputs_ProblemSpecific.resize(4);
+        OptionalInputs_ProblemSpecific[0] = "Substrate grain spacing";
+        OptionalInputs_ProblemSpecific[1] = "Substrate filename";
+        OptionalInputs_ProblemSpecific[2] = "Heat transport data mesh size";
+        OptionalInputs_ProblemSpecific[3] = "Path to temperature file(s)";
     }
     else {
         std::string error = "Error: problem type must be C, S, or R: the value given was " + SimulationType;
         throw std::runtime_error(error);
     }
-    int NumRequiredInputs = RequiredInputs.size();
-    int NumOptionalInputs = OptionalInputs.size();
-    std::vector<std::string> RequiredInputsRead(NumRequiredInputs), OptionalInputsRead(NumOptionalInputs);
+    int NumRequiredInputs_General = RequiredInputs_General.size();
+    int NumOptionalInputs_General = OptionalInputs_General.size();
+    int NumRequiredInputs_ProblemSpecific = RequiredInputs_ProblemSpecific.size();
+    int NumOptionalInputs_ProblemSpecific = OptionalInputs_ProblemSpecific.size();
+    std::vector<std::string> RequiredInputsRead_General(NumRequiredInputs_General),
+        OptionalInputsRead_General(NumOptionalInputs_General),
+        RequiredInputsRead_ProblemSpecific(NumRequiredInputs_ProblemSpecific),
+        OptionalInputsRead_ProblemSpecific(NumOptionalInputs_ProblemSpecific);
 
     // Read the rest of the input file to initialize required and optional input parameters
     std::string line;
     while (std::getline(InputData, line)) {
         // Ignore lines with *, as these are not inputs
         if (line.find("***") == std::string::npos) {
-            // Check if this is a required input
-            bool RequiredYN = parseInputFromList(line, RequiredInputs, RequiredInputsRead, NumRequiredInputs);
+            // Check if this is a general required input
+            bool RequiredYN =
+                parseInputFromList(line, RequiredInputs_General, RequiredInputsRead_General, NumRequiredInputs_General);
             if (!(RequiredYN)) {
-                bool OptionalYN = parseInputFromList(line, OptionalInputs, OptionalInputsRead, NumOptionalInputs);
+                // If not a general required input, check if this is a problem type specific required input
+                RequiredYN = parseInputFromList(line, RequiredInputs_ProblemSpecific,
+                                                RequiredInputsRead_ProblemSpecific, NumRequiredInputs_ProblemSpecific);
+            }
+            if (!(RequiredYN)) {
+                // Check if this is an general optional input
+                bool OptionalYN = parseInputFromList(line, OptionalInputs_General, OptionalInputsRead_General,
+                                                     NumOptionalInputs_General);
+                if (!(OptionalYN)) {
+                    // If not a general optional input, check if this is a problem type specific optional input
+                    OptionalYN =
+                        parseInputFromList(line, OptionalInputs_ProblemSpecific, OptionalInputsRead_ProblemSpecific,
+                                           NumOptionalInputs_ProblemSpecific);
+                }
                 if (!(OptionalYN) && (id == 0)) {
                     std::cout << "WARNING: input " << line
                               << " did not match any optional nor required inputs known to ExaCA and will be ignored"
@@ -152,35 +162,43 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     }
     InputData.close();
 
-    // Ensure that all required inputs were given
-    for (int i = 0; i < NumRequiredInputs; i++) {
-        if (RequiredInputsRead[i].empty()) {
-            std::string error = "Error: Required input " + RequiredInputs[i] + " was not present in the input file";
+    // Ensure that all required inputs were given - general and problem type specific
+    for (int i = 0; i < NumRequiredInputs_General; i++) {
+        if (RequiredInputsRead_General[i].empty()) {
+            std::string error =
+                "Error: Required input " + RequiredInputs_General[i] + " was not present in the input file";
+            throw std::runtime_error(error);
+        }
+    }
+    for (int i = 0; i < NumRequiredInputs_ProblemSpecific; i++) {
+        if (RequiredInputsRead_ProblemSpecific[i].empty()) {
+            std::string error =
+                "Error: Required input " + RequiredInputs_ProblemSpecific[i] + " was not present in the input file";
             throw std::runtime_error(error);
         }
     }
 
     // Convert information read from the file into values usable by ExaCA
     // Required inputs for all problems
-    DecompositionStrategy = getInputInt(RequiredInputsRead[0]);
-    MaterialName = RequiredInputsRead[1];
-    deltax = getInputDouble(RequiredInputsRead[2], -6);
-    NMax = getInputDouble(RequiredInputsRead[3], 12);
-    dTN = getInputDouble(RequiredInputsRead[4]);
-    dTsigma = getInputDouble(RequiredInputsRead[5]);
-    PathToOutput = RequiredInputsRead[6];
-    OutputFile = RequiredInputsRead[7];
-    GrainOrientationFile_Read = RequiredInputsRead[8];
-    PrintMisorientation = getInputBool(RequiredInputsRead[9]);
-    PrintFullOutput = getInputBool(RequiredInputsRead[10]);
+    DecompositionStrategy = getInputInt(RequiredInputsRead_General[0]);
+    MaterialName = RequiredInputsRead_General[1];
+    deltax = getInputDouble(RequiredInputsRead_General[2], -6);
+    NMax = getInputDouble(RequiredInputsRead_General[3], 12);
+    dTN = getInputDouble(RequiredInputsRead_General[4]);
+    dTsigma = getInputDouble(RequiredInputsRead_General[5]);
+    PathToOutput = RequiredInputsRead_General[6];
+    OutputFile = RequiredInputsRead_General[7];
+    GrainOrientationFile_Read = RequiredInputsRead_General[8];
+    PrintMisorientation = getInputBool(RequiredInputsRead_General[9]);
+    PrintFullOutput = getInputBool(RequiredInputsRead_General[10]);
     // Problem type-specific inputs
     if (SimulationType == "R") {
-        deltat = getInputDouble(RequiredInputsRead[11], -6);
-        tempfile = RequiredInputsRead[12];
-        TempFilesInSeries = getInputInt(RequiredInputsRead[13]);
-        NumberOfLayers = getInputInt(RequiredInputsRead[14]);
-        LayerHeight = getInputInt(RequiredInputsRead[15]);
-        ExtraWalls = getInputBool(RequiredInputsRead[16]);
+        deltat = getInputDouble(RequiredInputsRead_ProblemSpecific[0], -6);
+        tempfile = RequiredInputsRead_ProblemSpecific[1];
+        TempFilesInSeries = getInputInt(RequiredInputsRead_ProblemSpecific[2]);
+        NumberOfLayers = getInputInt(RequiredInputsRead_ProblemSpecific[3]);
+        LayerHeight = getInputInt(RequiredInputsRead_ProblemSpecific[4]);
+        ExtraWalls = getInputBool(RequiredInputsRead_ProblemSpecific[5]);
         if (id == 0) {
             std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
             std::cout << "The time step is " << deltat << " seconds" << std::endl;
@@ -194,16 +212,16 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         }
     }
     else if (SimulationType == "C") {
-        G = getInputDouble(RequiredInputsRead[11]);
-        R = getInputDouble(RequiredInputsRead[12]);
-        NRatio = getInputInt(RequiredInputsRead[13]);
-        nx = getInputInt(RequiredInputsRead[14]);
+        G = getInputDouble(RequiredInputsRead_ProblemSpecific[0]);
+        R = getInputDouble(RequiredInputsRead_ProblemSpecific[1]);
+        NRatio = getInputInt(RequiredInputsRead_ProblemSpecific[2]);
+        nx = getInputInt(RequiredInputsRead_ProblemSpecific[3]);
         nx = nx + 2; // Domain size in x, wall cells at boundaries
-        ny = getInputInt(RequiredInputsRead[15]);
+        ny = getInputInt(RequiredInputsRead_ProblemSpecific[4]);
         ny = ny + 2; // Domain size in y, wall cells at boundaries
-        nz = getInputInt(RequiredInputsRead[16]);
+        nz = getInputInt(RequiredInputsRead_ProblemSpecific[5]);
         nz = nz + 1; // Domain size in z, wall cells at Z = 0, but not Z = nz-1
-        FractSurfaceSitesActive = getInputDouble(RequiredInputsRead[17]);
+        FractSurfaceSitesActive = getInputDouble(RequiredInputsRead_ProblemSpecific[6]);
         deltat = deltax / ((double)(NRatio) * (R / G));
         NumberOfLayers = 1;
         LayerHeight = nz;
@@ -216,15 +234,15 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         }
     }
     else if (SimulationType == "S") {
-        G = getInputFloat(RequiredInputsRead[11]);
-        R = getInputFloat(RequiredInputsRead[12]);
-        NRatio = getInputInt(RequiredInputsRead[13]);
-        NSpotsX = getInputInt(RequiredInputsRead[14]);
-        NSpotsY = getInputInt(RequiredInputsRead[15]);
-        SpotOffsetFloat = getInputFloat(RequiredInputsRead[16]);
-        SpotRadiusFloat = getInputFloat(RequiredInputsRead[17]);
-        NumberOfLayers = getInputInt(RequiredInputsRead[18]);
-        LayerHeight = getInputInt(RequiredInputsRead[19]);
+        G = getInputFloat(RequiredInputsRead_ProblemSpecific[0]);
+        R = getInputFloat(RequiredInputsRead_ProblemSpecific[1]);
+        NRatio = getInputInt(RequiredInputsRead_ProblemSpecific[2]);
+        NSpotsX = getInputInt(RequiredInputsRead_ProblemSpecific[3]);
+        NSpotsY = getInputInt(RequiredInputsRead_ProblemSpecific[4]);
+        SpotOffsetFloat = getInputFloat(RequiredInputsRead_ProblemSpecific[5]);
+        SpotRadiusFloat = getInputFloat(RequiredInputsRead_ProblemSpecific[6]);
+        NumberOfLayers = getInputInt(RequiredInputsRead_ProblemSpecific[7]);
+        LayerHeight = getInputInt(RequiredInputsRead_ProblemSpecific[8]);
         deltat = deltax / (NRatio * (R / G));
         SpotOffset = SpotOffsetFloat * 1.0 * pow(10, -6) / deltax;
         SpotRadius = SpotRadiusFloat * 1.0 * pow(10, -6) / deltax;
@@ -245,11 +263,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Optional inputs - should files post-initialization be printed for debugging?
     bool PrintDebugA = false;
     bool PrintDebugB = false;
-    if (!(OptionalInputsRead[0].empty()))
-        PrintDebugA = getInputBool(OptionalInputsRead[0]);
-    if (!(OptionalInputsRead[1].empty()))
-        PrintDebugB = getInputBool(OptionalInputsRead[1]);
-    if ((OptionalInputsRead[0].empty()) && (OptionalInputsRead[1].empty()))
+    if (!(OptionalInputsRead_General[0].empty()))
+        PrintDebugA = getInputBool(OptionalInputsRead_General[0]);
+    if (!(OptionalInputsRead_General[1].empty()))
+        PrintDebugB = getInputBool(OptionalInputsRead_General[1]);
+    if ((OptionalInputsRead_General[0].empty()) && (OptionalInputsRead_General[1].empty()))
         PrintDebug = 0;
     if (PrintDebugB)
         PrintDebug = 2;
@@ -258,14 +276,14 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     else
         PrintDebug = 0;
     // Should intermediate output be printed?
-    if (!(OptionalInputsRead[2].empty())) {
-        PrintTimeSeries = getInputBool(OptionalInputsRead[2]);
+    if (!(OptionalInputsRead_General[2].empty())) {
+        PrintTimeSeries = getInputBool(OptionalInputsRead_General[2]);
         if (PrintTimeSeries) {
-            if (!(OptionalInputsRead[3].empty())) {
-                TimeSeriesFrameInc_time = getInputFloat(OptionalInputsRead[3], -6);
+            if (!(OptionalInputsRead_General[3].empty())) {
+                TimeSeriesFrameInc_time = getInputFloat(OptionalInputsRead_General[3], -6);
                 TimeSeriesInc = round(TimeSeriesFrameInc_time / deltat);
-                if (!(OptionalInputsRead[4].empty()))
-                    PrintIdleTimeSeriesFrames = getInputBool(OptionalInputsRead[4]);
+                if (!(OptionalInputsRead_General[4].empty()))
+                    PrintIdleTimeSeriesFrames = getInputBool(OptionalInputsRead_General[4]);
                 else
                     PrintIdleTimeSeriesFrames = false;
             }
@@ -285,21 +303,21 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // For simulations with substrate grain structures, should an input grain spacing or a substrate file be used?
     if ((SimulationType == "S") || (SimulationType == "R")) {
         // Exactly one of the two inputs "sub grain size" and "sub filename" should be present
-        if ((!(OptionalInputsRead[5].empty())) && (!(OptionalInputsRead[6].empty())))
+        if ((!(OptionalInputsRead_ProblemSpecific[0].empty())) && (!(OptionalInputsRead_ProblemSpecific[1].empty())))
             throw std::runtime_error("Error: only one of substrate grain size and substrate structure filename should "
                                      "be provided in the input file");
-        else if ((OptionalInputsRead[5].empty()) && (OptionalInputsRead[6].empty()))
+        else if ((OptionalInputsRead_ProblemSpecific[0].empty()) && (OptionalInputsRead_ProblemSpecific[1].empty()))
             throw std::runtime_error(
                 "Error: neither substrate grain size nor substrate structure filename was provided in the input file");
         else {
-            if (!(OptionalInputsRead[5].empty())) {
+            if (!(OptionalInputsRead_ProblemSpecific[0].empty())) {
                 UseSubstrateFile = false;
-                SubstrateGrainSpacing = getInputFloat(OptionalInputsRead[5]);
+                SubstrateGrainSpacing = getInputFloat(OptionalInputsRead_ProblemSpecific[0]);
             }
             else {
                 // Check that substrate file exists
                 UseSubstrateFile = true;
-                SubstrateFileName = OptionalInputsRead[6];
+                SubstrateFileName = OptionalInputsRead_ProblemSpecific[1];
                 checkFileExists(SubstrateFileName, "Substrate", id);
             }
         }
@@ -307,15 +325,15 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Input temperature data spacing or path to temperature data may be given
     // If not given, it is assumed HT_deltax = CA cell size and temperature data is located in examples/Temperatures
     if (SimulationType == "R") {
-        if (OptionalInputsRead[7].empty())
+        if (OptionalInputsRead_ProblemSpecific[2].empty())
             HT_deltax = deltax;
         else
-            HT_deltax = getInputDouble(OptionalInputsRead[7], -6);
+            HT_deltax = getInputDouble(OptionalInputsRead_ProblemSpecific[2], -6);
 
-        if (OptionalInputsRead[8].empty())
+        if (OptionalInputsRead_ProblemSpecific[3].empty())
             temppath = "examples/Temperatures";
         else
-            temppath = OptionalInputsRead[8];
+            temppath = OptionalInputsRead_ProblemSpecific[3];
 
         // Check that temperature file(s) exist
         temp_paths.resize(TempFilesInSeries, "");
