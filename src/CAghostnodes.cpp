@@ -298,18 +298,6 @@ void GhostNodesInit(int, int, int DecompositionStrategy, int NeighborRank_North,
                     // liquid cell
                     for (int n = 0; n < 26; n++) {
 
-                        int MyNeighborX = RankX + NeighborX(n);
-                        int MyNeighborY = RankY + NeighborY(n);
-                        int MyNeighborZ = RankZ + NeighborZ(n);
-                        long int NeighborPosition =
-                            MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-
-                        if (NeighborPosition == LocalCellLocation) {
-                            // Do not calculate critical diagonal length req'd for the newly captured cell to capture
-                            // the original
-                            CritDiagonalLength((long int)(26) * NeighborPosition + (long int)(n)) = 10000000.0;
-                        }
-
                         // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the global
                         // coordinates of the center of a neighbor cell
                         double x0 = xp + NeighborX(n) - (RankX + MyXOffset + 0.5);
