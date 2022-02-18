@@ -16,7 +16,6 @@ Substrate grain spacing: 25
 Path to temperature file(s): examples/Temperatures
 Temperature filename(s): leg.txt
 Number of temperature files: 2
-Extra set of wall cells in lateral domain directions: N
 Number of layers: 20
 Offset between layers: 6
 ***Output data printing options: (Y or N) which data should be printed***

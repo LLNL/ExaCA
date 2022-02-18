@@ -38,65 +38,91 @@ void testSubstrateInit_FromGrainSpacing() {
     double deltax = 1 * pow(10, -6);
     int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
     int LocalDomainSize = MyXSlices * MyYSlices * nz;
-    // There are 48 total cells in this domain (nx * ny * nz)
+    // There are 60 total cells in this domain (nx * ny * nz)
     // Even ranks have 30, and odd ranks have the other 30
-    double SubstrateGrainSpacing = 1.95; // This grain spacing ensures that there will be 3 substrate grains
+    // The bottom 24 cells on each rank are assigned baseplate Grain ID values
+    // The cells at Z = 4 are outside the "active" portion of the domain and are not assigned Grain IDs with the rest of
+    // the baseplate
+    double SubstrateGrainSpacing = 2.2; // This grain spacing ensures that there will be > 3 substrate grains
     ViewI_H GrainID_H(Kokkos::ViewAllocateWithoutInitializing("GrainID"), LocalDomainSize);
-    ViewI_H CritTimeStep_H(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep"), LocalDomainSize);
     // Initialize GrainID to 0 everywhere
-    // Initialize CritTimeStep to 0 everywhere to allow substrate generation for these cells
     for (int i = 0; i < MyXSlices * MyYSlices * nz; i++) {
-        CritTimeStep_H(i) = 0;
         GrainID_H(i) = 0;
     }
-    CritTimeStep_H(13) = 1; // Let 1 cell have a non-zero CritTimeStep - this cell should end up being assigned a
-                            // GrainID of 0, while the others have GrainIDs of 1, 2, or 3
     SubstrateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, nz, nzActive, MyXSlices, MyYSlices, MyXOffset,
-                                   MyYOffset, LocalActiveDomainSize, id, np, deltax, GrainID_H, CritTimeStep_H);
+                                   MyYOffset, LocalActiveDomainSize, id, np, deltax, GrainID_H);
 
-    // Check the results
+    // Check the results for baseplate grains
     if (id % 2 == 0) {
-        // Expected GrainID values: Cells 0-5 are walls, should have Grain ID 0
-        // Cell 13 has CritTimeStep > 1, should also have GrainID 0
-        // Other cells should have GrainID 1, 2, or 3, depending on the closest grain center
+        // All cells that are part of the baseplate should have GrainIDs between 1 and 6, depending on the closest
+        // baseplate grain center
         ViewI_H ExpectedGID(Kokkos::ViewAllocateWithoutInitializing("ExGrainID"), LocalDomainSize);
-        for (int i = 0; i < 6; i++) {
-            ExpectedGID(i) = 0;
-        }
-        for (int i = 6; i < 19; i++) {
-            ExpectedGID(i) = 1;
-        }
-        ExpectedGID(13) = 0;
-        ExpectedGID(19) = 2;
-        ExpectedGID(20) = 1;
-        ExpectedGID(21) = 2;
-        ExpectedGID(22) = 1;
-        ExpectedGID(23) = 2;
-        for (int i = 24; i < 30; i++) {
+        ExpectedGID(0) = 3;
+        ExpectedGID(1) = 1;
+        for (int i = 2; i < 6; i++) {
             ExpectedGID(i) = 3;
         }
+        ExpectedGID(6) = 5;
+        ExpectedGID(7) = 1;
+        for (int i = 8; i < 12; i++) {
+            ExpectedGID(i) = 3;
+        }
+        for (int i = 12; i < 16; i++) {
+            ExpectedGID(i) = 5;
+        }
+        ExpectedGID(16) = 3;
+        ExpectedGID(17) = 3;
+        ExpectedGID(18) = 5;
+        for (int i = 19; i < 24; i++) {
+            ExpectedGID(i) = 5;
+        }
+        // Powder layer cells (at domain edge, Y = 0) - should have GrainIDs > 6 (exact value depends on MPI rank id)
+        // Cells that the code "thinks" are part of the ghost nodes (Y = 1) should not have been assigned a Grain ID
+        ExpectedGID(24) = 7 + (id / 2) * 6;
+        ExpectedGID(25) = 0;
+        ExpectedGID(26) = 8 + (id / 2) * 6;
+        ExpectedGID(27) = 0;
+        ExpectedGID(28) = 9 + (id / 2) * 6;
+        ExpectedGID(29) = 0;
         for (int i = 0; i < LocalDomainSize; i++) {
             EXPECT_EQ(GrainID_H(i), ExpectedGID(i));
         }
     }
     else {
-        // Expected GrainID values: Cells 0-5 are walls, should have Grain ID 0
-        // Cell 13 has CritTimeStep > 1, should also have GrainID 0
-        // Other cells should have GrainID 1, 2, or 3, depending on the closest grain center
+        // All cells that are part of the baseplate should have GrainIDs between 1 and 6, depending on the closest
+        // baseplate grain center
         ViewI_H ExpectedGID(Kokkos::ViewAllocateWithoutInitializing("ExGrainID"), LocalDomainSize);
-        for (int i = 0; i < 6; i++) {
-            ExpectedGID(i) = 0;
-        }
+        ExpectedGID(0) = 1;
+        ExpectedGID(1) = 1;
+        ExpectedGID(2) = 2;
+        ExpectedGID(3) = 2;
+        ExpectedGID(4) = 3;
+        ExpectedGID(5) = 2;
         ExpectedGID(6) = 1;
-        for (int i = 7; i < 24; i++) {
-            ExpectedGID(i) = 2;
+        ExpectedGID(7) = 1;
+        ExpectedGID(8) = 2;
+        ExpectedGID(9) = 2;
+        ExpectedGID(10) = 3;
+        ExpectedGID(11) = 2;
+        for (int i = 12; i < 16; i++) {
+            ExpectedGID(i) = 4;
         }
-        ExpectedGID(8) = 1;
-        ExpectedGID(10) = 1;
-        ExpectedGID(13) = 0;
-        for (int i = 24; i < 30; i++) {
-            ExpectedGID(i) = 3;
+        ExpectedGID(16) = 6;
+        ExpectedGID(17) = 6;
+        ExpectedGID(18) = 5;
+        ExpectedGID(19) = 4;
+        ExpectedGID(20) = 5;
+        for (int i = 21; i < 24; i++) {
+            ExpectedGID(i) = 6;
         }
+        // Powder layer cells (at domain edge, Y = 1) - should have GrainIDs > 6 (exact value depends on MPI rank id)
+        // Cells that the code "thinks" are part of the ghost nodes (Y = 0) should not have been assigned a Grain ID
+        ExpectedGID(24) = 0;
+        ExpectedGID(25) = 10 + (id / 2) * 6;
+        ExpectedGID(26) = 0;
+        ExpectedGID(27) = 11 + (id / 2) * 6;
+        ExpectedGID(28) = 0;
+        ExpectedGID(29) = 12 + (id / 2) * 6;
         for (int i = 0; i < LocalDomainSize; i++) {
             EXPECT_EQ(GrainID_H(i), ExpectedGID(i));
         }

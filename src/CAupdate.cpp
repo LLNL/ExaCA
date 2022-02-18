@@ -326,7 +326,7 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                 int MyNeighborY = RankY + NeighborY(l);
                 int MyNeighborZ = RankZ + NeighborZ(l);
 
-                if (MyNeighborZ < nzActive) {
+                if ((MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
                     long int NeighborD3D1ConvPosition =
                         MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
                     long int GlobalNeighborD3D1ConvPosition =
@@ -730,9 +730,9 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
 
 //*****************************************************************************/
 // Prints intermediate code output to stdout, checks to see if solidification is complete
-void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int LocalDomainSize,
-                                int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
-                                float XMin, float YMin, float ZMin, int DecompositionStrategy,
+void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
+                                int LocalDomainSize, int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive,
+                                double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
                                 int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch,
                                 ViewI CellType, ViewI_H CellType_H, ViewI CritTimeStep, ViewI_H CritTimeStep_H,
                                 ViewI GrainID, ViewI_H GrainID_H, std::string TemperatureDataType, int *FinishTimeStep,
@@ -825,12 +825,13 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                             // Print current state of ExaCA simulation (up to and including the current layer's data)
                             Kokkos::deep_copy(GrainID_H, GrainID);
                             Kokkos::deep_copy(CellType_H, CellType);
-                            PrintExaCAData(
-                                id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
-                                ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H,
-                                GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H,
-                                OutputFile, DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false,
-                                false, true, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
+                            PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
+                                           ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H,
+                                           GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
+                                           UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
+                                           DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false,
+                                           false, true, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin,
+                                           YMin, ZMin);
                             IntermediateFileCounter++;
                         }
                     }

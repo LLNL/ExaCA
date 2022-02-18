@@ -23,17 +23,20 @@ void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nx,
 void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
                       int np, ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
                       ViewI_H RBufSize);
-void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize);
-void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize);
-void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize);
+void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
+                  int SendBufEndX, int SendBufStartY, int SendBufEndY);
+void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
+                    int SendBufEndX, int SendBufStartY, int SendBufEndY);
+void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
+                   int SendBufEndX, int SendBufStartY, int SendBufEndY);
 void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
-                    int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI_H GrainID, ViewI_H GrainOrientation,
-                    ViewI_H CritTimeStep, ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType,
-                    ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, std::string BaseFileName,
-                    int DecompositionStrategy, int NGrainOrientations, bool *Melted, std::string PathToOutput,
-                    int PrintDebug, bool PrintMisorientation, bool PrintFullOutput, bool PrintTimeSeries,
-                    int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, float XMin, float YMin,
-                    float ZMin);
+                    int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection,
+                    ViewI_H GrainID, ViewI_H GrainOrientation, ViewI_H CritTimeStep, ViewF_H GrainUnitVector,
+                    ViewI_H LayerID, ViewI_H CellType, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
+                    std::string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
+                    std::string PathToOutput, int PrintDebug, bool PrintMisorientation, bool PrintFullOutput,
+                    bool PrintTimeSeries, int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax,
+                    float XMin, float YMin, float ZMin);
 void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int DecompositionStrategy,
                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, double AConst, double BConst,
                    double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN,
