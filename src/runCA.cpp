@@ -24,8 +24,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius;
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
-    bool ExtraWalls = false; // If simulating a spot melt problem where the side walls are not part of the substrate,
-                             // this is changed to true in the input file
     int PrintDebug, TimeSeriesInc;
     bool PrintMisorientation, PrintFullOutput, RemeltingYN, UseSubstrateFile, PrintTimeSeries,
         PrintIdleTimeSeriesFrames;
@@ -38,8 +36,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Read input data
     InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
                       FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath, tempfile,
-                      TempFilesInSeries, temp_paths, ExtraWalls, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
-                      LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
+                      TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
+                      SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
                       FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput, NSpotsX,
                       NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames);
 
@@ -92,9 +90,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate
     // data
     if (SimulationType == "R")
-        ReadTemperatureData(deltax, HT_deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nx, ny, XMin, YMin,
-                            temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
-                            FirstValue, LastValue);
+        ReadTemperatureData(id, deltax, HT_deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin, temp_paths,
+                            NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue,
+                            LastValue);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
@@ -117,10 +115,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Initialize the temperature fields
     if (SimulationType == "R") {
         // input temperature data from files using reduced/sparse data format
-        TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nx, ny, nz,
-                         CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted,
-                         ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High,
-                         FinishTimeStep, FreezingRange, LayerID_H, FirstValue, LastValue, RawData);
+        TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nz, CritTimeStep_H,
+                         UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted, ZMinLayer, ZMaxLayer,
+                         LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FinishTimeStep, FreezingRange,
+                         LayerID_H, FirstValue, LastValue, RawData);
     }
     else if (SimulationType == "S") {
         // spot melt array test problem
@@ -131,9 +129,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     }
     else if (SimulationType == "C") {
         // directional/constrained solidification test problem
-        TempInit_DirSolidification(G, R, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, nx, ny, nz,
-                                   CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, Melted, nzActive,
-                                   ZBound_Low, ZBound_High, LayerID_H);
+        TempInit_DirSolidification(G, R, id, MyXSlices, MyYSlices, deltax, deltat, nz, CritTimeStep_H,
+                                   UndercoolingChange_H, UndercoolingCurrent_H, Melted, nzActive, ZBound_Low,
+                                   ZBound_High, LayerID_H);
     }
     // Delete temporary data structure for temperature data read
     RawData.clear();
@@ -173,21 +171,18 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     }
     else {
         if (UseSubstrateFile)
-            SubstrateInit_FromFile(SubstrateFileName, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id,
-                                   CritTimeStep_H, GrainID_H);
+            SubstrateInit_FromFile(SubstrateFileName, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, GrainID_H);
         else
             SubstrateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, nz, nzActive, MyXSlices, MyYSlices, MyXOffset,
-                                           MyYOffset, LocalActiveDomainSize, id, np, deltax, GrainID_H, CritTimeStep_H);
-        ActiveCellWallInit(id, MyXSlices, MyYSlices, nx, ny, nz, MyXOffset, MyYOffset, CellType_H, GrainID_H,
-                           CritTimeStep_H, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, UndercoolingChange_H,
-                           ExtraWalls);
+                                           MyYOffset, LocalActiveDomainSize, id, np, deltax, GrainID_H);
+        ActiveCellInit(id, MyXSlices, MyYSlices, nz, CellType_H, CritTimeStep_H, NeighborX_H, NeighborY_H, NeighborZ_H);
     }
-    GrainInit(-1, NGrainOrientations, DecompositionStrategy, nz, LocalActiveDomainSize, MyXSlices, MyYSlices, MyXOffset,
-              MyYOffset, id, np, NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West,
-              NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest, ItList_H,
-              NeighborX_H, NeighborY_H, NeighborZ_H, GrainOrientation_H, GrainUnitVector_H, DiagonalLength_H,
-              CellType_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, CritTimeStep_H, deltax, NMax,
-              NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low);
+    GrainInit(-1, NGrainOrientations, DecompositionStrategy, nx, ny, nz, LocalActiveDomainSize, MyXSlices, MyYSlices,
+              MyXOffset, MyYOffset, id, np, NeighborRank_North, NeighborRank_South, NeighborRank_East,
+              NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
+              NeighborRank_SouthWest, ItList_H, NeighborX_H, NeighborY_H, NeighborZ_H, GrainOrientation_H,
+              GrainUnitVector_H, DiagonalLength_H, CellType_H, GrainID_H, CritDiagonalLength_H, DOCenter_H, deltax,
+              NMax, NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
@@ -273,7 +268,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         // Ghost nodes for initial microstructure state
         GhostNodesInit(id, np, DecompositionStrategy, NeighborRank_North, NeighborRank_South, NeighborRank_East,
                        NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
-                       NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive,
+                       NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nzActive, nz,
                        LocalActiveDomainSize, NGrainOrientations, NeighborX_G, NeighborY_G, NeighborZ_G,
                        GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G, DOCenter_G, DiagonalLength_G,
                        CritDiagonalLength_G);
@@ -284,11 +279,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (id == 0)
         std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
     if (PrintDebug) {
-        PrintExaCAData(id, -1, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection, ProcessorsInYDirection,
-                       GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
-                       UndercoolingChange_H, UndercoolingCurrent_H, OutputFile, DecompositionStrategy,
-                       NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false, false, 0, ZBound_Low,
-                       nzActive, deltax, XMin, YMin, ZMin);
+        PrintExaCAData(id, -1, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection,
+                       ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
+                       LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
+                       DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false, false,
+                       0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Initialization data file(s) printed" << std::endl;
@@ -309,11 +304,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 // Print current state of ExaCA simulation (up to and including the current layer's data)
                 Kokkos::deep_copy(GrainID_H, GrainID_G);
                 Kokkos::deep_copy(CellType_H, CellType_G);
-                PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
-                               ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
-                               LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
-                               DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false, false, true,
-                               IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
+                PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
+                               ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H, GrainOrientation_H,
+                               CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H,
+                               UndercoolingCurrent_H, OutputFile, DecompositionStrategy, NGrainOrientations, Melted,
+                               PathToOutput, 0, false, false, true, IntermediateFileCounter, ZBound_Low, nzActive,
+                               deltax, XMin, YMin, ZMin);
                 IntermediateFileCounter++;
             }
             cycle++;
@@ -363,13 +359,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             if (cycle % 1000 == 0) {
                 IntermediateOutputAndCheck(
-                    id, np, cycle, MyXSlices, MyYSlices, LocalDomainSize, LocalActiveDomainSize, nx, ny, nz, nzActive,
-                    deltax, XMin, YMin, ZMin, DecompositionStrategy, ProcessorsInXDirection, ProcessorsInYDirection, nn,
-                    XSwitch, CellType_G, CellType_H, CritTimeStep_G, CritTimeStep_H, GrainID_G, GrainID_H,
-                    SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low, NGrainOrientations, Melted,
-                    LayerID_G, LayerID_H, GrainOrientation_H, GrainUnitVector_H, UndercoolingChange_H,
-                    UndercoolingCurrent_H, PathToOutput, OutputFile, PrintIdleTimeSeriesFrames, TimeSeriesInc,
-                    IntermediateFileCounter);
+                    id, np, cycle, MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalDomainSize, LocalActiveDomainSize,
+                    nx, ny, nz, nzActive, deltax, XMin, YMin, ZMin, DecompositionStrategy, ProcessorsInXDirection,
+                    ProcessorsInYDirection, nn, XSwitch, CellType_G, CellType_H, CritTimeStep_G, CritTimeStep_H,
+                    GrainID_G, GrainID_H, SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low,
+                    NGrainOrientations, Melted, LayerID_G, LayerID_H, GrainOrientation_H, GrainUnitVector_H,
+                    UndercoolingChange_H, UndercoolingCurrent_H, PathToOutput, OutputFile, PrintIdleTimeSeriesFrames,
+                    TimeSeriesInc, IntermediateFileCounter);
             }
 
         } while (XSwitch == 0);
@@ -434,9 +430,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 GhostNodesInit(id, np, DecompositionStrategy, NeighborRank_North, NeighborRank_South, NeighborRank_East,
                                NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest,
                                NeighborRank_SouthEast, NeighborRank_SouthWest, MyXSlices, MyYSlices, MyXOffset,
-                               MyYOffset, ZBound_Low, nzActive, LocalActiveDomainSize, NGrainOrientations, NeighborX_G,
-                               NeighborY_G, NeighborZ_G, GrainUnitVector_G, GrainOrientation_G, GrainID_G, CellType_G,
-                               DOCenter_G, DiagonalLength_G, CritDiagonalLength_G);
+                               MyYOffset, ZBound_Low, nzActive, nz, LocalActiveDomainSize, NGrainOrientations,
+                               NeighborX_G, NeighborY_G, NeighborZ_G, GrainUnitVector_G, GrainOrientation_G, GrainID_G,
+                               CellType_G, DOCenter_G, DiagonalLength_G, CritDiagonalLength_G);
             }
             XSwitch = 0;
             MPI_Barrier(MPI_COMM_WORLD);
@@ -465,11 +461,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if ((PrintMisorientation) || (PrintFullOutput)) {
         if (id == 0)
             std::cout << "Collecting data on rank 0 and printing to files" << std::endl;
-        PrintExaCAData(id, NumberOfLayers - 1, np, nx, ny, nz, MyXSlices, MyYSlices, ProcessorsInXDirection,
-                       ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
-                       LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
-                       DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, PrintMisorientation,
-                       PrintFullOutput, false, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
+        PrintExaCAData(id, NumberOfLayers - 1, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
+                       ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H,
+                       GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H,
+                       OutputFile, DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0,
+                       PrintMisorientation, PrintFullOutput, false, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
     }
     else {
         if (id == 0)

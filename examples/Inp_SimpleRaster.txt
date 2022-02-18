@@ -16,7 +16,6 @@ Substrate grain spacing: 25
 Path to temperature file(s): examples/Temperatures
 Temperature filename(s): Master-Raster-150um.txt
 Number of temperature files: 1
-Extra set of wall cells in lateral domain directions: N
 Number of layers: 1
 Offset between layers: 15
 ***Output data printing options: (Y or N) which data should be printed***
