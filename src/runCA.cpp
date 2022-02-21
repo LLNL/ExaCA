@@ -221,23 +221,23 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         BufSizeY = MyYSlices - 2;
         BufSizeZ = nzActive;
     }
-    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferEastSend"), BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferWestSend"), BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferNorthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastSend"), BufSizeZ, 5);
-    Buffer2D BufferNorthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestSend"), BufSizeZ, 5);
-    Buffer2D BufferSouthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastSend"), BufSizeZ, 5);
-    Buffer2D BufferSouthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestSend"), BufSizeZ, 5);
-    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferEastRecv"), BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferWestRecv"), BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferNorthEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastRecv"), BufSizeZ, 5);
-    Buffer2D BufferNorthWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestRecv"), BufSizeZ, 5);
-    Buffer2D BufferSouthEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastRecv"), BufSizeZ, 5);
-    Buffer2D BufferSouthWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestRecv"), BufSizeZ, 5);
-
+    // Send/recv buffers for ghost node data should be initialized with zeros
+    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferEastSend("BufferEastSend", BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferWestSend("BufferWestSend", BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferNorthEastSend("BufferNorthEastSend", BufSizeZ, 5);
+    Buffer2D BufferNorthWestSend("BufferNorthWestSend", BufSizeZ, 5);
+    Buffer2D BufferSouthEastSend("BufferSouthEastSend", BufSizeZ, 5);
+    Buffer2D BufferSouthWestSend("BufferSouthWestSend", BufSizeZ, 5);
+    Buffer2D BufferSouthRecv("BufferSouthRecv", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferNorthRecv("BufferNorthRecv", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferEastRecv("BufferEastRecv", BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferWestRecv("BufferWestRecv", BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferNorthEastRecv("BufferNorthEastRecv", BufSizeZ, 5);
+    Buffer2D BufferNorthWestRecv("BufferNorthWestRecv", BufSizeZ, 5);
+    Buffer2D BufferSouthEastRecv("BufferSouthEastRecv", BufSizeZ, 5);
+    Buffer2D BufferSouthWestRecv("BufferSouthWestRecv", BufSizeZ, 5);
     // Copy view data to GPU
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     ViewI GrainID_G = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID_H);
