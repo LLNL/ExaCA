@@ -1534,20 +1534,29 @@ void ActiveCellInit(int id, int MyXSlices, int MyYSlices, int nz, ViewI_H CellTy
                         // This is a liquid or active cell, depending on whether it is located at the interface of the
                         // solid Check to see if this site is actually at the solid-liquid interface "l" corresponds to
                         // a specific neighbor direction (of 26 possible neighbors)
-                        for (int l = 0; l < 26; l++) {
-                            // Local coordinates of adjacent cell center
-                            int MyNeighborX = i + NeighborX(l);
-                            int MyNeighborY = j + NeighborY(l);
-                            int MyNeighborZ = k + NeighborZ(l);
-                            int NeighborD3D1ConvPosition =
-                                MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                            if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
-                                (MyNeighborY < MyYSlices) && (MyNeighborZ >= 0) && (MyNeighborZ < nz)) {
-                                if (CellType(NeighborD3D1ConvPosition) == Solid) {
-                                    // This cell is at the interface - becomes active type
-                                    CellType(CAGridLocation) = Active;
-                                    SubstrateActCells_ThisRank++;
-                                    return;
+                        if (k == 0) {
+                            // All liquid cells at the bottom surface (k = 0) are at the interface and should be active
+                            // Without solid/wall cell padding below the domain, some of these wouldn't be caught by
+                            // the logic in the below loop over all neighbors
+                            CellType(CAGridLocation) = Active;
+                            SubstrateActCells_ThisRank++;
+                        }
+                        else {
+                            for (int l = 0; l < 26; l++) {
+                                // Local coordinates of adjacent cell center
+                                int MyNeighborX = i + NeighborX(l);
+                                int MyNeighborY = j + NeighborY(l);
+                                int MyNeighborZ = k + NeighborZ(l);
+                                int NeighborD3D1ConvPosition =
+                                    MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                                if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
+                                    (MyNeighborY < MyYSlices) && (MyNeighborZ >= 0) && (MyNeighborZ < nz)) {
+                                    if (CellType(NeighborD3D1ConvPosition) == Solid) {
+                                        // This cell is at the interface - becomes active type
+                                        CellType(CAGridLocation) = Active;
+                                        SubstrateActCells_ThisRank++;
+                                        return;
+                                    }
                                 }
                             }
                         }
