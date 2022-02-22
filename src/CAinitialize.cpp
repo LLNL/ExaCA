@@ -1426,7 +1426,7 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
             // (grain ID = 0 is not used)
             float MinDistanceToThisGrain = (float)(LocalActiveDomainSize);
             int ClosestGrainIndex = -1;
-            for (int n = 0; n < NumBaseplateGrains_G(); n++) {
+            for (int n = 0; n < NumBaseplateGrains_G(0); n++) {
                 float DistanceToThisGrainX = (float)(abs(BaseplateGrainX_G(n) - GlobalX));
                 float DistanceToThisGrainY = (float)(abs(BaseplateGrainY_G(n) - GlobalY));
                 float DistanceToThisGrainZ = (float)(abs(BaseplateGrainZ_G(n) - k));
