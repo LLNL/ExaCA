@@ -62,7 +62,7 @@ void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nz,
     // Recieve values from other ranks - message size different for different ranks
     for (int p = 1; p < np; p++) {
         int RecvBufSize_ThisRank = RBufSize(p);
-        ViewF_H RecvBufFloatVar(Kokkos::ViewAllocateWithoutInitializing("RecvBufFloatVar"), RecvBufSize_ThisRank);
+        ViewI_H RecvBufFloatVar(Kokkos::ViewAllocateWithoutInitializing("RecvBufFloatVar"), RecvBufSize_ThisRank);
         MPI_Recv(RecvBufFloatVar.data(), RecvBufSize_ThisRank, MPI_FLOAT, p, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         int DataCounter = 0;
@@ -112,7 +112,8 @@ void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int M
 
 //*****************************************************************************/
 // On rank > 0, send data for an integer view to rank 0
-void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX, int SendBufEndX, int SendBufStartY, int SendBufEndY) {
+void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
+                  int SendBufEndX, int SendBufStartY, int SendBufEndY) {
 
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
@@ -129,7 +130,8 @@ void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int S
 }
 
 // On rank > 0, send data for an float view to rank 0
-void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX, int SendBufEndX, int SendBufStartY, int SendBufEndY) {
+void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
+                    int SendBufEndX, int SendBufStartY, int SendBufEndY) {
 
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
@@ -146,7 +148,8 @@ void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int
 }
 
 // On rank > 0, send data for a bool array (converted into integers for MPI) to rank 0
-void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX, int SendBufEndX, int SendBufStartY, int SendBufEndY) {
+void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
+                   int SendBufEndX, int SendBufStartY, int SendBufEndY) {
 
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
@@ -167,14 +170,14 @@ void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int Se
 
 //*****************************************************************************/
 // Prints values of selected data structures to Paraview files
-void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
-                    int ProcessorsInXDirection, int ProcessorsInYDirection, int NeighborRank_North, int NeighborRank_South, int NeighborRank_East, int NeighborRank_West, ViewI_H GrainID, ViewI_H GrainOrientation,
-                    ViewI_H CritTimeStep, ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType,
-                    ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, std::string BaseFileName,
-                    int DecompositionStrategy, int NGrainOrientations, bool *Melted, std::string PathToOutput,
-                    int PrintDebug, bool PrintMisorientation, bool PrintFullOutput, bool PrintTimeSeries,
-                    int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, float XMin, float YMin,
-                    float ZMin) {
+void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
+                    int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection,
+                    ViewI_H GrainID, ViewI_H GrainOrientation, ViewI_H CritTimeStep, ViewF_H GrainUnitVector,
+                    ViewI_H LayerID, ViewI_H CellType, ViewF_H UndercoolingChange,
+                    std::string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
+                    std::string PathToOutput, int PrintDebug, bool PrintMisorientation, bool PrintFullOutput,
+                    bool PrintTimeSeries, int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax,
+                    float XMin, float YMin, float ZMin) {
 
     // Collect all data on rank 0, for all data structures of interest
     if (id == 0) {
@@ -187,12 +190,12 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
 
         for (int p = 1; p < np; p++) {
             RecvXOffset(p) = XOffsetCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
-            RecvXSlices(p) = XMPSlicesCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy, NeighborRank_West, NeighborRank_East);
+            RecvXSlices(p) =
+                XMPSlicesCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
             RecvYOffset(p) = YOffsetCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy);
-            RecvYSlices(p) = YMPSlicesCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy, NeighborRank_North, NeighborRank_South);
+            RecvYSlices(p) = YMPSlicesCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy);
 
             RBufSize(p) = RecvXSlices(p) * RecvYSlices(p) * nz;
-            std::cout << "From rank " << p << ", expecting to receive " << RBufSize(p) << " data points, with " << RecvXSlices(p) << " in x and " << RecvYSlices(p) << " in y" << std::endl;
         }
         // Create variables for each possible data structure being collected on rank 0
         // If PrintDebug = 0, we aren't printing any debug files after initialization, but we are printing either the
@@ -210,8 +213,8 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         ViewI3D_H CellType_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("CellType_WholeDomain"), 0, 0, 0);
         ViewF3D_H UndercoolingChange_WholeDomain(
             Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_WholeDomain"), 0, 0, 0);
-        ViewF3D_H UndercoolingCurrent_WholeDomain(
-            Kokkos::ViewAllocateWithoutInitializing("UndercoolingCurrent_WholeDomain"), 0, 0, 0);
+//        ViewF3D_H UndercoolingCurrent_WholeDomain(
+//            Kokkos::ViewAllocateWithoutInitializing("UndercoolingCurrent_WholeDomain"), 0, 0, 0);
 
         if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput)) {
             Kokkos::resize(GrainID_WholeDomain, nz, nx, ny);
@@ -238,29 +241,30 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
             CollectIntField(CritTimeStep_WholeDomain, CritTimeStep, nz, MyXSlices, MyYSlices, np, RecvXOffset,
                             RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
-        if ((PrintDebug == 2) || (PrintTimeSeries)) {
+        if (PrintDebug == 2) {
             Kokkos::resize(UndercoolingChange_WholeDomain, nz, nx, ny);
-            Kokkos::resize(UndercoolingCurrent_WholeDomain, nz, nx, ny);
+            //Kokkos::resize(UndercoolingCurrent_WholeDomain, nz, nx, ny);
             CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange, nz, MyXSlices, MyYSlices, np,
                               RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
-            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent, nz, MyXSlices, MyYSlices, np,
-                              RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+//            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent, nz, MyXSlices, MyYSlices, np,
+//                              RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
 
         if (PrintMisorientation)
             PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain,
-                                      GrainOrientation, GrainUnitVector, NGrainOrientations);
+                                      GrainOrientation, GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
         if ((PrintFullOutput) || (PrintDebug > 0))
             PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
-                          CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
-                          Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput);
+                          CellType_WholeDomain, UndercoolingChange_WholeDomain,
+                          Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput, deltax, XMin,
+                          YMin, ZMin);
         if (PrintTimeSeries)
             PrintIntermediateExaCAState(IntermediateFileCounter, layernumber, BaseFileName, PathToOutput, ZBound_Low,
                                         nzActive, nx, ny, GrainID_WholeDomain, CellType_WholeDomain, GrainOrientation,
-                                        GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin, UndercoolingCurrent_WholeDomain);
+                                        GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
     }
     else {
-        
+
         // No ghost nodes in sent data:
         int SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY;
         if (MyYOffset == 0)
@@ -270,7 +274,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         if (MyYSlices + MyYOffset == ny)
             SendBufEndY = MyYSlices;
         else
-            SendBufEndY = MyYSlices-1;
+            SendBufEndY = MyYSlices - 1;
         if (MyXOffset == 0)
             SendBufStartX = 0;
         else
@@ -278,27 +282,33 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         if (MyXSlices + MyXOffset == nx)
             SendBufEndX = MyXSlices;
         else
-            SendBufEndX = MyXSlices-1;
+            SendBufEndX = MyXSlices - 1;
 
         int SendBufSize = (SendBufEndX - SendBufStartX) * (SendBufEndY - SendBufStartY) * nz;
-        std::cout << "On rank " << id << ", expecting to send " << SendBufSize << " data points, with " << SendBufEndX-SendBufStartX << " in x and " << SendBufEndY-SendBufStartY << " in y" << std::endl;
 
         // Collect Melted/Grain ID data on rank 0
         if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput))
-            SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
+            SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
+                         SendBufEndY);
         if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2))
-            SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
+            SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
+                          SendBufEndY);
         if ((PrintFullOutput) || (PrintDebug > 0))
-            SendIntField(LayerID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
+            SendIntField(LayerID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
+                         SendBufEndY);
         if ((PrintDebug > 0) || (PrintTimeSeries)) {
-            SendIntField(CellType, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
+            SendIntField(CellType, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
+                         SendBufEndY);
         }
         if (PrintDebug > 0) {
-            SendIntField(CritTimeStep, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
+            SendIntField(CritTimeStep, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
+                         SendBufEndY);
         }
         if (PrintDebug == 2) {
-            SendFloatField(UndercoolingChange, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
-            SendFloatField(UndercoolingCurrent, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY);
+            SendFloatField(UndercoolingChange, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
+                           SendBufStartY, SendBufEndY);
+//            SendFloatField(UndercoolingCurrent, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
+//                           SendBufStartY, SendBufEndY);
         }
     }
 }
@@ -307,9 +317,9 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
 // Print specified fields to a paraview file
 void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3D_H LayerID_WholeDomain,
                    ViewI3D_H CritTimeStep_WholeDomain, ViewI3D_H CellType_WholeDomain,
-                   ViewF3D_H UndercoolingChange_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain,
+                   ViewF3D_H UndercoolingChange_WholeDomain,
                    ViewI3D_H Melted_WholeDomain, std::string PathToOutput, std::string BaseFileName, int PrintDebug,
-                   bool PrintFullOutput) {
+                   bool PrintFullOutput, double deltax, float XMin, float YMin, float ZMin) {
 
     std::string FName;
     if (PrintFullOutput) {
@@ -403,16 +413,16 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
             Grainplot << std::endl;
         }
         // Print Undercooling current data
-        Grainplot << "SCALARS UndercoolingCurrent float 1" << std::endl;
-        Grainplot << "LOOKUP_TABLE default" << std::endl;
-        for (int k = 0; k < nz; k++) {
-            for (int j = 0; j < ny; j++) {
-                for (int i = 0; i < nx; i++) {
-                    Grainplot << UndercoolingCurrent_WholeDomain(k, i, j) << " ";
-                }
-            }
-            Grainplot << std::endl;
-        }
+//        Grainplot << "SCALARS Melted float 1" << std::endl;
+//        Grainplot << "LOOKUP_TABLE default" << std::endl;
+//        for (int k = 0; k < nz; k++) {
+//            for (int j = 0; j < ny; j++) {
+//                for (int i = 0; i < nx; i++) {
+//                    Grainplot << UndercoolingCurrent_WholeDomain(k, i, j) << " ";
+//                }
+//            }
+//            Grainplot << std::endl;
+//        }
     }
     Grainplot.close();
 }
@@ -420,7 +430,8 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
 // Print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview file
 void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H Melted_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewI_H GrainOrientation,
-                               ViewF_H GrainUnitVector, int NGrainOrientations) {
+                               ViewF_H GrainUnitVector, int NGrainOrientations, double deltax, float XMin, float YMin,
+                               float ZMin) {
 
     std::string FName = PathToOutput + BaseFileName + "_Misorientations.vtk";
     std::cout << "Printing Paraview file of grain misorientations" << std::endl;
@@ -435,7 +446,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     GrainplotM << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
     GrainplotM << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
     GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
-    GrainplotM << std::fixed << "POINT_DATA " << nx  * ny * nz << std::endl;
+    GrainplotM << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
     GrainplotM << "SCALARS Angle_z int 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
@@ -456,21 +467,12 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
         }
         GrainMisorientation_Round(n) = round(AngleZmin);
     }
-<<<<<<< Updated upstream
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
                 if (Melted_WholeDomain(k, i, j) == 0)
                     GrainplotM << 200 << " ";
                 else {
-=======
-    for (int k = 1; k < nz; k++) {
-        for (int j = 1; j < ny - 1; j++) {
-            for (int i = 1; i < nx - 1; i++) {
-               // if (Melted_WholeDomain(k, i, j) == 0)
-               //     GrainplotM << 200 << " ";
-               // else {
->>>>>>> Stashed changes
                     MeltedCells++;
                     int RoundedAngle;
                     int MyOrientation =
@@ -482,7 +484,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
                     else
                         RoundedAngle = GrainMisorientation_Round(MyOrientation);
                     GrainplotM << RoundedAngle << " ";
-               // }
+                }
             }
         }
         GrainplotM << std::endl;
@@ -500,7 +502,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN,
                    double dTsigma, std::string tempfile, int TempFilesInSeries, double HT_deltax, bool RemeltingYN,
                    double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
-                   float SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
+                   double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
                    double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
                    int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
                    double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
@@ -557,7 +559,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
             if (SubstrateFile)
                 ExaCALog << "The substrate file was " << SubstrateFileName << std::endl;
             else
-                ExaCALog << "The mean substrate grain size was " << SubstrateGrainSpacing << std::endl;
+                ExaCALog << "The mean substrate grain size was " << SubstrateGrainSpacing << " microns" << std::endl;
             if (SimulationType == "R") {
                 ExaCALog << "The " << TempFilesInSeries << " temperature file(s) used had the name " << tempfile
                          << std::endl;
@@ -614,7 +616,7 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain,
                                  ViewI_H GrainOrientation, ViewF_H GrainUnitVector, int NGrainOrientations,
-                                 double deltax, float XMin, float YMin, float ZMin, ViewF3D_H UndercoolingCurrent_WholeDomain) {
+                                 double deltax, float XMin, float YMin, float ZMin) {
 
     std::string FName = PathToOutput + BaseFileName + "_layer" + std::to_string(layernumber) + "_" +
                         std::to_string(IntermediateFileCounter) + ".vtk";
@@ -663,26 +665,8 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
                     else
                         GrainplotM << GrainMisorientation(MyOrientation) << " ";
                 }
-                else {
-                   // if ((IntermediateFileCounter == 5) && (i < 120)) {
-                   //     printf("Liquid cell at location %d %d %d \n",i,j,k);
-                        GrainplotM << -1.0 << " ";
-                   // }
-                }
-            }
-        }
-        GrainplotM << std::endl;
-    }
-    GrainplotM << "SCALARS Undercooling float 1" << std::endl;
-    GrainplotM << "LOOKUP_TABLE default" << std::endl;
-    for (int k = 1; k <= ZPrintSize; k++) {
-        for (int j = 1; j < ny - 1; j++) {
-            for (int i = 1; i < nx - 1; i++) {
-                if ((CellType_WholeDomain(k, i, j) != Solid) && (CellType_WholeDomain(k, i, j) != Wall)) {
-                    GrainplotM << UndercoolingCurrent_WholeDomain(k,i,j) << " ";
-                }
                 else
-                    GrainplotM << 0.0 << " ";
+                    GrainplotM << -1.0 << " ";
             }
         }
         GrainplotM << std::endl;

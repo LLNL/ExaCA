@@ -8,7 +8,7 @@
 
 #include <Kokkos_Core.hpp>
 
-enum TypeNames { Wall = 0, Solid = 1, Active = 2, TemporaryUpdate = 3, TemporaryInit = 4, Liquid = 5, Ghost = 6 };
+enum TypeNames { Solid = 0, TempSolid = 1, Active = 2, TemporaryUpdate = 3, TemporaryInit = 4, Liquid = 5, Ghost = 6 };
 
 // Use Kokkos::DefaultExecutionSpace
 typedef Kokkos::View<float *> ViewF;
@@ -16,7 +16,6 @@ typedef Kokkos::View<int *> ViewI;
 typedef Kokkos::View<int **> ViewI2D;
 typedef Kokkos::View<int *, Kokkos::MemoryTraits<Kokkos::Atomic>> View_a;
 typedef Kokkos::View<float **> Buffer2D;
-typedef Kokkos::View<int ***> Buffer3D; // Used in ghost node initialization of integer structures CellType and GrainID
 typedef Kokkos::View<float *> TestView;
 typedef Kokkos::View<float ***> ViewF3D;
 

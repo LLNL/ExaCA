@@ -34,18 +34,23 @@ void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlic
                          int &NeighborRank_West, int &NeighborRank_NorthEast, int &NeighborRank_NorthWest,
                          int &NeighborRank_SouthEast, int &NeighborRank_SouthWest, int &nx, int &ny, int &nz,
                          int &ProcessorsInXDirection, int &ProcessorsInYDirection, long int &LocalDomainSize);
-void ReadTemperatureData(int id, double &deltax, double HT_deltax, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
-                         float XMin, float YMin, std::vector<std::string> &temp_paths,
+void ReadTemperatureData(int id, bool RemeltingYN, ViewI_H MaxSolidificationEvents, int &MyXSlices, int &MyYSlices,
+                         int &MyXOffset, int &MyYOffset, double &deltax, double HT_deltax,
+                         float &XMin, float &YMin, std::vector<std::string> &temp_paths, float, int &LayerHeight,
                          int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
-                         std::vector<double> &RawData, int *FirstValue, int *LastValue);
-void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, double deltax, double deltat, int nz,
+                         float *ZMinLayer, float *ZMaxLayer, int *FirstValue, int *LastValue,
+                         std::vector<double> &RawData);
+void MaxSolidificationEventSpotCount(int nx, int ny, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset,
+                                     int NumberOfLayers, ViewI_H MaxSolidificationEvents);
+void TempInit_DirSolidification(double G, double R, int id, int MyXSlices, int MyYSlices, double deltax, double deltat, int nz,
                                 ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
                                 bool *Melted, int &nzActive, int &ZBound_Low, int &ZBound_High, ViewI_H LayerID);
-void TempInit_SpotMelt(double G, double R, std::string SimulationType, int id, int &MyXSlices, int &MyYSlices,
-                       int &MyXOffset, int &MyYOffset, double deltax, double deltat, int nz, ViewI_H CritTimeStep,
+void TempInit_SpotMelt(bool RemeltingYN, int layernumber, double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
+                       int &MyYOffset, double deltax, double deltat, int nz, ViewI_H MeltTimeStep, ViewI_H CritTimeStep,
                        ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight,
                        int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, double FreezingRange,
-                       ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset);
+                       ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset, ViewF3D_H LayerTimeTempHistory,
+                       ViewI_H NumberOfSolidificationEvents, ViewI_H SolidificationEventCounter);
 void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax,
                       double HT_deltax, double deltat, int &nz, ViewI_H CritTimeStep,
                       ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin,
@@ -56,7 +61,7 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
                      double &deltax, double deltat, double FreezingRange, ViewF3D_H LayerTimeTempHistory,
                      ViewI_H MaxSolidificationEvents, ViewI_H NumberOfSolidificationEvents,
                      ViewI_H SolidificationEventCounter, ViewI_H MeltTimeStep, ViewI_H CritTimeStep,
-                     ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, float XMin, float YMin, bool *Melted,
+                     ViewF_H UndercoolingChange, float XMin, float YMin, bool *Melted,
                      float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
                      ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData);
 void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
@@ -64,8 +69,8 @@ void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, V
 void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx, int ny,
                                      int nz, int MyXOffset, int MyYOffset, int pid, int np, ViewI_H CellType,
                                      ViewI_H GrainID);
-void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
-                            int MyYOffset, int pid, ViewI_H GrainID);
+void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices,
+                            int MyXOffset, int MyYOffset, int id, ViewI_H GrainID);
 void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int nz, int nzActive, int MyXSlices,
                                     int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, int pid,
                                     int np, double deltax, ViewI_H GrainID);
@@ -88,10 +93,10 @@ void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz,
                 int NeighborRank_NorthEast, int NeighborRank_NorthWest, int NeighborRank_SouthEast,
                 int NeighborRank_SouthWest, ViewI_H NucleiLocation, ViewI_H NucleationTimes, ViewI_H CellType,
                 ViewI_H GrainID, ViewI_H CritTimeStep, ViewF_H UndercoolingChange);
-void DomainShiftAndResize(std::string SimulationType, int id, int MyXSlices, int MyYSlices, int &ZBound_Low,
-                          int &ZBound_High, float ZMin, float *ZMinLayer, float *ZMaxLayer, double deltax,
-                          int &nzActive, int nz, int SpotRadius, int &LocalActiveDomainSize, int layernumber,
-                          int LayerHeight);
+//void DomainShiftAndResize(std::string SimulationType, int id, int MyXSlices, int MyYSlices, int &ZBound_Low,
+//                          int &ZBound_High, float ZMin, float *ZMinLayer, float *ZMaxLayer, double deltax,
+//                          int &nzActive, int nz, int SpotRadius, int &LocalActiveDomainSize, int layernumber,
+//                          int LayerHeight);
 void ZeroInitViews(ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF DOCenter, int DecompositionStrategy,
                    Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
                    Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
