@@ -238,7 +238,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
             CollectIntField(CritTimeStep_WholeDomain, CritTimeStep, nz, MyXSlices, MyYSlices, np, RecvXOffset,
                             RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
-        if (PrintDebug == 2) {
+        if ((PrintDebug == 2) || (PrintTimeSeries)) {
             Kokkos::resize(UndercoolingChange_WholeDomain, nz, nx, ny);
             Kokkos::resize(UndercoolingCurrent_WholeDomain, nz, nx, ny);
             CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange, nz, MyXSlices, MyYSlices, np,
@@ -257,7 +257,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         if (PrintTimeSeries)
             PrintIntermediateExaCAState(IntermediateFileCounter, layernumber, BaseFileName, PathToOutput, ZBound_Low,
                                         nzActive, nx, ny, GrainID_WholeDomain, CellType_WholeDomain, GrainOrientation,
-                                        GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
+                                        GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin, UndercoolingCurrent_WholeDomain);
     }
     else {
         
@@ -456,12 +456,21 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
         }
         GrainMisorientation_Round(n) = round(AngleZmin);
     }
+<<<<<<< Updated upstream
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
                 if (Melted_WholeDomain(k, i, j) == 0)
                     GrainplotM << 200 << " ";
                 else {
+=======
+    for (int k = 1; k < nz; k++) {
+        for (int j = 1; j < ny - 1; j++) {
+            for (int i = 1; i < nx - 1; i++) {
+               // if (Melted_WholeDomain(k, i, j) == 0)
+               //     GrainplotM << 200 << " ";
+               // else {
+>>>>>>> Stashed changes
                     MeltedCells++;
                     int RoundedAngle;
                     int MyOrientation =
@@ -473,7 +482,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
                     else
                         RoundedAngle = GrainMisorientation_Round(MyOrientation);
                     GrainplotM << RoundedAngle << " ";
-                }
+               // }
             }
         }
         GrainplotM << std::endl;
@@ -605,7 +614,7 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain,
                                  ViewI_H GrainOrientation, ViewF_H GrainUnitVector, int NGrainOrientations,
-                                 double deltax, float XMin, float YMin, float ZMin) {
+                                 double deltax, float XMin, float YMin, float ZMin, ViewF3D_H UndercoolingCurrent_WholeDomain) {
 
     std::string FName = PathToOutput + BaseFileName + "_layer" + std::to_string(layernumber) + "_" +
                         std::to_string(IntermediateFileCounter) + ".vtk";
@@ -654,8 +663,26 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
                     else
                         GrainplotM << GrainMisorientation(MyOrientation) << " ";
                 }
+                else {
+                   // if ((IntermediateFileCounter == 5) && (i < 120)) {
+                   //     printf("Liquid cell at location %d %d %d \n",i,j,k);
+                        GrainplotM << -1.0 << " ";
+                   // }
+                }
+            }
+        }
+        GrainplotM << std::endl;
+    }
+    GrainplotM << "SCALARS Undercooling float 1" << std::endl;
+    GrainplotM << "LOOKUP_TABLE default" << std::endl;
+    for (int k = 1; k <= ZPrintSize; k++) {
+        for (int j = 1; j < ny - 1; j++) {
+            for (int i = 1; i < nx - 1; i++) {
+                if ((CellType_WholeDomain(k, i, j) != Solid) && (CellType_WholeDomain(k, i, j) != Wall)) {
+                    GrainplotM << UndercoolingCurrent_WholeDomain(k,i,j) << " ";
+                }
                 else
-                    GrainplotM << -1.0 << " ";
+                    GrainplotM << 0.0 << " ";
             }
         }
         GrainplotM << std::endl;

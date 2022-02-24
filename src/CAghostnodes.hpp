@@ -32,6 +32,6 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                   int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
                   ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
                   ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int nzActive, int ZBound_Low);
+                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int nzActive, int ZBound_Low, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CaptureTimeStep);
 
 #endif

@@ -10,8 +10,8 @@ Standard deviation of nucleation undercooling: 0.5
 Path to output:./
 Output file base name:TestProblemDirS
 File of grain orientations:GrainOrientationVectors_Robert.csv
-Thermal gradient: 500000
-Cooling rate: 300000
+Thermal gradient: 100
+Cooling rate: 100
 Domain size in x: 200
 Domain size in y: 200
 Domain size in z: 200
@@ -23,6 +23,6 @@ Print file of all ExaCA data: Y
 Debug check (reduced): N
 Debug check (extensive): N
 ***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
-Print intermediate output frames: Y
+Print intermediate output frames: N
 Increment to separate frames: 350
 Intermediate output even if system is unchanged from previous state: N

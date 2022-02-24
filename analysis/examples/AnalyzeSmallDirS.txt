@@ -1,9 +1,9 @@
 Used in post-processing script to analyze select ExaCA outputs
 *****
-Path to/name of log (.log) file associated with the microstructure of interest: TestProblemSmallDirS.log
-Path to/name of microstructure (.vtk) file: TestProblemSmallDirS.vtk
+Path to/name of log (.log) file associated with the microstructure of interest: TestProblemEXAMPLE.log
+Path to/name of microstructure (.vtk) file: TestProblemEXAMPLE.vtk
 Path to file of grain orientations (rotation matrix form): GrainOrientationVectors_Robert.csv
-Path to/base (without file extension) name of data files of output resulting from this analysis: TestProblemSmallDirS
+Path to/base (without file extension) name of data files of output resulting from this analysis: TestProblemEXAMPLE
 **********
 SECTION 1: ExaConstit representative volume elements: lines have the format [size, center x, center y, center z]
 Multiple RVEs can be printed as long as they are formatted as above and on separate lines

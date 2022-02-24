@@ -219,11 +219,9 @@ void Nucleation(bool Remelting, int MyXSlices, int MyYSlices, int MyXOffset, int
     nn += NucleationThisDT;
 }
 
-//*****************************************************************************/
-// Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, int LocalActiveDomainSize, int,
+void CellCapture_RM(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int,
                  int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst,
-                 int MyXOffset, int MyYOffset, ViewI2D ItList, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
+                 int MyXOffset, int MyYOffset, ViewI2D ItList, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI OppositeNeighbor,
                  ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector,
                  ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI GrainOrientation, ViewI CellType, ViewF DOCenter,
                  ViewI GrainID, int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
@@ -231,361 +229,378 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
                  Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX,
                  int BufSizeY, int ZBound_Low, int nzActive, int, int layernumber, ViewI LayerID, ViewI SteeringVector,
                  ViewI numSteer_G, ViewI_H numSteer_H, ViewI MeltTimeStep, ViewI SolidificationEventCounter,
-                 ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory) {
+                 ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory, ViewI CaptureTimeStep) {
 
-    // Cell capture - determing coordinates of all active cells, update undercooling in undercooled liquid cells/active
-    // cells be accounted for
+// Perform melting events, maintaining active cells at the solid-liquid interface
+// For all active and liquid cells that have undercooled, record their positions in the steering vector
+Kokkos::parallel_for(
+    "preCellCapture_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const long int &D3D1ConvPosition) {
+        
+        // Coordinate of this cell on the "global" (all cells in the Z direction) grid
+        int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+        int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+        int RankX = Rem / MyYSlices;
+        int RankY = Rem % MyYSlices;
+        int GlobalZ = RankZ + ZBound_Low;
+        int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
 
-    if (Remelting) {
-        Kokkos::parallel_for(
-            "preCellCapture_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const long int &D3D1ConvPosition) {
-                // Cells of interest for the CA
-                int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-                int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
-                int RankX = Rem / MyYSlices;
-                int RankY = Rem % MyYSlices;
-                int GlobalZ = RankZ + ZBound_Low;
-                int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                int cellType = CellType(GlobalD3D1ConvPosition);
-                if (cellType != Wall) {
-
-                    int cell_Liquid = (cellType == Liquid);
-                    int cell_Active = (cellType == Active);
-                    int pastCritTime = (cycle > CritTimeStep(GlobalD3D1ConvPosition));
-
-                    // Check if any solid cells need to be melted
-                    int pastMeltTime = (cycle >= MeltTimeStep(GlobalD3D1ConvPosition));
-                    int atCritTime = (cycle == CritTimeStep(GlobalD3D1ConvPosition));
-
-                    if ((pastMeltTime) && (!(pastCritTime)) && (cellType != Liquid)) {
-                        // Keep GrainID in case this cell becomes an active cell later
-                        // Cell will later become liquid - in the meantime, delete data from send buffers
-                        // if this cell is in the halo region
-                        CellType(GlobalD3D1ConvPosition) = TemporaryUpdate;
-
-                        // Current undercooling is 0 as the cell has remelted
-                        UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
-
-                        // Diagonal length (which is used in ghost nodes to check if a cell is
-                        if (np > 1) {
-                            // Reset and send 0 values to clear buffer, as this active/solid cell has melted
-                            if (DecompositionStrategy == 1) {
-                                int GNPosition = RankZ * BufSizeX + RankX;
-                                if (RankY == 1) {
-                                    BufferSouthSend(GNPosition, 0) = 0.0;
-                                    BufferSouthSend(GNPosition, 1) = 0.0;
-                                    BufferSouthSend(GNPosition, 2) = 0.0;
-                                    BufferSouthSend(GNPosition, 3) = 0.0;
-                                    BufferSouthSend(GNPosition, 4) = 0.0;
-                                }
-                                else if (RankY == MyYSlices - 2) {
-                                    int GNPosition = RankZ * BufSizeX + RankX;
-                                    BufferNorthSend(GNPosition, 0) = 0.0;
-                                    BufferNorthSend(GNPosition, 1) = 0.0;
-                                    BufferNorthSend(GNPosition, 2) = 0.0;
-                                    BufferNorthSend(GNPosition, 3) = 0.0;
-                                    BufferNorthSend(GNPosition, 4) = 0.0;
-                                }
-                            }
-                            else {
-                                if (RankY == 1) {
-                                    if (RankX == MyXSlices - 2) {
-                                        int GNPosition = RankZ * BufSizeX + RankX - 1;
-                                        BufferSouthSend(GNPosition, 0) = 0.0;
-                                        BufferSouthSend(GNPosition, 1) = 0.0;
-                                        BufferSouthSend(GNPosition, 2) = 0.0;
-                                        BufferSouthSend(GNPosition, 3) = 0.0;
-                                        BufferSouthSend(GNPosition, 4) = 0.0;
-                                        GNPosition = RankZ * BufSizeY + RankY - 1;
-                                        BufferEastSend(GNPosition, 0) = 0.0;
-                                        BufferEastSend(GNPosition, 1) = 0.0;
-                                        BufferEastSend(GNPosition, 2) = 0.0;
-                                        BufferEastSend(GNPosition, 3) = 0.0;
-                                        BufferEastSend(GNPosition, 4) = 0.0;
-                                        GNPosition = RankZ;
-                                        BufferSouthEastSend(GNPosition, 0) = 0.0;
-                                        BufferSouthEastSend(GNPosition, 1) = 0.0;
-                                        BufferSouthEastSend(GNPosition, 2) = 0.0;
-                                        BufferSouthEastSend(GNPosition, 3) = 0.0;
-                                        BufferSouthEastSend(GNPosition, 4) = 0.0;
-                                    }
-                                    else if (RankX == 1) {
-                                        int GNPosition = RankZ * BufSizeX + RankX - 1;
-                                        BufferSouthSend(GNPosition, 0) = 0.0;
-                                        BufferSouthSend(GNPosition, 1) = 0.0;
-                                        BufferSouthSend(GNPosition, 2) = 0.0;
-                                        BufferSouthSend(GNPosition, 3) = 0.0;
-                                        BufferSouthSend(GNPosition, 4) = 0.0;
-                                        GNPosition = RankZ * BufSizeY + RankY - 1;
-                                        BufferWestSend(GNPosition, 0) = 0.0;
-                                        BufferWestSend(GNPosition, 1) = 0.0;
-                                        BufferWestSend(GNPosition, 2) = 0.0;
-                                        BufferWestSend(GNPosition, 3) = 0.0;
-                                        BufferWestSend(GNPosition, 4) = 0.0;
-                                        GNPosition = RankZ;
-                                        BufferSouthWestSend(GNPosition, 0) = 0.0;
-                                        BufferSouthWestSend(GNPosition, 1) = 0.0;
-                                        BufferSouthWestSend(GNPosition, 2) = 0.0;
-                                        BufferSouthWestSend(GNPosition, 3) = 0.0;
-                                        BufferSouthWestSend(GNPosition, 4) = 0.0;
-                                    }
-                                    else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
-                                        // This is being sent to MyLeft
-                                        int GNPosition = RankZ * BufSizeX + RankX - 1;
-                                        BufferSouthSend(GNPosition, 0) = 0.0;
-                                        BufferSouthSend(GNPosition, 1) = 0.0;
-                                        BufferSouthSend(GNPosition, 2) = 0.0;
-                                        BufferSouthSend(GNPosition, 3) = 0.0;
-                                        BufferSouthSend(GNPosition, 4) = 0.0;
-                                    }
-                                }
-                                else if (RankY == MyYSlices - 2) {
-                                    // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                                    if (RankX == MyXSlices - 2) {
-                                        int GNPosition = RankZ * BufSizeX + RankX - 1;
-                                        BufferNorthSend(GNPosition, 0) = 0.0;
-                                        BufferNorthSend(GNPosition, 1) = 0.0;
-                                        BufferNorthSend(GNPosition, 2) = 0.0;
-                                        BufferNorthSend(GNPosition, 3) = 0.0;
-                                        BufferNorthSend(GNPosition, 4) = 0.0;
-                                        GNPosition = RankZ * BufSizeY + RankY - 1;
-                                        BufferEastSend(GNPosition, 0) = 0.0;
-                                        BufferEastSend(GNPosition, 1) = 0.0;
-                                        BufferEastSend(GNPosition, 2) = 0.0;
-                                        BufferEastSend(GNPosition, 3) = 0.0;
-                                        BufferEastSend(GNPosition, 4) = 0.0;
-                                        GNPosition = RankZ;
-                                        BufferNorthEastSend(GNPosition, 0) = 0.0;
-                                        BufferNorthEastSend(GNPosition, 1) = 0.0;
-                                        BufferNorthEastSend(GNPosition, 2) = 0.0;
-                                        BufferNorthEastSend(GNPosition, 3) = 0.0;
-                                        BufferNorthEastSend(GNPosition, 4) = 0.0;
-                                    }
-                                    else if (RankX == 1) {
-                                        int GNPosition = RankZ * BufSizeX + RankX - 1;
-                                        BufferNorthSend(GNPosition, 0) = 0.0;
-                                        BufferNorthSend(GNPosition, 1) = 0.0;
-                                        BufferNorthSend(GNPosition, 2) = 0.0;
-                                        BufferNorthSend(GNPosition, 3) = 0.0;
-                                        BufferNorthSend(GNPosition, 4) = 0.0;
-                                        GNPosition = RankZ * BufSizeY + RankY - 1;
-                                        BufferWestSend(GNPosition, 0) = 0.0;
-                                        BufferWestSend(GNPosition, 1) = 0.0;
-                                        BufferWestSend(GNPosition, 2) = 0.0;
-                                        BufferWestSend(GNPosition, 3) = 0.0;
-                                        BufferWestSend(GNPosition, 4) = 0.0;
-                                        GNPosition = RankZ;
-                                        BufferNorthWestSend(GNPosition, 0) = 0.0;
-                                        BufferNorthWestSend(GNPosition, 1) = 0.0;
-                                        BufferNorthWestSend(GNPosition, 2) = 0.0;
-                                        BufferNorthWestSend(GNPosition, 3) = 0.0;
-                                        BufferNorthWestSend(GNPosition, 4) = 0.0;
-                                    }
-                                    else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
-                                        int GNPosition = RankZ * BufSizeX + RankX - 1;
-                                        BufferNorthSend(GNPosition, 0) = 0.0;
-                                        BufferNorthSend(GNPosition, 1) = 0.0;
-                                        BufferNorthSend(GNPosition, 2) = 0.0;
-                                        BufferNorthSend(GNPosition, 3) = 0.0;
-                                        BufferNorthSend(GNPosition, 4) = 0.0;
-                                    }
-                                }
-                                else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                                    int GNPosition = RankZ * BufSizeY + RankY - 1;
-                                    BufferWestSend(GNPosition, 0) = 0.0;
-                                    BufferWestSend(GNPosition, 1) = 0.0;
-                                    BufferWestSend(GNPosition, 2) = 0.0;
-                                    BufferWestSend(GNPosition, 3) = 0.0;
-                                    BufferWestSend(GNPosition, 4) = 0.0;
-                                }
-                                else if ((RankX == MyXSlices - 2) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                                    int GNPosition = RankZ * BufSizeY + RankY - 1;
-                                    BufferEastSend(GNPosition, 0) = 0.0;
-                                    BufferEastSend(GNPosition, 1) = 0.0;
-                                    BufferEastSend(GNPosition, 2) = 0.0;
-                                    BufferEastSend(GNPosition, 3) = 0.0;
-                                    BufferEastSend(GNPosition, 4) = 0.0;
-                                }
-                            } // End if statement for ghost node marking
-                        }     // End if statement for serial/parallel code
-                        CellType(GlobalD3D1ConvPosition) = Liquid;
+        int cellType = CellType(GlobalD3D1ConvPosition);
+        bool atMeltTime = (cycle == MeltTimeStep(GlobalD3D1ConvPosition));
+        bool pastMeltTime = ((cycle > MeltTimeStep(GlobalD3D1ConvPosition)) && (cycle < CritTimeStep(GlobalD3D1ConvPosition)));
+        bool atCritTime = (cycle == CritTimeStep(GlobalD3D1ConvPosition));
+        bool pastCritTime = (cycle >= CritTimeStep(GlobalD3D1ConvPosition));
+        
+        // If this cell is at the melting time and either active or solid, or past the melting time and active, it may melt
+        // ONLY IF if does not border another unmelted cell (either wall or active/solid that hasn't melted yet), since active cells always separate solid/liquid cells
+        bool PossibleMeltCondition1 = ((atMeltTime) && (cellType == Active));
+        bool PossibleMeltCondition2 = ((pastMeltTime) && (cellType == Active));
+        bool PossibleMeltCondition3 = ((atMeltTime) && (cellType == Solid));
+        if ((PossibleMeltCondition1) || (PossibleMeltCondition2) || (PossibleMeltCondition3)) {
+            // This cell has gone above the liquidus temperature - check and see if it should be transformed into liquid
+            // Check neighboring cells to see if they're either walls or haven't yet reached the liquidus temperature
+            bool BorderCellCheck = false;
+            for (int l = 0; l < 26; l++) {
+                // "l" correpsponds to the specific neighboring cell
+                // Local coordinates of adjacent cell center
+                int MyNeighborX = RankX + NeighborX(l);
+                int MyNeighborY = RankY + NeighborY(l);
+                int MyNeighborZ = RankZ + NeighborZ(l);
+                bool InBoundsThisRank = (MyNeighborX >= 0) * (MyNeighborX < MyXSlices) * (MyNeighborY >= 0) * (MyNeighborY < MyYSlices) * (MyNeighborZ >= 0) * (MyNeighborZ < nzActive);
+                if (InBoundsThisRank) {
+                    long int GlobalNeighborD3D1ConvPosition =
+                        (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices +
+                        MyNeighborY;
+                    if ((cycle < MeltTimeStep(GlobalNeighborD3D1ConvPosition)) ||
+                        (CellType(GlobalNeighborD3D1ConvPosition) == Wall)) {
+                        // This is a border cell of the melt pool - will be changed from liquid to active
+                        BorderCellCheck = true;
+                        // Also, exit this loop over all the cell's neighbors and set check value to true
+                        l = 27;
                     }
-                    else if ((pastCritTime) && ((cell_Active) || (cell_Liquid))) {
-                        UndercoolingCurrent(GlobalD3D1ConvPosition) +=
-                            UndercoolingChange(GlobalD3D1ConvPosition) * (cell_Liquid + cell_Active);
-                        if (cell_Active) {
-                            SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(), 1)) = D3D1ConvPosition;
+                }
+            }
+            if (!(BorderCellCheck)) {
+                CellType(GlobalD3D1ConvPosition) = Liquid;
+                GrainID(GlobalD3D1ConvPosition) = 0;
+            }
+            else if ((BorderCellCheck) && (PossibleMeltCondition3)) {
+                // This formerly solid cell was at the solid-liquid interface, and therefore should become an active cell to maintain the interface as melting proceeds
+                // Don't change to active type right away to avoid race condition,
+                // but since this formerly liquid cell didn't border any other active cells,
+                // (and any active cells it now borders were just initialized, and don't have large
+                // enough octahedra to trigger a cell capture event)
+                // there's no need for an atomic update, as this liquid cell cannot be
+                // simultaneously claimed by any other growing grains
+                CellType(GlobalD3D1ConvPosition) = TemporaryUpdate;
+                //printf("Cycle %d : Cell %d %d %d is a new active cell \n",cycle,RankX,RankY,RankZ);
+                int GlobalX = RankX + MyXOffset;
+                int GlobalY = RankY + MyYOffset;
+                // Grain ID uses GlobalD3D1ConvPosition, not the coordinate system for this layer
+                // alone Grain ID for this new active cell will be whatever value the liquid cell
+                // had back when it was last solid
+                int MyGrainID = GrainID(GlobalD3D1ConvPosition);
+                DiagonalLength(D3D1ConvPosition) = 0.01;
+                DOCenter(3 * D3D1ConvPosition) = GlobalX + 0.5;
+                DOCenter(3 * D3D1ConvPosition + 1) = GlobalY + 0.5;
+                DOCenter(3 * D3D1ConvPosition + 2) = GlobalZ + 0.5;
+                // The orientation for the new grain will depend on its Grain ID
+                int MyOrientation = GrainOrientation(((abs(MyGrainID) - 1) % NGrainOrientations));
+                // Calculate critical values at which this active cell leads to the activation of a neighboring
+                // liquid cell (xp,yp,zp) is the new cell's center on the global grid
+                double xp = GlobalX + 0.5;
+                double yp = GlobalY + 0.5;
+                double zp = GlobalZ + 0.5;
+
+                float cx = DOCenter((long int)(3 * D3D1ConvPosition));
+                float cy = DOCenter((long int)(3 * D3D1ConvPosition + 1));
+                float cz = DOCenter((long int)(3 * D3D1ConvPosition + 2));
+
+                // Calculate critical diagonal lengths for the new active cell located at (xp,yp,zp) on the
+                // local grid For each neighbor (l=0 to 25), calculate which octahedron face leads to cell
+                // capture Calculate critical octahedron diagonal length to activate each nearest neighbor, as
+                // well as the coordinates of the triangle vertices on the capturing face
+                for (int n = 0; n < 26; n++) {
+
+                    // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
+                    // the center of a neighbor cell
+                    double x0 = xp + NeighborX(n) - cx;
+                    double y0 = yp + NeighborY(n) - cy;
+                    double z0 = zp + NeighborZ(n) - cz;
+
+                    // mag0 is the magnitude of (x0,y0,z0)
+                    double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
+
+                    // Calculate unit vectors for the octahedron that intersect the new cell center
+                    double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                    double Angle1 =
+                        (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                         GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                        mag0;
+                    if (Angle1 < 0) {
+                        Diag1X = GrainUnitVector(9 * MyOrientation);
+                        Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
+                        Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
+                    }
+                    else {
+                        Diag1X = -GrainUnitVector(9 * MyOrientation);
+                        Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
+                        Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
+                    }
+                    double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
+                                     GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                                     GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                                    mag0;
+                    if (Angle2 < 0) {
+                        Diag2X = GrainUnitVector(9 * MyOrientation + 3);
+                        Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
+                        Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
+                    }
+                    else {
+                        Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
+                        Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
+                        Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
+                    }
+
+                    double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
+                                     GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                                     GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                                    mag0;
+                    if (Angle3 < 0) {
+                        Diag3X = GrainUnitVector(9 * MyOrientation + 6);
+                        Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
+                        Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
+                    }
+                    else {
+                        Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
+                        Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
+                        Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
+                    }
+
+                    double U1[3], U2[3], UU[3], Norm[3];
+                    U1[0] = Diag2X - Diag1X;
+                    U1[1] = Diag2Y - Diag1Y;
+                    U1[2] = Diag2Z - Diag1Z;
+                    U2[0] = Diag3X - Diag1X;
+                    U2[1] = Diag3Y - Diag1Y;
+                    U2[2] = Diag3Z - Diag1Z;
+                    UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                    UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                    UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                    double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                    Norm[0] = UU[0] / NDem;
+                    Norm[1] = UU[1] / NDem;
+                    Norm[2] = UU[2] / NDem;
+                    // normal to capturing plane
+                    double normx = Norm[0];
+                    double normy = Norm[1];
+                    double normz = Norm[2];
+
+                    double ParaT = (normx * x0 + normy * y0 + normz * z0) /
+                                   (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
+                    float CDLVal = pow(
+                        pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
+                    CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) = CDLVal;
+                    // Figure out which time step the diagonal length will reach the critical diagonal length
+                    int future_cycle = max(cycle,CritTimeStep(GlobalD3D1ConvPosition));
+                    float CDL = CDLVal;
+                    float DL = DiagonalLength(D3D1ConvPosition);
+                    double Undercooling = UndercoolingCurrent(GlobalD3D1ConvPosition);
+                    bool Inc_DL = true;
+                    while (Inc_DL) {
+                        if (DL >= CDL) {
+                            CaptureTimeStep((long int)(26) * D3D1ConvPosition + (long int)(n)) = future_cycle;
+                            Inc_DL = false;
                         }
-                    }
-
-                    else if ((pastMeltTime) && (atCritTime) && (cell_Liquid)) {
-                        // If this new liquid cell became undercooled and has at least one solid neighboring cell,
-                        // this liquid cell should be changed into active, as it is at the trailing interface of
-                        // the undercooled melt
-                        for (int l = 0; l < 26; l++) {
-                            // "l" correpsponds to the specific neighboring cell
-                            // Local coordinates of adjacent cell center
-                            int MyNeighborX = RankX + NeighborX(l);
-                            int MyNeighborY = RankY + NeighborY(l);
-                            int MyNeighborZ = RankZ + NeighborZ(l);
-                            if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
-                                (MyNeighborY < MyYSlices) && (MyNeighborZ >= 0) && (MyNeighborZ < nzActive)) {
-                                long int GlobalNeighborD3D1ConvPosition =
-                                    (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices +
-                                    MyNeighborY;
-                                if ((CellType(GlobalNeighborD3D1ConvPosition) == Solid) ||
-                                    (CellType(GlobalNeighborD3D1ConvPosition) == Wall)) {
-                                    // The cell at D3D1ConvPosition should be active type
-                                    // Don't change to active type right away to avoid race condition,
-                                    // but since this formerly liquid cell didn't border any other active cells,
-                                    // (and any active cells it now borders were just initialized, and don't have large
-                                    // enough octahedra to trigger a cell capture event)
-                                    // there's no need for an atomic update, as this liquid cell cannot be
-                                    // simultaneously claimed by any other growing grains
-                                    CellType(GlobalD3D1ConvPosition) = TemporaryUpdate;
-                                    // Also, exit this loop over all the cell's neighbors
-                                    l = 27;
-                                    int GlobalX = RankX + MyXOffset;
-                                    int GlobalY = RankY + MyYOffset;
-                                    // Grain ID uses GlobalD3D1ConvPosition, not the coordinate system for this layer
-                                    // alone Grain ID for this new active cell will be whatever value the liquid cell
-                                    // had back when it was last solid
-                                    int GlobalZ = RankZ + ZBound_Low;
-                                    int MyGrainID = GrainID(GlobalD3D1ConvPosition);
-                                    DiagonalLength(D3D1ConvPosition) = 0.01;
-                                    long int DOX = (long int)(3) * D3D1ConvPosition;
-                                    long int DOY = (long int)(3) * D3D1ConvPosition + (long int)(1);
-                                    long int DOZ = (long int)(3) * D3D1ConvPosition + (long int)(2);
-                                    DOCenter(DOX) = GlobalX + 0.5;
-                                    DOCenter(DOY) = GlobalY + 0.5;
-                                    DOCenter(DOZ) = GlobalZ + 0.5;
-                                    // The orientation for the new grain will depend on its Grain ID
-                                    int MyOrientation = GrainOrientation(((abs(MyGrainID) - 1) % NGrainOrientations));
-                                    //  Calculate critical values at which this active cell leads to the activation of a
-                                    //  neighboring liquid cell
-                                    for (int n = 0; n < 26; n++) {
-
-                                        // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the
-                                        // image of the center of a neighbor cell
-                                        double x0 = NeighborX(n);
-                                        double y0 = NeighborY(n);
-                                        double z0 = NeighborZ(n);
-
-                                        // mag0 is the magnitude of (x0,y0,z0)
-                                        double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
-
-                                        // Calculate unit vectors for the octahedron that intersect the new cell center
-                                        double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                                        double Angle1 = (GrainUnitVector(9 * MyOrientation) * x0 +
-                                                         GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                                                         GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                                                        mag0;
-                                        if (Angle1 < 0) {
-                                            Diag1X = GrainUnitVector(9 * MyOrientation);
-                                            Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
-                                            Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
-                                        }
-                                        else {
-                                            Diag1X = -GrainUnitVector(9 * MyOrientation);
-                                            Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
-                                            Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
-                                        }
-
-                                        double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
-                                                         GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                                                         GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                                                        mag0;
-                                        if (Angle2 < 0) {
-                                            Diag2X = GrainUnitVector(9 * MyOrientation + 3);
-                                            Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
-                                            Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
-                                        }
-                                        else {
-                                            Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
-                                            Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
-                                            Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
-                                        }
-
-                                        double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
-                                                         GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                                                         GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                                                        mag0;
-                                        if (Angle3 < 0) {
-                                            Diag3X = GrainUnitVector(9 * MyOrientation + 6);
-                                            Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
-                                            Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
-                                        }
-                                        else {
-                                            Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
-                                            Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
-                                            Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
-                                        }
-
-                                        double U1[3], U2[3], UU[3], Norm[3];
-                                        U1[0] = Diag2X - Diag1X;
-                                        U1[1] = Diag2Y - Diag1Y;
-                                        U1[2] = Diag2Z - Diag1Z;
-                                        U2[0] = Diag3X - Diag1X;
-                                        U2[1] = Diag3Y - Diag1Y;
-                                        U2[2] = Diag3Z - Diag1Z;
-                                        UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                                        UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                                        UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                                        double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-                                        Norm[0] = UU[0] / NDem;
-                                        Norm[1] = UU[1] / NDem;
-                                        Norm[2] = UU[2] / NDem;
-                                        // normal to capturing plane
-                                        double normx = Norm[0];
-                                        double normy = Norm[1];
-                                        double normz = Norm[2];
-                                        double ParaT = (normx * x0 + normy * y0 + normz * z0) /
-                                                       (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
-                                        float CDLVal = pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) +
-                                                               pow(ParaT * Diag1Z, 2.0),
-                                                           0.5);
-                                        long int CDLIndex = (long int)(26) * D3D1ConvPosition + (long int)(n);
-                                        CritDiagonalLength(CDLIndex) = CDLVal;
-                                    }
-                                    CellType(GlobalD3D1ConvPosition) = Active;
-                                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(), 1)) = D3D1ConvPosition;
-                                }
-                            }
+                        else {
+                            future_cycle++;
+                            // Update local undercooling based on local cooling rate
+                            Undercooling += UndercoolingChange(GlobalD3D1ConvPosition);
+                            Undercooling = min(210.0, Undercooling);
+                            double V = AConst * pow(Undercooling, 3.0) + BConst * pow(Undercooling, 2.0) + CConst * Undercooling + DConst;
+                            V = max(0.0, V);
+                            DL += min(0.045, V); // Max amount the diagonal can grow per time step
                         }
                     }
                 }
-            });
-    }
-    else {
-        Kokkos::parallel_for(
-            "preCellCapture_NoRM", LocalActiveDomainSize, KOKKOS_LAMBDA(const long int &D3D1ConvPosition) {
-                // Cells of interest for the CA
-                int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-                int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
-                int RankX = Rem / MyYSlices;
-                int RankY = Rem % MyYSlices;
-                int GlobalZ = RankZ + ZBound_Low;
-                int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                int cellType = CellType(GlobalD3D1ConvPosition);
+                CellType(GlobalD3D1ConvPosition) = Active;
+            }
 
-                int layerCheck = (LayerID(GlobalD3D1ConvPosition) <= layernumber);
-                int isNotSolid = (cellType != Solid);
-                int pastCritTime = (cycle > CritTimeStep(GlobalD3D1ConvPosition));
+            // If the cell type changed (to active or liquid), send information about this cell (whether it became active or liquid) to other processors
+            if ((cellType != CellType(GlobalD3D1ConvPosition)) && (np > 1)) {
 
-                int cell_Liquid = (cellType == Liquid);
-                int cell_Active = (cellType == Active);
-
-                if (layerCheck && isNotSolid && pastCritTime) {
-                    UndercoolingCurrent(GlobalD3D1ConvPosition) +=
-                        UndercoolingChange(GlobalD3D1ConvPosition) * (cell_Liquid + cell_Active);
-                    if (cell_Active) {
-                        SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(), 1)) = D3D1ConvPosition;
+                float GhostGID = BorderCellCheck * (float)(GrainID(GlobalD3D1ConvPosition));
+                float GhostDOCX = BorderCellCheck *  DOCenter((long int)(3) * GlobalD3D1ConvPosition);
+                float GhostDOCY = BorderCellCheck * DOCenter((long int)(3) * GlobalD3D1ConvPosition + (long int)(1));
+                float GhostDOCZ = BorderCellCheck * DOCenter((long int)(3) * GlobalD3D1ConvPosition + (long int)(2));
+                float GhostDL = BorderCellCheck * DiagonalLength(D3D1ConvPosition);
+                // Collect data for the ghost nodes:
+                if (DecompositionStrategy == 1) {
+                    int GNPosition = RankZ * BufSizeX + RankX;
+                    if (RankY == 1) {
+                        BufferSouthSend(GNPosition, 0) = GhostGID;
+                        BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                        BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                        BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                        BufferSouthSend(GNPosition, 4) = GhostDL;
+                    }
+                    else if (RankY == MyYSlices - 2) {
+                        int GNPosition = RankZ * BufSizeX + RankX;
+                        BufferNorthSend(GNPosition, 0) = GhostGID;
+                        BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                        BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                        BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                        BufferNorthSend(GNPosition, 4) = GhostDL;
                     }
                 }
-            });
-    }
+                else {
+                    if (RankY == 1) {
+                        if (RankX == MyXSlices - 2) {
+                            int GNPosition = RankZ * BufSizeX + RankX - 1;
+                            BufferSouthSend(GNPosition, 0) = GhostGID;
+                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                            BufferSouthSend(GNPosition, 4) = GhostDL;
+                            GNPosition = RankZ * BufSizeY + RankY - 1;
+                            BufferEastSend(GNPosition, 0) = GhostGID;
+                            BufferEastSend(GNPosition, 1) = GhostDOCX;
+                            BufferEastSend(GNPosition, 2) = GhostDOCY;
+                            BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                            BufferEastSend(GNPosition, 4) = GhostDL;
+                            GNPosition = RankZ;
+                            BufferSouthEastSend(GNPosition, 0) = GhostGID;
+                            BufferSouthEastSend(GNPosition, 1) = GhostDOCX;
+                            BufferSouthEastSend(GNPosition, 2) = GhostDOCY;
+                            BufferSouthEastSend(GNPosition, 3) = GhostDOCZ;
+                            BufferSouthEastSend(GNPosition, 4) = GhostDL;
+                        }
+                        else if (RankX == 1) {
+                            int GNPosition = RankZ * BufSizeX + RankX - 1;
+                            BufferSouthSend(GNPosition, 0) = GhostGID;
+                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                            BufferSouthSend(GNPosition, 4) = GhostDL;
+                            GNPosition = RankZ * BufSizeY + RankY - 1;
+                            BufferWestSend(GNPosition, 0) = GhostGID;
+                            BufferWestSend(GNPosition, 1) = GhostDOCX;
+                            BufferWestSend(GNPosition, 2) = GhostDOCY;
+                            BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                            BufferWestSend(GNPosition, 4) = GhostDL;
+                            GNPosition = RankZ;
+                            BufferSouthWestSend(GNPosition, 0) = GhostGID;
+                            BufferSouthWestSend(GNPosition, 1) = GhostDOCX;
+                            BufferSouthWestSend(GNPosition, 2) = GhostDOCY;
+                            BufferSouthWestSend(GNPosition, 3) = GhostDOCZ;
+                            BufferSouthWestSend(GNPosition, 4) = GhostDL;
+                        }
+                        else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                            // This is being sent to MyLeft
+                            int GNPosition = RankZ * BufSizeX + RankX - 1;
+                            BufferSouthSend(GNPosition, 0) = GhostGID;
+                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                            BufferSouthSend(GNPosition, 4) = GhostDL;
+                        }
+                    }
+                    else if (RankY == MyYSlices - 2) {
+                        // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                        if (RankX == MyXSlices - 2) {
+                            int GNPosition = RankZ * BufSizeX + RankX - 1;
+                            BufferNorthSend(GNPosition, 0) = GhostGID;
+                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                            BufferNorthSend(GNPosition, 4) = GhostDL;
+                            GNPosition = RankZ * BufSizeY + RankY - 1;
+                            BufferEastSend(GNPosition, 0) = GhostGID;
+                            BufferEastSend(GNPosition, 1) = GhostDOCX;
+                            BufferEastSend(GNPosition, 2) = GhostDOCY;
+                            BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                            BufferEastSend(GNPosition, 4) = GhostDL;
+                            GNPosition = RankZ;
+                            BufferNorthEastSend(GNPosition, 0) = GhostGID;
+                            BufferNorthEastSend(GNPosition, 1) = GhostDOCX;
+                            BufferNorthEastSend(GNPosition, 2) = GhostDOCY;
+                            BufferNorthEastSend(GNPosition, 3) = GhostDOCZ;
+                            BufferNorthEastSend(GNPosition, 4) = GhostDL;
+                        }
+                        else if (RankX == 1) {
+                            int GNPosition = RankZ * BufSizeX + RankX - 1;
+                            BufferNorthSend(GNPosition, 0) = GhostGID;
+                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                            BufferNorthSend(GNPosition, 4) = GhostDL;
+                            GNPosition = RankZ * BufSizeY + RankY - 1;
+                            BufferWestSend(GNPosition, 0) = GhostGID;
+                            BufferWestSend(GNPosition, 1) = GhostDOCX;
+                            BufferWestSend(GNPosition, 2) = GhostDOCY;
+                            BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                            BufferWestSend(GNPosition, 4) = GhostDL;
+                            GNPosition = RankZ;
+                            BufferNorthWestSend(GNPosition, 0) = GhostGID;
+                            BufferNorthWestSend(GNPosition, 1) = GhostDOCX;
+                            BufferNorthWestSend(GNPosition, 2) = GhostDOCY;
+                            BufferNorthWestSend(GNPosition, 3) = GhostDOCZ;
+                            BufferNorthWestSend(GNPosition, 4) = GhostDL;
+                        }
+                        else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                            int GNPosition = RankZ * BufSizeX + RankX - 1;
+                            BufferNorthSend(GNPosition, 0) = GhostGID;
+                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                            BufferNorthSend(GNPosition, 4) = GhostDL;
+                        }
+                    }
+                    else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
+                        int GNPosition = RankZ * BufSizeY + RankY - 1;
+                        BufferWestSend(GNPosition, 0) = GhostGID;
+                        BufferWestSend(GNPosition, 1) = GhostDOCX;
+                        BufferWestSend(GNPosition, 2) = GhostDOCY;
+                        BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                        BufferWestSend(GNPosition, 4) = GhostDL;
+                    }
+                    else if ((RankX == MyXSlices - 2) && (RankY > 1) &&
+                             (RankY < MyYSlices - 2)) {
+                        int GNPosition = RankZ * BufSizeY + RankY - 1;
+                        BufferEastSend(GNPosition, 0) = GhostGID;
+                        BufferEastSend(GNPosition, 1) = GhostDOCX;
+                        BufferEastSend(GNPosition, 2) = GhostDOCY;
+                        BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                        BufferEastSend(GNPosition, 4) = GhostDL;
+                    }
+                } // End if statement for decomposition pattern
+            }   // End if statement for halo cells with new cell types being entered into the buffers
+        } // End if statement for creating new liquid cells (through melting) and new active cells (marking the interface)
+        if ((cellType == Active) || (cellType == Liquid)) {
+            if (atCritTime) {
+                // Cell just reached the liquidus temperature during cooling - set undercooling to 0
+                UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
+                SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(), 1)) = D3D1ConvPosition;
+            }
+            else if (pastCritTime) {
+                // Update local undercooling based on local cooling rate
+                UndercoolingCurrent(GlobalD3D1ConvPosition) += UndercoolingChange(GlobalD3D1ConvPosition);
+                if (cellType == Active) {
+                    // Update local diagonal length of active cell
+                    double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
+                    LocU = min(210.0, LocU);
+                    double V = AConst * pow(LocU, 3.0) + BConst * pow(LocU, 2.0) + CConst * LocU + DConst;
+                    V = max(0.0, V);
+                    DiagonalLength(D3D1ConvPosition) += min(0.045, V); // Max amount the diagonal can grow per time step
+                }
+                SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(), 1)) = D3D1ConvPosition;
+            }
+        }
+    });
+    
+    // Copy size of steering vector (containing positions of undercooled liquid/active cells) to the host
     Kokkos::deep_copy(numSteer_H, numSteer_G);
-
+    //if (cycle % 1000 == 0) std::cout << "cycle " << cycle << " steering vector size " << numSteer_H(0) << std::endl;
+    // Iterate over all cells in the steering vector - these are at or beyond the crit time step and either active or solid
     Kokkos::parallel_for(
         "CellCapture", numSteer_H(), KOKKOS_LAMBDA(const int &num) {
             numSteer_G(0) = 0;
@@ -597,476 +612,27 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
             int RankY = Rem % MyYSlices;
             int GlobalZ = RankZ + ZBound_Low;
             int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-            // Update local diagonal length of active cell
-            double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
-            LocU = min(210.0, LocU);
-            double V = AConst * pow(LocU, 3.0) + BConst * pow(LocU, 2.0) + CConst * LocU + DConst;
-            V = max(0.0, V);
-            DiagonalLength(D3D1ConvPosition) += min(0.045, V); // Max amount the diagonal can grow per time step
-            // Cycle through all neigboring cells on this processor to see if they have been captured
-            // Cells in ghost nodes cannot capture cells on other processors
-            int LCount = 0;
-            // Which neighbors should be iterated over?
-            int ItBounds;
-            // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
-            // If Y coordinate is on lower edge, Case 1: iteration over only neighbors 9-25 possible
-            // If Y coordinate is on upper edge, Case 2: iteration over only neighbors 0-16 possible
-            // If X coordinate is on lower edge, Case 3: iteration over only neighbors
-            // 0,1,3,4,6,8,9,10,11,13,15,17,18,20,21,22,24 If X coordinate is on upper edge, Case 4: iteration over only
-            // neighbors 0,2,3,4,5,7,9,10,12,14,16,17,19,20,21,23,25 If X/Y coordinates are on lower edge, Case 5:
-            // iteration over only neighbors 9,10,11,13,15,17,18,20,21,22,24 If X coordinate is on upper edge/Y on lower
-            // edge, Case 6: If X coordinate is on lower edge/Y on upper edge, Case 7: If X/Y coordinates are on upper
-            // edge, Case 8:
-            if (RankY == 0) {
-                if (RankX == 0) {
-                    ItBounds = 5;
+            if (CellType(GlobalD3D1ConvPosition) == Active) {
+                bool DeactivateCell = true;
+                for (int l = 0; l < 26; l++) {
+                    // "l" correpsponds to the specific neighboring cell
+                    // Local coordinates of adjacent cell center
+                    int MyNeighborX = RankX + NeighborX(l);
+                    int MyNeighborY = RankY + NeighborY(l);
+                    int MyNeighborZ = RankZ + NeighborZ(l);
+                    bool InBoundsThisRank = (MyNeighborX >= 0) * (MyNeighborX < MyXSlices) * (MyNeighborY >= 0) * (MyNeighborY < MyYSlices) * (MyNeighborZ >= 0) * (MyNeighborZ < nzActive);
+                    if (InBoundsThisRank) {
+                        int GlobalNeighborD3D1ConvPosition = (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        if (CellType(GlobalNeighborD3D1ConvPosition) == Liquid) {
+                            // This cell will be remaining active - not all neighboring cells have been captured
+                            DeactivateCell = false;
+                            // Also, exit this loop over all the cell's neighbors and set check value to true
+                            l = 27;
+                        }
+                    }
                 }
-                else if (RankX == MyXSlices - 1) {
-                    ItBounds = 6;
-                }
-                else {
-                    ItBounds = 1;
-                }
-            }
-            else if (RankY == MyYSlices - 1) {
-                if (RankX == 0) {
-                    ItBounds = 7;
-                }
-                else if (RankX == MyXSlices - 1) {
-                    ItBounds = 8;
-                }
-                else {
-                    ItBounds = 2;
-                }
-            }
-            else {
-                if (RankX == 0) {
-                    ItBounds = 3;
-                }
-                else if (RankX == MyXSlices - 1) {
-                    ItBounds = 4;
-                }
-                else {
-                    ItBounds = 0;
-                }
-            }
-            int NListLength;
-            if (ItBounds == 0) {
-                NListLength = 26;
-            }
-            else if (ItBounds > 4) {
-                NListLength = 11;
-            }
-            else {
-                NListLength = 17;
-            }
-            // "ll" corresponds to the specific position on the list of neighboring cells
-            for (int ll = 0; ll < NListLength; ll++) {
-                // "l" correpsponds to the specific neighboring cell
-                int l = ItList(ItBounds, ll);
-                // Local coordinates of adjacent cell center
-                int MyNeighborX = RankX + NeighborX(l);
-                int MyNeighborY = RankY + NeighborY(l);
-                int MyNeighborZ = RankZ + NeighborZ(l);
-
-                if ((MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
-                    long int NeighborD3D1ConvPosition =
-                        MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                    long int GlobalNeighborD3D1ConvPosition =
-                        (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                    if (CellType(GlobalNeighborD3D1ConvPosition) == Liquid)
-                        LCount = 1;
-                    // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
-                    if ((DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26 * D3D1ConvPosition + l)) &&
-                        (CellType(GlobalNeighborD3D1ConvPosition) == Liquid)) {
-                        // Use of atomic_compare_exchange
-                        // (https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_compare_exchange) old_val =
-                        // atomic_compare_exchange(ptr_to_value,comparison_value, new_value); Atomicly sets the value at
-                        // the address given by ptr_to_value to new_value if the current value at ptr_to_value is equal
-                        // to comparison_value Returns the previously stored value at the address independent on whether
-                        // the exchange has happened. If this cell's is a liquid cell, change it to "TemporaryUpdate"
-                        // type and return a value of "liquid" If this cell has already been changed to
-                        // "TemporaryUpdate" type, return a value of "0"
-                        int update_val = TemporaryUpdate;
-                        int old_val = Liquid;
-                        int OldCellTypeValue = Kokkos::atomic_compare_exchange(
-                            &CellType(GlobalNeighborD3D1ConvPosition), old_val, update_val);
-                        // Only proceed if CellType was previously liquid (this current thread changed the value to
-                        // TemporaryUpdate)
-                        if (OldCellTypeValue == Liquid) {
-                            int GlobalX = RankX + MyXOffset;
-                            int GlobalY = RankY + MyYOffset;
-                            int h = GrainID(GlobalD3D1ConvPosition);
-                            int MyOrientation = GrainOrientation(((abs(h) - 1) % NGrainOrientations));
-
-                            // The new cell is captured by this cell's growing octahedron (Grain "h")
-                            GrainID(GlobalNeighborD3D1ConvPosition) = h;
-                            // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
-                            double cxold = DOCenter((long int)(3) * D3D1ConvPosition);
-                            double cyold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
-                            double czold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
-
-                            // (xp,yp,zp) are the global coordinates of the new cell's center
-                            double xp = GlobalX + NeighborX(l) + 0.5;
-                            double yp = GlobalY + NeighborY(l) + 0.5;
-                            double zp = GlobalZ + NeighborZ(l) + 0.5;
-
-                            // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
-                            // the center of the new cell
-                            double x0 = xp - cxold;
-                            double y0 = yp - cyold;
-                            double z0 = zp - czold;
-
-                            // mag0 is the magnitude of (x0,y0,z0)
-                            double mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
-
-                            // Calculate unit vectors for the octahedron that intersect the new cell center
-                            double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-
-                            double Angle1 =
-                                (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                                 GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                                mag0;
-                            double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
-                                             GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                                             GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                                            mag0;
-                            double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
-                                             GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                                             GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                                            mag0;
-
-                            Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
-                            Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
-                            Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
-
-                            Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
-                            Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
-                            Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
-
-                            Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
-                            Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
-                            Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
-
-                            double U1[3], U2[3], UU[3], Norm[3];
-                            U1[0] = Diag2X - Diag1X;
-                            U1[1] = Diag2Y - Diag1Y;
-                            U1[2] = Diag2Z - Diag1Z;
-                            U2[0] = Diag3X - Diag1X;
-                            U2[1] = Diag3Y - Diag1Y;
-                            U2[2] = Diag3Z - Diag1Z;
-                            UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                            UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                            UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                            double NDem = sqrtf(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-                            Norm[0] = UU[0] / NDem;
-                            Norm[1] = UU[1] / NDem;
-                            Norm[2] = UU[2] / NDem;
-                            // normal to capturing plane
-                            double norm[3], TriangleX[3], TriangleY[3], TriangleZ[3], ParaT;
-                            norm[0] = Norm[0];
-                            norm[1] = Norm[1];
-                            norm[2] = Norm[2];
-                            ParaT = (norm[0] * x0 + norm[1] * y0 + norm[2] * z0) /
-                                    (norm[0] * Diag1X + norm[1] * Diag1Y + norm[2] * Diag1Z);
-
-                            TriangleX[0] = cxold + ParaT * Diag1X;
-                            TriangleY[0] = cyold + ParaT * Diag1Y;
-                            TriangleZ[0] = czold + ParaT * Diag1Z;
-
-                            TriangleX[1] = cxold + ParaT * Diag2X;
-                            TriangleY[1] = cyold + ParaT * Diag2Y;
-                            TriangleZ[1] = czold + ParaT * Diag2Z;
-
-                            TriangleX[2] = cxold + ParaT * Diag3X;
-                            TriangleY[2] = cyold + ParaT * Diag3Y;
-                            TriangleZ[2] = czold + ParaT * Diag3Z;
-
-                            // Determine which of the 3 corners of the capturing face is closest to the captured cell
-                            // center
-                            double DistToCorner[3];
-                            DistToCorner[0] = sqrtf(((TriangleX[0] - xp) * (TriangleX[0] - xp)) +
-                                                    ((TriangleY[0] - yp) * (TriangleY[0] - yp)) +
-                                                    ((TriangleZ[0] - zp) * (TriangleZ[0] - zp)));
-                            DistToCorner[1] = sqrtf(((TriangleX[1] - xp) * (TriangleX[1] - xp)) +
-                                                    ((TriangleY[1] - yp) * (TriangleY[1] - yp)) +
-                                                    ((TriangleZ[1] - zp) * (TriangleZ[1] - zp)));
-                            DistToCorner[2] = sqrtf(((TriangleX[2] - xp) * (TriangleX[2] - xp)) +
-                                                    ((TriangleY[2] - yp) * (TriangleY[2] - yp)) +
-                                                    ((TriangleZ[2] - zp) * (TriangleZ[2] - zp)));
-
-                            int x, y, z;
-                            x = (DistToCorner[0] < DistToCorner[1]);
-                            y = (DistToCorner[1] < DistToCorner[2]);
-                            z = (DistToCorner[2] < DistToCorner[0]);
-
-                            int idx = 2 * (z - y) * z + (y - x) * y;
-                            double mindisttocorner, xc, yc, zc;
-
-                            mindisttocorner = DistToCorner[idx];
-                            xc = TriangleX[idx], yc = TriangleY[idx], zc = TriangleZ[idx];
-
-                            double x1, y1, z1, x2, y2, z2;
-                            x1 = TriangleX[(idx + 1) % 3], y1 = TriangleY[(idx + 1) % 3], z1 = TriangleZ[(idx + 1) % 3];
-                            x2 = TriangleX[(idx + 2) % 3], y2 = TriangleY[(idx + 2) % 3], z2 = TriangleZ[(idx + 2) % 3];
-
-                            double D1 =
-                                sqrtf(((xp - x2) * (xp - x2)) + ((yp - y2) * (yp - y2)) + ((zp - z2) * (zp - z2)));
-                            double D2 =
-                                sqrtf(((xc - x2) * (xc - x2)) + ((yc - y2) * (yc - y2)) + ((zc - z2) * (zc - z2)));
-                            double D3 =
-                                sqrtf(((xp - x1) * (xp - x1)) + ((yp - y1) * (yp - y1)) + ((zp - z1) * (zp - z1)));
-                            double D4 =
-                                sqrtf(((xc - x1) * (xc - x1)) + ((yc - y1) * (yc - y1)) + ((zc - z1) * (zc - z1)));
-
-                            double I1, I2, J1, J2;
-                            I1 = 0;
-                            I2 = D2;
-                            J1 = 0;
-                            J2 = D4;
-                            // If minimum distance to corner = 0, the octahedron corner captured the new cell center
-                            if (mindisttocorner != 0) {
-                                I1 = D1 * ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
-                                     (D1 * D2);
-                                I2 = D2 - I1;
-                                J1 = D3 * ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
-                                     (D3 * D4);
-                                J2 = D4 - J1;
-                            }
-                            double L12 = 0.5 * (min(I1, sqrt(3.0)) + min(I2, sqrt(3.0)));
-                            double L13 = 0.5 * (min(J1, sqrt(3.0)) + min(J2, sqrt(3.0)));
-                            double NewODiagL = sqrt(2.0) * max(L12, L13); // half diagonal length of new octahedron
-
-                            DiagonalLength(NeighborD3D1ConvPosition) = NewODiagL;
-                            // Calculate coordinates of new decentered octahedron center
-                            double CaptDiag[3], CaptDiagUV[3];
-                            CaptDiag[0] = xc - cxold;
-                            CaptDiag[1] = yc - cyold;
-                            CaptDiag[2] = zc - czold;
-
-                            NDem =
-                                sqrt(CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] + CaptDiag[2] * CaptDiag[2]);
-                            CaptDiagUV[0] = CaptDiag[0] / NDem;
-                            CaptDiagUV[1] = CaptDiag[1] / NDem;
-                            CaptDiagUV[2] = CaptDiag[2] / NDem;
-                            // (cx, cy, cz) are the coordiantes of the new active cell's decentered octahedron
-                            double cx = xc - NewODiagL * CaptDiagUV[0];
-                            double cy = yc - NewODiagL * CaptDiagUV[1];
-                            double cz = zc - NewODiagL * CaptDiagUV[2];
-
-                            DOCenter((long int)(3) * NeighborD3D1ConvPosition) = cx;
-                            DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(1)) = cy;
-                            DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(2)) = cz;
-
-                            // Calculate critical octahedron diagonal length to activate nearest neighbor.
-                            // First, calculate the unique planes (4) associated with all octahedron faces (8)
-                            // Then just look at distance between face and the point of interest (cell center of
-                            // neighbor). The critical diagonal length will be the maximum of these (since all other
-                            // planes will have passed over the point by then
-                            // ... meaning it must be in the octahedron)
-
-                            double Fx[4], Fy[4], Fz[4], D[4], Dfabs;
-
-                            Fx[0] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) +
-                                    GrainUnitVector(9 * MyOrientation + 6);
-                            Fx[1] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) +
-                                    GrainUnitVector(9 * MyOrientation + 6);
-                            Fx[2] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) -
-                                    GrainUnitVector(9 * MyOrientation + 6);
-                            Fx[3] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) -
-                                    GrainUnitVector(9 * MyOrientation + 6);
-
-                            Fy[0] = GrainUnitVector(9 * MyOrientation + 1) + GrainUnitVector(9 * MyOrientation + 4) +
-                                    GrainUnitVector(9 * MyOrientation + 7);
-                            Fy[1] = GrainUnitVector(9 * MyOrientation + 1) - GrainUnitVector(9 * MyOrientation + 4) +
-                                    GrainUnitVector(9 * MyOrientation + 7);
-                            Fy[2] = GrainUnitVector(9 * MyOrientation + 1) + GrainUnitVector(9 * MyOrientation + 4) -
-                                    GrainUnitVector(9 * MyOrientation + 7);
-                            Fy[3] = GrainUnitVector(9 * MyOrientation + 1) - GrainUnitVector(9 * MyOrientation + 4) -
-                                    GrainUnitVector(9 * MyOrientation + 7);
-
-                            Fz[0] = GrainUnitVector(9 * MyOrientation + 2) + GrainUnitVector(9 * MyOrientation + 5) +
-                                    GrainUnitVector(9 * MyOrientation + 8);
-                            Fz[1] = GrainUnitVector(9 * MyOrientation + 2) - GrainUnitVector(9 * MyOrientation + 5) +
-                                    GrainUnitVector(9 * MyOrientation + 8);
-                            Fz[2] = GrainUnitVector(9 * MyOrientation + 2) + GrainUnitVector(9 * MyOrientation + 5) -
-                                    GrainUnitVector(9 * MyOrientation + 8);
-                            Fz[3] = GrainUnitVector(9 * MyOrientation + 2) - GrainUnitVector(9 * MyOrientation + 5) -
-                                    GrainUnitVector(9 * MyOrientation + 8);
-
-                            for (int n = 0; n < 26; n++) {
-                                double x0 = xp + NeighborX[n] - cx;
-                                double y0 = yp + NeighborY[n] - cy;
-                                double z0 = zp + NeighborZ[n] - cz;
-                                D[0] = x0 * Fx[0] + y0 * Fy[0] + z0 * Fz[0];
-                                D[1] = x0 * Fx[1] + y0 * Fy[1] + z0 * Fz[1];
-                                D[2] = x0 * Fx[2] + y0 * Fy[2] + z0 * Fz[2];
-                                D[3] = x0 * Fx[3] + y0 * Fy[3] + z0 * Fz[3];
-                                Dfabs = max(max(fabs(D[0]), fabs(D[1])), max(fabs(D[2]), fabs(D[3])));
-                                CritDiagonalLength((long int)(26) * NeighborD3D1ConvPosition + (long int)(n)) = Dfabs;
-                            }
-
-                            if (np > 1) {
-
-                                float GhostGID = (float)(GrainID(GlobalNeighborD3D1ConvPosition));
-                                float GhostDOCX = DOCenter((long int)(3) * NeighborD3D1ConvPosition);
-                                float GhostDOCY = DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(1));
-                                float GhostDOCZ = DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(2));
-                                float GhostDL = DiagonalLength(NeighborD3D1ConvPosition);
-                                // Collect data for the ghost nodes:
-                                if (DecompositionStrategy == 1) {
-                                    int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX;
-                                    if (MyNeighborY == 1) {
-                                        BufferSouthSend(GNPosition, 0) = GhostGID;
-                                        BufferSouthSend(GNPosition, 1) = GhostDOCX;
-                                        BufferSouthSend(GNPosition, 2) = GhostDOCY;
-                                        BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-                                        BufferSouthSend(GNPosition, 4) = GhostDL;
-                                    }
-                                    else if (MyNeighborY == MyYSlices - 2) {
-                                        int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX;
-                                        BufferNorthSend(GNPosition, 0) = GhostGID;
-                                        BufferNorthSend(GNPosition, 1) = GhostDOCX;
-                                        BufferNorthSend(GNPosition, 2) = GhostDOCY;
-                                        BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-                                        BufferNorthSend(GNPosition, 4) = GhostDL;
-                                    }
-                                }
-                                else {
-                                    if (MyNeighborY == 1) {
-                                        if (MyNeighborX == MyXSlices - 2) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferSouthSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                            BufferEastSend(GNPosition, 0) = GhostGID;
-                                            BufferEastSend(GNPosition, 1) = GhostDOCX;
-                                            BufferEastSend(GNPosition, 2) = GhostDOCY;
-                                            BufferEastSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferEastSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ;
-                                            BufferSouthEastSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthEastSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthEastSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthEastSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthEastSend(GNPosition, 4) = GhostDL;
-                                        }
-                                        else if (MyNeighborX == 1) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferSouthSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                            BufferWestSend(GNPosition, 0) = GhostGID;
-                                            BufferWestSend(GNPosition, 1) = GhostDOCX;
-                                            BufferWestSend(GNPosition, 2) = GhostDOCY;
-                                            BufferWestSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferWestSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ;
-                                            BufferSouthWestSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthWestSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthWestSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthWestSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthWestSend(GNPosition, 4) = GhostDL;
-                                        }
-                                        else if ((MyNeighborX > 1) && (MyNeighborX < MyXSlices - 2)) {
-                                            // This is being sent to MyLeft
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferSouthSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthSend(GNPosition, 4) = GhostDL;
-                                        }
-                                    }
-                                    else if (MyNeighborY == MyYSlices - 2) {
-                                        // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                                        if (MyNeighborX == MyXSlices - 2) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferNorthSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                            BufferEastSend(GNPosition, 0) = GhostGID;
-                                            BufferEastSend(GNPosition, 1) = GhostDOCX;
-                                            BufferEastSend(GNPosition, 2) = GhostDOCY;
-                                            BufferEastSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferEastSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ;
-                                            BufferNorthEastSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthEastSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthEastSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthEastSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthEastSend(GNPosition, 4) = GhostDL;
-                                        }
-                                        else if (MyNeighborX == 1) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferNorthSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                            BufferWestSend(GNPosition, 0) = GhostGID;
-                                            BufferWestSend(GNPosition, 1) = GhostDOCX;
-                                            BufferWestSend(GNPosition, 2) = GhostDOCY;
-                                            BufferWestSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferWestSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ;
-                                            BufferNorthWestSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthWestSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthWestSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthWestSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthWestSend(GNPosition, 4) = GhostDL;
-                                        }
-                                        else if ((MyNeighborX > 1) && (MyNeighborX < MyXSlices - 2)) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferNorthSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthSend(GNPosition, 4) = GhostDL;
-                                        }
-                                    }
-                                    else if ((MyNeighborX == 1) && (MyNeighborY > 1) && (MyNeighborY < MyYSlices - 2)) {
-                                        int GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                        BufferWestSend(GNPosition, 0) = GhostGID;
-                                        BufferWestSend(GNPosition, 1) = GhostDOCX;
-                                        BufferWestSend(GNPosition, 2) = GhostDOCY;
-                                        BufferWestSend(GNPosition, 3) = GhostDOCZ;
-                                        BufferWestSend(GNPosition, 4) = GhostDL;
-                                    }
-                                    else if ((MyNeighborX == MyXSlices - 2) && (MyNeighborY > 1) &&
-                                             (MyNeighborY < MyYSlices - 2)) {
-                                        int GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                        BufferEastSend(GNPosition, 0) = GhostGID;
-                                        BufferEastSend(GNPosition, 1) = GhostDOCX;
-                                        BufferEastSend(GNPosition, 2) = GhostDOCY;
-                                        BufferEastSend(GNPosition, 3) = GhostDOCZ;
-                                        BufferEastSend(GNPosition, 4) = GhostDL;
-                                    }
-                                } // End if statement for ghost node marking
-                            }     // End if statement for serial/parallel code
-                            // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
-                            // Diagonal Length values have been assigned to it Avoids the race condition in which the
-                            // new cell is activated, and another thread acts on the new active cell before the cell's
-                            // new critical diagonal length/triangle index/diagonal length values are assigned
-                            CellType(GlobalNeighborD3D1ConvPosition) = Active;
-                        } // End if statement within locked capture loop
-                    }     // End if statement for outer capture loop
-                }         // End if statement over neighbors on the active grid
-            }             // End loop over all neighbors of this active cell
-            if (LCount == 0) {
-                // This active cell has no more neighboring cells to be captured, becomes solid
-                CellType(GlobalD3D1ConvPosition) = Solid;
-                if (Remelting) {
+                if (DeactivateCell) {
+                    CellType(GlobalD3D1ConvPosition) = Solid;
                     // This cell has melted, reached the critical undercooling, and solidified
                     SolidificationEventCounter(D3D1ConvPosition)++;
                     // Did the cell do this for the last time in the layer?
@@ -1085,10 +651,996 @@ void CellCapture(int np, int cycle, bool Remelting, int DecompositionStrategy, i
                             D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 1));
                         UndercoolingChange(GlobalD3D1ConvPosition) =
                             LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 2);
+                        if (MeltTimeStep(GlobalD3D1ConvPosition) <= cycle) {
+                            for (int ii=0; ii<NumberOfSolidificationEvents(D3D1ConvPosition); ii++) {
+                              //  printf("Cell %d Melts at time %f Solidifies at time %f cools at rate %f \n",D3D1ConvPosition,LayerTimeTempHistory(D3D1ConvPosition,ii,0),LayerTimeTempHistory(D3D1ConvPosition,ii,1),LayerTimeTempHistory(D3D1ConvPosition,ii,2));
+                            }
+                        }
                     }
                 }
             }
+            else {
+                // Loop over neighboring active cells to see if one of them, if any, captured this cell
+                // Neighbor that will capture this cell (l = -1 if no capture event)
+                int CapturingNeighbor = -1;
+                // Excess diagonal length (by how much did the potential capturing neighbor's diagonal length exceed the critical diagonal length)
+                float CapturingNeighbor_ExcessDL = 0.0;
+                int Alt_CapturingNeighbor = -1;
+                int CaptureTimeExcess = 0;
+                for (int l = 0; l < 26; l++) {
+                    // "l" correpsponds to the specific neighboring cell
+                    // Local coordinates of adjacent cell center
+                    int MyNeighborX = RankX + NeighborX(l);
+                    int MyNeighborY = RankY + NeighborY(l);
+                    int MyNeighborZ = RankZ + NeighborZ(l);
+                    bool InBoundsThisRank = (MyNeighborX >= 0) * (MyNeighborX < MyXSlices) * (MyNeighborY >= 0) * (MyNeighborY < MyYSlices) * (MyNeighborZ >= 0) * (MyNeighborZ < nzActive);
+                    if (InBoundsThisRank) {
+                        int NeighborD3D1ConvPosition = MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        int GlobalNeighborD3D1ConvPosition = (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        // If a neighboring cell is active, and that neighbor's diagonal length was large enough to capture this cell (the opposite of the vector from this cell to the neighbor):
+                        // This neighbor may have captured this cell - only if the "overshoot" of the critical diagonal length relative to the diagonal length is larger than for any potential others
+                        float ExcessDL = DiagonalLength(NeighborD3D1ConvPosition) - CritDiagonalLength(26 * NeighborD3D1ConvPosition + OppositeNeighbor(l));
+                        int CaptureTimeExcess_ThisNeighbor = cycle - CaptureTimeStep(26 * NeighborD3D1ConvPosition + OppositeNeighbor(l));
+                        if ((CellType(GlobalNeighborD3D1ConvPosition) == Active) && (ExcessDL >= 0.0) && (ExcessDL >= CapturingNeighbor_ExcessDL)) {
+                            CapturingNeighbor = l;
+                            CapturingNeighbor_ExcessDL = ExcessDL;
+                         //   printf("Potential cell capture of %d %d %d via DL criteria from cell %d %d %d (neighbor %d): ExcessDL = %f DL = %f CDL = %f (CaptureTimeExcess = %d )\n", RankX,RankY,RankZ,MyNeighborX,MyNeighborY,MyNeighborZ,l,ExcessDL,DiagonalLength(NeighborD3D1ConvPosition),CritDiagonalLength(26 * NeighborD3D1ConvPosition + OppositeNeighbor(l)),CaptureTimeExcess_ThisNeighbor);
+                        }
+                        if ((CellType(GlobalNeighborD3D1ConvPosition) == Active) && (CaptureTimeExcess_ThisNeighbor >= 0) && (CaptureTimeExcess_ThisNeighbor >= CaptureTimeExcess)) {
+                            Alt_CapturingNeighbor = l;
+                            CaptureTimeExcess = CaptureTimeExcess_ThisNeighbor;
+                           // printf("Potential cell capture of %d %d %d via time criteria from cell %d %d %d (neighbor %d): CaptureTimeExcess = %d (ExcessDL = %f DL = %f CDL = %f \n",RankX,RankY,RankZ,MyNeighborX,MyNeighborY,MyNeighborZ,l,CaptureTimeExcess,ExcessDL,DiagonalLength(NeighborD3D1ConvPosition), CritDiagonalLength(26 * NeighborD3D1ConvPosition + OppositeNeighbor(l)));
+                        }
+                    }
+                }
+//                if (CapturingNeighbor != Alt_CapturingNeighbor) {
+//                    printf("Captured neighbor %d when should've captured neighbor %d \n",CapturingNeighbor,Alt_CapturingNeighbor);
+//                }
+                if (Alt_CapturingNeighbor != -1) {
+                   // Cell capture event occurred - this liquid cell is now active
+                   CellType(GlobalD3D1ConvPosition) = TemporaryUpdate; // don't turn to active until routine is complete to avoid race condition
+                   // Perform cell capture of this cell from "CapturingCell"
+                   // Local/Global coordinates of adjacent capturing cell center
+                   int CapturingCellX = RankX + NeighborX(Alt_CapturingNeighbor);
+                   int CapturingCellY = RankY + NeighborY(Alt_CapturingNeighbor);
+                   int CapturingCellZ = RankZ + NeighborZ(Alt_CapturingNeighbor);
+                   int LocalPositionCapturingCell = CapturingCellZ * MyXSlices * MyYSlices + CapturingCellX * MyYSlices + CapturingCellY;
+                   int GlobalPositionCapturingCell = (CapturingCellZ + ZBound_Low) * MyXSlices * MyYSlices + CapturingCellX * MyYSlices + CapturingCellY;
+
+                   int h = GrainID(GlobalPositionCapturingCell);
+                   int MyOrientation = GrainOrientation(((abs(h) - 1) % NGrainOrientations));
+
+                   // Cell is captured by the capturing cell's growing octahedron (Grain "h")
+                   GrainID(GlobalD3D1ConvPosition) = h;
+                   //printf("%d %d %d captured by GrainID %d (cycle %d) Capturing Neighbor %d AltCN was %d \n",RankX,RankY,RankZ,h,cycle,CapturingNeighbor,Alt_CapturingNeighbor);
+
+                   // (cxold, cyold, czold) are the coordinates of the capturing cell's decentered octahedron
+                   double cxold = DOCenter((long int)(3) * LocalPositionCapturingCell);
+                   double cyold = DOCenter((long int)(3) * LocalPositionCapturingCell + (long int)(1));
+                   double czold = DOCenter((long int)(3) * LocalPositionCapturingCell + (long int)(2));
+                   // (xp,yp,zp) are the global coordinates of the cell's center
+                   double xp = RankX + MyXOffset + 0.5;
+                   double yp = RankY + MyYOffset + 0.5;
+                   double zp = GlobalZ + 0.5;
+
+                   // (x0,y0,z0) is a vector pointing from the capturing cell's decentered octahedron center to the image of
+                   // the center of this cell
+                   double x0 = xp - cxold;
+                   double y0 = yp - cyold;
+                   double z0 = zp - czold;
+
+                   // mag0 is the magnitude of (x0,y0,z0)
+                   double mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
+                   // Calculate unit vectors for the octahedron that intersect the new cell center
+                   double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+
+                    double Angle1 =
+                        (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                         GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                        mag0;
+                    double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
+                                     GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                                     GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                                    mag0;
+                    double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
+                                     GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                                     GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                                    mag0;
+
+                    Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
+                    Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
+                    Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
+
+                    Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
+                    Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
+                    Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
+
+                    Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
+                    Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
+                    Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
+
+                    double U1[3], U2[3], UU[3], Norm[3];
+                    U1[0] = Diag2X - Diag1X;
+                    U1[1] = Diag2Y - Diag1Y;
+                    U1[2] = Diag2Z - Diag1Z;
+                    U2[0] = Diag3X - Diag1X;
+                    U2[1] = Diag3Y - Diag1Y;
+                    U2[2] = Diag3Z - Diag1Z;
+                    UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                    UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                    UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                    double NDem = sqrtf(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                    Norm[0] = UU[0] / NDem;
+                    Norm[1] = UU[1] / NDem;
+                    Norm[2] = UU[2] / NDem;
+                    // normal to capturing plane
+                    double norm[3], TriangleX[3], TriangleY[3], TriangleZ[3], ParaT;
+                    norm[0] = Norm[0];
+                    norm[1] = Norm[1];
+                    norm[2] = Norm[2];
+                    ParaT = (norm[0] * x0 + norm[1] * y0 + norm[2] * z0) /
+                            (norm[0] * Diag1X + norm[1] * Diag1Y + norm[2] * Diag1Z);
+
+                    TriangleX[0] = cxold + ParaT * Diag1X;
+                    TriangleY[0] = cyold + ParaT * Diag1Y;
+                    TriangleZ[0] = czold + ParaT * Diag1Z;
+
+                    TriangleX[1] = cxold + ParaT * Diag2X;
+                    TriangleY[1] = cyold + ParaT * Diag2Y;
+                    TriangleZ[1] = czold + ParaT * Diag2Z;
+
+                    TriangleX[2] = cxold + ParaT * Diag3X;
+                    TriangleY[2] = cyold + ParaT * Diag3Y;
+                    TriangleZ[2] = czold + ParaT * Diag3Z;
+
+                    // Determine which of the 3 corners of the capturing face is closest to the captured cell
+                    // center
+                    double DistToCorner[3];
+                    DistToCorner[0] = sqrtf(((TriangleX[0] - xp) * (TriangleX[0] - xp)) +
+                                            ((TriangleY[0] - yp) * (TriangleY[0] - yp)) +
+                                            ((TriangleZ[0] - zp) * (TriangleZ[0] - zp)));
+                    DistToCorner[1] = sqrtf(((TriangleX[1] - xp) * (TriangleX[1] - xp)) +
+                                            ((TriangleY[1] - yp) * (TriangleY[1] - yp)) +
+                                            ((TriangleZ[1] - zp) * (TriangleZ[1] - zp)));
+                    DistToCorner[2] = sqrtf(((TriangleX[2] - xp) * (TriangleX[2] - xp)) +
+                                            ((TriangleY[2] - yp) * (TriangleY[2] - yp)) +
+                                            ((TriangleZ[2] - zp) * (TriangleZ[2] - zp)));
+
+                    int x, y, z;
+                    x = (DistToCorner[0] < DistToCorner[1]);
+                    y = (DistToCorner[1] < DistToCorner[2]);
+                    z = (DistToCorner[2] < DistToCorner[0]);
+
+                    int idx = 2 * (z - y) * z + (y - x) * y;
+                    double mindisttocorner, xc, yc, zc;
+
+                    mindisttocorner = DistToCorner[idx];
+                    xc = TriangleX[idx], yc = TriangleY[idx], zc = TriangleZ[idx];
+
+                    double x1, y1, z1, x2, y2, z2;
+                    x1 = TriangleX[(idx + 1) % 3], y1 = TriangleY[(idx + 1) % 3], z1 = TriangleZ[(idx + 1) % 3];
+                    x2 = TriangleX[(idx + 2) % 3], y2 = TriangleY[(idx + 2) % 3], z2 = TriangleZ[(idx + 2) % 3];
+
+                    double D1 =
+                        sqrtf(((xp - x2) * (xp - x2)) + ((yp - y2) * (yp - y2)) + ((zp - z2) * (zp - z2)));
+                    double D2 =
+                        sqrtf(((xc - x2) * (xc - x2)) + ((yc - y2) * (yc - y2)) + ((zc - z2) * (zc - z2)));
+                    double D3 =
+                        sqrtf(((xp - x1) * (xp - x1)) + ((yp - y1) * (yp - y1)) + ((zp - z1) * (zp - z1)));
+                    double D4 =
+                        sqrtf(((xc - x1) * (xc - x1)) + ((yc - y1) * (yc - y1)) + ((zc - z1) * (zc - z1)));
+
+                    double I1, I2, J1, J2;
+                    I1 = 0;
+                    I2 = D2;
+                    J1 = 0;
+                    J2 = D4;
+                    // If minimum distance to corner = 0, the octahedron corner captured the new cell center
+                    if (mindisttocorner != 0) {
+                        I1 = D1 * ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
+                             (D1 * D2);
+                        I2 = D2 - I1;
+                        J1 = D3 * ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
+                             (D3 * D4);
+                        J2 = D4 - J1;
+                    }
+                    double L12 = 0.5 * (min(I1, sqrt(3.0)) + min(I2, sqrt(3.0)));
+                    double L13 = 0.5 * (min(J1, sqrt(3.0)) + min(J2, sqrt(3.0)));
+                    double NewODiagL = sqrt(2.0) * max(L12, L13); // half diagonal length of new octahedron
+
+                    DiagonalLength(D3D1ConvPosition) = NewODiagL;
+                    // Calculate coordinates of new decentered octahedron center
+                    double CaptDiag[3], CaptDiagUV[3];
+                    CaptDiag[0] = xc - cxold;
+                    CaptDiag[1] = yc - cyold;
+                    CaptDiag[2] = zc - czold;
+
+                    NDem =
+                        sqrt(CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] + CaptDiag[2] * CaptDiag[2]);
+                    CaptDiagUV[0] = CaptDiag[0] / NDem;
+                    CaptDiagUV[1] = CaptDiag[1] / NDem;
+                    CaptDiagUV[2] = CaptDiag[2] / NDem;
+                    // (cx, cy, cz) are the coordiantes of the new active cell's decentered octahedron
+                    double cx = xc - NewODiagL * CaptDiagUV[0];
+                    double cy = yc - NewODiagL * CaptDiagUV[1];
+                    double cz = zc - NewODiagL * CaptDiagUV[2];
+
+                    DOCenter((long int)(3) * D3D1ConvPosition) = cx;
+                    DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1)) = cy;
+                    DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2)) = cz;
+
+                    // Calculate critical octahedron diagonal length to activate nearest neighbor.
+                    // First, calculate the unique planes (4) associated with all octahedron faces (8)
+                    // Then just look at distance between face and the point of interest (cell center of
+                    // neighbor). The critical diagonal length will be the maximum of these (since all other
+                    // planes will have passed over the point by then
+                    // ... meaning it must be in the octahedron)
+
+                    double Fx[4], Fy[4], Fz[4], D[4], Dfabs;
+
+                    Fx[0] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) +
+                            GrainUnitVector(9 * MyOrientation + 6);
+                    Fx[1] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) +
+                            GrainUnitVector(9 * MyOrientation + 6);
+                    Fx[2] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) -
+                            GrainUnitVector(9 * MyOrientation + 6);
+                    Fx[3] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) -
+                            GrainUnitVector(9 * MyOrientation + 6);
+
+                    Fy[0] = GrainUnitVector(9 * MyOrientation + 1) + GrainUnitVector(9 * MyOrientation + 4) +
+                            GrainUnitVector(9 * MyOrientation + 7);
+                    Fy[1] = GrainUnitVector(9 * MyOrientation + 1) - GrainUnitVector(9 * MyOrientation + 4) +
+                            GrainUnitVector(9 * MyOrientation + 7);
+                    Fy[2] = GrainUnitVector(9 * MyOrientation + 1) + GrainUnitVector(9 * MyOrientation + 4) -
+                            GrainUnitVector(9 * MyOrientation + 7);
+                    Fy[3] = GrainUnitVector(9 * MyOrientation + 1) - GrainUnitVector(9 * MyOrientation + 4) -
+                            GrainUnitVector(9 * MyOrientation + 7);
+
+                    Fz[0] = GrainUnitVector(9 * MyOrientation + 2) + GrainUnitVector(9 * MyOrientation + 5) +
+                            GrainUnitVector(9 * MyOrientation + 8);
+                    Fz[1] = GrainUnitVector(9 * MyOrientation + 2) - GrainUnitVector(9 * MyOrientation + 5) +
+                            GrainUnitVector(9 * MyOrientation + 8);
+                    Fz[2] = GrainUnitVector(9 * MyOrientation + 2) + GrainUnitVector(9 * MyOrientation + 5) -
+                            GrainUnitVector(9 * MyOrientation + 8);
+                    Fz[3] = GrainUnitVector(9 * MyOrientation + 2) - GrainUnitVector(9 * MyOrientation + 5) -
+                            GrainUnitVector(9 * MyOrientation + 8);
+
+                    for (int n = 0; n < 26; n++) {
+                        double x0 = xp + NeighborX(n) - cx;
+                        double y0 = yp + NeighborY(n) - cy;
+                        double z0 = zp + NeighborZ(n) - cz;
+                        D[0] = x0 * Fx[0] + y0 * Fy[0] + z0 * Fz[0];
+                        D[1] = x0 * Fx[1] + y0 * Fy[1] + z0 * Fz[1];
+                        D[2] = x0 * Fx[2] + y0 * Fy[2] + z0 * Fz[2];
+                        D[3] = x0 * Fx[3] + y0 * Fy[3] + z0 * Fz[3];
+                        Dfabs = max(max(fabs(D[0]), fabs(D[1])), max(fabs(D[2]), fabs(D[3])));
+                        CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) = Dfabs;
+                        // Figure out which time step the diagonal length will reach the critical diagonal length
+                        int future_cycle = cycle;
+                        float CDL = Dfabs;
+                        float DL = DiagonalLength(D3D1ConvPosition);
+                        double Undercooling = UndercoolingCurrent(GlobalD3D1ConvPosition);
+                        bool Inc_DL = true;
+                        while (Inc_DL) {
+                            if (DL >= CDL) {
+                                CaptureTimeStep((long int)(26) * D3D1ConvPosition + (long int)(n)) = future_cycle;
+                                Inc_DL = false;
+                            }
+                            else {
+                                future_cycle++;
+                                // Update local undercooling based on local cooling rate
+                                Undercooling += UndercoolingChange(GlobalD3D1ConvPosition);
+                                Undercooling = min(210.0, Undercooling);
+                                double V = AConst * pow(Undercooling, 3.0) + BConst * pow(Undercooling, 2.0) + CConst * Undercooling + DConst;
+                                V = max(0.0, V);
+                                DL += min(0.045, V); // Max amount the diagonal can grow per time step
+                            }
+                        }
+                    }
+                    // Update ghost nodes due to cell activation
+                    if (np > 1) {
+
+                        float GhostGID = (float)(GrainID(GlobalD3D1ConvPosition));
+                        float GhostDOCX = DOCenter((long int)(3) * D3D1ConvPosition);
+                        float GhostDOCY = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
+                        float GhostDOCZ = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
+                        float GhostDL = DiagonalLength(D3D1ConvPosition);
+                        
+                        // Collect data for the ghost nodes:
+                        if (DecompositionStrategy == 1) {
+                            int GNPosition = RankZ * BufSizeX + RankX;
+                            if (RankY == 1) {
+                                BufferSouthSend(GNPosition, 0) = GhostGID;
+                                BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferSouthSend(GNPosition, 4) = GhostDL;
+                            }
+                            else if (RankY == MyYSlices - 2) {
+                                int GNPosition = RankZ * BufSizeX + RankX;
+                                BufferNorthSend(GNPosition, 0) = GhostGID;
+                                BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferNorthSend(GNPosition, 4) = GhostDL;
+                            }
+                        }
+                        else {
+                            if (RankY == 1) {
+                                if (RankX == MyXSlices - 2) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferSouthSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ * BufSizeY + RankY - 1;
+                                    BufferEastSend(GNPosition, 0) = GhostGID;
+                                    BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                    BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                    BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferEastSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ;
+                                    BufferSouthEastSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthEastSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthEastSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthEastSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthEastSend(GNPosition, 4) = GhostDL;
+                                }
+                                else if (RankX == 1) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferSouthSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ * BufSizeY + RankY - 1;
+                                    BufferWestSend(GNPosition, 0) = GhostGID;
+                                    BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                    BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                    BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferWestSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ;
+                                    BufferSouthWestSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthWestSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthWestSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthWestSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthWestSend(GNPosition, 4) = GhostDL;
+                                }
+                                else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                                    // This is being sent to MyLeft
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferSouthSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthSend(GNPosition, 4) = GhostDL;
+                                }
+                            }
+                            else if (RankY == MyYSlices - 2) {
+                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                                if (RankX == MyXSlices - 2) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferNorthSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ * BufSizeY + RankY - 1;
+                                    BufferEastSend(GNPosition, 0) = GhostGID;
+                                    BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                    BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                    BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferEastSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ;
+                                    BufferNorthEastSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthEastSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthEastSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthEastSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthEastSend(GNPosition, 4) = GhostDL;
+                                }
+                                else if (RankX == 1) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferNorthSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ * BufSizeY + RankY - 1;
+                                    BufferWestSend(GNPosition, 0) = GhostGID;
+                                    BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                    BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                    BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferWestSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ;
+                                    BufferNorthWestSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthWestSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthWestSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthWestSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthWestSend(GNPosition, 4) = GhostDL;
+                                }
+                                else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferNorthSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthSend(GNPosition, 4) = GhostDL;
+                                }
+                            }
+                            else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
+                                int GNPosition = RankZ * BufSizeY + RankY - 1;
+                                BufferWestSend(GNPosition, 0) = GhostGID;
+                                BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                BufferWestSend(GNPosition, 4) = GhostDL;
+                            }
+                            else if ((RankX == MyXSlices - 2) && (RankY > 1) &&
+                                     (RankY < MyYSlices - 2)) {
+                                int GNPosition = RankZ * BufSizeY + RankY - 1;
+                                BufferEastSend(GNPosition, 0) = GhostGID;
+                                BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                BufferEastSend(GNPosition, 4) = GhostDL;
+                            }
+                        } // End if statement for ghost node marking
+                    }   // End if statement for serial/parallel code
+                    // Only update the new cell's type once Critical Diagonal Length and Diagonal Length values have been assigned to it
+                    // Avoids the race condition in which the new cell is activated, and another thread acts on the new active cell before the cell's new critical diagonal length/diagonal length values are assigned
+                    CellType(GlobalD3D1ConvPosition) = Active;
+                }   // End if statement cell capture
+            } // End if statement for undercooled liquid cells
+        }); // End parallel for loop over all undercooled active/aliquid cells
+    Kokkos::fence();
+}
+
+//*****************************************************************************/
+// Decentered octahedron algorithm for the capture of new interface cells by grains
+void CellCapture_NoRM(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int,
+                 int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst,
+                 int MyXOffset, int MyYOffset, ViewI2D ItList, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI OppositeNeighbor,
+                 ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector,
+                 ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI GrainOrientation, ViewI CellType, ViewF DOCenter,
+                 ViewI GrainID, int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                 Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
+                 Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX,
+                 int BufSizeY, int ZBound_Low, int nzActive, int, int layernumber, ViewI LayerID, ViewI SteeringVector,
+                 ViewI numSteer_G, ViewI_H numSteer_H, ViewI MeltTimeStep, ViewI SolidificationEventCounter,
+                 ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory, ViewI CaptureTimeStep) {
+
+    // Cell capture - determing coordinates of all active cells, update undercooling in undercooled liquid cells/active
+    // cells be accounted for
+    Kokkos::parallel_for(
+        "preCellCapture_NoRM", LocalActiveDomainSize, KOKKOS_LAMBDA(const long int &D3D1ConvPosition) {
+            // Coordinate of this cell on the "global" (all cells in the Z direction) grid
+            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankX = Rem / MyYSlices;
+            int RankY = Rem % MyYSlices;
+            int GlobalZ = RankZ + ZBound_Low;
+            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+
+            int cellType = CellType(GlobalD3D1ConvPosition);
+            bool atCritTime = (cycle == CritTimeStep(GlobalD3D1ConvPosition));
+            bool pastCritTime = (cycle >= CritTimeStep(GlobalD3D1ConvPosition));
+
+            if ((cellType == Active) || (cellType == Liquid)) {
+                if (atCritTime) {
+                    // Cell just reached the liquidus temperature during cooling - set undercooling to 0
+                    UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
+                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(), 1)) = D3D1ConvPosition;
+//                    if ((RankX == 7) && (RankY == 16) && (RankZ == 16))
+//                        printf("Start solidification DL = %f cycle = %d \n",DiagonalLength(D3D1ConvPosition),cycle);
+                }
+                else if (pastCritTime) {
+                    // Update local undercooling based on local cooling rate
+                    UndercoolingCurrent(GlobalD3D1ConvPosition) += UndercoolingChange(GlobalD3D1ConvPosition);
+                    if (cellType == Active) {
+                        // Update local diagonal length of active cell
+                        double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
+                        LocU = min(210.0, LocU);
+                        double V = AConst * pow(LocU, 3.0) + BConst * pow(LocU, 2.0) + CConst * LocU + DConst;
+                        V = max(0.0, V);
+                        DiagonalLength(D3D1ConvPosition) += min(0.045, V); // Max amount the diagonal can grow per time step
+//                        if ((RankX == 7) && (RankY == 16) && (RankZ == 16))
+//                            printf("%f\n",DiagonalLength(D3D1ConvPosition));
+                    }
+                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(), 1)) = D3D1ConvPosition;
+                }
+            }
         });
+
+    Kokkos::deep_copy(numSteer_H, numSteer_G);
+ //   std::cout << "SV size: " << numSteer_H(0) << std::endl;
+    Kokkos::parallel_for(
+        "CellCapture", numSteer_H(), KOKKOS_LAMBDA(const int &num) {
+            numSteer_G(0) = 0;
+            int D3D1ConvPosition = SteeringVector(num);
+            
+            // Cells of interest for the CA
+            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankX = Rem / MyYSlices;
+            int RankY = Rem % MyYSlices;
+            int GlobalZ = RankZ + ZBound_Low;
+            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            if (CellType(GlobalD3D1ConvPosition) == Active) {
+                bool DeactivateCell = true;
+               // if ((cycle == 10000) && (RankX <= 119)) printf("Cell at %d %d %d has diagonal length %f \n",RankX,RankY,RankZ,DiagonalLength(D3D1ConvPosition));
+                for (int l = 0; l < 26; l++) {
+                    // "l" correpsponds to the specific neighboring cell
+                    // Local coordinates of adjacent cell center
+                    int MyNeighborX = RankX + NeighborX(l);
+                    int MyNeighborY = RankY + NeighborY(l);
+                    int MyNeighborZ = RankZ + NeighborZ(l);
+                    bool InBoundsThisRank = (MyNeighborX >= 0) * (MyNeighborX < MyXSlices) * (MyNeighborY >= 0) * (MyNeighborY < MyYSlices) * (MyNeighborZ >= 0) * (MyNeighborZ < nzActive);
+                    if (InBoundsThisRank) {
+//                        if ((cycle == 10000) && (RankX <= 119))
+//                            printf("Checking neighbor %d %d %d \n",MyNeighborX,MyNeighborY,MyNeighborZ);
+                        int NeighborD3D1ConvPosition = MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        int GlobalNeighborD3D1ConvPosition = (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        if (CellType(GlobalNeighborD3D1ConvPosition) == Liquid) {
+                            // This cell will be remaining active - not all neighboring cells have been captured
+                            DeactivateCell = false;
+                            // Also, exit this loop over all the cell's neighbors and set check value to true
+                            //l = 27;
+//                            if ((cycle == 10000) && (RankX <= 119))  {
+//                                printf("Diagonal length to capture cell at %d %d %d is %f \n",MyNeighborX,MyNeighborY,MyNeighborZ,CritDiagonalLength(26 * D3D1ConvPosition + l));
+//                            }
+                        }
+                    }
+                }
+                if (DeactivateCell) {
+                    CellType(GlobalD3D1ConvPosition) = Solid;
+                }
+            }
+            else {
+                // Loop over neighboring active cells to see if one of them, if any, captured this cell
+                // Neighbor that will capture this cell (l = -1 if no capture event)
+               // if ((cycle == 10000) && (RankX <= 119)) printf("Liquid cell at %d %d %d \n",RankX,RankY,RankZ);
+                int CapturingNeighbor = -1;
+                // Excess diagonal length (by how much did the potential capturing neighbor's diagonal length exceed the critical diagonal length)
+                float CapturingNeighbor_ExcessDL = 0.0;
+                int Alt_CapturingNeighbor = -1;
+                int CaptureTimeExcess = 0;
+                for (int l = 0; l < 26; l++) {
+                    // "l" correpsponds to the specific neighboring cell
+                    // Local coordinates of adjacent cell center
+                    int MyNeighborX = RankX + NeighborX(l);
+                    int MyNeighborY = RankY + NeighborY(l);
+                    int MyNeighborZ = RankZ + NeighborZ(l);
+                    bool InBoundsThisRank = (MyNeighborX >= 0) * (MyNeighborX < MyXSlices) * (MyNeighborY >= 0) * (MyNeighborY < MyYSlices) * (MyNeighborZ >= 0) * (MyNeighborZ < nzActive);
+                    if (InBoundsThisRank) {
+                        int NeighborD3D1ConvPosition = MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        int GlobalNeighborD3D1ConvPosition = (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        // If a neighboring cell is active, and that neighbor's diagonal length was large enough to capture this cell (the opposite of the vector from this cell to the neighbor):
+                        // This neighbor may have captured this cell - only if the "overshoot" of the critical diagonal length relative to the diagonal length is larger than for any potential others
+                        float ExcessDL = DiagonalLength(NeighborD3D1ConvPosition) - CritDiagonalLength(26 * NeighborD3D1ConvPosition + OppositeNeighbor(l));
+                        int CaptureTimeExcess_ThisNeighbor = cycle - CaptureTimeStep(26 * NeighborD3D1ConvPosition + OppositeNeighbor(l));
+                        if ((CellType(GlobalNeighborD3D1ConvPosition) == Active) && (ExcessDL >= 0.0) && (ExcessDL >= CapturingNeighbor_ExcessDL)) {
+                            CapturingNeighbor = l;
+                            CapturingNeighbor_ExcessDL = ExcessDL;
+                          //  printf("cycle %d\n",cycle);//
+                          //  printf("Potential cell capture of %d %d %d via DL criteria from cell %d %d %d (neighbor %d): ExcessDL = %f DL = %f CDL = %f (CaptureTimeExcess = %d )\n", RankX,RankY,RankZ,MyNeighborX,MyNeighborY,MyNeighborZ,l,ExcessDL,DiagonalLength(NeighborD3D1ConvPosition),CritDiagonalLength(26 * NeighborD3D1ConvPosition + OppositeNeighbor(l)),CaptureTimeExcess_ThisNeighbor);
+                        }
+                        if ((CellType(GlobalNeighborD3D1ConvPosition) == Active) && (CaptureTimeExcess_ThisNeighbor >= 0) && (CaptureTimeExcess_ThisNeighbor >= CaptureTimeExcess)) {
+                            Alt_CapturingNeighbor = l;
+                            CaptureTimeExcess = CaptureTimeExcess_ThisNeighbor;
+                          //  printf("cycle %d\n",cycle);
+                          //  printf("Potential cell capture of %d %d %d via time criteria from cell %d %d %d (neighbor %d): CaptureTimeExcess = %d (ExcessDL = %f DL = %f CDL = %f \n",RankX,RankY,RankZ,MyNeighborX,MyNeighborY,MyNeighborZ,l,CaptureTimeExcess,ExcessDL,DiagonalLength(NeighborD3D1ConvPosition), CritDiagonalLength(26 * NeighborD3D1ConvPosition + OppositeNeighbor(l)));
+                        }
+                    }
+                }
+//                if (CapturingNeighbor != Alt_CapturingNeighbor) {
+//                    printf("Captured neighbor %d when should've captured neighbor %d \n",CapturingNeighbor,Alt_CapturingNeighbor);
+//                }
+                if (Alt_CapturingNeighbor != -1) {
+                   // Cell capture event occurred - this liquid cell is now active
+
+                   CellType(GlobalD3D1ConvPosition) = TemporaryUpdate; // don't turn to active until routine is complete to avoid race condition
+                   // Perform cell capture of this cell from "CapturingCell"
+                   // Local/Global coordinates of adjacent capturing cell center
+                   int CapturingCellX = RankX + NeighborX(Alt_CapturingNeighbor);
+                   int CapturingCellY = RankY + NeighborY(Alt_CapturingNeighbor);
+                   int CapturingCellZ = RankZ + NeighborZ(Alt_CapturingNeighbor);
+                   int LocalPositionCapturingCell = CapturingCellZ * MyXSlices * MyYSlices + CapturingCellX * MyYSlices + CapturingCellY;
+                   int GlobalPositionCapturingCell = (CapturingCellZ + ZBound_Low) * MyXSlices * MyYSlices + CapturingCellX * MyYSlices + CapturingCellY;
+                   int h = GrainID(GlobalPositionCapturingCell);
+                   int MyOrientation = GrainOrientation(((abs(h) - 1) % NGrainOrientations));
+
+                   // Cell is captured by the capturing cell's growing octahedron (Grain "h")
+                   GrainID(GlobalD3D1ConvPosition) = h;
+
+                   //printf("%d %d %d captured by GrainID %d (cycle %d) Capturing Neighbor %d AltCN was %d \n",RankX,RankY,RankZ,h,cycle,CapturingNeighbor,Alt_CapturingNeighbor);
+
+                   // (cxold, cyold, czold) are the coordinates of the capturing cell's decentered octahedron
+                   double cxold = DOCenter((long int)(3) * LocalPositionCapturingCell);
+                   double cyold = DOCenter((long int)(3) * LocalPositionCapturingCell + (long int)(1));
+                   double czold = DOCenter((long int)(3) * LocalPositionCapturingCell + (long int)(2));
+                   // (xp,yp,zp) are the global coordinates of the cell's center
+                   double xp = RankX + MyXOffset + 0.5;
+                   double yp = RankY + MyYOffset + 0.5;
+                   double zp = GlobalZ + 0.5;
+
+                   // (x0,y0,z0) is a vector pointing from the capturing cell's decentered octahedron center to the image of
+                   // the center of this cell
+                   double x0 = xp - cxold;
+                   double y0 = yp - cyold;
+                   double z0 = zp - czold;
+
+                   // mag0 is the magnitude of (x0,y0,z0)
+                   double mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
+                   // Calculate unit vectors for the octahedron that intersect the new cell center
+                   double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+
+                    double Angle1 =
+                        (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                         GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                        mag0;
+                    double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
+                                     GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                                     GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                                    mag0;
+                    double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
+                                     GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                                     GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                                    mag0;
+
+                    Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
+                    Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
+                    Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
+
+                    Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
+                    Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
+                    Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
+
+                    Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
+                    Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
+                    Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
+
+                    double U1[3], U2[3], UU[3], Norm[3];
+                    U1[0] = Diag2X - Diag1X;
+                    U1[1] = Diag2Y - Diag1Y;
+                    U1[2] = Diag2Z - Diag1Z;
+                    U2[0] = Diag3X - Diag1X;
+                    U2[1] = Diag3Y - Diag1Y;
+                    U2[2] = Diag3Z - Diag1Z;
+                    UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                    UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                    UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                    double NDem = sqrtf(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                    Norm[0] = UU[0] / NDem;
+                    Norm[1] = UU[1] / NDem;
+                    Norm[2] = UU[2] / NDem;
+                    // normal to capturing plane
+                    double norm[3], TriangleX[3], TriangleY[3], TriangleZ[3], ParaT;
+                    norm[0] = Norm[0];
+                    norm[1] = Norm[1];
+                    norm[2] = Norm[2];
+                    ParaT = (norm[0] * x0 + norm[1] * y0 + norm[2] * z0) /
+                            (norm[0] * Diag1X + norm[1] * Diag1Y + norm[2] * Diag1Z);
+
+                    TriangleX[0] = cxold + ParaT * Diag1X;
+                    TriangleY[0] = cyold + ParaT * Diag1Y;
+                    TriangleZ[0] = czold + ParaT * Diag1Z;
+
+                    TriangleX[1] = cxold + ParaT * Diag2X;
+                    TriangleY[1] = cyold + ParaT * Diag2Y;
+                    TriangleZ[1] = czold + ParaT * Diag2Z;
+
+                    TriangleX[2] = cxold + ParaT * Diag3X;
+                    TriangleY[2] = cyold + ParaT * Diag3Y;
+                    TriangleZ[2] = czold + ParaT * Diag3Z;
+
+                    // Determine which of the 3 corners of the capturing face is closest to the captured cell
+                    // center
+                    double DistToCorner[3];
+                    DistToCorner[0] = sqrtf(((TriangleX[0] - xp) * (TriangleX[0] - xp)) +
+                                            ((TriangleY[0] - yp) * (TriangleY[0] - yp)) +
+                                            ((TriangleZ[0] - zp) * (TriangleZ[0] - zp)));
+                    DistToCorner[1] = sqrtf(((TriangleX[1] - xp) * (TriangleX[1] - xp)) +
+                                            ((TriangleY[1] - yp) * (TriangleY[1] - yp)) +
+                                            ((TriangleZ[1] - zp) * (TriangleZ[1] - zp)));
+                    DistToCorner[2] = sqrtf(((TriangleX[2] - xp) * (TriangleX[2] - xp)) +
+                                            ((TriangleY[2] - yp) * (TriangleY[2] - yp)) +
+                                            ((TriangleZ[2] - zp) * (TriangleZ[2] - zp)));
+
+                    int x, y, z;
+                    x = (DistToCorner[0] < DistToCorner[1]);
+                    y = (DistToCorner[1] < DistToCorner[2]);
+                    z = (DistToCorner[2] < DistToCorner[0]);
+
+                    int idx = 2 * (z - y) * z + (y - x) * y;
+                    double mindisttocorner, xc, yc, zc;
+
+                    mindisttocorner = DistToCorner[idx];
+                    xc = TriangleX[idx], yc = TriangleY[idx], zc = TriangleZ[idx];
+
+                    double x1, y1, z1, x2, y2, z2;
+                    x1 = TriangleX[(idx + 1) % 3], y1 = TriangleY[(idx + 1) % 3], z1 = TriangleZ[(idx + 1) % 3];
+                    x2 = TriangleX[(idx + 2) % 3], y2 = TriangleY[(idx + 2) % 3], z2 = TriangleZ[(idx + 2) % 3];
+
+                    double D1 =
+                        sqrtf(((xp - x2) * (xp - x2)) + ((yp - y2) * (yp - y2)) + ((zp - z2) * (zp - z2)));
+                    double D2 =
+                        sqrtf(((xc - x2) * (xc - x2)) + ((yc - y2) * (yc - y2)) + ((zc - z2) * (zc - z2)));
+                    double D3 =
+                        sqrtf(((xp - x1) * (xp - x1)) + ((yp - y1) * (yp - y1)) + ((zp - z1) * (zp - z1)));
+                    double D4 =
+                        sqrtf(((xc - x1) * (xc - x1)) + ((yc - y1) * (yc - y1)) + ((zc - z1) * (zc - z1)));
+
+                    double I1, I2, J1, J2;
+                    I1 = 0;
+                    I2 = D2;
+                    J1 = 0;
+                    J2 = D4;
+                    // If minimum distance to corner = 0, the octahedron corner captured the new cell center
+                    if (mindisttocorner != 0) {
+                        I1 = D1 * ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
+                             (D1 * D2);
+                        I2 = D2 - I1;
+                        J1 = D3 * ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
+                             (D3 * D4);
+                        J2 = D4 - J1;
+                    }
+                    double L12 = 0.5 * (min(I1, sqrt(3.0)) + min(I2, sqrt(3.0)));
+                    double L13 = 0.5 * (min(J1, sqrt(3.0)) + min(J2, sqrt(3.0)));
+                    double NewODiagL = sqrt(2.0) * max(L12, L13); // half diagonal length of new octahedron
+
+                    DiagonalLength(D3D1ConvPosition) = NewODiagL;
+                    // Calculate coordinates of new decentered octahedron center
+                    double CaptDiag[3], CaptDiagUV[3];
+                    CaptDiag[0] = xc - cxold;
+                    CaptDiag[1] = yc - cyold;
+                    CaptDiag[2] = zc - czold;
+
+                    NDem =
+                        sqrt(CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] + CaptDiag[2] * CaptDiag[2]);
+                    CaptDiagUV[0] = CaptDiag[0] / NDem;
+                    CaptDiagUV[1] = CaptDiag[1] / NDem;
+                    CaptDiagUV[2] = CaptDiag[2] / NDem;
+                    // (cx, cy, cz) are the coordiantes of the new active cell's decentered octahedron
+                    double cx = xc - NewODiagL * CaptDiagUV[0];
+                    double cy = yc - NewODiagL * CaptDiagUV[1];
+                    double cz = zc - NewODiagL * CaptDiagUV[2];
+
+                    DOCenter((long int)(3) * D3D1ConvPosition) = cx;
+                    DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1)) = cy;
+                    DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2)) = cz;
+
+                    // Calculate critical octahedron diagonal length to activate nearest neighbor.
+                    // First, calculate the unique planes (4) associated with all octahedron faces (8)
+                    // Then just look at distance between face and the point of interest (cell center of
+                    // neighbor). The critical diagonal length will be the maximum of these (since all other
+                    // planes will have passed over the point by then
+                    // ... meaning it must be in the octahedron)
+
+                    double Fx[4], Fy[4], Fz[4], D[4], Dfabs;
+
+                    Fx[0] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) +
+                            GrainUnitVector(9 * MyOrientation + 6);
+                    Fx[1] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) +
+                            GrainUnitVector(9 * MyOrientation + 6);
+                    Fx[2] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) -
+                            GrainUnitVector(9 * MyOrientation + 6);
+                    Fx[3] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) -
+                            GrainUnitVector(9 * MyOrientation + 6);
+
+                    Fy[0] = GrainUnitVector(9 * MyOrientation + 1) + GrainUnitVector(9 * MyOrientation + 4) +
+                            GrainUnitVector(9 * MyOrientation + 7);
+                    Fy[1] = GrainUnitVector(9 * MyOrientation + 1) - GrainUnitVector(9 * MyOrientation + 4) +
+                            GrainUnitVector(9 * MyOrientation + 7);
+                    Fy[2] = GrainUnitVector(9 * MyOrientation + 1) + GrainUnitVector(9 * MyOrientation + 4) -
+                            GrainUnitVector(9 * MyOrientation + 7);
+                    Fy[3] = GrainUnitVector(9 * MyOrientation + 1) - GrainUnitVector(9 * MyOrientation + 4) -
+                            GrainUnitVector(9 * MyOrientation + 7);
+
+                    Fz[0] = GrainUnitVector(9 * MyOrientation + 2) + GrainUnitVector(9 * MyOrientation + 5) +
+                            GrainUnitVector(9 * MyOrientation + 8);
+                    Fz[1] = GrainUnitVector(9 * MyOrientation + 2) - GrainUnitVector(9 * MyOrientation + 5) +
+                            GrainUnitVector(9 * MyOrientation + 8);
+                    Fz[2] = GrainUnitVector(9 * MyOrientation + 2) + GrainUnitVector(9 * MyOrientation + 5) -
+                            GrainUnitVector(9 * MyOrientation + 8);
+                    Fz[3] = GrainUnitVector(9 * MyOrientation + 2) - GrainUnitVector(9 * MyOrientation + 5) -
+                            GrainUnitVector(9 * MyOrientation + 8);
+
+                    for (int n = 0; n < 26; n++) {
+                        double x0 = xp + NeighborX(n) - cx;
+                        double y0 = yp + NeighborY(n) - cy;
+                        double z0 = zp + NeighborZ(n) - cz;
+                        D[0] = x0 * Fx[0] + y0 * Fy[0] + z0 * Fz[0];
+                        D[1] = x0 * Fx[1] + y0 * Fy[1] + z0 * Fz[1];
+                        D[2] = x0 * Fx[2] + y0 * Fy[2] + z0 * Fz[2];
+                        D[3] = x0 * Fx[3] + y0 * Fy[3] + z0 * Fz[3];
+                        Dfabs = max(max(fabs(D[0]), fabs(D[1])), max(fabs(D[2]), fabs(D[3])));
+                        CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) = Dfabs;
+                       // printf("Ways to go: %f \n",Dfabs - NewODiagL);
+//                        if (CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) == 0.000000) {
+//                            printf("Zero CDL %d %d \n",Alt_CapturingNeighbor,n);
+//                        }
+                        // Figure out which time step the diagonal length will reach the critical diagonal length
+                        int future_cycle = cycle;
+                        float CDL = Dfabs;
+                        float DL = DiagonalLength(D3D1ConvPosition);
+                        double Undercooling = UndercoolingCurrent(GlobalD3D1ConvPosition);
+                        bool Inc_DL = true;
+                        while (Inc_DL) {
+                            if (DL >= CDL) {
+                                CaptureTimeStep((long int)(26) * D3D1ConvPosition + (long int)(n)) = future_cycle;
+//                                if (future_cycle <= cycle) {
+//                                    CaptureTimeStep((long int)(26) * D3D1ConvPosition + (long int)(n)) = 100000000;
+//                                }
+                                Inc_DL = false;
+                            }
+                            else {
+                                future_cycle++;
+                                // Update local undercooling based on local cooling rate
+                                Undercooling += UndercoolingChange(GlobalD3D1ConvPosition);
+                                Undercooling = min(210.0, Undercooling);
+                                double V = AConst * pow(Undercooling, 3.0) + BConst * pow(Undercooling, 2.0) + CConst * Undercooling + DConst;
+                                V = max(0.0, V);
+                                DL += min(0.045, V); // Max amount the diagonal can grow per time step
+                            }
+                        }
+                    }
+                    // Update ghost nodes due to cell activation
+                    if (np > 1) {
+
+                        float GhostGID = (float)(GrainID(GlobalD3D1ConvPosition));
+                        float GhostDOCX = DOCenter((long int)(3) * D3D1ConvPosition);
+                        float GhostDOCY = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
+                        float GhostDOCZ = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
+                        float GhostDL = DiagonalLength(D3D1ConvPosition);
+                        
+                        // Collect data for the ghost nodes:
+                        if (DecompositionStrategy == 1) {
+                            int GNPosition = RankZ * BufSizeX + RankX;
+                            if (RankY == 1) {
+                                BufferSouthSend(GNPosition, 0) = GhostGID;
+                                BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferSouthSend(GNPosition, 4) = GhostDL;
+                            }
+                            else if (RankY == MyYSlices - 2) {
+                                int GNPosition = RankZ * BufSizeX + RankX;
+                                BufferNorthSend(GNPosition, 0) = GhostGID;
+                                BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferNorthSend(GNPosition, 4) = GhostDL;
+                            }
+                        }
+                        else {
+                            if (RankY == 1) {
+                                if (RankX == MyXSlices - 2) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferSouthSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ * BufSizeY + RankY - 1;
+                                    BufferEastSend(GNPosition, 0) = GhostGID;
+                                    BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                    BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                    BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferEastSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ;
+                                    BufferSouthEastSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthEastSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthEastSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthEastSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthEastSend(GNPosition, 4) = GhostDL;
+                                }
+                                else if (RankX == 1) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferSouthSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ * BufSizeY + RankY - 1;
+                                    BufferWestSend(GNPosition, 0) = GhostGID;
+                                    BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                    BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                    BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferWestSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ;
+                                    BufferSouthWestSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthWestSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthWestSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthWestSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthWestSend(GNPosition, 4) = GhostDL;
+                                }
+                                else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                                    // This is being sent to MyLeft
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferSouthSend(GNPosition, 0) = GhostGID;
+                                    BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferSouthSend(GNPosition, 4) = GhostDL;
+                                }
+                            }
+                            else if (RankY == MyYSlices - 2) {
+                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                                if (RankX == MyXSlices - 2) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferNorthSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ * BufSizeY + RankY - 1;
+                                    BufferEastSend(GNPosition, 0) = GhostGID;
+                                    BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                    BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                    BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferEastSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ;
+                                    BufferNorthEastSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthEastSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthEastSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthEastSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthEastSend(GNPosition, 4) = GhostDL;
+                                }
+                                else if (RankX == 1) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferNorthSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ * BufSizeY + RankY - 1;
+                                    BufferWestSend(GNPosition, 0) = GhostGID;
+                                    BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                    BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                    BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferWestSend(GNPosition, 4) = GhostDL;
+                                    GNPosition = RankZ;
+                                    BufferNorthWestSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthWestSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthWestSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthWestSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthWestSend(GNPosition, 4) = GhostDL;
+                                }
+                                else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                                    int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                    BufferNorthSend(GNPosition, 0) = GhostGID;
+                                    BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                    BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                    BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                    BufferNorthSend(GNPosition, 4) = GhostDL;
+                                }
+                            }
+                            else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
+                                int GNPosition = RankZ * BufSizeY + RankY - 1;
+                                BufferWestSend(GNPosition, 0) = GhostGID;
+                                BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                BufferWestSend(GNPosition, 4) = GhostDL;
+                            }
+                            else if ((RankX == MyXSlices - 2) && (RankY > 1) &&
+                                     (RankY < MyYSlices - 2)) {
+                                int GNPosition = RankZ * BufSizeY + RankY - 1;
+                                BufferEastSend(GNPosition, 0) = GhostGID;
+                                BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                BufferEastSend(GNPosition, 4) = GhostDL;
+                            }
+                        } // End if statement for ghost node marking
+                    }   // End if statement for serial/parallel code
+                    // Only update the new cell's type once Critical Diagonal Length and Diagonal Length values have been assigned to it
+                    // Avoids the race condition in which the new cell is activated, and another thread acts on the new active cell before the cell's new critical diagonal length/diagonal length values are assigned
+                    CellType(GlobalD3D1ConvPosition) = Active;
+                }   // End if statement cell capture
+            } // End if statement for undercooled liquid cells
+        }); // End parallel for loop over all undercooled active/aliquid cells
     Kokkos::fence();
 }
 
@@ -1254,10 +1806,12 @@ void IntermediateOutputAndCheck_Remelt(
     MPI_Reduce(&LocalWallCells, &GlobalWallCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&nn, &Global_nn, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
+    int SteeringVectorCells = GlobalActiveCells + GlobalLiquidCells;
     if (id == 0) {
         std::cout << "In layer number " << layernumber << " cycle = " << cycle
                   << " Liquid cells = " << GlobalLiquidCells
-                  << " Active/solid cells = " << GlobalActiveCells + GlobalSolidCells
+                  << " Active cells = " << GlobalActiveCells
+                  << " Solid cells = " << GlobalSolidCells
                   << " Cells finished with solidification = " << GlobalWallCells
                   << " Number of nucleation events this layer " << Global_nn << std::endl;
         // Layer is done when all solid cells have become wall cells (they've finished melting and resolidifying)
@@ -1268,8 +1822,8 @@ void IntermediateOutputAndCheck_Remelt(
     MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (XSwitch == 0) {
-        MPI_Bcast(&GlobalLiquidCells, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
-        if (GlobalLiquidCells == 0) {
+        MPI_Bcast(&SteeringVectorCells, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        if (SteeringVectorCells == 0) {
             // Check when the next cells undergo melting
             unsigned long int NextMTS;
             Kokkos::parallel_reduce(

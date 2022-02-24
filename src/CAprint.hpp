@@ -57,6 +57,6 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain,
                                  ViewI_H GrainOrientation, ViewF_H GrainUnitVector, int NGrainOrientations,
-                                 double deltax, float XMin, float YMin, float ZMin);
+                                 double deltax, float XMin, float YMin, float ZMin, ViewF3D_H UndercoolingCurrent_WholeDomain);
 
 #endif

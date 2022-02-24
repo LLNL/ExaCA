@@ -737,7 +737,7 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                   int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
                   ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
                   ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int nzActive, int ZBound_Low) {
+                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int nzActive, int ZBound_Low, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CaptureTimeStep) {
 
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
@@ -911,6 +911,27 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                             float CDLVal = pow(
                                 pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
                             CritDiagonalLength((long int)(26) * CellLocation + (long int)(n)) = CDLVal;
+                            // Figure out which time step the diagonal length will reach the critical diagonal length
+                            int future_cycle = cycle;
+                            float CDL = CDLVal;
+                            float DL = DiagonalLength(CellLocation);
+                            double Undercooling = UndercoolingCurrent(GlobalCellLocation);
+                            bool Inc_DL = true;
+                            while (Inc_DL) {
+                                if (DL >= CDL) {
+                                    CaptureTimeStep((long int)(26) * CellLocation + (long int)(n)) = future_cycle;
+                                    Inc_DL = false;
+                                }
+                                else {
+                                    future_cycle++;
+                                    // Update local undercooling based on local cooling rate
+                                    Undercooling += UndercoolingChange(GlobalCellLocation);
+                                    Undercooling = min(210.0, Undercooling);
+                                    double V = AConst * pow(Undercooling, 3.0) + BConst * pow(Undercooling, 2.0) + CConst * Undercooling + DConst;
+                                    V = max(0.0, V);
+                                    DL += min(0.045, V); // Max amount the diagonal can grow per time step
+                                }
+                            }
                         }
                         CellType(GlobalCellLocation) = Active;
                     }

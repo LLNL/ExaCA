@@ -594,8 +594,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 }
 
 //*****************************************************************************/
-// Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ, and ItList)
-void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI2D_H ItList) {
+// Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ, OppositeNeighbor, and ItList)
+void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI_H OppositeNeighbor, ViewI2D_H ItList) {
 
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
@@ -682,6 +682,33 @@ void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, V
     NeighborX(25) = -1;
     NeighborY(25) = 1;
     NeighborZ(25) = -1;
+    
+    OppositeNeighbor(0) = 17;
+    OppositeNeighbor(1) = 19;
+    OppositeNeighbor(2) = 18;
+    OppositeNeighbor(3) = 21;
+    OppositeNeighbor(4) = 20;
+    OppositeNeighbor(5) = 24;
+    OppositeNeighbor(6) = 25;
+    OppositeNeighbor(7) = 22;
+    OppositeNeighbor(8) = 23;
+    OppositeNeighbor(9) = 10;
+    OppositeNeighbor(10) = 9;
+    OppositeNeighbor(11) = 14;
+    OppositeNeighbor(12) = 13;
+    OppositeNeighbor(13) = 12;
+    OppositeNeighbor(14) = 11;
+    OppositeNeighbor(15) = 16;
+    OppositeNeighbor(16) = 15;
+    OppositeNeighbor(17) = 0;
+    OppositeNeighbor(18) = 2;
+    OppositeNeighbor(19) = 1;
+    OppositeNeighbor(20) = 4;
+    OppositeNeighbor(21) = 3;
+    OppositeNeighbor(22) = 7;
+    OppositeNeighbor(23) = 8;
+    OppositeNeighbor(24) = 5;
+    OppositeNeighbor(25) = 6;
 
     // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
     for (int i = 0; i <= 25; i++) {
@@ -1175,7 +1202,7 @@ void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int 
 }
 
 // Initialize temperature data for an array of overlapping spot melts
-void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
+void TempInit_SpotMelt(bool RemeltingYN, double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
                        int &MyYOffset, double deltax, double deltat, int nz, ViewI_H MeltTimeStep, ViewI_H CritTimeStep,
                        ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight,
                        int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, double FreezingRange,
@@ -1217,32 +1244,34 @@ void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, 
         std::cout << "Initializing temperature field for " << NumberOfSpots
                   << " spots, each of which takes approximately " << TimeBetweenSpots << " time steps to solidify"
                   << std::endl;
-    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
-        for (int n = 0; n < NumberOfSpots; n++) {
-            if (id == 0)
-                std::cout << "Initializing spot " << n << " on layer " << layernumber << std::endl;
-            // Initialize critical time step/cooling rate values for this spot/this layer
-            int XSpotPos = SpotRadius + (n % NSpotsX) * SpotOffset;
-            int YSpotPos = SpotRadius + (n / NSpotsX) * SpotOffset;
-            int ZSpotPos = SpotRadius + LayerHeight * layernumber;
-            for (int k = 0; k <= SpotRadius; k++) {
-                // Distance of this cell from the spot center
-                float DistZ = (float)(ZSpotPos - (k + LayerHeight * layernumber));
-                for (int i = 0; i < MyXSlices; i++) {
-                    int XGlobal = i + MyXOffset;
-                    float DistX = (float)(XSpotPos - XGlobal);
-                    for (int j = 0; j < MyYSlices; j++) {
-                        int YGlobal = j + MyYOffset;
-                        float DistY = (float)(YSpotPos - YGlobal);
-                        float TotDist = sqrt(DistX * DistX + DistY * DistY + DistZ * DistZ);
-                        if (TotDist <= SpotRadius) {
-                            int GlobalD3D1ConvPosition =
-                                (k + layernumber * LayerHeight) * MyXSlices * MyYSlices + i * MyYSlices + j;
-                            CritTimeStep(GlobalD3D1ConvPosition) =
-                                1 + (int)(((float)(SpotRadius)-TotDist) / IsothermVelocity) + TimeBetweenSpots * n;
-                            UndercoolingChange(GlobalD3D1ConvPosition) = R * deltat;
-                            LayerID(GlobalD3D1ConvPosition) = layernumber;
-                            Melted[GlobalD3D1ConvPosition] = true;
+    if (!(RemeltingYN)) {
+        for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+            for (int n = 0; n < NumberOfSpots; n++) {
+                if (id == 0)
+                    std::cout << "Initializing spot " << n << " on layer " << layernumber << std::endl;
+                // Initialize critical time step/cooling rate values for this spot/this layer
+                int XSpotPos = SpotRadius + (n % NSpotsX) * SpotOffset;
+                int YSpotPos = SpotRadius + (n / NSpotsX) * SpotOffset;
+                int ZSpotPos = SpotRadius + LayerHeight * layernumber;
+                for (int k = 0; k <= SpotRadius; k++) {
+                    // Distance of this cell from the spot center
+                    float DistZ = (float)(ZSpotPos - (k + LayerHeight * layernumber));
+                    for (int i = 0; i < MyXSlices; i++) {
+                        int XGlobal = i + MyXOffset;
+                        float DistX = (float)(XSpotPos - XGlobal);
+                        for (int j = 0; j < MyYSlices; j++) {
+                            int YGlobal = j + MyYOffset;
+                            float DistY = (float)(YSpotPos - YGlobal);
+                            float TotDist = sqrt(DistX * DistX + DistY * DistY + DistZ * DistZ);
+                            if (TotDist <= SpotRadius) {
+                                int GlobalD3D1ConvPosition =
+                                    (k + layernumber * LayerHeight) * MyXSlices * MyYSlices + i * MyYSlices + j;
+                                CritTimeStep(GlobalD3D1ConvPosition) =
+                                    1 + (int)(((float)(SpotRadius)-TotDist) / IsothermVelocity) + TimeBetweenSpots * n;
+                                UndercoolingChange(GlobalD3D1ConvPosition) = R * deltat;
+                                LayerID(GlobalD3D1ConvPosition) = layernumber;
+                                Melted[GlobalD3D1ConvPosition] = true;
+                            }
                         }
                     }
                 }
@@ -1262,38 +1291,35 @@ void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, 
                 }
             }
         }
-        // TODO: Fix this section to account for removed wall cells
         // Time-temperature history, and the number of solidification events in each cell, is the same for the active
         // domain each layer Only initialize temperature field for this layer's spots - store all melt/solidification
         // events
-        if (layernumber == 0) {
-            for (int n = 0; n < NumberOfSpots; n++) {
-                if (id == 0)
-                    std::cout << "Initializing spot " << n << " on layer " << layernumber << std::endl;
-                // Initialize critical time step/cooling rate values for this spot/this layer
-                int XSpotPos = 2 + SpotRadius + (n % NSpotsX) * SpotOffset;
-                int YSpotPos = 2 + SpotRadius + (n / NSpotsX) * SpotOffset;
-                int ZSpotPos = SpotRadius + 1;
-                for (int k = 2; k <= SpotRadius + 1; k++) {
-                    // Distance of this cell from the spot center
-                    float DistZ = (float)(ZSpotPos - k);
-                    for (int i = 0; i < MyXSlices; i++) {
-                        int XGlobal = i + MyXOffset;
-                        float DistX = (float)(XSpotPos - XGlobal);
-                        for (int j = 0; j < MyYSlices; j++) {
-                            int YGlobal = j + MyYOffset;
-                            float DistY = (float)(YSpotPos - YGlobal);
-                            float TotDist = sqrt(DistX * DistX + DistY * DistY + DistZ * DistZ);
-                            if (TotDist <= SpotRadius) {
-                                int D3D1ConvPosition = (k - ZBound_Low) * MyXSlices * MyYSlices + i * MyYSlices + j;
-                                int SolidificationEventNumber = NumberOfSolidificationEvents(D3D1ConvPosition);
-                                LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 0) =
-                                    n * TimeBetweenSpots;
-                                LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 1) =
-                                    1 + (int)(((float)(SpotRadius)-TotDist) / IsothermVelocity) + TimeBetweenSpots * n;
-                                LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 2) = R * deltat;
-                                NumberOfSolidificationEvents(D3D1ConvPosition)++;
-                            }
+        for (int n = 0; n < NumberOfSpots; n++) {
+            if (id == 0)
+                std::cout << "Initializing spot " << n << " on layer " << layernumber << std::endl;
+            // Initialize critical time step/cooling rate values for this spot/this layer
+            int XSpotPos = SpotRadius + (n % NSpotsX) * SpotOffset;
+            int YSpotPos = SpotRadius + (n / NSpotsX) * SpotOffset;
+            int ZSpotPos = SpotRadius + LayerHeight * layernumber;
+            for (int k = 0; k <= SpotRadius; k++) {
+                // Distance of this cell from the spot center
+                float DistZ = (float)(ZSpotPos - k);
+                for (int i = 0; i < MyXSlices; i++) {
+                    int XGlobal = i + MyXOffset;
+                    float DistX = (float)(XSpotPos - XGlobal);
+                    for (int j = 0; j < MyYSlices; j++) {
+                        int YGlobal = j + MyYOffset;
+                        float DistY = (float)(YSpotPos - YGlobal);
+                        float TotDist = sqrt(DistX * DistX + DistY * DistY + DistZ * DistZ);
+                        if (TotDist <= SpotRadius) {
+                            int D3D1ConvPosition = (k - ZBound_Low) * MyXSlices * MyYSlices + i * MyYSlices + j;
+                            int SolidificationEventNumber = NumberOfSolidificationEvents(D3D1ConvPosition);
+                            LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 0) =
+                                n * TimeBetweenSpots;
+                            LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 1) =
+                                1 + (int)(((float)(SpotRadius)-TotDist) / IsothermVelocity) + TimeBetweenSpots * n;
+                            LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventNumber, 2) = R * deltat;
+                            NumberOfSolidificationEvents(D3D1ConvPosition)++;
                         }
                     }
                 }
@@ -1536,7 +1562,7 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                         int Adj_i = ii - MyXOffset;
                         int Adj_j = jj - MyYOffset;
                         // Liquidus time normalized to the time at which the layer started solidifying
-                        double CTLiq = CritTL[k][ii - LowerXBound][jj - LowerYBound] - SmallestTime_Global;
+                        double CTLiq = CritTL[k][ii - LowerXBound][jj - LowerYBound]; // - SmallestTime_Global;
                         if (CTLiq > 0) {
                             // Where does this layer's temperature data belong on the global (including all layers)
                             // grid? Adjust Z coordinate by ZMin
@@ -1545,8 +1571,7 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                             Melted[Coord3D1D] = true;
                             CritTimeStep(Coord3D1D) = round(CTLiq / deltat);
                             LayerID(Coord3D1D) = LayerCounter;
-                            UndercoolingChange(Coord3D1D) =
-                                std::abs(CR[k][ii - LowerXBound][jj - LowerYBound]) * deltat;
+                            UndercoolingChange(Coord3D1D) = std::abs(CR[k][ii - LowerXBound][jj - LowerYBound]) * deltat;
                         }
                     }
                 }
@@ -1607,13 +1632,13 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
 
         int Pos = i % 6;
         if (Pos == 0) {
-            XInt = round((RawData[i] - XMin) / deltax) + 2;
+            XInt = round((RawData[i] - XMin) / deltax);
         }
         else if (Pos == 1) {
-            YInt = round((RawData[i] - YMin) / deltax) + 2;
+            YInt = round((RawData[i] - YMin) / deltax);
         }
         else if (Pos == 2) {
-            ZInt = round((RawData[i] + deltax * LayerHeight * layernumber - ZMinLayer[layernumber]) / deltax) + 1;
+            ZInt = round((RawData[i] + deltax * LayerHeight * layernumber - ZMinLayer[layernumber]) / deltax);
         }
         else if (Pos == 3) {
             // Melt time step
@@ -1622,12 +1647,6 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
                 D3D1ConvPosition = ZInt * MyXSlices * MyYSlices + (XInt - MyXOffset) * MyYSlices + (YInt - MyYOffset);
                 LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 0) =
                     round(RawData[i] / deltat);
-                //                if (D3D1ConvPosition == 6543822) {
-                //                    std::cout << "X = " << RawData[i-3] << " Y = " << RawData[i-2] << " Z = " <<
-                //                    RawData[i-1] << " Melting event " <<
-                //                    NumberOfSolidificationEvents(D3D1ConvPosition) << " Melting time " << RawData[i]
-                //                    << std::endl;
-                //                }
             }
             else {
                 // skip to next data point
@@ -1638,11 +1657,6 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             // Crit (liquidus) time step
             LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 1) =
                 round(RawData[i] / deltat);
-            //            if (D3D1ConvPosition == 6543822) {
-            //                std::cout << "X = " << RawData[i-4] << " Y = " << RawData[i-3] << " Z = " << RawData[i-2]
-            //                << " Melting event " << NumberOfSolidificationEvents(D3D1ConvPosition) << " Liquidus time
-            //                " << RawData[i] << std::endl;
-            //            }
         }
         else if (Pos == 5) {
             // Cooling rate per time step
@@ -1743,6 +1757,7 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
     if (id == 0)
         std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low + 1 << " through "
                   << nzActive + ZBound_Low - 1 << " of the global domain" << std::endl;
+    std::cout << "After temperature init, CTS = " << CritTimeStep(109477) << std::endl;
 }
 //*****************************************************************************/
 
@@ -2064,7 +2079,7 @@ void SubstrateInit_FromGrainSpacing(bool RemeltingYN, float SubstrateGrainSpacin
     }
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        std::cout << "Initialized baseplate and powder grain structure" << std::endl;
+        std::cout << "Initialized baseplate and powder grain structure: " << nzActive-2 << " " << nz-1 << std::endl;
 }
 
 //*****************************************************************************/
@@ -2086,7 +2101,6 @@ void ActiveCellInit(int id, int MyXSlices, int MyYSlices, int nz,
                     // This cell has associated melting data and is initialized as liquid
                     // Liquid cells do not have initial grain IDs
                     CellType(CAGridLocation) = Liquid;
-                    GrainID(CAGridLocation) = 0;
                 }
             }
         }
@@ -2137,8 +2151,8 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
                int NeighborRank_NorthWest, int NeighborRank_SouthEast, int NeighborRank_SouthWest, ViewI2D_H ItList,
                ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI_H GrainOrientation,
                ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H GrainID,
-               ViewF_H CritDiagonalLength, ViewF_H DOCenter, double deltax, double NMax,
-               int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low) {
+               ViewF_H CritDiagonalLength, ViewF_H DOCenter, ViewI_H CritTimeStep, double deltax, double NMax,
+               int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low, ViewF_H UndercoolingChange, ViewI_H CaptureTimeStep, double AConst, double BConst, double CConst, double DConst) {
 
     // RNG for heterogenous nuclei locations in the liquid
     std::mt19937_64 gen(id);
@@ -2348,6 +2362,29 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
                             float CDLVal = pow(
                                 pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
                             CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) = CDLVal;
+                            // Figure out which time step the diagonal length will reach the critical diagonal length
+                            int future_cycle = CritTimeStep(D3D1ConvPositionGlobal);
+                            float CDL = CDLVal;
+                            float DL = DiagonalLength(D3D1ConvPosition);
+                            double Undercooling = 0.0;
+                            bool Inc_DL = true;
+                            while (Inc_DL) {
+                                if (DL >= CDL) {
+                                    CaptureTimeStep((long int)(26) * D3D1ConvPosition + (long int)(n)) = future_cycle;
+                                    Inc_DL = false;
+                                }
+                                else {
+                                    future_cycle++;
+                                    // Update local undercooling based on local cooling rate
+                                    Undercooling += UndercoolingChange(D3D1ConvPositionGlobal);
+                                    Undercooling = std::min(210.0, Undercooling);
+                                    double V = AConst * pow(Undercooling, 3.0) + BConst * pow(Undercooling, 2.0) + CConst * Undercooling + DConst;
+                                    V = std::max(0.0, V);
+                                    DL += std::min(0.045, V); // Max amount the diagonal can grow per time step
+                                }
+                            }
+//                            if ((RankX == 4) && (RankY == 15) && (RankZ == 10))
+//                                printf("Cell with crit ts %d : Neighbor %d will be captured at time step %d, or when the diagonal length reaches a value of %f \n",CritTimeStep(D3D1ConvPositionGlobal),n,CaptureTimeStep((long int)(26) * D3D1ConvPosition + (long int)(n)),CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)));
                         }
                     }
                 }
