@@ -22,7 +22,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartInitTime = MPI_Wtime();
 
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
-    int NSpotsX, NSpotsY, SpotOffset, SpotRadius;
+    int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio;
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     int PrintDebug, TimeSeriesInc;
     bool PrintMisorientation, PrintFullOutput, RemeltingYN, UseSubstrateFile, PrintTimeSeries,
@@ -90,9 +90,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate
     // data
     if (SimulationType == "R")
-        ReadTemperatureData(id, deltax, HT_deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin, temp_paths,
-                            NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue,
-                            LastValue);
+        ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin,
+                            temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
+                            FirstValue, LastValue);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
@@ -115,10 +115,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Initialize the temperature fields
     if (SimulationType == "R") {
         // input temperature data from files using reduced/sparse data format
-        TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HT_deltax, deltat, nz, CritTimeStep_H,
-                         UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted, ZMinLayer, ZMaxLayer,
-                         LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FinishTimeStep, FreezingRange,
-                         LayerID_H, FirstValue, LastValue, RawData);
+        TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HTtoCAratio, deltat, nz,
+                         CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, XMin, YMin, ZMin, Melted,
+                         ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High,
+                         FinishTimeStep, FreezingRange, LayerID_H, FirstValue, LastValue, RawData);
     }
     else if (SimulationType == "S") {
         // spot melt array test problem

@@ -730,12 +730,26 @@ void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlic
 }
 
 // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate data
-void ReadTemperatureData(int, double deltax, double HT_deltax, int MyXSlices, int MyYSlices, int MyXOffset,
-                         int MyYOffset, float XMin, float YMin, std::vector<std::string> &temp_paths,
+void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyXSlices, int MyYSlices,
+                         int MyXOffset, int MyYOffset, float XMin, float YMin, std::vector<std::string> &temp_paths,
                          int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
                          std::vector<double> &RawData, int *FirstValue, int *LastValue) {
 
-    int HTtoCAratio = HT_deltax / deltax; // OpenFOAM/CA cell size ratio
+    double HTtoCAratio_unrounded = HT_deltax / deltax;
+    double HTtoCAratio_floor = floor(HTtoCAratio_unrounded);
+    if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.0005) && (id == 0)) {
+        std::string error = "Error: Temperature data point spacing not evenly divisible by CA cell size";
+        throw std::runtime_error(error);
+    }
+    else if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.000001) && (id == 0)) {
+        std::cout << "Note: Adjusting cell size from " << deltax << " to " << HT_deltax / HTtoCAratio_floor
+                  << " to "
+                     "ensure even divisibility of CA cell size into temperature data spacing"
+                  << std::endl;
+    }
+    // Adjust deltax to exact value based on temperature data spacing and ratio between heat transport/CA cell sizes
+    deltax = HT_deltax / HTtoCAratio_floor;
+    HTtoCAratio = round(HT_deltax / deltax); // OpenFOAM/CA cell size ratio
     // If HTtoCAratio > 1, an interpolation of input temperature data is needed
     // The X and Y bounds are the region (for this MPI rank) of the physical domain that needs to be
     // read extends past the actual spatial extent of the local domain for purposes of interpolating
@@ -928,8 +942,8 @@ void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, 
 
 // Initialize temperature data for a problem using the reduced/sparse data format and input temperature data from
 // file(s)
-void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double &deltax,
-                      double HT_deltax, double deltat, int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange,
+void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax,
+                      int HTtoCAratio, double deltat, int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange,
                       ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin, bool *Melted, float *ZMinLayer,
                       float *ZMaxLayer, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low,
                       int &ZBound_High, int *FinishTimeStep, double FreezingRange, ViewI_H LayerID, int *FirstValue,
@@ -948,21 +962,6 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
     }
 
     // Temperature data read
-    double HTtoCAratio_unrounded = HT_deltax / deltax;
-    double HTtoCAratio_floor = floor(HTtoCAratio_unrounded);
-    if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.0005) && (id == 0)) {
-        std::string error = "Error: Temperature data point spacing not evenly divisible by CA cell size";
-        throw std::runtime_error(error);
-    }
-    else if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.000001) && (id == 0)) {
-        std::cout << "Note: Adjusting cell size from " << deltax << " to " << HT_deltax / HTtoCAratio_floor
-                  << " to "
-                     "ensure even divisibility of CA cell size into temperature data spacing"
-                  << std::endl;
-    }
-    // Adjust deltax to exact value based on temperature data spacing and ratio between heat transport/CA cell sizes
-    deltax = HT_deltax / HTtoCAratio_floor;
-    int HTtoCAratio = round(HT_deltax / deltax); // OpenFOAM/CA cell size ratio
     // If HTtoCAratio > 1, an interpolation of input temperature data is needed
     // The X and Y bounds are the region (for this MPI rank) of the physical domain that needs to be
     // read extends past the actual spatial extent of the local domain for purposes of interpolating
