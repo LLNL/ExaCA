@@ -14,7 +14,7 @@
 
 void Nucleation(int MyXSlices, int MyYSlices, int cycle, int &nn,
                     ViewI CellType, ViewI NucleiLocations, ViewI NucleationTimes, ViewI NucleiGrainID, ViewI GrainID,
-                int PossibleNuclei_ThisRank, int layernumber, ViewI LayerID);
+                int PossibleNuclei_ThisRank);
 void CellCapture_RM(int cycle, int LocalActiveDomainSize, int,
                  int MyXSlices, int MyYSlices, int nx, int ny, double AConst, double BConst, double CConst, double DConst,
                  int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,

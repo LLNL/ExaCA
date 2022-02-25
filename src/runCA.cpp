@@ -382,7 +382,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
             StartNuclTime = MPI_Wtime();
             Nucleation(MyXSlices, MyYSlices, cycle, nn, CellType_G, NucleiLocation_G,
-                       NucleationTimes_G, NucleiGrainID_G, GrainID_G, PossibleNuclei_ThisRank, layernumber, LayerID_G);
+                       NucleationTimes_G, NucleiGrainID_G, GrainID_G, PossibleNuclei_ThisRank);
             NuclTime += MPI_Wtime() - StartNuclTime;
 
             // Update cells on GPU - new active cells, solidification of old active cells

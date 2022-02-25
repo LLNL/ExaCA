@@ -72,7 +72,7 @@ struct reduction_identity<sample::ValueType> {
 //                int PossibleNuclei_ThisRank, int ZBound_Low, int layernumber, ViewI LayerID, ViewI CritTimeStep, ViewF UndercoolingChange, ViewF DiagonalLength, ViewF CritDiagonalLength) {
 void Nucleation(int MyXSlices, int MyYSlices, int cycle, int &nn,
                     ViewI CellType, ViewI NucleiLocations, ViewI NucleationTimes, ViewI NucleiGrainID, ViewI GrainID,
-                    int PossibleNuclei_ThisRank, int layernumber, ViewI LayerID) {
+                    int PossibleNuclei_ThisRank) {
     // Loop through local list of nucleation events - has the time step exceeded the time step for nucleation at the
     // sites?
     int NucleationThisDT = 0;
@@ -81,8 +81,7 @@ void Nucleation(int MyXSlices, int MyYSlices, int cycle, int &nn,
         KOKKOS_LAMBDA(const int &NucCounter, int &update) {
             int TimeStepCondition = cycle == NucleationTimes(NucCounter);
             int CellTypeCondition = CellType(NucleiLocations(NucCounter)) == Liquid;
-            int LayerIDCondition = LayerID(NucleiLocations(NucCounter)) = layernumber;
-            if ((TimeStepCondition) && (LayerIDCondition)) {
+            if (TimeStepCondition) {
                 // This nucleation event is either about to happen - or the nucleation site is extinct
                 // If remelting is considered - set "NucleationTimes" to this nucleation event to a negative number
                 // if the site is extinct - this is to avoid a race condition in case this site solidifies
@@ -295,6 +294,10 @@ Kokkos::parallel_for(
                         }
                     }
                 }
+            }
+            else if (cellType == TemporaryUpdate) {
+                // This was a nucleation event - add to steering vector for active cell calculations
+                SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = D3D1ConvPosition;
             }
         }
     });
