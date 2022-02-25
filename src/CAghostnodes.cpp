@@ -18,7 +18,7 @@ using std::min;
 // Placement of data in ghost nodes, send/recv, and unpacking of ghost data
 void GhostExchange(int, int, int NeighborRank_North, int NeighborRank_South, int MyXSlices,
                     int MyYSlices, int ZBound_Low, int nzActive, ViewI GrainID, ViewI CellType,
-                    ViewF DOCenter, ViewI CaptureTimeStep, ViewF3D BufferSouthSend, ViewF3D BufferNorthSend, ViewF3D BufferSouthRecv, ViewF3D BufferNorthRecv) {
+                    ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF3D BufferSouthSend, ViewF3D BufferNorthSend, ViewF3D BufferSouthRecv, ViewF3D BufferNorthRecv) {
 
     // Load send buffers
     Kokkos::parallel_for(
@@ -33,8 +33,9 @@ void GhostExchange(int, int, int NeighborRank_North, int NeighborRank_South, int
                 BufferSouthSend(i, k, 3) = DOCenter(3 * ActiveGridCellLocation_SouthBuf + 1);
                 BufferSouthSend(i, k, 4) = DOCenter(3 * ActiveGridCellLocation_SouthBuf + 2);
                 for (int l=0; l<26; l++) {
-                    BufferSouthSend(i, k, l + 5) = (float)(CaptureTimeStep(26 * ActiveGridCellLocation_SouthBuf + l));
+                    BufferSouthSend(i, k, l + 5) = CritDiagonalLength(26 * ActiveGridCellLocation_SouthBuf + l);
                 }
+                BufferSouthSend(i, k, 30) = DiagonalLength(ActiveGridCellLocation_SouthBuf);
                 int ActiveGridCellLocation_NorthBuf = k * MyXSlices * MyYSlices + i * MyYSlices + (MyYSlices - 2); // j = MyYSlices - 2: north buffer
                 int OverallCellLocation_NorthBuf = (k + ZBound_Low) * MyXSlices * MyYSlices + i * MyYSlices + (MyYSlices - 2);
                 BufferNorthSend(i, k, 0) = (float)(CellType(OverallCellLocation_NorthBuf));
@@ -43,8 +44,9 @@ void GhostExchange(int, int, int NeighborRank_North, int NeighborRank_South, int
                 BufferNorthSend(i, k, 3) = DOCenter(3 * ActiveGridCellLocation_NorthBuf + 1);
                 BufferNorthSend(i, k, 4) = DOCenter(3 * ActiveGridCellLocation_NorthBuf + 2);
                 for (int l=0; l<26; l++) {
-                    BufferNorthSend(i, k, l + 5) = (float)(CaptureTimeStep(26 * ActiveGridCellLocation_NorthBuf + l));
+                    BufferNorthSend(i, k, l + 5) = CritDiagonalLength(26 * ActiveGridCellLocation_NorthBuf + l);
                 }
+                BufferNorthSend(i, k, 30) = DiagonalLength(ActiveGridCellLocation_NorthBuf);
             }
         });
             
@@ -53,15 +55,15 @@ void GhostExchange(int, int, int NeighborRank_North, int NeighborRank_South, int
     std::vector<MPI_Request> RecvRequests(NumberOfSends, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), 30 * MyXSlices * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthSend.data(), 31 * MyXSlices * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), 30 * MyXSlices * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthSend.data(), 31 * MyXSlices * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &SendRequests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), 30 * MyXSlices * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthRecv.data(), 31 * MyXSlices * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), 30 * MyXSlices * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthRecv.data(), 31 * MyXSlices * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &RecvRequests[1]);
 
     // unpack in any order
@@ -92,8 +94,9 @@ void GhostExchange(int, int, int NeighborRank_North, int NeighborRank_South, int
                             DOCenter(3 * ActiveGridCellLocation + 1) = BufferSouthRecv(i, k, 3);
                             DOCenter(3 * ActiveGridCellLocation + 2) = BufferSouthRecv(i, k, 4);
                             for (int l=0; l<26; l++) {
-                                CaptureTimeStep(26 * ActiveGridCellLocation + l) = (int)(BufferSouthRecv(i, k, l + 5));
+                                CritDiagonalLength(26 * ActiveGridCellLocation + l) = BufferSouthRecv(i, k, l + 5);
                             }
+                            DiagonalLength(ActiveGridCellLocation) = BufferSouthRecv(i, k, 30);
                         }
                     }
                     else if ((unpack_index == 1) && (NeighborRank_North != MPI_PROC_NULL)) {
@@ -108,8 +111,9 @@ void GhostExchange(int, int, int NeighborRank_North, int NeighborRank_South, int
                             DOCenter(3 * ActiveGridCellLocation + 1) = BufferNorthRecv(i, k, 3);
                             DOCenter(3 * ActiveGridCellLocation + 2) = BufferNorthRecv(i, k, 4);
                             for (int l=0; l<26; l++) {
-                                CaptureTimeStep(26 * ActiveGridCellLocation + l) = (int)(BufferNorthRecv(i, k, l + 5));
+                                CritDiagonalLength(26 * ActiveGridCellLocation + l) = BufferNorthRecv(i, k, l + 5);
                             }
+                            DiagonalLength(ActiveGridCellLocation) = BufferNorthRecv(i, k, 30);
                         }
                     }
                 });

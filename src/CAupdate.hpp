@@ -12,18 +12,16 @@
 
 #include <string>
 
-void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn,
-                ViewI CellType, ViewI NucleiLocations, ViewI NucleationTimes, ViewI NucleiGrainID, ViewI GrainID,
-                ViewI GrainOrientation, ViewF DOCenter, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
-                ViewF GrainUnitVector, int NGrainOrientations, double AConst, double BConst, double CConst, double DConst,
-                int PossibleNuclei_ThisRank, int ZBound_Low, int layernumber, ViewI LayerID, ViewI CritTimeStep, ViewF UndercoolingChange, ViewI CaptureTimeStep);
+void Nucleation(int MyXSlices, int MyYSlices, int cycle, int &nn,
+                    ViewI CellType, ViewI NucleiLocations, ViewI NucleationTimes, ViewI NucleiGrainID, ViewI GrainID,
+                int PossibleNuclei_ThisRank, int layernumber, ViewI LayerID);
 void CellCapture_RM(int cycle, int LocalActiveDomainSize, int,
-                 int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst,
-                 int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI OppositeNeighbor,
+                 int MyXSlices, int MyYSlices, int nx, int ny, double AConst, double BConst, double CConst, double DConst,
+                 int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
                  ViewI CritTimeStep, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI CellType,
                  ViewF DOCenter, ViewI GrainID, int NGrainOrientations, int ZBound_Low, int nzActive, int, ViewI SteeringVector,
                  ViewI numSteer_G, ViewI_H numSteer_H, ViewI MeltTimeStep, ViewI SolidificationEventCounter,
-                    ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory, ViewI CaptureTimeStep);
+                    ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory, ViewF DiagonalLength, ViewF CritDiagonalLength);
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalDomainSize,
                                 int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
                                 float XMin, float YMin, float ZMin, int DecompositionStrategy,

@@ -624,7 +624,7 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
     // Size of output in Z will depend on the current layer bounds - always start from Z = 1, but only collect data up
     // to Z = ZBound_Low + nzActive - 1
     int ZPrintSize = ZBound_Low + nzActive - 1;
-    std::cout << "Printing file " << FName << " : Z coordinates of 1 through " << ZPrintSize << std::endl;
+    std::cout << "Printing file " << FName << " : Z coordinates of 0 through " << ZPrintSize << std::endl;
     ViewF_H GrainMisorientation(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NGrainOrientations);
     for (int n = 0; n < NGrainOrientations; n++) {
         // Find the smallest possible misorientation between the domain +Z direction, and this grain orientations' 6
@@ -646,10 +646,10 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
     GrainplotM << "vtk output" << std::endl;
     GrainplotM << "ASCII" << std::endl;
     GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
-    GrainplotM << "DIMENSIONS " << nx << " " << ny << " " << ZPrintSize << std::endl;
+    GrainplotM << "DIMENSIONS " << nx << " " << ny << " " << ZPrintSize+1 << std::endl;
     GrainplotM << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
     GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
-    GrainplotM << std::fixed << "POINT_DATA " << nx * ny * ZPrintSize << std::endl;
+    GrainplotM << std::fixed << "POINT_DATA " << nx * ny * (ZPrintSize+1) << std::endl;
     GrainplotM << "SCALARS Angle_z float 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
     for (int k = 0; k <= ZPrintSize; k++) {

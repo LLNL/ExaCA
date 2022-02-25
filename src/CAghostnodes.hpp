@@ -12,7 +12,7 @@
 
 void GhostExchange(int, int, int NeighborRank_North, int NeighborRank_South, int MyXSlices,
                     int MyYSlices, int ZBound_Low, int nzActive, ViewI GrainID, ViewI CellType,
-                   ViewF DOCenter, ViewI CaptureTimeStep, ViewF3D BufferSouthSend, ViewF3D BufferNorthSend, ViewF3D BufferSouthRecv, ViewF3D BufferNorthRecv);
+                   ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF3D BufferSouthSend, ViewF3D BufferNorthSend, ViewF3D BufferSouthRecv, ViewF3D BufferNorthRecv);
 //void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int NeighborRank_East,
 //                  int NeighborRank_West, int NeighborRank_NorthEast, int NeighborRank_NorthWest,
 //                  int NeighborRank_SouthEast, int NeighborRank_SouthWest, int MyXSlices, int MyYSlices, int MyXOffset,

@@ -200,12 +200,12 @@ void RunExaCA(int id, int np, std::string InputFile) {
     ViewI_H CellType_H(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalDomainSize);
 
     // Variables characterizing the active cell region within each rank's grid
-    //ViewF_H DiagonalLength_H(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), LocalActiveDomainSize);
-    //ViewF_H CritDiagonalLength_H(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"),
-    //                             26 * LocalActiveDomainSize);
-    ViewF_H DOCenter_H(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
-    ViewI_H CaptureTimeStep_H(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"),
+    ViewF_H DiagonalLength_H(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), LocalActiveDomainSize);
+    ViewF_H CritDiagonalLength_H(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"),
                                  26 * LocalActiveDomainSize);
+    ViewF_H DOCenter_H(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
+    //ViewI_H CaptureTimeStep_H(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"),
+     //                            26 * LocalActiveDomainSize);
     // Initialize the grain structure - for either a constrained solidification problem, using a substrate from a file,
     // or generating a substrate using the existing CA algorithm
     int PossibleNuclei_ThisRank, NextLayer_FirstNucleatedGrainID;
@@ -279,16 +279,16 @@ void RunExaCA(int id, int np, std::string InputFile) {
     // position 1: grain ID
     // position 2, 3, 4: octahedron center
     // positions 5 through 30: capture time step to capture each of the 26 possible neighbors
-    ViewF3D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX, nzActive, 30);
-    ViewF3D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX, nzActive, 30);
+    ViewF3D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX, nzActive, 31);
+    ViewF3D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX, nzActive, 31);
 //    Buffer2D BufferEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferEastSend"), BufSizeY * nzActive, 5);
 //    Buffer2D BufferWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferWestSend"), BufSizeY * nzActive, 5);
 //    Buffer2D BufferNorthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastSend"), nzActive, 5);
 //    Buffer2D BufferNorthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthWestSend"), nzActive, 5);
 //    Buffer2D BufferSouthEastSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthEastSend"), nzActive, 5);
 //    Buffer2D BufferSouthWestSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthWestSend"), nzActive, 5);
-    ViewF3D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSizeX, nzActive, 30);
-    ViewF3D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSizeX, nzActive, 30);
+    ViewF3D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSizeX, nzActive, 31);
+    ViewF3D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSizeX, nzActive, 31);
 //    Buffer2D BufferEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferEastRecv"), BufSizeY * nzActive, 5);
 //    Buffer2D BufferWestRecv(Kokkos::ViewAllocateWithoutInitializing("BufferWestRecv"), BufSizeY * nzActive, 5);
 //    Buffer2D BufferNorthEastRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthEastRecv"), nzActive, 5);
@@ -300,9 +300,9 @@ void RunExaCA(int id, int np, std::string InputFile) {
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     ViewI GrainID_G = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID_H);
     ViewI CellType_G = Kokkos::create_mirror_view_and_copy(memory_space(), CellType_H);
-    // ViewF DiagonalLength_G = Kokkos::create_mirror_view_and_copy(memory_space(), DiagonalLength_H);
-    // ViewF CritDiagonalLength_G = Kokkos::create_mirror_view_and_copy(memory_space(), CritDiagonalLength_H);
-    ViewI CaptureTimeStep_G = Kokkos::create_mirror_view_and_copy(memory_space(), CaptureTimeStep_H);
+    ViewF DiagonalLength_G = Kokkos::create_mirror_view_and_copy(memory_space(), DiagonalLength_H);
+    ViewF CritDiagonalLength_G = Kokkos::create_mirror_view_and_copy(memory_space(), CritDiagonalLength_H);
+    //ViewI CaptureTimeStep_G = Kokkos::create_mirror_view_and_copy(memory_space(), CaptureTimeStep_H);
 
     ViewF DOCenter_G = Kokkos::create_mirror_view_and_copy(memory_space(), DOCenter_H);
     ViewI CritTimeStep_G = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep_H);
@@ -337,7 +337,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
         // Ghost nodes for initial microstructure state
         GhostExchange(id, -1, NeighborRank_North, NeighborRank_South, MyXSlices,
                       MyYSlices, ZBound_Low, nzActive, GrainID_G, CellType_G,
-                      DOCenter_G, CaptureTimeStep_G, BufferSouthSend, BufferNorthSend, BufferSouthRecv, BufferNorthRecv);
+                      DOCenter_G, DiagonalLength_G, CritDiagonalLength_G, BufferSouthSend, BufferNorthSend, BufferSouthRecv, BufferNorthRecv);
     }
 
     // If specified, print initial values in some views for debugging purposes
@@ -381,9 +381,8 @@ void RunExaCA(int id, int np, std::string InputFile) {
 
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
             StartNuclTime = MPI_Wtime();
-            Nucleation(MyXSlices, MyYSlices, MyXOffset, MyYOffset, cycle, nn, CellType_G, NucleiLocation_G,
-                       NucleationTimes_G, NucleiGrainID_G, GrainID_G, GrainOrientation_G, DOCenter_G, NeighborX_G,
-                       NeighborY_G, NeighborZ_G, GrainUnitVector_G, NGrainOrientations, AConst, BConst, CConst, DConst, PossibleNuclei_ThisRank, ZBound_Low, layernumber, LayerID_G, CritTimeStep_G, UndercoolingChange_G, CaptureTimeStep_G);
+            Nucleation(MyXSlices, MyYSlices, cycle, nn, CellType_G, NucleiLocation_G,
+                       NucleationTimes_G, NucleiGrainID_G, GrainID_G, PossibleNuclei_ThisRank, layernumber, LayerID_G);
             NuclTime += MPI_Wtime() - StartNuclTime;
 
             // Update cells on GPU - new active cells, solidification of old active cells
@@ -399,10 +398,10 @@ void RunExaCA(int id, int np, std::string InputFile) {
 //                            SteeringVector, numSteer_G, numSteer_H, CaptureTimeStep_G);
 //            else
                 CellCapture_RM(cycle, LocalActiveDomainSize, LocalDomainSize,
-                            MyXSlices, MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset,
-                            NeighborX_G, NeighborY_G, NeighborZ_G, OppositeNeighbor_G, CritTimeStep_G,
+                            MyXSlices, MyYSlices, nx, ny, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset,
+                            NeighborX_G, NeighborY_G, NeighborZ_G, CritTimeStep_G,
                             UndercoolingChange_G, GrainUnitVector_G, GrainOrientation_G, CellType_G, DOCenter_G, GrainID_G, NGrainOrientations, ZBound_Low, nzActive, nz, SteeringVector, numSteer_G, numSteer_H, MeltTimeStep_G,
-                            SolidificationEventCounter_G, NumberOfSolidificationEvents_G, LayerTimeTempHistory_G, CaptureTimeStep_G);
+                            SolidificationEventCounter_G, NumberOfSolidificationEvents_G, LayerTimeTempHistory_G, DiagonalLength_G, CritDiagonalLength_G);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
@@ -410,7 +409,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
                 StartGhostTime = MPI_Wtime();
                 GhostExchange(id, cycle, NeighborRank_North, NeighborRank_South, MyXSlices,
                               MyYSlices, ZBound_Low, nzActive, GrainID_G, CellType_G,
-                              DOCenter_G, CaptureTimeStep_G, BufferSouthSend, BufferNorthSend, BufferSouthRecv, BufferNorthRecv);
+                              DOCenter_G, DiagonalLength_G, CritDiagonalLength_G, BufferSouthSend, BufferNorthSend, BufferSouthRecv, BufferNorthRecv);
 //                if (DecompositionStrategy == 1)
 //                    GhostNodes1D(cycle, id, NeighborRank_North, NeighborRank_South, MyXSlices, MyYSlices, MyXOffset,
 //                                 MyYOffset, NeighborX_G, NeighborY_G, NeighborZ_G, CellType_G, DOCenter_G, GrainID_G,
@@ -459,10 +458,12 @@ void RunExaCA(int id, int np, std::string InputFile) {
             if (PrintTimeSeries)
                 IntermediateFileCounter = 0;
 
-            int ZBound_Low = round(ZMinLayer[layernumber+1] - ZMin) / deltax;
-            int ZBound_High = round((ZMaxLayer[layernumber+1] - ZMinLayer[layernumber+1]) / deltax);
-            int nzActive = ZBound_High - ZBound_Low + 1;
-            
+            ZBound_Low = round((ZMinLayer[layernumber+1] - ZMin) / deltax);
+            ZBound_High = round((ZMaxLayer[layernumber+1] - ZMin) / deltax);
+            nzActive = ZBound_High - ZBound_Low + 1;
+            LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
+            if (id == 0)
+                std::cout << "Initializing layer " << layernumber+1 << " Z = " << ZBound_Low << " through Z = " << ZBound_High << std::endl;
             // Determine new active cell domain size and offset from bottom of global domain
 //            DomainShiftAndResize(SimulationType, id, MyXSlices, MyYSlices, ZBound_Low, ZBound_High, ZMin, ZMinLayer,
 //                                 ZMaxLayer, deltax, nzActive, nz, SpotRadius, LocalActiveDomainSize, layernumber + 1,
@@ -476,8 +477,8 @@ void RunExaCA(int id, int np, std::string InputFile) {
             Kokkos::resize(DOCenter_G, 3 * LocalActiveDomainSize);
            // Kokkos::resize(CritDiagonalLength_G, 26 * LocalActiveDomainSize);
 
-            Kokkos::resize(BufferNorthSend, BufSizeX, nzActive, 30);
-            Kokkos::resize(BufferSouthSend, BufSizeX, nzActive, 30);
+            Kokkos::resize(BufferNorthSend, BufSizeX, nzActive, 31);
+            Kokkos::resize(BufferSouthSend, BufSizeX, nzActive, 31);
 //            Kokkos::resize(BufferEastSend, BufSizeY * nzActive, 5);
 //            Kokkos::resize(BufferWestSend, BufSizeY * nzActive, 5);
 //            Kokkos::resize(BufferNorthEastSend, nzActive, 5);
@@ -485,8 +486,8 @@ void RunExaCA(int id, int np, std::string InputFile) {
 //            Kokkos::resize(BufferSouthEastSend, nzActive, 5);
 //            Kokkos::resize(BufferSouthWestSend, nzActive, 5);
 
-            Kokkos::resize(BufferNorthRecv, BufSizeX * nzActive, 30);
-            Kokkos::resize(BufferSouthRecv, BufSizeX * nzActive, 30);
+            Kokkos::resize(BufferNorthRecv, BufSizeX, nzActive, 31);
+            Kokkos::resize(BufferSouthRecv, BufSizeX, nzActive, 31);
 //            Kokkos::resize(BufferEastRecv, BufSizeY * nzActive, 5);
 //            Kokkos::resize(BufferWestRecv, BufSizeY * nzActive, 5);
 //            Kokkos::resize(BufferNorthEastRecv, nzActive, 5);
@@ -495,7 +496,8 @@ void RunExaCA(int id, int np, std::string InputFile) {
 //            Kokkos::resize(BufferSouthWestRecv, nzActive, 5);
 
             // Re-zero views for active cell data structures/buffers on GPU
-            Kokkos::deep_copy(CaptureTimeStep_G, 0);
+            Kokkos::deep_copy(DiagonalLength_G, 0.0);
+            Kokkos::deep_copy(CritDiagonalLength_G, 0.0);
             Kokkos::deep_copy(DOCenter_G, 0.0);
             Kokkos::deep_copy(BufferSouthSend, 0.0);
             Kokkos::deep_copy(BufferSouthRecv, 0.0);
@@ -517,6 +519,8 @@ void RunExaCA(int id, int np, std::string InputFile) {
                 Kokkos::resize(SolidificationEventCounter_G, LocalActiveDomainSize);
                 Kokkos::resize(LayerTimeTempHistory_G, LocalActiveDomainSize,
                                MaxSolidificationEvents_H(layernumber + 1), 3);
+                Kokkos::resize(DiagonalLength_G, LocalActiveDomainSize);
+                Kokkos::resize(CritDiagonalLength_G, 26 * LocalActiveDomainSize);
 
                 // Initialize temperature field for the next layer
                 // if (SimulationType == "RM")
@@ -582,7 +586,7 @@ void RunExaCA(int id, int np, std::string InputFile) {
             if (np > 1) {
                 GhostExchange(id, -1, NeighborRank_North, NeighborRank_South, MyXSlices,
                               MyYSlices, ZBound_Low, nzActive, GrainID_G, CellType_G,
-                              DOCenter_G, CaptureTimeStep_G, BufferSouthSend, BufferNorthSend, BufferSouthRecv, BufferNorthRecv);
+                              DOCenter_G, DiagonalLength_G, CritDiagonalLength_G, BufferSouthSend, BufferNorthSend, BufferSouthRecv, BufferNorthRecv);
             }
             // XSwitch = 0;
             MPI_Barrier(MPI_COMM_WORLD);

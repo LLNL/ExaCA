@@ -893,7 +893,7 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
             ZMinLayer[LayerReadCount - 1] = ZMin_ThisLayer;
             ZMaxLayer[LayerReadCount - 1] = ZMax_ThisLayer;
             if (id == 0)
-                std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMin_ThisLayer << " " << ZMax_ThisLayer
+                std::cout << "Layer = " << LayerReadCount-1 << " Z Bounds are " << ZMin_ThisLayer << " " << ZMax_ThisLayer
                           << std::endl;
         }
         // Extend domain in Z (build) direction if the number of layers are simulated is greater than the number
@@ -919,6 +919,9 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
                         ZMaxLayer[RepeatedFile] + RepeatUnit * TempFilesInSeries * deltax * LayerHeight;
                     ZMax += deltax * LayerHeight;
                 }
+                if (id == 0)
+                    std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMinLayer[LayerReadCount] << " " << ZMaxLayer[LayerReadCount]
+                              << std::endl;
             }
         }
 
@@ -1604,8 +1607,11 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
         //UndercoolingCurrent(i) = 0.0;
         MeltTimeStep(i) = 0;
     }
+    std::cout << "nzActive = " << nzActive << std::endl;
     for (int i = 0; i < MyXSlices * MyYSlices * nzActive; i++) {
         NumberOfSolidificationEvents(i) = 0;
+        if (i == 345613)
+            std::cout << "N S Events cell 345613: " << NumberOfSolidificationEvents(345613) << std::endl;
         SolidificationEventCounter(i) = 0;
         for (int j = 0; j < MaxSolidificationEvents(layernumber); j++) {
             for (int k = 0; k < 3; k++) {
@@ -1645,6 +1651,9 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
             if ((XInt >= MyXOffset) && (XInt < MyXOffset + MyXSlices) && (YInt >= MyYOffset) &&
                 (YInt < MyYOffset + MyYSlices)) {
                 D3D1ConvPosition = ZInt * MyXSlices * MyYSlices + (XInt - MyXOffset) * MyYSlices + (YInt - MyYOffset);
+                if (D3D1ConvPosition == 345613) {
+                    std::cout << "Melt event " << NumberOfSolidificationEvents(D3D1ConvPosition) << " value " << round(RawData[i] / deltat) << std::endl;
+                }
                 LayerTimeTempHistory(D3D1ConvPosition, NumberOfSolidificationEvents(D3D1ConvPosition), 0) =
                     round(RawData[i] / deltat);
             }
@@ -1730,7 +1739,7 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
     }
     int ZLOW = 10000;
     int ZHIGH = -1;
-    for (int k = 1; k < nzActive; k++) {
+    for (int k = 0; k < nzActive; k++) {
         int GlobalZ = k + ZBound_Low;
         for (int i = 0; i < MyXSlices; i++) {
             for (int j = 0; j < MyYSlices; j++) {
@@ -1754,9 +1763,8 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
     std::cout << "On rank " << id << " , temperature field is actually located from " << ZLOW << " THROUGH " << ZHIGH
               << std::endl;
     if (id == 0)
-        std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low + 1 << " through "
+        std::cout << "Layer " << layernumber << " temperature field is from Z = " << ZBound_Low << " through "
                   << nzActive + ZBound_Low - 1 << " of the global domain" << std::endl;
-    std::cout << "After temperature init, CTS = " << CritTimeStep(109477) << std::endl;
 }
 //*****************************************************************************/
 
