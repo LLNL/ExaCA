@@ -293,27 +293,27 @@ Kokkos::parallel_for(
                             l = 27;
                         }
                     }
-                    if (Deactivate) {
-                        // This cell is no longer active - all liquid neighbors have been captured
-                        SolidificationEventCounter(D3D1ConvPosition)++;
-                        // Did the cell do this for the last time in the layer?
-                        if (SolidificationEventCounter(D3D1ConvPosition) ==
-                            NumberOfSolidificationEvents(D3D1ConvPosition)) {
-                            // If so, this cell is done solidifying for now - change to wall type to ignore until next layer
-                            // (if needed)
-                            CellType(GlobalD3D1ConvPosition) = Solid;
-                        }
-                        else {
-                            // Update MeltTimeStep, CritTimeStep, and UndercoolingChange with values for the next
-                            // solidification event
-                            CellType(GlobalD3D1ConvPosition) = TempSolid;
-                            MeltTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(
-                                D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 0));
-                            CritTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(
-                                D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 1));
-                            UndercoolingChange(GlobalD3D1ConvPosition) =
-                                LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 2);
-                        }
+                }
+                if (Deactivate) {
+                    // This cell is no longer active - all liquid neighbors have been captured
+                    SolidificationEventCounter(D3D1ConvPosition)++;
+                    // Did the cell do this for the last time in the layer?
+                    if (SolidificationEventCounter(D3D1ConvPosition) ==
+                        NumberOfSolidificationEvents(D3D1ConvPosition)) {
+                        // If so, this cell is done solidifying for now - change to wall type to ignore until next layer
+                        // (if needed)
+                        CellType(GlobalD3D1ConvPosition) = Solid;
+                    }
+                    else {
+                        // Update MeltTimeStep, CritTimeStep, and UndercoolingChange with values for the next
+                        // solidification event
+                        CellType(GlobalD3D1ConvPosition) = TempSolid;
+                        MeltTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(
+                            D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 0));
+                        CritTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(
+                            D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 1));
+                        UndercoolingChange(GlobalD3D1ConvPosition) =
+                            LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 2);
                     }
                 }
             }
@@ -359,7 +359,7 @@ Kokkos::parallel_for(
                     }
                     else if (CellType(GlobalNeighborD3D1ConvPosition) == Active) {
                         int CaptureTimeExcess_ThisNeighbor = cycle - CaptureTimeStep(26 * NeighborD3D1ConvPosition + OppositeNeighbor(l));
-                        if (CaptureTimeExcess >= 0) {
+                        if (CaptureTimeExcess_ThisNeighbor >= 0) {
                             // Cell capture
                             CellCapture = true;
                             if (CaptureTimeExcess_ThisNeighbor >= CaptureTimeExcess) {
@@ -492,7 +492,6 @@ Kokkos::parallel_for(
                     }
                 }
                 CellType(GlobalD3D1ConvPosition) = Active;
-                
             }
             else if (CellCapture) {
                 // if cell activation and capture were both possible, activation is given priority
