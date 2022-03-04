@@ -8,7 +8,7 @@
 
 #include <Kokkos_Core.hpp>
 
-enum TypeNames { Solid = 0, TempSolid = 1, Active = 2, TemporaryUpdate = 3, TemporaryInit = 4, Liquid = 5, Ghost = 6 };
+enum TypeNames { Solid = 0, TempSolid = 1, Active = 2, TemporaryUpdate = 3, TemporaryInit = 4, Liquid = 5, Ghost = 6, FutureActive = 7 };
 
 // Use Kokkos::DefaultExecutionSpace
 typedef Kokkos::View<float *> ViewF;

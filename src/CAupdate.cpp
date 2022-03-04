@@ -81,32 +81,26 @@ void Nucleation(int MyXSlices, int MyYSlices, int cycle, int &nn,
         KOKKOS_LAMBDA(const int &NucCounter, int &update) {
             int TimeStepCondition = cycle == NucleationTimes(NucCounter);
             int CellTypeCondition = CellType(NucleiLocations(NucCounter)) == Liquid;
-            if (TimeStepCondition) {
+            if ((TimeStepCondition) && (CellTypeCondition)) {
                 // This nucleation event is either about to happen - or the nucleation site is extinct
-                // If remelting is considered - set "NucleationTimes" to this nucleation event to a negative number
-                // if the site is extinct - this is to avoid a race condition in case this site solidifies
-                // multiple times and is the site of multiple nucleation events
-                if (!(CellTypeCondition))
-                    NucleationTimes(NucCounter) = -1;
-                else {
-                    // (X,Y,Z) coordinates of nucleation event, on active cell grid (RankX,RankY,RankZ) and global grid
-                    // (RankX,RankY,GlobalZ)
-                    // Global grid used for cell type/nuclei location if no remelting, local active (this layer only)
-                    // grid used if remelting Grain ID is stored inside the NucleiGrainID view in simulations with
-                    // remelting (in case multiple nucleation events are possible in the same cell For simulations
-                    // without remelting, the GrainID view was initialized with the new Grain ID
-                    //int RankX, RankY, RankZ, Rem, GlobalZ, D3D1ConvPosition, GlobalD3D1ConvPosition, MyGrainID;
-                    int GlobalD3D1ConvPosition = NucleiLocations(NucCounter);
-                    CellType(GlobalD3D1ConvPosition) = TemporaryUpdate;
-                    //int GlobalZ = GlobalD3D1ConvPosition / (MyXSlices * MyYSlices);
-                    int Rem = GlobalD3D1ConvPosition % (MyXSlices * MyYSlices);
-                    int RankX = Rem / MyYSlices;
-                    int RankY = Rem % MyYSlices;
+                // (X,Y,Z) coordinates of nucleation event, on active cell grid (RankX,RankY,RankZ) and global grid
+                // (RankX,RankY,GlobalZ)
+                // Global grid used for cell type/nuclei location if no remelting, local active (this layer only)
+                // grid used if remelting Grain ID is stored inside the NucleiGrainID view in simulations with
+                // remelting (in case multiple nucleation events are possible in the same cell For simulations
+                // without remelting, the GrainID view was initialized with the new Grain ID
+                //int RankX, RankY, RankZ, Rem, GlobalZ, D3D1ConvPosition, GlobalD3D1ConvPosition, MyGrainID;
+                int GlobalD3D1ConvPosition = NucleiLocations(NucCounter);
+                CellType(GlobalD3D1ConvPosition) = FutureActive;
+                //int GlobalZ = GlobalD3D1ConvPosition / (MyXSlices * MyYSlices);
+                int Rem = GlobalD3D1ConvPosition % (MyXSlices * MyYSlices);
+                int RankX = Rem / MyYSlices;
+                int RankY = Rem % MyYSlices;
 //                    RankZ = GlobalZ - ZBound_Low;
 //                    D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
 // //                   if (Remelting) {
 //                        MyGrainID = NucleiGrainID(NucCounter);
-                        GrainID(GlobalD3D1ConvPosition) = NucleiGrainID(NucCounter);
+                    GrainID(GlobalD3D1ConvPosition) = NucleiGrainID(NucCounter);
 ////                    }
 ////                    else {
 ////                        MyGrainID = GrainID(GlobalD3D1ConvPosition);
@@ -233,7 +227,6 @@ void Nucleation(int MyXSlices, int MyYSlices, int cycle, int &nn,
 //                    }
 //                    CellType(GlobalD3D1ConvPosition) = Active;
                 }
-            }
         },
         NucleationThisDT);
     nn += NucleationThisDT;
@@ -241,12 +234,14 @@ void Nucleation(int MyXSlices, int MyYSlices, int cycle, int &nn,
 }
 
 void CellCapture_RM(int cycle, int LocalActiveDomainSize, int,
-                 int MyXSlices, int MyYSlices, int nx, int ny, double AConst, double BConst, double CConst, double DConst,
+                 int MyXSlices, int MyYSlices, int, int, double AConst, double BConst, double CConst, double DConst,
                  int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
                  ViewI CritTimeStep, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI CellType,
                  ViewF DOCenter, ViewI GrainID, int NGrainOrientations, int ZBound_Low, int nzActive, int, ViewI SteeringVector,
                  ViewI numSteer_G, ViewI_H numSteer_H, ViewI MeltTimeStep, ViewI SolidificationEventCounter,
-                 ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory, ViewF DiagonalLength, ViewF CritDiagonalLength) {
+                 ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory, ViewF DiagonalLength, ViewF CritDiagonalLength, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                    Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
+                    Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int np, int DecompositionStrategy, int BufSizeX, int BufSizeY) {
 
 // Perform melting events, maintaining active cells at the solid-liquid interface
 // For all active and liquid cells that have undercooled, record their positions in the steering vector
@@ -265,7 +260,7 @@ Kokkos::parallel_for(
         bool atMeltTime = (cycle == MeltTimeStep(GlobalD3D1ConvPosition));
         bool atpastCritTime = (cycle >= CritTimeStep(GlobalD3D1ConvPosition));
         
-        if ((atMeltTime) && (cellType != Liquid)) {
+        if ((atMeltTime) && ((cellType == TempSolid) || (cellType == Active))) {
             // This cell should be a liquid cell
             CellType(GlobalD3D1ConvPosition) = Liquid;
         }
@@ -274,7 +269,7 @@ Kokkos::parallel_for(
                 // Add to steering vector
                 SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = D3D1ConvPosition;
             }
-            else if (cellType == Liquid) {
+            else if ((cellType == Liquid) && (GrainID(GlobalD3D1ConvPosition) != 0)) {
                 // If this cell borders at least one solid/tempsolid cell, it should become active
                 for (int l = 0; l < 26; l++) {
                     // "l" correpsponds to the specific neighboring cell
@@ -290,12 +285,12 @@ Kokkos::parallel_for(
                             // Cell activation to be performed as part of steering vector
                             l = 26;
                             SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = D3D1ConvPosition;
-                            CellType(GlobalD3D1ConvPosition) = TemporaryUpdate; // this cell cannot be captured - is being activated
+                            CellType(GlobalD3D1ConvPosition) = FutureActive; // this cell cannot be captured - is being activated
                         }
                     }
                 }
             }
-            else if (cellType == TemporaryUpdate) {
+            else if (cellType == FutureActive) {
                 // This was a nucleation event - add to steering vector for active cell calculations
                 SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = D3D1ConvPosition;
             }
@@ -320,7 +315,7 @@ Kokkos::parallel_for(
             int GlobalZ = RankZ + ZBound_Low;
             int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
 
-            if (CellType(GlobalD3D1ConvPosition) == TemporaryUpdate) {
+            if (CellType(GlobalD3D1ConvPosition) == FutureActive) {
                 // This liquid cell is becoming an active cell via cell activation
                 int MyGrainID = GrainID(GlobalD3D1ConvPosition);
                 int GlobalX = RankX + MyXOffset;
@@ -419,6 +414,156 @@ Kokkos::parallel_for(
                         pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
                     CritDiagonalLength(26 * D3D1ConvPosition + n) = CDL;
                 }
+                // Update ghost nodes due to nucleation
+                if (np > 1) {
+
+                    float GhostGID = (float)(GrainID(GlobalD3D1ConvPosition));
+                    float GhostDOCX = DOCenter((long int)(3) * D3D1ConvPosition);
+                    float GhostDOCY = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
+                    float GhostDOCZ = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
+                    float GhostDL = DiagonalLength(D3D1ConvPosition);
+                    
+                    // Collect data for the ghost nodes:
+                    if (DecompositionStrategy == 1) {
+                        int GNPosition = RankZ * BufSizeX + RankX;
+                        if (RankY == 1) {
+                            BufferSouthSend(GNPosition, 0) = GhostGID;
+                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                            BufferSouthSend(GNPosition, 4) = GhostDL;
+                        }
+                        else if (RankY == MyYSlices - 2) {
+                            int GNPosition = RankZ * BufSizeX + RankX;
+                            BufferNorthSend(GNPosition, 0) = GhostGID;
+                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                            BufferNorthSend(GNPosition, 4) = GhostDL;
+                        }
+                    }
+                    else {
+                        if (RankY == 1) {
+                            if (RankX == MyXSlices - 2) {
+                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                BufferSouthSend(GNPosition, 0) = GhostGID;
+                                BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferSouthSend(GNPosition, 4) = GhostDL;
+                                GNPosition = RankZ * BufSizeY + RankY - 1;
+                                BufferEastSend(GNPosition, 0) = GhostGID;
+                                BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                BufferEastSend(GNPosition, 4) = GhostDL;
+                                GNPosition = RankZ;
+                                BufferSouthEastSend(GNPosition, 0) = GhostGID;
+                                BufferSouthEastSend(GNPosition, 1) = GhostDOCX;
+                                BufferSouthEastSend(GNPosition, 2) = GhostDOCY;
+                                BufferSouthEastSend(GNPosition, 3) = GhostDOCZ;
+                                BufferSouthEastSend(GNPosition, 4) = GhostDL;
+                            }
+                            else if (RankX == 1) {
+                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                BufferSouthSend(GNPosition, 0) = GhostGID;
+                                BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferSouthSend(GNPosition, 4) = GhostDL;
+                                GNPosition = RankZ * BufSizeY + RankY - 1;
+                                BufferWestSend(GNPosition, 0) = GhostGID;
+                                BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                BufferWestSend(GNPosition, 4) = GhostDL;
+                                GNPosition = RankZ;
+                                BufferSouthWestSend(GNPosition, 0) = GhostGID;
+                                BufferSouthWestSend(GNPosition, 1) = GhostDOCX;
+                                BufferSouthWestSend(GNPosition, 2) = GhostDOCY;
+                                BufferSouthWestSend(GNPosition, 3) = GhostDOCZ;
+                                BufferSouthWestSend(GNPosition, 4) = GhostDL;
+                            }
+                            else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                                // This is being sent to MyLeft
+                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                BufferSouthSend(GNPosition, 0) = GhostGID;
+                                BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferSouthSend(GNPosition, 4) = GhostDL;
+                            }
+                        }
+                        else if (RankY == MyYSlices - 2) {
+                            // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                            if (RankX == MyXSlices - 2) {
+                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                BufferNorthSend(GNPosition, 0) = GhostGID;
+                                BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferNorthSend(GNPosition, 4) = GhostDL;
+                                GNPosition = RankZ * BufSizeY + RankY - 1;
+                                BufferEastSend(GNPosition, 0) = GhostGID;
+                                BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                BufferEastSend(GNPosition, 4) = GhostDL;
+                                GNPosition = RankZ;
+                                BufferNorthEastSend(GNPosition, 0) = GhostGID;
+                                BufferNorthEastSend(GNPosition, 1) = GhostDOCX;
+                                BufferNorthEastSend(GNPosition, 2) = GhostDOCY;
+                                BufferNorthEastSend(GNPosition, 3) = GhostDOCZ;
+                                BufferNorthEastSend(GNPosition, 4) = GhostDL;
+                            }
+                            else if (RankX == 1) {
+                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                BufferNorthSend(GNPosition, 0) = GhostGID;
+                                BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferNorthSend(GNPosition, 4) = GhostDL;
+                                GNPosition = RankZ * BufSizeY + RankY - 1;
+                                BufferWestSend(GNPosition, 0) = GhostGID;
+                                BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                BufferWestSend(GNPosition, 4) = GhostDL;
+                                GNPosition = RankZ;
+                                BufferNorthWestSend(GNPosition, 0) = GhostGID;
+                                BufferNorthWestSend(GNPosition, 1) = GhostDOCX;
+                                BufferNorthWestSend(GNPosition, 2) = GhostDOCY;
+                                BufferNorthWestSend(GNPosition, 3) = GhostDOCZ;
+                                BufferNorthWestSend(GNPosition, 4) = GhostDL;
+                            }
+                            else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                BufferNorthSend(GNPosition, 0) = GhostGID;
+                                BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                BufferNorthSend(GNPosition, 4) = GhostDL;
+                            }
+                        }
+                        else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
+                            int GNPosition = RankZ * BufSizeY + RankY - 1;
+                            BufferWestSend(GNPosition, 0) = GhostGID;
+                            BufferWestSend(GNPosition, 1) = GhostDOCX;
+                            BufferWestSend(GNPosition, 2) = GhostDOCY;
+                            BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                            BufferWestSend(GNPosition, 4) = GhostDL;
+                        }
+                        else if ((RankX == MyXSlices - 2) && (RankY > 1) &&
+                                 (RankY < MyYSlices - 2)) {
+                            int GNPosition = RankZ * BufSizeY + RankY - 1;
+                            BufferEastSend(GNPosition, 0) = GhostGID;
+                            BufferEastSend(GNPosition, 1) = GhostDOCX;
+                            BufferEastSend(GNPosition, 2) = GhostDOCY;
+                            BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                            BufferEastSend(GNPosition, 4) = GhostDL;
+                        }
+                    } // End if statement for ghost node marking
+                }   // End if statement for serial/parallel code
                 CellType(GlobalD3D1ConvPosition) = Active;
             }
             else  {
@@ -673,13 +818,163 @@ Kokkos::parallel_for(
                                     Dfabs = max(max(fabs(D[0]), fabs(D[1])), max(fabs(D[2]), fabs(D[3])));
                                     CritDiagonalLength((long int)(26) * NeighborD3D1ConvPosition + (long int)(n)) = Dfabs;
                                 }
+                                // Update ghost nodes due to cell activation
+                                if (np > 1) {
+
+                                    float GhostGID = (float)(GrainID(GlobalD3D1ConvPosition));
+                                    float GhostDOCX = DOCenter((long int)(3) * D3D1ConvPosition);
+                                    float GhostDOCY = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
+                                    float GhostDOCZ = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
+                                    float GhostDL = DiagonalLength(D3D1ConvPosition);
+                                    
+                                    // Collect data for the ghost nodes:
+                                    if (DecompositionStrategy == 1) {
+                                        int GNPosition = RankZ * BufSizeX + RankX;
+                                        if (RankY == 1) {
+                                            BufferSouthSend(GNPosition, 0) = GhostGID;
+                                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                            BufferSouthSend(GNPosition, 4) = GhostDL;
+                                        }
+                                        else if (RankY == MyYSlices - 2) {
+                                            int GNPosition = RankZ * BufSizeX + RankX;
+                                            BufferNorthSend(GNPosition, 0) = GhostGID;
+                                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                            BufferNorthSend(GNPosition, 4) = GhostDL;
+                                        }
+                                    }
+                                    else {
+                                        if (RankY == 1) {
+                                            if (RankX == MyXSlices - 2) {
+                                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                                BufferSouthSend(GNPosition, 0) = GhostGID;
+                                                BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                                BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                                BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferSouthSend(GNPosition, 4) = GhostDL;
+                                                GNPosition = RankZ * BufSizeY + RankY - 1;
+                                                BufferEastSend(GNPosition, 0) = GhostGID;
+                                                BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                                BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                                BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferEastSend(GNPosition, 4) = GhostDL;
+                                                GNPosition = RankZ;
+                                                BufferSouthEastSend(GNPosition, 0) = GhostGID;
+                                                BufferSouthEastSend(GNPosition, 1) = GhostDOCX;
+                                                BufferSouthEastSend(GNPosition, 2) = GhostDOCY;
+                                                BufferSouthEastSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferSouthEastSend(GNPosition, 4) = GhostDL;
+                                            }
+                                            else if (RankX == 1) {
+                                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                                BufferSouthSend(GNPosition, 0) = GhostGID;
+                                                BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                                BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                                BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferSouthSend(GNPosition, 4) = GhostDL;
+                                                GNPosition = RankZ * BufSizeY + RankY - 1;
+                                                BufferWestSend(GNPosition, 0) = GhostGID;
+                                                BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                                BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                                BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferWestSend(GNPosition, 4) = GhostDL;
+                                                GNPosition = RankZ;
+                                                BufferSouthWestSend(GNPosition, 0) = GhostGID;
+                                                BufferSouthWestSend(GNPosition, 1) = GhostDOCX;
+                                                BufferSouthWestSend(GNPosition, 2) = GhostDOCY;
+                                                BufferSouthWestSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferSouthWestSend(GNPosition, 4) = GhostDL;
+                                            }
+                                            else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                                                // This is being sent to MyLeft
+                                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                                BufferSouthSend(GNPosition, 0) = GhostGID;
+                                                BufferSouthSend(GNPosition, 1) = GhostDOCX;
+                                                BufferSouthSend(GNPosition, 2) = GhostDOCY;
+                                                BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferSouthSend(GNPosition, 4) = GhostDL;
+                                            }
+                                        }
+                                        else if (RankY == MyYSlices - 2) {
+                                            // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
+                                            if (RankX == MyXSlices - 2) {
+                                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                                BufferNorthSend(GNPosition, 0) = GhostGID;
+                                                BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                                BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                                BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferNorthSend(GNPosition, 4) = GhostDL;
+                                                GNPosition = RankZ * BufSizeY + RankY - 1;
+                                                BufferEastSend(GNPosition, 0) = GhostGID;
+                                                BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                                BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                                BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferEastSend(GNPosition, 4) = GhostDL;
+                                                GNPosition = RankZ;
+                                                BufferNorthEastSend(GNPosition, 0) = GhostGID;
+                                                BufferNorthEastSend(GNPosition, 1) = GhostDOCX;
+                                                BufferNorthEastSend(GNPosition, 2) = GhostDOCY;
+                                                BufferNorthEastSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferNorthEastSend(GNPosition, 4) = GhostDL;
+                                            }
+                                            else if (RankX == 1) {
+                                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                                BufferNorthSend(GNPosition, 0) = GhostGID;
+                                                BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                                BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                                BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferNorthSend(GNPosition, 4) = GhostDL;
+                                                GNPosition = RankZ * BufSizeY + RankY - 1;
+                                                BufferWestSend(GNPosition, 0) = GhostGID;
+                                                BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                                BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                                BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferWestSend(GNPosition, 4) = GhostDL;
+                                                GNPosition = RankZ;
+                                                BufferNorthWestSend(GNPosition, 0) = GhostGID;
+                                                BufferNorthWestSend(GNPosition, 1) = GhostDOCX;
+                                                BufferNorthWestSend(GNPosition, 2) = GhostDOCY;
+                                                BufferNorthWestSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferNorthWestSend(GNPosition, 4) = GhostDL;
+                                            }
+                                            else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
+                                                int GNPosition = RankZ * BufSizeX + RankX - 1;
+                                                BufferNorthSend(GNPosition, 0) = GhostGID;
+                                                BufferNorthSend(GNPosition, 1) = GhostDOCX;
+                                                BufferNorthSend(GNPosition, 2) = GhostDOCY;
+                                                BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+                                                BufferNorthSend(GNPosition, 4) = GhostDL;
+                                            }
+                                        }
+                                        else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
+                                            int GNPosition = RankZ * BufSizeY + RankY - 1;
+                                            BufferWestSend(GNPosition, 0) = GhostGID;
+                                            BufferWestSend(GNPosition, 1) = GhostDOCX;
+                                            BufferWestSend(GNPosition, 2) = GhostDOCY;
+                                            BufferWestSend(GNPosition, 3) = GhostDOCZ;
+                                            BufferWestSend(GNPosition, 4) = GhostDL;
+                                        }
+                                        else if ((RankX == MyXSlices - 2) && (RankY > 1) &&
+                                                 (RankY < MyYSlices - 2)) {
+                                            int GNPosition = RankZ * BufSizeY + RankY - 1;
+                                            BufferEastSend(GNPosition, 0) = GhostGID;
+                                            BufferEastSend(GNPosition, 1) = GhostDOCX;
+                                            BufferEastSend(GNPosition, 2) = GhostDOCY;
+                                            BufferEastSend(GNPosition, 3) = GhostDOCZ;
+                                            BufferEastSend(GNPosition, 4) = GhostDL;
+                                        }
+                                    } // End if statement for ghost node marking
+                                }   // End if statement for serial/parallel code
                                 CellType(GlobalNeighborD3D1ConvPosition) = Active;
                             } // end if statement for locked capture loop
                         } // end if statement for capture loop
                     } // end if statement for checking if neighboring cells are in bounds
                 } // end loop over neighboring cells
                 // Deactivate cell only if its not in the ghost nodes (RankX/RankY = 0 or MyXSlices-1/MyYSlices-1... with the exception of being at the domain boundary (global X = 0 or nx and global Y = 0 or ny)
-                if ((DeactivateCell) && ((RankX != 0) || (MyXOffset == 0)) && ((RankX != MyXSlices-1) || (MyXSlices+MyXOffset == nx)) && ((RankY != 0) || (MyYOffset == 0)) && ((RankY != MyYSlices-1) || (MyYSlices+MyYOffset == ny))) {
+                if (DeactivateCell) {
                     // This cell is no longer active - all liquid neighbors have been captured
                     SolidificationEventCounter(D3D1ConvPosition)++;
                     // Did the cell do this for the last time in the layer?
@@ -1396,8 +1691,11 @@ void IntermediateOutputAndCheck_Remelt(
                 upd.the_array[0] += 1;
             else if (CellType(GlobalD3D1ConvPosition) == Active)
                 upd.the_array[1] += 1;
-            else if (CellType(GlobalD3D1ConvPosition) == TempSolid)
+            else if (CellType(GlobalD3D1ConvPosition) == TempSolid) {
                 upd.the_array[2] += 1;
+//                if ((layernumber == 1) && (cycle == 2919000))
+//                    printf("Layer ID is %d cell type is %d cell location is %d %d %d rank %d\n",LayerID(GlobalD3D1ConvPosition),CellType(GlobalD3D1ConvPosition),RankX,RankY,RankZ,id);
+            }
             else if (CellType(GlobalD3D1ConvPosition) == Solid)
                 upd.the_array[3] += 1;
         },

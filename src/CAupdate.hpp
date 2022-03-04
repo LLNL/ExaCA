@@ -21,7 +21,9 @@ void CellCapture_RM(int cycle, int LocalActiveDomainSize, int,
                  ViewI CritTimeStep, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewI GrainOrientation, ViewI CellType,
                  ViewF DOCenter, ViewI GrainID, int NGrainOrientations, int ZBound_Low, int nzActive, int, ViewI SteeringVector,
                  ViewI numSteer_G, ViewI_H numSteer_H, ViewI MeltTimeStep, ViewI SolidificationEventCounter,
-                    ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory, ViewF DiagonalLength, ViewF CritDiagonalLength);
+                 ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory, ViewF DiagonalLength, ViewF CritDiagonalLength, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                    Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
+                    Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int np, int DecompositionStrategy, int BufSizeX, int BufSizeY);
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalDomainSize,
                                 int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
                                 float XMin, float YMin, float ZMin, int DecompositionStrategy,

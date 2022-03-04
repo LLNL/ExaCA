@@ -18,8 +18,13 @@ using std::min;
 // Placement of data in ghost nodes, send/recv, and unpacking of ghost data
 void GhostExchange(int, int, int NeighborRank_North, int NeighborRank_South, int MyXSlices,
                     int MyYSlices, int ZBound_Low, int nzActive, ViewI GrainID, ViewI CellType,
-                    ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF3D BufferSouthSend, ViewF3D BufferNorthSend, ViewF3D BufferSouthRecv, ViewF3D BufferNorthRecv) {
+                    ViewF DOCenter, ViewF DiagonalLength, ViewF CritDiagonalLength, int BufSizeX) {
 
+    ViewF3D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSendInit"), BufSizeX, nzActive, 31);
+    ViewF3D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSendInit"), BufSizeX, nzActive, 31);
+    ViewF3D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecvInit"), BufSizeX, nzActive, 31);
+    ViewF3D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecvInit"), BufSizeX, nzActive, 31);
+    
     // Load send buffers
     Kokkos::parallel_for(
         "GNInit", nzActive, KOKKOS_LAMBDA(const int &k) {
@@ -469,212 +474,194 @@ void GhostExchange(int, int, int NeighborRank_North, int NeighborRank_South, int
 //
 ////*****************************************************************************/
 //// 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-//void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int MyXSlices, int MyYSlices, int MyXOffset,
-//                  int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
-//                  ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
-//                  ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-//                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int nzActive, int ZBound_Low, int cycle, ViewF UndercoolingCurrent, ViewF UndercoolingChange, double AConst, double BConst, double CConst, double DConst, ViewI CaptureTimeStep) {
-//
-//    std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
-//    std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
-//
-//    // Send data to each other rank (MPI_Isend)
-//    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
-//              &SendRequests[0]);
-//    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
-//              &SendRequests[1]);
-//
-//    // Receive buffers for all neighbors (MPI_Irecv)
-//    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
-//              &RecvRequests[0]);
-//    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
-//              &RecvRequests[1]);
-//
-//    // unpack in any order
-//    bool unpack_complete = false;
-//    while (!unpack_complete) {
-//        // Get the next buffer to unpack from rank "unpack_index"
-//        int unpack_index = MPI_UNDEFINED;
-//        MPI_Waitany(2, RecvRequests.data(), &unpack_index, MPI_STATUS_IGNORE);
-//        // If there are no more buffers to unpack, leave the while loop
-//        if (MPI_UNDEFINED == unpack_index) {
-//            unpack_complete = true;
-//        }
-//        // Otherwise unpack the next buffer.
-//        else {
-//            int RecvBufSize = BufSizeX * nzActive;
-//            Kokkos::parallel_for(
-//                "BufferUnpack", RecvBufSize, KOKKOS_LAMBDA(const int &BufPosition) {
-//                    int RankX, RankY, RankZ, NewGrainID, GlobalZ, GlobalCellLocation;
-//                    long int CellLocation;
-//                    float DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
-//                    bool Place = false;
-//                    RankZ = BufPosition / BufSizeX;
-//                    RankX = BufPosition % BufSizeX;
-//                    // Which rank was the data received from?
-//                    if ((unpack_index == 0) && (NeighborRank_South != MPI_PROC_NULL)) {
-//                        // Data receieved from South
-//                        RankY = 0;
-//                        CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-//                        GlobalZ = RankZ + ZBound_Low;
-//                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-//                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
-//                            Place = true;
-//                            NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
-//                            DOCenterX = BufferSouthRecv(BufPosition, 1);
-//                            DOCenterY = BufferSouthRecv(BufPosition, 2);
-//                            DOCenterZ = BufferSouthRecv(BufPosition, 3);
-//                            NewDiagonalLength = BufferSouthRecv(BufPosition, 4);
+void GhostNodes1D(int cycle, int id, int NeighborRank_North, int NeighborRank_South, int MyXSlices, int MyYSlices, int MyXOffset,
+                  int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
+                  ViewI GrainID, ViewF GrainUnitVector, ViewI GrainOrientation, ViewF DiagonalLength,
+                  ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                  Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSizeX, int, int nzActive, int ZBound_Low) {
+
+    std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
+    std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
+
+    // Send data to each other rank (MPI_Isend)
+    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &SendRequests[0]);
+    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &SendRequests[1]);
+
+    // Receive buffers for all neighbors (MPI_Irecv)
+    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &RecvRequests[0]);
+    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * nzActive, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &RecvRequests[1]);
+
+    // unpack in any order
+    bool unpack_complete = false;
+    while (!unpack_complete) {
+        // Get the next buffer to unpack from rank "unpack_index"
+        int unpack_index = MPI_UNDEFINED;
+        MPI_Waitany(2, RecvRequests.data(), &unpack_index, MPI_STATUS_IGNORE);
+        // If there are no more buffers to unpack, leave the while loop
+        if (MPI_UNDEFINED == unpack_index) {
+            unpack_complete = true;
+        }
+        // Otherwise unpack the next buffer.
+        else {
+            int RecvBufSize = BufSizeX * nzActive;
+            Kokkos::parallel_for(
+                "BufferUnpack", RecvBufSize, KOKKOS_LAMBDA(const int &BufPosition) {
+                    int RankX, RankY, RankZ, NewGrainID, GlobalZ, GlobalCellLocation;
+                    long int CellLocation;
+                    float DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
+                    bool Place = false;
+                    RankZ = BufPosition / BufSizeX;
+                    RankX = BufPosition % BufSizeX;
+                    // Which rank was the data received from?
+                    if ((unpack_index == 0) && (NeighborRank_South != MPI_PROC_NULL)) {
+                        // Data receieved from South
+                        RankY = 0;
+                        CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
+                            Place = true;
+                            NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
+                            DOCenterX = BufferSouthRecv(BufPosition, 1);
+                            DOCenterY = BufferSouthRecv(BufPosition, 2);
+                            DOCenterZ = BufferSouthRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferSouthRecv(BufPosition, 4);
+                        }
+                    }
+                    else if ((unpack_index == 1) && (NeighborRank_North != MPI_PROC_NULL)) {
+                        // Data received from North
+                        RankY = MyYSlices - 1;
+                        CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
+                        GlobalZ = RankZ + ZBound_Low;
+                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
+                            Place = true;
+                            NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
+                            DOCenterX = BufferNorthRecv(BufPosition, 1);
+                            DOCenterY = BufferNorthRecv(BufPosition, 2);
+                            DOCenterZ = BufferNorthRecv(BufPosition, 3);
+                            NewDiagonalLength = BufferNorthRecv(BufPosition, 4);
+                        }
+                    }
+                    if (Place) {
+//                        if ((id == 4) && (RankX == 18) && (RankY == 0) && (RankZ == 31) && (cycle > 1000000)) {
+//                            printf("Cell Type is being updated to active \n");
 //                        }
-//                    }
-//                    else if ((unpack_index == 1) && (NeighborRank_North != MPI_PROC_NULL)) {
-//                        // Data received from North
-//                        RankY = MyYSlices - 1;
-//                        CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-//                        GlobalZ = RankZ + ZBound_Low;
-//                        GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-//                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
-//                            Place = true;
-//                            NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
-//                            DOCenterX = BufferNorthRecv(BufPosition, 1);
-//                            DOCenterY = BufferNorthRecv(BufPosition, 2);
-//                            DOCenterZ = BufferNorthRecv(BufPosition, 3);
-//                            NewDiagonalLength = BufferNorthRecv(BufPosition, 4);
-//                        }
-//                    }
-//                    if (Place) {
-//                        // Update this ghost node cell's information with data from other rank
-//                        GrainID(GlobalCellLocation) = NewGrainID;
-//                        DOCenter((long int)(3) * CellLocation) = DOCenterX;
-//                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = DOCenterY;
-//                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = DOCenterZ;
-//                        int MyOrientation =
-//                            GrainOrientation(((abs(GrainID(GlobalCellLocation)) - 1) % NGrainOrientations));
-//                        DiagonalLength(CellLocation) = NewDiagonalLength;
-//                        // Global coordinates of cell center
-//                        double xp = RankX + MyXOffset + 0.5;
-//                        double yp = RankY + MyYOffset + 0.5;
-//                        double zp = GlobalZ + 0.5;
-//                        // Calculate critical values at which this active cell leads to the activation of a neighboring
-//                        // liquid cell
-//                        for (int n = 0; n < 26; n++) {
-//
-//                            int MyNeighborX = RankX + NeighborX(n);
-//                            int MyNeighborY = RankY + NeighborY(n);
-//                            int MyNeighborZ = RankZ + NeighborZ(n);
-//                            long int NeighborPosition =
-//                                MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-//                            if (NeighborPosition == CellLocation) {
-//                                // Do not calculate critical diagonal length req'd for the newly captured cell to
-//                                // capture the original
-//                                CritDiagonalLength((long int)(26) * NeighborPosition + (long int)(n)) = 10000000.0;
-//                            }
-//
-//                            // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the global
-//                            // coordinates of the center of a neighbor cell
-//                            double x0 = xp + NeighborX(n) - DOCenterX;
-//                            double y0 = yp + NeighborY(n) - DOCenterY;
-//                            double z0 = zp + NeighborZ(n) - DOCenterZ;
-//                            // mag0 is the magnitude of (x0,y0,z0)
-//                            double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
-//
-//                            // Calculate unit vectors for the octahedron that intersect the new cell center
-//                            double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-//                            double Angle1 =
-//                                (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
-//                                 GrainUnitVector(9 * MyOrientation + 2) * z0) /
-//                                mag0;
-//                            if (Angle1 < 0) {
-//                                Diag1X = GrainUnitVector(9 * MyOrientation);
-//                                Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
-//                                Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
-//                            }
-//                            else {
-//                                Diag1X = -GrainUnitVector(9 * MyOrientation);
-//                                Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
-//                                Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
-//                            }
-//
-//                            double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
-//                                             GrainUnitVector(9 * MyOrientation + 4) * y0 +
-//                                             GrainUnitVector(9 * MyOrientation + 5) * z0) /
-//                                            mag0;
-//                            if (Angle2 < 0) {
-//                                Diag2X = GrainUnitVector(9 * MyOrientation + 3);
-//                                Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
-//                                Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
-//                            }
-//                            else {
-//                                Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
-//                                Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
-//                                Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
-//                            }
-//
-//                            double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
-//                                             GrainUnitVector(9 * MyOrientation + 7) * y0 +
-//                                             GrainUnitVector(9 * MyOrientation + 8) * z0) /
-//                                            mag0;
-//                            if (Angle3 < 0) {
-//                                Diag3X = GrainUnitVector(9 * MyOrientation + 6);
-//                                Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
-//                                Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
-//                            }
-//                            else {
-//                                Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
-//                                Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
-//                                Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
-//                            }
-//                            double U1[3], U2[3], UU[3], Norm[3];
-//                            U1[0] = Diag2X - Diag1X;
-//                            U1[1] = Diag2Y - Diag1Y;
-//                            U1[2] = Diag2Z - Diag1Z;
-//                            U2[0] = Diag3X - Diag1X;
-//                            U2[1] = Diag3Y - Diag1Y;
-//                            U2[2] = Diag3Z - Diag1Z;
-//                            UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-//                            UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-//                            UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-//                            double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-//                            Norm[0] = UU[0] / NDem;
-//                            Norm[1] = UU[1] / NDem;
-//                            Norm[2] = UU[2] / NDem;
-//                            // normal to capturing plane
-//                            double normx = Norm[0];
-//                            double normy = Norm[1];
-//                            double normz = Norm[2];
-//                            double ParaT = (normx * x0 + normy * y0 + normz * z0) /
-//                                           (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
-//                            float CDLVal = pow(
-//                                pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
-//                            CritDiagonalLength((long int)(26) * CellLocation + (long int)(n)) = CDLVal;
-//                            // Figure out which time step the diagonal length will reach the critical diagonal length
-//                            int future_cycle = cycle;
-//                            float CDL = CDLVal;
-//                            float DL = DiagonalLength(CellLocation);
-//                            double Undercooling = UndercoolingCurrent(GlobalCellLocation);
-//                            bool Inc_DL = true;
-//                            while (Inc_DL) {
-//                                if (DL >= CDL) {
-//                                    CaptureTimeStep((long int)(26) * CellLocation + (long int)(n)) = future_cycle;
-//                                    Inc_DL = false;
-//                                }
-//                                else {
-//                                    future_cycle++;
-//                                    // Update local undercooling based on local cooling rate
-//                                    Undercooling += UndercoolingChange(GlobalCellLocation);
-//                                    Undercooling = min(210.0, Undercooling);
-//                                    double V = AConst * pow(Undercooling, 3.0) + BConst * pow(Undercooling, 2.0) + CConst * Undercooling + DConst;
-//                                    V = std::max(0.0, V);
-//                                    DL += std::min(0.045, V); // Max amount the diagonal can grow per time step
-//                                }
-//                            }
-//                        }
-//                        CellType(GlobalCellLocation) = Active;
-//                    }
-//                });
-//        }
-//    }
-//
-//    // Wait on send requests
-//    MPI_Waitall(2, SendRequests.data(), MPI_STATUSES_IGNORE);
-//}
+                        // Update this ghost node cell's information with data from other rank
+                        GrainID(GlobalCellLocation) = NewGrainID;
+                        DOCenter((long int)(3) * CellLocation) = DOCenterX;
+                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = DOCenterY;
+                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = DOCenterZ;
+                        int MyOrientation =
+                            GrainOrientation(((abs(GrainID(GlobalCellLocation)) - 1) % NGrainOrientations));
+                        DiagonalLength(CellLocation) = NewDiagonalLength;
+                        // Global coordinates of cell center
+                        double xp = RankX + MyXOffset + 0.5;
+                        double yp = RankY + MyYOffset + 0.5;
+                        double zp = GlobalZ + 0.5;
+                        // Calculate critical values at which this active cell leads to the activation of a neighboring
+                        // liquid cell
+                        for (int n = 0; n < 26; n++) {
+
+                            int MyNeighborX = RankX + NeighborX(n);
+                            int MyNeighborY = RankY + NeighborY(n);
+                            int MyNeighborZ = RankZ + NeighborZ(n);
+                            long int NeighborPosition =
+                                MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                            if (NeighborPosition == CellLocation) {
+                                // Do not calculate critical diagonal length req'd for the newly captured cell to
+                                // capture the original
+                                CritDiagonalLength((long int)(26) * NeighborPosition + (long int)(n)) = 10000000.0;
+                            }
+
+                            // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the global
+                            // coordinates of the center of a neighbor cell
+                            double x0 = xp + NeighborX(n) - DOCenterX;
+                            double y0 = yp + NeighborY(n) - DOCenterY;
+                            double z0 = zp + NeighborZ(n) - DOCenterZ;
+                            // mag0 is the magnitude of (x0,y0,z0)
+                            double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
+
+                            // Calculate unit vectors for the octahedron that intersect the new cell center
+                            double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                            double Angle1 =
+                                (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                                 GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                                mag0;
+                            if (Angle1 < 0) {
+                                Diag1X = GrainUnitVector(9 * MyOrientation);
+                                Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
+                                Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
+                            }
+                            else {
+                                Diag1X = -GrainUnitVector(9 * MyOrientation);
+                                Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
+                                Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
+                            }
+
+                            double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
+                                             GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                                             GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                                            mag0;
+                            if (Angle2 < 0) {
+                                Diag2X = GrainUnitVector(9 * MyOrientation + 3);
+                                Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
+                                Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
+                            }
+                            else {
+                                Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
+                                Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
+                                Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
+                            }
+
+                            double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
+                                             GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                                             GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                                            mag0;
+                            if (Angle3 < 0) {
+                                Diag3X = GrainUnitVector(9 * MyOrientation + 6);
+                                Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
+                                Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
+                            }
+                            else {
+                                Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
+                                Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
+                                Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
+                            }
+                            double U1[3], U2[3], UU[3], Norm[3];
+                            U1[0] = Diag2X - Diag1X;
+                            U1[1] = Diag2Y - Diag1Y;
+                            U1[2] = Diag2Z - Diag1Z;
+                            U2[0] = Diag3X - Diag1X;
+                            U2[1] = Diag3Y - Diag1Y;
+                            U2[2] = Diag3Z - Diag1Z;
+                            UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                            UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                            UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                            double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                            Norm[0] = UU[0] / NDem;
+                            Norm[1] = UU[1] / NDem;
+                            Norm[2] = UU[2] / NDem;
+                            // normal to capturing plane
+                            double normx = Norm[0];
+                            double normy = Norm[1];
+                            double normz = Norm[2];
+                            double ParaT = (normx * x0 + normy * y0 + normz * z0) /
+                                           (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
+                            float CDLVal = pow(
+                                pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
+                            CritDiagonalLength((long int)(26) * CellLocation + (long int)(n)) = CDLVal;
+                        }
+                        CellType(GlobalCellLocation) = Active;
+                    }
+                });
+        }
+    }
+
+    // Wait on send requests
+    MPI_Waitall(2, SendRequests.data(), MPI_STATUSES_IGNORE);
+}

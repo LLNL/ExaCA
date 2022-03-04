@@ -63,7 +63,7 @@ void TempInit_Remelt(int layernumber, int id, int &MyXSlices, int &MyYSlices, in
                      ViewI_H SolidificationEventCounter, ViewI_H MeltTimeStep, ViewI_H CritTimeStep,
                      ViewF_H UndercoolingChange, float XMin, float YMin, bool *Melted,
                      float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
-                     ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData);
+                     ViewI_H LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData, ViewI_H CellType);
 void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
                      std::string GrainOrientationFile);
 void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx, int ny,

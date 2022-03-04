@@ -657,16 +657,18 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
             for (int i = 0; i < nx; i++) {
                 if (CellType_WholeDomain(k, i, j) != Liquid) {
                     if (GrainID_WholeDomain(k, i, j) == 0)
-                        std::cout << i << " " << j << " " << k << " " << CellType_WholeDomain(k, i, j) << std::endl;
-                    int MyOrientation =
-                        GrainOrientation(((abs(GrainID_WholeDomain(k, i, j)) - 1) % NGrainOrientations));
-                    if (GrainID_WholeDomain(k, i, j) < 0)
-                        GrainplotM << GrainMisorientation(MyOrientation) + 100.0 << " ";
-                    else
-                        GrainplotM << GrainMisorientation(MyOrientation) << " ";
+                        GrainplotM << -1.0 << " ";
+                    else {
+                        int MyOrientation =
+                            GrainOrientation(((abs(GrainID_WholeDomain(k, i, j)) - 1) % NGrainOrientations));
+                        if (GrainID_WholeDomain(k, i, j) < 0)
+                            GrainplotM << GrainMisorientation(MyOrientation) + 100.0 << " ";
+                        else
+                            GrainplotM << GrainMisorientation(MyOrientation) << " ";
+                    }
                 }
                 else
-                    GrainplotM << -1.0 << " ";
+                    GrainplotM << -10.0 << " ";
             }
         }
         GrainplotM << std::endl;
