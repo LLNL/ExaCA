@@ -65,31 +65,31 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
                                     int np, double deltax, ViewI_H GrainID);
 void ActiveCellInit(int id, int MyXSlices, int MyYSlices, int nz, ViewI_H CellType, ViewI_H CritTimeStep,
                     ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ);
-void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrategy, int nx, int ny, int nz,
+void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrategy, int nx, int ny,
                int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np,
                int NeighborRank_North, int NeighborRank_South, int NeighborRank_East, int NeighborRank_West,
                int NeighborRank_NorthEast, int NeighborRank_NorthWest, int NeighborRank_SouthEast,
-               int NeighborRank_SouthWest, ViewI2D_H ItList, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
+               int NeighborRank_SouthWest, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
                ViewI_H GrainOrientation, ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType,
                ViewI_H GrainID, ViewF_H CritDiagonalLength, ViewF_H DOCenter, double deltax, double NMax,
-               int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low);
-void NucleiInit(int DecompositionStrategy, int MyXSlices, int MyYSlices, int nz, int id, double dTN, double dTsigma,
-                int NeighborRank_North, int NeighborRank_South, int NeighborRank_East, int NeighborRank_West,
-                int NeighborRank_NorthEast, int NeighborRank_NorthWest, int NeighborRank_SouthEast,
-                int NeighborRank_SouthWest, ViewI_H NucleiLocation, ViewI_H NucleationTimes, ViewI_H CellType,
-                ViewI_H GrainID, ViewI_H CritTimeStep, ViewF_H UndercoolingChange);
+               int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low,
+               ViewI_H LayerID);
+void NucleiInit(int layernumber, int DecompositionStrategy, int MyXSlices, int MyYSlices, int ZBound_Low,
+                int LocalActiveDomainSize, int id, double dTN, double dTsigma, int NeighborRank_North,
+                int NeighborRank_South, int NeighborRank_East, int NeighborRank_West, int NeighborRank_NorthEast,
+                int NeighborRank_NorthWest, int NeighborRank_SouthEast, int NeighborRank_SouthWest,
+                ViewI_H NucleiLocation, ViewI_H NucleationTimes, ViewI_H CellType, ViewI_H GrainID,
+                ViewI_H CritTimeStep, ViewF_H UndercoolingChange);
 void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int &ZBound_Low, int &ZBound_High,
                           int &nzActive, int LocalDomainSize, int &LocalActiveDomainSize, int &BufSizeZ,
                           int LayerHeight, ViewI CellType, int layernumber, ViewI LayerID);
-void LayerSetup(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
-                ViewI GrainOrientation, int NGrainOrientations, ViewF GrainUnitVector, ViewI NeighborX, ViewI NeighborY,
-                ViewI NeighborZ, ViewF DiagonalLength, ViewI CellType, ViewI GrainID, ViewF CritDiagonalLength,
-                ViewF DOCenter, int DecompositionStrategy, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
-                Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
-                Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
-                Buffer2D BufferWestRecv, Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
-                Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
-                Buffer2D BufferSouthWestRecv, int &ZBound_Low);
+void ZeroResetViews(ViewF_H DiagonalLength, ViewF_H CritDiagonalLength, ViewF_H DOCenter, int DecompositionStrategy,
+                    Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend,
+                    Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
+                    Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, Buffer2D BufferWestRecv,
+                    Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
+                    Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
+                    Buffer2D BufferSouthWestRecv);
 
 void skipLines(std::ifstream &stream, std::string seperator = "*****");
 std::string parseInput(std::ifstream &stream, std::string key);
