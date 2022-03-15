@@ -25,8 +25,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio;
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     int PrintDebug, TimeSeriesInc;
-    bool PrintMisorientation, PrintFullOutput, RemeltingYN, UseSubstrateFile, PrintTimeSeries,
-        PrintIdleTimeSeriesFrames;
+    bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, RemeltingYN, UseSubstrateFile,
+        PrintTimeSeries, PrintIdleTimeSeriesFrames;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange,
         NMax, dTN, dTsigma;
@@ -38,8 +38,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath, tempfile,
                       TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
                       SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                      FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput, NSpotsX,
-                      NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames);
+                      FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+                      PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
+                      PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -283,7 +284,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                        ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H,
                        LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
                        DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, PrintDebug, false, false, false,
-                       0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
+                       false, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Initialization data file(s) printed" << std::endl;
@@ -308,8 +309,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H, GrainOrientation_H,
                                CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H,
                                UndercoolingCurrent_H, OutputFile, DecompositionStrategy, NGrainOrientations, Melted,
-                               PathToOutput, 0, false, false, true, IntermediateFileCounter, ZBound_Low, nzActive,
-                               deltax, XMin, YMin, ZMin);
+                               PathToOutput, 0, false, false, false, true, IntermediateFileCounter, ZBound_Low,
+                               nzActive, deltax, XMin, YMin, ZMin);
                 IntermediateFileCounter++;
             }
             cycle++;
@@ -456,16 +457,21 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Copy GPU results for GrainID back to CPU for printing to file(s)
     Kokkos::deep_copy(GrainID_H, GrainID_G);
     Kokkos::deep_copy(CellType_H, CellType_G);
+    if (PrintFinalUndercoolingVals) {
+        // Copy final undercooling values back to the CPU for potential printing to file
+        Kokkos::deep_copy(UndercoolingCurrent_H, UndercoolingCurrent_G);
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if ((PrintMisorientation) || (PrintFullOutput)) {
+    if ((PrintMisorientation) || (PrintFinalUndercoolingVals) || (PrintFullOutput)) {
         if (id == 0)
             std::cout << "Collecting data on rank 0 and printing to files" << std::endl;
         PrintExaCAData(id, NumberOfLayers - 1, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
                        ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H, GrainOrientation_H, CritTimeStep_H,
                        GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H, UndercoolingCurrent_H,
                        OutputFile, DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0,
-                       PrintMisorientation, PrintFullOutput, false, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
+                       PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, false, 0, ZBound_Low, nzActive,
+                       deltax, XMin, YMin, ZMin);
     }
     else {
         if (id == 0)

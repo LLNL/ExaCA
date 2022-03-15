@@ -175,9 +175,9 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     ViewI_H GrainID, ViewI_H GrainOrientation, ViewI_H CritTimeStep, ViewF_H GrainUnitVector,
                     ViewI_H LayerID, ViewI_H CellType, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
                     std::string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
-                    std::string PathToOutput, int PrintDebug, bool PrintMisorientation, bool PrintFullOutput,
-                    bool PrintTimeSeries, int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax,
-                    float XMin, float YMin, float ZMin) {
+                    std::string PathToOutput, int PrintDebug, bool PrintMisorientation, bool PrintFinalUndercoolingVals,
+                    bool PrintFullOutput, bool PrintTimeSeries, int IntermediateFileCounter, int ZBound_Low,
+                    int nzActive, double deltax, float XMin, float YMin, float ZMin) {
 
     // Collect all data on rank 0, for all data structures of interest
     if (id == 0) {
@@ -221,7 +221,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
             CollectIntField(GrainID_WholeDomain, GrainID, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                             RecvXSlices, RecvYSlices, RBufSize);
         }
-        if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2)) {
+        if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2) || (PrintFinalUndercoolingVals)) {
             Kokkos::resize(Melted_WholeDomain, nz, nx, ny);
             CollectBoolField(Melted_WholeDomain, Melted, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                              RecvXSlices, RecvYSlices, RBufSize);
@@ -243,16 +243,20 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         }
         if (PrintDebug == 2) {
             Kokkos::resize(UndercoolingChange_WholeDomain, nz, nx, ny);
-            Kokkos::resize(UndercoolingCurrent_WholeDomain, nz, nx, ny);
             CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange, nz, MyXSlices, MyYSlices, np,
                               RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+        }
+        if ((PrintDebug == 2) || (PrintFinalUndercoolingVals)) {
+            Kokkos::resize(UndercoolingCurrent_WholeDomain, nz, nx, ny);
             CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent, nz, MyXSlices, MyYSlices, np,
                               RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
-
         if (PrintMisorientation)
             PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain,
                                       GrainOrientation, GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
+        if (PrintFinalUndercoolingVals)
+            PrintFinalUndercooling(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain,
+                                   UndercoolingCurrent_WholeDomain, deltax, XMin, YMin, ZMin);
         if ((PrintFullOutput) || (PrintDebug > 0))
             PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
@@ -290,7 +294,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput))
             SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
                          SendBufEndY);
-        if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2))
+        if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2) || (PrintFinalUndercoolingVals))
             SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
                           SendBufEndY);
         if ((PrintFullOutput) || (PrintDebug > 0))
@@ -307,6 +311,8 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         if (PrintDebug == 2) {
             SendFloatField(UndercoolingChange, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
                            SendBufStartY, SendBufEndY);
+        }
+        if ((PrintDebug == 2) || (PrintFinalUndercoolingVals)) {
             SendFloatField(UndercoolingCurrent, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
                            SendBufStartY, SendBufEndY);
         }
@@ -492,6 +498,43 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     GrainplotM.close();
     std::cout << "Volume fraction of solidified portion of domain claimed by nucleated grains: "
               << (float)(NucleatedGrainCells) / (float)(MeltedCells) << std::endl;
+}
+
+//*****************************************************************************/
+// Print the undercooling at which each cell solidified (went from active to solid type), for all cells that underwent
+// solidification, to a paraview file
+void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
+                            ViewI3D_H Melted_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain, double deltax,
+                            float XMin, float YMin, float ZMin) {
+
+    std::string FName = PathToOutput + BaseFileName + "_FinalUndercooling.vtk";
+    std::cout << "Printing Paraview file of final undercooling values" << std::endl;
+    // Print undercooling to file
+    std::ofstream UndercoolingPlot;
+    UndercoolingPlot.open(FName);
+    UndercoolingPlot << "# vtk DataFile Version 3.0" << std::endl;
+    UndercoolingPlot << "vtk output" << std::endl;
+    UndercoolingPlot << "ASCII" << std::endl;
+    UndercoolingPlot << "DATASET STRUCTURED_POINTS" << std::endl;
+    UndercoolingPlot << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
+    UndercoolingPlot << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
+    UndercoolingPlot << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
+    UndercoolingPlot << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
+    UndercoolingPlot << "SCALARS UndercoolingFinal float 1" << std::endl;
+    UndercoolingPlot << "LOOKUP_TABLE default" << std::endl;
+    // Print 0s for the undercooling for cells that did not undergo solidification
+    for (int k = 0; k < nz; k++) {
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
+                if (Melted_WholeDomain(k, i, j) == 0)
+                    UndercoolingPlot << 0.0 << " ";
+                else
+                    UndercoolingPlot << UndercoolingCurrent_WholeDomain(k, i, j) << " ";
+            }
+        }
+        UndercoolingPlot << std::endl;
+    }
+    UndercoolingPlot.close();
 }
 
 //*****************************************************************************/

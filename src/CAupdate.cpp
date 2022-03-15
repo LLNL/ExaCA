@@ -830,8 +830,8 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                                            GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
                                            UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
                                            DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false,
-                                           false, true, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin,
-                                           YMin, ZMin);
+                                           false, false, true, IntermediateFileCounter, ZBound_Low, nzActive, deltax,
+                                           XMin, YMin, ZMin);
                             IntermediateFileCounter++;
                         }
                     }

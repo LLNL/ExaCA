@@ -30,9 +30,9 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
                        std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
                        double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
-                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFullOutput, int &NSpotsX, int &NSpotsY,
-                       int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
-                       bool &PrintIdleTimeSeriesFrames) {
+                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
+                       bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
+                       bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames) {
 
     // For now, assuming no remelting
     RemeltingYN = false;
@@ -59,6 +59,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         "Print intermediate output frames",   // Optional input 2
         "separate frames",                    // Optional input 3
         "output even if system is unchanged", // Optional input 4
+        "file of final undercooling values",  // Optional input 5
     };
 
     // Values used temporarily to store information from the file
@@ -294,6 +295,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         PrintTimeSeries = false;
         PrintIdleTimeSeriesFrames = false;
     }
+    // Should the final undercooling of all cells be printed?
+    if (OptionalInputsRead_General[5].empty())
+        PrintFinalUndercoolingVals = false;
+    else
+        PrintFinalUndercoolingVals = getInputBool(OptionalInputsRead_General[5]);
     // For simulations with substrate grain structures, should an input grain spacing or a substrate file be used?
     if ((SimulationType == "S") || (SimulationType == "R")) {
         // Exactly one of the two inputs "sub grain size" and "sub filename" should be present

@@ -21,6 +21,7 @@ The below lines are required regardless of problem type. They can be in any orde
 | Path to output        | File path location for the output files 
 | Output file base name | All output files will begin with the string specified on this line
 | File of grain orientations | File listing rotation matrix components used in assigning orientations to grains (see README file in examples/Substrate)
+| file of final undercooling values | File listing the undercooling at which each cell became solid 
 | Print file of grain misorientation values | (Y or N) Print a Paraview vtk file of grain misorientation relative to the build (+Z) direction: epitaxial grains will have values 0-62, while nucleated grains have values 100-162 (the +100 offset is used to differentiate the two types of grains)
 | Print file of all ExaCA data | (Y or N) Print Paraview vtk files of all relevant ExaCA cell parameters (GrainID, LayerID, Melted) for use in post-processing
 

@@ -135,6 +135,7 @@ void testInputReadFromFile() {
         TestDataFile << "Output file base name: Test" << std::endl;
         TestDataFile << "File of grain orientations: GrainOrientationVectors_Robert.csv" << std::endl;
         TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
+        TestDataFile << "Print file of final undercooling values: Y" << std::endl;
         TestDataFile << "Print file of all ExaCA data: N" << std::endl;
         TestDataFile << "Time step: 1.5" << std::endl;
         TestDataFile << "Temperature filename(s): DummyTemperature.txt" << std::endl;
@@ -171,8 +172,8 @@ void testInputReadFromFile() {
         float SubstrateGrainSpacing;
         double AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R,
             FractSurfaceSitesActive;
-        bool RemeltingYN, PrintMisorientation, PrintFullOutput, PrintTimeSeries, UseSubstrateFile,
-            PrintIdleTimeSeriesFrames;
+        bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
+            UseSubstrateFile, PrintIdleTimeSeriesFrames;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput;
         std::vector<std::string> temp_paths;
@@ -180,9 +181,9 @@ void testInputReadFromFile() {
                           FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath,
                           tempfile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
                           LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                          FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFullOutput,
-                          NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
-                          PrintIdleTimeSeriesFrames);
+                          FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+                          PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
+                          PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
@@ -213,6 +214,7 @@ void testInputReadFromFile() {
             EXPECT_DOUBLE_EQ(FractSurfaceSitesActive, 0.08);
             EXPECT_TRUE(OutputFile == "TestProblemDirS");
             EXPECT_TRUE(PrintMisorientation);
+            EXPECT_FALSE(PrintFinalUndercoolingVals);
             EXPECT_TRUE(PrintFullOutput);
         }
         else if (FileName == "Inp_SpotMelt.txt") {
@@ -231,6 +233,7 @@ void testInputReadFromFile() {
             EXPECT_FALSE(UseSubstrateFile);
             EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 25.0);
             EXPECT_TRUE(OutputFile == "TestProblemSpot");
+            EXPECT_FALSE(PrintFinalUndercoolingVals);
             EXPECT_TRUE(PrintFullOutput);
         }
         else if (FileName == "Inp_TemperatureTest.txt") {
@@ -242,6 +245,7 @@ void testInputReadFromFile() {
             EXPECT_DOUBLE_EQ(HT_deltax, 12.0 * pow(10, -6));
             EXPECT_TRUE(OutputFile == "Test");
             EXPECT_TRUE(PrintMisorientation);
+            EXPECT_TRUE(PrintFinalUndercoolingVals);
             EXPECT_FALSE(PrintFullOutput);
         }
     }
