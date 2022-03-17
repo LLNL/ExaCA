@@ -658,7 +658,7 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                                 ViewI LayerID, ViewI_H LayerID_H, ViewF_H GrainUnitVector_H,
                                 ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
                                 std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
-                                int &IntermediateFileCounter) {
+                                int &IntermediateFileCounter, int NumberOfLayers) {
 
     sample::ValueType CellTypeStorage;
     Kokkos::parallel_reduce(
@@ -747,8 +747,9 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                                            ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H, CritTimeStep_H,
                                            GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H,
                                            UndercoolingCurrent_H, OutputFile, DecompositionStrategy, NGrainOrientations,
-                                           Melted, PathToOutput, 0, false, false, false, true, IntermediateFileCounter,
-                                           ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
+                                           Melted, PathToOutput, 0, false, false, false, true, false,
+                                           IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
+                                           NumberOfLayers);
                             IntermediateFileCounter++;
                         }
                     }

@@ -35,8 +35,8 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, std::string BaseFileName,
                     int DecompositionStrategy, int NGrainOrientations, bool *Melted, std::string PathToOutput,
                     int PrintDebug, bool PrintMisorientation, bool PrintFinalUndercooling, bool PrintFullOutput,
-                    bool PrintTimeSeries, int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax,
-                    float XMin, float YMin, float ZMin);
+                    bool PrintTimeSeries, bool PrintDefaultRVE, int IntermediateFileCounter, int ZBound_Low,
+                    int nzActive, double deltax, float XMin, float YMin, float ZMin, int NumberOfLayers);
 void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int DecompositionStrategy,
                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, double AConst, double BConst,
                    double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN,
@@ -59,6 +59,9 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
 void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                             ViewI3D_H Melted_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain, double deltax,
                             float XMin, float YMin, float ZMin);
+void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
+                               ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, double deltax,
+                               int NumberOfLayers);
 void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, std::string BaseFileName,
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain, ViewF_H GrainUnitVector,
