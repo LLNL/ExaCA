@@ -377,8 +377,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 }
 
 //*****************************************************************************/
-// Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ, and ItList)
-void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, ViewI2D_H ItList) {
+// Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ)
+void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ) {
 
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
@@ -465,77 +465,6 @@ void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ, V
     NeighborX(25) = -1;
     NeighborY(25) = 1;
     NeighborZ(25) = -1;
-
-    // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
-    for (int i = 0; i <= 25; i++) {
-        ItList(0, i) = i;
-    }
-    // If Y coordinate is on lower edge, Case 1: iteration over only neighbors 9-25 possible
-    int Pos = 0;
-    for (int i = 0; i <= 25; i++) {
-        if (NeighborY(i) != -1) {
-            ItList(1, Pos) = i;
-            Pos++;
-        }
-    }
-    // If Y coordinate is on upper edge, Case 2: iteration over only neighbors 0-16 possible
-    Pos = 0;
-    for (int i = 0; i <= 25; i++) {
-        if (NeighborY(i) != 1) {
-            ItList(2, Pos) = i;
-            Pos++;
-        }
-    }
-    // If X coordinate is on lower edge, Case 3: iteration over only neighbors
-    // 0,1,3,4,6,8,9,10,11,13,15,17,18,20,21,22,24
-    Pos = 0;
-    for (int i = 0; i <= 25; i++) {
-        if (NeighborX(i) != -1) {
-            ItList(3, Pos) = i;
-            Pos++;
-        }
-    }
-    // If X coordinate is on upper edge, Case 4: iteration over only neighbors
-    // 0,2,3,4,5,7,9,10,12,14,16,17,19,20,21,23,25
-    Pos = 0;
-    for (int i = 0; i <= 25; i++) {
-        if (NeighborX(i) != 1) {
-            ItList(4, Pos) = i;
-            Pos++;
-        }
-    }
-    // If X/Y coordinates are on lower edge, Case 5: iteration over only neighbors 9,10,11,13,15,17,18,20,21,22,24
-    Pos = 0;
-    for (int i = 0; i <= 25; i++) {
-        if ((NeighborX(i) != -1) && (NeighborY(i) != -1)) {
-            ItList(5, Pos) = i;
-            Pos++;
-        }
-    }
-    // If X coordinate is on upper edge/Y on lower edge, Case 6:
-    Pos = 0;
-    for (int i = 0; i <= 25; i++) {
-        if ((NeighborX(i) != 1) && (NeighborY(i) != -1)) {
-            ItList(6, Pos) = i;
-            Pos++;
-        }
-    }
-    // If X coordinate is on lower edge/Y on upper edge, Case 7:
-    Pos = 0;
-    for (int i = 0; i <= 25; i++) {
-        if ((NeighborX(i) != -1) && (NeighborY(i) != 1)) {
-            ItList(7, Pos) = i;
-            Pos++;
-        }
-    }
-    // If X/Y coordinates are on upper edge, Case 8:
-    Pos = 0;
-    for (int i = 0; i <= 25; i++) {
-        if ((NeighborX(i) != 1) && (NeighborY(i) != 1)) {
-            ItList(8, Pos) = i;
-            Pos++;
-        }
-    }
 }
 
 // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading temperature
@@ -1195,8 +1124,7 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
 }
 //*****************************************************************************/
 // Initialize grain orientations and unit vectors
-void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, ViewF_H GrainUnitVector,
-                     std::string GrainOrientationFile) {
+void OrientationInit(int, int NGrainOrientations, ViewF_H GrainUnitVector, std::string GrainOrientationFile) {
 
     // Read file of grain orientations
     std::ifstream O;
@@ -1230,19 +1158,6 @@ void OrientationInit(int id, int NGrainOrientations, ViewI_H GrainOrientation, V
         }
     }
     O.close();
-
-    // The grain orientations that correspond to each Grain ID must be the same across all ranks
-    // Shuffle list of "NGrainOrientation" orientations
-    int *GrainOrientation_master = new int[NGrainOrientations];
-    if (id == 0) {
-        for (int h = 0; h < NGrainOrientations; h++) {
-            GrainOrientation_master[h] = h;
-        }
-    }
-    MPI_Bcast(&GrainOrientation_master[0], NGrainOrientations, MPI_INT, 0, MPI_COMM_WORLD);
-    for (int h = 0; h < NGrainOrientations; h++) {
-        GrainOrientation(h) = GrainOrientation_master[h];
-    }
 }
 
 // Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom surface of
@@ -1584,8 +1499,8 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
                int NeighborRank_North, int NeighborRank_South, int NeighborRank_East, int NeighborRank_West,
                int NeighborRank_NorthEast, int NeighborRank_NorthWest, int NeighborRank_SouthEast,
                int NeighborRank_SouthWest, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
-               ViewI_H GrainOrientation, ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType,
-               ViewI_H GrainID, ViewF_H CritDiagonalLength, ViewF_H DOCenter, double deltax, double NMax,
+               ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H GrainID,
+               ViewF_H CritDiagonalLength, ViewF_H DOCenter, double deltax, double NMax,
                int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low,
                ViewI_H LayerID) {
 
@@ -1705,7 +1620,7 @@ void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrateg
                     DOCenter(3 * D3D1ConvPosition + 2) = GlobalZ + 0.5;
 
                     // The orientation for the new grain will depend on its Grain ID
-                    int MyOrientation = GrainOrientation(((abs(MyGrainID) - 1) % NGrainOrientations));
+                    int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
                     // Calculate critical values at which this active cell leads to the activation of a neighboring
                     // liquid cell (xp,yp,zp) is the new cell's center on the global grid
                     double xp = GlobalX + 0.5;

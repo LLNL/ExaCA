@@ -26,21 +26,19 @@ loadghostnodes_2D(const int GhostGID, const float GhostDOCX, const float GhostDO
                   Buffer2D BufferNorthEastSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
                   Buffer2D BufferNorthWestSend);
 void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn, ViewI CellType,
-                ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewI GrainOrientation, ViewF DOCenter,
-                ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength,
-                ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank, int ZBound_Low,
-                int layernumber, ViewI LayerID);
+                ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewF DOCenter, ViewI NeighborX,
+                ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
+                int NGrainOrientations, int PossibleNuclei_ThisRank, int ZBound_Low, int layernumber, ViewI LayerID);
 void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int LocalDomainSize,
                  int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst,
-                 int MyXOffset, int MyYOffset, ViewI2D ItList, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
-                 ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector,
-                 ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI GrainOrientation, ViewI CellType, ViewF DOCenter,
-                 ViewI GrainID, int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
-                 Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
-                 Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX,
-                 int BufSizeY, int ZBound_Low, int nzActive, int nz, int layernumber, ViewI LayerID,
-                 ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary,
-                 bool AtEastBoundary, bool AtWestBoundary);
+                 int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CritTimeStep,
+                 ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength,
+                 ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations,
+                 Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                 Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                 Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int nz,
+                 int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H,
+                 bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary);
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
                                 int LocalDomainSize, int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive,
                                 double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
@@ -48,7 +46,7 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                                 ViewI CellType, ViewI_H CellType_H, ViewI CritTimeStep, ViewI_H CritTimeStep_H,
                                 ViewI GrainID, ViewI_H GrainID_H, std::string TemperatureDataType, int *FinishTimeStep,
                                 int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
-                                ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H, ViewF_H GrainUnitVector_H,
+                                ViewI LayerID, ViewI_H LayerID_H, ViewF_H GrainUnitVector_H,
                                 ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
                                 std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
                                 int &IntermediateFileCounter);

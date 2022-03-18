@@ -172,12 +172,12 @@ void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int Se
 // Prints values of selected data structures to Paraview files
 void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
                     int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection,
-                    ViewI_H GrainID, ViewI_H GrainOrientation, ViewI_H CritTimeStep, ViewF_H GrainUnitVector,
-                    ViewI_H LayerID, ViewI_H CellType, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
-                    std::string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
-                    std::string PathToOutput, int PrintDebug, bool PrintMisorientation, bool PrintFinalUndercoolingVals,
-                    bool PrintFullOutput, bool PrintTimeSeries, int IntermediateFileCounter, int ZBound_Low,
-                    int nzActive, double deltax, float XMin, float YMin, float ZMin) {
+                    ViewI_H GrainID, ViewI_H CritTimeStep, ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType,
+                    ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, std::string BaseFileName,
+                    int DecompositionStrategy, int NGrainOrientations, bool *Melted, std::string PathToOutput,
+                    int PrintDebug, bool PrintMisorientation, bool PrintFinalUndercoolingVals, bool PrintFullOutput,
+                    bool PrintTimeSeries, int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax,
+                    float XMin, float YMin, float ZMin) {
 
     // Collect all data on rank 0, for all data structures of interest
     if (id == 0) {
@@ -253,7 +253,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         }
         if (PrintMisorientation)
             PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain,
-                                      GrainOrientation, GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
+                                      GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
         if (PrintFinalUndercoolingVals)
             PrintFinalUndercooling(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain,
                                    UndercoolingCurrent_WholeDomain, deltax, XMin, YMin, ZMin);
@@ -264,8 +264,8 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                           YMin, ZMin);
         if (PrintTimeSeries)
             PrintIntermediateExaCAState(IntermediateFileCounter, layernumber, BaseFileName, PathToOutput, ZBound_Low,
-                                        nzActive, nx, ny, GrainID_WholeDomain, CellType_WholeDomain, GrainOrientation,
-                                        GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
+                                        nzActive, nx, ny, GrainID_WholeDomain, CellType_WholeDomain, GrainUnitVector,
+                                        NGrainOrientations, deltax, XMin, YMin, ZMin);
     }
     else {
 
@@ -435,9 +435,8 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
 //*****************************************************************************/
 // Print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview file
 void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
-                               ViewI3D_H Melted_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewI_H GrainOrientation,
-                               ViewF_H GrainUnitVector, int NGrainOrientations, double deltax, float XMin, float YMin,
-                               float ZMin) {
+                               ViewI3D_H Melted_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewF_H GrainUnitVector,
+                               int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin) {
 
     std::string FName = PathToOutput + BaseFileName + "_Misorientations.vtk";
     std::cout << "Printing Paraview file of grain misorientations" << std::endl;
@@ -481,8 +480,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
                 else {
                     MeltedCells++;
                     int RoundedAngle;
-                    int MyOrientation =
-                        GrainOrientation(((abs(GrainID_WholeDomain(k, i, j)) - 1) % NGrainOrientations));
+                    int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
                     if (GrainID_WholeDomain(k, i, j) < 0) {
                         RoundedAngle = GrainMisorientation_Round(MyOrientation) + 100;
                         NucleatedGrainCells++;
@@ -657,9 +655,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
 // Nucleated grains are colored 100-162 (by misorientation with +Z direction plus 100)
 void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, std::string BaseFileName,
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
-                                 ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain,
-                                 ViewI_H GrainOrientation, ViewF_H GrainUnitVector, int NGrainOrientations,
-                                 double deltax, float XMin, float YMin, float ZMin) {
+                                 ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain, ViewF_H GrainUnitVector,
+                                 int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin) {
 
     std::string FName = PathToOutput + BaseFileName + "_layer" + std::to_string(layernumber) + "_" +
                         std::to_string(IntermediateFileCounter) + ".vtk";
@@ -701,8 +698,7 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
                 if (CellType_WholeDomain(k, i, j) != Liquid) {
                     if (GrainID_WholeDomain(k, i, j) == 0)
                         std::cout << i << " " << j << " " << k << " " << CellType_WholeDomain(k, i, j) << std::endl;
-                    int MyOrientation =
-                        GrainOrientation(((abs(GrainID_WholeDomain(k, i, j)) - 1) % NGrainOrientations));
+                    int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
                     if (GrainID_WholeDomain(k, i, j) < 0)
                         GrainplotM << GrainMisorientation(MyOrientation) + 100.0 << " ";
                     else

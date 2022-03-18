@@ -168,13 +168,10 @@ void testGrainInit() {
     ViewI_H NeighborX(Kokkos::ViewAllocateWithoutInitializing("NeighborX"), 26);
     ViewI_H NeighborY(Kokkos::ViewAllocateWithoutInitializing("NeighborY"), 26);
     ViewI_H NeighborZ(Kokkos::ViewAllocateWithoutInitializing("NeighborZ"), 26);
-    ViewI2D_H ItList(Kokkos::ViewAllocateWithoutInitializing("ItList"), 9, 26);
-    NeighborListInit(NeighborX, NeighborY, NeighborZ, ItList);
+    NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
     // Initialize an orientation for the grain being tested
     int NGrainOrientations = 1;
-    ViewI_H GrainOrientation(Kokkos::ViewAllocateWithoutInitializing("GrainOrientation"), NGrainOrientations);
-    GrainOrientation(0) = 0;
     ViewF_H GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
     GrainUnitVector(0) = 0.848294;  // x1
     GrainUnitVector(1) = 0.493303;  // y1
@@ -219,9 +216,9 @@ void testGrainInit() {
     GrainInit(layernumber, NGrainOrientations, DecompositionStrategy, nx, ny, LocalActiveDomainSize, MyXSlices,
               MyYSlices, MyXOffset, MyYOffset, id, np, NeighborRank_North, NeighborRank_South, NeighborRank_East,
               NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
-              NeighborRank_SouthWest, NeighborX, NeighborY, NeighborZ, GrainOrientation, GrainUnitVector,
-              DiagonalLength, CellType, GrainID, CritDiagonalLength, DOCenter, deltax, NMax,
-              NextLayer_FirstNucleatedGrainID, PossibleNuclei_ThisRank, ZBound_High, ZBound_Low, LayerID);
+              NeighborRank_SouthWest, NeighborX, NeighborY, NeighborZ, GrainUnitVector, DiagonalLength, CellType,
+              GrainID, CritDiagonalLength, DOCenter, deltax, NMax, NextLayer_FirstNucleatedGrainID,
+              PossibleNuclei_ThisRank, ZBound_High, ZBound_Low, LayerID);
 
     // Check the results
     // Does the active cell on each rank have the correct diagonal length, octahedron center, and critical diagonal
