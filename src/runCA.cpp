@@ -51,6 +51,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Positive X/Negative X directions are West/East, Positive Y/NegativeY directions are North/South
     int NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast,
         NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest;
+    // Variables denoting whether or not each MPI rank's grid is at a global domain boundary
+    bool AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary;
     // Neighbor lists for cells
     ViewI_H NeighborX_H(Kokkos::ViewAllocateWithoutInitializing("NeighborX"), 26);
     ViewI_H NeighborY_H(Kokkos::ViewAllocateWithoutInitializing("NeighborY"), 26);
@@ -86,7 +88,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     DomainDecomposition(DecompositionStrategy, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborRank_North,
                         NeighborRank_South, NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast,
                         NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest, nx, ny, nz,
-                        ProcessorsInXDirection, ProcessorsInYDirection, LocalDomainSize);
+                        ProcessorsInXDirection, ProcessorsInYDirection, LocalDomainSize, AtNorthBoundary,
+                        AtSouthBoundary, AtEastBoundary, AtWestBoundary);
 
     // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate
     // data
@@ -335,7 +338,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         NGrainOrientations, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend,
                         BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, BufSizeX,
                         BufSizeY, ZBound_Low, nzActive, nz, layernumber, LayerID_G, SteeringVector, numSteer_G,
-                        numSteer_H);
+                        numSteer_H, AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {

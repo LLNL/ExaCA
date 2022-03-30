@@ -151,12 +151,14 @@ void testGrainInit() {
         NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
         NeighborRank_SouthWest, ProcessorsInXDirection, ProcessorsInYDirection;
     long int LocalDomainSize;
+    bool AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary;
 
     // Perform grid decomposition
     DomainDecomposition(DecompositionStrategy, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborRank_North,
                         NeighborRank_South, NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast,
                         NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest, nx, ny, nz,
-                        ProcessorsInXDirection, ProcessorsInYDirection, LocalDomainSize);
+                        ProcessorsInXDirection, ProcessorsInYDirection, LocalDomainSize, AtNorthBoundary,
+                        AtSouthBoundary, AtEastBoundary, AtWestBoundary);
     int LocalActiveDomainSize = (ZBound_High - ZBound_Low + 1) * MyXSlices * MyYSlices;
     // LocalActiveDomainSize = 3 for rank 0 if only 1 MPI rank, will equal 4 otherwise
     // LocalActiveDomainSize = 5 if > 1 MPI ranks and 0 < id < np-1
@@ -296,12 +298,14 @@ void testNucleiInit() {
         NeighborRank_West, NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
         NeighborRank_SouthWest, ProcessorsInXDirection, ProcessorsInYDirection;
     long int LocalDomainSize;
+    bool AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary;
 
     // Perform grid decomposition
     DomainDecomposition(DecompositionStrategy, id, np, MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborRank_North,
                         NeighborRank_South, NeighborRank_East, NeighborRank_West, NeighborRank_NorthEast,
                         NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest, nx, ny, nz,
-                        ProcessorsInXDirection, ProcessorsInYDirection, LocalDomainSize);
+                        ProcessorsInXDirection, ProcessorsInYDirection, LocalDomainSize, AtNorthBoundary,
+                        AtSouthBoundary, AtEastBoundary, AtWestBoundary);
     int LocalActiveDomainSize = (ZBound_High - ZBound_Low + 1) * MyXSlices * MyYSlices;
     // LocalActiveDomainSize = 3 for rank 0 if only 1 MPI rank, will equal 4 otherwise
     // LocalActiveDomainSize = 5 if > 1 MPI ranks and 0 < id < np-1

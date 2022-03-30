@@ -64,6 +64,108 @@ struct reduction_identity<sample::ValueType> {
 };
 } // namespace Kokkos
 
+// Load data (GrainID, DOCenter, DiagonalLength) into ghost nodes if the given RankY is associated with a 1D halo region
+KOKKOS_INLINE_FUNCTION void loadghostnodes_1D(const float GhostGID, const float GhostDOCX, const float GhostDOCY,
+                                              const float GhostDOCZ, const float GhostDL, const int BufSizeX,
+                                              const int MyYSlices, const int RankX, const int RankY, const int RankZ,
+                                              const bool AtNorthBoundary, const bool AtSouthBoundary,
+                                              Buffer2D BufferSouthSend, Buffer2D BufferNorthSend) {
+
+    if ((RankY == 1) && (!(AtSouthBoundary))) {
+        int GNPosition = RankZ * BufSizeX + RankX;
+        BufferSouthSend(GNPosition, 0) = GhostGID;
+        BufferSouthSend(GNPosition, 1) = GhostDOCX;
+        BufferSouthSend(GNPosition, 2) = GhostDOCY;
+        BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+        BufferSouthSend(GNPosition, 4) = GhostDL;
+    }
+    else if ((RankY == MyYSlices - 2) && (!(AtNorthBoundary))) {
+        int GNPosition = RankZ * BufSizeX + RankX;
+        BufferNorthSend(GNPosition, 0) = GhostGID;
+        BufferNorthSend(GNPosition, 1) = GhostDOCX;
+        BufferNorthSend(GNPosition, 2) = GhostDOCY;
+        BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+        BufferNorthSend(GNPosition, 4) = GhostDL;
+    }
+}
+//*****************************************************************************/
+// Inline functions
+// Load data (GrainID, DOCenter, DiagonalLength) into ghost nodes if the given RankX and RankY is associated with a 2D
+// halo region
+KOKKOS_INLINE_FUNCTION void
+loadghostnodes_2D(const float GhostGID, const float GhostDOCX, const float GhostDOCY, const float GhostDOCZ,
+                  const float GhostDL, const int BufSizeX, const int BufSizeY, const int MyXSlices, const int MyYSlices,
+                  const int RankX, const int RankY, const int RankZ, const bool AtNorthBoundary,
+                  const bool AtSouthBoundary, const bool AtWestBoundary, const bool AtEastBoundary,
+                  Buffer2D BufferSouthSend, Buffer2D BufferNorthSend, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                  Buffer2D BufferNorthEastSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
+                  Buffer2D BufferNorthWestSend) {
+
+    if ((RankY == 1) && (RankX > 1) && (RankX < MyXSlices - 2) && (!(AtSouthBoundary))) {
+        int GNPosition = RankZ * BufSizeX + RankX - 1;
+        BufferSouthSend(GNPosition, 0) = GhostGID;
+        BufferSouthSend(GNPosition, 1) = GhostDOCX;
+        BufferSouthSend(GNPosition, 2) = GhostDOCY;
+        BufferSouthSend(GNPosition, 3) = GhostDOCZ;
+        BufferSouthSend(GNPosition, 4) = GhostDL;
+    }
+    if ((RankY == MyYSlices - 2) && (RankX > 1) && (RankX < MyXSlices - 2) && (!(AtNorthBoundary))) {
+        int GNPosition = RankZ * BufSizeX + RankX - 1;
+        BufferNorthSend(GNPosition, 0) = GhostGID;
+        BufferNorthSend(GNPosition, 1) = GhostDOCX;
+        BufferNorthSend(GNPosition, 2) = GhostDOCY;
+        BufferNorthSend(GNPosition, 3) = GhostDOCZ;
+        BufferNorthSend(GNPosition, 4) = GhostDL;
+    }
+    if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2) && (!(AtWestBoundary))) {
+        int GNPosition = RankZ * BufSizeY + RankY - 1;
+        BufferWestSend(GNPosition, 0) = GhostGID;
+        BufferWestSend(GNPosition, 1) = GhostDOCX;
+        BufferWestSend(GNPosition, 2) = GhostDOCY;
+        BufferWestSend(GNPosition, 3) = GhostDOCZ;
+        BufferWestSend(GNPosition, 4) = GhostDL;
+    }
+    if ((RankX == MyXSlices - 2) && (RankY > 1) && (RankY < MyYSlices - 2) && (!(AtEastBoundary))) {
+        int GNPosition = RankZ * BufSizeY + RankY - 1;
+        BufferEastSend(GNPosition, 0) = GhostGID;
+        BufferEastSend(GNPosition, 1) = GhostDOCX;
+        BufferEastSend(GNPosition, 2) = GhostDOCY;
+        BufferEastSend(GNPosition, 3) = GhostDOCZ;
+        BufferEastSend(GNPosition, 4) = GhostDL;
+    }
+    if ((RankY == 1) && (RankX == MyXSlices - 2) && (!(AtSouthBoundary)) && (!(AtEastBoundary))) {
+        int GNPosition = RankZ;
+        BufferSouthEastSend(GNPosition, 0) = GhostGID;
+        BufferSouthEastSend(GNPosition, 1) = GhostDOCX;
+        BufferSouthEastSend(GNPosition, 2) = GhostDOCY;
+        BufferSouthEastSend(GNPosition, 3) = GhostDOCZ;
+        BufferSouthEastSend(GNPosition, 4) = GhostDL;
+    }
+    if ((RankX == 1) && (RankY == 1) && (!(AtSouthBoundary)) && (!(AtWestBoundary))) {
+        int GNPosition = RankZ;
+        BufferSouthWestSend(GNPosition, 0) = GhostGID;
+        BufferSouthWestSend(GNPosition, 1) = GhostDOCX;
+        BufferSouthWestSend(GNPosition, 2) = GhostDOCY;
+        BufferSouthWestSend(GNPosition, 3) = GhostDOCZ;
+        BufferSouthWestSend(GNPosition, 4) = GhostDL;
+    }
+    if ((RankX == MyXSlices - 2) && (RankY == MyYSlices - 2) && (!(AtNorthBoundary)) && (!(AtEastBoundary))) {
+        int GNPosition = RankZ;
+        BufferNorthEastSend(GNPosition, 0) = GhostGID;
+        BufferNorthEastSend(GNPosition, 1) = GhostDOCX;
+        BufferNorthEastSend(GNPosition, 2) = GhostDOCY;
+        BufferNorthEastSend(GNPosition, 3) = GhostDOCZ;
+        BufferNorthEastSend(GNPosition, 4) = GhostDL;
+    }
+    if ((RankX == MyXSlices - 2) && (RankY == 1) && (!(AtNorthBoundary)) && (!(AtWestBoundary))) {
+        int GNPosition = RankZ;
+        BufferNorthWestSend(GNPosition, 0) = GhostGID;
+        BufferNorthWestSend(GNPosition, 1) = GhostDOCX;
+        BufferNorthWestSend(GNPosition, 2) = GhostDOCY;
+        BufferNorthWestSend(GNPosition, 3) = GhostDOCZ;
+        BufferNorthWestSend(GNPosition, 4) = GhostDL;
+    }
+}
 //*****************************************************************************/
 void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn, ViewI CellType,
                 ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewI GrainOrientation, ViewF DOCenter,
@@ -211,7 +313,8 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                  Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
                  Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low,
                  int nzActive, int, int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G,
-                 ViewI_H numSteer_H) {
+                 ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
+                 bool AtWestBoundary) {
 
     // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to
     // be accounted for
@@ -565,152 +668,24 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
 
                             if (np > 1) {
 
-                                float GhostGID = (float)(GrainID(GlobalNeighborD3D1ConvPosition));
-                                float GhostDOCX = DOCenter((long int)(3) * NeighborD3D1ConvPosition);
-                                float GhostDOCY = DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(1));
-                                float GhostDOCZ = DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(2));
-                                float GhostDL = DiagonalLength(NeighborD3D1ConvPosition);
-                                // Collect data for the ghost nodes:
-                                if (DecompositionStrategy == 1) {
-                                    int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX;
-                                    if (MyNeighborY == 1) {
-                                        BufferSouthSend(GNPosition, 0) = GhostGID;
-                                        BufferSouthSend(GNPosition, 1) = GhostDOCX;
-                                        BufferSouthSend(GNPosition, 2) = GhostDOCY;
-                                        BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-                                        BufferSouthSend(GNPosition, 4) = GhostDL;
-                                    }
-                                    else if (MyNeighborY == MyYSlices - 2) {
-                                        int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX;
-                                        BufferNorthSend(GNPosition, 0) = GhostGID;
-                                        BufferNorthSend(GNPosition, 1) = GhostDOCX;
-                                        BufferNorthSend(GNPosition, 2) = GhostDOCY;
-                                        BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-                                        BufferNorthSend(GNPosition, 4) = GhostDL;
-                                    }
-                                }
-                                else {
-                                    if (MyNeighborY == 1) {
-                                        if (MyNeighborX == MyXSlices - 2) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferSouthSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                            BufferEastSend(GNPosition, 0) = GhostGID;
-                                            BufferEastSend(GNPosition, 1) = GhostDOCX;
-                                            BufferEastSend(GNPosition, 2) = GhostDOCY;
-                                            BufferEastSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferEastSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ;
-                                            BufferSouthEastSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthEastSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthEastSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthEastSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthEastSend(GNPosition, 4) = GhostDL;
-                                        }
-                                        else if (MyNeighborX == 1) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferSouthSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                            BufferWestSend(GNPosition, 0) = GhostGID;
-                                            BufferWestSend(GNPosition, 1) = GhostDOCX;
-                                            BufferWestSend(GNPosition, 2) = GhostDOCY;
-                                            BufferWestSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferWestSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ;
-                                            BufferSouthWestSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthWestSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthWestSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthWestSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthWestSend(GNPosition, 4) = GhostDL;
-                                        }
-                                        else if ((MyNeighborX > 1) && (MyNeighborX < MyXSlices - 2)) {
-                                            // This is being sent to MyLeft
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferSouthSend(GNPosition, 0) = GhostGID;
-                                            BufferSouthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferSouthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferSouthSend(GNPosition, 4) = GhostDL;
-                                        }
-                                    }
-                                    else if (MyNeighborY == MyYSlices - 2) {
-                                        // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                                        if (MyNeighborX == MyXSlices - 2) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferNorthSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                            BufferEastSend(GNPosition, 0) = GhostGID;
-                                            BufferEastSend(GNPosition, 1) = GhostDOCX;
-                                            BufferEastSend(GNPosition, 2) = GhostDOCY;
-                                            BufferEastSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferEastSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ;
-                                            BufferNorthEastSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthEastSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthEastSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthEastSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthEastSend(GNPosition, 4) = GhostDL;
-                                        }
-                                        else if (MyNeighborX == 1) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferNorthSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                            BufferWestSend(GNPosition, 0) = GhostGID;
-                                            BufferWestSend(GNPosition, 1) = GhostDOCX;
-                                            BufferWestSend(GNPosition, 2) = GhostDOCY;
-                                            BufferWestSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferWestSend(GNPosition, 4) = GhostDL;
-                                            GNPosition = MyNeighborZ;
-                                            BufferNorthWestSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthWestSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthWestSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthWestSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthWestSend(GNPosition, 4) = GhostDL;
-                                        }
-                                        else if ((MyNeighborX > 1) && (MyNeighborX < MyXSlices - 2)) {
-                                            int GNPosition = MyNeighborZ * BufSizeX + MyNeighborX - 1;
-                                            BufferNorthSend(GNPosition, 0) = GhostGID;
-                                            BufferNorthSend(GNPosition, 1) = GhostDOCX;
-                                            BufferNorthSend(GNPosition, 2) = GhostDOCY;
-                                            BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-                                            BufferNorthSend(GNPosition, 4) = GhostDL;
-                                        }
-                                    }
-                                    else if ((MyNeighborX == 1) && (MyNeighborY > 1) && (MyNeighborY < MyYSlices - 2)) {
-                                        int GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                        BufferWestSend(GNPosition, 0) = GhostGID;
-                                        BufferWestSend(GNPosition, 1) = GhostDOCX;
-                                        BufferWestSend(GNPosition, 2) = GhostDOCY;
-                                        BufferWestSend(GNPosition, 3) = GhostDOCZ;
-                                        BufferWestSend(GNPosition, 4) = GhostDL;
-                                    }
-                                    else if ((MyNeighborX == MyXSlices - 2) && (MyNeighborY > 1) &&
-                                             (MyNeighborY < MyYSlices - 2)) {
-                                        int GNPosition = MyNeighborZ * BufSizeY + MyNeighborY - 1;
-                                        BufferEastSend(GNPosition, 0) = GhostGID;
-                                        BufferEastSend(GNPosition, 1) = GhostDOCX;
-                                        BufferEastSend(GNPosition, 2) = GhostDOCY;
-                                        BufferEastSend(GNPosition, 3) = GhostDOCZ;
-                                        BufferEastSend(GNPosition, 4) = GhostDL;
-                                    }
-                                } // End if statement for ghost node marking
-                            }     // End if statement for serial/parallel code
+                                float GhostGID = h;
+                                float GhostDOCX = cx;
+                                float GhostDOCY = cy;
+                                float GhostDOCZ = cz;
+                                float GhostDL = NewODiagL;
+                                // Collect data for the ghost nodes, if necessary
+                                if (DecompositionStrategy == 1)
+                                    loadghostnodes_1D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
+                                                      MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                                      BufferSouthSend, BufferNorthSend);
+                                else
+                                    loadghostnodes_2D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
+                                                      BufSizeY, MyXSlices, MyYSlices, RankX, RankY, RankZ,
+                                                      AtNorthBoundary, AtSouthBoundary, AtWestBoundary, AtEastBoundary,
+                                                      BufferSouthSend, BufferNorthSend, BufferWestSend, BufferEastSend,
+                                                      BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
+                                                      BufferNorthWestSend);
+                            } // End if statement for serial/parallel code
                             // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
                             // Diagonal Length values have been assigned to it Avoids the race condition in which the
                             // new cell is activated, and another thread acts on the new active cell before the cell's

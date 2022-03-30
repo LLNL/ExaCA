@@ -22,7 +22,8 @@ double MaxVal(double TestVec3[6], int NVals);
 void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection,
                           int &ProcessorsInYDirection, int id, int np, int &NeighborRank_North, int &NeighborRank_South,
                           int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
-                          int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest);
+                          int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
+                          bool &AtNorthBoundary, bool &AtSouthBoundary, bool &AtEastBoundary, bool &AtWestBoundary);
 void XYLimitCalc(int &LLX, int &LLY, int &ULX, int &ULY, int MyXSlices, int MyYSlices, int NeighborRank_South,
                  int NeighborRank_North, int NeighborRank_East, int NeighborRank_West);
 
