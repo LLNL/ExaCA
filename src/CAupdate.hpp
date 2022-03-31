@@ -12,6 +12,19 @@
 
 #include <string>
 
+KOKKOS_INLINE_FUNCTION void loadghostnodes_1D(const int GhostGID, const float GhostDOCX, const float GhostDOCY,
+                                              const float GhostDOCZ, const float GhostDL, const int BufSizeX,
+                                              const int MyYSlices, const int RankX, const int RankY, const int RankZ,
+                                              const bool AtNorthBoundary, const bool AtSouthBoundary,
+                                              Buffer2D BufferSouthSend, Buffer2D BufferNorthSend);
+KOKKOS_INLINE_FUNCTION void
+loadghostnodes_2D(const int GhostGID, const float GhostDOCX, const float GhostDOCY, const float GhostDOCZ,
+                  const float GhostDL, const int BufSizeX, const int BufSizeY, const int MyXSlices, const int MyYSlices,
+                  const int RankX, const int RankY, const int RankZ, const bool AtNorthBoundary,
+                  const bool AtSouthBoundary, const bool AtWestBoundary, const bool AtEastBoundary,
+                  Buffer2D BufferSouthSend, Buffer2D BufferNorthSend, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                  Buffer2D BufferNorthEastSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
+                  Buffer2D BufferNorthWestSend);
 void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn, ViewI CellType,
                 ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewI GrainOrientation, ViewF DOCenter,
                 ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength,
@@ -26,7 +39,8 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                  Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
                  Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX,
                  int BufSizeY, int ZBound_Low, int nzActive, int nz, int layernumber, ViewI LayerID,
-                 ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H);
+                 ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary,
+                 bool AtEastBoundary, bool AtWestBoundary);
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
                                 int LocalDomainSize, int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive,
                                 double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,

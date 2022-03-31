@@ -713,13 +713,14 @@ void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlic
                          int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South, int &NeighborRank_East,
                          int &NeighborRank_West, int &NeighborRank_NorthEast, int &NeighborRank_NorthWest,
                          int &NeighborRank_SouthEast, int &NeighborRank_SouthWest, int &nx, int &ny, int &nz,
-                         int &ProcessorsInXDirection, int &ProcessorsInYDirection, long int &LocalDomainSize) {
+                         int &ProcessorsInXDirection, int &ProcessorsInYDirection, long int &LocalDomainSize,
+                         bool &AtNorthBoundary, bool &AtSouthBoundary, bool &AtEastBoundary, bool &AtWestBoundary) {
 
     // Determine which subdomains are at which locations on the grid relative to the others
     InitialDecomposition(DecompositionStrategy, nx, ny, ProcessorsInXDirection, ProcessorsInYDirection, id, np,
                          NeighborRank_North, NeighborRank_South, NeighborRank_East, NeighborRank_West,
-                         NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast,
-                         NeighborRank_SouthWest);
+                         NeighborRank_NorthEast, NeighborRank_NorthWest, NeighborRank_SouthEast, NeighborRank_SouthWest,
+                         AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary);
     // Determine, for each MPI process id, the local grid size in x and y (and the offsets in x and y relative to the
     // overall simulation domain)
     MyXOffset = XOffsetCalc(id, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);

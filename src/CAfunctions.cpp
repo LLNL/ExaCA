@@ -267,7 +267,8 @@ double MaxVal(double TestVec3[6], int NVals) {
 void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &ProcessorsInXDirection,
                           int &ProcessorsInYDirection, int id, int np, int &NeighborRank_North, int &NeighborRank_South,
                           int &NeighborRank_East, int &NeighborRank_West, int &NeighborRank_NorthEast,
-                          int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest) {
+                          int &NeighborRank_NorthWest, int &NeighborRank_SouthEast, int &NeighborRank_SouthWest,
+                          bool &AtNorthBoundary, bool &AtSouthBoundary, bool &AtEastBoundary, bool &AtWestBoundary) {
 
     if (DecompositionStrategy == 1) {
     OneDim:
@@ -426,6 +427,23 @@ void InitialDecomposition(int &DecompositionStrategy, int nx, int ny, int &Proce
         else
             NeighborRank_NorthWest = NeighborRank_West + 1;
     }
+    // Based on the decomposition, store whether each MPI rank is each boundary or not
+    if (NeighborRank_North == MPI_PROC_NULL)
+        AtNorthBoundary = true;
+    else
+        AtNorthBoundary = false;
+    if (NeighborRank_South == MPI_PROC_NULL)
+        AtSouthBoundary = true;
+    else
+        AtSouthBoundary = false;
+    if (NeighborRank_West == MPI_PROC_NULL)
+        AtWestBoundary = true;
+    else
+        AtWestBoundary = false;
+    if (NeighborRank_East == MPI_PROC_NULL)
+        AtEastBoundary = true;
+    else
+        AtEastBoundary = false;
 }
 
 //*****************************************************************************/

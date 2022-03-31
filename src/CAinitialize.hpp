@@ -33,7 +33,8 @@ void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlic
                          int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South, int &NeighborRank_East,
                          int &NeighborRank_West, int &NeighborRank_NorthEast, int &NeighborRank_NorthWest,
                          int &NeighborRank_SouthEast, int &NeighborRank_SouthWest, int &nx, int &ny, int &nz,
-                         int &ProcessorsInXDirection, int &ProcessorsInYDirection, long int &LocalDomainSize);
+                         int &ProcessorsInXDirection, int &ProcessorsInYDirection, long int &LocalDomainSize,
+                         bool &AtNorthBoundary, bool &AtSouthBoundary, bool &AtEastBoundary, bool &AtWestBoundary);
 void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyXSlices, int MyYSlices,
                          int MyXOffset, int MyYOffset, float XMin, float YMin, std::vector<std::string> &temp_paths,
                          int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
