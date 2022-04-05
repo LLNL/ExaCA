@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "CAupdate.hpp"
+#include "CAfunctions.hpp"
 #include "CAprint.hpp"
-
 #include "mpi.h"
 
 #include <cmath>
@@ -168,10 +168,9 @@ loadghostnodes_2D(const float GhostGID, const float GhostDOCX, const float Ghost
 }
 //*****************************************************************************/
 void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn, ViewI CellType,
-                ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewI GrainOrientation, ViewF DOCenter,
-                ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength,
-                ViewF DiagonalLength, int NGrainOrientations, int PossibleNuclei_ThisRank, int ZBound_Low,
-                int layernumber, ViewI LayerID) {
+                ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewF DOCenter, ViewI NeighborX,
+                ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
+                int NGrainOrientations, int PossibleNuclei_ThisRank, int ZBound_Low, int layernumber, ViewI LayerID) {
 
     // Loop through local list of nucleation events - has the time step exceeded the time step for nucleation at the
     // sites?
@@ -209,7 +208,7 @@ void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
                 DOCenter(DOZ) = GlobalZ + 0.5;
                 // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative GrainID
                 // values)
-                int MyOrientation = GrainOrientation(((abs(MyGrainID) - 1) % NGrainOrientations));
+                int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid
                 // cell
                 for (int n = 0; n < 26; n++) {
@@ -306,15 +305,14 @@ void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
 // Decentered octahedron algorithm for the capture of new interface cells by grains
 void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int, int MyXSlices,
                  int MyYSlices, double AConst, double BConst, double CConst, double DConst, int MyXOffset,
-                 int MyYOffset, ViewI2D ItList, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CritTimeStep,
+                 int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CritTimeStep,
                  ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength,
-                 ViewF DiagonalLength, ViewI GrainOrientation, ViewI CellType, ViewF DOCenter, ViewI GrainID,
-                 int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend,
-                 Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
-                 Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low,
-                 int nzActive, int, int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G,
-                 ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
-                 bool AtWestBoundary) {
+                 ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations,
+                 Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                 Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                 Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int,
+                 int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H,
+                 bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary) {
 
     // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to
     // be accounted for
@@ -367,69 +365,14 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
             // Cells in ghost nodes cannot capture cells on other processors
             int LCount = 0;
             // Which neighbors should be iterated over?
-            int ItBounds;
-            // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
-            // If Y coordinate is on lower edge, Case 1: iteration over only neighbors 9-25 possible
-            // If Y coordinate is on upper edge, Case 2: iteration over only neighbors 0-16 possible
-            // If X coordinate is on lower edge, Case 3: iteration over only neighbors
-            // 0,1,3,4,6,8,9,10,11,13,15,17,18,20,21,22,24 If X coordinate is on upper edge, Case 4: iteration over only
-            // neighbors 0,2,3,4,5,7,9,10,12,14,16,17,19,20,21,23,25 If X/Y coordinates are on lower edge, Case 5:
-            // iteration over only neighbors 9,10,11,13,15,17,18,20,21,22,24 If X coordinate is on upper edge/Y on lower
-            // edge, Case 6: If X coordinate is on lower edge/Y on upper edge, Case 7: If X/Y coordinates are on upper
-            // edge, Case 8:
-            if (RankY == 0) {
-                if (RankX == 0) {
-                    ItBounds = 5;
-                }
-                else if (RankX == MyXSlices - 1) {
-                    ItBounds = 6;
-                }
-                else {
-                    ItBounds = 1;
-                }
-            }
-            else if (RankY == MyYSlices - 1) {
-                if (RankX == 0) {
-                    ItBounds = 7;
-                }
-                else if (RankX == MyXSlices - 1) {
-                    ItBounds = 8;
-                }
-                else {
-                    ItBounds = 2;
-                }
-            }
-            else {
-                if (RankX == 0) {
-                    ItBounds = 3;
-                }
-                else if (RankX == MyXSlices - 1) {
-                    ItBounds = 4;
-                }
-                else {
-                    ItBounds = 0;
-                }
-            }
-            int NListLength;
-            if (ItBounds == 0) {
-                NListLength = 26;
-            }
-            else if (ItBounds > 4) {
-                NListLength = 11;
-            }
-            else {
-                NListLength = 17;
-            }
-            // "ll" corresponds to the specific position on the list of neighboring cells
-            for (int ll = 0; ll < NListLength; ll++) {
-                // "l" correpsponds to the specific neighboring cell
-                int l = ItList(ItBounds, ll);
+            for (int l = 0; l < 26; l++) {
                 // Local coordinates of adjacent cell center
                 int MyNeighborX = RankX + NeighborX(l);
                 int MyNeighborY = RankY + NeighborY(l);
                 int MyNeighborZ = RankZ + NeighborZ(l);
-
-                if ((MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
+                // Check if neighbor is in bounds
+                if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
+                    (MyNeighborY < MyYSlices) && (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
                     long int NeighborD3D1ConvPosition =
                         MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
                     long int GlobalNeighborD3D1ConvPosition =
@@ -457,7 +400,7 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                             int GlobalX = RankX + MyXOffset;
                             int GlobalY = RankY + MyYOffset;
                             int h = GrainID(GlobalD3D1ConvPosition);
-                            int MyOrientation = GrainOrientation(((abs(h) - 1) % NGrainOrientations));
+                            int MyOrientation = getGrainOrientation(h, NGrainOrientations);
 
                             // The new cell is captured by this cell's growing octahedron (Grain "h")
                             GrainID(GlobalNeighborD3D1ConvPosition) = h;
@@ -712,7 +655,7 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                                 ViewI CellType, ViewI_H CellType_H, ViewI CritTimeStep, ViewI_H CritTimeStep_H,
                                 ViewI GrainID, ViewI_H GrainID_H, std::string TemperatureDataType, int *FinishTimeStep,
                                 int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
-                                ViewI LayerID, ViewI_H LayerID_H, ViewI_H GrainOrientation_H, ViewF_H GrainUnitVector_H,
+                                ViewI LayerID, ViewI_H LayerID_H, ViewF_H GrainUnitVector_H,
                                 ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
                                 std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
                                 int &IntermediateFileCounter) {
@@ -801,12 +744,11 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                             Kokkos::deep_copy(GrainID_H, GrainID);
                             Kokkos::deep_copy(CellType_H, CellType);
                             PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-                                           ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H,
-                                           GrainOrientation_H, CritTimeStep_H, GrainUnitVector_H, LayerID_H, CellType_H,
-                                           UndercoolingChange_H, UndercoolingCurrent_H, OutputFile,
-                                           DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false,
-                                           false, false, true, IntermediateFileCounter, ZBound_Low, nzActive, deltax,
-                                           XMin, YMin, ZMin);
+                                           ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H, CritTimeStep_H,
+                                           GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H,
+                                           UndercoolingCurrent_H, OutputFile, DecompositionStrategy, NGrainOrientations,
+                                           Melted, PathToOutput, 0, false, false, false, true, IntermediateFileCounter,
+                                           ZBound_Low, nzActive, deltax, XMin, YMin, ZMin);
                             IntermediateFileCounter++;
                         }
                     }
