@@ -172,14 +172,21 @@ void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int Se
 // Prints values of selected data structures to Paraview files
 void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
                     int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection,
-                    ViewI_H GrainID, ViewI_H CritTimeStep, ViewF_H GrainUnitVector, ViewI_H LayerID, ViewI_H CellType,
-                    ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, std::string BaseFileName,
-                    int DecompositionStrategy, int NGrainOrientations, bool *Melted, std::string PathToOutput,
-                    int PrintDebug, bool PrintMisorientation, bool PrintFinalUndercoolingVals, bool PrintFullOutput,
-                    bool PrintTimeSeries, bool PrintDefaultRVE, int IntermediateFileCounter, int ZBound_Low,
-                    int nzActive, double deltax, float XMin, float YMin, float ZMin, int NumberOfLayers) {
+                    ViewI GrainID_Device, ViewI_H CritTimeStep, ViewF_H GrainUnitVector, ViewI_H LayerID,
+                    ViewI CellType_Device, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
+                    std::string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
+                    std::string PathToOutput, int PrintDebug, bool PrintMisorientation, bool PrintFinalUndercoolingVals,
+                    bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE, int IntermediateFileCounter,
+                    int ZBound_Low, int nzActive, double deltax, float XMin, float YMin, float ZMin,
+                    int NumberOfLayers) {
 
     // Collect all data on rank 0, for all data structures of interest
+    // Host copies of GrainID and CellType
+    ViewI_H CellType(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), MyXSlices * MyYSlices * nz);
+    ViewI_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"), MyXSlices * MyYSlices * nz);
+    Kokkos::deep_copy(CellType, CellType_Device);
+    Kokkos::deep_copy(GrainID, GrainID_Device);
+
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
         ViewI_H RecvXOffset(Kokkos::ViewAllocateWithoutInitializing("RecvXOffset"), np);

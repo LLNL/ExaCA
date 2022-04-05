@@ -101,4 +101,4 @@ endmacro()
 
 ExaCA_add_tests_nobackend(NAMES Init)
 
-ExaCA_add_tests(NAMES KokkosInit Print)
+ExaCA_add_tests(NAMES KokkosInit KokkosUpdate Print)

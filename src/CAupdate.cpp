@@ -64,140 +64,426 @@ struct reduction_identity<sample::ValueType> {
 };
 } // namespace Kokkos
 
-// Load data (GrainID, DOCenter, DiagonalLength) into ghost nodes if the given RankY is associated with a 1D halo region
-KOKKOS_INLINE_FUNCTION void loadghostnodes_1D(const float GhostGID, const float GhostDOCX, const float GhostDOCY,
-                                              const float GhostDOCZ, const float GhostDL, const int BufSizeX,
-                                              const int MyYSlices, const int RankX, const int RankY, const int RankZ,
-                                              const bool AtNorthBoundary, const bool AtSouthBoundary,
-                                              Buffer2D BufferSouthSend, Buffer2D BufferNorthSend) {
+//*****************************************************************************/
+void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, ViewI_H NucleationCounter_ThisRank_H,
+                int PossibleNuclei_ThisRank, ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID,
+                ViewI NucleationCounter_ThisRank, ViewI CellType, ViewI GrainID, int ZBound_Low, int MyXSlices,
+                int MyYSlices, ViewI SteeringVector, ViewI numSteer_G) {
 
-    if ((RankY == 1) && (!(AtSouthBoundary))) {
-        int GNPosition = RankZ * BufSizeX + RankX;
-        BufferSouthSend(GNPosition, 0) = GhostGID;
-        BufferSouthSend(GNPosition, 1) = GhostDOCX;
-        BufferSouthSend(GNPosition, 2) = GhostDOCY;
-        BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-        BufferSouthSend(GNPosition, 4) = GhostDL;
-    }
-    else if ((RankY == MyYSlices - 2) && (!(AtNorthBoundary))) {
-        int GNPosition = RankZ * BufSizeX + RankX;
-        BufferNorthSend(GNPosition, 0) = GhostGID;
-        BufferNorthSend(GNPosition, 1) = GhostDOCX;
-        BufferNorthSend(GNPosition, 2) = GhostDOCY;
-        BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-        BufferNorthSend(GNPosition, 4) = GhostDL;
+    // Is there nucleation left in this layer to check?
+    if (NucleationCounter_ThisRank_H(0) < PossibleNuclei_ThisRank) {
+        // Is there at least one potential nucleation event on this rank, at this time step?
+        if (cycle == NucleationTimes_H(NucleationCounter_ThisRank_H(0))) {
+            bool NucleationCheck = true;
+            // While loop checks NucleationTimes, updates NucleationEventCounter_ThisRank until the next nucleation
+            // event is not at this time step
+            while (NucleationCheck) {
+                int NucleationThisDT = 0;
+                // Launch kokkos kernel - check if the corresponding CA cell location is liquid
+                Kokkos::parallel_reduce(
+                    "NucleiUpdateLoop", 1,
+                    KOKKOS_LAMBDA(const int, int &update) {
+                        int NucleationEventLocation_GlobalGrid = NucleiLocations(NucleationCounter_ThisRank(0));
+                        int update_val =
+                            FutureActive; // added to steering vector to become a new active cell as part of cellcapture
+                        int old_val = Liquid;
+                        int OldCellTypeValue = Kokkos::atomic_compare_exchange(
+                            &CellType(NucleationEventLocation_GlobalGrid), old_val, update_val);
+                        if (OldCellTypeValue == Liquid) {
+                            // Successful nucleation event - atomic update of cell type, proceeded if the atomic
+                            // exchange is successful (cell was liquid) Add future active cell location to steering
+                            // vector and change cell type, assign new Grain ID
+                            GrainID(NucleationEventLocation_GlobalGrid) = NucleiGrainID(NucleationCounter_ThisRank(0));
+                            int GlobalZ = NucleationEventLocation_GlobalGrid / (MyXSlices * MyYSlices);
+                            int Rem = NucleationEventLocation_GlobalGrid % (MyXSlices * MyYSlices);
+                            int RankX = Rem / MyYSlices;
+                            int RankY = Rem % MyYSlices;
+                            int RankZ = GlobalZ - ZBound_Low;
+                            int NucleationEventLocation_LocalGrid =
+                                RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                            SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) =
+                                NucleationEventLocation_LocalGrid;
+                            // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
+                            // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)
+                            update++;
+                        }
+                    },
+                    NucleationThisDT);
+                // Update the number of successful nuclei counter (NucleationThisDT = 0 if failed, NucleationThisDT = 1
+                // if successful)
+                SuccessfulNucEvents_ThisRank += NucleationThisDT;
+                // Update the number of nuclei counter on the host (regardless of whether the event was successful)
+                NucleationCounter_ThisRank_H(0)++;
+                // Is the next potential nucleation event also at this time step? If yes, repeat the kokkos kernel - if
+                // not, exit the while loop
+                if (NucleationCounter_ThisRank_H(0) == PossibleNuclei_ThisRank)
+                    NucleationCheck = false;
+                else if (cycle != NucleationTimes_H(NucleationCounter_ThisRank_H(0)))
+                    NucleationCheck = false;
+            }
+            // Keep the nucleation counter consistent on host and device
+            Kokkos::deep_copy(NucleationCounter_ThisRank, NucleationCounter_ThisRank_H);
+        }
     }
 }
+
 //*****************************************************************************/
-// Inline functions
-// Load data (GrainID, DOCenter, DiagonalLength) into ghost nodes if the given RankX and RankY is associated with a 2D
-// halo region
-KOKKOS_INLINE_FUNCTION void
-loadghostnodes_2D(const float GhostGID, const float GhostDOCX, const float GhostDOCY, const float GhostDOCZ,
-                  const float GhostDL, const int BufSizeX, const int BufSizeY, const int MyXSlices, const int MyYSlices,
-                  const int RankX, const int RankY, const int RankZ, const bool AtNorthBoundary,
-                  const bool AtSouthBoundary, const bool AtWestBoundary, const bool AtEastBoundary,
-                  Buffer2D BufferSouthSend, Buffer2D BufferNorthSend, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
-                  Buffer2D BufferNorthEastSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
-                  Buffer2D BufferNorthWestSend) {
+// Decentered octahedron algorithm for the capture of new interface cells by grains
+void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int, int MyXSlices,
+                 int MyYSlices, double AConst, double BConst, double CConst, double DConst, int MyXOffset,
+                 int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CritTimeStep,
+                 ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength,
+                 ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations,
+                 Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                 Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                 Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int,
+                 int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H,
+                 bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary) {
 
-    if ((RankY == 1) && (RankX > 1) && (RankX < MyXSlices - 2) && (!(AtSouthBoundary))) {
-        int GNPosition = RankZ * BufSizeX + RankX - 1;
-        BufferSouthSend(GNPosition, 0) = GhostGID;
-        BufferSouthSend(GNPosition, 1) = GhostDOCX;
-        BufferSouthSend(GNPosition, 2) = GhostDOCY;
-        BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-        BufferSouthSend(GNPosition, 4) = GhostDL;
-    }
-    if ((RankY == MyYSlices - 2) && (RankX > 1) && (RankX < MyXSlices - 2) && (!(AtNorthBoundary))) {
-        int GNPosition = RankZ * BufSizeX + RankX - 1;
-        BufferNorthSend(GNPosition, 0) = GhostGID;
-        BufferNorthSend(GNPosition, 1) = GhostDOCX;
-        BufferNorthSend(GNPosition, 2) = GhostDOCY;
-        BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-        BufferNorthSend(GNPosition, 4) = GhostDL;
-    }
-    if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2) && (!(AtWestBoundary))) {
-        int GNPosition = RankZ * BufSizeY + RankY - 1;
-        BufferWestSend(GNPosition, 0) = GhostGID;
-        BufferWestSend(GNPosition, 1) = GhostDOCX;
-        BufferWestSend(GNPosition, 2) = GhostDOCY;
-        BufferWestSend(GNPosition, 3) = GhostDOCZ;
-        BufferWestSend(GNPosition, 4) = GhostDL;
-    }
-    if ((RankX == MyXSlices - 2) && (RankY > 1) && (RankY < MyYSlices - 2) && (!(AtEastBoundary))) {
-        int GNPosition = RankZ * BufSizeY + RankY - 1;
-        BufferEastSend(GNPosition, 0) = GhostGID;
-        BufferEastSend(GNPosition, 1) = GhostDOCX;
-        BufferEastSend(GNPosition, 2) = GhostDOCY;
-        BufferEastSend(GNPosition, 3) = GhostDOCZ;
-        BufferEastSend(GNPosition, 4) = GhostDL;
-    }
-    if ((RankY == 1) && (RankX == MyXSlices - 2) && (!(AtSouthBoundary)) && (!(AtEastBoundary))) {
-        int GNPosition = RankZ;
-        BufferSouthEastSend(GNPosition, 0) = GhostGID;
-        BufferSouthEastSend(GNPosition, 1) = GhostDOCX;
-        BufferSouthEastSend(GNPosition, 2) = GhostDOCY;
-        BufferSouthEastSend(GNPosition, 3) = GhostDOCZ;
-        BufferSouthEastSend(GNPosition, 4) = GhostDL;
-    }
-    if ((RankX == 1) && (RankY == 1) && (!(AtSouthBoundary)) && (!(AtWestBoundary))) {
-        int GNPosition = RankZ;
-        BufferSouthWestSend(GNPosition, 0) = GhostGID;
-        BufferSouthWestSend(GNPosition, 1) = GhostDOCX;
-        BufferSouthWestSend(GNPosition, 2) = GhostDOCY;
-        BufferSouthWestSend(GNPosition, 3) = GhostDOCZ;
-        BufferSouthWestSend(GNPosition, 4) = GhostDL;
-    }
-    if ((RankX == MyXSlices - 2) && (RankY == MyYSlices - 2) && (!(AtNorthBoundary)) && (!(AtEastBoundary))) {
-        int GNPosition = RankZ;
-        BufferNorthEastSend(GNPosition, 0) = GhostGID;
-        BufferNorthEastSend(GNPosition, 1) = GhostDOCX;
-        BufferNorthEastSend(GNPosition, 2) = GhostDOCY;
-        BufferNorthEastSend(GNPosition, 3) = GhostDOCZ;
-        BufferNorthEastSend(GNPosition, 4) = GhostDL;
-    }
-    if ((RankX == MyXSlices - 2) && (RankY == 1) && (!(AtNorthBoundary)) && (!(AtWestBoundary))) {
-        int GNPosition = RankZ;
-        BufferNorthWestSend(GNPosition, 0) = GhostGID;
-        BufferNorthWestSend(GNPosition, 1) = GhostDOCX;
-        BufferNorthWestSend(GNPosition, 2) = GhostDOCY;
-        BufferNorthWestSend(GNPosition, 3) = GhostDOCZ;
-        BufferNorthWestSend(GNPosition, 4) = GhostDL;
-    }
-}
-//*****************************************************************************/
-void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int cycle, int &nn, ViewI CellType,
-                ViewI NucleiLocations, ViewI NucleationTimes, ViewI GrainID, ViewF DOCenter, ViewI NeighborX,
-                ViewI NeighborY, ViewI NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
-                int NGrainOrientations, int PossibleNuclei_ThisRank, int ZBound_Low, int layernumber, ViewI LayerID) {
+    // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to
+    // be accounted for
+    Kokkos::parallel_for(
+        "CellCapture", LocalActiveDomainSize, KOKKOS_LAMBDA(const long int &D3D1ConvPosition) {
+            // Cells of interest for the CA
+            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankX = Rem / MyYSlices;
+            int RankY = Rem % MyYSlices;
+            int GlobalZ = RankZ + ZBound_Low;
+            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            int cellType = CellType(GlobalD3D1ConvPosition);
 
-    // Loop through local list of nucleation events - has the time step exceeded the time step for nucleation at the
-    // sites?
-    int NucleationThisDT = 0;
-    Kokkos::parallel_reduce(
-        "NucleiUpdateLoop", PossibleNuclei_ThisRank,
-        KOKKOS_LAMBDA(const int &NucCounter, int &update) {
-            if ((cycle >= NucleationTimes(NucCounter)) && (CellType(NucleiLocations(NucCounter)) == Liquid) &&
-                (LayerID(NucleiLocations(NucCounter)) <= layernumber)) {
-                // (X,Y,Z) coordinates of nucleation event, on active cell grid (RankX,RankY,RankZ) and global grid
-                // (RankX,RankY,GlobalZ)
-                long int GlobalD3D1ConvPosition = NucleiLocations(NucCounter);
-                CellType(GlobalD3D1ConvPosition) = TemporaryUpdate;
-                int GlobalZ = GlobalD3D1ConvPosition / (MyXSlices * MyYSlices);
-                int Rem = GlobalD3D1ConvPosition % (MyXSlices * MyYSlices);
-                int RankX = Rem / MyYSlices;
-                int RankY = Rem % MyYSlices;
-                int RankZ = GlobalZ - ZBound_Low;
-                int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                // This undercooled liquid cell is now a nuclei (add to count if it isn't in the ghost nodes, to avoid
-                // double counting)
+            int layerCheck = (LayerID(GlobalD3D1ConvPosition) <= layernumber);
+            int isNotSolid = (cellType != Solid);
+            int pastCritTime = (cycle > CritTimeStep(GlobalD3D1ConvPosition));
 
-                if ((RankX > 0) && (RankX < MyXSlices - 1) && (RankY > 0) && (RankY < MyYSlices - 1))
-                    update++;
+            int cell_Liquid = (cellType == Liquid);
+            int cell_Active = (cellType == Active);
+
+            if (layerCheck && isNotSolid && pastCritTime) {
+                UndercoolingCurrent(GlobalD3D1ConvPosition) +=
+                    UndercoolingChange(GlobalD3D1ConvPosition) * (cell_Liquid + cell_Active);
+                if (cell_Active) {
+                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = D3D1ConvPosition;
+                }
+            }
+        });
+    Kokkos::deep_copy(numSteer_H, numSteer_G);
+
+    Kokkos::parallel_for(
+        "CellCapture", numSteer_H(0), KOKKOS_LAMBDA(const int &num) {
+            numSteer_G(0) = 0;
+            int D3D1ConvPosition = SteeringVector(num);
+            // Cells of interest for the CA - active cells and future active cells
+            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankX = Rem / MyYSlices;
+            int RankY = Rem % MyYSlices;
+            int GlobalZ = RankZ + ZBound_Low;
+            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            if (CellType(GlobalD3D1ConvPosition) == Active) {
+                // Update local diagonal length of active cell
+                double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
+                LocU = min(210.0, LocU);
+                double V = AConst * pow(LocU, 3.0) + BConst * pow(LocU, 2.0) + CConst * LocU + DConst;
+                V = max(0.0, V);
+                DiagonalLength(D3D1ConvPosition) += min(0.045, V); // Max amount the diagonal can grow per time step
+                // Cycle through all neigboring cells on this processor to see if they have been captured
+                // Cells in ghost nodes cannot capture cells on other processors
+                int LCount = 0;
+                // Which neighbors should be iterated over?
+                for (int l = 0; l < 26; l++) {
+                    // Local coordinates of adjacent cell center
+                    int MyNeighborX = RankX + NeighborX(l);
+                    int MyNeighborY = RankY + NeighborY(l);
+                    int MyNeighborZ = RankZ + NeighborZ(l);
+                    // Check if neighbor is in bounds
+                    if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
+                        (MyNeighborY < MyYSlices) && (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
+                        long int NeighborD3D1ConvPosition =
+                            MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        long int GlobalNeighborD3D1ConvPosition =
+                            (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        if (CellType(GlobalNeighborD3D1ConvPosition) == Liquid)
+                            LCount = 1;
+                        // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
+                        if ((DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26 * D3D1ConvPosition + l)) &&
+                            (CellType(GlobalNeighborD3D1ConvPosition) == Liquid)) {
+                            // Use of atomic_compare_exchange
+                            // (https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_compare_exchange) old_val =
+                            // atomic_compare_exchange(ptr_to_value,comparison_value, new_value); Atomicly sets the
+                            // value at the address given by ptr_to_value to new_value if the current value at
+                            // ptr_to_value is equal to comparison_value Returns the previously stored value at the
+                            // address independent on whether the exchange has happened. If this cell's is a liquid
+                            // cell, change it to "TemporaryUpdate" type and return a value of "liquid" If this cell has
+                            // already been changed to "TemporaryUpdate" type, return a value of "0"
+                            int update_val = TemporaryUpdate;
+                            int old_val = Liquid;
+                            int OldCellTypeValue = Kokkos::atomic_compare_exchange(
+                                &CellType(GlobalNeighborD3D1ConvPosition), old_val, update_val);
+                            // Only proceed if CellType was previously liquid (this current thread changed the value to
+                            // TemporaryUpdate)
+                            if (OldCellTypeValue == Liquid) {
+                                int GlobalX = RankX + MyXOffset;
+                                int GlobalY = RankY + MyYOffset;
+                                int h = GrainID(GlobalD3D1ConvPosition);
+                                int MyOrientation = getGrainOrientation(h, NGrainOrientations);
+
+                                // The new cell is captured by this cell's growing octahedron (Grain "h")
+                                GrainID(GlobalNeighborD3D1ConvPosition) = h;
+
+                                // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
+                                double cxold = DOCenter((long int)(3) * D3D1ConvPosition);
+                                double cyold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
+                                double czold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
+
+                                // (xp,yp,zp) are the global coordinates of the new cell's center
+                                double xp = GlobalX + NeighborX(l) + 0.5;
+                                double yp = GlobalY + NeighborY(l) + 0.5;
+                                double zp = GlobalZ + NeighborZ(l) + 0.5;
+
+                                // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image
+                                // of the center of the new cell
+                                double x0 = xp - cxold;
+                                double y0 = yp - cyold;
+                                double z0 = zp - czold;
+
+                                // mag0 is the magnitude of (x0,y0,z0)
+                                double mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
+
+                                // Calculate unit vectors for the octahedron that intersect the new cell center
+                                double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+
+                                double Angle1 = (GrainUnitVector(9 * MyOrientation) * x0 +
+                                                 GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                                                 GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                                                mag0;
+                                double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
+                                                 GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                                                 GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                                                mag0;
+                                double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
+                                                 GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                                                 GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                                                mag0;
+
+                                Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
+                                Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
+                                Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
+
+                                Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
+                                Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
+                                Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
+
+                                Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
+                                Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
+                                Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
+
+                                double U1[3], U2[3], UU[3], Norm[3];
+                                U1[0] = Diag2X - Diag1X;
+                                U1[1] = Diag2Y - Diag1Y;
+                                U1[2] = Diag2Z - Diag1Z;
+                                U2[0] = Diag3X - Diag1X;
+                                U2[1] = Diag3Y - Diag1Y;
+                                U2[2] = Diag3Z - Diag1Z;
+                                UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                                UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                                UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                                double NDem = sqrtf(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                                Norm[0] = UU[0] / NDem;
+                                Norm[1] = UU[1] / NDem;
+                                Norm[2] = UU[2] / NDem;
+                                // normal to capturing plane
+                                double norm[3], TriangleX[3], TriangleY[3], TriangleZ[3], ParaT;
+                                norm[0] = Norm[0];
+                                norm[1] = Norm[1];
+                                norm[2] = Norm[2];
+                                ParaT = (norm[0] * x0 + norm[1] * y0 + norm[2] * z0) /
+                                        (norm[0] * Diag1X + norm[1] * Diag1Y + norm[2] * Diag1Z);
+
+                                TriangleX[0] = cxold + ParaT * Diag1X;
+                                TriangleY[0] = cyold + ParaT * Diag1Y;
+                                TriangleZ[0] = czold + ParaT * Diag1Z;
+
+                                TriangleX[1] = cxold + ParaT * Diag2X;
+                                TriangleY[1] = cyold + ParaT * Diag2Y;
+                                TriangleZ[1] = czold + ParaT * Diag2Z;
+
+                                TriangleX[2] = cxold + ParaT * Diag3X;
+                                TriangleY[2] = cyold + ParaT * Diag3Y;
+                                TriangleZ[2] = czold + ParaT * Diag3Z;
+
+                                // Determine which of the 3 corners of the capturing face is closest to the captured
+                                // cell center
+                                double DistToCorner[3];
+                                DistToCorner[0] = sqrtf(((TriangleX[0] - xp) * (TriangleX[0] - xp)) +
+                                                        ((TriangleY[0] - yp) * (TriangleY[0] - yp)) +
+                                                        ((TriangleZ[0] - zp) * (TriangleZ[0] - zp)));
+                                DistToCorner[1] = sqrtf(((TriangleX[1] - xp) * (TriangleX[1] - xp)) +
+                                                        ((TriangleY[1] - yp) * (TriangleY[1] - yp)) +
+                                                        ((TriangleZ[1] - zp) * (TriangleZ[1] - zp)));
+                                DistToCorner[2] = sqrtf(((TriangleX[2] - xp) * (TriangleX[2] - xp)) +
+                                                        ((TriangleY[2] - yp) * (TriangleY[2] - yp)) +
+                                                        ((TriangleZ[2] - zp) * (TriangleZ[2] - zp)));
+
+                                int x, y, z;
+                                x = (DistToCorner[0] < DistToCorner[1]);
+                                y = (DistToCorner[1] < DistToCorner[2]);
+                                z = (DistToCorner[2] < DistToCorner[0]);
+
+                                int idx = 2 * (z - y) * z + (y - x) * y;
+                                double mindisttocorner, xc, yc, zc;
+
+                                mindisttocorner = DistToCorner[idx];
+                                xc = TriangleX[idx], yc = TriangleY[idx], zc = TriangleZ[idx];
+
+                                double x1, y1, z1, x2, y2, z2;
+                                x1 = TriangleX[(idx + 1) % 3], y1 = TriangleY[(idx + 1) % 3],
+                                z1 = TriangleZ[(idx + 1) % 3];
+                                x2 = TriangleX[(idx + 2) % 3], y2 = TriangleY[(idx + 2) % 3],
+                                z2 = TriangleZ[(idx + 2) % 3];
+
+                                double D1 =
+                                    sqrtf(((xp - x2) * (xp - x2)) + ((yp - y2) * (yp - y2)) + ((zp - z2) * (zp - z2)));
+                                double D2 =
+                                    sqrtf(((xc - x2) * (xc - x2)) + ((yc - y2) * (yc - y2)) + ((zc - z2) * (zc - z2)));
+                                double D3 =
+                                    sqrtf(((xp - x1) * (xp - x1)) + ((yp - y1) * (yp - y1)) + ((zp - z1) * (zp - z1)));
+                                double D4 =
+                                    sqrtf(((xc - x1) * (xc - x1)) + ((yc - y1) * (yc - y1)) + ((zc - z1) * (zc - z1)));
+
+                                double I1, I2, J1, J2;
+                                I1 = 0;
+                                I2 = D2;
+                                J1 = 0;
+                                J2 = D4;
+                                // If minimum distance to corner = 0, the octahedron corner captured the new cell center
+                                if (mindisttocorner != 0) {
+                                    I1 = D1 * ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
+                                         (D1 * D2);
+                                    I2 = D2 - I1;
+                                    J1 = D3 * ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
+                                         (D3 * D4);
+                                    J2 = D4 - J1;
+                                }
+                                double L12 = 0.5 * (min(I1, sqrt(3.0)) + min(I2, sqrt(3.0)));
+                                double L13 = 0.5 * (min(J1, sqrt(3.0)) + min(J2, sqrt(3.0)));
+                                double NewODiagL = sqrt(2.0) * max(L12, L13); // half diagonal length of new octahedron
+
+                                DiagonalLength(NeighborD3D1ConvPosition) = NewODiagL;
+                                // Calculate coordinates of new decentered octahedron center
+                                double CaptDiag[3], CaptDiagUV[3];
+                                CaptDiag[0] = xc - cxold;
+                                CaptDiag[1] = yc - cyold;
+                                CaptDiag[2] = zc - czold;
+
+                                NDem = sqrt(CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] +
+                                            CaptDiag[2] * CaptDiag[2]);
+                                CaptDiagUV[0] = CaptDiag[0] / NDem;
+                                CaptDiagUV[1] = CaptDiag[1] / NDem;
+                                CaptDiagUV[2] = CaptDiag[2] / NDem;
+                                // (cx, cy, cz) are the coordiantes of the new active cell's decentered octahedron
+                                double cx = xc - NewODiagL * CaptDiagUV[0];
+                                double cy = yc - NewODiagL * CaptDiagUV[1];
+                                double cz = zc - NewODiagL * CaptDiagUV[2];
+
+                                DOCenter((long int)(3) * NeighborD3D1ConvPosition) = cx;
+                                DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(1)) = cy;
+                                DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(2)) = cz;
+
+                                // Calculate critical octahedron diagonal length to activate nearest neighbor.
+                                // First, calculate the unique planes (4) associated with all octahedron faces (8)
+                                // Then just look at distance between face and the point of interest (cell center of
+                                // neighbor). The critical diagonal length will be the maximum of these (since all other
+                                // planes will have passed over the point by then
+                                // ... meaning it must be in the octahedron)
+
+                                double Fx[4], Fy[4], Fz[4], D[4], Dfabs;
+
+                                Fx[0] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) +
+                                        GrainUnitVector(9 * MyOrientation + 6);
+                                Fx[1] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) +
+                                        GrainUnitVector(9 * MyOrientation + 6);
+                                Fx[2] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) -
+                                        GrainUnitVector(9 * MyOrientation + 6);
+                                Fx[3] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) -
+                                        GrainUnitVector(9 * MyOrientation + 6);
+
+                                Fy[0] = GrainUnitVector(9 * MyOrientation + 1) +
+                                        GrainUnitVector(9 * MyOrientation + 4) + GrainUnitVector(9 * MyOrientation + 7);
+                                Fy[1] = GrainUnitVector(9 * MyOrientation + 1) -
+                                        GrainUnitVector(9 * MyOrientation + 4) + GrainUnitVector(9 * MyOrientation + 7);
+                                Fy[2] = GrainUnitVector(9 * MyOrientation + 1) +
+                                        GrainUnitVector(9 * MyOrientation + 4) - GrainUnitVector(9 * MyOrientation + 7);
+                                Fy[3] = GrainUnitVector(9 * MyOrientation + 1) -
+                                        GrainUnitVector(9 * MyOrientation + 4) - GrainUnitVector(9 * MyOrientation + 7);
+
+                                Fz[0] = GrainUnitVector(9 * MyOrientation + 2) +
+                                        GrainUnitVector(9 * MyOrientation + 5) + GrainUnitVector(9 * MyOrientation + 8);
+                                Fz[1] = GrainUnitVector(9 * MyOrientation + 2) -
+                                        GrainUnitVector(9 * MyOrientation + 5) + GrainUnitVector(9 * MyOrientation + 8);
+                                Fz[2] = GrainUnitVector(9 * MyOrientation + 2) +
+                                        GrainUnitVector(9 * MyOrientation + 5) - GrainUnitVector(9 * MyOrientation + 8);
+                                Fz[3] = GrainUnitVector(9 * MyOrientation + 2) -
+                                        GrainUnitVector(9 * MyOrientation + 5) - GrainUnitVector(9 * MyOrientation + 8);
+
+                                for (int n = 0; n < 26; n++) {
+                                    double x0 = xp + NeighborX[n] - cx;
+                                    double y0 = yp + NeighborY[n] - cy;
+                                    double z0 = zp + NeighborZ[n] - cz;
+                                    D[0] = x0 * Fx[0] + y0 * Fy[0] + z0 * Fz[0];
+                                    D[1] = x0 * Fx[1] + y0 * Fy[1] + z0 * Fz[1];
+                                    D[2] = x0 * Fx[2] + y0 * Fy[2] + z0 * Fz[2];
+                                    D[3] = x0 * Fx[3] + y0 * Fy[3] + z0 * Fz[3];
+                                    Dfabs = max(max(fabs(D[0]), fabs(D[1])), max(fabs(D[2]), fabs(D[3])));
+                                    CritDiagonalLength((long int)(26) * NeighborD3D1ConvPosition + (long int)(n)) =
+                                        Dfabs;
+                                }
+
+                                if (np > 1) {
+
+                                    float GhostGID = h;
+                                    float GhostDOCX = cx;
+                                    float GhostDOCY = cy;
+                                    float GhostDOCZ = cz;
+                                    float GhostDL = NewODiagL;
+                                    // Collect data for the ghost nodes, if necessary
+                                    if (DecompositionStrategy == 1)
+                                        loadghostnodes_1D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
+                                                          MyYSlices, RankX, RankY, RankZ, AtNorthBoundary,
+                                                          AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                                    else
+                                        loadghostnodes_2D(
+                                            GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
+                                            MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                            AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend,
+                                            BufferWestSend, BufferEastSend, BufferNorthEastSend, BufferSouthEastSend,
+                                            BufferSouthWestSend, BufferNorthWestSend);
+                                } // End if statement for serial/parallel code
+                                // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
+                                // Diagonal Length values have been assigned to it Avoids the race condition in which
+                                // the new cell is activated, and another thread acts on the new active cell before the
+                                // cell's new critical diagonal length/triangle index/diagonal length values are
+                                // assigned
+                                CellType(GlobalNeighborD3D1ConvPosition) = Active;
+                            } // End if statement within locked capture loop
+                        }     // End if statement for outer capture loop
+                    }         // End if statement over neighbors on the active grid
+                }             // End loop over all neighbors of this active cell
+                if (LCount == 0) {
+                    // This active cell has no more neighboring cells to be captured, becomes solid
+                    CellType(GlobalD3D1ConvPosition) = Solid;
+                }
+            }
+            else if (CellType(GlobalD3D1ConvPosition) == FutureActive) {
+                // Successful nucleation event - this cell is becoming a new active cell
+                CellType(GlobalD3D1ConvPosition) = TemporaryUpdate; // avoid operating on the new active cell before its
+                                                                    // associated octahedron data is initialized
+
+                // Location of this cell on the global grid
                 int GlobalX = RankX + MyXOffset;
                 int GlobalY = RankY + MyYOffset;
-                int MyGrainID = GrainID(GlobalD3D1ConvPosition);
+                int MyGrainID = GrainID(GlobalD3D1ConvPosition); // GrainID was assigned as part of Nucleation
 
                 DiagonalLength(D3D1ConvPosition) = 0.01;
                 long int DOX = (long int)(3) * D3D1ConvPosition;
@@ -293,354 +579,29 @@ void Nucleation(int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int 
                         pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
                     long int CDLIndex = (long int)(26) * D3D1ConvPosition + (long int)(n);
                     CritDiagonalLength(CDLIndex) = CDLVal;
+                    // printf("Nucleated grain with id %d has CDL %d = %f \n",MyGrainID,n,CDLVal);
                 }
+                if (np > 1) {
+
+                    float GhostGID = MyGrainID;
+                    float GhostDOCX = GlobalX + 0.5;
+                    float GhostDOCY = GlobalY + 0.5;
+                    float GhostDOCZ = GlobalZ + 0.5;
+                    float GhostDL = 0.01;
+                    // Collect data for the ghost nodes, if necessary
+                    if (DecompositionStrategy == 1)
+                        loadghostnodes_1D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices,
+                                          RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                                          BufferNorthSend);
+                    else
+                        loadghostnodes_2D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
+                                          MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                          AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend,
+                                          BufferWestSend, BufferEastSend, BufferNorthEastSend, BufferSouthEastSend,
+                                          BufferSouthWestSend, BufferNorthWestSend);
+                } // End if statement for serial/parallel code
+                // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
                 CellType(GlobalD3D1ConvPosition) = Active;
-            }
-        },
-        NucleationThisDT);
-    nn += NucleationThisDT;
-}
-
-//*****************************************************************************/
-// Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int, int MyXSlices,
-                 int MyYSlices, double AConst, double BConst, double CConst, double DConst, int MyXOffset,
-                 int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CritTimeStep,
-                 ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength,
-                 ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations,
-                 Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                 Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
-                 Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int,
-                 int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H,
-                 bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary) {
-
-    // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to
-    // be accounted for
-    Kokkos::parallel_for(
-        "CellCapture", LocalActiveDomainSize, KOKKOS_LAMBDA(const long int &D3D1ConvPosition) {
-            // Cells of interest for the CA
-            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
-            int RankX = Rem / MyYSlices;
-            int RankY = Rem % MyYSlices;
-            int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-            int cellType = CellType(GlobalD3D1ConvPosition);
-
-            int layerCheck = (LayerID(GlobalD3D1ConvPosition) <= layernumber);
-            int isNotSolid = (cellType != Solid);
-            int pastCritTime = (cycle > CritTimeStep(GlobalD3D1ConvPosition));
-
-            int cell_Liquid = (cellType == Liquid);
-            int cell_Active = (cellType == Active);
-
-            if (layerCheck && isNotSolid && pastCritTime) {
-                UndercoolingCurrent(GlobalD3D1ConvPosition) +=
-                    UndercoolingChange(GlobalD3D1ConvPosition) * (cell_Liquid + cell_Active);
-                if (cell_Active) {
-                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = D3D1ConvPosition;
-                }
-            }
-        });
-    Kokkos::deep_copy(numSteer_H, numSteer_G);
-
-    Kokkos::parallel_for(
-        "CellCapture", numSteer_H(0), KOKKOS_LAMBDA(const int &num) {
-            numSteer_G(0) = 0;
-            int D3D1ConvPosition = SteeringVector(num);
-            // Cells of interest for the CA
-            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
-            int RankX = Rem / MyYSlices;
-            int RankY = Rem % MyYSlices;
-            int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-            // Update local diagonal length of active cell
-            double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
-            LocU = min(210.0, LocU);
-            double V = AConst * pow(LocU, 3.0) + BConst * pow(LocU, 2.0) + CConst * LocU + DConst;
-            V = max(0.0, V);
-            DiagonalLength(D3D1ConvPosition) += min(0.045, V); // Max amount the diagonal can grow per time step
-            // Cycle through all neigboring cells on this processor to see if they have been captured
-            // Cells in ghost nodes cannot capture cells on other processors
-            int LCount = 0;
-            // Which neighbors should be iterated over?
-            for (int l = 0; l < 26; l++) {
-                // Local coordinates of adjacent cell center
-                int MyNeighborX = RankX + NeighborX(l);
-                int MyNeighborY = RankY + NeighborY(l);
-                int MyNeighborZ = RankZ + NeighborZ(l);
-                // Check if neighbor is in bounds
-                if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
-                    (MyNeighborY < MyYSlices) && (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
-                    long int NeighborD3D1ConvPosition =
-                        MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                    long int GlobalNeighborD3D1ConvPosition =
-                        (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                    if (CellType(GlobalNeighborD3D1ConvPosition) == Liquid)
-                        LCount = 1;
-                    // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
-                    if ((DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26 * D3D1ConvPosition + l)) &&
-                        (CellType(GlobalNeighborD3D1ConvPosition) == Liquid)) {
-                        // Use of atomic_compare_exchange
-                        // (https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_compare_exchange) old_val =
-                        // atomic_compare_exchange(ptr_to_value,comparison_value, new_value); Atomicly sets the value at
-                        // the address given by ptr_to_value to new_value if the current value at ptr_to_value is equal
-                        // to comparison_value Returns the previously stored value at the address independent on whether
-                        // the exchange has happened. If this cell's is a liquid cell, change it to "TemporaryUpdate"
-                        // type and return a value of "liquid" If this cell has already been changed to
-                        // "TemporaryUpdate" type, return a value of "0"
-                        int update_val = TemporaryUpdate;
-                        int old_val = Liquid;
-                        int OldCellTypeValue = Kokkos::atomic_compare_exchange(
-                            &CellType(GlobalNeighborD3D1ConvPosition), old_val, update_val);
-                        // Only proceed if CellType was previously liquid (this current thread changed the value to
-                        // TemporaryUpdate)
-                        if (OldCellTypeValue == Liquid) {
-                            int GlobalX = RankX + MyXOffset;
-                            int GlobalY = RankY + MyYOffset;
-                            int h = GrainID(GlobalD3D1ConvPosition);
-                            int MyOrientation = getGrainOrientation(h, NGrainOrientations);
-
-                            // The new cell is captured by this cell's growing octahedron (Grain "h")
-                            GrainID(GlobalNeighborD3D1ConvPosition) = h;
-                            // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
-                            double cxold = DOCenter((long int)(3) * D3D1ConvPosition);
-                            double cyold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
-                            double czold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
-
-                            // (xp,yp,zp) are the global coordinates of the new cell's center
-                            double xp = GlobalX + NeighborX(l) + 0.5;
-                            double yp = GlobalY + NeighborY(l) + 0.5;
-                            double zp = GlobalZ + NeighborZ(l) + 0.5;
-
-                            // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
-                            // the center of the new cell
-                            double x0 = xp - cxold;
-                            double y0 = yp - cyold;
-                            double z0 = zp - czold;
-
-                            // mag0 is the magnitude of (x0,y0,z0)
-                            double mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
-
-                            // Calculate unit vectors for the octahedron that intersect the new cell center
-                            double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-
-                            double Angle1 =
-                                (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                                 GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                                mag0;
-                            double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
-                                             GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                                             GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                                            mag0;
-                            double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
-                                             GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                                             GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                                            mag0;
-
-                            Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
-                            Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
-                            Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
-
-                            Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
-                            Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
-                            Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
-
-                            Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
-                            Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
-                            Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
-
-                            double U1[3], U2[3], UU[3], Norm[3];
-                            U1[0] = Diag2X - Diag1X;
-                            U1[1] = Diag2Y - Diag1Y;
-                            U1[2] = Diag2Z - Diag1Z;
-                            U2[0] = Diag3X - Diag1X;
-                            U2[1] = Diag3Y - Diag1Y;
-                            U2[2] = Diag3Z - Diag1Z;
-                            UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                            UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                            UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                            double NDem = sqrtf(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-                            Norm[0] = UU[0] / NDem;
-                            Norm[1] = UU[1] / NDem;
-                            Norm[2] = UU[2] / NDem;
-                            // normal to capturing plane
-                            double norm[3], TriangleX[3], TriangleY[3], TriangleZ[3], ParaT;
-                            norm[0] = Norm[0];
-                            norm[1] = Norm[1];
-                            norm[2] = Norm[2];
-                            ParaT = (norm[0] * x0 + norm[1] * y0 + norm[2] * z0) /
-                                    (norm[0] * Diag1X + norm[1] * Diag1Y + norm[2] * Diag1Z);
-
-                            TriangleX[0] = cxold + ParaT * Diag1X;
-                            TriangleY[0] = cyold + ParaT * Diag1Y;
-                            TriangleZ[0] = czold + ParaT * Diag1Z;
-
-                            TriangleX[1] = cxold + ParaT * Diag2X;
-                            TriangleY[1] = cyold + ParaT * Diag2Y;
-                            TriangleZ[1] = czold + ParaT * Diag2Z;
-
-                            TriangleX[2] = cxold + ParaT * Diag3X;
-                            TriangleY[2] = cyold + ParaT * Diag3Y;
-                            TriangleZ[2] = czold + ParaT * Diag3Z;
-
-                            // Determine which of the 3 corners of the capturing face is closest to the captured cell
-                            // center
-                            double DistToCorner[3];
-                            DistToCorner[0] = sqrtf(((TriangleX[0] - xp) * (TriangleX[0] - xp)) +
-                                                    ((TriangleY[0] - yp) * (TriangleY[0] - yp)) +
-                                                    ((TriangleZ[0] - zp) * (TriangleZ[0] - zp)));
-                            DistToCorner[1] = sqrtf(((TriangleX[1] - xp) * (TriangleX[1] - xp)) +
-                                                    ((TriangleY[1] - yp) * (TriangleY[1] - yp)) +
-                                                    ((TriangleZ[1] - zp) * (TriangleZ[1] - zp)));
-                            DistToCorner[2] = sqrtf(((TriangleX[2] - xp) * (TriangleX[2] - xp)) +
-                                                    ((TriangleY[2] - yp) * (TriangleY[2] - yp)) +
-                                                    ((TriangleZ[2] - zp) * (TriangleZ[2] - zp)));
-
-                            int x, y, z;
-                            x = (DistToCorner[0] < DistToCorner[1]);
-                            y = (DistToCorner[1] < DistToCorner[2]);
-                            z = (DistToCorner[2] < DistToCorner[0]);
-
-                            int idx = 2 * (z - y) * z + (y - x) * y;
-                            double mindisttocorner, xc, yc, zc;
-
-                            mindisttocorner = DistToCorner[idx];
-                            xc = TriangleX[idx], yc = TriangleY[idx], zc = TriangleZ[idx];
-
-                            double x1, y1, z1, x2, y2, z2;
-                            x1 = TriangleX[(idx + 1) % 3], y1 = TriangleY[(idx + 1) % 3], z1 = TriangleZ[(idx + 1) % 3];
-                            x2 = TriangleX[(idx + 2) % 3], y2 = TriangleY[(idx + 2) % 3], z2 = TriangleZ[(idx + 2) % 3];
-
-                            double D1 =
-                                sqrtf(((xp - x2) * (xp - x2)) + ((yp - y2) * (yp - y2)) + ((zp - z2) * (zp - z2)));
-                            double D2 =
-                                sqrtf(((xc - x2) * (xc - x2)) + ((yc - y2) * (yc - y2)) + ((zc - z2) * (zc - z2)));
-                            double D3 =
-                                sqrtf(((xp - x1) * (xp - x1)) + ((yp - y1) * (yp - y1)) + ((zp - z1) * (zp - z1)));
-                            double D4 =
-                                sqrtf(((xc - x1) * (xc - x1)) + ((yc - y1) * (yc - y1)) + ((zc - z1) * (zc - z1)));
-
-                            double I1, I2, J1, J2;
-                            I1 = 0;
-                            I2 = D2;
-                            J1 = 0;
-                            J2 = D4;
-                            // If minimum distance to corner = 0, the octahedron corner captured the new cell center
-                            if (mindisttocorner != 0) {
-                                I1 = D1 * ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
-                                     (D1 * D2);
-                                I2 = D2 - I1;
-                                J1 = D3 * ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
-                                     (D3 * D4);
-                                J2 = D4 - J1;
-                            }
-                            double L12 = 0.5 * (min(I1, sqrt(3.0)) + min(I2, sqrt(3.0)));
-                            double L13 = 0.5 * (min(J1, sqrt(3.0)) + min(J2, sqrt(3.0)));
-                            double NewODiagL = sqrt(2.0) * max(L12, L13); // half diagonal length of new octahedron
-
-                            DiagonalLength(NeighborD3D1ConvPosition) = NewODiagL;
-                            // Calculate coordinates of new decentered octahedron center
-                            double CaptDiag[3], CaptDiagUV[3];
-                            CaptDiag[0] = xc - cxold;
-                            CaptDiag[1] = yc - cyold;
-                            CaptDiag[2] = zc - czold;
-
-                            NDem =
-                                sqrt(CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] + CaptDiag[2] * CaptDiag[2]);
-                            CaptDiagUV[0] = CaptDiag[0] / NDem;
-                            CaptDiagUV[1] = CaptDiag[1] / NDem;
-                            CaptDiagUV[2] = CaptDiag[2] / NDem;
-                            // (cx, cy, cz) are the coordiantes of the new active cell's decentered octahedron
-                            double cx = xc - NewODiagL * CaptDiagUV[0];
-                            double cy = yc - NewODiagL * CaptDiagUV[1];
-                            double cz = zc - NewODiagL * CaptDiagUV[2];
-
-                            DOCenter((long int)(3) * NeighborD3D1ConvPosition) = cx;
-                            DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(1)) = cy;
-                            DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(2)) = cz;
-
-                            // Calculate critical octahedron diagonal length to activate nearest neighbor.
-                            // First, calculate the unique planes (4) associated with all octahedron faces (8)
-                            // Then just look at distance between face and the point of interest (cell center of
-                            // neighbor). The critical diagonal length will be the maximum of these (since all other
-                            // planes will have passed over the point by then
-                            // ... meaning it must be in the octahedron)
-
-                            double Fx[4], Fy[4], Fz[4], D[4], Dfabs;
-
-                            Fx[0] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) +
-                                    GrainUnitVector(9 * MyOrientation + 6);
-                            Fx[1] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) +
-                                    GrainUnitVector(9 * MyOrientation + 6);
-                            Fx[2] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) -
-                                    GrainUnitVector(9 * MyOrientation + 6);
-                            Fx[3] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) -
-                                    GrainUnitVector(9 * MyOrientation + 6);
-
-                            Fy[0] = GrainUnitVector(9 * MyOrientation + 1) + GrainUnitVector(9 * MyOrientation + 4) +
-                                    GrainUnitVector(9 * MyOrientation + 7);
-                            Fy[1] = GrainUnitVector(9 * MyOrientation + 1) - GrainUnitVector(9 * MyOrientation + 4) +
-                                    GrainUnitVector(9 * MyOrientation + 7);
-                            Fy[2] = GrainUnitVector(9 * MyOrientation + 1) + GrainUnitVector(9 * MyOrientation + 4) -
-                                    GrainUnitVector(9 * MyOrientation + 7);
-                            Fy[3] = GrainUnitVector(9 * MyOrientation + 1) - GrainUnitVector(9 * MyOrientation + 4) -
-                                    GrainUnitVector(9 * MyOrientation + 7);
-
-                            Fz[0] = GrainUnitVector(9 * MyOrientation + 2) + GrainUnitVector(9 * MyOrientation + 5) +
-                                    GrainUnitVector(9 * MyOrientation + 8);
-                            Fz[1] = GrainUnitVector(9 * MyOrientation + 2) - GrainUnitVector(9 * MyOrientation + 5) +
-                                    GrainUnitVector(9 * MyOrientation + 8);
-                            Fz[2] = GrainUnitVector(9 * MyOrientation + 2) + GrainUnitVector(9 * MyOrientation + 5) -
-                                    GrainUnitVector(9 * MyOrientation + 8);
-                            Fz[3] = GrainUnitVector(9 * MyOrientation + 2) - GrainUnitVector(9 * MyOrientation + 5) -
-                                    GrainUnitVector(9 * MyOrientation + 8);
-
-                            for (int n = 0; n < 26; n++) {
-                                double x0 = xp + NeighborX[n] - cx;
-                                double y0 = yp + NeighborY[n] - cy;
-                                double z0 = zp + NeighborZ[n] - cz;
-                                D[0] = x0 * Fx[0] + y0 * Fy[0] + z0 * Fz[0];
-                                D[1] = x0 * Fx[1] + y0 * Fy[1] + z0 * Fz[1];
-                                D[2] = x0 * Fx[2] + y0 * Fy[2] + z0 * Fz[2];
-                                D[3] = x0 * Fx[3] + y0 * Fy[3] + z0 * Fz[3];
-                                Dfabs = max(max(fabs(D[0]), fabs(D[1])), max(fabs(D[2]), fabs(D[3])));
-                                CritDiagonalLength((long int)(26) * NeighborD3D1ConvPosition + (long int)(n)) = Dfabs;
-                            }
-
-                            if (np > 1) {
-
-                                float GhostGID = h;
-                                float GhostDOCX = cx;
-                                float GhostDOCY = cy;
-                                float GhostDOCZ = cz;
-                                float GhostDL = NewODiagL;
-                                // Collect data for the ghost nodes, if necessary
-                                if (DecompositionStrategy == 1)
-                                    loadghostnodes_1D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
-                                                      MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
-                                                      BufferSouthSend, BufferNorthSend);
-                                else
-                                    loadghostnodes_2D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
-                                                      BufSizeY, MyXSlices, MyYSlices, RankX, RankY, RankZ,
-                                                      AtNorthBoundary, AtSouthBoundary, AtWestBoundary, AtEastBoundary,
-                                                      BufferSouthSend, BufferNorthSend, BufferWestSend, BufferEastSend,
-                                                      BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
-                                                      BufferNorthWestSend);
-                            } // End if statement for serial/parallel code
-                            // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
-                            // Diagonal Length values have been assigned to it Avoids the race condition in which the
-                            // new cell is activated, and another thread acts on the new active cell before the cell's
-                            // new critical diagonal length/triangle index/diagonal length values are assigned
-                            CellType(GlobalNeighborD3D1ConvPosition) = Active;
-                        } // End if statement within locked capture loop
-                    }     // End if statement for outer capture loop
-                }         // End if statement over neighbors on the active grid
-            }             // End loop over all neighbors of this active cell
-            if (LCount == 0) {
-                // This active cell has no more neighboring cells to be captured, becomes solid
-                CellType(GlobalD3D1ConvPosition) = Solid;
             }
         });
     Kokkos::fence();
@@ -651,11 +612,11 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
                                 int LocalDomainSize, int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive,
                                 double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
-                                int ProcessorsInXDirection, int ProcessorsInYDirection, int nn, int &XSwitch,
-                                ViewI CellType, ViewI_H CellType_H, ViewI CritTimeStep, ViewI_H CritTimeStep_H,
-                                ViewI GrainID, ViewI_H GrainID_H, std::string TemperatureDataType, int *FinishTimeStep,
-                                int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
-                                ViewI LayerID, ViewI_H LayerID_H, ViewF_H GrainUnitVector_H,
+                                int ProcessorsInXDirection, int ProcessorsInYDirection,
+                                int SuccessfulNucEvents_ThisRank, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
+                                ViewI_H CritTimeStep_H, ViewI GrainID, std::string TemperatureDataType,
+                                int *FinishTimeStep, int layernumber, int, int ZBound_Low, int NGrainOrientations,
+                                bool *Melted, ViewI LayerID, ViewI_H LayerID_H, ViewF_H GrainUnitVector_H,
                                 ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
                                 std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
                                 int &IntermediateFileCounter, int NumberOfLayers) {
@@ -671,8 +632,16 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                     else
                         upd.the_array[1] += 1;
                 }
-                else if (CellType(D3D1ConvPosition) == Active)
+                else if (CellType(D3D1ConvPosition) == Active) {
                     upd.the_array[2] += 1;
+                    if (GrainID(D3D1ConvPosition) == 0) {
+                        int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+                        int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+                        int RankX = Rem / MyYSlices;
+                        int RankY = Rem % MyYSlices;
+                        printf("GID at %d %d %d is 0 \n", RankX, RankY, RankZ);
+                    }
+                }
                 else if (CellType(D3D1ConvPosition) == Solid)
                     upd.the_array[3] += 1;
             }
@@ -682,7 +651,7 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
             }
         },
         Kokkos::Sum<sample::ValueType>(CellTypeStorage));
-    unsigned long int Global_nn = 0;
+    unsigned long int Global_SuccessfulNucEvents_ThisRank = 0;
     unsigned long int LocalSuperheatedCells = CellTypeStorage.the_array[0];
     unsigned long int LocalUndercooledCells = CellTypeStorage.the_array[1];
     unsigned long int LocalActiveCells = CellTypeStorage.the_array[2];
@@ -697,12 +666,13 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
     MPI_Reduce(&LocalSolidCells, &GlobalSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&LocalRemainingLiquidCells, &GlobalRemainingLiquidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0,
                MPI_COMM_WORLD);
-    MPI_Reduce(&nn, &Global_nn, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&SuccessfulNucEvents_ThisRank, &Global_SuccessfulNucEvents_ThisRank, 1, MPI_INT, MPI_SUM, 0,
+               MPI_COMM_WORLD);
 
     if (id == 0) {
         std::cout << "cycle = " << cycle << " Superheated liquid cells = " << GlobalSuperheatedCells
                   << " Undercooled liquid cells = " << GlobalUndercooledCells
-                  << " Number of nucleation events this layer " << Global_nn
+                  << " Number of nucleation events this layer " << Global_SuccessfulNucEvents_ThisRank
                   << " Remaining liquid cells in future layers of this simulation = " << GlobalRemainingLiquidCells
                   << std::endl;
         if (GlobalSuperheatedCells + GlobalUndercooledCells == 0)
@@ -741,11 +711,11 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                     for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextCTS; cycle_jump++) {
                         if (cycle_jump % MovieFrameInc == 0) {
                             // Print current state of ExaCA simulation (up to and including the current layer's data)
-                            Kokkos::deep_copy(GrainID_H, GrainID);
-                            Kokkos::deep_copy(CellType_H, CellType);
+                            // Host mirrors of CellType and GrainID are not maintained - pass device views and perform
+                            // copy inside of subroutine
                             PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-                                           ProcessorsInXDirection, ProcessorsInYDirection, GrainID_H, CritTimeStep_H,
-                                           GrainUnitVector_H, LayerID_H, CellType_H, UndercoolingChange_H,
+                                           ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep_H,
+                                           GrainUnitVector_H, LayerID_H, CellType, UndercoolingChange_H,
                                            UndercoolingCurrent_H, OutputFile, DecompositionStrategy, NGrainOrientations,
                                            Melted, PathToOutput, 0, false, false, false, true, false,
                                            IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,

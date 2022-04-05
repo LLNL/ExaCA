@@ -24,7 +24,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
                        bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
                        bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                       bool &PrintDefaultRVE);
+                       bool &PrintDefaultRVE, double &RNGSeed);
 void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ);
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
                    std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
@@ -56,35 +56,39 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                       int &ZBound_High, int *FinishTimeStep, double FreezingRange, ViewI_H LayerID, int *FirstValue,
                       int *LastValue, std::vector<double> RawData);
 void OrientationInit(int id, int NGrainOrientations, ViewF_H GrainUnitVector, std::string GrainOrientationFile);
-void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx, int ny,
-                                     int nz, int MyXOffset, int MyYOffset, int pid, int np, ViewI_H CellType,
-                                     ViewI_H GrainID);
+void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx,
+                                     int ny, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY,
+                                     ViewI NeighborZ, ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType,
+                                     ViewI GrainID, ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength,
+                                     double RNGSeed);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
-                            int MyYOffset, int pid, ViewI_H GrainID);
-void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int nz, int nzActive, int MyXSlices,
-                                    int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, int pid,
-                                    int np, double deltax, ViewI_H GrainID);
-void ActiveCellInit(int id, int MyXSlices, int MyYSlices, int nz, ViewI_H CellType, ViewI_H CritTimeStep,
-                    ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ);
-void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrategy, int nx, int ny,
-               int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np,
-               int NeighborRank_North, int NeighborRank_South, int NeighborRank_East, int NeighborRank_West,
-               int NeighborRank_NorthEast, int NeighborRank_NorthWest, int NeighborRank_SouthEast,
-               int NeighborRank_SouthWest, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
-               ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H GrainID,
-               ViewF_H CritDiagonalLength, ViewF_H DOCenter, double deltax, double NMax,
-               int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low,
-               ViewI_H LayerID);
-void NucleiInit(int layernumber, int DecompositionStrategy, int MyXSlices, int MyYSlices, int ZBound_Low,
-                int LocalActiveDomainSize, int id, double dTN, double dTsigma, int NeighborRank_North,
-                int NeighborRank_South, int NeighborRank_East, int NeighborRank_West, int NeighborRank_NorthEast,
-                int NeighborRank_NorthWest, int NeighborRank_SouthEast, int NeighborRank_SouthWest,
-                ViewI_H NucleiLocation, ViewI_H NucleationTimes, ViewI_H CellType, ViewI_H GrainID,
-                ViewI_H CritTimeStep, ViewF_H UndercoolingChange);
+                            int MyYOffset, int pid, ViewI GrainID);
+void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int LocalActiveDomainSize,
+                                    int nzActive, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id,
+                                    double deltax, ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID);
+void PowderInit(int layernumber, int nx, int ny, int LayerHeight, int ZBound_Low, int nzActive, int MyXSlices,
+                int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
+                int &NextLayer_FirstEpitaxialGrainID);
+void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, int MyXSlices, int MyYSlices,
+                  int MyXOffset, int MyYOffset, int ZBound_Low, int nz, int LocalActiveDomainSize, int LocalDomainSize,
+                  ViewI CellType, ViewI CritTimeStep, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
+                  int NGrainOrientations, ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID,
+                  ViewF CritDiagonalLength, ViewF DOCenter, ViewI LayerID, Buffer2D BufferWestSend,
+                  Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                  Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                  Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary,
+                  bool AtEastBoundary, bool AtWestBoundary);
+void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nx,
+                int ny, int nzActive, int LocalActiveDomainSize, int LocalDomainSize, int ZBound_Low, int id,
+                double NMax, double dTN, double dTsigma, double deltax, ViewI NucleiLocation_G,
+                ViewI_H NucleationTimes_H, ViewI NucleiGrainID_G, ViewI CellType_Device, ViewI CritTimeStep_Device,
+                ViewF UndercoolingChange_Device, ViewI LayerID_Device, int &PossibleNuclei_ThisRankThisLayer,
+                int &Nuclei_WholeDomain, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
+                bool AtWestBoundary, ViewI_H NucleationCounter_ThisRank_H, ViewI NucleationCounter_ThisRank);
 void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int &ZBound_Low, int &ZBound_High,
                           int &nzActive, int LocalDomainSize, int &LocalActiveDomainSize, int &BufSizeZ,
                           int LayerHeight, ViewI CellType, int layernumber, ViewI LayerID);
-void ZeroResetViews(ViewF_H DiagonalLength, ViewF_H CritDiagonalLength, ViewF_H DOCenter, int DecompositionStrategy,
+void ZeroResetViews(ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF DOCenter, int DecompositionStrategy,
                     Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend,
                     Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
                     Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, Buffer2D BufferWestRecv,
