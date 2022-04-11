@@ -142,7 +142,7 @@ make install
 
 ## Run
 
-ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory:
+ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - A separate README file located in the `examples/` directory goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
 
  * `Inp_DirSolidification.txt`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
  * `Inp_SmallDirSolidification.txt`: a smaller and simpler version of the previous
@@ -164,11 +164,17 @@ python utilities/TasmanianTest.py TemperatureData 2
 ```
 the script will generate an ensemble of input files in the `examples` directory, with "Temperature filename(s): TemperatureData" and "Number of temperature files: 2" based on the command line inputs to the python script. The output file name for ExaCA simulations run using the input file `examples/Inp_TemperatureDataEnsembleMember($N)`, generated as one of N = 1 to 69 input files that resulted from running the example python script, will be `TemperatureData_ExaCAEnsMem_($N)`. Other CA inputs, such as the path to temperature data, or the time step) must be adjusted manually inside of the python script. Separate instances of ExaCA can be run with each ensemble member to probe microstructure dependency on nucleation and substrate.
 
-## Post-processing analysis
+## Output and post-processing analysis
+
+If the "Print file of grain misorientations" option is turned on within an input file, ExaCA will output a scalar field "Angle_z" as a vtk file ending with "Misorientations.vtk". Angle_z corresponds to the orientation (in degrees) of a given grain relative to the positive Z direction in a simulation (the thermal gradient direction for directional solidification problems, the build/layer offset direction for other problems). Epitaxial grains (from the initial grain structure or powder layer) are assigned values between 0 and 62.7, while nucleated grains (not present in the initial grain structure) are assigned values between 100 and 162.7 (the offset of 100 is simply used to ensure the two types of grains are differentiated, but a nucleated grain with Angle_z = 135 actually has a misorientation of 35 degrees).
 
 If the "Print Paraview vtk file" option is turned on within an input file, post-processing can be performed on the output data set. This functionality is a separate executable from ExaCA, located in the `analysis/` directory and is linked to the ExaCA library for input utilities. 
 
-Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` and `TestProblemDirS.log`. To analyze this data, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with one command line argument pointing to the analysis input file. Within the `analysis/examples` directory, there are example analysis input files:
+Specifying debug check options can be done to print various ExaCA data fields to files following simulation initialization. The "reduced" debug check will print "CritTimeStep" (the time step at which each cell goes below the liquidus for the final time), "LayerID" (the layer associated with each cell going below the liquidus for the final time, with layer 0 being the first layer, and -1 for all cells that did not undergo solidification) and "CellType" (integers corrsponding to cell types specified in src/CAtypes.hpp). The "extensive" debug check will, in addition to the "reduced" data fields, also print "UndercoolingChange" (the rate at which a cell cools per time step after reaching its "CritTimeStep" value), "UndercoolingCurrent" (the initial undercooling of each cell), and "Melted" (1 for cells that are part of the melt pool, 0 for cells that are not).
+
+ExaCA can optionally print the system state at intermediate time values as part of a series of vtk files that can be read by Paraview to make animations, if the "Print intermediate output frames" option is turned on. "Increment to separate frames" is the separation between intermediate output files in microseconds - if there is a long time period between solidification events (such as two overlapping melt pools formed via line scan with a long dwell time between them), setting "Intermediate output even if system is unchanged from previous state" to off will skip printing of those files.
+
+Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` (containing LayerID, GrainID, and Melted data) and `TestProblemDirS.log` (containing information regarding the simulation parameters used, simulation dimensions, and some timing data). To analyze this data, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with one command line argument pointing to the analysis input file. Within the `analysis/examples` directory, there are example analysis input files:
 
 ```
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
