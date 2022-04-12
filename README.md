@@ -156,6 +156,13 @@ Run by calling the created executable with an ExaCA input file:
 ```
 mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ```
+## Automated input file generation using Tasmanian (https://tasmanian.ornl.gov/)
+Within the `utilities` directory, an example python script for the generation of an ensemble of input files is available. By running the example script `TasmanianTest.py`, 69 ExaCA input files are generated with a range of heterogenous nucleation density, mean nucleation undercooling, and mean substrate grain size values, based on the ranges in python code (N0Min-N0Max, dTNMin-dTNMax, and S0Min-S0Max), respectively. Running the python script from the ExaCA source directory, via the command
+```
+python utilities/TasmanianTest.py TemperatureData 2
+```
+the script will generate an ensemble of input files in the `examples` directory, with "Temperature filename(s): TemperatureData" and "Number of temperature files: 2" based on the command line inputs to the python script. The output file name for ExaCA simulations run using the input file `examples/Inp_TemperatureDataEnsembleMember($N)`, generated as one of N = 1 to 69 input files that resulted from running the example python script, will be `TemperatureData_ExaCAEnsMem_($N)`. Other CA inputs, such as the path to temperature data, or the time step) must be adjusted manually inside of the python script. Separate instances of ExaCA can be run with each ensemble member to probe microstructure dependency on nucleation and substrate.
+
 ## Post-processing analysis
 
 If the "Print Paraview vtk file" option is turned on within an input file, post-processing can be performed on the output data set. This functionality is a separate executable from ExaCA, located in the `analysis/` directory and is linked to the ExaCA library for input utilities. 
