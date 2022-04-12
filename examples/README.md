@@ -73,6 +73,7 @@ Some additional inputs are optional while others are required. As was the case f
 | Extra set of wall cells in lateral domain directions | Y | (Y or N value) should wall cells bound the domain in X and Y, rather than substrate grains (Y or N)?
 | Heat transport data mesh size | N | Resolution of temperature data provided, in microns (if argument not provided, assumed to be equal to CA cell size)
 | Path to temperature file(s) | N | Location of temperature data (if not provided, assumed to be located in examples/Temperatures)
+| default RVE output | N | Whether or not to print representative volume element (RVE) data for ExaConstit, for a 0.5 cubic mm region in the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure
 
 ## Additional optional inputs for all problem types 
 These values govern the printing intermediate data, for debugging or visualization, either following initialization or at specified increments during simulation

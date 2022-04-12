@@ -32,7 +32,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
                        bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
-                       bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames) {
+                       bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
+                       bool &PrintDefaultRVE) {
 
     // For now, assuming no remelting
     RemeltingYN = false;
@@ -110,12 +111,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         RequiredInputs_ProblemSpecific[2] = "Number of temperature files";
         RequiredInputs_ProblemSpecific[3] = "Number of layers";
         RequiredInputs_ProblemSpecific[4] = "Offset between layers";
-        OptionalInputs_ProblemSpecific.resize(5);
+        OptionalInputs_ProblemSpecific.resize(6);
         OptionalInputs_ProblemSpecific[0] = "Substrate grain spacing";
         OptionalInputs_ProblemSpecific[1] = "Substrate filename";
         OptionalInputs_ProblemSpecific[2] = "Heat transport data mesh size";
         OptionalInputs_ProblemSpecific[3] = "Path to temperature file(s)";
         OptionalInputs_ProblemSpecific[4] = "Extra set of wall cells";
+        OptionalInputs_ProblemSpecific[5] = "default RVE output";
     }
     else {
         std::string error = "Error: problem type must be C, S, or R: the value given was " + SimulationType;
@@ -348,6 +350,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             std::cout << "Note: optional input ExtraWalls is no longer used, all simulations by default have no walls "
                          "cells along domain boundaries"
                       << std::endl;
+        // Should optional RVE data be printed for the standard location (center of domain in X and Y, as close to the
+        // top of the domain in Z as possiblewithout including the last layer's microstructure)?
+        PrintDefaultRVE = false;
+        if (!(OptionalInputsRead_ProblemSpecific[5].empty()))
+            PrintDefaultRVE = getInputBool(OptionalInputsRead_ProblemSpecific[5]);
     }
 
     // Path to file of materials constants based on install/source location

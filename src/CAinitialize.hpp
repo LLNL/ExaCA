@@ -23,7 +23,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
                        bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
-                       bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames);
+                       bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
+                       bool &PrintDefaultRVE);
 void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ);
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
                    std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,

@@ -136,6 +136,7 @@ void testInputReadFromFile() {
         TestDataFile << "File of grain orientations: GrainOrientationVectors_Robert.csv" << std::endl;
         TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
         TestDataFile << "Print file of final undercooling values: Y" << std::endl;
+        TestDataFile << "Print default RVE output: Y" << std::endl;
         TestDataFile << "Print file of all ExaCA data: N" << std::endl;
         TestDataFile << "Time step: 1.5" << std::endl;
         TestDataFile << "Temperature filename(s): DummyTemperature.txt" << std::endl;
@@ -173,7 +174,7 @@ void testInputReadFromFile() {
         double AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R,
             FractSurfaceSitesActive;
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
-            UseSubstrateFile, PrintIdleTimeSeriesFrames;
+            UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput;
         std::vector<std::string> temp_paths;
@@ -183,7 +184,7 @@ void testInputReadFromFile() {
                           LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
                           FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
                           PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
-                          PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames);
+                          PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
@@ -246,6 +247,7 @@ void testInputReadFromFile() {
             EXPECT_TRUE(OutputFile == "Test");
             EXPECT_TRUE(PrintMisorientation);
             EXPECT_TRUE(PrintFinalUndercoolingVals);
+            EXPECT_TRUE(PrintDefaultRVE);
             EXPECT_FALSE(PrintFullOutput);
         }
     }

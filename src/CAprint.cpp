@@ -176,8 +176,8 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, std::string BaseFileName,
                     int DecompositionStrategy, int NGrainOrientations, bool *Melted, std::string PathToOutput,
                     int PrintDebug, bool PrintMisorientation, bool PrintFinalUndercoolingVals, bool PrintFullOutput,
-                    bool PrintTimeSeries, int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax,
-                    float XMin, float YMin, float ZMin) {
+                    bool PrintTimeSeries, bool PrintDefaultRVE, int IntermediateFileCounter, int ZBound_Low,
+                    int nzActive, double deltax, float XMin, float YMin, float ZMin, int NumberOfLayers) {
 
     // Collect all data on rank 0, for all data structures of interest
     if (id == 0) {
@@ -216,7 +216,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         ViewF3D_H UndercoolingCurrent_WholeDomain(
             Kokkos::ViewAllocateWithoutInitializing("UndercoolingCurrent_WholeDomain"), 0, 0, 0);
 
-        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput)) {
+        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput) || (PrintDefaultRVE)) {
             Kokkos::resize(GrainID_WholeDomain, nz, nx, ny);
             CollectIntField(GrainID_WholeDomain, GrainID, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                             RecvXSlices, RecvYSlices, RBufSize);
@@ -226,7 +226,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
             CollectBoolField(Melted_WholeDomain, Melted, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                              RecvXSlices, RecvYSlices, RBufSize);
         }
-        if ((PrintFullOutput) || (PrintDebug > 0)) {
+        if ((PrintFullOutput) || (PrintDebug > 0) || (PrintDefaultRVE)) {
             Kokkos::resize(LayerID_WholeDomain, nz, nx, ny);
             CollectIntField(LayerID_WholeDomain, LayerID, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                             RecvXSlices, RecvYSlices, RBufSize);
@@ -257,6 +257,9 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         if (PrintFinalUndercoolingVals)
             PrintFinalUndercooling(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain,
                                    UndercoolingCurrent_WholeDomain, deltax, XMin, YMin, ZMin);
+        if (PrintDefaultRVE)
+            PrintExaConstitDefaultRVE(BaseFileName, PathToOutput, nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain,
+                                      deltax, NumberOfLayers);
         if ((PrintFullOutput) || (PrintDebug > 0))
             PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
@@ -291,13 +294,13 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         int SendBufSize = (SendBufEndX - SendBufStartX) * (SendBufEndY - SendBufStartY) * nz;
 
         // Collect Melted/Grain ID data on rank 0
-        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput))
+        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput) || (PrintDefaultRVE))
             SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
                          SendBufEndY);
         if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2) || (PrintFinalUndercoolingVals))
             SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
                           SendBufEndY);
-        if ((PrintFullOutput) || (PrintDebug > 0))
+        if ((PrintFullOutput) || (PrintDebug > 0) || (PrintDefaultRVE))
             SendIntField(LayerID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
                          SendBufEndY);
         if ((PrintDebug > 0) || (PrintTimeSeries)) {
@@ -533,6 +536,82 @@ void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, 
         UndercoolingPlot << std::endl;
     }
     UndercoolingPlot.close();
+}
+
+//*****************************************************************************/
+// Print the "default" representative volume element from this multilayer simulation, not including the final layer's
+// microstructure, and centered in the simulation domain in X and Y Default RVE size is 0.5 by 0.5 by 0.5 mm
+void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
+                               ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, double deltax,
+                               int NumberOfLayers) {
+
+    // Determine the size, in CA cells of the RVE
+    long int RVESize = std::lrint(0.0005 / deltax);
+
+    // Determine the lower and upper Y bounds of the RVE
+    long int RVE_XLow = std::floor(nx / 2) - std::floor(RVESize / 2);
+    long int RVE_XHigh = RVE_XLow + RVESize - 1;
+    long int RVE_YLow = std::floor(ny / 2) - std::floor(RVESize / 2);
+    long int RVE_YHigh = RVE_YLow + RVESize - 1;
+
+    // Make sure the RVE fits in the simulation domain in X and Y
+    if ((RVE_XLow < 0) || (RVE_XHigh > nx - 1) || (RVE_YLow < 0) || (RVE_YHigh > ny - 1)) {
+        std::cout << "WARNING: Simulation domain is too small to obtain default RVE data (should be at least "
+                  << RVESize << " cells in the X and Y directions" << std::endl;
+        if (RVE_XLow < 0)
+            RVE_XLow = 0;
+        if (RVE_XHigh > nx - 1)
+            RVE_XHigh = nx - 1;
+        if (RVE_YLow < 0)
+            RVE_YLow = 0;
+        if (RVE_YHigh > ny - 1)
+            RVE_YHigh = ny - 1;
+    }
+
+    // Determine the upper Z bound of the RVE - largest Z for which all cells in the RVE do not contain LayerID values
+    // of the last layer
+    long int RVE_ZHigh = nz - 1;
+    for (int k = nz - 1; k >= 0; k--) {
+        [&] {
+            for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
+                for (int j = RVE_YLow; j <= RVE_YHigh; j++) {
+                    if (LayerID_WholeDomain(k, i, j) == (NumberOfLayers - 1))
+                        return; // check next lowest value for k
+                }
+            }
+            RVE_ZHigh = k;
+            k = 0; // leave loop
+        }();
+    }
+
+    // Determine the lower Z bound of the RVE, and make sure the RVE fits in the simulation domain in X and Y
+    long int RVE_ZLow = RVE_ZHigh - RVESize + 1;
+    if (RVE_ZLow < 0) {
+        std::cout << "WARNING: Simulation domain is too small to obtain default RVE data (should be at least "
+                  << RVESize << " cells in the Z direction, more layers are required" << std::endl;
+        RVE_ZLow = 0;
+        RVE_ZHigh = nz - 1;
+    }
+
+    // Print RVE data to file
+    std::string FName = PathToOutput + BaseFileName + "_ExaConstit.csv";
+    std::cout << "Default size RVE with X coordinates " << RVE_XLow << "," << RVE_XHigh << "; Y coordinates "
+              << RVE_YLow << "," << RVE_YHigh << "; Z coordinates " << RVE_ZLow << "," << RVE_ZHigh
+              << " being printed to file " << FName << " for ExaConstit" << std::endl;
+    std::ofstream GrainplotE;
+    GrainplotE.open(FName);
+    GrainplotE << "Coordinates are in CA units, 1 cell = " << deltax << " m. Data is cell-centered. Origin at "
+               << RVE_XLow << "," << RVE_YLow << "," << RVE_ZLow << " , domain size is " << RVE_XHigh - RVE_XLow + 1
+               << " by " << RVE_YHigh - RVE_YLow + 1 << " by " << RVE_ZHigh - RVE_ZLow + 1 << " cells" << std::endl;
+    GrainplotE << "X coord, Y coord, Z coord, Grain ID" << std::endl;
+    for (int k = RVE_ZLow; k <= RVE_ZHigh; k++) {
+        for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
+            for (int j = RVE_YLow; j <= RVE_YHigh; j++) {
+                GrainplotE << i << "," << j << "," << k << "," << GrainID_WholeDomain(k, i, j) << std::endl;
+            }
+        }
+    }
+    GrainplotE.close();
 }
 
 //*****************************************************************************/
