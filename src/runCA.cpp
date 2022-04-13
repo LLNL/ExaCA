@@ -462,6 +462,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             Kokkos::deep_copy(DiagonalLength_G, DiagonalLength_H);
             Kokkos::deep_copy(DOCenter_G, DOCenter_H);
             Kokkos::deep_copy(CritDiagonalLength_G, CritDiagonalLength_H);
+            // Nuclei grain ID values were initialized in GrainID on host - copy this back to the device as well
+            Kokkos::deep_copy(GrainID_G, GrainID_H);
 
             // Update ghost nodes for grain locations and attributes
             MPI_Barrier(MPI_COMM_WORLD);
