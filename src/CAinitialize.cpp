@@ -356,6 +356,10 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         if (!(OptionalInputsRead_ProblemSpecific[5].empty()))
             PrintDefaultRVE = getInputBool(OptionalInputsRead_ProblemSpecific[5]);
     }
+    else {
+        // RVE data print option is only for simulation type R
+        PrintDefaultRVE = false;
+    }
 
     // Path to file of materials constants based on install/source location
     std::string MaterialFile = checkFileInstalled(MaterialName, "Materials", id);
