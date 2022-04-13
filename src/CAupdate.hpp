@@ -25,10 +25,9 @@ loadghostnodes_2D(const int GhostGID, const float GhostDOCX, const float GhostDO
                   Buffer2D BufferSouthSend, Buffer2D BufferNorthSend, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
                   Buffer2D BufferNorthEastSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend,
                   Buffer2D BufferNorthWestSend);
-void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, ViewI_H NucleationCounter_ThisRank_H,
-                int PossibleNuclei_ThisRank, ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID,
-                ViewI NucleationCounter_ThisRank, ViewI CellType, ViewI GrainID, int ZBound_Low, int MyXSlices,
-                int MyYSlices, ViewI SteeringVector, ViewI numSteer_G);
+void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCounter, int PossibleNuclei_ThisRank,
+                ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID, ViewI CellType, ViewI GrainID,
+                int ZBound_Low, int MyXSlices, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G);
 void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int LocalDomainSize,
                  int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst,
                  int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CritTimeStep,

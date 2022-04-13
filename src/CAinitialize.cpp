@@ -7,6 +7,7 @@
 
 #include "CAconfig.hpp"
 #include "CAfunctions.hpp"
+#include "CAghostnodes.hpp"
 #include "CAparsefiles.hpp"
 
 #include "mpi.h"
@@ -55,13 +56,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Optional inputs that may be present in the input file, regardless of problem type
     std::vector<std::string> OptionalInputs_General = {
-        "Debug check (reduced)",                     // Optional input 0
-        "Debug check (extensive)",                   // Optional input 1
-        "Print intermediate output frames",          // Optional input 2
-        "separate frames",                           // Optional input 3
-        "output even if system is unchanged",        // Optional input 4
-        "file of final undercooling values",         // Optional input 5
-        "RNG seed for grains and nuclei generation", // Optional input 6
+        "Debug check (reduced)",                        // Optional input 0
+        "Debug check (extensive)",                      // Optional input 1
+        "Print intermediate output frames",             // Optional input 2
+        "separate frames",                              // Optional input 3
+        "output even if system is unchanged",           // Optional input 4
+        "file of final undercooling values",            // Optional input 5
+        "Random seed for grains and nuclei generation", // Optional input 6
     };
 
     // Values used temporarily to store information from the file
@@ -1741,15 +1742,15 @@ void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, in
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     if (DecompositionStrategy == 1)
-                        loadghostnodes_1D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices,
-                                          RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                          BufferNorthSend);
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
+                                       RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                                       BufferNorthSend);
                     else
-                        loadghostnodes_2D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
-                                          MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
-                                          AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend,
-                                          BufferWestSend, BufferEastSend, BufferNorthEastSend, BufferSouthEastSend,
-                                          BufferSouthWestSend, BufferNorthWestSend);
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
+                                       MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                       AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend, BufferWestSend,
+                                       BufferEastSend, BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
+                                       BufferNorthWestSend);
                 } // End if statement for serial/parallel code
             }
         });
@@ -1764,7 +1765,7 @@ void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, i
                 ViewI_H NucleationTimes_H, ViewI NucleiGrainID_G, ViewI CellType_Device, ViewI CritTimeStep_Device,
                 ViewF UndercoolingChange_Device, ViewI LayerID_Device, int &PossibleNuclei_ThisRankThisLayer,
                 int &Nuclei_WholeDomain, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
-                bool AtWestBoundary, ViewI_H NucleationCounter_ThisRank_H, ViewI NucleationCounter_ThisRank) {
+                bool AtWestBoundary, int &NucleationCounter) {
 
     // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation data
     // back to the device again Copy CellType and LayerID back to the host for this subroutine
@@ -1910,9 +1911,8 @@ void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, i
     Kokkos::deep_copy(NucleiLocation_G, NucleiLocation_H);
     Kokkos::deep_copy(NucleiGrainID_G, NucleiGrainID_H);
 
-    // Initialize counter for the layer to 0 on host and device
-    NucleationCounter_ThisRank_H(0) = 0;
-    Kokkos::deep_copy(NucleationCounter_ThisRank, NucleationCounter_ThisRank_H);
+    // Initialize counter for the layer to 0
+    NucleationCounter = 0;
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)

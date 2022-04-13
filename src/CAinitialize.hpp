@@ -84,7 +84,7 @@ void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, i
                 ViewI_H NucleationTimes_H, ViewI NucleiGrainID_G, ViewI CellType_Device, ViewI CritTimeStep_Device,
                 ViewF UndercoolingChange_Device, ViewI LayerID_Device, int &PossibleNuclei_ThisRankThisLayer,
                 int &Nuclei_WholeDomain, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
-                bool AtWestBoundary, ViewI_H NucleationCounter_ThisRank_H, ViewI NucleationCounter_ThisRank);
+                bool AtWestBoundary, int &NucleationCounter);
 void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int &ZBound_Low, int &ZBound_High,
                           int &nzActive, int LocalDomainSize, int &LocalActiveDomainSize, int &BufSizeZ,
                           int LayerHeight, ViewI CellType, int layernumber, ViewI LayerID);

@@ -182,10 +182,8 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
 
     // Collect all data on rank 0, for all data structures of interest
     // Host copies of GrainID and CellType
-    ViewI_H CellType(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), MyXSlices * MyYSlices * nz);
-    ViewI_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"), MyXSlices * MyYSlices * nz);
-    Kokkos::deep_copy(CellType, CellType_Device);
-    Kokkos::deep_copy(GrainID, GrainID_Device);
+    ViewI_H CellType = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType_Device);
+    ViewI_H GrainID = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID_Device);
 
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks

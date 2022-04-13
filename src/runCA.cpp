@@ -234,17 +234,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (id == 0)
         std::cout << "Grain struct initialized" << std::endl;
 
-    int PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain;
+    int PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, NucleationCounter;
     // Without knowing PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to their max possible
     // size NucleationTimes only exists on the host - used to decide whether or not to call nucleation subroutine
     ViewI_H NucleationTimes_Host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
                                  LocalActiveDomainSize);
     ViewI NucleiLocation(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation"), LocalActiveDomainSize);
     ViewI NucleiGrainID(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"), LocalActiveDomainSize);
-
-    // Counters for nucleation events - host and device
-    ViewI_H NucleationCounter_ThisRank_H(Kokkos::ViewAllocateWithoutInitializing("NucleationCounter_ThisRank_H"), 1);
-    ViewI NucleationCounter_ThisRank(Kokkos::ViewAllocateWithoutInitializing("NucleationCounter_ThisRank"), 1);
 
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
@@ -253,7 +249,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                LocalDomainSize, ZBound_Low, id, NMax, dTN, dTsigma, deltax, NucleiLocation, NucleationTimes_Host,
                NucleiGrainID, CellType_G, CritTimeStep_G, UndercoolingChange_G, LayerID_G,
                PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
-               AtWestBoundary, NucleationCounter_ThisRank_H, NucleationCounter_ThisRank);
+               AtWestBoundary, NucleationCounter);
 
     // Resize nucleation views now that PossibleNuclei_ThisRank is known for all MPI ranks
     Kokkos::resize(NucleationTimes_Host, PossibleNuclei_ThisRankThisLayer);
@@ -335,10 +331,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
             StartNuclTime = MPI_Wtime();
-            Nucleation(cycle, SuccessfulNucEvents_ThisRank, NucleationCounter_ThisRank_H,
-                       PossibleNuclei_ThisRankThisLayer, NucleationTimes_Host, NucleiLocation, NucleiGrainID,
-                       NucleationCounter_ThisRank, CellType_G, GrainID_G, ZBound_Low, MyXSlices, MyYSlices,
-                       SteeringVector, numSteer_G);
+            Nucleation(cycle, SuccessfulNucEvents_ThisRank, NucleationCounter, PossibleNuclei_ThisRankThisLayer,
+                       NucleationTimes_Host, NucleiLocation, NucleiGrainID, CellType_G, GrainID_G, ZBound_Low,
+                       MyXSlices, MyYSlices, SteeringVector, numSteer_G);
             NuclTime += MPI_Wtime() - StartNuclTime;
 
             // Update cells on GPU - new active cells, solidification of old active cells
@@ -463,8 +458,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                        LocalActiveDomainSize, LocalDomainSize, ZBound_Low, id, NMax, dTN, dTsigma, deltax,
                        NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType_G, CritTimeStep_G,
                        UndercoolingChange_G, LayerID_G, PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain,
-                       AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary, NucleationCounter_ThisRank_H,
-                       NucleationCounter_ThisRank);
+                       AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary, NucleationCounter);
 
             // Resize nucleation views now that PossibleNuclei_ThisRank is known for all MPI ranks
             Kokkos::resize(NucleationTimes_Host, PossibleNuclei_ThisRankThisLayer);

@@ -144,7 +144,7 @@ void testInputReadFromFile() {
         TestDataFile << "Number of layers: 2" << std::endl;
         TestDataFile << "Offset between layers: 1" << std::endl;
         TestDataFile << "Extra set of wall cells in lateral domain directions: N" << std::endl;
-        TestDataFile << "RNG seed for grains and nuclei generation: 2.0" << std::endl;
+        TestDataFile << "Random seed for grains and nuclei generation: 2.0" << std::endl;
         TestDataFile << "Substrate filename: DummySubstrate.txt" << std::endl;
         TestDataFile << "Heat transport data mesh size: 12" << std::endl;
         TestDataFile << "Path to temperature file(s): ./" << std::endl;

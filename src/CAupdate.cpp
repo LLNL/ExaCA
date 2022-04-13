@@ -5,6 +5,7 @@
 
 #include "CAupdate.hpp"
 #include "CAfunctions.hpp"
+#include "CAghostnodes.hpp"
 #include "CAprint.hpp"
 #include "mpi.h"
 
@@ -65,64 +66,62 @@ struct reduction_identity<sample::ValueType> {
 } // namespace Kokkos
 
 //*****************************************************************************/
-void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, ViewI_H NucleationCounter_ThisRank_H,
-                int PossibleNuclei_ThisRank, ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID,
-                ViewI NucleationCounter_ThisRank, ViewI CellType, ViewI GrainID, int ZBound_Low, int MyXSlices,
-                int MyYSlices, ViewI SteeringVector, ViewI numSteer_G) {
+void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCounter, int PossibleNuclei_ThisRank,
+                ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID, ViewI CellType, ViewI GrainID,
+                int ZBound_Low, int MyXSlices, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G) {
 
     // Is there nucleation left in this layer to check?
-    if (NucleationCounter_ThisRank_H(0) < PossibleNuclei_ThisRank) {
+    if (NucleationCounter < PossibleNuclei_ThisRank) {
         // Is there at least one potential nucleation event on this rank, at this time step?
-        if (cycle == NucleationTimes_H(NucleationCounter_ThisRank_H(0))) {
+        if (cycle == NucleationTimes_H(NucleationCounter)) {
             bool NucleationCheck = true;
-            // While loop checks NucleationTimes, updates NucleationEventCounter_ThisRank until the next nucleation
-            // event is not at this time step
+            int FirstEvent = NucleationCounter; // first potential nucleation event to check
+            // Are there any other nucleation events this time step to check?
             while (NucleationCheck) {
-                int NucleationThisDT = 0;
-                // Launch kokkos kernel - check if the corresponding CA cell location is liquid
-                Kokkos::parallel_reduce(
-                    "NucleiUpdateLoop", 1,
-                    KOKKOS_LAMBDA(const int, int &update) {
-                        int NucleationEventLocation_GlobalGrid = NucleiLocations(NucleationCounter_ThisRank(0));
-                        int update_val =
-                            FutureActive; // added to steering vector to become a new active cell as part of cellcapture
-                        int old_val = Liquid;
-                        int OldCellTypeValue = Kokkos::atomic_compare_exchange(
-                            &CellType(NucleationEventLocation_GlobalGrid), old_val, update_val);
-                        if (OldCellTypeValue == Liquid) {
-                            // Successful nucleation event - atomic update of cell type, proceeded if the atomic
-                            // exchange is successful (cell was liquid) Add future active cell location to steering
-                            // vector and change cell type, assign new Grain ID
-                            GrainID(NucleationEventLocation_GlobalGrid) = NucleiGrainID(NucleationCounter_ThisRank(0));
-                            int GlobalZ = NucleationEventLocation_GlobalGrid / (MyXSlices * MyYSlices);
-                            int Rem = NucleationEventLocation_GlobalGrid % (MyXSlices * MyYSlices);
-                            int RankX = Rem / MyYSlices;
-                            int RankY = Rem % MyYSlices;
-                            int RankZ = GlobalZ - ZBound_Low;
-                            int NucleationEventLocation_LocalGrid =
-                                RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                            SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) =
-                                NucleationEventLocation_LocalGrid;
-                            // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
-                            // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)
-                            update++;
-                        }
-                    },
-                    NucleationThisDT);
-                // Update the number of successful nuclei counter (NucleationThisDT = 0 if failed, NucleationThisDT = 1
-                // if successful)
-                SuccessfulNucEvents_ThisRank += NucleationThisDT;
-                // Update the number of nuclei counter on the host (regardless of whether the event was successful)
-                NucleationCounter_ThisRank_H(0)++;
-                // Is the next potential nucleation event also at this time step? If yes, repeat the kokkos kernel - if
-                // not, exit the while loop
-                if (NucleationCounter_ThisRank_H(0) == PossibleNuclei_ThisRank)
-                    NucleationCheck = false;
-                else if (cycle != NucleationTimes_H(NucleationCounter_ThisRank_H(0)))
+                NucleationCounter++;
+                // If the previous nucleation event was the last one for this layer of the simulation, exit loop
+                if (NucleationCounter == PossibleNuclei_ThisRank)
+                    break;
+                // If the next nucleation event corresponds to a future time step, finish check
+                if (cycle != NucleationTimes_H(NucleationCounter))
                     NucleationCheck = false;
             }
-            // Keep the nucleation counter consistent on host and device
-            Kokkos::deep_copy(NucleationCounter_ThisRank, NucleationCounter_ThisRank_H);
+            int LastEvent = NucleationCounter;
+            // parallel_reduce checks each potential nucleation event this time step (FirstEvent, up to but not
+            // including LastEvent)
+            int NucleationThisDT = 0; // return number of successful event from parallel_reduce
+            // Launch kokkos kernel - check if the corresponding CA cell location is liquid
+            Kokkos::parallel_reduce(
+                "NucleiUpdateLoop", Kokkos::RangePolicy<>(FirstEvent, LastEvent),
+                KOKKOS_LAMBDA(const int NucleationCounter_Device, int &update) {
+                    int NucleationEventLocation_GlobalGrid = NucleiLocations(NucleationCounter_Device);
+                    int update_val =
+                        FutureActive; // added to steering vector to become a new active cell as part of cellcapture
+                    int old_val = Liquid;
+                    int OldCellTypeValue = Kokkos::atomic_compare_exchange(
+                        &CellType(NucleationEventLocation_GlobalGrid), old_val, update_val);
+                    if (OldCellTypeValue == Liquid) {
+                        // Successful nucleation event - atomic update of cell type, proceeded if the atomic
+                        // exchange is successful (cell was liquid) Add future active cell location to steering
+                        // vector and change cell type, assign new Grain ID
+                        GrainID(NucleationEventLocation_GlobalGrid) = NucleiGrainID(NucleationCounter_Device);
+                        int GlobalZ = NucleationEventLocation_GlobalGrid / (MyXSlices * MyYSlices);
+                        int Rem = NucleationEventLocation_GlobalGrid % (MyXSlices * MyYSlices);
+                        int RankX = Rem / MyYSlices;
+                        int RankY = Rem % MyYSlices;
+                        int RankZ = GlobalZ - ZBound_Low;
+                        int NucleationEventLocation_LocalGrid =
+                            RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = NucleationEventLocation_LocalGrid;
+                        // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
+                        // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)
+                        update++;
+                    }
+                },
+                NucleationThisDT);
+            // Update the number of successful nuclei counter with the number of successful nucleation events from this
+            // time step (NucleationThisDT)
+            SuccessfulNucEvents_ThisRank += NucleationThisDT;
         }
     }
 }
@@ -449,16 +448,16 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                                     float GhostDL = NewODiagL;
                                     // Collect data for the ghost nodes, if necessary
                                     if (DecompositionStrategy == 1)
-                                        loadghostnodes_1D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
-                                                          MyYSlices, RankX, RankY, RankZ, AtNorthBoundary,
-                                                          AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
+                                                       MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                                       BufferSouthSend, BufferNorthSend);
                                     else
-                                        loadghostnodes_2D(
-                                            GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
-                                            MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
-                                            AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend,
-                                            BufferWestSend, BufferEastSend, BufferNorthEastSend, BufferSouthEastSend,
-                                            BufferSouthWestSend, BufferNorthWestSend);
+                                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
+                                                       BufSizeY, MyXSlices, MyYSlices, RankX, RankY, RankZ,
+                                                       AtNorthBoundary, AtSouthBoundary, AtWestBoundary, AtEastBoundary,
+                                                       BufferSouthSend, BufferNorthSend, BufferWestSend, BufferEastSend,
+                                                       BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
+                                                       BufferNorthWestSend);
                                 } // End if statement for serial/parallel code
                                 // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
                                 // Diagonal Length values have been assigned to it Avoids the race condition in which
@@ -590,15 +589,15 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     if (DecompositionStrategy == 1)
-                        loadghostnodes_1D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices,
-                                          RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                          BufferNorthSend);
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
+                                       RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                                       BufferNorthSend);
                     else
-                        loadghostnodes_2D(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
-                                          MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
-                                          AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend,
-                                          BufferWestSend, BufferEastSend, BufferNorthEastSend, BufferSouthEastSend,
-                                          BufferSouthWestSend, BufferNorthWestSend);
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
+                                       MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                       AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend, BufferWestSend,
+                                       BufferEastSend, BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
+                                       BufferNorthWestSend);
                 } // End if statement for serial/parallel code
                 // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
                 CellType(GlobalD3D1ConvPosition) = Active;
