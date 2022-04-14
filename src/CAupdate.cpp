@@ -631,16 +631,8 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                     else
                         upd.the_array[1] += 1;
                 }
-                else if (CellType(D3D1ConvPosition) == Active) {
+                else if (CellType(D3D1ConvPosition) == Active)
                     upd.the_array[2] += 1;
-                    if (GrainID(D3D1ConvPosition) == 0) {
-                        int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-                        int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
-                        int RankX = Rem / MyYSlices;
-                        int RankY = Rem % MyYSlices;
-                        printf("GID at %d %d %d is 0 \n", RankX, RankY, RankZ);
-                    }
-                }
                 else if (CellType(D3D1ConvPosition) == Solid)
                     upd.the_array[3] += 1;
             }

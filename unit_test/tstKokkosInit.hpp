@@ -103,7 +103,10 @@ void testBaseplateInit_FromGrainSpacing() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     // Create test data
     int nz = 4;
-    int nzActive = 3;
+    float ZMinLayer[1];
+    float ZMaxLayer[1];
+    ZMinLayer[0] = 0;
+    ZMaxLayer[0] = 2 * pow(10, -6);
     int nx = 3;
     int MyXSlices = 3;
     int MyXOffset = 0;
@@ -112,7 +115,7 @@ void testBaseplateInit_FromGrainSpacing() {
     int MyYSlices = 3;
     int MyYOffset = 3 * id;
     double deltax = 1 * pow(10, -6);
-    int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
+    int BaseplateSize = MyXSlices * MyYSlices * (round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1);
     int LocalDomainSize = MyXSlices * MyYSlices * nz;
     // There are 36 * np total cells in this domain (nx * ny * nz)
     // Each rank has 36 cells - the bottom 27 cells are assigned baseplate Grain ID values
@@ -125,8 +128,8 @@ void testBaseplateInit_FromGrainSpacing() {
     // Initialize GrainIDs to 0 on device
     ViewI GrainID("GrainID_Device", LocalDomainSize);
 
-    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, LocalActiveDomainSize, nzActive, MyXSlices, MyYSlices,
-                                   MyXOffset, MyYOffset, id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
+    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyXSlices, MyYSlices, MyXOffset,
+                                   MyYOffset, id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
 
     // Copy results back to host to check
     ViewI_H GrainID_H("GrainID_Host", LocalDomainSize);
@@ -134,11 +137,11 @@ void testBaseplateInit_FromGrainSpacing() {
 
     // Check the results for baseplate grains - cells should have GrainIDs between 1 and np (inclusive) if they are part
     // of the active domain, or 0 (unassigned) if not part of the active domain
-    for (int i = 0; i < LocalActiveDomainSize; i++) {
+    for (int i = 0; i < BaseplateSize; i++) {
         EXPECT_GT(GrainID_H(i), 0);
         EXPECT_LT(GrainID_H(i), np + 1);
     }
-    for (int i = LocalActiveDomainSize; i < LocalDomainSize; i++) {
+    for (int i = BaseplateSize; i < LocalDomainSize; i++) {
         EXPECT_EQ(GrainID_H(i), 0);
     }
     // Next unused GrainID should be the number of grains present in the baseplate plus 2 (since GrainID = 0 is not used
@@ -157,10 +160,11 @@ void testPowderInit() {
     // Create test data
     int nz = 6;
     int layernumber = 1;
-    // Let Z = 2 through 5 be the "active" portion of the domain for this layer
-    int nzActive = 4;
-    int ZBound_Low = 2;
     // Z = 4 and Z = 5 should be the region seeded with powder layer Grain IDs
+    float ZMaxLayer[2];
+    ZMaxLayer[1] = 5.0 * pow(10, -6);
+    double deltax = 1.0 * pow(10, -6);
+    float ZMin = 0;
     int LayerHeight = 2;
     int nx = 1;
     int MyXSlices = 1;
@@ -181,8 +185,8 @@ void testPowderInit() {
     // Seed used to shuffle powder layer grain IDs
     double RNGSeed = 0.0;
 
-    PowderInit(layernumber, nx, ny, LayerHeight, ZBound_Low, nzActive, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id,
-               GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
+    PowderInit(layernumber, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
+               id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
 
     // Copy results back to host to check
     ViewI_H GrainID_H("GrainID_Host", LocalDomainSize);

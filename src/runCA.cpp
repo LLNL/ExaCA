@@ -125,10 +125,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     }
     else if (SimulationType == "S") {
         // spot melt array test problem
-        TempInit_SpotMelt(G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, nz,
-                          CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, Melted, LayerHeight,
-                          NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FreezingRange, LayerID_H, NSpotsX, NSpotsY,
-                          SpotRadius, SpotOffset);
+        TempInit_SpotMelt(G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, ZMin, ZMinLayer,
+                          ZMaxLayer, deltat, nz, CritTimeStep_H, UndercoolingChange_H, UndercoolingCurrent_H, Melted,
+                          LayerHeight, NumberOfLayers, nzActive, ZBound_Low, ZBound_High, FreezingRange, LayerID_H,
+                          NSpotsX, NSpotsY, SpotRadius, SpotOffset);
     }
     else if (SimulationType == "C") {
         // directional/constrained solidification test problem
@@ -218,8 +218,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         if (UseSubstrateFile)
             SubstrateInit_FromFile(SubstrateFileName, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, GrainID_G);
         else
-            BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, LocalActiveDomainSize, nzActive, MyXSlices,
-                                           MyYSlices, MyXOffset, MyYOffset, id, deltax, GrainID_G, RNGSeed,
+            BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyXSlices, MyYSlices,
+                                           MyXOffset, MyYOffset, id, deltax, GrainID_G, RNGSeed,
                                            NextLayer_FirstEpitaxialGrainID);
         // Separate routine for active cell data structure init for problems other than constrained solidification
         CellTypeInit(0, id, np, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nz,
@@ -436,7 +436,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                           << std::endl;
 
             // Initialize powder layer grain structure for the next layer "layernumber + 1"
-            PowderInit(layernumber + 1, nx, ny, LayerHeight, ZBound_Low, nzActive, MyXSlices, MyYSlices, MyXOffset,
+            PowderInit(layernumber + 1, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices, MyXOffset,
                        MyYOffset, id, GrainID_G, RNGSeed, NextLayer_FirstEpitaxialGrainID);
 
             // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"

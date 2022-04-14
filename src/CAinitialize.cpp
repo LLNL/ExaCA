@@ -827,14 +827,21 @@ void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int 
 
 // Initialize temperature data for an array of overlapping spot melts
 void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
-                       int &MyYOffset, double deltax, double deltat, int nz, ViewI_H CritTimeStep,
-                       ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight,
-                       int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, double FreezingRange,
-                       ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset) {
+                       int &MyYOffset, double deltax, float &ZMin, float *ZMinLayer, float *ZMaxLayer, double deltat,
+                       int nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
+                       bool *Melted, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low,
+                       int &ZBound_High, double FreezingRange, ViewI_H LayerID, int NSpotsX, int NSpotsY,
+                       int SpotRadius, int SpotOffset) {
 
     ZBound_Low = 0;
     ZBound_High = SpotRadius;
     nzActive = ZBound_High - ZBound_Low + 1;
+    // Set these parameters to determine powder layer bounds
+    ZMin = 0;
+    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+        ZMinLayer[layernumber] = deltax * (LayerHeight * layernumber);
+        ZMaxLayer[layernumber] = deltax * (SpotRadius + LayerHeight * layernumber);
+    }
     if (id == 0)
         std::cout << "Layer 0's active domain is from Z = " << ZBound_Low << " through " << ZBound_High << std::endl;
     // No cells intitially have undercooling, nor have melting/solidification data
@@ -1410,24 +1417,25 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
 }
 
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation
-void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int LocalActiveDomainSize,
-                                    int nzActive, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id,
-                                    double deltax, ViewI GrainID, double RNGSeed,
-                                    int &NextLayer_FirstEpitaxialGrainID) {
+void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
+                                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, double deltax,
+                                    ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID) {
 
     // Seed random number generator such that each rank generates the same baseplate grain center locations
     // Calls to Xdist(gen), Ydist(gen), Zdist(gen) return random locations for grain seeds
     // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
     // -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5
+    // Baseplate size in Z corresponds to the Z coordinates of layer 0
+    int BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1;
     std::mt19937_64 gen(RNGSeed);
     std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
     std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
-    std::uniform_real_distribution<double> Zdist(-0.49999, nzActive - 0.5);
+    std::uniform_real_distribution<double> Zdist(-0.49999, BaseplateSizeZ - 0.5);
 
     // Based on the baseplate size (domain of first layer) and the substrate grain spacing, determine the number of
     // baseplate grains
-    double BaseplateSize = nx * ny * nzActive * pow(deltax, 3) * pow(10, 18); // in cubic microns
-    double SubstrateGrainSize = pow(SubstrateGrainSpacing, 3);                // in cubic microns
+    double BaseplateSize = nx * ny * BaseplateSizeZ * pow(deltax, 3) * pow(10, 18); // in cubic microns
+    double SubstrateGrainSize = pow(SubstrateGrainSpacing, 3);                      // in cubic microns
     int NumberOfBaseplateGrains = round(BaseplateSize / SubstrateGrainSize);
     // Need at least 1 baseplate grain
     NumberOfBaseplateGrains = std::max(NumberOfBaseplateGrains, 1);
@@ -1435,14 +1443,17 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
     NumBaseplateGrains_Host(0) = NumberOfBaseplateGrains;
     // TODO: Use device RNG to generate baseplate grain locations, instead of host with copy
     // Store grain centers as float coordinates, not integer cell locations, for more precise substrate generation
-    ViewF_H BaseplateGrainX_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX_Host"), nx * ny * nzActive);
-    ViewF_H BaseplateGrainY_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY_Host"), nx * ny * nzActive);
-    ViewF_H BaseplateGrainZ_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ_Host"), nx * ny * nzActive);
+    ViewF_H BaseplateGrainX_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX_Host"),
+                                 nx * ny * BaseplateSizeZ);
+    ViewF_H BaseplateGrainY_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY_Host"),
+                                 nx * ny * BaseplateSizeZ);
+    ViewF_H BaseplateGrainZ_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ_Host"),
+                                 nx * ny * BaseplateSizeZ);
 
     // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain
     // centers
     if (id == 0)
-        std::cout << "Baseplate spanning domain coordinates Z = 0 through " << nzActive - 1 << std::endl;
+        std::cout << "Baseplate spanning domain coordinates Z = 0 through " << BaseplateSizeZ - 1 << std::endl;
     for (int n = 0; n < NumberOfBaseplateGrains; n++) {
         BaseplateGrainX_Host(n) = Xdist(gen);
         BaseplateGrainY_Host(n) = Ydist(gen);
@@ -1460,7 +1471,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
     Kokkos::parallel_for(
         "BaseplateGen",
         Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-            {0, 0, 0}, {nzActive, MyXSlices, MyYSlices}),
+            {0, 0, 0}, {BaseplateSizeZ, MyXSlices, MyYSlices}),
         KOKKOS_LAMBDA(const int k, const int i, const int j) {
             int GlobalX = i + MyXOffset;
             int GlobalY = j + MyYOffset;
@@ -1469,7 +1480,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
             // values later if at the interface This cell is part of the substrate - determine which grain center the
             // cell is closest to, in order to assign it a grain ID If closest to grain "n", assign grain ID "n+1"
             // (grain ID = 0 is not used)
-            float MinDistanceToThisGrain = (float)(LocalActiveDomainSize);
+            float MinDistanceToThisGrain = (float)(nx * ny * BaseplateSizeZ);
             int ClosestGrainIndex = -1;
             for (int n = 0; n < NumBaseplateGrains_Device(0); n++) {
                 float DistanceToThisGrainX = (float)(std::abs(BaseplateGrainX_Device(n) - GlobalX));
@@ -1494,8 +1505,8 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 
 // Each layer's top Z coordinates are seeded with CA-cell sized substrate grains (emulating bulk nucleation alongside
 // the edges of partially melted powder particles)
-void PowderInit(int layernumber, int nx, int ny, int LayerHeight, int ZBound_Low, int nzActive, int MyXSlices,
-                int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
+void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
+                int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
                 int &NextLayer_FirstEpitaxialGrainID) {
 
     // On all ranks, generate list of powder grain IDs (starting with NextLayer_FirstEpitaxialGrainID, and shuffle them
@@ -1519,24 +1530,29 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, int ZBound_Low
     ViewI PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(memory_space(), PowderGrainIDs_Host);
 
     // Associate powder grain IDs with CA cells in the powder layer
+    // Use bounds from temperature field for this layer to determine which cells are part of the powder
+    int PowderTopZ = round((ZMaxLayer[layernumber] - ZMin) / deltax) + 1;
+    int PowderBottomZ = PowderTopZ - LayerHeight;
     if (id == 0)
-        std::cout << "Initializing powder layer for Z = " << nzActive - LayerHeight + ZBound_Low << " through "
-                  << nzActive - 1 + ZBound_Low << std::endl;
+        std::cout << "Initializing powder layer for Z = " << PowderBottomZ << " through " << PowderTopZ - 1
+                  << std::endl;
+
+    int PowderStart = nx * ny * PowderBottomZ;
+    int PowderEnd = nx * ny * PowderTopZ;
+
     Kokkos::parallel_for(
-        "PowderGrainInit", PowderLayerActiveCells, KOKKOS_LAMBDA(const int &n) {
-            int PowderZ = n / (nx * ny); // "PowderZ = 0" is the top of the powder layer (Z = nzActive-1+ZBound_Low),
-                                         // PowderZ = 1 is one less than that, etc
+        "PowderGrainInit", Kokkos::RangePolicy<>(PowderStart, PowderEnd), KOKKOS_LAMBDA(const int &n) {
+            int GlobalZ = n / (nx * ny);
             int Rem = n % (nx * ny);
             int GlobalX = Rem / ny;
             int GlobalY = Rem % ny;
-            int GlobalZ = nzActive - 1 + ZBound_Low - PowderZ;
             // Is this powder coordinate in X and Y in bounds for this rank? Is the grain id of this site unassigned
             // (wasn't captured during solidification of the previous layer)?
-            int D3D1ConvPosition =
+            int GlobalD3D1ConvPosition =
                 GlobalZ * MyXSlices * MyYSlices + (GlobalX - MyXOffset) * MyYSlices + (GlobalY - MyYOffset);
             if ((GlobalX >= MyXOffset) && (GlobalX < MyXOffset + MyXSlices) && (GlobalY >= MyYOffset) &&
-                (GlobalY < MyYOffset + MyYSlices) && (GrainID(D3D1ConvPosition) == 0))
-                GrainID(D3D1ConvPosition) = PowderGrainIDs_Device(n);
+                (GlobalY < MyYOffset + MyYSlices) && (GrainID(GlobalD3D1ConvPosition) == 0))
+                GrainID(GlobalD3D1ConvPosition) = PowderGrainIDs_Device(n - PowderStart);
         });
     Kokkos::fence();
 

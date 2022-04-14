@@ -45,10 +45,11 @@ void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int 
                                 ViewF_H UndercoolingCurrent, bool *Melted, int &nzActive, int &ZBound_Low,
                                 int &ZBound_High, ViewI_H LayerID);
 void TempInit_SpotMelt(double G, double R, std::string SimulationType, int id, int &MyXSlices, int &MyYSlices,
-                       int &MyXOffset, int &MyYOffset, double deltax, double deltat, int nz, ViewI_H CritTimeStep,
-                       ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight,
-                       int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, double FreezingRange,
-                       ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset);
+                       int &MyXOffset, int &MyYOffset, double deltax, float &ZMin, float *ZMinLayer, float *ZMaxLayer,
+                       double deltat, int nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange,
+                       ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight, int NumberOfLayers, int &nzActive,
+                       int &ZBound_Low, int &ZBound_High, double FreezingRange, ViewI_H LayerID, int NSpotsX,
+                       int NSpotsY, int SpotRadius, int SpotOffset);
 void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax,
                       int HTtoCAratio, double deltat, int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange,
                       ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin, bool *Melted, float *ZMinLayer,
@@ -63,11 +64,11 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      double RNGSeed);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
                             int MyYOffset, int pid, ViewI GrainID);
-void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int LocalActiveDomainSize,
-                                    int nzActive, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id,
-                                    double deltax, ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID);
-void PowderInit(int layernumber, int nx, int ny, int LayerHeight, int ZBound_Low, int nzActive, int MyXSlices,
-                int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
+void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
+                                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, double deltax,
+                                    ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID);
+void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
+                int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
                 int &NextLayer_FirstEpitaxialGrainID);
 void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, int MyXSlices, int MyYSlices,
                   int MyXOffset, int MyYOffset, int ZBound_Low, int nz, int LocalActiveDomainSize, int LocalDomainSize,
