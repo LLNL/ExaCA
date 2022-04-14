@@ -99,10 +99,10 @@ void testNucleation() {
     }
 
     // Copy CellType, SteeringVector, numSteer, GrainID back to host to check nucleation results
-    Kokkos::deep_copy(CellType_Host, CellType);
+    CellType_Host = Kokkos::create_mirror_view_and_copy(memory_space(), CellType);
     ViewI_H SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SteeringVector);
-    Kokkos::deep_copy(numSteer_Host, numSteer);
-    Kokkos::deep_copy(GrainID_Host, GrainID);
+    numSteer_Host = Kokkos::create_mirror_view_and_copy(memory_space(), numSteer);
+    GrainID_Host = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID);
 
     // Check that all 10 possible nucleation events were attempted
     EXPECT_EQ(NucleationCounter, 10);
