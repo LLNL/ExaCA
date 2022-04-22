@@ -99,10 +99,10 @@ void testNucleation() {
     }
 
     // Copy CellType, SteeringVector, numSteer, GrainID back to host to check nucleation results
-    CellType_Host = Kokkos::create_mirror_view_and_copy(memory_space(), CellType);
+    CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     ViewI_H SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SteeringVector);
-    numSteer_Host = Kokkos::create_mirror_view_and_copy(memory_space(), numSteer);
-    GrainID_Host = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID);
+    numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), numSteer);
+    GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Check that all 10 possible nucleation events were attempted
     EXPECT_EQ(NucleationCounter, 10);
@@ -120,14 +120,7 @@ void testNucleation() {
     EXPECT_EQ(GrainID_Host(ZBound_Low * MyXSlices * MyYSlices + 8), 3);
 
     // Check that the successful nucleation events occurred as expected
-    ViewI_H SuccessfulNuc_GrainIDs(Kokkos::ViewAllocateWithoutInitializing("SuccessfulNuc_GrainIDs"), numSteer_Host(0));
-    SuccessfulNuc_GrainIDs(0) = -1;
-    SuccessfulNuc_GrainIDs(1) = -2;
-    SuccessfulNuc_GrainIDs(2) = -4;
-    SuccessfulNuc_GrainIDs(3) = -5;
-    SuccessfulNuc_GrainIDs(4) = -6;
-    SuccessfulNuc_GrainIDs(5) = -8;
-    SuccessfulNuc_GrainIDs(6) = -10;
+    std::vector<int> SuccessfulNuc_GrainIDs{-1, -2, -4, -5, -6, -8, -10};
     for (int n = 0; n < 7; n++) {
         // Cell's location within the active layer
         int CellLocation_ThisLayer = SteeringVector_Host(n);
@@ -140,7 +133,7 @@ void testNucleation() {
         int CellLocation_AllLayers = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
         // Check that this cell type is marked as "FutureActive", and the GrainID matches the expected value
         EXPECT_EQ(CellType_Host(CellLocation_AllLayers), FutureActive);
-        EXPECT_EQ(GrainID_Host(CellLocation_AllLayers), SuccessfulNuc_GrainIDs(n));
+        EXPECT_EQ(GrainID_Host(CellLocation_AllLayers), SuccessfulNuc_GrainIDs[n]);
     }
 }
 

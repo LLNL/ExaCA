@@ -1411,7 +1411,7 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
     }
     Substrate.close();
     // Copy GrainIDs read from file to device
-    Kokkos::deep_copy(GrainID_Device, GrainID_Host);
+    GrainID_Device = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), GrainID_Host);
     if (id == 0)
         std::cout << "Substrate file read complete" << std::endl;
 }
@@ -1776,24 +1776,22 @@ void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, in
 //*****************************************************************************/
 // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur
 void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nx,
-                int ny, int nzActive, int LocalActiveDomainSize, int LocalDomainSize, int ZBound_Low, int id,
-                double NMax, double dTN, double dTsigma, double deltax, ViewI NucleiLocation_G,
-                ViewI_H NucleationTimes_H, ViewI NucleiGrainID_G, ViewI CellType_Device, ViewI CritTimeStep_Device,
-                ViewF UndercoolingChange_Device, ViewI LayerID_Device, int &PossibleNuclei_ThisRankThisLayer,
-                int &Nuclei_WholeDomain, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
-                bool AtWestBoundary, int &NucleationCounter) {
+                int ny, int nzActive, int ZBound_Low, int id, double NMax, double dTN, double dTsigma, double deltax,
+                ViewI &NucleiLocation_G, ViewI_H &NucleationTimes_H, ViewI &NucleiGrainID_G, ViewI CellType_Device,
+                ViewI CritTimeStep_Device, ViewF UndercoolingChange_Device, ViewI LayerID_Device,
+                int &PossibleNuclei_ThisRankThisLayer, int &Nuclei_WholeDomain, bool AtNorthBoundary,
+                bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary, int &NucleationCounter) {
 
     // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation data
-    // back to the device again Copy CellType and LayerID back to the host for this subroutine
-    ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_TEMP"), LocalDomainSize);
-    ViewI_H CellType_Host(Kokkos::ViewAllocateWithoutInitializing("CellType_TEMP"), LocalDomainSize);
-    ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_TEMP"), LocalDomainSize);
-    ViewF_H UndercoolingChange_Host(Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_TEMP"),
-                                    LocalDomainSize);
-    Kokkos::deep_copy(LayerID_Host, LayerID_Device);
-    Kokkos::deep_copy(CellType_Host, CellType_Device);
-    Kokkos::deep_copy(CritTimeStep_Host, CritTimeStep_Device);
-    Kokkos::deep_copy(UndercoolingChange_Host, UndercoolingChange_Device);
+    // back to the device again. This is currently performed on the device due to heavy usage of standard library
+    // algorithm functions
+
+    // Copy CritTimeStep, UndercoolingChange, CellType, and LayerID into temporary host views for this subroutine
+    ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID_Device);
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType_Device);
+    ViewI_H CritTimeStep_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritTimeStep_Device);
+    ViewF_H UndercoolingChange_Host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingChange_Device);
 
     // Three counters tracked here:
     // Nuclei_WholeDomain - tracks all nuclei (regardless of whether an event would be possible based on the layer ID
@@ -1913,19 +1911,27 @@ void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, i
     // Sorting from low to high
     std::sort(NucleationTimeLocID.begin(), NucleationTimeLocID.end());
 
+    // With PossibleNuclei_ThisRankThisLayer now known, resize views appropriately
+    // Resize nucleation views now that PossibleNuclei_ThisRank is known for all MPI ranks
+    Kokkos::resize(NucleationTimes_H, PossibleNuclei_ThisRankThisLayer);
+    Kokkos::resize(NucleiLocation_G, PossibleNuclei_ThisRankThisLayer);
+    Kokkos::resize(NucleiGrainID_G, PossibleNuclei_ThisRankThisLayer);
+
     // Create temporary view to store nucleation locations, grain ID data initialized on the host
     // NucleationTimes_H are stored using a host view that is passed to Nucleation subroutine and later used - don't
     // need a temporary host view
-    ViewI_H NucleiLocation_H(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation_Host"), LocalActiveDomainSize);
-    ViewI_H NucleiGrainID_H(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"), LocalActiveDomainSize);
+    ViewI_H NucleiLocation_H(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation_Host"),
+                             PossibleNuclei_ThisRankThisLayer);
+    ViewI_H NucleiGrainID_H(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
+                            PossibleNuclei_ThisRankThisLayer);
     for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
         NucleationTimes_H(n) = std::get<0>(NucleationTimeLocID[n]);
         NucleiLocation_H(n) = std::get<1>(NucleationTimeLocID[n]);
         NucleiGrainID_H(n) = std::get<2>(NucleationTimeLocID[n]);
     }
     // Copy nucleation data to the device
-    Kokkos::deep_copy(NucleiLocation_G, NucleiLocation_H);
-    Kokkos::deep_copy(NucleiGrainID_G, NucleiGrainID_H);
+    NucleiLocation_G = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), NucleiLocation_H);
+    NucleiGrainID_G = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), NucleiGrainID_H);
 
     // Initialize counter for the layer to 0
     NucleationCounter = 0;

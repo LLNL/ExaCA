@@ -80,12 +80,11 @@ void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, in
                   Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary,
                   bool AtEastBoundary, bool AtWestBoundary);
 void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nx,
-                int ny, int nzActive, int LocalActiveDomainSize, int LocalDomainSize, int ZBound_Low, int id,
-                double NMax, double dTN, double dTsigma, double deltax, ViewI NucleiLocation_G,
-                ViewI_H NucleationTimes_H, ViewI NucleiGrainID_G, ViewI CellType_Device, ViewI CritTimeStep_Device,
-                ViewF UndercoolingChange_Device, ViewI LayerID_Device, int &PossibleNuclei_ThisRankThisLayer,
-                int &Nuclei_WholeDomain, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
-                bool AtWestBoundary, int &NucleationCounter);
+                int ny, int nzActive, int ZBound_Low, int id, double NMax, double dTN, double dTsigma, double deltax,
+                ViewI &NucleiLocation_G, ViewI_H &NucleationTimes_H, ViewI &NucleiGrainID_G, ViewI CellType_Device,
+                ViewI CritTimeStep_Device, ViewF UndercoolingChange_Device, ViewI LayerID_Device,
+                int &PossibleNuclei_ThisRankThisLayer, int &Nuclei_WholeDomain, bool AtNorthBoundary,
+                bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary, int &NucleationCounter);
 void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int &ZBound_Low, int &ZBound_High,
                           int &nzActive, int LocalDomainSize, int &LocalActiveDomainSize, int &BufSizeZ,
                           int LayerHeight, ViewI CellType, int layernumber, ViewI LayerID);

@@ -235,26 +235,21 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         std::cout << "Grain struct initialized" << std::endl;
 
     int PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, NucleationCounter;
-    // Without knowing PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to their max possible
-    // size NucleationTimes only exists on the host - used to decide whether or not to call nucleation subroutine
+    // Without knowing PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes,
+    // resize inside of NucleiInit when the number of nuclei per rank is known
+    int EstimatedNuclei_ThisRankThisLayer = NMax * pow(deltax, 3) * LocalActiveDomainSize;
     ViewI_H NucleationTimes_Host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
-                                 LocalActiveDomainSize);
-    ViewI NucleiLocation(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation"), LocalActiveDomainSize);
-    ViewI NucleiGrainID(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"), LocalActiveDomainSize);
+                                 EstimatedNuclei_ThisRankThisLayer);
+    ViewI NucleiLocation(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation"), EstimatedNuclei_ThisRankThisLayer);
+    ViewI NucleiGrainID(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"), EstimatedNuclei_ThisRankThisLayer);
 
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
     // successive layer when layer 0 in complete
-    NucleiInit(0, RNGSeed, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nx, ny, nzActive, LocalActiveDomainSize,
-               LocalDomainSize, ZBound_Low, id, NMax, dTN, dTsigma, deltax, NucleiLocation, NucleationTimes_Host,
-               NucleiGrainID, CellType_G, CritTimeStep_G, UndercoolingChange_G, LayerID_G,
-               PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
-               AtWestBoundary, NucleationCounter);
-
-    // Resize nucleation views now that PossibleNuclei_ThisRank is known for all MPI ranks
-    Kokkos::resize(NucleationTimes_Host, PossibleNuclei_ThisRankThisLayer);
-    Kokkos::resize(NucleiLocation, PossibleNuclei_ThisRankThisLayer);
-    Kokkos::resize(NucleiGrainID, PossibleNuclei_ThisRankThisLayer);
+    NucleiInit(0, RNGSeed, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax, dTN,
+               dTsigma, deltax, NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType_G, CritTimeStep_G,
+               UndercoolingChange_G, LayerID_G, PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary,
+               AtSouthBoundary, AtEastBoundary, AtWestBoundary, NucleationCounter);
 
     // Normalize solidification parameters
     AConst = AConst * deltat / deltax;
@@ -448,22 +443,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                          BufferSouthEastSend, BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary,
                          AtEastBoundary, AtWestBoundary);
 
-            // Based on the max number of grains that may nucleate during this next layer, resize nucleation views
-            Kokkos::realloc(NucleationTimes_Host, LocalActiveDomainSize);
-            Kokkos::realloc(NucleiLocation, LocalActiveDomainSize);
-            Kokkos::realloc(NucleiGrainID, LocalActiveDomainSize);
-
             // Initialize potential nucleation event data for next layer "layernumber + 1"
+            // Views containing nucleation data will be resized to the possible number of nuclei on a given MPI rank for
+            // the next layer
             NucleiInit(layernumber + 1, RNGSeed, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nx, ny, nzActive,
-                       LocalActiveDomainSize, LocalDomainSize, ZBound_Low, id, NMax, dTN, dTsigma, deltax,
-                       NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType_G, CritTimeStep_G,
-                       UndercoolingChange_G, LayerID_G, PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain,
-                       AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary, NucleationCounter);
-
-            // Resize nucleation views now that PossibleNuclei_ThisRank is known for all MPI ranks
-            Kokkos::resize(NucleationTimes_Host, PossibleNuclei_ThisRankThisLayer);
-            Kokkos::resize(NucleiLocation, PossibleNuclei_ThisRankThisLayer);
-            Kokkos::resize(NucleiGrainID, PossibleNuclei_ThisRankThisLayer);
+                       ZBound_Low, id, NMax, dTN, dTsigma, deltax, NucleiLocation, NucleationTimes_Host, NucleiGrainID,
+                       CellType_G, CritTimeStep_G, UndercoolingChange_G, LayerID_G, PossibleNuclei_ThisRankThisLayer,
+                       Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary,
+                       NucleationCounter);
 
             // Update ghost nodes for grain locations and attributes
             MPI_Barrier(MPI_COMM_WORLD);
@@ -507,7 +494,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double RunTime = MPI_Wtime() - StartRunTime;
     double StartOutTime = MPI_Wtime();
 
-    // Copy GPU results for GrainID back to CPU for printing to file(s)
     if (PrintFinalUndercoolingVals) {
         // Copy final undercooling values back to the CPU for potential printing to file
         Kokkos::deep_copy(UndercoolingCurrent_H, UndercoolingCurrent_G);

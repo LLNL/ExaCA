@@ -367,37 +367,14 @@ void testCellTypeInit() {
                         // Based on the orientation of the octahedron and the distance to each neighboring cell on the
                         // grid, these critical diagonal lengths were calculated to be the expected values required for
                         // the octahedron to engulf the centers of each neighboring cells
-                        ViewF_H CritDiagonalLength_Expected(
-                            Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength_Host"), 26);
-                        CritDiagonalLength_Expected(0) = 1.7009771;
-                        CritDiagonalLength_Expected(1) = 2.1710062;
-                        CritDiagonalLength_Expected(2) = 1.9409304;
-                        CritDiagonalLength_Expected(3) = 1.9225504;
-                        CritDiagonalLength_Expected(4) = 2.2444904;
-                        CritDiagonalLength_Expected(5) = 2.6762383;
-                        CritDiagonalLength_Expected(6) = 2.7775407;
-                        CritDiagonalLength_Expected(7) = 2.6560771;
-                        CritDiagonalLength_Expected(8) = 2.1579251;
-                        CritDiagonalLength_Expected(9) = 1.5170407;
-                        CritDiagonalLength_Expected(10) = 1.5170407;
-                        CritDiagonalLength_Expected(11) = 2.0631697;
-                        CritDiagonalLength_Expected(12) = 2.4170816;
-                        CritDiagonalLength_Expected(13) = 2.4170816;
-                        CritDiagonalLength_Expected(14) = 2.0631697;
-                        CritDiagonalLength_Expected(15) = 1.4566354;
-                        CritDiagonalLength_Expected(16) = 1.4566354;
-                        CritDiagonalLength_Expected(17) = 1.7009771;
-                        CritDiagonalLength_Expected(18) = 1.9409304;
-                        CritDiagonalLength_Expected(19) = 2.1710062;
-                        CritDiagonalLength_Expected(20) = 2.2444904;
-                        CritDiagonalLength_Expected(21) = 1.9225504;
-                        CritDiagonalLength_Expected(22) = 2.6560771;
-                        CritDiagonalLength_Expected(23) = 2.1579251;
-                        CritDiagonalLength_Expected(24) = 2.6762383;
-                        CritDiagonalLength_Expected(25) = 2.7775407;
+                        std::vector<float> CritDiagonalLength_Expected{
+                            1.7009771, 2.1710062, 1.9409304, 1.9225504, 2.2444904, 2.6762383, 2.7775407,
+                            2.6560771, 2.1579251, 1.5170407, 1.5170407, 2.0631697, 2.4170816, 2.4170816,
+                            2.0631697, 1.4566354, 1.4566354, 1.7009771, 1.9409304, 2.1710062, 2.2444904,
+                            1.9225504, 2.6560771, 2.1579251, 2.6762383, 2.7775407};
                         for (int n = 0; n < 26; n++) {
                             EXPECT_FLOAT_EQ(CritDiagonalLength_Host(26 * D3D1ConvPosition + n),
-                                            CritDiagonalLength_Expected(n));
+                                            CritDiagonalLength_Expected[n]);
                         }
                     }
                 }
@@ -474,8 +451,8 @@ void testNucleiInit() {
     int LocalDomainSize = MyXSlices * MyYSlices * nz;
     // MPI rank locations relative to the global grid
     bool AtNorthBoundary, AtSouthBoundary;
-    bool AtEastBoundary = false;
-    bool AtWestBoundary = false;
+    bool AtEastBoundary = true;
+    bool AtWestBoundary = true;
     if (id == 0)
         AtSouthBoundary = true;
     else
@@ -516,41 +493,33 @@ void testNucleiInit() {
     ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep_Host);
     ViewF UndercoolingChange = Kokkos::create_mirror_view_and_copy(memory_space(), UndercoolingChange_Host);
 
-    // Without knowing PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to their max possible
+    // Without knowing PossibleNuclei_ThisRankThisLayer yet, allocate nucleation data structures based on an estimated
     // size NucleationTimes only exists on the host - used to decide whether or not to call nucleation subroutine
+    int EstimatedNuclei_ThisRankThisLayer = NMax * pow(deltax, 3) * LocalActiveDomainSize;
     ViewI_H NucleationTimes_Host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
-                                 LocalActiveDomainSize);
-    ViewI NucleiLocation(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation"), LocalActiveDomainSize);
-    ViewI NucleiGrainID(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"), LocalActiveDomainSize);
+                                 EstimatedNuclei_ThisRankThisLayer);
+    ViewI NucleiLocation(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation"), EstimatedNuclei_ThisRankThisLayer);
+    ViewI NucleiGrainID(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"), EstimatedNuclei_ThisRankThisLayer);
 
     // Counters for nucleation events
     int NucleationCounter;                // total nucleation events checked
     int PossibleNuclei_ThisRankThisLayer; // total successful nucleation events
     int Nuclei_WholeDomain = 100;         // NucleiGrainID should start at -101
 
-    NucleiInit(layernumber, RNGSeed, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nx, ny, nzActive,
-               LocalActiveDomainSize, LocalDomainSize, ZBound_Low, id, NMax, dTN, dTsigma, deltax, NucleiLocation,
-               NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep, UndercoolingChange, LayerID,
-               PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
-               AtWestBoundary, NucleationCounter);
-
-    // Resize nucleation views now that PossibleNuclei_ThisRank is known for all MPI ranks
-    Kokkos::resize(NucleationTimes_Host, PossibleNuclei_ThisRankThisLayer);
-    Kokkos::resize(NucleiLocation, PossibleNuclei_ThisRankThisLayer);
-    Kokkos::resize(NucleiGrainID, PossibleNuclei_ThisRankThisLayer);
+    NucleiInit(layernumber, RNGSeed, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax,
+               dTN, dTsigma, deltax, NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep,
+               UndercoolingChange, LayerID, PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary,
+               AtSouthBoundary, AtEastBoundary, AtWestBoundary, NucleationCounter);
 
     // Copy results back to host to check
-    ViewI_H NucleiLocation_Host("NucleiLocation_Host", PossibleNuclei_ThisRankThisLayer);
-    ViewI_H NucleiGrainID_Host("NucleiGrainID_Host", PossibleNuclei_ThisRankThisLayer);
-    Kokkos::deep_copy(NucleiGrainID_Host, NucleiGrainID);
-    Kokkos::deep_copy(NucleiLocation_Host, NucleiLocation);
+    ViewI_H NucleiLocation_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NucleiLocation);
+    ViewI_H NucleiGrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NucleiGrainID);
 
     // Was the nucleation counter initialized to zero?
     EXPECT_EQ(NucleationCounter, 0);
 
     // Is the total number of nuclei in the system correct?
     EXPECT_EQ(Nuclei_WholeDomain, 100 + 4 * np);
-
     for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
         // Are the nuclei grain IDs negative numbers in the expected range based on the inputs?
         EXPECT_GT(NucleiGrainID_Host(n), -(100 + 4 * np + 1));
