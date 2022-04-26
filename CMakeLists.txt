@@ -28,6 +28,15 @@ install(FILES ${SUBSTRATE}
 option(ExaCA_ENABLE_TESTING "Build unit tests" OFF)
 
 if(ExaCA_ENABLE_TESTING)
+  find_package(GTest 1.10 REQUIRED)
+  # Workaround for FindGTest module in CMake older than 3.20
+  if(TARGET GTest::gtest)
+    set(gtest_target GTest::gtest)
+  elseif(TARGET GTest::GTest)
+    set(gtest_target GTest::GTest)
+  else()
+    message(FATAL_ERROR "bug in GTest find module workaround")
+  endif()
   enable_testing()
   add_subdirectory(unit_test)
 endif()
