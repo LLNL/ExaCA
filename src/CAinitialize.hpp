@@ -63,7 +63,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      ViewI GrainID, ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength,
                                      double RNGSeed);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
-                            int MyYOffset, int pid, ViewI GrainID);
+                            int MyYOffset, int pid, ViewI &GrainID);
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
                                     int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, double deltax,
                                     ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID);

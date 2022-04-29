@@ -430,9 +430,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 std::cout << "New layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY << " " << BufSizeZ
                           << std::endl;
 
-            // Initialize powder layer grain structure for the next layer "layernumber + 1"
-            PowderInit(layernumber + 1, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices, MyXOffset,
-                       MyYOffset, id, GrainID_G, RNGSeed, NextLayer_FirstEpitaxialGrainID);
+            // If the baseplate was initialized from a substrate grain spacing, initialize powder layer grain structure
+            // for the next layer "layernumber + 1" Otherwise, the entire substrate (baseplate + powder) was read from a
+            // file, and the powder layers have already been initialized
+            if (!(UseSubstrateFile))
+                PowderInit(layernumber + 1, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices,
+                           MyXOffset, MyYOffset, id, GrainID_G, RNGSeed, NextLayer_FirstEpitaxialGrainID);
 
             // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
             CellTypeInit(layernumber + 1, id, np, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset,

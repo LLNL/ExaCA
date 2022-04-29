@@ -1358,7 +1358,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
 
 // Initializes Grain ID values where the substrate comes from a file
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
-                            int MyYOffset, int id, ViewI GrainID_Device) {
+                            int MyYOffset, int id, ViewI &GrainID_Device) {
 
     // Assign GrainID values to cells that are part of the substrate - read values from file and initialize using
     // temporary host view
