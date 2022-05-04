@@ -61,7 +61,11 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int ny, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY,
                                      ViewI NeighborZ, ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType,
                                      ViewI GrainID, ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength,
-                                     double RNGSeed);
+                                     double RNGSeed, int np, int DecompositionStrategy, Buffer2D BufferWestSend,
+                                     Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                                     Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                                     Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary,
+                                     bool AtEastBoundary, bool AtWestBoundary);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
                             int MyYOffset, int pid, ViewI &GrainID);
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,

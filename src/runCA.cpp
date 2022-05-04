@@ -166,11 +166,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewI NeighborZ_G = Kokkos::create_mirror_view_and_copy(memory_space(), NeighborZ_H);
     ViewF GrainUnitVector_G = Kokkos::create_mirror_view_and_copy(memory_space(), GrainUnitVector_H);
 
-    // Initialize device views - grain ID for all cells is initially 0 (unassigned)
-    ViewI GrainID_G(Kokkos::ViewAllocateWithoutInitializing("GrainID_G"), LocalDomainSize);
+    // Allocate device views: initialize GrainID to 0 for all cells (unassigned), assign CellType values later
+    ViewI GrainID_G("GrainID_G", LocalDomainSize);
     ViewI CellType_G(Kokkos::ViewAllocateWithoutInitializing("CellType_G"), LocalDomainSize);
     // Variables characterizing the active cell region within each rank's grid
-    ViewF DiagonalLength_G(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength_G"), LocalActiveDomainSize);
+    // DiagonalLengths should be initialized to 0, DOCenter/CritDiagonalLength do not need initialization
+    ViewF DiagonalLength_G("DiagonalLength_G", LocalActiveDomainSize);
     ViewF DOCenter_G(Kokkos::ViewAllocateWithoutInitializing("DOCenter_G"), 3 * LocalActiveDomainSize);
     ViewF CritDiagonalLength_G(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength_G"),
                                26 * LocalActiveDomainSize);
@@ -212,7 +213,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, MyXOffset, MyYOffset,
                                         NeighborX_G, NeighborY_G, NeighborZ_G, GrainUnitVector_G, NGrainOrientations,
                                         CellType_G, GrainID_G, DiagonalLength_G, DOCenter_G, CritDiagonalLength_G,
-                                        RNGSeed);
+                                        RNGSeed, np, DecompositionStrategy, BufferWestSend, BufferEastSend, BufferNorthSend,
+                                        BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
+                                        BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
+                                        AtWestBoundary);
     }
     else {
         if (UseSubstrateFile)

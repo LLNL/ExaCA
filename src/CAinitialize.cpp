@@ -1191,7 +1191,11 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int ny, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY,
                                      ViewI NeighborZ, ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType,
                                      ViewI GrainID, ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength,
-                                     double RNGSeed) {
+                                     double RNGSeed, int np, int DecompositionStrategy, Buffer2D BufferWestSend,
+                                     Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                                     Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                                     Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary,
+                                     bool AtEastBoundary, bool AtWestBoundary) {
 
     // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
     // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
@@ -1207,20 +1211,16 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
     // On all ranks, generate active site locations - same list on every rank
     // TODO: Generate random numbers on GPU, instead of using host view and copying over - ensure that locations are in
     // the same order every time based on the RNGSeed
-    ViewI_H ActCellX_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellX_Host"), nx * ny);
-    ViewI_H ActCellY_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellY_Host"), nx * ny);
+    ViewI_H ActCellX_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellX_Host"), SubstrateActCells);
+    ViewI_H ActCellY_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellY_Host"), SubstrateActCells);
 
     // Randomly locate substrate grain seeds for cells in the interior of this subdomain (at the k = 0 bottom surface)
     for (int n = 0; n < SubstrateActCells; n++) {
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < ny; j++) {
-                double XLocation = Xdist(gen);
-                double YLocation = Ydist(gen);
-                // Randomly select integer coordinates between 0 and nx-1 or ny-1
-                ActCellX_Host(n) = round(XLocation);
-                ActCellY_Host(n) = round(YLocation);
-            }
-        }
+        double XLocation = Xdist(gen);
+        double YLocation = Ydist(gen);
+        // Randomly select integer coordinates between 0 and nx-1 or ny-1
+        ActCellX_Host(n) = round(XLocation);
+        ActCellY_Host(n) = round(YLocation);
     }
 
     // Copy views of substrate grain locations back to the device
@@ -1270,13 +1270,13 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                 // local grid For each neighbor (l=0 to 25), calculate which octahedron face leads to cell
                 // capture Calculate critical octahedron diagonal length to activate each nearest neighbor, as
                 // well as the coordinates of the triangle vertices on the capturing face
-                for (int n = 0; n < 26; n++) {
+                for (int l = 0; l < 26; l++) {
 
                     // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
                     // the center of a neighbor cell
-                    double x0 = xp + NeighborX(n) - cx;
-                    double y0 = yp + NeighborY(n) - cy;
-                    double z0 = zp + NeighborZ(n) - cz;
+                    double x0 = xp + NeighborX(l) - cx;
+                    double y0 = yp + NeighborY(l) - cy;
+                    double z0 = zp + NeighborZ(l) - cz;
                     // mag0 is the magnitude of (x0,y0,z0)
                     double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
 
@@ -1348,8 +1348,28 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                         (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
                     float CDLVal =
                         pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
-                    CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) = CDLVal;
+                    CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(l)) = CDLVal;
                 } // end loop over 26 diagonals
+                // If this new active cell is in the halo region, load the send buffers
+                if (np > 1) {
+
+                    float GhostGID = GrainID(D3D1ConvPosition);
+                    float GhostDOCX = GlobalX + 0.5;
+                    float GhostDOCY = GlobalY + 0.5;
+                    float GhostDOCZ = GlobalZ + 0.5;
+                    float GhostDL = 0.01;
+                    // Collect data for the ghost nodes, if necessary
+                    if (DecompositionStrategy == 1)
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, LocalX,
+                                       LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                                       BufferNorthSend);
+                    else
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
+                                       MyXSlices, MyYSlices, LocalX, LocalY, 0, AtNorthBoundary, AtSouthBoundary,
+                                       AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend, BufferWestSend,
+                                       BufferEastSend, BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
+                                       BufferNorthWestSend);
+                } // End if statement for serial/parallel code
             }
         });
     if (id == 0)

@@ -30,11 +30,24 @@ void testSubstrateInit_ConstrainedGrowth() {
     int MyXOffset = 0;
     // Domain size in Y depends on the number of ranks - each rank has 4 cells in Y
     // Each rank is assigned a different portion of the domain in Y
+    int DecompositionStrategy = 1;
     int ny = 4 * np;
     int MyYSlices = 4;
     int MyYOffset = 4 * id;
     int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
     int LocalDomainSize = MyXSlices * MyYSlices * nz;
+    // MPI rank locations relative to the global grid
+    bool AtNorthBoundary, AtSouthBoundary;
+    bool AtEastBoundary = false;
+    bool AtWestBoundary = false;
+    if (id == 0)
+        AtSouthBoundary = true;
+    else
+        AtSouthBoundary = false;
+    if (id == np - 1)
+        AtNorthBoundary = true;
+    else
+        AtNorthBoundary = false;
 
     double FractSurfaceSitesActive = 0.5; // Each rank will have 2 active cells each, on average
     double RNGSeed = 0.0;
@@ -64,9 +77,34 @@ void testSubstrateInit_ConstrainedGrowth() {
     ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
     ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
 
+    // Buffer sizes
+    int BufSizeX = MyXSlices;
+    int BufSizeY = 0;
+    int BufSizeZ = nzActive;
+    
+    // Send/recv buffers for ghost node data should be initialized with zeros
+    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferEastSend("BufferEastSend", BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferWestSend("BufferWestSend", BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferNorthEastSend("BufferNorthEastSend", BufSizeZ, 5);
+    Buffer2D BufferNorthWestSend("BufferNorthWestSend", BufSizeZ, 5);
+    Buffer2D BufferSouthEastSend("BufferSouthEastSend", BufSizeZ, 5);
+    Buffer2D BufferSouthWestSend("BufferSouthWestSend", BufSizeZ, 5);
+    Buffer2D BufferSouthRecv("BufferSouthRecv", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferNorthRecv("BufferNorthRecv", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferEastRecv("BufferEastRecv", BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferWestRecv("BufferWestRecv", BufSizeY * BufSizeZ, 5);
+    Buffer2D BufferNorthEastRecv("BufferNorthEastRecv", BufSizeZ, 5);
+    Buffer2D BufferNorthWestRecv("BufferNorthWestRecv", BufSizeZ, 5);
+    Buffer2D BufferSouthEastRecv("BufferSouthEastRecv", BufSizeZ, 5);
+    Buffer2D BufferSouthWestRecv("BufferSouthWestRecv", BufSizeZ, 5);
+    
     SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, MyXOffset, MyYOffset,
                                     NeighborX, NeighborY, NeighborZ, GrainUnitVector, NGrainOrientations, CellType,
-                                    GrainID, DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed);
+                                    GrainID, DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed, np, DecompositionStrategy, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
+                                    BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
+                                    AtWestBoundary);
 
     // Copy CellType, GrainID views to host to check values
     ViewI CellType_Host(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), LocalDomainSize);
