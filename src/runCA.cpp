@@ -210,13 +210,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // substrate from a file, or generating a substrate using the existing CA algorithm
     int NextLayer_FirstEpitaxialGrainID;
     if (SimulationType == "C") {
-        SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, MyXOffset, MyYOffset,
-                                        NeighborX_G, NeighborY_G, NeighborZ_G, GrainUnitVector_G, NGrainOrientations,
-                                        CellType_G, GrainID_G, DiagonalLength_G, DOCenter_G, CritDiagonalLength_G,
-                                        RNGSeed, np, DecompositionStrategy, BufferWestSend, BufferEastSend, BufferNorthSend,
-                                        BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
-                                        BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
-                                        AtWestBoundary);
+        SubstrateInit_ConstrainedGrowth(
+            id, FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, MyXOffset, MyYOffset, NeighborX_G, NeighborY_G,
+            NeighborZ_G, GrainUnitVector_G, NGrainOrientations, CellType_G, GrainID_G, DiagonalLength_G, DOCenter_G,
+            CritDiagonalLength_G, RNGSeed, np, DecompositionStrategy, BufferWestSend, BufferEastSend, BufferNorthSend,
+            BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend,
+            BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary);
     }
     else {
         if (UseSubstrateFile)

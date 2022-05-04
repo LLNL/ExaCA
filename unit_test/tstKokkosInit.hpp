@@ -81,7 +81,7 @@ void testSubstrateInit_ConstrainedGrowth() {
     int BufSizeX = MyXSlices;
     int BufSizeY = 0;
     int BufSizeZ = nzActive;
-    
+
     // Send/recv buffers for ghost node data should be initialized with zeros
     Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 5);
     Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 5);
@@ -99,12 +99,12 @@ void testSubstrateInit_ConstrainedGrowth() {
     Buffer2D BufferNorthWestRecv("BufferNorthWestRecv", BufSizeZ, 5);
     Buffer2D BufferSouthEastRecv("BufferSouthEastRecv", BufSizeZ, 5);
     Buffer2D BufferSouthWestRecv("BufferSouthWestRecv", BufSizeZ, 5);
-    
-    SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, MyXOffset, MyYOffset,
-                                    NeighborX, NeighborY, NeighborZ, GrainUnitVector, NGrainOrientations, CellType,
-                                    GrainID, DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed, np, DecompositionStrategy, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
-                                    BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
-                                    AtWestBoundary);
+    SubstrateInit_ConstrainedGrowth(
+        id, FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, MyXOffset, MyYOffset, NeighborX, NeighborY,
+        NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID, DiagonalLength, DOCenter, CritDiagonalLength,
+        RNGSeed, np, DecompositionStrategy, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend,
+        BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, BufSizeX, BufSizeY,
+        AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary);
 
     // Copy CellType, GrainID views to host to check values
     ViewI CellType_Host(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), LocalDomainSize);

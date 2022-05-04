@@ -1193,9 +1193,10 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      ViewI GrainID, ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength,
                                      double RNGSeed, int np, int DecompositionStrategy, Buffer2D BufferWestSend,
                                      Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                                     Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
-                                     Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary,
-                                     bool AtEastBoundary, bool AtWestBoundary) {
+                                     Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
+                                     Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX,
+                                     int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
+                                     bool AtWestBoundary) {
 
     // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
     // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
@@ -1361,8 +1362,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                     // Collect data for the ghost nodes, if necessary
                     if (DecompositionStrategy == 1)
                         loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, LocalX,
-                                       LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                       BufferNorthSend);
+                                       LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
                     else
                         loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
                                        MyXSlices, MyYSlices, LocalX, LocalY, 0, AtNorthBoundary, AtSouthBoundary,

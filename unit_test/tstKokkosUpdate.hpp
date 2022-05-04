@@ -86,9 +86,8 @@ void testNucleation() {
     ViewI NucleiGrainID = Kokkos::create_mirror_view_and_copy(memory_space(), NucleiGrainID_Host);
 
     // Steering Vector
-    ViewI_H SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
-    ViewI_H numSteer_Host(Kokkos::ViewAllocateWithoutInitializing("SteeringVectorSize_Host"), 1);
-    numSteer_Host(0) = 0;
+    ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
+    ViewI_H numSteer_Host("SteeringVectorSize_Host", 1);
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(memory_space(), numSteer_Host);
 
     // Take enough time steps such that every nucleation event has a chance to occur
