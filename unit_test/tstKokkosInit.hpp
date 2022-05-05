@@ -168,7 +168,7 @@ void testBaseplateInit_FromGrainSpacing() {
                                    MyYOffset, id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
 
     // Copy results back to host to check
-    ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), GrainID );
+    ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Check the results for baseplate grains - cells should have GrainIDs between 1 and np (inclusive) if they are part
     // of the active domain, or 0 (unassigned) if not part of the active domain
@@ -375,6 +375,13 @@ void testCellTypeInit() {
     // Solid cells where no temperature data existed
     // Active cells separate solid-liquid cells, as well as at the active region bottom (implicitly borders a solid
     // cell, since the layers below should be solid) Liquid cells are all other cells
+    // Based on the orientation of the octahedron and the distance to each neighboring cell on the
+    // grid, these critical diagonal lengths were calculated to be the expected values required for
+    // the octahedron to engulf the centers of each neighboring cells
+    std::vector<float> CritDiagonalLength_Expected{
+        1.7009771, 2.1710062, 1.9409304, 1.9225504, 2.2444904, 2.6762383, 2.7775407, 2.6560771, 2.1579251,
+        1.5170407, 1.5170407, 2.0631697, 2.4170816, 2.4170816, 2.0631697, 1.4566354, 1.4566354, 1.7009771,
+        1.9409304, 2.1710062, 2.2444904, 1.9225504, 2.6560771, 2.1579251, 2.6762383, 2.7775407};
     for (int k = 0; k < nz; k++) {
         for (int i = 0; i < MyXSlices; i++) {
             for (int j = 0; j < MyYSlices; j++) {
@@ -398,14 +405,7 @@ void testCellTypeInit() {
                                         j + MyYOffset + 0.5); // Y position of octahedron center
                         EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition + 2),
                                         k + 0.5); // Z position of octahedron center
-                        // Based on the orientation of the octahedron and the distance to each neighboring cell on the
-                        // grid, these critical diagonal lengths were calculated to be the expected values required for
-                        // the octahedron to engulf the centers of each neighboring cells
-                        std::vector<float> CritDiagonalLength_Expected{
-                            1.7009771, 2.1710062, 1.9409304, 1.9225504, 2.2444904, 2.6762383, 2.7775407,
-                            2.6560771, 2.1579251, 1.5170407, 1.5170407, 2.0631697, 2.4170816, 2.4170816,
-                            2.0631697, 1.4566354, 1.4566354, 1.7009771, 1.9409304, 2.1710062, 2.2444904,
-                            1.9225504, 2.6560771, 2.1579251, 2.6762383, 2.7775407};
+                        // Check critical diagonal length values against expected values
                         for (int n = 0; n < 26; n++) {
                             EXPECT_FLOAT_EQ(CritDiagonalLength_Host(26 * D3D1ConvPosition + n),
                                             CritDiagonalLength_Expected[n]);
@@ -437,11 +437,9 @@ void testCellTypeInit() {
                 EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 4), 0.01);
             }
             else {
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 0), 0.0);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 1), 0.0);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 2), 0.0);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 3), 0.0);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 4), 0.0);
+                for (int l = 0; l < 5; l++) {
+                    EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, l), 0.0);
+                }
             }
             // Check the north buffer - Data being sent to the "north" (BufferNorthSend) is from active cells at Y = 2
             int D3D1ConvPositionGlobal_North = k * MyXSlices * MyYSlices + i * MyYSlices + 2;
@@ -452,11 +450,9 @@ void testCellTypeInit() {
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 4), 0.01);
             }
             else {
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 0), 0.0);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 1), 0.0);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 2), 0.0);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 3), 0.0);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 4), 0.0);
+                for (int l = 0; l < 5; l++) {
+                    EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, l), 0.0);
+                }
             }
         }
     }

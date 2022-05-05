@@ -87,8 +87,8 @@ void testNucleation() {
 
     // Steering Vector
     ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
-    ViewI_H numSteer_Host("SteeringVectorSize_Host", 1);
-    ViewI numSteer = Kokkos::create_mirror_view_and_copy(memory_space(), numSteer_Host);
+    // Initialize steering vector size to 0
+    ViewI numSteer("SteeringVector", 1);
 
     // Take enough time steps such that every nucleation event has a chance to occur
     for (int cycle = 0; cycle <= (2 * id + 11); cycle++) {
@@ -100,7 +100,7 @@ void testNucleation() {
     // Copy CellType, SteeringVector, numSteer, GrainID back to host to check nucleation results
     CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     ViewI_H SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SteeringVector);
-    numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), numSteer);
+    ViewI_H numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), numSteer);
     GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Check that all 10 possible nucleation events were attempted
