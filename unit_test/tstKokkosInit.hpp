@@ -362,15 +362,10 @@ void testCellTypeInit() {
                  AtSouthBoundary, AtEastBoundary, AtWestBoundary);
 
     // Copy views back to host to check the results
-    ViewF_H DiagonalLength_Host(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength_Host"), LocalActiveDomainSize);
-    ViewF_H CritDiagonalLength_Host(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength_Host"),
-                                    26 * LocalActiveDomainSize);
-    ViewF_H DOCenter_Host(Kokkos::ViewAllocateWithoutInitializing("DOCenter_Host"), 3 * LocalActiveDomainSize);
-    ViewI_H CellType_Host(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), LocalDomainSize);
-    Kokkos::deep_copy(DiagonalLength_Host, DiagonalLength);
-    Kokkos::deep_copy(CritDiagonalLength_Host, CritDiagonalLength);
-    Kokkos::deep_copy(DOCenter_Host, DOCenter);
-    Kokkos::deep_copy(CellType_Host, CellType);
+    ViewF_H DiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DiagonalLength);
+    ViewF_H CritDiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritDiagonalLength);
+    ViewF_H DOCenter_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DOCenter);
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
 
     // Solid cells where no temperature data existed
     // Active cells separate solid-liquid cells, as well as at the active region bottom (implicitly borders a solid
@@ -444,6 +439,7 @@ void testCellTypeInit() {
             // Check the north buffer - Data being sent to the "north" (BufferNorthSend) is from active cells at Y = 2
             int D3D1ConvPositionGlobal_North = k * MyXSlices * MyYSlices + i * MyYSlices + 2;
             if ((CellType_Host(D3D1ConvPositionGlobal_North) == Active) && (!(AtNorthBoundary))) {
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 0), 1);
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 1), i + MyXOffset + 0.5);
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 2), 2 + MyYOffset + 0.5);
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 3), k + 0.5);
@@ -577,8 +573,7 @@ TEST(TEST_CATEGORY, grain_init_tests) {
     testSubstrateInit_ConstrainedGrowth();
     testBaseplateInit_FromGrainSpacing();
     testPowderInit();
-    testCellTypeInit();
-    testNucleiInit();
 }
-
+TEST(TEST_CATEGORY, cell_init_test) { testCellTypeInit(); }
+TEST(TEST_CATEGORY, nuclei_init_test) { testNucleiInit(); }
 } // end namespace Test
