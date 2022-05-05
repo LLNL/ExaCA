@@ -107,10 +107,8 @@ void testSubstrateInit_ConstrainedGrowth() {
         AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary);
 
     // Copy CellType, GrainID views to host to check values
-    ViewI CellType_Host(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), LocalDomainSize);
-    ViewI GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"), LocalDomainSize);
-    Kokkos::deep_copy(GrainID_Host, GrainID);
-    Kokkos::deep_copy(CellType_Host, CellType);
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
     for (int i = 0; i < LocalDomainSize; i++) {
         if (i >= MyXSlices * MyYSlices) {
             // Not at bottom surface - should be liquid cells with GrainID still equal to 0
@@ -170,8 +168,7 @@ void testBaseplateInit_FromGrainSpacing() {
                                    MyYOffset, id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
 
     // Copy results back to host to check
-    ViewI_H GrainID_H("GrainID_Host", LocalDomainSize);
-    Kokkos::deep_copy(GrainID_H, GrainID);
+    ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace(), GrainID );
 
     // Check the results for baseplate grains - cells should have GrainIDs between 1 and np (inclusive) if they are part
     // of the active domain, or 0 (unassigned) if not part of the active domain
@@ -227,8 +224,7 @@ void testPowderInit() {
                id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
 
     // Copy results back to host to check
-    ViewI_H GrainID_H("GrainID_Host", LocalDomainSize);
-    Kokkos::deep_copy(GrainID_H, GrainID);
+    ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Check the results - were the right number of powder grain IDs used?
     int Expected_NextLayer_FirstEpitaxialGrainID = PreviousLayer_FirstEpitaxialGrainID + nx * ny * LayerHeight;
@@ -423,6 +419,8 @@ void testCellTypeInit() {
         }
     }
 
+    auto BufferSouthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthSend);
+    auto BufferNorthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
     // Further check that active cell data was properly loaded into send buffers, and that locations in the send buffers
     // not corresponding to active cells were left alone (should still be 0s)
     for (int k = ZBound_Low; k <= ZBound_High; k++) {
@@ -432,33 +430,33 @@ void testCellTypeInit() {
             int D3D1ConvPositionGlobal_South =
                 k * MyXSlices * MyYSlices + i * MyYSlices + 1; // Position of cell on grid
             if ((CellType_Host(D3D1ConvPositionGlobal_South) == Active) && (!(AtSouthBoundary))) {
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 0), 1);
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 1), i + MyXOffset + 0.5);
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 2), 1 + MyYOffset + 0.5);
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 3), k + 0.5);
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 4), 0.01);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 0), 1);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 1), i + MyXOffset + 0.5);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 2), 1 + MyYOffset + 0.5);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 3), k + 0.5);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 4), 0.01);
             }
             else {
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 0), 0.0);
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 1), 0.0);
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 2), 0.0);
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 3), 0.0);
-                EXPECT_FLOAT_EQ(BufferSouthSend(GNPosition, 4), 0.0);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 0), 0.0);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 1), 0.0);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 2), 0.0);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 3), 0.0);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 4), 0.0);
             }
             // Check the north buffer - Data being sent to the "north" (BufferNorthSend) is from active cells at Y = 2
             int D3D1ConvPositionGlobal_North = k * MyXSlices * MyYSlices + i * MyYSlices + 2;
             if ((CellType_Host(D3D1ConvPositionGlobal_North) == Active) && (!(AtNorthBoundary))) {
-                EXPECT_FLOAT_EQ(BufferNorthSend(GNPosition, 1), i + MyXOffset + 0.5);
-                EXPECT_FLOAT_EQ(BufferNorthSend(GNPosition, 2), 2 + MyYOffset + 0.5);
-                EXPECT_FLOAT_EQ(BufferNorthSend(GNPosition, 3), k + 0.5);
-                EXPECT_FLOAT_EQ(BufferNorthSend(GNPosition, 4), 0.01);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 1), i + MyXOffset + 0.5);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 2), 2 + MyYOffset + 0.5);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 3), k + 0.5);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 4), 0.01);
             }
             else {
-                EXPECT_FLOAT_EQ(BufferNorthSend(GNPosition, 0), 0.0);
-                EXPECT_FLOAT_EQ(BufferNorthSend(GNPosition, 1), 0.0);
-                EXPECT_FLOAT_EQ(BufferNorthSend(GNPosition, 2), 0.0);
-                EXPECT_FLOAT_EQ(BufferNorthSend(GNPosition, 3), 0.0);
-                EXPECT_FLOAT_EQ(BufferNorthSend(GNPosition, 4), 0.0);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 0), 0.0);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 1), 0.0);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 2), 0.0);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 3), 0.0);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 4), 0.0);
             }
         }
     }
