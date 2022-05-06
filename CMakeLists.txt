@@ -7,6 +7,7 @@ include(GNUInstallDirs)
 find_package(Kokkos 3 REQUIRED)
 find_package(MPI REQUIRED)
 
+# NOTE: this order is specifically used in the unit tests.
 set(EXACA_SUPPORTED_DEVICES SERIAL PTHREAD OPENMP CUDA HIP)
 
 add_subdirectory(src)

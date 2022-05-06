@@ -7,6 +7,7 @@
 
 #include "CAconfig.hpp"
 #include "CAfunctions.hpp"
+#include "CAghostnodes.hpp"
 #include "CAparsefiles.hpp"
 
 #include "mpi.h"
@@ -33,7 +34,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
                        bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
                        bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                       bool &PrintDefaultRVE) {
+                       bool &PrintDefaultRVE, double &RNGSeed) {
 
     // For now, assuming no remelting
     RemeltingYN = false;
@@ -55,12 +56,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Optional inputs that may be present in the input file, regardless of problem type
     std::vector<std::string> OptionalInputs_General = {
-        "Debug check (reduced)",              // Optional input 0
-        "Debug check (extensive)",            // Optional input 1
-        "Print intermediate output frames",   // Optional input 2
-        "separate frames",                    // Optional input 3
-        "output even if system is unchanged", // Optional input 4
-        "file of final undercooling values",  // Optional input 5
+        "Debug check (reduced)",                        // Optional input 0
+        "Debug check (extensive)",                      // Optional input 1
+        "Print intermediate output frames",             // Optional input 2
+        "separate frames",                              // Optional input 3
+        "output even if system is unchanged",           // Optional input 4
+        "file of final undercooling values",            // Optional input 5
+        "Random seed for grains and nuclei generation", // Optional input 6
     };
 
     // Values used temporarily to store information from the file
@@ -302,6 +304,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         PrintFinalUndercoolingVals = false;
     else
         PrintFinalUndercoolingVals = getInputBool(OptionalInputsRead_General[5]);
+    // Should the RNG seed for grain/nuclei initialization use the default, or a custom value?
+    if (OptionalInputsRead_General[6].empty())
+        RNGSeed = 0.0;
+    else
+        RNGSeed = getInputDouble(OptionalInputsRead_General[6]);
     // For simulations with substrate grain structures, should an input grain spacing or a substrate file be used?
     if ((SimulationType == "S") || (SimulationType == "R")) {
         // Exactly one of the two inputs "sub grain size" and "sub filename" should be present
@@ -820,14 +827,21 @@ void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int 
 
 // Initialize temperature data for an array of overlapping spot melts
 void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
-                       int &MyYOffset, double deltax, double deltat, int nz, ViewI_H CritTimeStep,
-                       ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent, bool *Melted, int LayerHeight,
-                       int NumberOfLayers, int &nzActive, int &ZBound_Low, int &ZBound_High, double FreezingRange,
-                       ViewI_H LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset) {
+                       int &MyYOffset, double deltax, float &ZMin, float *ZMinLayer, float *ZMaxLayer, double deltat,
+                       int nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
+                       bool *Melted, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low,
+                       int &ZBound_High, double FreezingRange, ViewI_H LayerID, int NSpotsX, int NSpotsY,
+                       int SpotRadius, int SpotOffset) {
 
     ZBound_Low = 0;
     ZBound_High = SpotRadius;
     nzActive = ZBound_High - ZBound_Low + 1;
+    // Set these parameters to determine powder layer bounds
+    ZMin = 0;
+    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+        ZMinLayer[layernumber] = deltax * (LayerHeight * layernumber);
+        ZMaxLayer[layernumber] = deltax * (SpotRadius + LayerHeight * layernumber);
+    }
     if (id == 0)
         std::cout << "Layer 0's active domain is from Z = " << ZBound_Low << " through " << ZBound_High << std::endl;
     // No cells intitially have undercooling, nor have melting/solidification data
@@ -1172,75 +1186,203 @@ void OrientationInit(int, int NGrainOrientations, ViewF_H GrainUnitVector, std::
 }
 
 // Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom surface of
-// the constrained domain
-void SubstrateInit_ConstrainedGrowth(double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx, int ny,
-                                     int nz, int MyXOffset, int MyYOffset, int id, int np, ViewI_H CellType,
-                                     ViewI_H GrainID) {
+// the constrained domain. Also initialize active cell data structures associated with the substrate grains
+void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx,
+                                     int ny, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY,
+                                     ViewI NeighborZ, ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType,
+                                     ViewI GrainID, ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength,
+                                     double RNGSeed, int np, int DecompositionStrategy, Buffer2D BufferWestSend,
+                                     Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                                     Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
+                                     Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX,
+                                     int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
+                                     bool AtWestBoundary) {
 
-    std::mt19937_64 gen(id);
-    std::uniform_real_distribution<double> dis(0.0, 1.0);
+    // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
+    // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
+    // -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5
+    std::mt19937_64 gen(RNGSeed);
+    std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
+    std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
 
-    // Counter for the number of active cells
-    int SubstrateActCells_ThisRank = 0;
+    // Determine number of active cells from the fraction of sites active and the number of sites on the bottom domain
+    // surface
+    int SubstrateActCells = std::round(FractSurfaceSitesActive * nx * ny);
+
+    // On all ranks, generate active site locations - same list on every rank
+    // TODO: Generate random numbers on GPU, instead of using host view and copying over - ensure that locations are in
+    // the same order every time based on the RNGSeed
+    ViewI_H ActCellX_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellX_Host"), SubstrateActCells);
+    ViewI_H ActCellY_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellY_Host"), SubstrateActCells);
+
+    // Randomly locate substrate grain seeds for cells in the interior of this subdomain (at the k = 0 bottom surface)
+    for (int n = 0; n < SubstrateActCells; n++) {
+        double XLocation = Xdist(gen);
+        double YLocation = Ydist(gen);
+        // Randomly select integer coordinates between 0 and nx-1 or ny-1
+        ActCellX_Host(n) = round(XLocation);
+        ActCellY_Host(n) = round(YLocation);
+    }
+
+    // Copy views of substrate grain locations back to the device
+    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
+    ViewI ActCellX_Device = Kokkos::create_mirror_view_and_copy(memory_space(), ActCellX_Host);
+    ViewI ActCellY_Device = Kokkos::create_mirror_view_and_copy(memory_space(), ActCellY_Host);
 
     // Start with all cells as liquid prior to locating substrate grain seeds
     Kokkos::deep_copy(CellType, Liquid);
-    // Randomly locate substrate grain seeds for cells in the interior of this subdomain (at the k = 0 bottom surface)
-    for (int i = 0; i < MyXSlices; i++) {
-        for (int j = 0; j < MyYSlices; j++) {
-            // Is this cell part of the halo region? Halos potentially exist at the low/high x/y boundaries, depending
-            // on the decomposition. Only place substrate grain seeds if not part of a halo region, as this would
-            // double count these cells as possible grain sites
-            if ((!((i == 0) && (MyXOffset != 0))) && (!((i == MyXSlices - 1) && (MyXOffset + MyXSlices != nx))) &&
-                (!((j == 0) && (MyYOffset != 0))) && (!((j == MyYSlices - 1) && (MyYOffset + MyYSlices != ny)))) {
-                double R = dis(gen);
-                if (R < FractSurfaceSitesActive) {
-                    SubstrateActCells_ThisRank++;
-                    int CAGridLocation = i * MyYSlices + j;
-                    CellType(CAGridLocation) = Active;
-                }
-            }
-        }
-    }
 
-    // Assign grain IDs to bottom surface grains
-    int FirstEpitaxialGrainID = 1;
-    if (np > 1) {
-        // Grains for epitaxial growth - determine GrainIDs on each MPI rank
-        if (id == 0) {
-            int SBuf = FirstEpitaxialGrainID + SubstrateActCells_ThisRank;
-            MPI_Send(&SBuf, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
-        }
-        else if (id == np - 1) {
-            int RBuf;
-            MPI_Recv(&RBuf, 1, MPI_INT, np - 2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            FirstEpitaxialGrainID = RBuf;
-        }
-        else {
-            int RBuf;
-            MPI_Recv(&RBuf, 1, MPI_INT, id - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            FirstEpitaxialGrainID = RBuf;
-            int SBuf = RBuf + SubstrateActCells_ThisRank;
-            MPI_Send(&SBuf, 1, MPI_INT, id + 1, 0, MPI_COMM_WORLD);
-        }
-    }
-    for (int i = 0; i < MyXSlices * MyYSlices * nz; i++) {
-        if (CellType(i) == Active) {
-            GrainID(i) = FirstEpitaxialGrainID;
-            FirstEpitaxialGrainID++;
-        }
-    }
-    int TotalSubstrateActCells;
-    MPI_Reduce(&SubstrateActCells_ThisRank, &TotalSubstrateActCells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    // Determine which grains/active cells belong to which MPI ranks
+    Kokkos::parallel_for(
+        "ConstrainedGrainInit", SubstrateActCells, KOKKOS_LAMBDA(const int &n) {
+            // What are the X and Y coordinates of this active cell relative to the X and Y bounds of this rank?
+            if ((ActCellX_Device(n) >= MyXOffset) && (ActCellX_Device(n) < MyXOffset + MyXSlices) &&
+                (ActCellY_Device(n) >= MyYOffset) && (ActCellY_Device(n) < MyYOffset + MyYSlices)) {
+                // Convert X and Y coordinates to values relative to this MPI rank's grid (Z = 0 for these active cells,
+                // at bottom surface) GrainIDs come from the position on the list of substrate active cells to avoid
+                // reusing the same value
+                int LocalX = ActCellX_Device(n) - MyXOffset;
+                int LocalY = ActCellY_Device(n) - MyYOffset;
+                int D3D1ConvPosition = LocalX * MyYSlices + LocalY;
+                CellType(D3D1ConvPosition) = Active;
+                GrainID(D3D1ConvPosition) = n + 1; // assign GrainID > 0 to epitaxial seeds
+                // Initialize active cell data structures
+                int GlobalX = LocalX + MyXOffset;
+                int GlobalY = LocalY + MyYOffset;
+                int GlobalZ = 0;
+                DiagonalLength(D3D1ConvPosition) = 0.01;
+                DOCenter(3 * D3D1ConvPosition) = GlobalX + 0.5;
+                DOCenter(3 * D3D1ConvPosition + 1) = GlobalY + 0.5;
+                DOCenter(3 * D3D1ConvPosition + 2) = GlobalZ + 0.5;
+
+                // The orientation for the new grain will depend on its Grain ID
+                int MyOrientation = getGrainOrientation(n + 1, NGrainOrientations);
+                // Calculate critical values at which this active cell leads to the activation of a neighboring
+                // liquid cell (xp,yp,zp) is the new cell's center on the global grid
+                double xp = GlobalX + 0.5;
+                double yp = GlobalY + 0.5;
+                double zp = GlobalZ + 0.5;
+
+                float cx = DOCenter((long int)(3 * D3D1ConvPosition));
+                float cy = DOCenter((long int)(3 * D3D1ConvPosition + 1));
+                float cz = DOCenter((long int)(3 * D3D1ConvPosition + 2));
+
+                // Calculate critical diagonal lengths for the new active cell located at (xp,yp,zp) on the
+                // local grid For each neighbor (l=0 to 25), calculate which octahedron face leads to cell
+                // capture Calculate critical octahedron diagonal length to activate each nearest neighbor, as
+                // well as the coordinates of the triangle vertices on the capturing face
+                for (int l = 0; l < 26; l++) {
+
+                    // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
+                    // the center of a neighbor cell
+                    double x0 = xp + NeighborX(l) - cx;
+                    double y0 = yp + NeighborY(l) - cy;
+                    double z0 = zp + NeighborZ(l) - cz;
+                    // mag0 is the magnitude of (x0,y0,z0)
+                    double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
+
+                    // Calculate unit vectors for the octahedron that intersect the new cell center
+                    double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                    double Angle1 =
+                        (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                         GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                        mag0;
+                    if (Angle1 < 0) {
+                        Diag1X = GrainUnitVector(9 * MyOrientation);
+                        Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
+                        Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
+                    }
+                    else {
+                        Diag1X = -GrainUnitVector(9 * MyOrientation);
+                        Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
+                        Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
+                    }
+                    double Angle2 =
+                        (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                         GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                        mag0;
+                    if (Angle2 < 0) {
+                        Diag2X = GrainUnitVector(9 * MyOrientation + 3);
+                        Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
+                        Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
+                    }
+                    else {
+                        Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
+                        Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
+                        Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
+                    }
+
+                    double Angle3 =
+                        (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                         GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                        mag0;
+                    if (Angle3 < 0) {
+                        Diag3X = GrainUnitVector(9 * MyOrientation + 6);
+                        Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
+                        Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
+                    }
+                    else {
+                        Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
+                        Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
+                        Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
+                    }
+
+                    double U1[3], U2[3], UU[3], Norm[3];
+                    U1[0] = Diag2X - Diag1X;
+                    U1[1] = Diag2Y - Diag1Y;
+                    U1[2] = Diag2Z - Diag1Z;
+                    U2[0] = Diag3X - Diag1X;
+                    U2[1] = Diag3Y - Diag1Y;
+                    U2[2] = Diag3Z - Diag1Z;
+                    UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                    UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                    UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                    double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                    Norm[0] = UU[0] / NDem;
+                    Norm[1] = UU[1] / NDem;
+                    Norm[2] = UU[2] / NDem;
+                    // normal to capturing plane
+                    double normx = Norm[0];
+                    double normy = Norm[1];
+                    double normz = Norm[2];
+                    double ParaT =
+                        (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
+                    float CDLVal =
+                        pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
+                    CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(l)) = CDLVal;
+                } // end loop over 26 diagonals
+                // If this new active cell is in the halo region, load the send buffers
+                if (np > 1) {
+
+                    float GhostGID = GrainID(D3D1ConvPosition);
+                    float GhostDOCX = GlobalX + 0.5;
+                    float GhostDOCY = GlobalY + 0.5;
+                    float GhostDOCZ = GlobalZ + 0.5;
+                    float GhostDL = 0.01;
+                    // Collect data for the ghost nodes, if necessary
+                    if (DecompositionStrategy == 1)
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, LocalX,
+                                       LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                    else
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
+                                       MyXSlices, MyYSlices, LocalX, LocalY, 0, AtNorthBoundary, AtSouthBoundary,
+                                       AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend, BufferWestSend,
+                                       BufferEastSend, BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
+                                       BufferNorthWestSend);
+                } // End if statement for serial/parallel code
+            }
+        });
     if (id == 0)
-        std::cout << "Number of substrate active cells across all ranks: " << TotalSubstrateActCells << std::endl;
+        std::cout << "Number of substrate active cells across all ranks: " << SubstrateActCells << std::endl;
 }
 
 // Initializes Grain ID values where the substrate comes from a file
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
-                            int MyYOffset, int id, ViewI_H GrainID) {
+                            int MyYOffset, int id, ViewI &GrainID_Device) {
 
-    // Assign GrainID values to cells that are part of the substrate
+    // Assign GrainID values to cells that are part of the substrate - read values from file and initialize using
+    // temporary host view
+    ViewI_H GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"), MyXSlices * MyYSlices * nz);
     std::ifstream Substrate;
     Substrate.open(SubstrateFileName);
     int Substrate_LowX = MyXOffset;
@@ -1282,72 +1424,74 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
                 if ((i >= Substrate_LowX) && (i < Substrate_HighX) && (j >= Substrate_LowY) && (j < Substrate_HighY)) {
                     int CAGridLocation;
                     CAGridLocation = k * MyXSlices * MyYSlices + (i - MyXOffset) * MyYSlices + (j - MyYOffset);
-                    GrainID(CAGridLocation) = stoi(GIDVal, nullptr, 10);
+                    GrainID_Host(CAGridLocation) = stoi(GIDVal, nullptr, 10);
                 }
             }
         }
     }
     Substrate.close();
+    // Copy GrainIDs read from file to device
+    GrainID_Device = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), GrainID_Host);
     if (id == 0)
         std::cout << "Substrate file read complete" << std::endl;
 }
 
-// Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation,
-// while the remainder of the interface is seeded with CA-cell sized substrate grains (emulating bulk nucleation
-// alongside the edges of partially melted powder particles)
-void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, int nz, int nzActive, int MyXSlices,
-                                    int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize, int id,
-                                    int np, double deltax, ViewI_H GrainID) {
+// Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation
+void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
+                                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, double deltax,
+                                    ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID) {
 
     // Seed random number generator such that each rank generates the same baseplate grain center locations
-    double SubstrateSeed = 1.0;
-    std::mt19937_64 gen(SubstrateSeed);
-    std::uniform_real_distribution<double> dis(0.0, 1.0);
+    // Calls to Xdist(gen), Ydist(gen), Zdist(gen) return random locations for grain seeds
+    // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
+    // -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5
+    // Baseplate size in Z corresponds to the Z coordinates of layer 0
+    int BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1;
+    std::mt19937_64 gen(RNGSeed);
+    std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
+    std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
+    std::uniform_real_distribution<double> Zdist(-0.49999, BaseplateSizeZ - 0.5);
 
-    // Probability that a given cell will be the center of a baseplate grain
-    double BaseplateGrainProb = (deltax * deltax * deltax) /
-                                (SubstrateGrainSpacing * SubstrateGrainSpacing * SubstrateGrainSpacing * pow(10, -18));
-    ViewI_H NumBaseplateGrains_H(Kokkos::ViewAllocateWithoutInitializing("NBaseplate"), 1);
-    NumBaseplateGrains_H(0) = 0;
-    ViewI_H BaseplateGrainX_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX"), nx * ny * nzActive);
-    ViewI_H BaseplateGrainY_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY"), nx * ny * nzActive);
-    ViewI_H BaseplateGrainZ_H(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ"), nx * ny * nzActive);
+    // Based on the baseplate size (domain of first layer) and the substrate grain spacing, determine the number of
+    // baseplate grains
+    double BaseplateSize = nx * ny * BaseplateSizeZ * pow(deltax, 3) * pow(10, 18); // in cubic microns
+    double SubstrateGrainSize = pow(SubstrateGrainSpacing, 3);                      // in cubic microns
+    int NumberOfBaseplateGrains = round(BaseplateSize / SubstrateGrainSize);
+    // Need at least 1 baseplate grain
+    NumberOfBaseplateGrains = std::max(NumberOfBaseplateGrains, 1);
+    ViewI_H NumBaseplateGrains_Host(Kokkos::ViewAllocateWithoutInitializing("NBaseplate_Host"), 1);
+    NumBaseplateGrains_Host(0) = NumberOfBaseplateGrains;
+    // TODO: Use device RNG to generate baseplate grain locations, instead of host with copy
+    // Store grain centers as float coordinates, not integer cell locations, for more precise substrate generation
+    ViewF_H BaseplateGrainX_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX_Host"),
+                                 nx * ny * BaseplateSizeZ);
+    ViewF_H BaseplateGrainY_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY_Host"),
+                                 nx * ny * BaseplateSizeZ);
+    ViewF_H BaseplateGrainZ_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ_Host"),
+                                 nx * ny * BaseplateSizeZ);
 
     // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain
-    // centers This will eventually be done on the device when random number generation with Kokkos is more efficient
+    // centers
     if (id == 0)
-        std::cout << "Baseplate spanning domain coordinates Z = 0 through " << nzActive - 1 << std::endl;
-    for (int k = 0; k < nzActive; k++) {
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < ny; j++) {
-                double R = dis(gen);
-                if (R < BaseplateGrainProb) {
-                    int OldIndexValue = NumBaseplateGrains_H(0);
-                    BaseplateGrainX_H(OldIndexValue) = i;
-                    BaseplateGrainY_H(OldIndexValue) = j;
-                    BaseplateGrainZ_H(OldIndexValue) = k;
-                    NumBaseplateGrains_H(0)++;
-                }
-            }
-        }
+        std::cout << "Baseplate spanning domain coordinates Z = 0 through " << BaseplateSizeZ - 1 << std::endl;
+    for (int n = 0; n < NumberOfBaseplateGrains; n++) {
+        BaseplateGrainX_Host(n) = Xdist(gen);
+        BaseplateGrainY_Host(n) = Ydist(gen);
+        BaseplateGrainZ_Host(n) = Zdist(gen);
     }
     if (id == 0)
-        std::cout << "Number of baseplate grains: " << NumBaseplateGrains_H(0) << std::endl;
+        std::cout << "Number of baseplate grains: " << NumBaseplateGrains_Host(0) << std::endl;
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI NumBaseplateGrains_G = Kokkos::create_mirror_view_and_copy(memory_space(), NumBaseplateGrains_H);
-    ViewI BaseplateGrainX_G = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainX_H);
-    ViewI BaseplateGrainY_G = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainY_H);
-    ViewI BaseplateGrainZ_G = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainZ_H);
+    ViewI NumBaseplateGrains_Device = Kokkos::create_mirror_view_and_copy(memory_space(), NumBaseplateGrains_Host);
+    ViewF BaseplateGrainX_Device = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainX_Host);
+    ViewF BaseplateGrainY_Device = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainY_Host);
+    ViewF BaseplateGrainZ_Device = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainZ_Host);
 
-    // While eventually all of the initialization routines will be performed on the device (minus reading from files),
-    // for now we initialize GrainID on the device, copy back to the host for the remainder of the initialization
-    // routines, and then copy back to the device. This is done because the loop was too slow on the host/in serial
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI GrainID_G = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID);
+    //  Initialize GrainIDs on device for baseplate
     Kokkos::parallel_for(
-        "CellCapture",
+        "BaseplateGen",
         Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-            {0, 0, 0}, {nzActive, MyXSlices, MyYSlices}),
+            {0, 0, 0}, {BaseplateSizeZ, MyXSlices, MyYSlices}),
         KOKKOS_LAMBDA(const int k, const int i, const int j) {
             int GlobalX = i + MyXOffset;
             int GlobalY = j + MyYOffset;
@@ -1356,12 +1500,12 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
             // values later if at the interface This cell is part of the substrate - determine which grain center the
             // cell is closest to, in order to assign it a grain ID If closest to grain "n", assign grain ID "n+1"
             // (grain ID = 0 is not used)
-            float MinDistanceToThisGrain = (float)(LocalActiveDomainSize);
+            float MinDistanceToThisGrain = (float)(nx * ny * BaseplateSizeZ);
             int ClosestGrainIndex = -1;
-            for (int n = 0; n < NumBaseplateGrains_G(0); n++) {
-                float DistanceToThisGrainX = (float)(abs(BaseplateGrainX_G(n) - GlobalX));
-                float DistanceToThisGrainY = (float)(abs(BaseplateGrainY_G(n) - GlobalY));
-                float DistanceToThisGrainZ = (float)(abs(BaseplateGrainZ_G(n) - k));
+            for (int n = 0; n < NumBaseplateGrains_Device(0); n++) {
+                float DistanceToThisGrainX = (float)(std::abs(BaseplateGrainX_Device(n) - GlobalX));
+                float DistanceToThisGrainY = (float)(std::abs(BaseplateGrainY_Device(n) - GlobalY));
+                float DistanceToThisGrainZ = (float)(std::abs(BaseplateGrainZ_Device(n) - k));
                 float DistanceToThisGrain =
                     sqrtf(DistanceToThisGrainX * DistanceToThisGrainX + DistanceToThisGrainY * DistanceToThisGrainY +
                           DistanceToThisGrainZ * DistanceToThisGrainZ);
@@ -1370,1051 +1514,451 @@ void SubstrateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
                     MinDistanceToThisGrain = DistanceToThisGrain;
                 }
             }
-            GrainID_G(CAGridLocation) = ClosestGrainIndex + 1;
+            GrainID(CAGridLocation) = ClosestGrainIndex + 1;
         });
 
-    // Copy Grain ID back to host
-    Kokkos::deep_copy(GrainID, GrainID_G);
-    MPI_Barrier(MPI_COMM_WORLD);
+    NextLayer_FirstEpitaxialGrainID =
+        NumberOfBaseplateGrains + 2; // avoid reusing GrainID in next layer's powder grain structure
     if (id == 0)
         std::cout << "Baseplate grain structure initialized" << std::endl;
-    // Initialize grain seeds above baseplate to emulate bulk nucleation at edge of melted powder particles
-    int PowderStartX, PowderEndX, PowderStartY, PowderEndY;
-    if (MyYOffset == 0)
-        PowderStartY = 0;
-    else
-        PowderStartY = 1;
-    if (MyYSlices + MyYOffset == ny)
-        PowderEndY = MyYSlices;
-    else
-        PowderEndY = MyYSlices - 1;
-    if (MyXOffset == 0)
-        PowderStartX = 0;
-    else
-        PowderStartX = 1;
-    if (MyXSlices + MyXOffset == nx)
-        PowderEndX = MyXSlices;
-    else
-        PowderEndX = MyXSlices - 1;
+}
 
-    int PowderLayerActCells_ThisRank = (nz - nzActive) * (PowderEndX - PowderStartX) * (PowderEndY - PowderStartY);
+// Each layer's top Z coordinates are seeded with CA-cell sized substrate grains (emulating bulk nucleation alongside
+// the edges of partially melted powder particles)
+void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
+                int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
+                int &NextLayer_FirstEpitaxialGrainID) {
 
-    // Assign grain IDs to bulk grain nuclei in the powder layer
-    int FirstEpitaxialGrainID = NumBaseplateGrains_H(0) + 1;
-    if (np > 1) {
-        // Grains for epitaxial growth - determine GrainIDs on each MPI rank
-        if (id == 0) {
-            int SBuf = FirstEpitaxialGrainID + PowderLayerActCells_ThisRank;
-            MPI_Send(&SBuf, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
-        }
-        else if (id == np - 1) {
-            int RBuf;
-            MPI_Recv(&RBuf, 1, MPI_INT, np - 2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            FirstEpitaxialGrainID = RBuf;
-        }
-        else {
-            int RBuf;
-            MPI_Recv(&RBuf, 1, MPI_INT, id - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            FirstEpitaxialGrainID = RBuf;
-            int SBuf = RBuf + PowderLayerActCells_ThisRank;
-            MPI_Send(&SBuf, 1, MPI_INT, id + 1, 0, MPI_COMM_WORLD);
-        }
+    // On all ranks, generate list of powder grain IDs (starting with NextLayer_FirstEpitaxialGrainID, and shuffle them
+    // so that their locations aren't sequential and depend on the RNGSeed (different for each layer)
+    std::mt19937_64 gen(RNGSeed + layernumber);
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
+
+    // TODO: This should be performed on the device, rather than the host
+    int PowderLayerActiveCells = nx * ny * LayerHeight;
+    std::vector<int> PowderGrainIDs(PowderLayerActiveCells);
+    for (int n = 0; n < PowderLayerActiveCells; n++) {
+        PowderGrainIDs[n] = n + NextLayer_FirstEpitaxialGrainID;
     }
-    for (int k = nzActive; k < nz; k++) {
-        for (int i = PowderStartX; i < PowderEndX; i++) {
-            for (int j = PowderStartY; j < PowderEndY; j++) {
-                int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                GrainID(D3D1ConvPosition) = FirstEpitaxialGrainID;
-                FirstEpitaxialGrainID++;
-            }
-        }
+    std::shuffle(PowderGrainIDs.begin(), PowderGrainIDs.end(), gen);
+    // Copy powder layer GrainIDs into a host view, then a device view
+    ViewI_H PowderGrainIDs_Host(Kokkos::ViewAllocateWithoutInitializing("PowderGrainIDs_Host"), nx * ny * LayerHeight);
+    for (int n = 0; n < PowderLayerActiveCells; n++) {
+        PowderGrainIDs_Host(n) = PowderGrainIDs[n];
     }
+    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
+    ViewI PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(memory_space(), PowderGrainIDs_Host);
+
+    // Associate powder grain IDs with CA cells in the powder layer
+    // Use bounds from temperature field for this layer to determine which cells are part of the powder
+    int PowderTopZ = round((ZMaxLayer[layernumber] - ZMin) / deltax) + 1;
+    int PowderBottomZ = PowderTopZ - LayerHeight;
+    if (id == 0)
+        std::cout << "Initializing powder layer for Z = " << PowderBottomZ << " through " << PowderTopZ - 1
+                  << std::endl;
+
+    int PowderStart = nx * ny * PowderBottomZ;
+    int PowderEnd = nx * ny * PowderTopZ;
+
+    Kokkos::parallel_for(
+        "PowderGrainInit", Kokkos::RangePolicy<>(PowderStart, PowderEnd), KOKKOS_LAMBDA(const int &n) {
+            int GlobalZ = n / (nx * ny);
+            int Rem = n % (nx * ny);
+            int GlobalX = Rem / ny;
+            int GlobalY = Rem % ny;
+            // Is this powder coordinate in X and Y in bounds for this rank? Is the grain id of this site unassigned
+            // (wasn't captured during solidification of the previous layer)?
+            int GlobalD3D1ConvPosition =
+                GlobalZ * MyXSlices * MyYSlices + (GlobalX - MyXOffset) * MyYSlices + (GlobalY - MyYOffset);
+            if ((GlobalX >= MyXOffset) && (GlobalX < MyXOffset + MyXSlices) && (GlobalY >= MyYOffset) &&
+                (GlobalY < MyYOffset + MyYSlices) && (GrainID(GlobalD3D1ConvPosition) == 0))
+                GrainID(GlobalD3D1ConvPosition) = PowderGrainIDs_Device(n - PowderStart);
+        });
+    Kokkos::fence();
+
+    // Update NextLayer_FirstEpitaxialGrainID for next layer
+    NextLayer_FirstEpitaxialGrainID += PowderLayerActiveCells;
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        std::cout << "Initialized baseplate and powder grain structure" << std::endl;
+        std::cout << "Initialized powder grain structure for layer " << layernumber << std::endl;
 }
 
 //*****************************************************************************/
-// Initializes cells at border of solid and liquid as active type, wall cells along global domain bounds
-void ActiveCellInit(int id, int MyXSlices, int MyYSlices, int nz, ViewI_H CellType, ViewI_H CritTimeStep,
-                    ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ) {
+// Initializes cells at border of solid and liquid as active type - performed on device
+void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, int MyXSlices, int MyYSlices,
+                  int MyXOffset, int MyYOffset, int ZBound_Low, int nz, int LocalActiveDomainSize, int LocalDomainSize,
+                  ViewI CellType, ViewI CritTimeStep, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
+                  int NGrainOrientations, ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID,
+                  ViewF CritDiagonalLength, ViewF DOCenter, ViewI LayerID, Buffer2D BufferWestSend,
+                  Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                  Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                  Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary,
+                  bool AtEastBoundary, bool AtWestBoundary) {
 
-    // Initialize solid cells where no temperature data exists, and liquid cells where temperature data exists
-    // This is done prior to initializing active cells, as active cells are initialized based on neighbor cell types
-    for (int k = 0; k < nz; k++) {
-        for (int j = 0; j < MyYSlices; j++) {
-            for (int i = 0; i < MyXSlices; i++) {
-                int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                if (CritTimeStep(CAGridLocation) == 0) {
-                    CellType(CAGridLocation) = Solid;
-                }
-                else {
-                    // This cell has associated melting data and is initialized as liquid
-                    CellType(CAGridLocation) = Liquid;
-                }
-            }
-        }
-    }
-    // Count number of active cells are at the solid-liquid boundary
-    int SubstrateActCells_ThisRank = 0;
-    for (int k = 0; k < nz; k++) {
-        for (int j = 0; j < MyYSlices; j++) {
-            for (int i = 0; i < MyXSlices; i++) {
-                [&] {
-                    int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                    if (CellType(CAGridLocation) == Liquid) {
-                        // This is a liquid or active cell, depending on whether it is located at the interface of the
-                        // solid Check to see if this site is actually at the solid-liquid interface "l" corresponds to
-                        // a specific neighbor direction (of 26 possible neighbors)
-                        if (k == 0) {
-                            // All liquid cells at the bottom surface (k = 0) are at the interface and should be active
-                            // Without solid/wall cell padding below the domain, some of these wouldn't be caught by
-                            // the logic in the below loop over all neighbors
-                            CellType(CAGridLocation) = Active;
-                            SubstrateActCells_ThisRank++;
-                        }
-                        else {
-                            for (int l = 0; l < 26; l++) {
-                                // Local coordinates of adjacent cell center
-                                int MyNeighborX = i + NeighborX(l);
-                                int MyNeighborY = j + NeighborY(l);
-                                int MyNeighborZ = k + NeighborZ(l);
-                                int NeighborD3D1ConvPosition =
-                                    MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                                if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
-                                    (MyNeighborY < MyYSlices) && (MyNeighborZ >= 0) && (MyNeighborZ < nz)) {
-                                    if (CellType(NeighborD3D1ConvPosition) == Solid) {
-                                        // This cell is at the interface - becomes active type
-                                        CellType(CAGridLocation) = Active;
-                                        SubstrateActCells_ThisRank++;
-                                        return;
-                                    }
-                                }
+    // Start with all cells as solid for the first layer, with liquid cells where temperature data exists
+    if (layernumber == 0) {
+        Kokkos::deep_copy(CellType, Solid);
+        // This is done prior to initializing active cells, as active cells are initialized based on neighbor cell types
+        Kokkos::parallel_for(
+            "CellTypeInitSolLiq", LocalDomainSize, KOKKOS_LAMBDA(const int &GlobalD3D1ConvPosition) {
+                if (CritTimeStep(GlobalD3D1ConvPosition) != 0)
+                    CellType(GlobalD3D1ConvPosition) = Liquid;
+            });
+        Kokkos::fence();
+        int ActCellCount = 0;
+        Kokkos::parallel_reduce(
+            "CellTypeInitAct", LocalDomainSize,
+            KOKKOS_LAMBDA(const int &GlobalD3D1ConvPosition, int &ActCellCount) {
+                // Cells of interest for the CA
+                int GlobalZ = GlobalD3D1ConvPosition / (MyXSlices * MyYSlices);
+                int Rem = GlobalD3D1ConvPosition % (MyXSlices * MyYSlices);
+                int RankX = Rem / MyYSlices;
+                int RankY = Rem % MyYSlices;
+                if (CellType(GlobalD3D1ConvPosition) == Liquid) {
+                    // This is a liquid or active cell, depending on whether it is located at the interface of the
+                    // solid Check to see if this site is actually at the solid-liquid interface "l" corresponds to
+                    // a specific neighbor direction (of 26 possible neighbors)
+                    // All liquid cells at the bottom surface (k = 0) are at the interface and should be active
+                    // Without solid/wall cell padding below the domain, some of these wouldn't be caught by
+                    // the logic in the below loop over all neighbors
+                    for (int l = 0; l < 26; l++) {
+                        // Global coordinates of adjacent cell center
+                        int MyNeighborX = RankX + NeighborX(l);
+                        int MyNeighborY = RankY + NeighborY(l);
+                        int MyNeighborZ = GlobalZ + NeighborZ(l);
+                        int NeighborD3D1ConvPosition =
+                            MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                        if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
+                            (MyNeighborY < MyYSlices) && (MyNeighborZ >= 0) && (MyNeighborZ < nz)) {
+                            if ((CellType(NeighborD3D1ConvPosition) == Solid) || (GlobalZ == 0)) {
+                                // This cell is at the interface - becomes active type
+                                CellType(GlobalD3D1ConvPosition) = Active;
+                                ActCellCount++;
+                                // exit loop over neighboring cells
+                                l = 26;
                             }
                         }
                     }
-                }();
-            }
-        }
+                }
+            },
+            ActCellCount);
+        Kokkos::fence();
+        int TotalSubstrateActCells;
+        MPI_Reduce(&ActCellCount, &TotalSubstrateActCells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+        if (id == 0)
+            std::cout << "Number of initial substrate active cells across all ranks and all layers: "
+                      << TotalSubstrateActCells << std::endl;
     }
-    int TotalSubstrateActCells;
-    MPI_Reduce(&SubstrateActCells_ThisRank, &TotalSubstrateActCells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "Number of substrate active cells across all ranks: " << TotalSubstrateActCells << std::endl;
+
+    // Each layer, count number of active cells are at the solid-liquid boundary for this layer's portion of the domain
+    Kokkos::parallel_for(
+        "CellTypeInitAct", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
+            // Cells of interest for the CA
+            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankX = Rem / MyYSlices;
+            int RankY = Rem % MyYSlices;
+            int GlobalZ = RankZ + ZBound_Low;
+            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            if ((CellType(GlobalD3D1ConvPosition) == Active) && (LayerID(GlobalD3D1ConvPosition) == layernumber)) {
+                // This cell was marked as active previously - initialize active cell data structures
+                int GlobalX = RankX + MyXOffset;
+                int GlobalY = RankY + MyYOffset;
+                int RankZ = GlobalZ - ZBound_Low;
+                int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                int MyGrainID = GrainID(GlobalD3D1ConvPosition);
+                DiagonalLength(D3D1ConvPosition) = 0.01;
+                DOCenter(3 * D3D1ConvPosition) = GlobalX + 0.5;
+                DOCenter(3 * D3D1ConvPosition + 1) = GlobalY + 0.5;
+                DOCenter(3 * D3D1ConvPosition + 2) = GlobalZ + 0.5;
+
+                // The orientation for the new grain will depend on its Grain ID
+                int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
+                // Calculate critical values at which this active cell leads to the activation of a neighboring
+                // liquid cell (xp,yp,zp) is the new cell's center on the global grid
+                double xp = GlobalX + 0.5;
+                double yp = GlobalY + 0.5;
+                double zp = GlobalZ + 0.5;
+
+                float cx = DOCenter((long int)(3 * D3D1ConvPosition));
+                float cy = DOCenter((long int)(3 * D3D1ConvPosition + 1));
+                float cz = DOCenter((long int)(3 * D3D1ConvPosition + 2));
+
+                // Calculate critical diagonal lengths for the new active cell located at (xp,yp,zp) on the
+                // local grid For each neighbor (l=0 to 25), calculate which octahedron face leads to cell
+                // capture Calculate critical octahedron diagonal length to activate each nearest neighbor, as
+                // well as the coordinates of the triangle vertices on the capturing face
+                for (int n = 0; n < 26; n++) {
+
+                    // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
+                    // the center of a neighbor cell
+                    double x0 = xp + NeighborX(n) - cx;
+                    double y0 = yp + NeighborY(n) - cy;
+                    double z0 = zp + NeighborZ(n) - cz;
+                    // mag0 is the magnitude of (x0,y0,z0)
+                    double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
+
+                    // Calculate unit vectors for the octahedron that intersect the new cell center
+                    double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                    double Angle1 =
+                        (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                         GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                        mag0;
+                    if (Angle1 < 0) {
+                        Diag1X = GrainUnitVector(9 * MyOrientation);
+                        Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
+                        Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
+                    }
+                    else {
+                        Diag1X = -GrainUnitVector(9 * MyOrientation);
+                        Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
+                        Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
+                    }
+                    double Angle2 =
+                        (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                         GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                        mag0;
+                    if (Angle2 < 0) {
+                        Diag2X = GrainUnitVector(9 * MyOrientation + 3);
+                        Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
+                        Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
+                    }
+                    else {
+                        Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
+                        Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
+                        Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
+                    }
+
+                    double Angle3 =
+                        (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                         GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                        mag0;
+                    if (Angle3 < 0) {
+                        Diag3X = GrainUnitVector(9 * MyOrientation + 6);
+                        Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
+                        Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
+                    }
+                    else {
+                        Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
+                        Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
+                        Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
+                    }
+
+                    double U1[3], U2[3], UU[3], Norm[3];
+                    U1[0] = Diag2X - Diag1X;
+                    U1[1] = Diag2Y - Diag1Y;
+                    U1[2] = Diag2Z - Diag1Z;
+                    U2[0] = Diag3X - Diag1X;
+                    U2[1] = Diag3Y - Diag1Y;
+                    U2[2] = Diag3Z - Diag1Z;
+                    UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                    UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                    UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                    double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                    Norm[0] = UU[0] / NDem;
+                    Norm[1] = UU[1] / NDem;
+                    Norm[2] = UU[2] / NDem;
+                    // normal to capturing plane
+                    double normx = Norm[0];
+                    double normy = Norm[1];
+                    double normz = Norm[2];
+                    double ParaT =
+                        (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
+                    float CDLVal =
+                        pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
+                    CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) = CDLVal;
+                } // end loop over 26 diagonals
+                // If this new active cell is in the halo region, load the send buffers
+                if (np > 1) {
+
+                    float GhostGID = MyGrainID;
+                    float GhostDOCX = GlobalX + 0.5;
+                    float GhostDOCY = GlobalY + 0.5;
+                    float GhostDOCZ = GlobalZ + 0.5;
+                    float GhostDL = 0.01;
+                    // Collect data for the ghost nodes, if necessary
+                    if (DecompositionStrategy == 1)
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
+                                       RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                                       BufferNorthSend);
+                    else
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
+                                       MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                       AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend, BufferWestSend,
+                                       BufferEastSend, BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
+                                       BufferNorthWestSend);
+                } // End if statement for serial/parallel code
+            }
+        });
+    Kokkos::fence();
 }
 
 //*****************************************************************************/
-// Initializes cell types where the substrate comes from a file
-void GrainInit(int layernumber, int NGrainOrientations, int DecompositionStrategy, int nx, int ny,
-               int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, int np,
-               int NeighborRank_North, int NeighborRank_South, int NeighborRank_East, int NeighborRank_West,
-               int NeighborRank_NorthEast, int NeighborRank_NorthWest, int NeighborRank_SouthEast,
-               int NeighborRank_SouthWest, ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ,
-               ViewF_H GrainUnitVector, ViewF_H DiagonalLength, ViewI_H CellType, ViewI_H GrainID,
-               ViewF_H CritDiagonalLength, ViewF_H DOCenter, double deltax, double NMax,
-               int &NextLayer_FirstNucleatedGrainID, int &PossibleNuclei_ThisRank, int ZBound_High, int ZBound_Low,
-               ViewI_H LayerID) {
+// Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur
+void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nx,
+                int ny, int nzActive, int ZBound_Low, int id, double NMax, double dTN, double dTsigma, double deltax,
+                ViewI &NucleiLocation_G, ViewI_H &NucleationTimes_H, ViewI &NucleiGrainID_G, ViewI CellType_Device,
+                ViewI CritTimeStep_Device, ViewF UndercoolingChange_Device, ViewI LayerID_Device,
+                int &PossibleNuclei_ThisRankThisLayer, int &Nuclei_WholeDomain, bool AtNorthBoundary,
+                bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary, int &NucleationCounter) {
 
-    // RNG for heterogenous nuclei locations in the liquid
-    // Set new seed on each rank and each layer
-    std::mt19937_64 gen(id + layernumber);
-    std::uniform_real_distribution<double> dis(0.0, 1.0);
+    // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation data
+    // back to the device again. This is currently performed on the device due to heavy usage of standard library
+    // algorithm functions
+
+    // Copy CritTimeStep, UndercoolingChange, CellType, and LayerID into temporary host views for this subroutine
+    ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID_Device);
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType_Device);
+    ViewI_H CritTimeStep_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritTimeStep_Device);
+    ViewF_H UndercoolingChange_Host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingChange_Device);
+
+    // Three counters tracked here:
+    // Nuclei_WholeDomain - tracks all nuclei (regardless of whether an event would be possible based on the layer ID
+    // and cell type), used for Grain ID assignment to ensure that no Grain ID get reused - same on all MPI ranks
+    // Nuclei_ThisLayer - the same as Nuclei_WholeDomain, except that it is recalculated each layer - same on all MPI
+    // ranks PossibleNuclei_ThisRankThisLayer - the subset of Nuclei_ThisLayer that are located within the bounds of a
+    // given MPI rank that may possibly occur (nuclei locations are associated with a liquid cell with a layer ID that
+    // matches this layer number). Starts at 0 each layer PossibleNuclei_AllRanksThisLayer - the subset of
+    // Nuclei_ThisLayer that may possibly occur in the layer (nuclei locations are associated with a liquid cell with a
+    // layer ID that matches this layer number). Starts at 0 each layer
+    PossibleNuclei_ThisRankThisLayer = 0;
+    if (layernumber == 0)
+        Nuclei_WholeDomain = 0;
 
     // Probability that a given liquid site will be a potential nucleus location
     double BulkProb = NMax * deltax * deltax * deltax;
 
-    // Count the number of nucleation events that may potentially occur on this rank (not counting ghost nodes, to avoid
-    // double counting cells are potential nucleation sites)
-    // Set cells with potential nuclei to a temporary cell type
-    // Only initialize nuclei from the current layer's liquid cells (layer "layernumber")
-    PossibleNuclei_ThisRank = 0;
-    for (int k = ZBound_Low; k <= ZBound_High; k++) {
-        for (int j = 0; j < MyYSlices; j++) {
-            for (int i = 0; i < MyXSlices; i++) {
-                // Is this cell part of the halo region? Halos potentially exist at the low/high x/y boundaries,
-                // depending on the decomposition
-                if ((!((i == 0) && (MyXOffset != 0))) && (!((i == MyXSlices - 1) && (MyXOffset + MyXSlices != nx))) &&
-                    (!((j == 0) && (MyYOffset != 0))) && (!((j == MyYSlices - 1) && (MyYOffset + MyYSlices != ny)))) {
-                    int CAGridLocation = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                    if ((CellType(CAGridLocation) == Liquid) && (LayerID(CAGridLocation) == layernumber)) {
-                        double R = dis(gen);
-                        if (R < BulkProb) {
-                            PossibleNuclei_ThisRank++;
-                            CellType(CAGridLocation) = TemporaryInit;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    int TotalNucleatedGrains;
-    MPI_Reduce(&PossibleNuclei_ThisRank, &TotalNucleatedGrains, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "Number of potential nucleated grains for layer " << layernumber << " : " << TotalNucleatedGrains
-                  << std::endl;
-
-    // Nucleated grains use negative grain IDs to distinguish them from epitaxial grains (which use positive grain IDs)
-    // New layer's first nucleated grain starts off one less than the last nucleated grain ID from the previous layer
-    int FirstNucleatedGID_Rank0;
-    if (layernumber == 0) {
-        FirstNucleatedGID_Rank0 = -1;
-    }
-    else {
-        FirstNucleatedGID_Rank0 = NextLayer_FirstNucleatedGrainID;
-    }
-    int MyFirstNGrainID; // First GrainID for nuclei on this rank, for this layer
-    if (np > 1) {
-        // Assign GrainIDs for nucleated grains (negative values)
-        // Grains for nucleated growth
-        if (id == 0) {
-            int SBuf = FirstNucleatedGID_Rank0 - PossibleNuclei_ThisRank;
-            MPI_Send(&SBuf, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
-            MyFirstNGrainID = FirstNucleatedGID_Rank0;
-        }
-        else if (id == np - 1) {
-            int RBuf;
-            MPI_Recv(&RBuf, 1, MPI_INT, np - 2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MyFirstNGrainID = RBuf;
-            NextLayer_FirstNucleatedGrainID = MyFirstNGrainID - PossibleNuclei_ThisRank;
-        }
-        else {
-            int RBuf;
-            MPI_Recv(&RBuf, 1, MPI_INT, id - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MyFirstNGrainID = RBuf;
-            int SBuf = MyFirstNGrainID - PossibleNuclei_ThisRank;
-            MPI_Send(&SBuf, 1, MPI_INT, id + 1, 0, MPI_COMM_WORLD);
-        }
-        MPI_Bcast(&NextLayer_FirstNucleatedGrainID, 1, MPI_INT, np - 1, MPI_COMM_WORLD);
-    }
-    else {
-        // No communication among ranks
-        NextLayer_FirstNucleatedGrainID = FirstNucleatedGID_Rank0 - PossibleNuclei_ThisRank;
-        MyFirstNGrainID = FirstNucleatedGID_Rank0;
-    }
-
-    // Assign Grain IDs to nucleated grains
-    // Set up active cell data structures for appropriate cells
-    int SouthNucleiSendCount = 0;
-    int NorthNucleiSendCount = 0;
-    int EastNucleiSendCount = 0;
-    int WestNucleiSendCount = 0;
-    int NorthWestNucleiSendCount = 0;
-    int NorthEastNucleiSendCount = 0;
-    int SouthWestNucleiSendCount = 0;
-    int SouthEastNucleiSendCount = 0;
-
-    // Set up active cell octahedra for growth, mark cell data to be communicated across ranks in ghost nodes
-    // Assign GrainIDs to nuclei sites
-    int NCounter = MyFirstNGrainID;
-
-    // Nonactive cells should start with diagonal lengths of 0
-    for (int i = 0; i < LocalActiveDomainSize; i++) {
-        DiagonalLength(i) = 0.0;
-    }
-    // Generate active cell data structures only for active cells associated with this layer
-    for (int GlobalZ = ZBound_Low; GlobalZ <= ZBound_High; GlobalZ++) {
-        for (int RankX = 0; RankX < MyXSlices; RankX++) {
-            for (int RankY = 0; RankY < MyYSlices; RankY++) {
-                long int D3D1ConvPositionGlobal = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                if ((CellType(D3D1ConvPositionGlobal) == Active) && (LayerID(D3D1ConvPositionGlobal) == layernumber)) {
-
-                    // If part of the active domain, calculate Critical diagonal lengths
-                    int GlobalX = RankX + MyXOffset;
-                    int GlobalY = RankY + MyYOffset;
-                    int RankZ = GlobalZ - ZBound_Low;
-                    int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                    int MyGrainID = GrainID(D3D1ConvPositionGlobal);
-                    DiagonalLength(D3D1ConvPosition) = 0.01;
-                    DOCenter(3 * D3D1ConvPosition) = GlobalX + 0.5;
-                    DOCenter(3 * D3D1ConvPosition + 1) = GlobalY + 0.5;
-                    DOCenter(3 * D3D1ConvPosition + 2) = GlobalZ + 0.5;
-
-                    // The orientation for the new grain will depend on its Grain ID
-                    int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
-                    // Calculate critical values at which this active cell leads to the activation of a neighboring
-                    // liquid cell (xp,yp,zp) is the new cell's center on the global grid
-                    double xp = GlobalX + 0.5;
-                    double yp = GlobalY + 0.5;
-                    double zp = GlobalZ + 0.5;
-
-                    float cx = DOCenter((long int)(3 * D3D1ConvPosition));
-                    float cy = DOCenter((long int)(3 * D3D1ConvPosition + 1));
-                    float cz = DOCenter((long int)(3 * D3D1ConvPosition + 2));
-
-                    // Calculate critical diagonal lengths for the new active cell located at (xp,yp,zp) on the
-                    // local grid For each neighbor (l=0 to 25), calculate which octahedron face leads to cell
-                    // capture Calculate critical octahedron diagonal length to activate each nearest neighbor, as
-                    // well as the coordinates of the triangle vertices on the capturing face
-                    for (int n = 0; n < 26; n++) {
-
-                        // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
-                        // the center of a neighbor cell
-                        double x0 = xp + NeighborX(n) - cx;
-                        double y0 = yp + NeighborY(n) - cy;
-                        double z0 = zp + NeighborZ(n) - cz;
-                        // mag0 is the magnitude of (x0,y0,z0)
-                        double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
-
-                        // Calculate unit vectors for the octahedron that intersect the new cell center
-                        double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                        double Angle1 =
-                            (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                             GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                            mag0;
-                        if (Angle1 < 0) {
-                            Diag1X = GrainUnitVector(9 * MyOrientation);
-                            Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
-                            Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
-                        }
-                        else {
-                            Diag1X = -GrainUnitVector(9 * MyOrientation);
-                            Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
-                            Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
-                        }
-                        double Angle2 =
-                            (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                             GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                            mag0;
-                        if (Angle2 < 0) {
-                            Diag2X = GrainUnitVector(9 * MyOrientation + 3);
-                            Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
-                            Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
-                        }
-                        else {
-                            Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
-                            Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
-                            Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
-                        }
-
-                        double Angle3 =
-                            (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                             GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                            mag0;
-                        if (Angle3 < 0) {
-                            Diag3X = GrainUnitVector(9 * MyOrientation + 6);
-                            Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
-                            Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
-                        }
-                        else {
-                            Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
-                            Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
-                            Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
-                        }
-
-                        double U1[3], U2[3], UU[3], Norm[3];
-                        U1[0] = Diag2X - Diag1X;
-                        U1[1] = Diag2Y - Diag1Y;
-                        U1[2] = Diag2Z - Diag1Z;
-                        U2[0] = Diag3X - Diag1X;
-                        U2[1] = Diag3Y - Diag1Y;
-                        U2[2] = Diag3Z - Diag1Z;
-                        UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                        UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                        UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                        double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-                        Norm[0] = UU[0] / NDem;
-                        Norm[1] = UU[1] / NDem;
-                        Norm[2] = UU[2] / NDem;
-                        // normal to capturing plane
-                        double normx = Norm[0];
-                        double normy = Norm[1];
-                        double normz = Norm[2];
-                        double ParaT =
-                            (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
-                        float CDLVal =
-                            pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
-                        CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) = CDLVal;
-                    }
-                }
-                else if (CellType(D3D1ConvPositionGlobal) == TemporaryInit) {
-                    // Mark and count the number of nucleation events to be sent to other ranks
-                    GrainID(D3D1ConvPositionGlobal) = NCounter;
-                    NCounter--;
-                    if (np > 1) {
-                        if (DecompositionStrategy == 1) {
-                            if (RankY == 1) {
-                                SouthNucleiSendCount++;
-                            }
-                            else if (RankY == MyYSlices - 2) {
-                                NorthNucleiSendCount++;
-                            }
-                        }
-                        else {
-                            if (RankY == 1) {
-                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                                if (RankX == MyXSlices - 2) {
-                                    SouthEastNucleiSendCount++;
-                                    EastNucleiSendCount++;
-                                    SouthNucleiSendCount++;
-                                }
-                                else if (RankX == 1) {
-                                    SouthWestNucleiSendCount++;
-                                    WestNucleiSendCount++;
-                                    SouthNucleiSendCount++;
-                                }
-                                else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
-                                    // This is being sent to MyLeft
-                                    SouthNucleiSendCount++;
-                                }
-                            }
-                            else if (RankY == MyYSlices - 2) {
-                                // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                                if (RankX == MyXSlices - 2) {
-                                    NorthEastNucleiSendCount++;
-                                    EastNucleiSendCount++;
-                                    NorthNucleiSendCount++;
-                                }
-                                else if (RankX == 1) {
-                                    NorthWestNucleiSendCount++;
-                                    WestNucleiSendCount++;
-                                    NorthNucleiSendCount++;
-                                }
-                                else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
-                                    NorthNucleiSendCount++;
-                                }
-                            }
-                            else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                                WestNucleiSendCount++;
-                            }
-                            else if ((RankX == MyXSlices - 2) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                                EastNucleiSendCount++;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Send/recieve number of nuclei in the ghost nodes so that each rank knows the total number of
-    // nuclei in it's domain
-    int SouthNucleiRecvCount = 0;
-    int NorthNucleiRecvCount = 0;
-    int EastNucleiRecvCount = 0;
-    int WestNucleiRecvCount = 0;
-    int NorthWestNucleiRecvCount = 0;
-    int NorthEastNucleiRecvCount = 0;
-    int SouthWestNucleiRecvCount = 0;
-    int SouthEastNucleiRecvCount = 0;
-
-    // South/North exchange number of nuclei in halo regions
-    MPI_Sendrecv(&NorthNucleiSendCount, 1, MPI_INT, NeighborRank_North, 0, &SouthNucleiRecvCount, 1, MPI_INT,
-                 NeighborRank_South, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Sendrecv(&SouthNucleiSendCount, 1, MPI_INT, NeighborRank_South, 0, &NorthNucleiRecvCount, 1, MPI_INT,
-                 NeighborRank_North, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    if (DecompositionStrategy != 1) {
-        // East/West exchange number of nuclei in halo regions
-        MPI_Sendrecv(&EastNucleiSendCount, 1, MPI_INT, NeighborRank_East, 0, &WestNucleiRecvCount, 1, MPI_INT,
-                     NeighborRank_West, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Sendrecv(&WestNucleiSendCount, 1, MPI_INT, NeighborRank_West, 0, &EastNucleiRecvCount, 1, MPI_INT,
-                     NeighborRank_East, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-        // NorthWest/SouthEast exchange number of nuclei in halo regions
-        MPI_Sendrecv(&NorthWestNucleiSendCount, 1, MPI_INT, NeighborRank_NorthWest, 0, &SouthEastNucleiRecvCount, 1,
-                     MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Sendrecv(&SouthEastNucleiSendCount, 1, MPI_INT, NeighborRank_SouthEast, 0, &NorthWestNucleiRecvCount, 1,
-                     MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-        // NorthEast/SouthWest exchange number of nuclei in halo regions
-        MPI_Sendrecv(&NorthEastNucleiSendCount, 1, MPI_INT, NeighborRank_NorthEast, 0, &SouthWestNucleiRecvCount, 1,
-                     MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Sendrecv(&SouthWestNucleiSendCount, 1, MPI_INT, NeighborRank_SouthWest, 0, &NorthEastNucleiRecvCount, 1,
-                     MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-
-    if (NeighborRank_South == MPI_PROC_NULL)
-        SouthNucleiRecvCount = 0;
-    if (NeighborRank_North == MPI_PROC_NULL)
-        NorthNucleiRecvCount = 0;
-    if (NeighborRank_East == MPI_PROC_NULL)
-        EastNucleiRecvCount = 0;
-    if (NeighborRank_West == MPI_PROC_NULL)
-        WestNucleiRecvCount = 0;
-    if (NeighborRank_NorthWest == MPI_PROC_NULL)
-        NorthWestNucleiRecvCount = 0;
-    if (NeighborRank_NorthEast == MPI_PROC_NULL)
-        NorthEastNucleiRecvCount = 0;
-    if (NeighborRank_SouthWest == MPI_PROC_NULL)
-        SouthWestNucleiRecvCount = 0;
-    if (NeighborRank_SouthEast == MPI_PROC_NULL)
-        SouthEastNucleiRecvCount = 0;
-
-    PossibleNuclei_ThisRank +=
-        (SouthNucleiRecvCount + NorthNucleiRecvCount + EastNucleiRecvCount + WestNucleiRecvCount +
-         NorthWestNucleiRecvCount + NorthEastNucleiRecvCount + SouthWestNucleiRecvCount + SouthEastNucleiRecvCount);
-}
-
-//*****************************************************************************/
-// After initializing grain structure and filling ghost nodes, the known potential nucleation sites are placed into the
-// nucleation data structures Each nucleation event is assigned a time step, beyond which if the associated cell is not
-// solid or actve, the event occurs This data is synced across MPI ranks, for nucleation events that occur in the ghost
-// nodes
-void NucleiInit(int layernumber, int DecompositionStrategy, int MyXSlices, int MyYSlices, int ZBound_Low,
-                int LocalActiveDomainSize, int id, double dTN, double dTsigma, int NeighborRank_North,
-                int NeighborRank_South, int NeighborRank_East, int NeighborRank_West, int NeighborRank_NorthEast,
-                int NeighborRank_NorthWest, int NeighborRank_SouthEast, int NeighborRank_SouthWest,
-                ViewI_H NucleiLocation, ViewI_H NucleationTimes, ViewI_H CellType, ViewI_H GrainID,
-                ViewI_H CritTimeStep, ViewF_H UndercoolingChange) {
-
-    // Counts and buffers for sending/recieving nucleation data from ghost nodes
-    int SouthNucleiSendCount = 0;
-    int NorthNucleiSendCount = 0;
-    int EastNucleiSendCount = 0;
-    int WestNucleiSendCount = 0;
-    int NorthWestNucleiSendCount = 0;
-    int NorthEastNucleiSendCount = 0;
-    int SouthWestNucleiSendCount = 0;
-    int SouthEastNucleiSendCount = 0;
-    std::vector<int> TempNucleiDataSouth, TempNucleiDataNorth, TempNucleiDataEast, TempNucleiDataWest,
-        TempNucleiDataNorthWest, TempNucleiDataNorthEast, TempNucleiDataSouthWest, TempNucleiDataSouthEast;
-
+    // Use new RNG seed for each layer
+    std::mt19937_64 generator(RNGSeed + layernumber);
+    // Uniform distribution for nuclei location assignment
+    std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
+    std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
+    std::uniform_real_distribution<double> Zdist(-0.49999, nzActive - 0.5);
     // Gaussian distribution of nucleation undercooling
-    std::mt19937_64 generator(id + layernumber);
-    std::normal_distribution<double> distribution(dTN, dTsigma);
+    std::normal_distribution<double> Gdistribution(dTN, dTsigma);
 
-    // Collect data for ghost nodes' nucleation events
-    int NEvent = 0;
-    for (int D3D1ConvPosition = 0; D3D1ConvPosition < LocalActiveDomainSize; D3D1ConvPosition++) {
-        int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-        int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
-        int RankX = Rem / MyYSlices;
-        int RankY = Rem % MyYSlices;
-        int GlobalZ = RankZ + ZBound_Low;
-        int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-        if (CellType(GlobalD3D1ConvPosition) == TemporaryInit) {
-            NucleiLocation(NEvent) = GlobalD3D1ConvPosition;
-            // Undercooling for this nucleation event
-            double LocNucUnd = distribution(generator);
-            // Time steps to reach this undercooling after cell goes below the liquidus
-            int TimeToNucUnd =
-                CritTimeStep(GlobalD3D1ConvPosition) + round(LocNucUnd / UndercoolingChange(GlobalD3D1ConvPosition));
-            NucleationTimes(NEvent) = std::max(CritTimeStep(GlobalD3D1ConvPosition), TimeToNucUnd);
+    // Max number of nucleated grains in this layer
+    int Nuclei_ThisLayer = BulkProb * (nx * ny * nzActive);
+    // View for storing potential nucleated grain coordinates
+    ViewI_H NucleiX(Kokkos::ViewAllocateWithoutInitializing("NucleiX"), Nuclei_ThisLayer);
+    ViewI_H NucleiY(Kokkos::ViewAllocateWithoutInitializing("NucleiY"), Nuclei_ThisLayer);
+    ViewI_H NucleiZ(Kokkos::ViewAllocateWithoutInitializing("NucleiZ"), Nuclei_ThisLayer);
 
-            // Determine if other MPI ranks need information about this potential nucleation event
-            // If so, store the location (X,Y,Z), GrainID, and nucleation time step value to be sent
+    // Temporary vectors for storing nucleated grain IDs and undercooling values
+    // Nuclei Grain ID are assigned to avoid reusing values from previous layers
+    std::vector<int> NucleiGrainID_WholeDomain_V(Nuclei_ThisLayer);
+    std::vector<double> NucleiUndercooling_WholeDomain_V(Nuclei_ThisLayer);
+    for (int n = 0; n < Nuclei_ThisLayer; n++) {
+        // Generate possible nuclei locations
+        double NucleiX_unrounded = Xdist(generator);
+        double NucleiY_unrounded = Ydist(generator);
+        double NucleiZ_unrounded = Zdist(generator);
+        // Round these coordinates so they're associated with a specific cell on the grid
+        NucleiX(n) = std::round(NucleiX_unrounded);
+        NucleiY(n) = std::round(NucleiY_unrounded);
+        NucleiZ(n) = std::round(NucleiZ_unrounded);
+        // Assign each nuclei a Grain ID (negative values used for nucleated grains) and an undercooling
+        NucleiGrainID_WholeDomain_V[n] = -(Nuclei_WholeDomain + n + 1); // avoid using grain ID 0
+        NucleiUndercooling_WholeDomain_V[n] = Gdistribution(generator);
+    }
+    // Shuffle these vectors to make sure the same grain IDs and undercooling don't end up in the same spots each layer
+    std::shuffle(NucleiGrainID_WholeDomain_V.begin(), NucleiGrainID_WholeDomain_V.end(), generator);
+    std::shuffle(NucleiUndercooling_WholeDomain_V.begin(), NucleiUndercooling_WholeDomain_V.end(), generator);
 
-            if (DecompositionStrategy == 1) {
-                if (RankY == 1) {
-                    SouthNucleiSendCount++;
-                    TempNucleiDataSouth.push_back(RankX);
-                    TempNucleiDataSouth.push_back(RankZ);
-                    TempNucleiDataSouth.push_back(TimeToNucUnd);
-                    TempNucleiDataSouth.push_back(GrainID(GlobalD3D1ConvPosition));
-                }
-                else if (RankY == MyYSlices - 2) {
-                    NorthNucleiSendCount++;
-                    TempNucleiDataNorth.push_back(RankX);
-                    TempNucleiDataNorth.push_back(RankZ);
-                    TempNucleiDataNorth.push_back(TimeToNucUnd);
-                    TempNucleiDataNorth.push_back(GrainID(GlobalD3D1ConvPosition));
-                }
+    if ((id == 0) && (Nuclei_ThisLayer > 0))
+        std::cout << "Range of Grain IDs from which layer " << layernumber
+                  << " nucleation events were selected: " << Nuclei_WholeDomain + 1 << " through "
+                  << Nuclei_WholeDomain + Nuclei_ThisLayer << std::endl;
+    // Update number of nuclei counter for whole domain based on the number of nuclei in this layer
+    Nuclei_WholeDomain += Nuclei_ThisLayer;
+
+    // Loop through nuclei for this layer - each MPI rank storing the nucleation events that are possible (i.e,
+    // nucleation event is associated with a CA cell on that MPI rank's subdomain, the cell is liquid type, and the cell
+    // is associated with the current layer of the multilayer problem) Don't put nuclei in "ghost" cells - those
+    // nucleation events occur on other ranks and the existing halo exchange functionality will handle this
+    std::vector<int> NucleiGrainID_MyRank_V(Nuclei_ThisLayer), NucleiLocation_MyRank_V(Nuclei_ThisLayer);
+    std::vector<double> NucleationTimes_MyRank_V(Nuclei_ThisLayer);
+    for (int n = 0; n < Nuclei_ThisLayer; n++) {
+        if (((NucleiX[n] > MyXOffset) || (AtWestBoundary)) &&
+            ((NucleiX[n] < MyXOffset + MyXSlices - 1) || (AtEastBoundary)) &&
+            ((NucleiY[n] > MyYOffset) || (AtSouthBoundary)) &&
+            ((NucleiY[n] < MyYOffset + MyYSlices - 1) || (AtNorthBoundary))) {
+            // Convert 3D location (using global X and Y coordinates) into a 1D location (using local X and Y
+            // coordinates) for the possible nucleation event
+            int NucleiLocation_AllLayers = (NucleiZ[n] + ZBound_Low) * MyXSlices * MyYSlices +
+                                           (NucleiX[n] - MyXOffset) * MyYSlices + (NucleiY[n] - MyYOffset);
+            // Is this location in the multilayer domain a liquid cell associated with the current layer?
+            if ((CellType_Host(NucleiLocation_AllLayers) == Liquid) &&
+                (LayerID_Host(NucleiLocation_AllLayers) == layernumber)) {
+                // Add nuclei location and undercooling to the list for this rank
+                NucleiLocation_MyRank_V[PossibleNuclei_ThisRankThisLayer] = NucleiLocation_AllLayers;
+                int TimeToNucUnd =
+                    CritTimeStep_Host(NucleiLocation_AllLayers) +
+                    round(NucleiUndercooling_WholeDomain_V[n] / UndercoolingChange_Host(NucleiLocation_AllLayers));
+                NucleationTimes_MyRank_V[PossibleNuclei_ThisRankThisLayer] =
+                    std::max(CritTimeStep_Host(NucleiLocation_AllLayers), TimeToNucUnd);
+                // Assign this cell the potential nucleated grain ID
+                NucleiGrainID_MyRank_V[PossibleNuclei_ThisRankThisLayer] = NucleiGrainID_WholeDomain_V[n];
+                // Increment counter on this MPI rank
+                PossibleNuclei_ThisRankThisLayer++;
             }
-            else {
-                if (RankY == 1) {
-                    // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                    if (RankX == MyXSlices - 2) {
-
-                        SouthEastNucleiSendCount++;
-                        TempNucleiDataSouthEast.push_back(RankZ);
-                        TempNucleiDataSouthEast.push_back(TimeToNucUnd);
-                        TempNucleiDataSouthEast.push_back(GrainID(GlobalD3D1ConvPosition));
-
-                        EastNucleiSendCount++;
-                        TempNucleiDataEast.push_back(RankY);
-                        TempNucleiDataEast.push_back(RankZ);
-                        TempNucleiDataEast.push_back(TimeToNucUnd);
-                        TempNucleiDataEast.push_back(GrainID(GlobalD3D1ConvPosition));
-
-                        SouthNucleiSendCount++;
-                        TempNucleiDataSouth.push_back(RankX);
-                        TempNucleiDataSouth.push_back(RankZ);
-                        TempNucleiDataSouth.push_back(TimeToNucUnd);
-                        TempNucleiDataSouth.push_back(GrainID(GlobalD3D1ConvPosition));
-                    }
-                    else if (RankX == 1) {
-
-                        SouthWestNucleiSendCount++;
-                        TempNucleiDataSouthWest.push_back(RankZ);
-                        TempNucleiDataSouthWest.push_back(TimeToNucUnd);
-                        TempNucleiDataSouthWest.push_back(GrainID(GlobalD3D1ConvPosition));
-
-                        WestNucleiSendCount++;
-                        TempNucleiDataWest.push_back(RankY);
-                        TempNucleiDataWest.push_back(RankZ);
-                        TempNucleiDataWest.push_back(TimeToNucUnd);
-                        TempNucleiDataWest.push_back(GrainID(GlobalD3D1ConvPosition));
-
-                        SouthNucleiSendCount++;
-                        TempNucleiDataSouth.push_back(RankX);
-                        TempNucleiDataSouth.push_back(RankZ);
-                        TempNucleiDataSouth.push_back(TimeToNucUnd);
-                        TempNucleiDataSouth.push_back(GrainID(GlobalD3D1ConvPosition));
-                    }
-                    else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
-                        // This is being sent to MyLeft
-                        SouthNucleiSendCount++;
-                        TempNucleiDataSouth.push_back(RankX);
-                        TempNucleiDataSouth.push_back(RankZ);
-                        TempNucleiDataSouth.push_back(TimeToNucUnd);
-                        TempNucleiDataSouth.push_back(GrainID(GlobalD3D1ConvPosition));
-                    }
-                }
-                else if (RankY == MyYSlices - 2) {
-                    // This is also potentially being sent to MyLeftIn/MyLeftOut/MyIn/MyOut
-                    if (RankX == MyXSlices - 2) {
-                        NorthEastNucleiSendCount++;
-                        TempNucleiDataNorthEast.push_back(RankZ);
-                        TempNucleiDataNorthEast.push_back(TimeToNucUnd);
-                        TempNucleiDataNorthEast.push_back(GrainID(GlobalD3D1ConvPosition));
-
-                        EastNucleiSendCount++;
-                        TempNucleiDataEast.push_back(RankY);
-                        TempNucleiDataEast.push_back(RankZ);
-                        TempNucleiDataEast.push_back(TimeToNucUnd);
-                        TempNucleiDataEast.push_back(GrainID(GlobalD3D1ConvPosition));
-
-                        NorthNucleiSendCount++;
-                        TempNucleiDataNorth.push_back(RankX);
-                        TempNucleiDataNorth.push_back(RankZ);
-                        TempNucleiDataNorth.push_back(TimeToNucUnd);
-                        TempNucleiDataNorth.push_back(GrainID(GlobalD3D1ConvPosition));
-                    }
-                    else if (RankX == 1) {
-                        NorthWestNucleiSendCount++;
-                        TempNucleiDataNorthWest.push_back(RankZ);
-                        TempNucleiDataNorthWest.push_back(TimeToNucUnd);
-                        TempNucleiDataNorthWest.push_back(GrainID(GlobalD3D1ConvPosition));
-
-                        WestNucleiSendCount++;
-                        TempNucleiDataWest.push_back(RankY);
-                        TempNucleiDataWest.push_back(RankZ);
-                        TempNucleiDataWest.push_back(TimeToNucUnd);
-                        TempNucleiDataWest.push_back(GrainID(GlobalD3D1ConvPosition));
-
-                        NorthNucleiSendCount++;
-                        TempNucleiDataNorth.push_back(RankX);
-                        TempNucleiDataNorth.push_back(RankZ);
-                        TempNucleiDataNorth.push_back(TimeToNucUnd);
-                        TempNucleiDataNorth.push_back(GrainID(GlobalD3D1ConvPosition));
-                    }
-                    else if ((RankX > 1) && (RankX < MyXSlices - 2)) {
-                        NorthNucleiSendCount++;
-                        TempNucleiDataNorth.push_back(RankX);
-                        TempNucleiDataNorth.push_back(RankZ);
-                        TempNucleiDataNorth.push_back(TimeToNucUnd);
-                        TempNucleiDataNorth.push_back(GrainID(GlobalD3D1ConvPosition));
-                    }
-                }
-                else if ((RankX == 1) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                    WestNucleiSendCount++;
-                    TempNucleiDataWest.push_back(RankY);
-                    TempNucleiDataWest.push_back(RankZ);
-                    TempNucleiDataWest.push_back(TimeToNucUnd);
-                    TempNucleiDataWest.push_back(GrainID(GlobalD3D1ConvPosition));
-                }
-                else if ((RankX == MyXSlices - 2) && (RankY > 1) && (RankY < MyYSlices - 2)) {
-                    EastNucleiSendCount++;
-                    TempNucleiDataEast.push_back(RankY);
-                    TempNucleiDataEast.push_back(RankZ);
-                    TempNucleiDataEast.push_back(TimeToNucUnd);
-                    TempNucleiDataEast.push_back(GrainID(GlobalD3D1ConvPosition));
-                }
-            }
-            NEvent++;
         }
     }
 
-    // Determine whether or not ghost node information transfer needs to take place
-    int SouthNucleiRecvCount = 0;
-    int NorthNucleiRecvCount = 0;
-    int EastNucleiRecvCount = 0;
-    int WestNucleiRecvCount = 0;
-    int NorthWestNucleiRecvCount = 0;
-    int NorthEastNucleiRecvCount = 0;
-    int SouthWestNucleiRecvCount = 0;
-    int SouthEastNucleiRecvCount = 0;
+    // How many nucleation events are actually possible (associated with a cell in this layer that will undergo
+    // solidification)?
+    int PossibleNuclei_AllRanksThisLayer;
+    MPI_Reduce(&PossibleNuclei_ThisRankThisLayer, &PossibleNuclei_AllRanksThisLayer, 1, MPI_INT, MPI_SUM, 0,
+               MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "Number of potential nucleation events in layer " << layernumber << " : "
+                  << PossibleNuclei_AllRanksThisLayer << std::endl;
 
-    // South/North exchange number of nuclei in halo regions
-    MPI_Sendrecv(&NorthNucleiSendCount, 1, MPI_INT, NeighborRank_North, 0, &SouthNucleiRecvCount, 1, MPI_INT,
-                 NeighborRank_South, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Sendrecv(&SouthNucleiSendCount, 1, MPI_INT, NeighborRank_South, 0, &NorthNucleiRecvCount, 1, MPI_INT,
-                 NeighborRank_North, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // Now that the number of nucleation events on each rank is known, resize these vectors
+    NucleiLocation_MyRank_V.resize(PossibleNuclei_ThisRankThisLayer);
+    NucleiGrainID_MyRank_V.resize(PossibleNuclei_ThisRankThisLayer);
+    NucleationTimes_MyRank_V.resize(PossibleNuclei_ThisRankThisLayer);
 
-    if (DecompositionStrategy != 1) {
-        // East/West exchange number of nuclei in halo regions
-        MPI_Sendrecv(&EastNucleiSendCount, 1, MPI_INT, NeighborRank_East, 0, &WestNucleiRecvCount, 1, MPI_INT,
-                     NeighborRank_West, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Sendrecv(&WestNucleiSendCount, 1, MPI_INT, NeighborRank_West, 0, &EastNucleiRecvCount, 1, MPI_INT,
-                     NeighborRank_East, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-        // NorthWest/SouthEast exchange number of nuclei in halo regions
-        MPI_Sendrecv(&NorthWestNucleiSendCount, 1, MPI_INT, NeighborRank_NorthWest, 0, &SouthEastNucleiRecvCount, 1,
-                     MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Sendrecv(&SouthEastNucleiSendCount, 1, MPI_INT, NeighborRank_SouthEast, 0, &NorthWestNucleiRecvCount, 1,
-                     MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-        // NorthEast/SouthWest exchange number of nuclei in halo regions
-        MPI_Sendrecv(&NorthEastNucleiSendCount, 1, MPI_INT, NeighborRank_NorthEast, 0, &SouthWestNucleiRecvCount, 1,
-                     MPI_INT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Sendrecv(&SouthWestNucleiSendCount, 1, MPI_INT, NeighborRank_SouthWest, 0, &NorthEastNucleiRecvCount, 1,
-                     MPI_INT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // Sort the list of time steps at which nucleation occurs, keeping the time steps paired with the corresponding
+    // locations for nucleation events and grain IDs
+    std::vector<std::tuple<int, int, int>> NucleationTimeLocID;
+    NucleationTimeLocID.reserve(PossibleNuclei_ThisRankThisLayer);
+    for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
+        NucleationTimeLocID.push_back(
+            std::make_tuple(NucleationTimes_MyRank_V[n], NucleiLocation_MyRank_V[n], NucleiGrainID_MyRank_V[n]));
     }
+    // Sorting from low to high
+    std::sort(NucleationTimeLocID.begin(), NucleationTimeLocID.end());
 
-    if (NeighborRank_South == MPI_PROC_NULL)
-        SouthNucleiRecvCount = 0;
-    if (NeighborRank_North == MPI_PROC_NULL)
-        NorthNucleiRecvCount = 0;
-    if (NeighborRank_East == MPI_PROC_NULL)
-        EastNucleiRecvCount = 0;
-    if (NeighborRank_West == MPI_PROC_NULL)
-        WestNucleiRecvCount = 0;
-    if (NeighborRank_NorthWest == MPI_PROC_NULL)
-        NorthWestNucleiRecvCount = 0;
-    if (NeighborRank_NorthEast == MPI_PROC_NULL)
-        NorthEastNucleiRecvCount = 0;
-    if (NeighborRank_SouthWest == MPI_PROC_NULL)
-        SouthWestNucleiRecvCount = 0;
-    if (NeighborRank_SouthEast == MPI_PROC_NULL)
-        SouthEastNucleiRecvCount = 0;
+    // With PossibleNuclei_ThisRankThisLayer now known, resize views appropriately
+    // Resize nucleation views now that PossibleNuclei_ThisRank is known for all MPI ranks
+    Kokkos::resize(NucleationTimes_H, PossibleNuclei_ThisRankThisLayer);
+    Kokkos::resize(NucleiLocation_G, PossibleNuclei_ThisRankThisLayer);
+    Kokkos::resize(NucleiGrainID_G, PossibleNuclei_ThisRankThisLayer);
 
-    // Buffers for recieving nuclei data
-    ViewI_H NucleiRecvBufferSouth("NucleiRecvBufferSouth", 4 * SouthNucleiRecvCount);
-    ViewI_H NucleiRecvBufferNorth("NucleiRecvBufferNorth", 4 * NorthNucleiRecvCount);
-    ViewI_H NucleiRecvBufferEast("NucleiRecvBufferEast", 4 * EastNucleiRecvCount);
-    ViewI_H NucleiRecvBufferWest("NucleiRecvBufferWest", 4 * WestNucleiRecvCount);
-    ViewI_H NucleiRecvBufferNorthWest("NucleiRecvBufferNorthWest", 3 * NorthWestNucleiRecvCount);
-    ViewI_H NucleiRecvBufferNorthEast("NucleiRecvBufferNorthEast", 3 * NorthEastNucleiRecvCount);
-    ViewI_H NucleiRecvBufferSouthWest("NucleiRecvBufferSouthWest", 3 * SouthWestNucleiRecvCount);
-    ViewI_H NucleiRecvBufferSouthEast("NucleiRecvBufferSouthEast", 3 * SouthEastNucleiRecvCount);
-
-    // Collect ghost node data and send to other ranks- south and north
-    if (SouthNucleiSendCount > 0) {
-        ViewI_H NucleiSendBufferSouth("NucleiSendBufferSouth", 4 * SouthNucleiSendCount);
-        for (int i = 0; i < 4 * SouthNucleiSendCount; i++) {
-            NucleiSendBufferSouth(i) = TempNucleiDataSouth[i];
-        }
-        if (NorthNucleiRecvCount == 0) {
-            // Sending data to id = id - 1 only
-            MPI_Send(NucleiSendBufferSouth.data(), SouthNucleiSendCount * 4, MPI_INT, NeighborRank_South, 0,
-                     MPI_COMM_WORLD);
-        }
-        else {
-            // Sending data to id = id - 1 and recieving data from id = id + 1
-            MPI_Sendrecv(NucleiSendBufferSouth.data(), SouthNucleiSendCount * 4, MPI_INT, NeighborRank_South, 0,
-                         NucleiRecvBufferNorth.data(), NorthNucleiRecvCount * 4, MPI_INT, NeighborRank_North, 0,
-                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
+    // Create temporary view to store nucleation locations, grain ID data initialized on the host
+    // NucleationTimes_H are stored using a host view that is passed to Nucleation subroutine and later used - don't
+    // need a temporary host view
+    ViewI_H NucleiLocation_H(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation_Host"),
+                             PossibleNuclei_ThisRankThisLayer);
+    ViewI_H NucleiGrainID_H(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
+                            PossibleNuclei_ThisRankThisLayer);
+    for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
+        NucleationTimes_H(n) = std::get<0>(NucleationTimeLocID[n]);
+        NucleiLocation_H(n) = std::get<1>(NucleationTimeLocID[n]);
+        NucleiGrainID_H(n) = std::get<2>(NucleationTimeLocID[n]);
     }
-    else if (NorthNucleiRecvCount > 0) {
-        // Recieving data from id = id + 1 only
-        MPI_Recv(NucleiRecvBufferNorth.data(), NorthNucleiRecvCount * 4, MPI_INT, NeighborRank_North, 0, MPI_COMM_WORLD,
-                 MPI_STATUS_IGNORE);
-    }
+    // Copy nucleation data to the device
+    NucleiLocation_G = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), NucleiLocation_H);
+    NucleiGrainID_G = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), NucleiGrainID_H);
 
-    if (NorthNucleiSendCount > 0) {
-        ViewI_H NucleiSendBufferNorth("NucleiSendBufferNorth", 4 * NorthNucleiSendCount);
-        for (int i = 0; i < 4 * NorthNucleiSendCount; i++) {
-            NucleiSendBufferNorth(i) = TempNucleiDataNorth[i];
-        }
-        if (SouthNucleiRecvCount == 0) {
-            // Sending data to id = id + 1 only
-            MPI_Send(NucleiSendBufferNorth.data(), NorthNucleiSendCount * 4, MPI_INT, NeighborRank_North, 1,
-                     MPI_COMM_WORLD);
-        }
-        else {
-            // Sending data to id = id + 1 and recieving data from id = id - 1
-            MPI_Sendrecv(NucleiSendBufferNorth.data(), NorthNucleiSendCount * 4, MPI_INT, NeighborRank_North, 1,
-                         NucleiRecvBufferSouth.data(), SouthNucleiRecvCount * 4, MPI_INT, NeighborRank_South, 1,
-                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-    }
-    else if (SouthNucleiRecvCount > 0) {
-        // Recieving data from id = id - 1 only
-        MPI_Recv(NucleiRecvBufferSouth.data(), SouthNucleiRecvCount * 4, MPI_INT, NeighborRank_South, 1, MPI_COMM_WORLD,
-                 MPI_STATUS_IGNORE);
-    }
+    // Initialize counter for the layer to 0
+    NucleationCounter = 0;
 
-    if (DecompositionStrategy != 1) {
-        // Collect ghost node data and send to other ranks- East and West
-        if (EastNucleiSendCount > 0) {
-            ViewI_H NucleiSendBufferEast("NucleiSendBufferEast", 4 * EastNucleiSendCount);
-            for (int i = 0; i < 4 * EastNucleiSendCount; i++) {
-                NucleiSendBufferEast(i) = TempNucleiDataEast[i];
-            }
-
-            if (WestNucleiRecvCount == 0) {
-                // Sending data only
-                MPI_Send(NucleiSendBufferEast.data(), EastNucleiSendCount * 4, MPI_INT, NeighborRank_East, 0,
-                         MPI_COMM_WORLD);
-            }
-            else {
-                // Sending data and recieving data
-                MPI_Sendrecv(NucleiSendBufferEast.data(), EastNucleiSendCount * 4, MPI_INT, NeighborRank_East, 0,
-                             NucleiRecvBufferWest.data(), WestNucleiRecvCount * 4, MPI_INT, NeighborRank_West, 0,
-                             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-        else if (WestNucleiRecvCount > 0) {
-            // Recieving data only
-            MPI_Recv(NucleiRecvBufferWest.data(), WestNucleiRecvCount * 4, MPI_INT, NeighborRank_West, 0,
-                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-
-        if (WestNucleiSendCount > 0) {
-            ViewI_H NucleiSendBufferWest("NucleiSendBufferWest", 4 * WestNucleiSendCount);
-            for (int i = 0; i < 4 * WestNucleiSendCount; i++) {
-                NucleiSendBufferWest(i) = TempNucleiDataWest[i];
-            }
-            if (EastNucleiRecvCount == 0) {
-                // Sending data only
-                MPI_Send(NucleiSendBufferWest.data(), WestNucleiSendCount * 4, MPI_INT, NeighborRank_West, 1,
-                         MPI_COMM_WORLD);
-            }
-            else {
-                // Sending data and recieving data
-                MPI_Sendrecv(NucleiSendBufferWest.data(), WestNucleiSendCount * 4, MPI_INT, NeighborRank_West, 1,
-                             NucleiRecvBufferEast.data(), EastNucleiRecvCount * 4, MPI_INT, NeighborRank_East, 1,
-                             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-        else if (EastNucleiRecvCount > 0) {
-            // Recieving data only
-            MPI_Recv(NucleiRecvBufferEast.data(), EastNucleiRecvCount * 4, MPI_INT, NeighborRank_East, 1,
-                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-
-        // Collect ghost node data and send to other ranks- NorthWest and SouthEast
-        if (NorthWestNucleiSendCount > 0) {
-            ViewI_H NucleiSendBufferNorthWest("NucleiSendBufferNorthWest", 3 * NorthWestNucleiSendCount);
-            for (int i = 0; i < 3 * NorthWestNucleiSendCount; i++) {
-                NucleiSendBufferNorthWest(i) = TempNucleiDataNorthWest[i];
-            }
-            if (SouthEastNucleiRecvCount == 0) {
-                // Sending data only
-                MPI_Send(NucleiSendBufferNorthWest.data(), NorthWestNucleiSendCount * 3, MPI_INT,
-                         NeighborRank_NorthWest, 0, MPI_COMM_WORLD);
-            }
-            else {
-                // Sending data and recieving data
-                MPI_Sendrecv(NucleiSendBufferNorthWest.data(), NorthWestNucleiSendCount * 3, MPI_INT,
-                             NeighborRank_NorthWest, 0, NucleiRecvBufferSouthEast.data(), SouthEastNucleiRecvCount * 3,
-                             MPI_INT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-        else if (SouthEastNucleiRecvCount > 0) {
-            // Recieving data only
-            MPI_Recv(NucleiRecvBufferSouthEast.data(), SouthEastNucleiRecvCount * 3, MPI_INT, NeighborRank_SouthEast, 0,
-                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-
-        if (SouthEastNucleiSendCount > 0) {
-            ViewI_H NucleiSendBufferSouthEast("bufferH", 3 * SouthEastNucleiSendCount);
-            for (int i = 0; i < 3 * SouthEastNucleiSendCount; i++) {
-                NucleiSendBufferSouthEast(i) = TempNucleiDataSouthEast[i];
-            }
-            if (NorthWestNucleiRecvCount == 0) {
-                // Sending data only
-                MPI_Send(NucleiSendBufferSouthEast.data(), SouthEastNucleiSendCount * 3, MPI_INT,
-                         NeighborRank_SouthEast, 0, MPI_COMM_WORLD);
-            }
-            else {
-                // Sending data and recieving data
-                MPI_Sendrecv(NucleiSendBufferSouthEast.data(), SouthEastNucleiSendCount * 3, MPI_INT,
-                             NeighborRank_SouthEast, 0, NucleiRecvBufferNorthWest.data(), NorthWestNucleiRecvCount * 3,
-                             MPI_INT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-        else if (NorthWestNucleiRecvCount > 0) {
-            // Recieving data only
-            MPI_Recv(NucleiRecvBufferNorthWest.data(), NorthWestNucleiRecvCount * 3, MPI_INT, NeighborRank_NorthWest, 0,
-                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-
-        // Collect ghost node data and send to other ranks- NorthEast and SouthWest
-        if (NorthEastNucleiSendCount > 0) {
-            ViewI_H NucleiSendBufferNorthEast("NucleiSendBufferNorthEast", 4 * NorthEastNucleiSendCount);
-            for (int i = 0; i < 4 * NorthEastNucleiSendCount; i++) {
-                NucleiSendBufferNorthEast(i) = TempNucleiDataNorthEast[i];
-            }
-            if (SouthWestNucleiRecvCount == 0) {
-                // Sending data only
-                MPI_Send(NucleiSendBufferNorthEast.data(), NorthEastNucleiSendCount * 3, MPI_INT,
-                         NeighborRank_NorthEast, 1, MPI_COMM_WORLD);
-            }
-            else {
-                // Sending data and recieving data
-                MPI_Sendrecv(NucleiSendBufferNorthEast.data(), NorthEastNucleiSendCount * 3, MPI_INT,
-                             NeighborRank_NorthEast, 1, NucleiRecvBufferSouthWest.data(), SouthWestNucleiRecvCount * 3,
-                             MPI_INT, NeighborRank_SouthWest, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-        else if (SouthWestNucleiRecvCount > 0) {
-            // Recieving data only
-            MPI_Recv(NucleiRecvBufferSouthWest.data(), SouthWestNucleiRecvCount * 3, MPI_INT, NeighborRank_SouthWest, 1,
-                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-
-        if (SouthWestNucleiSendCount > 0) {
-            ViewI_H NucleiSendBufferSouthWest("bufferG", 3 * SouthWestNucleiSendCount);
-            for (int i = 0; i < 3 * SouthWestNucleiSendCount; i++) {
-                NucleiSendBufferSouthWest(i) = TempNucleiDataSouthWest[i];
-            }
-            if (NorthEastNucleiRecvCount == 0) {
-                // Sending data only
-                MPI_Send(NucleiSendBufferSouthWest.data(), SouthWestNucleiSendCount * 3, MPI_INT,
-                         NeighborRank_SouthWest, 1, MPI_COMM_WORLD);
-            }
-            else {
-                // Sending data and recieving data
-                MPI_Sendrecv(NucleiRecvBufferSouthWest.data(), SouthWestNucleiSendCount * 3, MPI_INT,
-                             NeighborRank_SouthWest, 1, NucleiRecvBufferNorthEast.data(), NorthEastNucleiRecvCount * 3,
-                             MPI_INT, NeighborRank_NorthEast, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-        else if (NorthEastNucleiRecvCount > 0) {
-            // Recieving data only
-            MPI_Recv(NucleiRecvBufferNorthEast.data(), NorthEastNucleiRecvCount * 3, MPI_INT, NeighborRank_NorthEast, 1,
-                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-    }
     MPI_Barrier(MPI_COMM_WORLD);
-    // Place ghost node data recieved from the south (if needed)
-    if (SouthNucleiRecvCount > 0) {
-        for (int i = 0; i < SouthNucleiRecvCount; i++) {
-            int RankX = NucleiRecvBufferSouth(4 * i);
-            int RankY = 0;
-            int RankZ = NucleiRecvBufferSouth(4 * i + 1);
-            int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-            NucleiLocation(NEvent) = CellLocation;
-            NucleationTimes(NEvent) = NucleiRecvBufferSouth(4 * i + 2);
-            CellType(CellLocation) = TemporaryInit;
-            GrainID(CellLocation) = NucleiRecvBufferSouth(4 * i + 3);
-            NEvent++;
-        }
-    }
-
-    // Place ghost node data recieved from the north (if needed)
-    if (NorthNucleiRecvCount > 0) {
-        for (int i = 0; i < NorthNucleiRecvCount; i++) {
-            int RankX = NucleiRecvBufferNorth(4 * i);
-            int RankY = MyYSlices - 1;
-            int RankZ = NucleiRecvBufferNorth(4 * i + 1);
-            int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-            NucleiLocation(NEvent) = CellLocation;
-            NucleationTimes(NEvent) = NucleiRecvBufferNorth(4 * i + 2);
-            CellType(CellLocation) = TemporaryInit;
-            GrainID(CellLocation) = NucleiRecvBufferNorth(4 * i + 3);
-            NEvent++;
-        }
-    }
-
-    if (DecompositionStrategy != 1) {
-        // Place ghost node data recieved from the east (if needed)
-        if (EastNucleiRecvCount > 0) {
-            for (int i = 0; i < EastNucleiRecvCount; i++) {
-                int RankX = MyXSlices - 1;
-                int RankY = NucleiRecvBufferEast(4 * i);
-                int RankZ = NucleiRecvBufferEast(4 * i + 1);
-                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = NucleiRecvBufferEast(4 * i + 2);
-                CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = NucleiRecvBufferEast(4 * i + 3);
-                NEvent++;
-            }
-        }
-
-        // Place ghost node data recieved from the west (if needed)
-        if (WestNucleiRecvCount > 0) {
-            for (int i = 0; i < WestNucleiRecvCount; i++) {
-                int RankX = 0;
-                int RankY = NucleiRecvBufferWest(4 * i);
-                int RankZ = NucleiRecvBufferWest(4 * i + 1);
-                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = NucleiRecvBufferWest(4 * i + 2);
-                CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = NucleiRecvBufferWest(4 * i + 3);
-                NEvent++;
-            }
-        }
-
-        // Place ghost node data recieved from the northwest (if needed)
-        if (NorthWestNucleiRecvCount > 0) {
-            for (int i = 0; i < NorthWestNucleiRecvCount; i++) {
-                int RankX = 0;
-                int RankY = MyYSlices - 1;
-                int RankZ = NucleiRecvBufferNorthWest(3 * i);
-                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = NucleiRecvBufferNorthWest(3 * i + 1);
-                CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = NucleiRecvBufferNorthWest(3 * i + 2);
-                NEvent++;
-            }
-        }
-
-        // Place ghost node data recieved from the northeast (if needed)
-        if (NorthEastNucleiRecvCount > 0) {
-            for (int i = 0; i < NorthEastNucleiRecvCount; i++) {
-                int RankX = MyXSlices - 1;
-                int RankY = MyYSlices - 1;
-                int RankZ = NucleiRecvBufferNorthEast(3 * i);
-                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = NucleiRecvBufferNorthEast(3 * i + 1);
-                CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = NucleiRecvBufferNorthEast(3 * i + 2);
-                NEvent++;
-            }
-        }
-
-        // Place ghost node data recieved from the southwest (if needed)
-        if (SouthWestNucleiRecvCount > 0) {
-            for (int i = 0; i < SouthWestNucleiRecvCount; i++) {
-                int RankX = 0;
-                int RankY = 0;
-                int RankZ = NucleiRecvBufferSouthWest(3 * i);
-                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = NucleiRecvBufferSouthWest(3 * i + 1);
-                CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = NucleiRecvBufferSouthWest(3 * i + 2);
-                NEvent++;
-            }
-        }
-
-        // Place ghost node data recieved from the southeast (if needed)
-        if (SouthEastNucleiRecvCount > 0) {
-            for (int i = 0; i < SouthEastNucleiRecvCount; i++) {
-                int RankX = MyXSlices - 1;
-                int RankY = 0;
-                int RankZ = NucleiRecvBufferSouthEast(3 * i);
-                int CellLocation = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                NucleiLocation(NEvent) = CellLocation;
-                NucleationTimes(NEvent) = NucleiRecvBufferSouthEast(3 * i + 1);
-                CellType(CellLocation) = TemporaryInit;
-                GrainID(CellLocation) = NucleiRecvBufferSouthEast(3 * i + 2);
-                NEvent++;
-            }
-        }
-    }
-
-    // Replace the temporary "TemporaryInit" cell type with the "Liquid" cell type - as GrainID is used to mark the
-    // potential nucleus orientation, TemporaryInit is unneeded
-    for (int D3D1ConvPosition = 0; D3D1ConvPosition < LocalActiveDomainSize; D3D1ConvPosition++) {
-        int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-        int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
-        int RankX = Rem / MyYSlices;
-        int RankY = Rem % MyYSlices;
-        int GlobalZ = RankZ + ZBound_Low;
-        int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-        if (CellType(GlobalD3D1ConvPosition) == TemporaryInit)
-            CellType(GlobalD3D1ConvPosition) = Liquid;
-    }
-    std::cout << "(" << id << ": " << NEvent << ") " << std::flush;
+    if (id == 0)
+        std::cout << "Nucleation data structures for layer " << layernumber << " initialized" << std::endl;
 }
 
 //*****************************************************************************/
@@ -2478,7 +2022,7 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
 }
 
 //*****************************************************************************/
-void ZeroResetViews(ViewF_H DiagonalLength, ViewF_H CritDiagonalLength, ViewF_H DOCenter, int DecompositionStrategy,
+void ZeroResetViews(ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF DOCenter, int DecompositionStrategy,
                     Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend,
                     Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
                     Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, Buffer2D BufferWestRecv,
