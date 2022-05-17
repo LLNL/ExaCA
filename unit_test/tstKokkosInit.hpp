@@ -54,20 +54,14 @@ void testSubstrateInit_ConstrainedGrowth() {
     // Initialize grain orientations
     std::string GrainOrientationFile = "GrainOrientationVectors_Robert.csv";
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
-    ViewF_H GrainUnitVector_Host(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector_Host"),
-                                 9 * NGrainOrientations);
-    OrientationInit(id, NGrainOrientations, GrainUnitVector_Host, GrainOrientationFile);
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewF GrainUnitVector = Kokkos::create_mirror_view_and_copy(memory_space(), GrainUnitVector_Host);
+    ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
+    OrientationInit(id, NGrainOrientations, GrainUnitVector, GrainOrientationFile);
 
     // Initialize neighbor lists
-    ViewI_H NeighborX_Host(Kokkos::ViewAllocateWithoutInitializing("NeighborX_Host"), 26);
-    ViewI_H NeighborY_Host(Kokkos::ViewAllocateWithoutInitializing("NeighborY_Host"), 26);
-    ViewI_H NeighborZ_Host(Kokkos::ViewAllocateWithoutInitializing("NeighborZ_Host"), 26);
-    NeighborListInit(NeighborX_Host, NeighborY_Host, NeighborZ_Host);
-    ViewI NeighborX = Kokkos::create_mirror_view_and_copy(memory_space(), NeighborX_Host);
-    ViewI NeighborY = Kokkos::create_mirror_view_and_copy(memory_space(), NeighborY_Host);
-    ViewI NeighborZ = Kokkos::create_mirror_view_and_copy(memory_space(), NeighborZ_Host);
+    ViewI NeighborX(Kokkos::ViewAllocateWithoutInitializing("NeighborX"), 26);
+    ViewI NeighborY(Kokkos::ViewAllocateWithoutInitializing("NeighborY"), 26);
+    ViewI NeighborZ(Kokkos::ViewAllocateWithoutInitializing("NeighborZ"), 26);
+    NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
     // Initialize views - set initial GrainID values to 0, all CellType values to liquid
     ViewI CellType(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalDomainSize);
@@ -281,14 +275,11 @@ void testCellTypeInit() {
         AtNorthBoundary = false;
 
     // Initialize neighbor lists
-    ViewI_H NeighborX_Host(Kokkos::ViewAllocateWithoutInitializing("NeighborX_Host"), 26);
-    ViewI_H NeighborY_Host(Kokkos::ViewAllocateWithoutInitializing("NeighborY_Host"), 26);
-    ViewI_H NeighborZ_Host(Kokkos::ViewAllocateWithoutInitializing("NeighborZ_Host"), 26);
-    NeighborListInit(NeighborX_Host, NeighborY_Host, NeighborZ_Host);
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI NeighborX = Kokkos::create_mirror_view_and_copy(memory_space(), NeighborX_Host);
-    ViewI NeighborY = Kokkos::create_mirror_view_and_copy(memory_space(), NeighborY_Host);
-    ViewI NeighborZ = Kokkos::create_mirror_view_and_copy(memory_space(), NeighborZ_Host);
+    ViewI NeighborX(Kokkos::ViewAllocateWithoutInitializing("NeighborX"), 26);
+    ViewI NeighborY(Kokkos::ViewAllocateWithoutInitializing("NeighborY"), 26);
+    ViewI NeighborZ(Kokkos::ViewAllocateWithoutInitializing("NeighborZ"), 26);
+    NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
     // Initialize test CellType, CritTimeStep, GrainID, LayerID data
     ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);

@@ -615,12 +615,11 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                                 double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
                                 int ProcessorsInXDirection, int ProcessorsInYDirection,
                                 int SuccessfulNucEvents_ThisRank, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
-                                ViewI_H CritTimeStep_H, ViewI GrainID, std::string TemperatureDataType,
-                                int *FinishTimeStep, int layernumber, int, int ZBound_Low, int NGrainOrientations,
-                                bool *Melted, ViewI LayerID, ViewI_H LayerID_H, ViewF_H GrainUnitVector_H,
-                                ViewF_H UndercoolingChange_H, ViewF_H UndercoolingCurrent_H, std::string PathToOutput,
-                                std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
-                                int &IntermediateFileCounter, int NumberOfLayers) {
+                                ViewI GrainID, std::string TemperatureDataType, int *FinishTimeStep, int layernumber,
+                                int, int ZBound_Low, int NGrainOrientations, bool *Melted, ViewI LayerID,
+                                ViewF GrainUnitVector, ViewF UndercoolingChange, ViewF UndercoolingCurrent,
+                                std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,
+                                int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers) {
 
     sample::ValueType CellTypeStorage;
     Kokkos::parallel_reduce(
@@ -707,12 +706,11 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                             // Host mirrors of CellType and GrainID are not maintained - pass device views and perform
                             // copy inside of subroutine
                             PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-                                           ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep_H,
-                                           GrainUnitVector_H, LayerID_H, CellType, UndercoolingChange_H,
-                                           UndercoolingCurrent_H, OutputFile, DecompositionStrategy, NGrainOrientations,
-                                           Melted, PathToOutput, 0, false, false, false, true, false,
-                                           IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                                           NumberOfLayers);
+                                           ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep,
+                                           GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent,
+                                           OutputFile, DecompositionStrategy, NGrainOrientations, Melted, PathToOutput,
+                                           0, false, false, false, true, false, IntermediateFileCounter, ZBound_Low,
+                                           nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers);
                             IntermediateFileCounter++;
                         }
                     }
