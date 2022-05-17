@@ -127,22 +127,17 @@ void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCou
 }
 
 //*****************************************************************************/
-// Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int, int MyXSlices,
-                 int MyYSlices, double AConst, double BConst, double CConst, double DConst, int MyXOffset,
-                 int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep,
-                 ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength,
-                 ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations,
-                 Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                 Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
-                 Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int,
-                 int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H,
-                 bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary) {
+// Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
+// this time step
+void FillSteeringVector(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, ViewI CritTimeStep,
+                        ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
+                        int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host) {
 
-    // Cell capture - parallel reduce loop over all type Active cells, counting number of ghost node cells that need to
-    // be accounted for
+    // Cells associated with this layer that are not solid type but have passed the liquidus (crit time step) have their
+    // undercooling values updated Cells that meet the aforementioned criteria and are active type should be added to
+    // the steering vector
     Kokkos::parallel_for(
-        "CellCapture", LocalActiveDomainSize, KOKKOS_LAMBDA(const long int &D3D1ConvPosition) {
+        "FillSV", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
             // Cells of interest for the CA
             int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
             int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
@@ -163,15 +158,27 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                 UndercoolingCurrent(GlobalD3D1ConvPosition) +=
                     UndercoolingChange(GlobalD3D1ConvPosition) * (cell_Liquid + cell_Active);
                 if (cell_Active) {
-                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = D3D1ConvPosition;
+                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
                 }
             }
         });
-    Kokkos::deep_copy(numSteer_H, numSteer_G);
+    Kokkos::deep_copy(numSteer_Host, numSteer);
+}
+
+// Decentered octahedron algorithm for the capture of new interface cells by grains
+void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXSlices, int MyYSlices, double AConst,
+                 double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, NList NeighborX,
+                 NList NeighborY, NList NeighborZ, ViewF UndercoolingCurrent, ViewF GrainUnitVector,
+                 ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID,
+                 int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend,
+                 Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
+                 Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low,
+                 int nzActive, int, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
+                 bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary) {
 
     Kokkos::parallel_for(
-        "CellCapture", numSteer_H(0), KOKKOS_LAMBDA(const int &num) {
-            numSteer_G(0) = 0;
+        "CellCapture", numSteer_Host(0), KOKKOS_LAMBDA(const int &num) {
+            numSteer(0) = 0;
             int D3D1ConvPosition = SteeringVector(num);
             // Cells of interest for the CA - active cells and future active cells
             int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
