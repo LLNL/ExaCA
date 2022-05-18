@@ -29,7 +29,7 @@ void NeighborListInit(ViewI &NeighborX, ViewI &NeighborY, ViewI &NeighborZ);
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
                    std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
                    float &ZMin, float &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
-                   float *ZMinLayer, float *ZMaxLayer);
+                   float *ZMinLayer, float *ZMaxLayer, int SpotRadius);
 void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset,
                          int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South, int &NeighborRank_East,
                          int &NeighborRank_West, int &NeighborRank_NorthEast, int &NeighborRank_NorthWest,
@@ -39,7 +39,8 @@ void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlic
 void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyXSlices, int MyYSlices,
                          int MyXOffset, int MyYOffset, float XMin, float YMin, std::vector<std::string> &temp_paths,
                          int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
-                         std::vector<double> &RawData, int *FirstValue, int *LastValue);
+                         std::vector<double> &RawData, int *FirstValue, int *LastValue, bool RemeltingYN,
+                         ViewI &MaxSolidificationEvents, float *ZMinLayer, float *ZMaxLayer, int LayerHeight);
 int calcZBound_Low(bool RemeltingYN, std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer,
                    float ZMin, double deltax);
 int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
@@ -48,16 +49,35 @@ int calcnzActive(int ZBound_Low, int ZBound_High, int id, int layernumber);
 int calcLocalActiveDomainSize(int MyXSlices, int MyYSlices, int nzActive);
 void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, double deltax,
                                 double deltat, int nz, int LocalDomainSize, ViewI &CritTimeStep,
-                                ViewF &UndercoolingChange, bool *Melted, ViewI &LayerID);
-void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
-                       int &MyYOffset, double deltax, double deltat, int nz, int LocalDomainSize, ViewI &CritTimeStep,
-                       ViewF &UndercoolingChange, bool *Melted, int LayerHeight, int NumberOfLayers,
-                       double FreezingRange, ViewI &LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset);
+                                ViewF &UndercoolingChange, bool *Melted, ViewI &LayerID,
+                                ViewI &MaxSolidificationEvents);
+int calcMaxSolidificationEventsSpot(int MyXSlices, int MyYSlices, int NumberOfSpots, int NSpotsX, int SpotRadius,
+                                    int SpotOffset, int MyXOffset, int MyYOffset);
+void TempInit_SpotMeltRemelting(int layernumber, double G, double R, std::string, int id, int &MyXSlices,
+                                int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax, double deltat,
+                                int ZBound_Low, int nz, int LocalActiveDomainSize, int LocalDomainSize,
+                                ViewI &CritTimeStep, ViewF &UndercoolingChange, ViewF &UndercoolingCurrent,
+                                bool *Melted, int LayerHeight, double FreezingRange, ViewI &LayerID, int NSpotsX,
+                                int NSpotsY, int SpotRadius, int SpotOffset, ViewF3D &LayerTimeTempHistory,
+                                ViewI &NumberOfSolidificationEvents, ViewI &MeltTimeStep,
+                                ViewI &MaxSolidificationEvents, ViewI &SolidificationEventCounter);
+void TempInit_SpotMelt(double G, double R, std::string SimulationType, int id, int &MyXSlices, int &MyYSlices,
+                       int &MyXOffset, int &MyYOffset, double deltax, double deltat, int nz, int LocalDomainSize,
+                       ViewI &CritTimeStep, ViewF &UndercoolingChange, bool *Melted, int LayerHeight,
+                       int NumberOfLayers, double FreezingRange, ViewI &LayerID, int NSpotsX, int NSpotsY,
+                       int SpotRadius, int SpotOffset, ViewI &MaxSolidificationEvents);
 void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax,
                       int HTtoCAratio, double deltat, int nz, int LocalDomainSize, ViewI &CritTimeStep,
                       ViewF &UndercoolingChange, float XMin, float YMin, float ZMin, bool *Melted, float *ZMinLayer,
                       float *ZMaxLayer, int LayerHeight, int NumberOfLayers, int *FinishTimeStep, double FreezingRange,
                       ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData);
+void TempInit_Remelt(int layernumber, int id, int MyXSlices, int MyYSlices, int nz, int LocalActiveDomainSize,
+                     int LocalDomainSize, int MyXOffset, int MyYOffset, double &deltax, double deltat,
+                     double FreezingRange, ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents,
+                     ViewI MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep, ViewF &UndercoolingChange,
+                     ViewF &UndercoolingCurrent, float XMin, float YMin, bool *Melted, float *ZMinLayer,
+                     int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep, ViewI &LayerID,
+                     int *FirstValue, int *LastValue, std::vector<double> RawData, ViewI &SolidificationEventCounter);
 void OrientationInit(int id, int NGrainOrientations, ViewF &GrainUnitVector, std::string GrainOrientationFile);
 void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx,
                                      int ny, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY,
@@ -77,6 +97,8 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
                 int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
                 int &NextLayer_FirstEpitaxialGrainID);
+void CellTypeInit_Remelt(int MyXSlices, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI CritTimeStep,
+                         int id, int ZBound_Low);
 void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, int MyXSlices, int MyYSlices,
                   int MyXOffset, int MyYOffset, int ZBound_Low, int nz, int LocalActiveDomainSize, int LocalDomainSize,
                   ViewI CellType, ViewI CritTimeStep, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
@@ -91,7 +113,8 @@ void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, i
                 ViewI &NucleiLocation, ViewI_H &NucleationTimes_Host, ViewI &NucleiGrainID, ViewI CellType,
                 ViewI CritTimeStep, ViewF UndercoolingChange, ViewI LayerID, int &PossibleNuclei_ThisRankThisLayer,
                 int &Nuclei_WholeDomain, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
-                bool AtWestBoundary, int &NucleationCounter);
+                bool AtWestBoundary, bool RemeltingYN, int &NucleationCounter, ViewI &MaxSolidificationEvents,
+                ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory);
 void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int &ZBound_Low, int &ZBound_High,
                           int &nzActive, int LocalDomainSize, int &LocalActiveDomainSize, int &BufSizeZ,
                           int LayerHeight, ViewI CellType, int layernumber, ViewI LayerID);
