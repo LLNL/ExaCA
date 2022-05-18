@@ -104,7 +104,8 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = 0;
                         RankZ = BufPosition / BufSizeX;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
                             DOCenterX = BufferSouthRecv(BufPosition, 1);
@@ -120,7 +121,8 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = MyYSlices - 1;
                         RankZ = BufPosition / BufSizeX;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
                             DOCenterX = BufferNorthRecv(BufPosition, 1);
@@ -136,7 +138,8 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = BufPosition % BufSizeY + 1;
                         RankZ = BufPosition / BufSizeY;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferEastRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferEastRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferEastRecv(BufPosition, 0));
                             DOCenterX = BufferEastRecv(BufPosition, 1);
@@ -152,7 +155,8 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = BufPosition % BufSizeY + 1;
                         RankZ = BufPosition / BufSizeY;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferWestRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferWestRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferWestRecv(BufPosition, 0));
                             DOCenterX = BufferWestRecv(BufPosition, 1);
@@ -167,7 +171,8 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = MyYSlices - 1;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferNorthWestRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferNorthWestRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferNorthWestRecv(BufPosition, 0));
                             DOCenterX = BufferNorthWestRecv(BufPosition, 1);
@@ -182,7 +187,8 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = MyYSlices - 1;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferNorthEastRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferNorthEastRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferNorthEastRecv(BufPosition, 0));
                             DOCenterX = BufferNorthEastRecv(BufPosition, 1);
@@ -197,7 +203,8 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = 0;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferSouthWestRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferSouthWestRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferSouthWestRecv(BufPosition, 0));
                             DOCenterX = BufferSouthWestRecv(BufPosition, 1);
@@ -212,7 +219,8 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = 0;
                         RankZ = BufPosition;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferSouthEastRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferSouthEastRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferSouthEastRecv(BufPosition, 0));
                             DOCenterX = BufferSouthEastRecv(BufPosition, 1);
@@ -390,7 +398,8 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         // Data receieved from South
                         RankY = 0;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
                             DOCenterX = BufferSouthRecv(BufPosition, 1);
@@ -403,7 +412,8 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         // Data received from North
                         RankY = MyYSlices - 1;
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
-                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (DiagonalLength(CellLocation) == 0)) {
+                        int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
+                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
                             NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
                             DOCenterX = BufferNorthRecv(BufPosition, 1);

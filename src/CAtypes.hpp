@@ -15,7 +15,7 @@ enum TypeNames {
     TemporaryUpdate = 3,
     TemporaryInit = 4,
     Liquid = 5,
-    Ghost = 6,
+    TempSolid = 6,
     FutureActive = 7
 };
 
@@ -26,6 +26,7 @@ typedef Kokkos::View<int **> ViewI2D;
 typedef Kokkos::View<int *, Kokkos::MemoryTraits<Kokkos::Atomic>> View_a;
 typedef Kokkos::View<double **> Buffer2D;
 typedef Kokkos::View<float *> TestView;
+typedef Kokkos::View<float ***> ViewF3D;
 
 using exe_space = Kokkos::DefaultExecutionSpace::execution_space;
 using device_memory_space = Kokkos::DefaultExecutionSpace::memory_space;
@@ -36,6 +37,7 @@ typedef Kokkos::View<float ***, layout, Kokkos::HostSpace> ViewF3D_H;
 typedef Kokkos::View<int *, layout, Kokkos::HostSpace> ViewI_H;
 typedef Kokkos::View<int **, layout, Kokkos::HostSpace> ViewI2D_H;
 typedef Kokkos::View<int ***, layout, Kokkos::HostSpace> ViewI3D_H;
+typedef Kokkos::View<double **, layout, Kokkos::HostSpace> Buffer2D_H;
 
 typedef Kokkos::Array<int, 26> NList;
 
