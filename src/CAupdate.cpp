@@ -165,17 +165,103 @@ void FillSteeringVector(int cycle, int LocalActiveDomainSize, int MyXSlices, int
     Kokkos::deep_copy(numSteer_Host, numSteer);
 }
 
+//*****************************************************************************/
+// Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
+// this time step - version with remelting
+void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, NList NeighborX,
+                               NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
+                               ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
+                               ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
+                               int BufSizeX, int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary,
+                               bool AtEastBoundary, bool AtWestBoundary, Buffer2D BufferWestSend,
+                               Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                               Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                               Buffer2D BufferSouthWestSend, int DecompositionStrategy) {
+
+    Kokkos::parallel_for(
+        "FillSV_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
+            // Coordinate of this cell on the "global" (all cells in the Z direction) grid
+            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankX = Rem / MyYSlices;
+            int RankY = Rem % MyYSlices;
+            int GlobalZ = RankZ + ZBound_Low;
+            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+
+            int cellType = CellType(GlobalD3D1ConvPosition);
+            bool isNotSolid = ((cellType != TempSolid) && (cellType != Solid));
+            bool atMeltTime = (cycle == MeltTimeStep(GlobalD3D1ConvPosition));
+            bool pastCritTime = (cycle > CritTimeStep(GlobalD3D1ConvPosition));
+            if ((atMeltTime) && ((cellType == TempSolid) || (cellType == Active))) {
+                // This cell should be a liquid cell
+                CellType(GlobalD3D1ConvPosition) = Liquid;
+                // Reset current undercooling to zero
+                UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
+                // Remove solid cell data from the buffer
+                if (DecompositionStrategy == 1)
+                    loadghostnodes(0, 0, 0, 0, 0, BufSizeX, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary,
+                                   AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                else
+                    loadghostnodes(0, 0, 0, 0, 0, BufSizeX, BufSizeY, MyXSlices, MyYSlices, RankX, RankY, RankZ,
+                                   AtNorthBoundary, AtSouthBoundary, AtWestBoundary, AtEastBoundary, BufferSouthSend,
+                                   BufferNorthSend, BufferWestSend, BufferEastSend, BufferNorthEastSend,
+                                   BufferSouthEastSend, BufferSouthWestSend, BufferNorthWestSend);
+            }
+            else if ((isNotSolid) && (pastCritTime)) {
+                // Update cell undercooling
+                UndercoolingCurrent(GlobalD3D1ConvPosition) += UndercoolingChange(GlobalD3D1ConvPosition);
+                if (cellType == Active) {
+                    // Add active cells below liquidus to steering vector
+                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
+                }
+                else if ((cellType == Liquid) && (GrainID(GlobalD3D1ConvPosition) != 0)) {
+                    // If this cell borders at least one solid/tempsolid cell and is part of a grain, it should become
+                    // active
+                    for (int l = 0; l < 26; l++) {
+                        // "l" correpsponds to the specific neighboring cell
+                        // Local coordinates of adjacent cell center
+                        int MyNeighborX = RankX + NeighborX[l];
+                        int MyNeighborY = RankY + NeighborY[l];
+                        int MyNeighborZ = RankZ + NeighborZ[l];
+                        if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
+                            (MyNeighborY < MyYSlices) && (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
+                            int GlobalNeighborD3D1ConvPosition = (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices +
+                                                                 MyNeighborX * MyYSlices + MyNeighborY;
+                            if ((CellType(GlobalNeighborD3D1ConvPosition) == TempSolid) ||
+                                (CellType(GlobalNeighborD3D1ConvPosition) == Solid) || (RankZ == 0)) {
+                                // Cell activation to be performed as part of steering vector
+                                l = 26;
+                                SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
+                                CellType(GlobalD3D1ConvPosition) =
+                                    FutureActive; // this cell cannot be captured - is being activated
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    Kokkos::fence();
+
+    // Copy size of steering vector (containing positions of undercooled liquid/active cells) to the host
+    Kokkos::deep_copy(numSteer_Host, numSteer);
+}
+
 // Decentered octahedron algorithm for the capture of new interface cells by grains
 void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXSlices, int MyYSlices, double AConst,
                  double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, NList NeighborX,
-                 NList NeighborY, NList NeighborZ, ViewF UndercoolingCurrent, ViewF GrainUnitVector,
-                 ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID,
-                 int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend,
-                 Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
-                 Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low,
-                 int nzActive, int, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
-                 bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary) {
+                 NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
+                 ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
+                 ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferWestSend,
+                 Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                 Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                 Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int,
+                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
+                 bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary, ViewI SolidificationEventCounter,
+                 ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents,
+                 bool RemeltingYN) {
 
+    // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
+    // cell types
     Kokkos::parallel_for(
         "CellCapture", numSteer_Host(0), KOKKOS_LAMBDA(const int &num) {
             numSteer(0) = 0;
@@ -196,7 +282,7 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                 DiagonalLength(D3D1ConvPosition) += min(0.045, V); // Max amount the diagonal can grow per time step
                 // Cycle through all neigboring cells on this processor to see if they have been captured
                 // Cells in ghost nodes cannot capture cells on other processors
-                int LCount = 0;
+                bool DeactivateCell = true; // switch that becomes false if the cell has at least 1 liquid type neighbor
                 // Which neighbors should be iterated over?
                 for (int l = 0; l < 26; l++) {
                     // Local coordinates of adjacent cell center
@@ -211,7 +297,7 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                         long int GlobalNeighborD3D1ConvPosition =
                             (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
                         if (CellType(GlobalNeighborD3D1ConvPosition) == Liquid)
-                            LCount = 1;
+                            DeactivateCell = false;
                         // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
                         if ((DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26 * D3D1ConvPosition + l)) &&
                             (CellType(GlobalNeighborD3D1ConvPosition) == Liquid)) {
@@ -478,9 +564,33 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                         }     // End if statement for outer capture loop
                     }         // End if statement over neighbors on the active grid
                 }             // End loop over all neighbors of this active cell
-                if (LCount == 0) {
-                    // This active cell has no more neighboring cells to be captured, becomes solid
-                    CellType(GlobalD3D1ConvPosition) = Solid;
+                if (DeactivateCell) {
+                    // This active cell has no more neighboring cells to be captured
+                    if (RemeltingYN) {
+                        // Update the counter for the number of times this cell went from liquid to active to solid
+                        SolidificationEventCounter(D3D1ConvPosition)++;
+                        // Did the cell solidify for the last time in the layer?
+                        // If so, this cell is solid - ignore until next layer (if needed)
+                        // If not, update MeltTimeStep, CritTimeStep, and UndercoolingChange with values for the next
+                        // solidification event, and change cell type to TempSolid
+                        if (SolidificationEventCounter(D3D1ConvPosition) ==
+                            NumberOfSolidificationEvents(D3D1ConvPosition)) {
+                            CellType(GlobalD3D1ConvPosition) = Solid;
+                        }
+                        else {
+                            CellType(GlobalD3D1ConvPosition) = TempSolid;
+                            MeltTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(
+                                D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 0));
+                            CritTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(
+                                D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 1));
+                            UndercoolingChange(GlobalD3D1ConvPosition) =
+                                LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 2);
+                        }
+                    }
+                    else {
+                        // If no remelting, this cell becomes solid type - it will not change type again
+                        CellType(GlobalD3D1ConvPosition) = Solid;
+                    }
                 }
             }
             else if (CellType(GlobalD3D1ConvPosition) == FutureActive) {
@@ -729,6 +839,121 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
             }
             if ((TemperatureDataType == "R") && (cycle >= FinishTimeStep[layernumber]))
                 XSwitch = 1;
+        }
+    }
+}
+
+//*****************************************************************************/
+// Prints intermediate code output to stdout, checks to see if solidification is complete in the case where cells can
+// solidify multiple times
+void IntermediateOutputAndCheck_Remelt(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset,
+                                       int MyYOffset, int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive,
+                                       double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
+                                       int ProcessorsInXDirection, int ProcessorsInYDirection,
+                                       int SuccessfulNucEvents_ThisRank, int &XSwitch, ViewI CellType,
+                                       ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType,
+                                       int layernumber, int, int ZBound_Low, int NGrainOrientations, bool *Melted,
+                                       ViewI LayerID, ViewF GrainUnitVector, ViewF UndercoolingChange,
+                                       ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile,
+                                       bool PrintIdleMovieFrames, int MovieFrameInc, int &IntermediateFileCounter,
+                                       int NumberOfLayers, ViewI MeltTimeStep) {
+
+    sample::ValueType CellTypeStorage;
+    Kokkos::parallel_reduce(
+        LocalActiveDomainSize,
+        KOKKOS_LAMBDA(const int &D3D1ConvPosition, sample::ValueType &upd) {
+            int GlobalD3D1ConvPosition = D3D1ConvPosition + ZBound_Low * MyXSlices * MyYSlices;
+            if (CellType(GlobalD3D1ConvPosition) == Liquid) {
+                if (CritTimeStep(GlobalD3D1ConvPosition) > cycle)
+                    upd.the_array[0] += 1;
+                else
+                    upd.the_array[1] += 1;
+            }
+            else if (CellType(GlobalD3D1ConvPosition) == Active)
+                upd.the_array[2] += 1;
+            else if (CellType(GlobalD3D1ConvPosition) == TempSolid)
+                upd.the_array[3] += 1;
+            else if (CellType(GlobalD3D1ConvPosition) == Solid)
+                upd.the_array[4] += 1;
+        },
+        Kokkos::Sum<sample::ValueType>(CellTypeStorage));
+    unsigned long int Global_SuccessfulNucEvents_ThisRank = 0;
+    unsigned long int LocalSuperheatedCells = CellTypeStorage.the_array[0];
+    unsigned long int LocalUndercooledCells = CellTypeStorage.the_array[1];
+    unsigned long int LocalActiveCells = CellTypeStorage.the_array[2];
+    unsigned long int LocalTempSolidCells = CellTypeStorage.the_array[3];
+    unsigned long int LocalFinishedSolidCells = CellTypeStorage.the_array[4];
+
+    unsigned long int GlobalSuperheatedCells, GlobalUndercooledCells, GlobalActiveCells, GlobalTempSolidCells,
+        GlobalFinishedSolidCells;
+    MPI_Reduce(&LocalSuperheatedCells, &GlobalSuperheatedCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalUndercooledCells, &GlobalUndercooledCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalActiveCells, &GlobalActiveCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalTempSolidCells, &GlobalTempSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalFinishedSolidCells, &GlobalFinishedSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&SuccessfulNucEvents_ThisRank, &Global_SuccessfulNucEvents_ThisRank, 1, MPI_INT, MPI_SUM, 0,
+               MPI_COMM_WORLD);
+
+    if (id == 0) {
+        std::cout << "cycle = " << cycle << " in layer " << layernumber
+                  << ": Superheated liquid cells = " << GlobalSuperheatedCells
+                  << " Undercooled liquid cells = " << GlobalUndercooledCells
+                  << " Number of nucleation events this layer " << Global_SuccessfulNucEvents_ThisRank
+                  << " cells to undergo at least one more solidification event = " << GlobalTempSolidCells
+                  << " cells that are finished with solidification = " << GlobalFinishedSolidCells << std::endl;
+        if (GlobalSuperheatedCells + GlobalUndercooledCells + GlobalActiveCells + GlobalTempSolidCells == 0)
+            XSwitch = 1;
+    }
+    MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S"))) {
+        MPI_Bcast(&GlobalActiveCells, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+        if (GlobalActiveCells == 0) {
+            // Check when the next cells go above the liquidus (go from TempSolid to Liquid)
+            unsigned long int NextMTS;
+            Kokkos::parallel_reduce(
+                "NextMeltCheck", LocalActiveDomainSize,
+                KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &tempv) {
+                    int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+                    int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+                    int RankX = Rem / MyYSlices;
+                    int RankY = Rem % MyYSlices;
+                    int GlobalZ = RankZ + ZBound_Low;
+                    int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                    unsigned long int MeltTimeStep_ThisCell = (unsigned long int)(MeltTimeStep(GlobalD3D1ConvPosition));
+                    if (CellType(GlobalD3D1ConvPosition) == TempSolid) {
+                        if (MeltTimeStep_ThisCell < tempv) {
+                            tempv = MeltTimeStep_ThisCell;
+                        }
+                    }
+                },
+                Kokkos::Min<unsigned long int>(NextMTS));
+
+            unsigned long int GlobalNextMTS;
+            MPI_Allreduce(&NextMTS, &GlobalNextMTS, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
+            if ((GlobalNextMTS - cycle) > 5000) {
+                if (PrintIdleMovieFrames) {
+                    // Print any movie frames that occur during the skipped time steps
+                    for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextMTS; cycle_jump++) {
+                        if (cycle_jump % MovieFrameInc == 0) {
+                            // Print current state of ExaCA simulation (up to and including the current layer's data)
+                            // Host mirrors of CellType and GrainID are not maintained - pass device views and perform
+                            // copy inside of subroutine
+                            PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
+                                           ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep,
+                                           GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent,
+                                           OutputFile, DecompositionStrategy, NGrainOrientations, Melted, PathToOutput,
+                                           0, false, false, false, true, false, IntermediateFileCounter, ZBound_Low,
+                                           nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers);
+                            IntermediateFileCounter++;
+                        }
+                    }
+                }
+                // Jump to next time step when solidification starts again
+                cycle = GlobalNextMTS - 1;
+                if (id == 0)
+                    std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
+            }
         }
     }
 }

@@ -13,98 +13,6 @@
 
 namespace Test {
 //---------------------------------------------------------------------------//
-void testReadTemperatureData() {
-
-    int id, np;
-    // Get number of processes
-    MPI_Comm_size(MPI_COMM_WORLD, &np);
-    // Get individual process ID
-    MPI_Comm_rank(MPI_COMM_WORLD, &id);
-    // Create test data
-    double deltax = 1 * pow(10, -6);
-    double HT_deltax = 1 * pow(10, -6);
-    int HTtoCAratio;
-    // Domain size in y is variable based on the number of ranks
-    // Each MPI rank contains a 3 by 3 subdomain
-    int nx = 6;
-    int ny = 3 * (1 + np / 2);
-    // Each rank gets 1/(number of ranks) of the overall domain
-    int MyXSlices = 3;
-    int MyYSlices = 3;
-    int ProcRow, ProcCol, MyXOffset, MyYOffset;
-    if (id % 2 == 0) {
-        ProcRow = 0;   // even ranks
-        MyXOffset = 0; // no offset in X: contains X = 0-3
-    }
-    else {
-        ProcRow = 1;   // odd ranks
-        MyXOffset = 3; // X = 3 offset, contains X = 4-6
-    }
-    ProcCol = id / 2;        // Ranks 0-1 in 0th col, 2-3 in 1st col, 4-5 in 2nd col, etc
-    MyYOffset = 3 * ProcCol; // each col is separated from the others by 3 cells
-    float XMin = 0.0;
-    float YMin = 0.0;
-    std::string TestTempFileName = "TestData.txt";
-    std::vector<std::string> temp_paths(1);
-    temp_paths[0] = TestTempFileName;
-    int NumberOfLayers = 1;
-    int TempFilesInSeries = 1;
-    int *FirstValue = new int[NumberOfLayers];
-    int *LastValue = new int[NumberOfLayers];
-    unsigned int NumberOfTemperatureDataPoints = 0;
-    // Write fake OpenFOAM data - only rank 0.
-    if (id == 0) {
-        std::ofstream TestDataFile;
-        TestDataFile.open(TestTempFileName);
-        TestDataFile << "x, y, z, tm, tl, cr" << std::endl;
-        for (int j = 0; j < ny; j++) {
-            for (int i = 0; i < nx; i++) {
-                TestDataFile << i * deltax << "," << j * deltax << "," << 0.0 << "," << (float)(i * j) << ","
-                             << (float)(i * j + i) << "," << (float)(i * j + j) << std::endl;
-            }
-        }
-        TestDataFile.close();
-    }
-    // Wait for data to be printed before continuing
-    MPI_Barrier(MPI_COMM_WORLD);
-    // Read in data to "RawData"
-    std::vector<double> RawData(12);
-    ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin,
-                        temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
-                        FirstValue, LastValue);
-    // Check the results.
-    // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr) for
-    // each of the 9 cells in the subdomain
-    EXPECT_EQ(NumberOfTemperatureDataPoints, 54);
-    // Ratio of HT cell size and CA cell size should be 1
-    EXPECT_EQ(HTtoCAratio, 1);
-    int NumberOfCellsPerRank = 9;
-    // Does each rank have the right temperature data values?
-    for (int n = 0; n < NumberOfCellsPerRank; n++) {
-        double ExpectedValues_ThisDataPoint[6];
-        // Location on local grid
-        int CARow = n % 3;
-        int CACol = n / 3;
-        // X Coordinate
-        ExpectedValues_ThisDataPoint[0] = (CARow + 3 * ProcRow) * deltax;
-        // Y Coordinate
-        ExpectedValues_ThisDataPoint[1] = (CACol + 3 * ProcCol) * deltax;
-        // Z Coordinate
-        ExpectedValues_ThisDataPoint[2] = 0.0;
-        int XInt = ExpectedValues_ThisDataPoint[0] / deltax;
-        int YInt = ExpectedValues_ThisDataPoint[1] / deltax;
-        // Melting time
-        ExpectedValues_ThisDataPoint[3] = XInt * YInt;
-        // Liquidus time
-        ExpectedValues_ThisDataPoint[4] = XInt * YInt + XInt;
-        // Cooling rate
-        ExpectedValues_ThisDataPoint[5] = XInt * YInt + YInt;
-        for (int nn = 0; nn < 6; nn++) {
-            EXPECT_DOUBLE_EQ(ExpectedValues_ThisDataPoint[nn], RawData[6 * n + nn]);
-        }
-    }
-}
-
 void testInputReadFromFile() {
 
     int id;
@@ -281,10 +189,94 @@ void testInputReadFromFile() {
         }
     }
 }
+
+void testcalcZBound_Low(bool RemeltingYN) {
+
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    if (!(RemeltingYN)) {
+        float *ZMinLayer = new float[1];
+        int ZBound_Low_C = calcZBound_Low(RemeltingYN, "C", 0, 0, ZMinLayer, 0, 0);
+        // Should have just set the lower bound to zero, other inputs don't matter
+        EXPECT_EQ(ZBound_Low_C, 0);
+    }
+    else {
+        int LayerHeight = 10 * id; // let LayerHeight depend on the process ID
+        int NumberOfLayers = 10;
+        double deltax = 1 * pow(10, -6);
+        float ZMin = -0.5 * pow(10, -6);
+        float *ZMinLayer = new float[NumberOfLayers];
+        for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+            // Set ZMinLayer for each layer to be offset by LayerHeight cells from the previous one (lets solution for
+            // both problem types by the same)
+            ZMinLayer[layernumber] = ZMin + layernumber * LayerHeight * deltax;
+            // Call function for each layernumber, and for simulation types "S" and "R"
+            int ZBound_Low_S = calcZBound_Low(RemeltingYN, "S", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
+            EXPECT_EQ(ZBound_Low_S, LayerHeight * layernumber);
+            int ZBound_Low_R = calcZBound_Low(RemeltingYN, "R", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
+            EXPECT_EQ(ZBound_Low_R, LayerHeight * layernumber);
+        }
+    }
+}
+
+void testcalcZBound_High() {
+
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    int SpotRadius = 100 * id;
+    int LayerHeight = 10;
+    float ZMin = 0.5 * pow(10, -6);
+    double deltax = 1.0 * pow(10, -6);
+    int nz = 101;
+    int NumberOfLayers = 10;
+    float *ZMaxLayer = new float[NumberOfLayers];
+    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+        // Set ZMaxLayer for each layer to be offset by LayerHeight cells from the previous one, with layer 0 having a
+        // ZMax value of ZMin + SpotRadius (lets solution for both problem types be the same)
+        ZMaxLayer[layernumber] = ZMin + SpotRadius * deltax + layernumber * LayerHeight * deltax;
+        // Call function for each layernumber, and for simulation types "S" and "R"
+        int ZBound_Max_S = calcZBound_High("S", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        EXPECT_EQ(ZBound_Max_S, SpotRadius + LayerHeight * layernumber);
+        int ZBound_Max_R = calcZBound_High("R", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        EXPECT_EQ(ZBound_Max_R, SpotRadius + LayerHeight * layernumber);
+        // For simulation type C, should be independent of layernumber
+        int ZBound_Max_C = calcZBound_High("C", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        EXPECT_EQ(ZBound_Max_C, nz - 1);
+    }
+}
+
+void testcalcnzActive() {
+
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    int ZBound_Low = 5;
+    int NumberOfLayers = 10;
+    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+        int ZBound_High = 6 + id + layernumber;
+        int nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber);
+        EXPECT_EQ(nzActive, 2 + id + layernumber);
+    }
+}
+
+void testcalcLocalActiveDomainSize() {
+
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    int MyXSlices = 5 + id;
+    int MyYSlices = id;
+    int nzActive = 10;
+    int LocalActiveDomainSize = calcLocalActiveDomainSize(MyXSlices, MyYSlices, nzActive);
+    EXPECT_EQ(LocalActiveDomainSize, 10 * id * id + 50 * id);
+}
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-TEST(TEST_CATEGORY, temperature_init_test) { testReadTemperatureData(); }
 TEST(TEST_CATEGORY, fileread_test) { testInputReadFromFile(); }
-
+TEST(TEST_CATEGORY, activedomainsizecalc) {
+    testcalcZBound_Low(true);
+    testcalcZBound_Low(false);
+    testcalcZBound_High();
+    testcalcnzActive();
+    testcalcLocalActiveDomainSize();
+} // calcZBound_Low tested with and without remelting
 } // end namespace Test
