@@ -18,15 +18,6 @@
 // Functions that are used to simplify the parsing of input files, either by ExaCA or related utilities
 
 //*****************************************************************************/
-// Skip initial lines in input files.
-void skipLines(std::ifstream &stream, std::string seperator) {
-    std::string line;
-    while (getline(stream, line)) {
-        if (line == seperator)
-            break;
-    }
-}
-
 // Remove whitespace from "line", optional argument to take only portion of the line after position "pos"
 std::string removeWhitespace(std::string line, int pos = -1) {
 
@@ -36,11 +27,27 @@ std::string removeWhitespace(std::string line, int pos = -1) {
     return val;
 }
 
+// Skip initial lines in input files.
+void skipLines(std::ifstream &stream, std::string seperator) {
+    std::string line;
+    while (getline(stream, line)) {
+        // remove any whitespace from line
+        std::string linechars = removeWhitespace(line);
+        if (linechars == seperator)
+            break;
+    }
+}
+
 // From a line read from the input file, check against NumInputs possible matches to see if there is a match with a key
 // from InputKeys Store the appropriate portion of the line read from the file in ParsedInputs Return whether a match
 // was found for the input or not
 bool parseInputFromList(std::string line, std::vector<std::string> InputKeys, std::vector<std::string> &ParsedInputs,
                         int NumInputs = 1) {
+
+    // Only attempt to parse the line if it isn't empty - ignore empty lines
+    if (line.empty())
+        return false;
+
     // First, check that there is a colon separating the parameter name from the value
     std::size_t colon = line.find(":");
     if (colon == std::string::npos) {
