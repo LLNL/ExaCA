@@ -745,10 +745,10 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
     std::string FName = PathToOutput + BaseFileName + "_layer" + std::to_string(layernumber) + "_" +
                         std::to_string(IntermediateFileCounter) + ".vtk";
 
-    // Size of output in Z will depend on the current layer bounds - always start from Z = 1, but only collect data up
-    // to Z = ZBound_Low + nzActive - 1
-    int ZPrintSize = ZBound_Low + nzActive - 1;
-    std::cout << "Printing file " << FName << " : Z coordinates of 1 through " << ZPrintSize << std::endl;
+    // Size of output in Z will depend on the current layer bounds - always start from Z = 0, but only collect data up
+    // to Z = ZBound_Low + nzActive
+    int ZPrintSize = ZBound_Low + nzActive;
+    std::cout << "Printing file " << FName << " : Z coordinates of 0 through " << ZPrintSize - 1 << std::endl;
     ViewF_H GrainMisorientation(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NGrainOrientations);
     for (int n = 0; n < NGrainOrientations; n++) {
         // Find the smallest possible misorientation between the domain +Z direction, and this grain orientations' 6
@@ -776,7 +776,7 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
     GrainplotM << std::fixed << "POINT_DATA " << nx * ny * ZPrintSize << std::endl;
     GrainplotM << "SCALARS Angle_z float 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
-    for (int k = 0; k <= ZPrintSize; k++) {
+    for (int k = 0; k < ZPrintSize; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
                 if (CellType_WholeDomain(k, i, j) != Liquid) {
