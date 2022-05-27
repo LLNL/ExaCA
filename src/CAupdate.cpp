@@ -447,17 +447,19 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                                     float GhostDOCZ = cz;
                                     float GhostDL = NewODiagL;
                                     // Collect data for the ghost nodes, if necessary
+                                    // Data loaded into the ghost nodes is for the cell that was just captured
                                     if (DecompositionStrategy == 1)
                                         loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
-                                                       MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
-                                                       BufferSouthSend, BufferNorthSend);
+                                                       MyYSlices, MyNeighborX, MyNeighborY, MyNeighborZ,
+                                                       AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                                                       BufferNorthSend);
                                     else
                                         loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
-                                                       BufSizeY, MyXSlices, MyYSlices, RankX, RankY, RankZ,
-                                                       AtNorthBoundary, AtSouthBoundary, AtWestBoundary, AtEastBoundary,
-                                                       BufferSouthSend, BufferNorthSend, BufferWestSend, BufferEastSend,
-                                                       BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
-                                                       BufferNorthWestSend);
+                                                       BufSizeY, MyXSlices, MyYSlices, MyNeighborX, MyNeighborY,
+                                                       MyNeighborZ, AtNorthBoundary, AtSouthBoundary, AtWestBoundary,
+                                                       AtEastBoundary, BufferSouthSend, BufferNorthSend, BufferWestSend,
+                                                       BufferEastSend, BufferNorthEastSend, BufferSouthEastSend,
+                                                       BufferSouthWestSend, BufferNorthWestSend);
                                 } // End if statement for serial/parallel code
                                 // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
                                 // Diagonal Length values have been assigned to it Avoids the race condition in which
