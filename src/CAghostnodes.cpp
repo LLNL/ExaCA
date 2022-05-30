@@ -32,39 +32,39 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
     std::vector<MPI_Request> RecvRequests(8, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_South, 0, MPI_COMM_WORLD,
               &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_North, 0, MPI_COMM_WORLD,
               &SendRequests[1]);
-    MPI_Isend(BufferEastSend.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_East, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferEastSend.data(), 5 * BufSizeY * BufSizeZ, MPI_DOUBLE, NeighborRank_East, 0, MPI_COMM_WORLD,
               &SendRequests[2]);
-    MPI_Isend(BufferWestSend.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_West, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferWestSend.data(), 5 * BufSizeY * BufSizeZ, MPI_DOUBLE, NeighborRank_West, 0, MPI_COMM_WORLD,
               &SendRequests[3]);
-    MPI_Isend(BufferNorthWestSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthWestSend.data(), 5 * BufSizeZ, MPI_DOUBLE, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
               &SendRequests[4]);
-    MPI_Isend(BufferNorthEastSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthEastSend.data(), 5 * BufSizeZ, MPI_DOUBLE, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
               &SendRequests[5]);
-    MPI_Isend(BufferSouthWestSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthWestSend.data(), 5 * BufSizeZ, MPI_DOUBLE, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
               &SendRequests[6]);
-    MPI_Isend(BufferSouthEastSend.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthEastSend.data(), 5 * BufSizeZ, MPI_DOUBLE, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
               &SendRequests[7]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_South, 0, MPI_COMM_WORLD,
               &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_North, 0, MPI_COMM_WORLD,
               &RecvRequests[1]);
-    MPI_Irecv(BufferEastRecv.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_East, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferEastRecv.data(), 5 * BufSizeY * BufSizeZ, MPI_DOUBLE, NeighborRank_East, 0, MPI_COMM_WORLD,
               &RecvRequests[2]);
-    MPI_Irecv(BufferWestRecv.data(), 5 * BufSizeY * BufSizeZ, MPI_FLOAT, NeighborRank_West, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferWestRecv.data(), 5 * BufSizeY * BufSizeZ, MPI_DOUBLE, NeighborRank_West, 0, MPI_COMM_WORLD,
               &RecvRequests[3]);
-    MPI_Irecv(BufferNorthWestRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthWestRecv.data(), 5 * BufSizeZ, MPI_DOUBLE, NeighborRank_NorthWest, 0, MPI_COMM_WORLD,
               &RecvRequests[4]);
-    MPI_Irecv(BufferNorthEastRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthEastRecv.data(), 5 * BufSizeZ, MPI_DOUBLE, NeighborRank_NorthEast, 0, MPI_COMM_WORLD,
               &RecvRequests[5]);
-    MPI_Irecv(BufferSouthWestRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthWestRecv.data(), 5 * BufSizeZ, MPI_DOUBLE, NeighborRank_SouthWest, 0, MPI_COMM_WORLD,
               &RecvRequests[6]);
-    MPI_Irecv(BufferSouthEastRecv.data(), 5 * BufSizeZ, MPI_FLOAT, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthEastRecv.data(), 5 * BufSizeZ, MPI_DOUBLE, NeighborRank_SouthEast, 0, MPI_COMM_WORLD,
               &RecvRequests[7]);
 
     // unpack in any order
@@ -95,7 +95,7 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                     int RankX, RankY, RankZ, NewGrainID;
                     long int CellLocation;
                     bool Place = false;
-                    float DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
+                    double DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
                     // Which rank was the data received from?
                     if ((unpack_index == 0) && (NeighborRank_South != MPI_PROC_NULL)) {
                         // Data receieved from South
@@ -228,11 +228,11 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                         CellType(GlobalCellLocation) = Active;
                         GrainID(GlobalCellLocation) = NewGrainID;
-                        DOCenter((long int)(3) * CellLocation) = DOCenterX;
-                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = DOCenterY;
-                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = DOCenterZ;
+                        DOCenter((long int)(3) * CellLocation) = (float)(DOCenterX);
+                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = (float)(DOCenterY);
+                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = (float)(DOCenterZ);
                         int MyOrientation = getGrainOrientation(GrainID(GlobalCellLocation), NGrainOrientations);
-                        DiagonalLength(CellLocation) = NewDiagonalLength;
+                        DiagonalLength(CellLocation) = (float)(NewDiagonalLength);
                         // Global coordinates of cell center
                         double xp = RankX + MyXOffset + 0.5;
                         double yp = RankY + MyYOffset + 0.5;
@@ -352,15 +352,15 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_South, 0, MPI_COMM_WORLD,
               &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_North, 0, MPI_COMM_WORLD,
               &SendRequests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_South, 0, MPI_COMM_WORLD,
               &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_North, 0, MPI_COMM_WORLD,
               &RecvRequests[1]);
 
     // unpack in any order
@@ -380,7 +380,7 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                 "BufferUnpack", RecvBufSize, KOKKOS_LAMBDA(const int &BufPosition) {
                     int RankX, RankY, RankZ, NewGrainID;
                     long int CellLocation;
-                    float DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
+                    double DOCenterX, DOCenterY, DOCenterZ, NewDiagonalLength;
                     bool Place = false;
                     RankZ = BufPosition / BufSizeX;
                     RankX = BufPosition % BufSizeX;
@@ -417,11 +417,11 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
 
                         // Update this ghost node cell's information with data from other rank
                         GrainID(GlobalCellLocation) = NewGrainID;
-                        DOCenter((long int)(3) * CellLocation) = DOCenterX;
-                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = DOCenterY;
-                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = DOCenterZ;
+                        DOCenter((long int)(3) * CellLocation) = (float)(DOCenterX);
+                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = (float)(DOCenterY);
+                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = (float)(DOCenterZ);
                         int MyOrientation = getGrainOrientation(GrainID(GlobalCellLocation), NGrainOrientations);
-                        DiagonalLength(CellLocation) = NewDiagonalLength;
+                        DiagonalLength(CellLocation) = (float)(NewDiagonalLength);
                         // Global coordinates of cell center
                         double xp = RankX + MyXOffset + 0.5;
                         double yp = RankY + MyYOffset + 0.5;

@@ -441,11 +441,11 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
 
                                 if (np > 1) {
 
-                                    float GhostGID = h;
-                                    float GhostDOCX = cx;
-                                    float GhostDOCY = cy;
-                                    float GhostDOCZ = cz;
-                                    float GhostDL = NewODiagL;
+                                    double GhostGID = (double)(h);
+                                    double GhostDOCX = cx;
+                                    double GhostDOCY = cy;
+                                    double GhostDOCZ = cz;
+                                    double GhostDL = NewODiagL;
                                     // Collect data for the ghost nodes, if necessary
                                     // Data loaded into the ghost nodes is for the cell that was just captured
                                     if (DecompositionStrategy == 1)
@@ -584,11 +584,11 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                 }
                 if (np > 1) {
 
-                    float GhostGID = MyGrainID;
-                    float GhostDOCX = GlobalX + 0.5;
-                    float GhostDOCY = GlobalY + 0.5;
-                    float GhostDOCZ = GlobalZ + 0.5;
-                    float GhostDL = 0.01;
+                    double GhostGID = (double)(MyGrainID);
+                    double GhostDOCX = (double)(GlobalX + 0.5);
+                    double GhostDOCY = (double)(GlobalY + 0.5);
+                    double GhostDOCZ = (double)(GlobalZ + 0.5);
+                    double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     if (DecompositionStrategy == 1)
                         loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
