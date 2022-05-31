@@ -228,11 +228,11 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
                         CellType(GlobalCellLocation) = Active;
                         GrainID(GlobalCellLocation) = NewGrainID;
-                        DOCenter((long int)(3) * CellLocation) = (float)(DOCenterX);
-                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = (float)(DOCenterY);
-                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = (float)(DOCenterZ);
+                        DOCenter((long int)(3) * CellLocation) = static_cast<float>(DOCenterX);
+                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = static_cast<float>(DOCenterY);
+                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = static_cast<float>(DOCenterZ);
                         int MyOrientation = getGrainOrientation(GrainID(GlobalCellLocation), NGrainOrientations);
-                        DiagonalLength(CellLocation) = (float)(NewDiagonalLength);
+                        DiagonalLength(CellLocation) = static_cast<float>(NewDiagonalLength);
                         // Global coordinates of cell center
                         double xp = RankX + MyXOffset + 0.5;
                         double yp = RankY + MyYOffset + 0.5;
@@ -417,11 +417,11 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
 
                         // Update this ghost node cell's information with data from other rank
                         GrainID(GlobalCellLocation) = NewGrainID;
-                        DOCenter((long int)(3) * CellLocation) = (float)(DOCenterX);
-                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = (float)(DOCenterY);
-                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = (float)(DOCenterZ);
+                        DOCenter((long int)(3) * CellLocation) = static_cast<float>(DOCenterX);
+                        DOCenter((long int)(3) * CellLocation + (long int)(1)) = static_cast<float>(DOCenterY);
+                        DOCenter((long int)(3) * CellLocation + (long int)(2)) = static_cast<float>(DOCenterZ);
                         int MyOrientation = getGrainOrientation(GrainID(GlobalCellLocation), NGrainOrientations);
-                        DiagonalLength(CellLocation) = (float)(NewDiagonalLength);
+                        DiagonalLength(CellLocation) = static_cast<float>(NewDiagonalLength);
                         // Global coordinates of cell center
                         double xp = RankX + MyXOffset + 0.5;
                         double yp = RankY + MyYOffset + 0.5;

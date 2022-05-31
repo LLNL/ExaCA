@@ -441,7 +441,7 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
 
                                 if (np > 1) {
 
-                                    double GhostGID = (double)(h);
+                                    double GhostGID = static_cast<double>(h);
                                     double GhostDOCX = cx;
                                     double GhostDOCY = cy;
                                     double GhostDOCZ = cz;
@@ -584,10 +584,10 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                 }
                 if (np > 1) {
 
-                    double GhostGID = (double)(MyGrainID);
-                    double GhostDOCX = (double)(GlobalX + 0.5);
-                    double GhostDOCY = (double)(GlobalY + 0.5);
-                    double GhostDOCZ = (double)(GlobalZ + 0.5);
+                    double GhostGID = static_cast<double>(MyGrainID);
+                    double GhostDOCX = static_cast<double>(GlobalX + 0.5);
+                    double GhostDOCY = static_cast<double>(GlobalY + 0.5);
+                    double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
                     double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     if (DecompositionStrategy == 1)
