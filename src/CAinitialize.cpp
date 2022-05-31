@@ -1771,11 +1771,11 @@ void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, in
                 // If this new active cell is in the halo region, load the send buffers
                 if (np > 1) {
 
-                    float GhostGID = MyGrainID;
-                    float GhostDOCX = GlobalX + 0.5;
-                    float GhostDOCY = GlobalY + 0.5;
-                    float GhostDOCZ = GlobalZ + 0.5;
-                    float GhostDL = 0.01;
+                    double GhostGID = static_cast<double>(MyGrainID);
+                    double GhostDOCX = static_cast<double>(GlobalX + 0.5);
+                    double GhostDOCY = static_cast<double>(GlobalY + 0.5);
+                    double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
+                    double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     if (DecompositionStrategy == 1)
                         loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
