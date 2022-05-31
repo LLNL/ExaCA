@@ -338,6 +338,7 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
     }
     // Wait on send requests
     MPI_Waitall(8, SendRequests.data(), MPI_STATUSES_IGNORE);
+    Kokkos::fence();
 }
 
 //*****************************************************************************/
@@ -527,4 +528,5 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
 
     // Wait on send requests
     MPI_Waitall(2, SendRequests.data(), MPI_STATUSES_IGNORE);
+    Kokkos::fence();
 }
