@@ -56,6 +56,7 @@ void testInputReadFromFile() {
         TestDataFile << "Substrate filename: DummySubstrate.txt" << std::endl;
         TestDataFile << "Heat transport data mesh size: 12" << std::endl;
         TestDataFile << "Path to temperature file(s): ./" << std::endl;
+        TestDataFile << "Fraction of powder sites active: 0.33" << std::endl;
         TestDataFile.close();
 
         // Create test temperature files "1DummyTemperature.txt", "2DummyTemperature.txt"
@@ -81,19 +82,19 @@ void testInputReadFromFile() {
             NSpotsY, SpotOffset, SpotRadius, TimeSeriesInc;
         float SubstrateGrainSpacing;
         double AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R,
-            FractSurfaceSitesActive, RNGSeed;
+            FractSurfaceSitesActive, RNGSeed, FractPowderSitesActive;
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
             UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput;
         std::vector<std::string> temp_paths;
-        InputReadFromFile(id, FileName, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
-                          FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath,
-                          tempfile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
-                          LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                          FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
-                          PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
-                          PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed);
+        InputReadFromFile(
+            id, FileName, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax,
+            NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath, tempfile, TempFilesInSeries, temp_paths,
+            HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing,
+            UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+            PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries,
+            TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, FractPowderSitesActive);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
@@ -161,6 +162,7 @@ void testInputReadFromFile() {
             EXPECT_TRUE(PrintDefaultRVE);
             EXPECT_FALSE(PrintFullOutput);
             EXPECT_DOUBLE_EQ(RNGSeed, 2.0);
+            EXPECT_EQ(FractPowderSitesActive, 0.33);
         }
     }
 }

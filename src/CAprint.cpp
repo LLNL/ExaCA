@@ -646,10 +646,10 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
                    double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
                    double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
-                   int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
-                   double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
-                   double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime, double GhostMinTime,
-                   double OutMaxTime, double OutMinTime) {
+                   int SpotRadius, double FractPowderSitesActive, std::string BaseFileName, double InitTime,
+                   double RunTime, double OutTime, int cycle, double InitMaxTime, double InitMinTime,
+                   double NuclMaxTime, double NuclMinTime, double CaptureMaxTime, double CaptureMinTime,
+                   double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime) {
 
     int *XSlices = new int[np];
     int *YSlices = new int[np];
@@ -685,11 +685,17 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
             ExaCALog << "The thermal gradient was " << G << " K/m, and the cooling rate " << R << " K/s" << std::endl;
             ExaCALog << "The fraction of surface sites active was " << FractSurfaceSitesActive << std::endl;
         }
-        else if (SimulationType == "S") {
+        else if ((SimulationType == "S") || (SimulationType == "SM")) {
+            if (RemeltingYN)
+                ExaCALog << "Remelting was included" << std::endl;
+            else
+                ExaCALog << "Remelting was not included" << std::endl;
             ExaCALog << "A total of " << NSpotsX << " in X and " << NSpotsY << " in Y were considered" << std::endl;
             ExaCALog << "The spots were offset by " << SpotOffset << " microns, and had radii of " << SpotRadius
                      << " microns" << std::endl;
             ExaCALog << "This pattern was repeated for " << NumberOfLayers << " layers" << std::endl;
+            ExaCALog << "The fraction of active cells at the powder interface was " << FractPowderSitesActive
+                     << std::endl;
         }
         else {
             ExaCALog << NumberOfLayers << " layers were simulated, with an offset of " << LayerHeight << " cells"
@@ -702,11 +708,11 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                 ExaCALog << "The substrate file was " << SubstrateFileName << std::endl;
             else
                 ExaCALog << "The mean substrate grain size was " << SubstrateGrainSpacing << " microns" << std::endl;
-            if (SimulationType == "R") {
-                ExaCALog << "The " << TempFilesInSeries << " temperature file(s) used had the name " << tempfile
-                         << std::endl;
-                ExaCALog << "The temperature data resolution was " << HT_deltax << " microns" << std::endl;
-            }
+            ExaCALog << "The " << TempFilesInSeries << " temperature file(s) used had the name " << tempfile
+                     << std::endl;
+            ExaCALog << "The temperature data resolution was " << HT_deltax << " microns" << std::endl;
+            ExaCALog << "The fraction of active cells at the powder interface was " << FractPowderSitesActive
+                     << std::endl;
         }
         ExaCALog << "The decomposition scheme used was: " << DecompositionStrategy << std::endl;
         for (int i = 0; i < np; i++) {
@@ -796,14 +802,22 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
     for (int k = 0; k < ZPrintSize; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
+                // Liquid cells are assigned values of -1, epitaxial grains values between 0-63 (depending on
+                // misorientation with Z direction), nucleated grains values between 100-163 (depending on
+                // misorientation with Z direction, plus an offset of 100 to differentiate them from the epitaxial
+                // grains)
                 if (CellType_WholeDomain(k, i, j) != Liquid) {
+                    // GrainID = 0 sites in the solid correspond to "inactive" parts of a powder layer
+                    // i.e., they don't have an associated orientation. Assign these a unique value of 200
                     if (GrainID_WholeDomain(k, i, j) == 0)
-                        std::cout << i << " " << j << " " << k << " " << CellType_WholeDomain(k, i, j) << std::endl;
-                    int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
-                    if (GrainID_WholeDomain(k, i, j) < 0)
-                        GrainplotM << GrainMisorientation(MyOrientation) + 100.0 << " ";
-                    else
-                        GrainplotM << GrainMisorientation(MyOrientation) << " ";
+                        GrainplotM << 200.0 << " ";
+                    else {
+                        int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
+                        if (GrainID_WholeDomain(k, i, j) < 0)
+                            GrainplotM << GrainMisorientation(MyOrientation) + 100.0 << " ";
+                        else
+                            GrainplotM << GrainMisorientation(MyOrientation) << " ";
+                    }
                 }
                 else
                     GrainplotM << -1.0 << " ";

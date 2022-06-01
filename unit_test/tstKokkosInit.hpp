@@ -213,9 +213,11 @@ void testPowderInit() {
 
     // Seed used to shuffle powder layer grain IDs
     double RNGSeed = 0.0;
+    // Fraction of cells on the powder-melt interface that are home to a new grain
+    double FractPowderSitesActive = 1.0;
 
     PowderInit(layernumber, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-               id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
+               id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, FractPowderSitesActive);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);

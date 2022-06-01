@@ -34,7 +34,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
                        bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
                        bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                       bool &PrintDefaultRVE, double &RNGSeed) {
+                       bool &PrintDefaultRVE, double &RNGSeed, double &FractPowderSitesActive) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -114,9 +114,10 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         RequiredInputs_ProblemSpecific[6] = "Radii of spots";
         RequiredInputs_ProblemSpecific[7] = "Number of layers";
         RequiredInputs_ProblemSpecific[8] = "Offset between layers";
-        OptionalInputs_ProblemSpecific.resize(2);
+        OptionalInputs_ProblemSpecific.resize(3);
         OptionalInputs_ProblemSpecific[0] = "Substrate grain spacing";
         OptionalInputs_ProblemSpecific[1] = "Substrate filename";
+        OptionalInputs_ProblemSpecific[2] = "Fraction of powder sites active";
     }
     else if (SimulationType == "R") {
         RequiredInputs_ProblemSpecific.resize(5);
@@ -125,13 +126,14 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         RequiredInputs_ProblemSpecific[2] = "Number of temperature files";
         RequiredInputs_ProblemSpecific[3] = "Number of layers";
         RequiredInputs_ProblemSpecific[4] = "Offset between layers";
-        OptionalInputs_ProblemSpecific.resize(6);
+        OptionalInputs_ProblemSpecific.resize(7);
         OptionalInputs_ProblemSpecific[0] = "Substrate grain spacing";
         OptionalInputs_ProblemSpecific[1] = "Substrate filename";
         OptionalInputs_ProblemSpecific[2] = "Heat transport data mesh size";
         OptionalInputs_ProblemSpecific[3] = "Path to temperature file(s)";
         OptionalInputs_ProblemSpecific[4] = "Extra set of wall cells";
         OptionalInputs_ProblemSpecific[5] = "default RVE output";
+        OptionalInputs_ProblemSpecific[6] = "Fraction of powder sites active";
     }
     else {
         std::string error = "Error: problem type must be C, S, or R: the value given was " + SimulationType;
@@ -266,6 +268,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         nz = SpotRadius + 1 + (NumberOfLayers - 1) * LayerHeight;
         nx = 2 * SpotRadius + 1 + SpotOffset * (NSpotsX - 1);
         ny = 2 * SpotRadius + 1 + SpotOffset * (NSpotsY - 1);
+        // Fraction of powder sites active, if given, should be set. Otherwise, the default value is 1.0
+        if (OptionalInputsRead_ProblemSpecific[2].empty())
+            FractPowderSitesActive = 1.0;
+        else
+            FractPowderSitesActive = getInputDouble(OptionalInputsRead_ProblemSpecific[2]);
         if (id == 0) {
             std::cout << "CA Simulation using a radial, fixed thermal gradient of " << G
                       << " K/m as a series of hemispherical spots, and a cooling rate of " << R << " K/s" << std::endl;
@@ -384,6 +391,12 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         PrintDefaultRVE = false;
         if (!(OptionalInputsRead_ProblemSpecific[5].empty()))
             PrintDefaultRVE = getInputBool(OptionalInputsRead_ProblemSpecific[5]);
+
+        // Fraction of powder sites active, if given, should be set. Otherwise, the default value is 1.0
+        if (OptionalInputsRead_ProblemSpecific[6].empty())
+            FractPowderSitesActive = 1.0;
+        else
+            FractPowderSitesActive = getInputDouble(OptionalInputsRead_ProblemSpecific[6]);
     }
     else {
         // RVE data print option is only for simulation type R
@@ -2080,7 +2093,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 // the edges of partially melted powder particles)
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
                 int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
-                int &NextLayer_FirstEpitaxialGrainID) {
+                int &NextLayer_FirstEpitaxialGrainID, double FractPowderSitesActive) {
 
     // On all ranks, generate list of powder grain IDs (starting with NextLayer_FirstEpitaxialGrainID, and shuffle them
     // so that their locations aren't sequential and depend on the RNGSeed (different for each layer)
@@ -2088,15 +2101,24 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLay
     std::uniform_real_distribution<double> dis(0.0, 1.0);
 
     // TODO: This should be performed on the device, rather than the host
-    int PowderLayerActiveCells = nx * ny * LayerHeight;
-    std::vector<int> PowderGrainIDs(PowderLayerActiveCells);
-    for (int n = 0; n < PowderLayerActiveCells; n++) {
-        PowderGrainIDs[n] = n + NextLayer_FirstEpitaxialGrainID;
+    // Number of cells in the powder layer
+    int PowderLayerCells = nx * ny * LayerHeight;
+    // Counter for the number of cells in the powder layer that are the source of a new grain
+    int PowderLayerActiveCells = 0;
+    // List of GrainIDs: a non-zero value is assigned to cells that are the source of a new grain
+    std::vector<int> PowderGrainIDs(PowderLayerCells, 0);
+    for (int n = 0; n < PowderLayerCells; n++) {
+        double ProbActive = dis(gen);
+        if (ProbActive < FractPowderSitesActive) {
+            // This cell is the source of a new grain from the powder layer
+            PowderGrainIDs[n] = PowderLayerActiveCells + NextLayer_FirstEpitaxialGrainID;
+            PowderLayerActiveCells++;
+        }
     }
     std::shuffle(PowderGrainIDs.begin(), PowderGrainIDs.end(), gen);
     // Copy powder layer GrainIDs into a host view, then a device view
     ViewI_H PowderGrainIDs_Host(Kokkos::ViewAllocateWithoutInitializing("PowderGrainIDs_Host"), nx * ny * LayerHeight);
-    for (int n = 0; n < PowderLayerActiveCells; n++) {
+    for (int n = 0; n < PowderLayerCells; n++) {
         PowderGrainIDs_Host(n) = PowderGrainIDs[n];
     }
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
@@ -2214,133 +2236,140 @@ void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, in
             int GlobalZ = RankZ + ZBound_Low;
             int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
             if ((CellType(GlobalD3D1ConvPosition) == Active) && (LayerID(GlobalD3D1ConvPosition) == layernumber)) {
-                // This cell was marked as active previously - initialize active cell data structures
-                int GlobalX = RankX + MyXOffset;
-                int GlobalY = RankY + MyYOffset;
-                int RankZ = GlobalZ - ZBound_Low;
-                int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                // This cell was marked as active previously - is there a non-zero GrainID at this site (either from a
+                // previous layer's growth or from the initialized powder layer)? If so, initialize active cell data
+                // structures. Otherwise, return this cell to the liquid state
                 int MyGrainID = GrainID(GlobalD3D1ConvPosition);
-                DiagonalLength(D3D1ConvPosition) = 0.01;
-                DOCenter(3 * D3D1ConvPosition) = GlobalX + 0.5;
-                DOCenter(3 * D3D1ConvPosition + 1) = GlobalY + 0.5;
-                DOCenter(3 * D3D1ConvPosition + 2) = GlobalZ + 0.5;
+                if (MyGrainID == 0)
+                    CellType(GlobalD3D1ConvPosition) = Liquid;
+                else {
+                    int GlobalX = RankX + MyXOffset;
+                    int GlobalY = RankY + MyYOffset;
+                    int RankZ = GlobalZ - ZBound_Low;
+                    int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
 
-                // The orientation for the new grain will depend on its Grain ID
-                int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
-                // Calculate critical values at which this active cell leads to the activation of a neighboring
-                // liquid cell (xp,yp,zp) is the new cell's center on the global grid
-                double xp = GlobalX + 0.5;
-                double yp = GlobalY + 0.5;
-                double zp = GlobalZ + 0.5;
+                    DiagonalLength(D3D1ConvPosition) = 0.01;
+                    DOCenter(3 * D3D1ConvPosition) = GlobalX + 0.5;
+                    DOCenter(3 * D3D1ConvPosition + 1) = GlobalY + 0.5;
+                    DOCenter(3 * D3D1ConvPosition + 2) = GlobalZ + 0.5;
 
-                float cx = DOCenter((long int)(3 * D3D1ConvPosition));
-                float cy = DOCenter((long int)(3 * D3D1ConvPosition + 1));
-                float cz = DOCenter((long int)(3 * D3D1ConvPosition + 2));
+                    // The orientation for the new grain will depend on its Grain ID
+                    int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
+                    // Calculate critical values at which this active cell leads to the activation of a neighboring
+                    // liquid cell (xp,yp,zp) is the new cell's center on the global grid
+                    double xp = GlobalX + 0.5;
+                    double yp = GlobalY + 0.5;
+                    double zp = GlobalZ + 0.5;
 
-                // Calculate critical diagonal lengths for the new active cell located at (xp,yp,zp) on the
-                // local grid For each neighbor (l=0 to 25), calculate which octahedron face leads to cell
-                // capture Calculate critical octahedron diagonal length to activate each nearest neighbor, as
-                // well as the coordinates of the triangle vertices on the capturing face
-                for (int n = 0; n < 26; n++) {
+                    float cx = DOCenter((long int)(3 * D3D1ConvPosition));
+                    float cy = DOCenter((long int)(3 * D3D1ConvPosition + 1));
+                    float cz = DOCenter((long int)(3 * D3D1ConvPosition + 2));
 
-                    // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
-                    // the center of a neighbor cell
-                    double x0 = xp + NeighborX(n) - cx;
-                    double y0 = yp + NeighborY(n) - cy;
-                    double z0 = zp + NeighborZ(n) - cz;
-                    // mag0 is the magnitude of (x0,y0,z0)
-                    double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
+                    // Calculate critical diagonal lengths for the new active cell located at (xp,yp,zp) on the
+                    // local grid For each neighbor (l=0 to 25), calculate which octahedron face leads to cell
+                    // capture Calculate critical octahedron diagonal length to activate each nearest neighbor, as
+                    // well as the coordinates of the triangle vertices on the capturing face
+                    for (int n = 0; n < 26; n++) {
 
-                    // Calculate unit vectors for the octahedron that intersect the new cell center
-                    double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                    double Angle1 =
-                        (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                         GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                        mag0;
-                    if (Angle1 < 0) {
-                        Diag1X = GrainUnitVector(9 * MyOrientation);
-                        Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
-                        Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
-                    }
-                    else {
-                        Diag1X = -GrainUnitVector(9 * MyOrientation);
-                        Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
-                        Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
-                    }
-                    double Angle2 =
-                        (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                         GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                        mag0;
-                    if (Angle2 < 0) {
-                        Diag2X = GrainUnitVector(9 * MyOrientation + 3);
-                        Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
-                        Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
-                    }
-                    else {
-                        Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
-                        Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
-                        Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
-                    }
+                        // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
+                        // the center of a neighbor cell
+                        double x0 = xp + NeighborX(n) - cx;
+                        double y0 = yp + NeighborY(n) - cy;
+                        double z0 = zp + NeighborZ(n) - cz;
+                        // mag0 is the magnitude of (x0,y0,z0)
+                        double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
 
-                    double Angle3 =
-                        (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                         GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                        mag0;
-                    if (Angle3 < 0) {
-                        Diag3X = GrainUnitVector(9 * MyOrientation + 6);
-                        Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
-                        Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
-                    }
-                    else {
-                        Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
-                        Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
-                        Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
-                    }
+                        // Calculate unit vectors for the octahedron that intersect the new cell center
+                        double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                        double Angle1 =
+                            (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                             GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                            mag0;
+                        if (Angle1 < 0) {
+                            Diag1X = GrainUnitVector(9 * MyOrientation);
+                            Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
+                            Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
+                        }
+                        else {
+                            Diag1X = -GrainUnitVector(9 * MyOrientation);
+                            Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
+                            Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
+                        }
+                        double Angle2 =
+                            (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                             GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                            mag0;
+                        if (Angle2 < 0) {
+                            Diag2X = GrainUnitVector(9 * MyOrientation + 3);
+                            Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
+                            Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
+                        }
+                        else {
+                            Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
+                            Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
+                            Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
+                        }
 
-                    double U1[3], U2[3], UU[3], Norm[3];
-                    U1[0] = Diag2X - Diag1X;
-                    U1[1] = Diag2Y - Diag1Y;
-                    U1[2] = Diag2Z - Diag1Z;
-                    U2[0] = Diag3X - Diag1X;
-                    U2[1] = Diag3Y - Diag1Y;
-                    U2[2] = Diag3Z - Diag1Z;
-                    UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                    UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                    UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                    double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-                    Norm[0] = UU[0] / NDem;
-                    Norm[1] = UU[1] / NDem;
-                    Norm[2] = UU[2] / NDem;
-                    // normal to capturing plane
-                    double normx = Norm[0];
-                    double normy = Norm[1];
-                    double normz = Norm[2];
-                    double ParaT =
-                        (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
-                    float CDLVal =
-                        pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
-                    CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) = CDLVal;
-                } // end loop over 26 diagonals
-                // If this new active cell is in the halo region, load the send buffers
-                if (np > 1) {
+                        double Angle3 =
+                            (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                             GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                            mag0;
+                        if (Angle3 < 0) {
+                            Diag3X = GrainUnitVector(9 * MyOrientation + 6);
+                            Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
+                            Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
+                        }
+                        else {
+                            Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
+                            Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
+                            Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
+                        }
 
-                    double GhostGID = static_cast<double>(MyGrainID);
-                    double GhostDOCX = static_cast<double>(GlobalX + 0.5);
-                    double GhostDOCY = static_cast<double>(GlobalY + 0.5);
-                    double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
-                    double GhostDL = 0.01;
-                    // Collect data for the ghost nodes, if necessary
-                    if (DecompositionStrategy == 1)
-                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
-                                       RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                       BufferNorthSend);
-                    else
-                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
-                                       MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
-                                       AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend, BufferWestSend,
-                                       BufferEastSend, BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
-                                       BufferNorthWestSend);
-                } // End if statement for serial/parallel code
+                        double U1[3], U2[3], UU[3], Norm[3];
+                        U1[0] = Diag2X - Diag1X;
+                        U1[1] = Diag2Y - Diag1Y;
+                        U1[2] = Diag2Z - Diag1Z;
+                        U2[0] = Diag3X - Diag1X;
+                        U2[1] = Diag3Y - Diag1Y;
+                        U2[2] = Diag3Z - Diag1Z;
+                        UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
+                        UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
+                        UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
+                        double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                        Norm[0] = UU[0] / NDem;
+                        Norm[1] = UU[1] / NDem;
+                        Norm[2] = UU[2] / NDem;
+                        // normal to capturing plane
+                        double normx = Norm[0];
+                        double normy = Norm[1];
+                        double normz = Norm[2];
+                        double ParaT =
+                            (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
+                        float CDLVal =
+                            pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
+                        CritDiagonalLength((long int)(26) * D3D1ConvPosition + (long int)(n)) = CDLVal;
+                    } // end loop over 26 diagonals
+                    // If this new active cell is in the halo region, load the send buffers
+                    if (np > 1) {
+
+                        double GhostGID = static_cast<double>(MyGrainID);
+                        double GhostDOCX = static_cast<double>(GlobalX + 0.5);
+                        double GhostDOCY = static_cast<double>(GlobalY + 0.5);
+                        double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
+                        double GhostDL = 0.01;
+                        // Collect data for the ghost nodes, if necessary
+                        if (DecompositionStrategy == 1)
+                            loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices,
+                                           RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                                           BufferNorthSend);
+                        else
+                            loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
+                                           MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                           AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend,
+                                           BufferWestSend, BufferEastSend, BufferNorthEastSend, BufferSouthEastSend,
+                                           BufferSouthWestSend, BufferNorthWestSend);
+                    } // End if statement for serial/parallel code
+                }
             }
         });
     Kokkos::fence();

@@ -29,18 +29,18 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange,
-        NMax, dTN, dTsigma, RNGSeed;
+        NMax, dTN, dTsigma, RNGSeed, FractPowderSitesActive;
     std::string SubstrateFileName, temppath, tempfile, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     std::vector<std::string> temp_paths;
 
     // Read input data
-    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
-                      FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath, tempfile,
-                      TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
-                      SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                      FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
-                      PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
-                      PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed);
+    InputReadFromFile(
+        id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax,
+        NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, temppath, tempfile, TempFilesInSeries, temp_paths,
+        HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing,
+        UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+        PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries,
+        TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, FractPowderSitesActive);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -490,7 +490,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // file, and the powder layers have already been initialized
             if (!(UseSubstrateFile))
                 PowderInit(layernumber + 1, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices,
-                           MyXOffset, MyYOffset, id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
+                           MyXOffset, MyYOffset, id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID,
+                           FractPowderSitesActive);
 
             // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
             if (RemeltingYN)
@@ -592,7 +593,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, tempfile,
                   TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
                   SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
-                  NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
-                  InitMinTime, NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
-                  OutMaxTime, OutMinTime);
+                  NSpotsX, NSpotsY, SpotOffset, SpotRadius, FractPowderSitesActive, OutputFile, InitTime, RunTime,
+                  OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime,
+                  GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime);
 }
