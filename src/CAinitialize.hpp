@@ -8,6 +8,7 @@
 
 #include "CAtypes.hpp"
 
+#include <Kokkos_Array.hpp>
 #include <Kokkos_Core.hpp>
 
 #include <string>
@@ -25,7 +26,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
                        bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
                        bool &PrintDefaultRVE, double &RNGSeed);
-void NeighborListInit(ViewI &NeighborX, ViewI &NeighborY, ViewI &NeighborZ);
+void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
                    std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
                    float &ZMin, float &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
@@ -60,8 +61,8 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                       ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData);
 void OrientationInit(int id, int NGrainOrientations, ViewF &GrainUnitVector, std::string GrainOrientationFile);
 void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx,
-                                     int ny, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY,
-                                     ViewI NeighborZ, ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType,
+                                     int ny, int MyXOffset, int MyYOffset, NList NeighborX, NList NeighborY,
+                                     NList NeighborZ, ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType,
                                      ViewI GrainID, ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength,
                                      double RNGSeed, int np, int DecompositionStrategy, Buffer2D BufferWestSend,
                                      Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
@@ -79,7 +80,7 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLay
                 int &NextLayer_FirstEpitaxialGrainID);
 void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, int MyXSlices, int MyYSlices,
                   int MyXOffset, int MyYOffset, int ZBound_Low, int nz, int LocalActiveDomainSize, int LocalDomainSize,
-                  ViewI CellType, ViewI CritTimeStep, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
+                  ViewI CellType, ViewI CritTimeStep, NList NeighborX, NList NeighborY, NList NeighborZ,
                   int NGrainOrientations, ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID,
                   ViewF CritDiagonalLength, ViewF DOCenter, ViewI LayerID, Buffer2D BufferWestSend,
                   Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,

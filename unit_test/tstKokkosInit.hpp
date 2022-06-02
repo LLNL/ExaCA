@@ -1,3 +1,4 @@
+#include <Kokkos_Array.hpp>
 #include <Kokkos_Core.hpp>
 
 #include "CAfunctions.hpp"
@@ -58,9 +59,7 @@ void testSubstrateInit_ConstrainedGrowth() {
     OrientationInit(id, NGrainOrientations, GrainUnitVector, GrainOrientationFile);
 
     // Initialize neighbor lists
-    ViewI NeighborX(Kokkos::ViewAllocateWithoutInitializing("NeighborX"), 26);
-    ViewI NeighborY(Kokkos::ViewAllocateWithoutInitializing("NeighborY"), 26);
-    ViewI NeighborZ(Kokkos::ViewAllocateWithoutInitializing("NeighborZ"), 26);
+    NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
     // Initialize views - set initial GrainID values to 0, all CellType values to liquid
@@ -276,9 +275,7 @@ void testCellTypeInit() {
 
     // Initialize neighbor lists
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI NeighborX(Kokkos::ViewAllocateWithoutInitializing("NeighborX"), 26);
-    ViewI NeighborY(Kokkos::ViewAllocateWithoutInitializing("NeighborY"), 26);
-    ViewI NeighborZ(Kokkos::ViewAllocateWithoutInitializing("NeighborZ"), 26);
+    NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
     // Initialize test CellType, CritTimeStep, GrainID, LayerID data

@@ -54,11 +54,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Variables denoting whether or not each MPI rank's grid is at a global domain boundary
     bool AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary;
     // View initialization is performed on host views, but copied to the device views within subroutines
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     // Neighbor lists for cells
-    ViewI NeighborX(Kokkos::ViewAllocateWithoutInitializing("NeighborX"), 26);
-    ViewI NeighborY(Kokkos::ViewAllocateWithoutInitializing("NeighborY"), 26);
-    ViewI NeighborZ(Kokkos::ViewAllocateWithoutInitializing("NeighborZ"), 26);
+    NList NeighborX, NeighborY, NeighborZ;
     float XMin, YMin, ZMin, XMax, YMax, ZMax; // OpenFOAM simulation bounds (if using OpenFOAM data)
     float *ZMinLayer = new float[NumberOfLayers];
     float *ZMaxLayer = new float[NumberOfLayers];
@@ -248,7 +245,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
     ViewI_H numSteer_Host(Kokkos::ViewAllocateWithoutInitializing("SteeringVectorSize"), 1);
     numSteer_Host(0) = 0;
-    ViewI numSteer = Kokkos::create_mirror_view_and_copy(memory_space(), numSteer_Host);
+    ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
 
     // Update ghost node data for initial state of simulation
     if (np > 1) {
@@ -371,36 +368,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             int ZShift;
             DomainShiftAndResize(id, MyXSlices, MyYSlices, ZShift, ZBound_Low, ZBound_High, nzActive, LocalDomainSize,
                                  LocalActiveDomainSize, BufSizeZ, LayerHeight, CellType, layernumber, LayerID);
-
-            // Resize steering vector as LocalActiveDomainSize may have changed
-            Kokkos::resize(SteeringVector, LocalActiveDomainSize);
-
-            // Resize active cell data structures - host and device
-            Kokkos::resize(DiagonalLength, LocalActiveDomainSize);
-            Kokkos::resize(DOCenter, 3 * LocalActiveDomainSize);
-            Kokkos::resize(CritDiagonalLength, 26 * LocalActiveDomainSize);
-            Kokkos::resize(BufferNorthSend, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferSouthSend, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferEastSend, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferWestSend, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferNorthEastSend, BufSizeZ, 5);
-            Kokkos::resize(BufferNorthWestSend, BufSizeZ, 5);
-            Kokkos::resize(BufferSouthEastSend, BufSizeZ, 5);
-            Kokkos::resize(BufferSouthWestSend, BufSizeZ, 5);
-
-            Kokkos::resize(BufferNorthRecv, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferSouthRecv, BufSizeX * BufSizeZ, 5);
-            Kokkos::resize(BufferEastRecv, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferWestRecv, BufSizeY * BufSizeZ, 5);
-            Kokkos::resize(BufferNorthEastRecv, BufSizeZ, 5);
-            Kokkos::resize(BufferNorthWestRecv, BufSizeZ, 5);
-            Kokkos::resize(BufferSouthEastRecv, BufSizeZ, 5);
-            Kokkos::resize(BufferSouthWestRecv, BufSizeZ, 5);
-
-            MPI_Barrier(MPI_COMM_WORLD);
-            if (id == 0)
-                std::cout << "Resize executed" << std::endl;
-
             // Reset halo region views on device to 0 for the next layer
             // Also reset active region views on host to 0 for the next layer (setting up active cell data structures
             // and nuclei locations will be performed on the host, then copied back to the device)
@@ -410,10 +377,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                            BufferSouthWestSend, BufferWestRecv, BufferEastRecv, BufferNorthRecv, BufferSouthRecv,
                            BufferNorthEastRecv, BufferNorthWestRecv, BufferSouthEastRecv, BufferSouthWestRecv,
                            SteeringVector);
+
             MPI_Barrier(MPI_COMM_WORLD);
-            if (id == 0)
+            if (id == 0) {
+                std::cout << "Resize executed" << std::endl;
                 std::cout << "New layer setup, GN dimensions are " << BufSizeX << " " << BufSizeY << " " << BufSizeZ
                           << std::endl;
+            }
 
             // If the baseplate was initialized from a substrate grain spacing, initialize powder layer grain structure
             // for the next layer "layernumber + 1" Otherwise, the entire substrate (baseplate + powder) was read from a
