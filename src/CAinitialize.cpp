@@ -997,7 +997,7 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
 
     // These views are initialized to zeros on the host, filled with data, and then copied to the device for layer
     // "layernumber"
-    ViewI_H LayerID_Host("LayerID_H", LocalDomainSize);
+    ViewI LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_H"), LocalDomainSize);
     ViewI_H CritTimeStep_Host("CritTimeStep_H", LocalDomainSize);
     ViewF_H UndercoolingChange_Host("UndercoolingChange_H", LocalDomainSize);
 
@@ -1014,8 +1014,9 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
     // No sites have melted yet
     for (int i = 0; i < MyXSlices * MyYSlices * nz; i++) {
         Melted[i] = false;
-        LayerID_Host(i) = -1;
     }
+    // LayerID = -1 for cells that don't solidify as part of any layer of the multilayer problem
+    Kokkos::deep_copy(LayerID_Host, -1);
 
     // removed unused LayerwiseTSOffset variable
 
@@ -2110,31 +2111,30 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeY, int B
                     Buffer2D &BufferNorthWestRecv, Buffer2D &BufferSouthEastRecv, Buffer2D &BufferSouthWestRecv,
                     ViewI &SteeringVector) {
 
-    // Resize active cell data structure and halo regions on device
-    // Resize steering vector as LocalActiveDomainSize may have changed
-    Kokkos::resize(SteeringVector, LocalActiveDomainSize);
+    // Realloc steering vector as LocalActiveDomainSize may have changed (old values aren't needed)
+    Kokkos::realloc(SteeringVector, LocalActiveDomainSize);
 
-    // Resize active cell data structures - host and device
-    Kokkos::resize(DiagonalLength, LocalActiveDomainSize);
-    Kokkos::resize(DOCenter, 3 * LocalActiveDomainSize);
-    Kokkos::resize(CritDiagonalLength, 26 * LocalActiveDomainSize);
-    Kokkos::resize(BufferNorthSend, BufSizeX * BufSizeZ, 5);
-    Kokkos::resize(BufferSouthSend, BufSizeX * BufSizeZ, 5);
-    Kokkos::resize(BufferEastSend, BufSizeY * BufSizeZ, 5);
-    Kokkos::resize(BufferWestSend, BufSizeY * BufSizeZ, 5);
-    Kokkos::resize(BufferNorthEastSend, BufSizeZ, 5);
-    Kokkos::resize(BufferNorthWestSend, BufSizeZ, 5);
-    Kokkos::resize(BufferSouthEastSend, BufSizeZ, 5);
-    Kokkos::resize(BufferSouthWestSend, BufSizeZ, 5);
+    // Realloc active cell data structure and halo regions on device (old values not needed)
+    Kokkos::realloc(DiagonalLength, LocalActiveDomainSize);
+    Kokkos::realloc(DOCenter, 3 * LocalActiveDomainSize);
+    Kokkos::realloc(CritDiagonalLength, 26 * LocalActiveDomainSize);
+    Kokkos::realloc(BufferNorthSend, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthSend, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(BufferEastSend, BufSizeY * BufSizeZ, 5);
+    Kokkos::realloc(BufferWestSend, BufSizeY * BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthEastSend, BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthWestSend, BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthEastSend, BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthWestSend, BufSizeZ, 5);
 
-    Kokkos::resize(BufferNorthRecv, BufSizeX * BufSizeZ, 5);
-    Kokkos::resize(BufferSouthRecv, BufSizeX * BufSizeZ, 5);
-    Kokkos::resize(BufferEastRecv, BufSizeY * BufSizeZ, 5);
-    Kokkos::resize(BufferWestRecv, BufSizeY * BufSizeZ, 5);
-    Kokkos::resize(BufferNorthEastRecv, BufSizeZ, 5);
-    Kokkos::resize(BufferNorthWestRecv, BufSizeZ, 5);
-    Kokkos::resize(BufferSouthEastRecv, BufSizeZ, 5);
-    Kokkos::resize(BufferSouthWestRecv, BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthRecv, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthRecv, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(BufferEastRecv, BufSizeY * BufSizeZ, 5);
+    Kokkos::realloc(BufferWestRecv, BufSizeY * BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthEastRecv, BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthWestRecv, BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthEastRecv, BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthWestRecv, BufSizeZ, 5);
 
     // Reset active cell data structures on device
     Kokkos::deep_copy(DiagonalLength, 0);
