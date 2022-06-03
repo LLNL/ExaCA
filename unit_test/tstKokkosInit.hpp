@@ -1,4 +1,3 @@
-#include <Kokkos_Array.hpp>
 #include <Kokkos_Core.hpp>
 
 #include "CAfunctions.hpp"

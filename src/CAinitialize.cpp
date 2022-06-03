@@ -398,11 +398,6 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 // Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ)
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ) {
 
-    // Temporary host views for initialization
-    ViewI_H NeighborX_Host(Kokkos::ViewAllocateWithoutInitializing("NeighborX_Host"), 26);
-    ViewI_H NeighborY_Host(Kokkos::ViewAllocateWithoutInitializing("NeighborY_Host"), 26);
-    ViewI_H NeighborZ_Host(Kokkos::ViewAllocateWithoutInitializing("NeighborZ_Host"), 26);
-
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
     // Neighbors 9 through 16 are in the XY plane with cell X

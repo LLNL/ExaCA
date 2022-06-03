@@ -8,7 +8,6 @@
 
 #include "CAtypes.hpp"
 
-#include <Kokkos_Array.hpp>
 #include <Kokkos_Core.hpp>
 
 // Load data (GrainID, DOCenter, DiagonalLength) into ghost nodes if the given RankY is associated with a 1D halo region
