@@ -773,8 +773,7 @@ int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight,
         ZBound_High = round((ZMaxLayer[layernumber] - ZMin) / deltax);
     }
     if (ZBound_High == -1)
-        throw std::runtime_error(
-            "Error: ZBound_High went uninitialized, problem type may not have been a valid option");
+        throw std::runtime_error("Error: ZBound_High went uninitialized, problem type must be C, S, or R");
     return ZBound_High;
 }
 //*****************************************************************************/
@@ -819,9 +818,9 @@ void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &My
     }
 
     // Copy initialized host data back to device
-    CritTimeStep = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), CritTimeStep_Host);
-    LayerID = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), LayerID_Host);
-    UndercoolingChange = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), UndercoolingChange_Host);
+    CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
+    LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
+    UndercoolingChange = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingChange_Host);
 }
 
 // Initialize temperature data for an array of overlapping spot melts (done during simulation initialization, no
