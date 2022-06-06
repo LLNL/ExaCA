@@ -171,19 +171,13 @@ void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int Se
 //*****************************************************************************/
 // Prints values of selected data structures to Paraview files
 void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
-                    int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection,
-                    ViewI GrainID_Device, ViewI_H CritTimeStep, ViewF_H GrainUnitVector, ViewI_H LayerID,
-                    ViewI CellType_Device, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
-                    std::string BaseFileName, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
-                    std::string PathToOutput, int PrintDebug, bool PrintMisorientation, bool PrintFinalUndercoolingVals,
-                    bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE, int IntermediateFileCounter,
-                    int ZBound_Low, int nzActive, double deltax, float XMin, float YMin, float ZMin,
-                    int NumberOfLayers) {
-
-    // Collect all data on rank 0, for all data structures of interest
-    // Host copies of GrainID and CellType
-    ViewI_H CellType = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType_Device);
-    ViewI_H GrainID = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID_Device);
+                    int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI GrainID,
+                    ViewI CritTimeStep, ViewF GrainUnitVector, ViewI LayerID, ViewI CellType, ViewF UndercoolingChange,
+                    ViewF UndercoolingCurrent, std::string BaseFileName, int DecompositionStrategy,
+                    int NGrainOrientations, bool *Melted, std::string PathToOutput, int PrintDebug,
+                    bool PrintMisorientation, bool PrintFinalUndercoolingVals, bool PrintFullOutput,
+                    bool PrintTimeSeries, bool PrintDefaultRVE, int IntermediateFileCounter, int ZBound_Low,
+                    int nzActive, double deltax, float XMin, float YMin, float ZMin, int NumberOfLayers) {
 
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
@@ -222,8 +216,10 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
             Kokkos::ViewAllocateWithoutInitializing("UndercoolingCurrent_WholeDomain"), 0, 0, 0);
 
         if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput) || (PrintDefaultRVE)) {
+            // Collect all data on rank 0, for all data structures of interest
+            ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
             Kokkos::resize(GrainID_WholeDomain, nz, nx, ny);
-            CollectIntField(GrainID_WholeDomain, GrainID, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+            CollectIntField(GrainID_WholeDomain, GrainID_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                             RecvXSlices, RecvYSlices, RBufSize);
         }
         if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2) || (PrintFinalUndercoolingVals)) {
@@ -232,33 +228,48 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                              RecvXSlices, RecvYSlices, RBufSize);
         }
         if ((PrintFullOutput) || (PrintDebug > 0) || (PrintDefaultRVE)) {
+            ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
             Kokkos::resize(LayerID_WholeDomain, nz, nx, ny);
-            CollectIntField(LayerID_WholeDomain, LayerID, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+            CollectIntField(LayerID_WholeDomain, LayerID_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                             RecvXSlices, RecvYSlices, RBufSize);
         }
         if ((PrintDebug > 0) || (PrintTimeSeries)) {
+            ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
             Kokkos::resize(CellType_WholeDomain, nz, nx, ny);
-            CollectIntField(CellType_WholeDomain, CellType, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+            CollectIntField(CellType_WholeDomain, CellType_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
                             RecvXSlices, RecvYSlices, RBufSize);
         }
         if (PrintDebug > 0) {
+            ViewI_H CritTimeStep_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritTimeStep);
             Kokkos::resize(CritTimeStep_WholeDomain, nz, nx, ny);
-            CollectIntField(CritTimeStep_WholeDomain, CritTimeStep, nz, MyXSlices, MyYSlices, np, RecvXOffset,
+            CollectIntField(CritTimeStep_WholeDomain, CritTimeStep_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset,
                             RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
         if (PrintDebug == 2) {
+            ViewF_H UndercoolingChange_Host =
+                Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingChange);
             Kokkos::resize(UndercoolingChange_WholeDomain, nz, nx, ny);
-            CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange, nz, MyXSlices, MyYSlices, np,
+            CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange_Host, nz, MyXSlices, MyYSlices, np,
                               RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
         if ((PrintDebug == 2) || (PrintFinalUndercoolingVals)) {
+            ViewF_H UndercoolingCurrent_Host =
+                Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingCurrent);
             Kokkos::resize(UndercoolingCurrent_WholeDomain, nz, nx, ny);
-            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent, nz, MyXSlices, MyYSlices, np,
+            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent_Host, nz, MyXSlices, MyYSlices, np,
                               RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
         }
-        if (PrintMisorientation)
-            PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain, GrainID_WholeDomain,
-                                      GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
+        if ((PrintMisorientation) || (PrintTimeSeries)) {
+            ViewF_H GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
+            if (PrintMisorientation)
+                PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain,
+                                          GrainID_WholeDomain, GrainUnitVector_Host, NGrainOrientations, deltax, XMin,
+                                          YMin, ZMin);
+            if (PrintTimeSeries)
+                PrintIntermediateExaCAState(IntermediateFileCounter, layernumber, BaseFileName, PathToOutput,
+                                            ZBound_Low, nzActive, nx, ny, GrainID_WholeDomain, CellType_WholeDomain,
+                                            GrainUnitVector_Host, NGrainOrientations, deltax, XMin, YMin, ZMin);
+        }
         if (PrintFinalUndercoolingVals)
             PrintFinalUndercooling(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain,
                                    UndercoolingCurrent_WholeDomain, deltax, XMin, YMin, ZMin);
@@ -270,10 +281,6 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
                           Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput, deltax, XMin,
                           YMin, ZMin);
-        if (PrintTimeSeries)
-            PrintIntermediateExaCAState(IntermediateFileCounter, layernumber, BaseFileName, PathToOutput, ZBound_Low,
-                                        nzActive, nx, ny, GrainID_WholeDomain, CellType_WholeDomain, GrainUnitVector,
-                                        NGrainOrientations, deltax, XMin, YMin, ZMin);
     }
     else {
 
@@ -299,29 +306,39 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         int SendBufSize = (SendBufEndX - SendBufStartX) * (SendBufEndY - SendBufStartY) * nz;
 
         // Collect Melted/Grain ID data on rank 0
-        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput) || (PrintDefaultRVE))
-            SendIntField(GrainID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
+        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput) || (PrintDefaultRVE)) {
+            ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
+            SendIntField(GrainID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
                          SendBufEndY);
+        }
         if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2) || (PrintFinalUndercoolingVals))
             SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
                           SendBufEndY);
-        if ((PrintFullOutput) || (PrintDebug > 0) || (PrintDefaultRVE))
-            SendIntField(LayerID, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
+        if ((PrintFullOutput) || (PrintDebug > 0) || (PrintDefaultRVE)) {
+            ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
+            SendIntField(LayerID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
                          SendBufEndY);
+        }
         if ((PrintDebug > 0) || (PrintTimeSeries)) {
-            SendIntField(CellType, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
-                         SendBufEndY);
+            ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+            SendIntField(CellType_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
+                         SendBufStartY, SendBufEndY);
         }
         if (PrintDebug > 0) {
-            SendIntField(CritTimeStep, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
-                         SendBufEndY);
+            ViewI_H CritTimeStep_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritTimeStep);
+            SendIntField(CritTimeStep_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
+                         SendBufStartY, SendBufEndY);
         }
         if (PrintDebug == 2) {
-            SendFloatField(UndercoolingChange, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
+            ViewF_H UndercoolingChange_Host =
+                Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingChange);
+            SendFloatField(UndercoolingChange_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
                            SendBufStartY, SendBufEndY);
         }
         if ((PrintDebug == 2) || (PrintFinalUndercoolingVals)) {
-            SendFloatField(UndercoolingCurrent, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
+            ViewF_H UndercoolingCurrent_Host =
+                Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingCurrent);
+            SendFloatField(UndercoolingCurrent_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
                            SendBufStartY, SendBufEndY);
         }
     }

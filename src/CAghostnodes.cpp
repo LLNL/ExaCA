@@ -15,7 +15,7 @@
 void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int NeighborRank_East,
                   int NeighborRank_West, int NeighborRank_NorthEast, int NeighborRank_NorthWest,
                   int NeighborRank_SouthEast, int NeighborRank_SouthWest, int MyXSlices, int MyYSlices, int MyXOffset,
-                  int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
+                  int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CellType, ViewF DOCenter,
                   ViewI GrainID, ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength,
                   int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend,
                   Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
@@ -241,9 +241,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         // liquid cell
                         for (int n = 0; n < 26; n++) {
 
-                            int MyNeighborX = RankX + NeighborX(n);
-                            int MyNeighborY = RankY + NeighborY(n);
-                            int MyNeighborZ = RankZ + NeighborZ(n);
+                            int MyNeighborX = RankX + NeighborX[n];
+                            int MyNeighborY = RankY + NeighborY[n];
+                            int MyNeighborZ = RankZ + NeighborZ[n];
                             long int NeighborPosition =
                                 MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
 
@@ -255,9 +255,9 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
 
                             // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the global
                             // coordinates of the center of a neighbor cell
-                            double x0 = xp + NeighborX(n) - DOCenterX;
-                            double y0 = yp + NeighborY(n) - DOCenterY;
-                            double z0 = zp + NeighborZ(n) - DOCenterZ;
+                            double x0 = xp + NeighborX[n] - DOCenterX;
+                            double y0 = yp + NeighborY[n] - DOCenterY;
+                            double z0 = zp + NeighborZ[n] - DOCenterZ;
                             // mag0 is the magnitude of (x0,y0,z0)
                             double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
 
@@ -344,7 +344,7 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
 //*****************************************************************************/
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
 void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int MyXSlices, int MyYSlices, int MyXOffset,
-                  int MyYOffset, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ, ViewI CellType, ViewF DOCenter,
+                  int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CellType, ViewF DOCenter,
                   ViewI GrainID, ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength,
                   int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
                   Buffer2D BufferSouthRecv, int BufSizeX, int, int BufSizeZ, int ZBound_Low) {
@@ -431,9 +431,9 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         // liquid cell
                         for (int n = 0; n < 26; n++) {
 
-                            int MyNeighborX = RankX + NeighborX(n);
-                            int MyNeighborY = RankY + NeighborY(n);
-                            int MyNeighborZ = RankZ + NeighborZ(n);
+                            int MyNeighborX = RankX + NeighborX[n];
+                            int MyNeighborY = RankY + NeighborY[n];
+                            int MyNeighborZ = RankZ + NeighborZ[n];
                             long int NeighborPosition =
                                 MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
                             if (NeighborPosition == CellLocation) {
@@ -444,9 +444,9 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
 
                             // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the global
                             // coordinates of the center of a neighbor cell
-                            double x0 = xp + NeighborX(n) - DOCenterX;
-                            double y0 = yp + NeighborY(n) - DOCenterY;
-                            double z0 = zp + NeighborZ(n) - DOCenterZ;
+                            double x0 = xp + NeighborX[n] - DOCenterX;
+                            double y0 = yp + NeighborY[n] - DOCenterY;
+                            double z0 = zp + NeighborZ[n] - DOCenterZ;
                             // mag0 is the magnitude of (x0,y0,z0)
                             double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
 

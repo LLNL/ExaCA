@@ -396,93 +396,15 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
 //*****************************************************************************/
 // Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ)
-void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ) {
+void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ) {
 
     // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
     // Neighbors 0 through 8 are in the -Y direction
     // Neighbors 9 through 16 are in the XY plane with cell X
     // Neighbors 17 through 25 are in the +Y direction
-
-    NeighborX(0) = 0;
-    NeighborY(0) = -1;
-    NeighborZ(0) = 0;
-    NeighborX(1) = 1;
-    NeighborY(1) = -1;
-    NeighborZ(1) = 0;
-    NeighborX(2) = -1;
-    NeighborY(2) = -1;
-    NeighborZ(2) = 0;
-    NeighborX(3) = 0;
-    NeighborY(3) = -1;
-    NeighborZ(3) = 1;
-    NeighborX(4) = 0;
-    NeighborY(4) = -1;
-    NeighborZ(4) = -1;
-    NeighborX(5) = -1;
-    NeighborY(5) = -1;
-    NeighborZ(5) = 1;
-    NeighborX(6) = 1;
-    NeighborY(6) = -1;
-    NeighborZ(6) = 1;
-    NeighborX(7) = -1;
-    NeighborY(7) = -1;
-    NeighborZ(7) = -1;
-    NeighborX(8) = 1;
-    NeighborY(8) = -1;
-    NeighborZ(8) = -1;
-
-    NeighborX(9) = 0;
-    NeighborY(9) = 0;
-    NeighborZ(9) = 1;
-    NeighborX(10) = 0;
-    NeighborY(10) = 0;
-    NeighborZ(10) = -1;
-    NeighborX(11) = 1;
-    NeighborY(11) = 0;
-    NeighborZ(11) = 1;
-    NeighborX(12) = -1;
-    NeighborY(12) = 0;
-    NeighborZ(12) = 1;
-    NeighborX(13) = 1;
-    NeighborY(13) = 0;
-    NeighborZ(13) = -1;
-    NeighborX(14) = -1;
-    NeighborY(14) = 0;
-    NeighborZ(14) = -1;
-    NeighborX(15) = 1;
-    NeighborY(15) = 0;
-    NeighborZ(15) = 0;
-    NeighborX(16) = -1;
-    NeighborY(16) = 0;
-    NeighborZ(16) = 0;
-
-    NeighborX(17) = 0;
-    NeighborY(17) = 1;
-    NeighborZ(17) = 0;
-    NeighborX(18) = 1;
-    NeighborY(18) = 1;
-    NeighborZ(18) = 0;
-    NeighborX(19) = -1;
-    NeighborY(19) = 1;
-    NeighborZ(19) = 0;
-    NeighborX(20) = 0;
-    NeighborY(20) = 1;
-    NeighborZ(20) = 1;
-    NeighborX(21) = 0;
-    NeighborY(21) = 1;
-    NeighborZ(21) = -1;
-    NeighborX(22) = 1;
-    NeighborY(22) = 1;
-    NeighborZ(22) = 1;
-    NeighborX(23) = -1;
-    NeighborY(23) = 1;
-    NeighborZ(23) = 1;
-    NeighborX(24) = 1;
-    NeighborY(24) = 1;
-    NeighborZ(24) = -1;
-    NeighborX(25) = -1;
-    NeighborY(25) = 1;
-    NeighborZ(25) = -1;
+    NeighborX = {0, 1, -1, 0, 0, -1, 1, -1, 1, 0, 0, 1, -1, 1, -1, 1, -1, 0, 1, -1, 0, 0, 1, -1, 1, -1};
+    NeighborY = {-1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    NeighborZ = {0, 0, 0, 1, -1, 1, 1, -1, -1, 1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, -1};
 }
 
 // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading temperature
@@ -490,7 +412,7 @@ void NeighborListInit(ViewI_H NeighborX, ViewI_H NeighborY, ViewI_H NeighborZ) {
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
                    std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
                    float &ZMin, float &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
-                   float *ZMinLayer, float *ZMaxLayer) {
+                   float *ZMinLayer, float *ZMaxLayer, int SpotRadius) {
 
     if (SimulationType == "R") {
         // Two passes through reading temperature data files- the first pass only reads the headers to
@@ -643,6 +565,11 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         XMax = nx * deltax;
         YMax = ny * deltax;
         ZMax = nx * deltax;
+        // If this is a spot melt problem, also set the ZMin/ZMax for each layer
+        for (int n = 0; n < NumberOfLayers; n++) {
+            ZMinLayer[n] = deltax * (LayerHeight * n);
+            ZMaxLayer[n] = deltax * (SpotRadius + LayerHeight * n);
+        }
     }
     if (id == 0) {
         std::cout << "Domain size: " << nx << " by " << ny << " by " << nz << std::endl;
@@ -795,19 +722,87 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
 }
 
 //*****************************************************************************/
-// Initialize temperature data for a constrained solidification test problem
-void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, double deltax,
-                                double deltat, int nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange,
-                                ViewF_H UndercoolingCurrent, bool *Melted, int &nzActive, int &ZBound_Low,
-                                int &ZBound_High, ViewI_H LayerID) {
+// Get the Z coordinate of the lower bound of iteration
+// If using remelting, this is called before initializing temperature data views for each layer
+// If not using remelting, this is only called before initializing temperature data view for the first layer, since the
+// existing DomainShiftAndResize subroutine already exists for other layers. These functions should be unified in a
+// future update
+int calcZBound_Low(bool RemeltingYN, std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer,
+                   float ZMin, double deltax) {
 
-    // Contrained solidification test problem
-    ZBound_Low = 0;
-    ZBound_High = nz - 1;
-    nzActive = ZBound_High - ZBound_Low + 1;
+    int ZBound_Low = 0; // set to zero if no remelting (was previously done in individual TempInit_[ProblemType]
+                        // subroutines - implicitly assumes bottom of layer 0 is the bottom of the overall domain - this
+                        // should be fixed in the future for edge cases where this isn't true)
+    if (RemeltingYN) {
+        if (SimulationType == "S") {
+            // lower bound of domain is an integer multiple of the layer spacing, since the temperature field is the
+            // same for every layer
+            ZBound_Low = LayerHeight * layernumber;
+        }
+        else if (SimulationType == "R") {
+            // lower bound of domain is based on the data read from the file(s)
+            ZBound_Low = round((ZMinLayer[layernumber] - ZMin) / deltax);
+        }
+        else
+            throw std::runtime_error("Error: simulations with remelting must be simulation type SM or RM");
+    }
+    return ZBound_Low;
+}
+//*****************************************************************************/
+// Get the Z coordinate of the upper bound of iteration
+// If using remelting, this is called before initializing temperature data views for each layer
+// If not using remelting, this is only called before initializing temperature data view for the first layer, since the
+// existing DomainShiftAndResize subroutine already exists for other layers. These functions should be unified in a
+// future update
+int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
+                    double deltax, int nz, float *ZMaxLayer) {
+
+    int ZBound_High = -1; // assign dummy initial value
+    if (SimulationType == "C") {
+        // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
+        ZBound_High = nz - 1;
+    }
+    else if (SimulationType == "S") {
+        // Top of layer is equal to the spot radius for a problem of hemispherical spot solidification, plus an offset
+        // depending on the layer number
+        ZBound_High = SpotRadius + LayerHeight * layernumber;
+    }
+    else if (SimulationType == "R") {
+        // Top of layer comes from the layer's file data (implicitly assumes bottom of layer 0 is the bottom of the
+        // overall domain - this should be fixed in the future for edge cases where this isn't true)
+        ZBound_High = round((ZMaxLayer[layernumber] - ZMin) / deltax);
+    }
+    if (ZBound_High == -1)
+        throw std::runtime_error("Error: ZBound_High went uninitialized, problem type must be C, S, or R");
+    return ZBound_High;
+}
+//*****************************************************************************/
+// Calculate the size of the active domain in Z
+int calcnzActive(int ZBound_Low, int ZBound_High, int id, int layernumber) {
+    int nzActive = ZBound_High - ZBound_Low + 1;
     if (id == 0)
-        std::cout << "Constrained solidification problem's active domain is from Z = " << ZBound_Low << " through "
-                  << ZBound_High << std::endl;
+        std::cout << "Layer " << layernumber << "'s active domain is from Z = " << ZBound_Low << " through "
+                  << ZBound_High << " (" << nzActive << ") cells" << std::endl;
+    return nzActive;
+}
+//*****************************************************************************/
+// Calculate the size of the domain, as a number of cells
+int calcLocalActiveDomainSize(int MyXSlices, int MyYSlices, int nzActive) {
+    int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
+    return LocalActiveDomainSize;
+}
+//*****************************************************************************/
+// Initialize temperature data for a constrained solidification test problem
+void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &MyYSlices, double deltax, double deltat,
+                                int nz, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
+                                bool *Melted, ViewI &LayerID) {
+
+    // These views are initialized on the host, filled with data, and then copied to the device for layer "layernumber"
+    // This view is initialized with zeros
+    ViewI_H LayerID_Host("LayerID_H", LocalDomainSize);
+    // These views will be filled with non-zero values
+    ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_H"), LocalDomainSize);
+    ViewF_H UndercoolingChange_Host(Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_H"), LocalDomainSize);
 
     // Initialize temperature field in Z direction with thermal gradient G set in input file
     // Cells at the bottom surface (Z = 0) are at the liquidus at time step 0 (no wall cells at the bottom boundary)
@@ -815,43 +810,40 @@ void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int 
         for (int i = 0; i < MyXSlices; i++) {
             for (int j = 0; j < MyYSlices; j++) {
                 int GlobalD3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                UndercoolingCurrent(GlobalD3D1ConvPosition) = 0;
-                LayerID(GlobalD3D1ConvPosition) = 0;
-                UndercoolingChange(GlobalD3D1ConvPosition) = R * deltat;
-                CritTimeStep(GlobalD3D1ConvPosition) = (int)((k * G * deltax) / (R * deltat));
+                UndercoolingChange_Host(GlobalD3D1ConvPosition) = R * deltat;
+                CritTimeStep_Host(GlobalD3D1ConvPosition) = (int)((k * G * deltax) / (R * deltat));
                 Melted[GlobalD3D1ConvPosition] = true;
             }
         }
     }
+
+    // Copy initialized host data back to device
+    CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
+    LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
+    UndercoolingChange = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingChange_Host);
 }
 
-// Initialize temperature data for an array of overlapping spot melts
+// Initialize temperature data for an array of overlapping spot melts (done during simulation initialization, no
+// remelting)
 void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
-                       int &MyYOffset, double deltax, float &ZMin, float *ZMinLayer, float *ZMaxLayer, double deltat,
-                       int nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange, ViewF_H UndercoolingCurrent,
-                       bool *Melted, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low,
-                       int &ZBound_High, double FreezingRange, ViewI_H LayerID, int NSpotsX, int NSpotsY,
-                       int SpotRadius, int SpotOffset) {
+                       int &MyYOffset, double deltax, double deltat, int nz, int LocalDomainSize, ViewI &CritTimeStep,
+                       ViewF &UndercoolingChange, bool *Melted, int LayerHeight, int NumberOfLayers,
+                       double FreezingRange, ViewI &LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset) {
 
-    ZBound_Low = 0;
-    ZBound_High = SpotRadius;
-    nzActive = ZBound_High - ZBound_Low + 1;
-    // Set these parameters to determine powder layer bounds
-    ZMin = 0;
-    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
-        ZMinLayer[layernumber] = deltax * (LayerHeight * layernumber);
-        ZMaxLayer[layernumber] = deltax * (SpotRadius + LayerHeight * layernumber);
-    }
-    if (id == 0)
-        std::cout << "Layer 0's active domain is from Z = " << ZBound_Low << " through " << ZBound_High << std::endl;
+    // This view will be filled with non-zero values on the host, and later copied to the device
+    ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_H"), LocalDomainSize);
+    // These views are initialized with zero values on the host, populated with other data, and later copied to the
+    // device
+    ViewI_H CritTimeStep_Host("CritTimeStep_H", LocalDomainSize);
+    ViewF_H UndercoolingChange_Host("UndercoolingChange_H", LocalDomainSize);
+
     // No cells intitially have undercooling, nor have melting/solidification data
     for (int k = 0; k < nz; k++) {
         for (int i = 0; i < MyXSlices; i++) {
             for (int j = 0; j < MyYSlices; j++) {
                 int GlobalD3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                UndercoolingCurrent(GlobalD3D1ConvPosition) = 0;
                 Melted[GlobalD3D1ConvPosition] = false;
-                LayerID(GlobalD3D1ConvPosition) = -1;
+                LayerID_Host(GlobalD3D1ConvPosition) = -1;
             }
         }
     }
@@ -888,10 +880,10 @@ void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, 
                         if (TotDist <= SpotRadius) {
                             int GlobalD3D1ConvPosition =
                                 (k + layernumber * LayerHeight) * MyXSlices * MyYSlices + i * MyYSlices + j;
-                            CritTimeStep(GlobalD3D1ConvPosition) =
+                            CritTimeStep_Host(GlobalD3D1ConvPosition) =
                                 1 + (int)(((float)(SpotRadius)-TotDist) / IsothermVelocity) + TimeBetweenSpots * n;
-                            UndercoolingChange(GlobalD3D1ConvPosition) = R * deltat;
-                            LayerID(GlobalD3D1ConvPosition) = layernumber;
+                            UndercoolingChange_Host(GlobalD3D1ConvPosition) = R * deltat;
+                            LayerID_Host(GlobalD3D1ConvPosition) = layernumber;
                             Melted[GlobalD3D1ConvPosition] = true;
                         }
                     }
@@ -899,28 +891,26 @@ void TempInit_SpotMelt(double G, double R, std::string, int id, int &MyXSlices, 
             }
         }
     }
+
+    // Copy initialized host data back to device
+    CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
+    LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
+    UndercoolingChange = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingChange_Host);
 }
 
 // Initialize temperature data for a problem using the reduced/sparse data format and input temperature data from
 // file(s)
 void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax,
-                      int HTtoCAratio, double deltat, int &nz, ViewI_H CritTimeStep, ViewF_H UndercoolingChange,
-                      ViewF_H UndercoolingCurrent, float XMin, float YMin, float ZMin, bool *Melted, float *ZMinLayer,
-                      float *ZMaxLayer, int LayerHeight, int NumberOfLayers, int &nzActive, int &ZBound_Low,
-                      int &ZBound_High, int *FinishTimeStep, double FreezingRange, ViewI_H LayerID, int *FirstValue,
-                      int *LastValue, std::vector<double> RawData) {
+                      int HTtoCAratio, double deltat, int nz, int LocalDomainSize, ViewI &CritTimeStep,
+                      ViewF &UndercoolingChange, float XMin, float YMin, float ZMin, bool *Melted, float *ZMinLayer,
+                      float *ZMaxLayer, int LayerHeight, int NumberOfLayers, int *FinishTimeStep, double FreezingRange,
+                      ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData) {
 
-    // Initialize temperature views to 0
-    for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < MyXSlices; i++) {
-            for (int j = 0; j < MyYSlices; j++) {
-                int Coord3D1D = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                CritTimeStep(Coord3D1D) = 0;
-                UndercoolingChange(Coord3D1D) = 0.0;
-                UndercoolingCurrent(Coord3D1D) = 0.0;
-            }
-        }
-    }
+    // These views are initialized to zeros on the host, filled with data, and then copied to the device for layer
+    // "layernumber"
+    ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_H"), LocalDomainSize);
+    ViewI_H CritTimeStep_Host("CritTimeStep_H", LocalDomainSize);
+    ViewF_H UndercoolingChange_Host("UndercoolingChange_H", LocalDomainSize);
 
     // Temperature data read
     // If HTtoCAratio > 1, an interpolation of input temperature data is needed
@@ -935,8 +925,9 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
     // No sites have melted yet
     for (int i = 0; i < MyXSlices * MyYSlices * nz; i++) {
         Melted[i] = false;
-        LayerID(i) = -1;
     }
+    // LayerID = -1 for cells that don't solidify as part of any layer of the multilayer problem
+    Kokkos::deep_copy(LayerID_Host, -1);
 
     // removed unused LayerwiseTSOffset variable
 
@@ -1027,7 +1018,9 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                       << std::endl;
         }
         // renormalize last time step value with the start of the layer as time step 0
-        FinishTimeStep[LayerCounter] = round((LargestTime_Global - SmallestTime_Global) / deltat);
+        // Previously normalized "time 0" to be the first time a cell goes below the liquidus; this is removed such that
+        // time is consistent with simulations that include remelting, which don't normalize "time 0"
+        FinishTimeStep[LayerCounter] = round(LargestTime_Global / deltat);
         if (id == 0)
             std::cout << " Layer " << LayerCounter << " FINISH TIME STEP IS " << FinishTimeStep[LayerCounter]
                       << std::endl;
@@ -1105,14 +1098,6 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         // Convert CritTL, CritTS matrices into CritTimeStep and UndercoolingChange (change in undercooling with
         // time step) "ZMin" is the global Z coordinate that corresponds to cells at Z = 0, "ZMax" is the global Z
         // coordinate that corresponds to cells at Z = nz-1
-        if (LayerCounter == 0) {
-            ZBound_Low = 0;
-            ZBound_High = nzTempValuesThisLayer - 1;
-            nzActive = ZBound_High - ZBound_Low + 1;
-            if (id == 0)
-                std::cout << "Active domain for layer 0 is Z = " << ZBound_Low << " through " << ZBound_High
-                          << std::endl;
-        }
         if (id == 0)
             std::cout << "Layer " << LayerCounter << " data belongs to global z coordinates of "
                       << round((ZMinLayer[LayerCounter] - ZMin) / deltax) << " through "
@@ -1133,9 +1118,9 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                             int ZOffset = round((ZMinLayer[LayerCounter] - ZMin) / deltax) + k;
                             int Coord3D1D = ZOffset * MyXSlices * MyYSlices + Adj_i * MyYSlices + Adj_j;
                             Melted[Coord3D1D] = true;
-                            CritTimeStep(Coord3D1D) = round(CTLiq / deltat);
-                            LayerID(Coord3D1D) = LayerCounter;
-                            UndercoolingChange(Coord3D1D) =
+                            CritTimeStep_Host(Coord3D1D) = round(CTLiq / deltat);
+                            LayerID_Host(Coord3D1D) = LayerCounter;
+                            UndercoolingChange_Host(Coord3D1D) =
                                 std::abs(CR[k][ii - LowerXBound][jj - LowerYBound]) * deltat;
                         }
                     }
@@ -1144,12 +1129,17 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
         }
     } // End read over all temperature files and placement of data
 
-    if (id == 0)
-        std::cout << "First layer Z bounds are " << ZBound_Low << " and " << ZBound_High << std::endl;
+    // Copy initialized host data back to device
+    CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
+    LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
+    UndercoolingChange = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingChange_Host);
 }
 //*****************************************************************************/
 // Initialize grain orientations and unit vectors
-void OrientationInit(int, int NGrainOrientations, ViewF_H GrainUnitVector, std::string GrainOrientationFile) {
+void OrientationInit(int, int NGrainOrientations, ViewF &GrainUnitVector, std::string GrainOrientationFile) {
+
+    // Temporary host view for storing grain orientations read from file
+    ViewF_H GrainUnitVector_Host(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector_H"), 9 * NGrainOrientations);
 
     // Read file of grain orientations
     std::ifstream O;
@@ -1173,7 +1163,7 @@ void OrientationInit(int, int NGrainOrientations, ViewF_H GrainUnitVector, std::
                 break;
             float ReadGO = atof(s.c_str());
             // X,Y,Z of a single unit vector
-            GrainUnitVector(9 * i + 3 * UVNumber + Comp) = ReadGO;
+            GrainUnitVector_Host(9 * i + 3 * UVNumber + Comp) = ReadGO;
 
             Comp++;
             if (Comp > 2) {
@@ -1183,13 +1173,16 @@ void OrientationInit(int, int NGrainOrientations, ViewF_H GrainUnitVector, std::
         }
     }
     O.close();
+
+    // Copy orientation data to device
+    GrainUnitVector = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainUnitVector_Host);
 }
 
 // Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom surface of
 // the constrained domain. Also initialize active cell data structures associated with the substrate grains
 void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx,
-                                     int ny, int MyXOffset, int MyYOffset, ViewI NeighborX, ViewI NeighborY,
-                                     ViewI NeighborZ, ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType,
+                                     int ny, int MyXOffset, int MyYOffset, NList NeighborX, NList NeighborY,
+                                     NList NeighborZ, ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType,
                                      ViewI GrainID, ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength,
                                      double RNGSeed, int np, int DecompositionStrategy, Buffer2D BufferWestSend,
                                      Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
@@ -1225,9 +1218,8 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
     }
 
     // Copy views of substrate grain locations back to the device
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI ActCellX_Device = Kokkos::create_mirror_view_and_copy(memory_space(), ActCellX_Host);
-    ViewI ActCellY_Device = Kokkos::create_mirror_view_and_copy(memory_space(), ActCellY_Host);
+    ViewI ActCellX_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellX_Host);
+    ViewI ActCellY_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellY_Host);
 
     // Start with all cells as liquid prior to locating substrate grain seeds
     Kokkos::deep_copy(CellType, Liquid);
@@ -1275,9 +1267,9 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
 
                     // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
                     // the center of a neighbor cell
-                    double x0 = xp + NeighborX(l) - cx;
-                    double y0 = yp + NeighborY(l) - cy;
-                    double z0 = zp + NeighborZ(l) - cz;
+                    double x0 = xp + NeighborX[l] - cx;
+                    double y0 = yp + NeighborY[l] - cy;
+                    double z0 = zp + NeighborZ[l] - cz;
                     // mag0 is the magnitude of (x0,y0,z0)
                     double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
 
@@ -1431,7 +1423,7 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
     }
     Substrate.close();
     // Copy GrainIDs read from file to device
-    GrainID_Device = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), GrainID_Host);
+    GrainID_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_Host);
     if (id == 0)
         std::cout << "Substrate file read complete" << std::endl;
 }
@@ -1481,11 +1473,11 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
     }
     if (id == 0)
         std::cout << "Number of baseplate grains: " << NumBaseplateGrains_Host(0) << std::endl;
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI NumBaseplateGrains_Device = Kokkos::create_mirror_view_and_copy(memory_space(), NumBaseplateGrains_Host);
-    ViewF BaseplateGrainX_Device = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainX_Host);
-    ViewF BaseplateGrainY_Device = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainY_Host);
-    ViewF BaseplateGrainZ_Device = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainZ_Host);
+    ViewI NumBaseplateGrains_Device =
+        Kokkos::create_mirror_view_and_copy(device_memory_space(), NumBaseplateGrains_Host);
+    ViewF BaseplateGrainX_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainX_Host);
+    ViewF BaseplateGrainY_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainY_Host);
+    ViewF BaseplateGrainZ_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainZ_Host);
 
     //  Initialize GrainIDs on device for baseplate
     Kokkos::parallel_for(
@@ -1546,8 +1538,7 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLay
     for (int n = 0; n < PowderLayerActiveCells; n++) {
         PowderGrainIDs_Host(n) = PowderGrainIDs[n];
     }
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(memory_space(), PowderGrainIDs_Host);
+    ViewI PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), PowderGrainIDs_Host);
 
     // Associate powder grain IDs with CA cells in the powder layer
     // Use bounds from temperature field for this layer to determine which cells are part of the powder
@@ -1587,7 +1578,7 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLay
 // Initializes cells at border of solid and liquid as active type - performed on device
 void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, int MyXSlices, int MyYSlices,
                   int MyXOffset, int MyYOffset, int ZBound_Low, int nz, int LocalActiveDomainSize, int LocalDomainSize,
-                  ViewI CellType, ViewI CritTimeStep, ViewI NeighborX, ViewI NeighborY, ViewI NeighborZ,
+                  ViewI CellType, ViewI CritTimeStep, NList NeighborX, NList NeighborY, NList NeighborZ,
                   int NGrainOrientations, ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID,
                   ViewF CritDiagonalLength, ViewF DOCenter, ViewI LayerID, Buffer2D BufferWestSend,
                   Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
@@ -1623,9 +1614,9 @@ void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, in
                     // the logic in the below loop over all neighbors
                     for (int l = 0; l < 26; l++) {
                         // Global coordinates of adjacent cell center
-                        int MyNeighborX = RankX + NeighborX(l);
-                        int MyNeighborY = RankY + NeighborY(l);
-                        int MyNeighborZ = GlobalZ + NeighborZ(l);
+                        int MyNeighborX = RankX + NeighborX[l];
+                        int MyNeighborY = RankY + NeighborY[l];
+                        int MyNeighborZ = GlobalZ + NeighborZ[l];
                         int NeighborD3D1ConvPosition =
                             MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
                         if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
@@ -1692,9 +1683,9 @@ void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, in
 
                     // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of
                     // the center of a neighbor cell
-                    double x0 = xp + NeighborX(n) - cx;
-                    double y0 = yp + NeighborY(n) - cy;
-                    double z0 = zp + NeighborZ(n) - cz;
+                    double x0 = xp + NeighborX[n] - cx;
+                    double y0 = yp + NeighborY[n] - cy;
+                    double z0 = zp + NeighborZ[n] - cz;
                     // mag0 is the magnitude of (x0,y0,z0)
                     double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
 
@@ -1797,22 +1788,20 @@ void CellTypeInit(int layernumber, int id, int np, int DecompositionStrategy, in
 // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur
 void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int nx,
                 int ny, int nzActive, int ZBound_Low, int id, double NMax, double dTN, double dTsigma, double deltax,
-                ViewI &NucleiLocation_G, ViewI_H &NucleationTimes_H, ViewI &NucleiGrainID_G, ViewI CellType_Device,
-                ViewI CritTimeStep_Device, ViewF UndercoolingChange_Device, ViewI LayerID_Device,
-                int &PossibleNuclei_ThisRankThisLayer, int &Nuclei_WholeDomain, bool AtNorthBoundary,
-                bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary, int &NucleationCounter) {
+                ViewI &NucleiLocation, ViewI_H &NucleationTimes_Host, ViewI &NucleiGrainID, ViewI CellType,
+                ViewI CritTimeStep, ViewF UndercoolingChange, ViewI LayerID, int &PossibleNuclei_ThisRankThisLayer,
+                int &Nuclei_WholeDomain, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
+                bool AtWestBoundary, int &NucleationCounter) {
 
     // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation data
     // back to the device again. This is currently performed on the device due to heavy usage of standard library
     // algorithm functions
 
-    // Copy CritTimeStep, UndercoolingChange, CellType, and LayerID into temporary host views for this subroutine
-    ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID_Device);
-    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType_Device);
-    ViewI_H CritTimeStep_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritTimeStep_Device);
-    ViewF_H UndercoolingChange_Host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingChange_Device);
-
+    // Copy temperature data into temporary host views for this subroutine
+    ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    ViewI_H CritTimeStep_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritTimeStep);
+    ViewF_H UndercoolingChange_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingChange);
     // Three counters tracked here:
     // Nuclei_WholeDomain - tracks all nuclei (regardless of whether an event would be possible based on the layer ID
     // and cell type), used for Grain ID assignment to ensure that no Grain ID get reused - same on all MPI ranks
@@ -1933,25 +1922,25 @@ void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, i
 
     // With PossibleNuclei_ThisRankThisLayer now known, resize views appropriately
     // Resize nucleation views now that PossibleNuclei_ThisRank is known for all MPI ranks
-    Kokkos::resize(NucleationTimes_H, PossibleNuclei_ThisRankThisLayer);
-    Kokkos::resize(NucleiLocation_G, PossibleNuclei_ThisRankThisLayer);
-    Kokkos::resize(NucleiGrainID_G, PossibleNuclei_ThisRankThisLayer);
+    Kokkos::resize(NucleationTimes_Host, PossibleNuclei_ThisRankThisLayer);
+    Kokkos::resize(NucleiLocation, PossibleNuclei_ThisRankThisLayer);
+    Kokkos::resize(NucleiGrainID, PossibleNuclei_ThisRankThisLayer);
 
     // Create temporary view to store nucleation locations, grain ID data initialized on the host
     // NucleationTimes_H are stored using a host view that is passed to Nucleation subroutine and later used - don't
     // need a temporary host view
-    ViewI_H NucleiLocation_H(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation_Host"),
-                             PossibleNuclei_ThisRankThisLayer);
-    ViewI_H NucleiGrainID_H(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
-                            PossibleNuclei_ThisRankThisLayer);
+    ViewI_H NucleiLocation_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation_Host"),
+                                PossibleNuclei_ThisRankThisLayer);
+    ViewI_H NucleiGrainID_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
+                               PossibleNuclei_ThisRankThisLayer);
     for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
-        NucleationTimes_H(n) = std::get<0>(NucleationTimeLocID[n]);
-        NucleiLocation_H(n) = std::get<1>(NucleationTimeLocID[n]);
-        NucleiGrainID_H(n) = std::get<2>(NucleationTimeLocID[n]);
+        NucleationTimes_Host(n) = std::get<0>(NucleationTimeLocID[n]);
+        NucleiLocation_Host(n) = std::get<1>(NucleationTimeLocID[n]);
+        NucleiGrainID_Host(n) = std::get<2>(NucleationTimeLocID[n]);
     }
     // Copy nucleation data to the device
-    NucleiLocation_G = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), NucleiLocation_H);
-    NucleiGrainID_G = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), NucleiGrainID_H);
+    NucleiLocation = Kokkos::create_mirror_view_and_copy(device_memory_space(), NucleiLocation_Host);
+    NucleiGrainID = Kokkos::create_mirror_view_and_copy(device_memory_space(), NucleiGrainID_Host);
 
     // Initialize counter for the layer to 0
     NucleationCounter = 0;
@@ -2022,15 +2011,41 @@ void DomainShiftAndResize(int id, int MyXSlices, int MyYSlices, int &ZShift, int
 }
 
 //*****************************************************************************/
-void ZeroResetViews(ViewF DiagonalLength, ViewF CritDiagonalLength, ViewF DOCenter, int DecompositionStrategy,
-                    Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend,
-                    Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend,
-                    Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, Buffer2D BufferWestRecv,
-                    Buffer2D BufferEastRecv, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv,
-                    Buffer2D BufferNorthEastRecv, Buffer2D BufferNorthWestRecv, Buffer2D BufferSouthEastRecv,
-                    Buffer2D BufferSouthWestRecv) {
+void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeY, int BufSizeZ, ViewF &DiagonalLength,
+                    ViewF &CritDiagonalLength, ViewF &DOCenter, int DecompositionStrategy, Buffer2D &BufferWestSend,
+                    Buffer2D &BufferEastSend, Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend,
+                    Buffer2D &BufferNorthEastSend, Buffer2D &BufferNorthWestSend, Buffer2D &BufferSouthEastSend,
+                    Buffer2D &BufferSouthWestSend, Buffer2D &BufferWestRecv, Buffer2D &BufferEastRecv,
+                    Buffer2D &BufferNorthRecv, Buffer2D &BufferSouthRecv, Buffer2D &BufferNorthEastRecv,
+                    Buffer2D &BufferNorthWestRecv, Buffer2D &BufferSouthEastRecv, Buffer2D &BufferSouthWestRecv,
+                    ViewI &SteeringVector) {
 
-    // Reset active cell data structures on host
+    // Realloc steering vector as LocalActiveDomainSize may have changed (old values aren't needed)
+    Kokkos::realloc(SteeringVector, LocalActiveDomainSize);
+
+    // Realloc active cell data structure and halo regions on device (old values not needed)
+    Kokkos::realloc(DiagonalLength, LocalActiveDomainSize);
+    Kokkos::realloc(DOCenter, 3 * LocalActiveDomainSize);
+    Kokkos::realloc(CritDiagonalLength, 26 * LocalActiveDomainSize);
+    Kokkos::realloc(BufferNorthSend, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthSend, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(BufferEastSend, BufSizeY * BufSizeZ, 5);
+    Kokkos::realloc(BufferWestSend, BufSizeY * BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthEastSend, BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthWestSend, BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthEastSend, BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthWestSend, BufSizeZ, 5);
+
+    Kokkos::realloc(BufferNorthRecv, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthRecv, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(BufferEastRecv, BufSizeY * BufSizeZ, 5);
+    Kokkos::realloc(BufferWestRecv, BufSizeY * BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthEastRecv, BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthWestRecv, BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthEastRecv, BufSizeZ, 5);
+    Kokkos::realloc(BufferSouthWestRecv, BufSizeZ, 5);
+
+    // Reset active cell data structures on device
     Kokkos::deep_copy(DiagonalLength, 0);
     Kokkos::deep_copy(DOCenter, 0);
     Kokkos::deep_copy(CritDiagonalLength, 0);
