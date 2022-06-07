@@ -316,14 +316,16 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             // Update cells on GPU - new active cells, solidification of old active cells
             StartCaptureTime = MPI_Wtime();
-            CellCapture(np, cycle, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize, MyXSlices, MyYSlices,
-                        AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, NeighborX, NeighborY, NeighborZ,
-                        CritTimeStep, UndercoolingCurrent, UndercoolingChange, GrainUnitVector, CritDiagonalLength,
-                        DiagonalLength, CellType, DOCenter, GrainID, NGrainOrientations, BufferWestSend, BufferEastSend,
-                        BufferNorthSend, BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
-                        BufferSouthWestSend, BufSizeX, BufSizeY, ZBound_Low, nzActive, nz, layernumber, LayerID,
-                        SteeringVector, numSteer, numSteer_Host, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
-                        AtWestBoundary);
+            FillSteeringVector(cycle, LocalActiveDomainSize, MyXSlices, MyYSlices, CritTimeStep, UndercoolingCurrent,
+                               UndercoolingChange, CellType, ZBound_Low, layernumber, LayerID, SteeringVector, numSteer,
+                               numSteer_Host);
+            CellCapture(id, np, cycle, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize, MyXSlices,
+                        MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, NeighborX, NeighborY,
+                        NeighborZ, UndercoolingCurrent, GrainUnitVector, CritDiagonalLength, DiagonalLength, CellType,
+                        DOCenter, GrainID, NGrainOrientations, BufferWestSend, BufferEastSend, BufferNorthSend,
+                        BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
+                        BufferSouthWestSend, BufSizeX, BufSizeY, ZBound_Low, nzActive, nz, SteeringVector, numSteer,
+                        numSteer_Host, AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
