@@ -765,8 +765,6 @@ void testNucleiInit(bool RemeltingYN) {
 // Test moved from tstInit.hpp to this file, as it now includes kokkos view allocation and value checking
 void testReadTemperatureData() {
 
-    // Test does not include remelting
-    bool RemeltingYN = false;
     int id, np;
     // Get number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &np);
@@ -800,7 +798,6 @@ void testReadTemperatureData() {
     std::vector<std::string> temp_paths(1);
     temp_paths[0] = TestTempFileName;
     int NumberOfLayers = 1;
-    int LayerHeight = 0;
     int TempFilesInSeries = 1;
     int *FirstValue = new int[NumberOfLayers];
     int *LastValue = new int[NumberOfLayers];
@@ -823,23 +820,15 @@ void testReadTemperatureData() {
     // Read in data to "RawData"
     std::vector<double> RawData(12);
 
-    // No remelting - cells with temperature data only solidify once
-    ViewI MaxSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("MaxSolidificationEvents"), NumberOfLayers);
     float *ZMinLayer = new float[NumberOfLayers];
     float *ZMaxLayer = new float[NumberOfLayers];
     ZMinLayer[0] = 0.0;
     ZMaxLayer[0] = 0.0;
     ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin,
                         temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
-                        FirstValue, LastValue, RemeltingYN, MaxSolidificationEvents, ZMinLayer, ZMaxLayer, LayerHeight);
-
-    // Copy max solidification events back to host
-    ViewI_H MaxSolidificationEvents_Host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
+                        FirstValue, LastValue);
 
     // Check the results.
-    // The max number of solidification events in a cell should be 1, since remelting was not considered
-    EXPECT_EQ(MaxSolidificationEvents_Host(0), 1);
     // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr) for
     // each of the 9 cells in the subdomain
     EXPECT_EQ(NumberOfTemperatureDataPoints, 54);
@@ -889,9 +878,10 @@ TEST(TEST_CATEGORY, cell_init_test) {
     testCellTypeInit_Remelt();
 }
 TEST(TEST_CATEGORY, nuclei_init_test) {
+    // w/ and w/o remelting
     testNucleiInit(true);
     testNucleiInit(false);
-} // w/ and w/o remelting
+}
 TEST(TEST_CATEGORY, temperature_init_test) { testReadTemperatureData(); }
 
 } // end namespace Test
