@@ -68,8 +68,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // With remelting, each data point has 6 values (X, Y, Z coordinates, melting time, liquidus time, and cooling rate)
     // Initial estimate for size
     std::vector<double> RawData(1000000);
-    // Maximum number of times a cell in a given layer undergoes solidification (used if RemeltingYN = true)
-    ViewI MaxSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfRemeltEvents"), NumberOfLayers);
 
     // Contains "NumberOfLayers" values corresponding to the location within "RawData" of the first data element in each
     // temperature file
@@ -98,8 +96,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (SimulationType == "R")
         ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin,
                             temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
-                            FirstValue, LastValue, RemeltingYN, MaxSolidificationEvents, ZMinLayer, ZMaxLayer,
-                            LayerHeight);
+                            FirstValue, LastValue);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
@@ -113,6 +110,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewF UndercoolingCurrent("UndercoolingCurrent", LocalDomainSize);
     bool *Melted = new bool[LocalDomainSize];
     // With remelting, temperature fields are also characterized by these variables:
+    // Maximum number of times a cell in a given layer undergoes solidification
+    ViewI MaxSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfRemeltEvents"), NumberOfLayers);
+    // For each cell in the current layer (index 1), and each time solidification happens (index 2), hold the values
+    // that will be used for MeltTimeStep, CritTimeStep, and UndercoolingChange (index 3)
     ViewF3D LayerTimeTempHistory(Kokkos::ViewAllocateWithoutInitializing("TimeTempHistory"), 0, 0, 0);
     // The number of times that each CA cell will undergo solidification during this layer
     ViewI NumberOfSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumSEvents"), 0);
@@ -136,7 +137,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                             NumberOfSolidificationEvents, MaxSolidificationEvents, MeltTimeStep, CritTimeStep,
                             UndercoolingChange, UndercoolingCurrent, XMin, YMin, Melted, ZMinLayer, LayerHeight,
                             nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue, LastValue, RawData,
-                            SolidificationEventCounter);
+                            SolidificationEventCounter, TempFilesInSeries);
         else
             TempInit_Reduced(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HTtoCAratio, deltat, nz,
                              LocalDomainSize, CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, Melted, ZMinLayer,
@@ -154,13 +155,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         else
             TempInit_SpotMelt(G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, nz,
                               LocalDomainSize, CritTimeStep, UndercoolingChange, Melted, LayerHeight, NumberOfLayers,
-                              FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset,
-                              MaxSolidificationEvents);
+                              FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset);
     }
     else if (SimulationType == "C") {
         // directional/constrained solidification test problem
         TempInit_DirSolidification(G, R, id, MyXSlices, MyYSlices, deltax, deltat, nz, LocalDomainSize, CritTimeStep,
-                                   UndercoolingChange, Melted, LayerID, MaxSolidificationEvents);
+                                   UndercoolingChange, Melted, LayerID);
     }
     // Delete temporary data structure for temperature data read if remelting is not performed (otherwise keep it to
     // avoid having to reread temperature files)
@@ -460,7 +460,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                     LayerTimeTempHistory, NumberOfSolidificationEvents, MaxSolidificationEvents,
                                     MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent, XMin, YMin,
                                     Melted, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID,
-                                    FirstValue, LastValue, RawData, SolidificationEventCounter);
+                                    FirstValue, LastValue, RawData, SolidificationEventCounter, TempFilesInSeries);
                 // Update buffer size
                 BufSizeZ = nzActive;
             }

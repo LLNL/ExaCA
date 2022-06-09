@@ -180,7 +180,6 @@ void testFillSteeringVector_Remelt() {
     Kokkos::deep_copy(BufferNorthSend, 1.0);
 
     // Initialize neighbor lists
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
@@ -221,13 +220,13 @@ void testFillSteeringVector_Remelt() {
     numSteer_Host(0) = 0;
 
     // Copy views to device for test
-    ViewI numSteer = Kokkos::create_mirror_view_and_copy(memory_space(), numSteer_Host);
-    ViewI GrainID = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID_Host);
-    ViewI CellType = Kokkos::create_mirror_view_and_copy(memory_space(), CellType_Host);
-    ViewI MeltTimeStep = Kokkos::create_mirror_view_and_copy(memory_space(), MeltTimeStep_Host);
-    ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep_Host);
-    ViewF UndercoolingChange = Kokkos::create_mirror_view_and_copy(memory_space(), UndercoolingChange_Host);
-    ViewF UndercoolingCurrent = Kokkos::create_mirror_view_and_copy(memory_space(), UndercoolingCurrent_Host);
+    ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
+    ViewI GrainID = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_Host);
+    ViewI CellType = Kokkos::create_mirror_view_and_copy(device_memory_space(), CellType_Host);
+    ViewI MeltTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), MeltTimeStep_Host);
+    ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
+    ViewF UndercoolingChange = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingChange_Host);
+    ViewF UndercoolingCurrent = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingCurrent_Host);
 
     int numcycles = 15;
     for (int cycle = 1; cycle <= numcycles; cycle++) {
@@ -246,8 +245,8 @@ void testFillSteeringVector_Remelt() {
     ViewI_H SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SteeringVector);
     numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), numSteer);
     UndercoolingCurrent_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingCurrent);
-    Buffer2D_H BufferSouthSend_Host = Kokkos::create_mirror_view_and_copy(memory_space(), BufferSouthSend);
-    Buffer2D_H BufferNorthSend_Host = Kokkos::create_mirror_view_and_copy(memory_space(), BufferNorthSend);
+    Buffer2D_H BufferSouthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthSend);
+    Buffer2D_H BufferNorthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
 
     // Check the modified CellType and UndercoolingCurrent values on the host:
     // Check that the cells corresponding to outside of the "active" portion of the domain have unchanged values
