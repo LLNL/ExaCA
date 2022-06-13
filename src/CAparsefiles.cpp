@@ -174,7 +174,8 @@ void getTemperatureDataPoint(std::string s, std::vector<double> &XYZTemperatureP
         XYZTemperaturePoint[n] = stod(TemperatureValues_Read[n]);
 }
 
-void getTemperatureFilePaths(const std::string path, const std::string name, std::vector<std::string> &all_paths) {
+// Function for obtaining the path to temperature data using the old input file format - TODO: remove in future release
+void getTemperatureFilePaths_Old(const std::string path, const std::string name, std::vector<std::string> &all_paths) {
     std::size_t num_files = all_paths.size();
     for (std::size_t i = 1; i < num_files + 1; i++) {
         std::string curr_path = path + "/";
@@ -184,6 +185,41 @@ void getTemperatureFilePaths(const std::string path, const std::string name, std
             curr_path += name;
         all_paths[i - 1] = curr_path;
     }
+}
+// Function for parsing temperature input data using the file format - TODO: remove in future release
+void parseTemperatureInput_Old(std::vector<std::string> DeprecatedInputs, std::vector<std::string> DeprecatedInputsRead,
+                               int NumDeprecatedInputs, std::vector<bool> DeprecatedInputs_RequiredYN,
+                               int &TempFilesInSeries, int &NumberOfLayers, int &LayerHeight, double deltax,
+                               double &HT_deltax, std::vector<std::string> &temp_paths) {
+
+    // Check that the required deprecated temperature input information exists
+    for (int i = 0; i < NumDeprecatedInputs; i++) {
+        if ((DeprecatedInputsRead[i].empty()) && (DeprecatedInputs_RequiredYN[i])) {
+            std::string error = "Error: Missing " + DeprecatedInputs[i] + " line in input file";
+            throw std::runtime_error(error);
+        }
+    }
+
+    // Parse temperature information
+    std::string temppath, tempfile;
+    // Path to temperature files may be given, otherwise assumed to be in Temperatures folder
+    if (DeprecatedInputsRead[0].empty())
+        temppath = "examples/Temperatures";
+    else
+        temppath = DeprecatedInputsRead[0];
+    tempfile = DeprecatedInputsRead[1];
+    TempFilesInSeries = getInputInt(DeprecatedInputsRead[2]);
+    NumberOfLayers = getInputInt(DeprecatedInputsRead[3]);
+    LayerHeight = getInputInt(DeprecatedInputsRead[4]);
+    // Input temperature data spacing may be given, otherwise it is assumed HT_deltax = CA cell size
+    if (DeprecatedInputsRead[5].empty())
+        HT_deltax = deltax;
+    else
+        HT_deltax = getInputDouble(DeprecatedInputsRead[5], -6);
+
+    // Parse deprecated temperature input information into "temp_paths" vector
+    temp_paths.resize(TempFilesInSeries, "");
+    getTemperatureFilePaths_Old(temppath, tempfile, temp_paths);
 }
 
 bool checkFileExists(const std::string path, const std::string type, const int id, const bool error = true) {
@@ -262,6 +298,67 @@ void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst,
     DConst = getInputDouble(MaterialInputsRead[4]);
 
     MaterialData.close();
+}
+
+void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &TempFilesInSeries, int &NumberOfLayers,
+                           int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths) {
+
+    std::ifstream TemperatureData;
+    // Check that file exists and contains data
+    checkFileExists(TFieldInstructions, "Temperature instruction", id);
+    checkFileNotEmpty(TFieldInstructions);
+    // Open and read temperature instuctions file
+    TemperatureData.open(TFieldInstructions);
+    std::string val;
+    // Three required inputs should be present in the temperature file
+    std::vector<std::string> TemperatureInputs = {
+        "Number of layers",
+        "Offset between layers",
+        "Heat transport data mesh size",
+    };
+    int NumTemperatureInputs = TemperatureInputs.size();
+    std::vector<std::string> TemperatureInputsRead(NumTemperatureInputs);
+    // Read first portion of the file to get Number of layers, Offset between layers, Heat transport data mesh size (if
+    // given)
+    bool ReadingArgs = true;
+    while (ReadingArgs) {
+        std::getline(TemperatureData, val);
+        // Line with ***** indicates separation first and second portions of file
+        std::string FirstChar = val.substr(0, 1);
+        if (FirstChar.compare("*") == 0) {
+            ReadingArgs = false;
+        }
+        else {
+            bool FoundArg = parseInputFromList(val, TemperatureInputs, TemperatureInputsRead, NumTemperatureInputs);
+            if (!(FoundArg))
+                std::cout << "Ignoring unknown line " << val << " in temperature instructions file "
+                          << TFieldInstructions << std::endl;
+        }
+        if (!(TemperatureData.is_open()))
+            throw std::runtime_error("Error: Required separator not found in temperature instructions file");
+    }
+    NumberOfLayers = getInputInt(TemperatureInputsRead[0]);
+    LayerHeight = getInputInt(TemperatureInputsRead[1]);
+    if (TemperatureInputsRead[2].empty())
+        HT_deltax = deltax;
+    else
+        HT_deltax = getInputDouble(TemperatureInputsRead[2], -6);
+    // Read second part of file to get the paths/names of the temperature data files used
+    TempFilesInSeries = 0;
+    while (TemperatureData.is_open()) {
+        std::string temppath;
+        std::getline(TemperatureData, temppath);
+        // Ignore any blank lines at the end of the file
+        if (!(temppath.empty())) {
+            temp_paths.push_back(temppath);
+            TempFilesInSeries++;
+        }
+        else
+            break;
+    }
+    TemperatureData.close();
+    if (TempFilesInSeries == 0)
+        throw std::runtime_error("Error: No temperature files listed in the temperature instructions file");
 }
 
 // Parse a line that looks like [x,y], returning either val = 0 (x) or val = 1 (y)

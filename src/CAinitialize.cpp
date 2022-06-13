@@ -26,9 +26,8 @@
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
                        double &AConst, double &BConst, double &CConst, double &DConst, double &FreezingRange,
                        double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
-                       std::string &GrainOrientationFile, std::string &temppath, std::string &tempfile,
-                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
-                       bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
+                       std::string &GrainOrientationFile, int &TempFilesInSeries, std::vector<std::string> &temp_paths,
+                       double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
                        std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
                        double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
@@ -80,7 +79,9 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // First line after the header must be the problem type: either R, C, or S
     // Additional required/optional inputs depending on problem type
     SimulationType = parseInput(InputData, "Problem type");
-    std::vector<std::string> RequiredInputs_ProblemSpecific, OptionalInputs_ProblemSpecific;
+    std::vector<std::string> RequiredInputs_ProblemSpecific, OptionalInputs_ProblemSpecific,
+        DeprecatedInputs_ProblemSpecific;
+    std::vector<bool> DeprecatedInputs_RequiredYN;
     if (SimulationType == "C") {
         RequiredInputs_ProblemSpecific.resize(7);
         RequiredInputs_ProblemSpecific[0] = "Thermal gradient";
@@ -107,19 +108,29 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         OptionalInputs_ProblemSpecific[1] = "Substrate filename";
     }
     else if (SimulationType == "R") {
-        RequiredInputs_ProblemSpecific.resize(5);
+        RequiredInputs_ProblemSpecific.resize(2);
         RequiredInputs_ProblemSpecific[0] = "Time step";
-        RequiredInputs_ProblemSpecific[1] = "Temperature filename";
-        RequiredInputs_ProblemSpecific[2] = "Number of temperature files";
-        RequiredInputs_ProblemSpecific[3] = "Number of layers";
-        RequiredInputs_ProblemSpecific[4] = "Offset between layers";
-        OptionalInputs_ProblemSpecific.resize(6);
+        RequiredInputs_ProblemSpecific[1] = "Path to and name of temperature field assembly instructions";
+        OptionalInputs_ProblemSpecific.resize(3);
         OptionalInputs_ProblemSpecific[0] = "Substrate grain spacing";
         OptionalInputs_ProblemSpecific[1] = "Substrate filename";
-        OptionalInputs_ProblemSpecific[2] = "Heat transport data mesh size";
-        OptionalInputs_ProblemSpecific[3] = "Path to temperature file(s)";
-        OptionalInputs_ProblemSpecific[4] = "Extra set of wall cells";
-        OptionalInputs_ProblemSpecific[5] = "default RVE output";
+        OptionalInputs_ProblemSpecific[2] = "default RVE output";
+        DeprecatedInputs_ProblemSpecific.resize(7);
+        DeprecatedInputs_ProblemSpecific[0] = "Path to temperature file(s)";
+        DeprecatedInputs_ProblemSpecific[1] = "Temperature filename";
+        DeprecatedInputs_ProblemSpecific[2] = "Number of temperature files";
+        DeprecatedInputs_ProblemSpecific[3] = "Number of layers";
+        DeprecatedInputs_ProblemSpecific[4] = "Offset between layers";
+        DeprecatedInputs_ProblemSpecific[5] = "Heat transport data mesh size";
+        DeprecatedInputs_ProblemSpecific[6] = "Extra set of wall cells";
+        // If using deprecated inputs, which ones are required/optional
+        DeprecatedInputs_RequiredYN.resize(7);
+        DeprecatedInputs_RequiredYN[0] = false;
+        for (int i = 1; i < 5; i++) {
+            DeprecatedInputs_RequiredYN[i] = true;
+        }
+        DeprecatedInputs_RequiredYN[5] = false;
+        DeprecatedInputs_RequiredYN[6] = false;
     }
     else {
         std::string error = "Error: problem type must be C, S, or R: the value given was " + SimulationType;
@@ -129,10 +140,12 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     int NumOptionalInputs_General = OptionalInputs_General.size();
     int NumRequiredInputs_ProblemSpecific = RequiredInputs_ProblemSpecific.size();
     int NumOptionalInputs_ProblemSpecific = OptionalInputs_ProblemSpecific.size();
+    int NumDeprecatedInputs_ProblemSpecific = DeprecatedInputs_ProblemSpecific.size();
     std::vector<std::string> RequiredInputsRead_General(NumRequiredInputs_General),
         OptionalInputsRead_General(NumOptionalInputs_General),
         RequiredInputsRead_ProblemSpecific(NumRequiredInputs_ProblemSpecific),
-        OptionalInputsRead_ProblemSpecific(NumOptionalInputs_ProblemSpecific);
+        OptionalInputsRead_ProblemSpecific(NumOptionalInputs_ProblemSpecific),
+        DeprecatedInputsRead_ProblemSpecific(NumDeprecatedInputs_ProblemSpecific);
 
     // Read the rest of the input file to initialize required and optional input parameters
     std::string line;
@@ -156,11 +169,18 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                     OptionalYN =
                         parseInputFromList(line, OptionalInputs_ProblemSpecific, OptionalInputsRead_ProblemSpecific,
                                            NumOptionalInputs_ProblemSpecific);
-                }
-                if (!(OptionalYN) && (id == 0)) {
-                    std::cout << "WARNING: input " << line
-                              << " did not match any optional nor required inputs known to ExaCA and will be ignored"
-                              << std::endl;
+                    if (!(OptionalYN)) {
+                        // If not a general/problem type specific optional input, check against deprecated inputs
+                        bool DeprecatedYN = parseInputFromList(line, DeprecatedInputs_ProblemSpecific,
+                                                               DeprecatedInputsRead_ProblemSpecific,
+                                                               NumDeprecatedInputs_ProblemSpecific);
+                        if (!(DeprecatedYN) && (id == 0)) {
+                            std::cout << "WARNING: input " << line
+                                      << " did not match any optional, required, nor deprecated inputs known to ExaCA "
+                                         "and will be ignored"
+                                      << std::endl;
+                        }
+                    }
                 }
             }
         }
@@ -177,9 +197,21 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     }
     for (int i = 0; i < NumRequiredInputs_ProblemSpecific; i++) {
         if (RequiredInputsRead_ProblemSpecific[i].empty()) {
-            std::string error =
-                "Error: Required input " + RequiredInputs_ProblemSpecific[i] + " was not present in the input file";
-            throw std::runtime_error(error);
+            if ((SimulationType == "R") && (i == 1)) {
+                if (id == 0)
+                    std::cout << "Missing temperature field assembly instructions : checking for deprecated "
+                                 "temperature inputs"
+                              << std::endl;
+                parseTemperatureInput_Old(DeprecatedInputs_ProblemSpecific, DeprecatedInputsRead_ProblemSpecific,
+                                          NumDeprecatedInputs_ProblemSpecific, DeprecatedInputs_RequiredYN,
+                                          TempFilesInSeries, NumberOfLayers, LayerHeight, deltax, HT_deltax,
+                                          temp_paths);
+            }
+            else {
+                std::string error =
+                    "Error: Required input " + RequiredInputs_ProblemSpecific[i] + " was not present in the input file";
+                throw std::runtime_error(error);
+            }
         }
     }
 
@@ -199,18 +231,17 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Problem type-specific inputs
     if (SimulationType == "R") {
         deltat = getInputDouble(RequiredInputsRead_ProblemSpecific[0], -6);
-        tempfile = RequiredInputsRead_ProblemSpecific[1];
-        TempFilesInSeries = getInputInt(RequiredInputsRead_ProblemSpecific[2]);
-        NumberOfLayers = getInputInt(RequiredInputsRead_ProblemSpecific[3]);
-        LayerHeight = getInputInt(RequiredInputsRead_ProblemSpecific[4]);
+        // If not using deprecated inputs, open specified file and parse data into "temp_paths" vector, also obtaining
+        // TempFilesInSeries, NumberOfLayers, LayerHeight, HT_deltax
+        std::string TemperatureFieldInstructions = RequiredInputsRead_ProblemSpecific[1];
+        if (!(RequiredInputsRead_ProblemSpecific[1].empty()))
+            parseTInstuctionsFile(id, TemperatureFieldInstructions, TempFilesInSeries, NumberOfLayers, LayerHeight,
+                                  deltax, HT_deltax, temp_paths);
         if (id == 0) {
             std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
             std::cout << "The time step is " << deltat << " seconds" << std::endl;
-            if (TempFilesInSeries > 1)
-                std::cout << "Temperature data files are *" << tempfile << " , and there are " << TempFilesInSeries
-                          << " in the series" << std::endl;
-            else
-                std::cout << "The temperature data file is " << tempfile << std::endl;
+            std::cout << "The first temperature data file to be read is " << temp_paths[0] << ", and there are "
+                      << TempFilesInSeries << " in the series" << std::endl;
             std::cout << "A total of " << NumberOfLayers << " layers of solidification offset by " << LayerHeight
                       << " CA cells will be simulated" << std::endl;
         }
@@ -331,28 +362,20 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             }
         }
     }
-    // Input temperature data spacing or path to temperature data may be given
-    // If not given, it is assumed HT_deltax = CA cell size and temperature data is located in examples/Temperatures
     if (SimulationType == "R") {
-        if (OptionalInputsRead_ProblemSpecific[2].empty())
-            HT_deltax = deltax;
-        else
-            HT_deltax = getInputDouble(OptionalInputsRead_ProblemSpecific[2], -6);
 
-        if (OptionalInputsRead_ProblemSpecific[3].empty())
-            temppath = "examples/Temperatures";
-        else
-            temppath = OptionalInputsRead_ProblemSpecific[3];
-
+        // Check that cell size/temperature data resolution are equivalent for simulations with remelting
+        if ((RemeltingYN) && (HT_deltax != deltax)) {
+            throw std::runtime_error("Error: For simulations with external temperature data and remelting logic, CA "
+                                     "cell size and input temperature data resolution must be equivalent");
+        }
         // Check that temperature file(s) exist
-        temp_paths.resize(TempFilesInSeries, "");
-        getTemperatureFilePaths(temppath, tempfile, temp_paths);
         for (int i = 0; i < TempFilesInSeries; i++) {
             if (id == 0)
                 std::cout << "Checking file " << temp_paths[i] << std::endl;
             checkFileExists(temp_paths[i], "Temperature", id);
         }
-        if ((!(OptionalInputsRead_ProblemSpecific[4].empty())) &&
+        if ((!(DeprecatedInputsRead_ProblemSpecific[6].empty())) &&
             (id == 0)) // Fixme: Remove this optional input eventually
             std::cout << "Note: optional input ExtraWalls is no longer used, all simulations by default have no walls "
                          "cells along domain boundaries"
@@ -360,8 +383,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // Should optional RVE data be printed for the standard location (center of domain in X and Y, as close to the
         // top of the domain in Z as possiblewithout including the last layer's microstructure)?
         PrintDefaultRVE = false;
-        if (!(OptionalInputsRead_ProblemSpecific[5].empty()))
-            PrintDefaultRVE = getInputBool(OptionalInputsRead_ProblemSpecific[5]);
+        if (!(OptionalInputsRead_ProblemSpecific[2].empty()))
+            PrintDefaultRVE = getInputBool(OptionalInputsRead_ProblemSpecific[2]);
     }
     else {
         // RVE data print option is only for simulation type R

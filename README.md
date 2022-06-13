@@ -143,7 +143,6 @@ make install
 ## Run
 
 ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - A separate README file located in the `examples/` directory goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
-
  * `Inp_DirSolidification.txt`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
  * `Inp_SmallDirSolidification.txt`: a smaller and simpler version of the previous
  * `Inp_SpotMelt.txt`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate
