@@ -2,6 +2,7 @@
 
 #include "CAfunctions.hpp"
 #include "CAinitialize.hpp"
+#include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 
 #include <gtest/gtest.h>
@@ -14,6 +15,56 @@
 
 namespace Test {
 //---------------------------------------------------------------------------//
+void testOrientationInit() {
+
+    int id;
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    std::string GrainOrientationFile;
+    int ValsPerLine, NGrainOrientations = 0;
+    // Even ranks read unit vectors file, odd ranks read euler angles file
+    if (id % 2 == 0) {
+        ValsPerLine = 9;
+        GrainOrientationFile = checkFileInstalled("GrainOrientationVectors_Robert.csv", "Substrate", id);
+    }
+    else {
+        ValsPerLine = 3;
+        GrainOrientationFile = checkFileInstalled("GrainOrientationEulerAnglesBungeZXZ.csv", "Substrate", id);
+    }
+
+    // View for storing orientation data
+    ViewF GrainOrientationData(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData"), 0);
+
+    // Call OrientationInit - with and without optional final argument
+    if (id == 0)
+        OrientationInit(id, NGrainOrientations, GrainOrientationData, GrainOrientationFile);
+    else
+        OrientationInit(id, NGrainOrientations, GrainOrientationData, GrainOrientationFile, ValsPerLine);
+
+    // Copy orientation data back to the host
+    ViewF_H GrainOrientationData_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainOrientationData);
+
+    // Check results
+    EXPECT_EQ(NGrainOrientations, 10000);
+
+    // Check first two orientations for odd and even ranks
+    if (id % 2 == 0) {
+        std::vector<float> ExpectedGrainOrientations = {0.848294,  0.493303,  0.19248,  -0.522525, 0.720911,  0.455253,
+                                                        0.0858167, -0.486765, 0.869308, 0.685431,  0.188182,  0.7034,
+                                                        -0.468504, 0.85348,   0.228203, -0.557394, -0.485963, 0.673166};
+        for (int n = 0; n < 2 * ValsPerLine; n++) {
+            EXPECT_FLOAT_EQ(GrainOrientationData_Host(n), ExpectedGrainOrientations[n]);
+        }
+    }
+    else {
+        std::vector<float> ExpectedGrainOrientations = {9.99854, 29.62172, 22.91854, 311.08350, 47.68814, 72.02547};
+        for (int n = 0; n < 2 * ValsPerLine; n++) {
+            EXPECT_FLOAT_EQ(GrainOrientationData_Host(n), ExpectedGrainOrientations[n]);
+        }
+    }
+}
+
 void testSubstrateInit_ConstrainedGrowth() {
 
     int id, np;
@@ -51,8 +102,7 @@ void testSubstrateInit_ConstrainedGrowth() {
 
     double FractSurfaceSitesActive = 0.5; // Each rank will have 2 active cells each, on average
     double RNGSeed = 0.0;
-    // Initialize grain orientations
-    std::string GrainOrientationFile = "GrainOrientationVectors_Robert.csv";
+    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors_Robert.csv", "Substrate", id);
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
     OrientationInit(id, NGrainOrientations, GrainUnitVector, GrainOrientationFile);
@@ -556,6 +606,7 @@ void testNucleiInit() {
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
+TEST(TEST_CATEGORY, orientation_init_tests) { testOrientationInit(); }
 TEST(TEST_CATEGORY, grain_init_tests) {
     testSubstrateInit_ConstrainedGrowth();
     testBaseplateInit_FromGrainSpacing();

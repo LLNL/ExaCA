@@ -32,5 +32,7 @@ void checkFileNotEmpty(std::string testfilename);
 void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst, double &CConst, double &DConst,
                        double &FreezingRange);
 std::string parseCoordinatePair(std::string line, int val);
+void OrientationInit(int id, int &NGrainOrientations, ViewF &ReadOrientationData, std::string GrainOrientationFile,
+                     int ValsPerLine = 9);
 
 #endif

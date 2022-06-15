@@ -57,7 +57,6 @@ void TempInit_Reduced(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, in
                       ViewF &UndercoolingChange, float XMin, float YMin, float ZMin, bool *Melted, float *ZMinLayer,
                       float *ZMaxLayer, int LayerHeight, int NumberOfLayers, int *FinishTimeStep, double FreezingRange,
                       ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData);
-void OrientationInit(int id, int NGrainOrientations, ViewF &GrainUnitVector, std::string GrainOrientationFile);
 void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx,
                                      int ny, int MyXOffset, int MyYOffset, NList NeighborX, NList NeighborY,
                                      NList NeighborZ, ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType,

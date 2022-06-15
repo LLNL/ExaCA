@@ -375,3 +375,40 @@ std::string parseCoordinatePair(std::string line, int val) {
     SplitStr = std::regex_replace(SplitStr, r, "");
     return SplitStr;
 }
+
+// Initialize grain orientations and unit vectors
+void OrientationInit(int, int &NGrainOrientations, ViewF &GrainOrientationData, std::string GrainOrientationFile, int ValsPerLine) {
+
+    // Read file of grain orientations
+    std::ifstream O;
+    O.open(GrainOrientationFile);
+
+    // Line 1 is the number of orientation values to read (if not specified already)
+    std::string ValueRead;
+    getline(O, ValueRead);
+    NGrainOrientations = getInputInt(ValueRead);
+    
+    // Temporary host view for storing grain orientations read from file
+    ViewF_H GrainOrientationData_Host(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData_H"), ValsPerLine * NGrainOrientations);
+    // Populate data structure for grain orientation data
+    for (int i = 0; i < NGrainOrientations; i++) {
+        std::string s;
+        if (!getline(O, s))
+            break;
+        std::istringstream ss(s);
+        int Comp = 0;
+        while (ss) { // This is the 3 grain orientation angles or 9 rotation matrix components
+            std::string s;
+            if (!getline(ss, s, ','))
+                break;
+            float ReadGO = atof(s.c_str());
+            GrainOrientationData_Host(ValsPerLine * i + Comp) = ReadGO;
+            Comp++;
+        }
+    }
+    O.close();
+
+    // Resize device view and orientation data to device
+    Kokkos::realloc(GrainOrientationData, ValsPerLine * NGrainOrientations);
+    GrainOrientationData = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainOrientationData_Host);
+}
