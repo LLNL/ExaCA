@@ -4,6 +4,7 @@ Path to/name of log (.log) file associated with the microstructure of interest: 
 Path to/name of microstructure (.vtk) file: TestProblemDirS.vtk
 Path to file of grain orientations (rotation matrix form): GrainOrientationVectors_Robert.csv
 Path to/base (without file extension) name of data files of output resulting from this analysis: TestProblemDirS
+Path to file of grain orientations (Bunge Euler angle form ZXZ): GrainOrientationEulerAnglesBungeZXZ.csv
 **********
 SECTION 1: ExaConstit representative volume elements: lines have the format [size, center x, center y, center z]
 Multiple RVEs can be printed as long as they are formatted as above and on separate lines
