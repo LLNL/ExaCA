@@ -125,7 +125,8 @@ void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H
 
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
-                    std::string &RotationFilename, std::string &OutputFileName) {
+                    std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
+                    bool &NewOrientationFormatYN) {
 
     // The analysis file should be in the analysis subdirectory of ExaCA
     std::cout << "Looking for analysis file: " << AnalysisFile << std::endl;
@@ -135,16 +136,24 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis, "*****");
 
-    std::vector<std::string> NamesOfFiles = {"name of log (.log) file", "name of microstructure (.vtk) file",
-                                             "file of grain orientations",
-                                             "name of data files of output resulting from this analysis"};
-    std::vector<std::string> FilesRead(4);
+    std::vector<std::string> NamesOfFiles = {
+        "name of log (.log) file", "name of microstructure (.vtk) file", "file of grain orientations (rotation",
+        "name of data files of output resulting from this analysis", "file of grain orientations (Bunge"};
+    std::vector<std::string> FilesRead(5);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         std::string line;
         std::getline(Analysis, line);
-        bool FileFound = parseInputFromList(line, NamesOfFiles, FilesRead, 4);
-        if (!(FileFound)) {
+        if (line == "**********")
+            break;
+        bool LineFound = parseInputFromList(line, NamesOfFiles, FilesRead, 5);
+        if (!(LineFound))
+            std::cout << "Warning: the line " << line
+                      << " did not match any analysis file options expected by ExaCA and will be ignored" << std::endl;
+    }
+    // Check that all required arguments were present
+    for (int i = 0; i < 4; i++) {
+        if (FilesRead[i].empty()) {
             std::string error = "Error: Required input " + NamesOfFiles[i] + " not found in analysis file";
             throw std::runtime_error(error);
         }
@@ -153,6 +162,16 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     MicrostructureFile = FilesRead[1];
     RotationFilename = FilesRead[2];
     OutputFileName = FilesRead[3];
+
+    // If the file of bunge convention euler angles was given, initialize this and set NewOrientationFormatYN to true;
+    // otherwise, set NewOrientationFormatYN to false
+    if (FilesRead[4].empty()) {
+        NewOrientationFormatYN = false;
+    }
+    else {
+        NewOrientationFormatYN = true;
+        EulerAnglesFilename = FilesRead[4];
+    }
     Analysis.close();
     // Path to file of grain orientations based on install/source location
     RotationFilename = checkFileInstalled(RotationFilename, "Substrate", 0);
@@ -160,6 +179,12 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     checkFileNotEmpty(LogFile);
     checkFileNotEmpty(MicrostructureFile);
     checkFileNotEmpty(RotationFilename);
+    // Same checks for EulerAnglesFilename, if given
+    if (NewOrientationFormatYN) {
+        EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, "Substrate", 0);
+        checkFileNotEmpty(EulerAnglesFilename);
+        std::cout << EulerAnglesFilename << std::endl;
+    }
 }
 
 void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID,
@@ -205,7 +230,8 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        std::vector<int> &ZHigh_RVE, int &NumberOfRVEs, std::vector<int> &CrossSectionPlane,
                        std::vector<int> &CrossSectionLocation, int &NumberOfCrossSections, int &XMin, int &XMax,
                        int &YMin, int &YMax, int &ZMin, int &ZMax, int nx, int ny, int nz, ViewI3D_H LayerID, ViewI3D_H,
-                       int NumberOfLayers) {
+                       int NumberOfLayers, std::vector<bool> &PrintSectionPF, std::vector<bool> &PrintSectionIPF,
+                       bool NewOrientationFormatYN) {
 
     int FullDomainCenterX = nx / 2;
     int FullDomainCenterY = ny / 2;
@@ -334,10 +360,29 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
         if (CSline == "**********")
             break;
 
-        std::string CS[2];
-        // Should be 2 inputs on this line - break it into its components
-        CS[0] = parseCoordinatePair(CSline, 0);
-        CS[1] = parseCoordinatePair(CSline, 1);
+        // Check for "old" format ([section type, coordinate out of plane]
+        // vs "new" format (section type, coordinate out of plane, print pole figure data Y/N, print IPF-colored
+        // cross-section data Y/N)
+        std::vector<std::string> CS(4);
+        if (NewOrientationFormatYN) {
+            // Should be 4 inputs on this line - break it into its components
+            parseCommaSeparatedArgs(AnalysisFile, CSline, CS);
+            if (CS[2] == "Y")
+                PrintSectionPF.push_back(true);
+            else
+                PrintSectionPF.push_back(false);
+            if (CS[3] == "Y")
+                PrintSectionIPF.push_back(true);
+            else
+                PrintSectionIPF.push_back(false);
+        }
+        else {
+            // Should be 2 inputs on this line - break it into its components
+            CS[0] = parseCoordinatePair(CSline, 0);
+            CS[1] = parseCoordinatePair(CSline, 1);
+            PrintSectionPF.push_back(false);
+            PrintSectionIPF.push_back(true);
+        }
         if (CS[0] == "XZ") {
             CrossSectionPlane.push_back(0);
             if (CS[1] == "END")
@@ -383,7 +428,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                 }
             }
         }
-        std::cout << ".ang (pyEBSD) Cross-section number " << NumberOfCrossSections << " has parsed string data "
+        std::cout << "Cross-section number " << NumberOfCrossSections << " has parsed string data "
                   << CrossSectionPlane[NumberOfCrossSections] << " " << CrossSectionLocation[NumberOfCrossSections]
                   << std::endl;
         NumberOfCrossSections++;
@@ -460,39 +505,4 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
             AnalysisTypes[i] = false;
     }
     Analysis.close();
-}
-
-void ParseGrainOrientationFiles(std::string RotationFilename, int NumberOfOrientations, ViewF3D_H GrainUnitVector) {
-
-    // Read file of rotation matrix form grain orientations
-    std::ifstream O;
-    O.open(RotationFilename);
-
-    // Line 1 is the number of orientation values to read (already known)
-    std::string ValueRead;
-    getline(O, ValueRead);
-
-    // Populate data structure for grain unit vectors
-    for (int i = 0; i < NumberOfOrientations; i++) {
-        std::string s;
-        if (!getline(O, s))
-            break;
-        std::istringstream ss(s);
-        int Comp = 0;
-        int UVNumber = 0;
-        while (ss) { // This is the 3 grain orientation angles
-            std::string s;
-            if (!getline(ss, s, ','))
-                break;
-            float ReadGO = atof(s.c_str());
-            // X,Y,Z of a single unit vector
-            GrainUnitVector(i, UVNumber, Comp) = ReadGO;
-            Comp++;
-            if (Comp > 2) {
-                Comp = 0;
-                UVNumber++;
-            }
-        }
-    }
-    O.close();
 }

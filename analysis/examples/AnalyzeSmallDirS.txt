@@ -12,15 +12,17 @@ Center x, center y, and center z are the location (in cells) of the center of th
 If no ExaConstit data should be printed, no lines should exist between the short and long lines of asterisks below
 *****
 **********
-SECTION 2: Cross-sections for MTEX inverse pole figure plots: lines have the format [plane, out of plane coordinate]
-Plane should be XY, YZ, or XZ
-Out of plane coordinate is the location of the plane (for example [XY, 100] would be the XY plane located at Z = 100)
+SECTION 2: Data for plotting microstructure using MTEX. Each line should consist of 4 comma-separated values
+Value 1 is the plane of interest, should be XY, YZ, or XZ
+Value 2 is the out of plane coordinate of the plane of interest (for example, "XY, 100" would be the XY plane located at Z = 100, in CA cells)
 If "D" is given as the out of plane coordinate, the plane that bisects the microstructure is chosen
-If "END" is given as the out of plane coordinate, the largest possible out of plane coordinate is used ([XY, END] gives the top surface)
+If "END" is given as the out of plane coordinate, the largest possible out of plane coordinate is used ("XY, END" gives the top surface)
+Value 3 is either Y or N, whether or not pole figure data should be printed for this cross-section
+Value 4 is either Y or N, whether or not EBSD-like inverse pole figure coloring data should be printed for this cross-section
 If no cross-section data should be printed, no lines should exist between the short and long lines of asterisks below
 *****
-[XZ, 10]
-[XY, END]
+XZ, 10, N, Y
+XY, END, Y, Y
 **********
 SECTION 3: Y/N Options for data analysis of representative regions
 X Bounds (in cells) [XLow, XHigh] (Putting "D" as either option will take the full size in X minus 50 cells from each edge)

@@ -376,8 +376,34 @@ std::string parseCoordinatePair(std::string line, int val) {
     return SplitStr;
 }
 
+// Separate ReadLine at commas and place components into ParsedLine, checking to make sure that the size of ParsedLine
+// is equal to the number of comma-separated values in ReadLine
+void parseCommaSeparatedArgs(std::string AnalysisFile, std::string ReadLine, std::vector<std::string> &ParsedLine) {
+
+    int ExpectedNumComponents = ParsedLine.size();
+    std::istringstream ss(ReadLine);
+    int Comp = 0;
+    while (ss) {
+        std::string s;
+        if (!getline(ss, s, ','))
+            break;
+        if (Comp == ExpectedNumComponents) {
+            std::string error = "Error: More comma-sepated components than expected on line in " + AnalysisFile;
+            throw std::runtime_error(error);
+        }
+        ParsedLine[Comp] = removeWhitespace(s);
+        Comp++;
+    }
+    if (Comp != ExpectedNumComponents) {
+        std::string error = "Error: Fewer comma-sepated components than expected on line in " + AnalysisFile +
+                            " (expected " + std::to_string(ExpectedNumComponents) + ")";
+        throw std::runtime_error(error);
+    }
+}
+
 // Initialize grain orientations and unit vectors
-void OrientationInit(int, int &NGrainOrientations, ViewF &GrainOrientationData, std::string GrainOrientationFile, int ValsPerLine) {
+void OrientationInit(int, int &NGrainOrientations, ViewF &GrainOrientationData, std::string GrainOrientationFile,
+                     int ValsPerLine) {
 
     // Read file of grain orientations
     std::ifstream O;
@@ -387,9 +413,10 @@ void OrientationInit(int, int &NGrainOrientations, ViewF &GrainOrientationData, 
     std::string ValueRead;
     getline(O, ValueRead);
     NGrainOrientations = getInputInt(ValueRead);
-    
+
     // Temporary host view for storing grain orientations read from file
-    ViewF_H GrainOrientationData_Host(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData_H"), ValsPerLine * NGrainOrientations);
+    ViewF_H GrainOrientationData_Host(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData_H"),
+                                      ValsPerLine * NGrainOrientations);
     // Populate data structure for grain orientation data
     for (int i = 0; i < NGrainOrientations; i++) {
         std::string s;

@@ -15,7 +15,7 @@
 
 //*****************************************************************************/
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
-                             int ZMin, int ZMax, ViewI3D_H Melted, ViewF3D_H GrainUnitVector, ViewI3D_H GrainID,
+                             int ZMin, int ZMax, ViewI3D_H Melted, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
                              int NumberOfOrientations) {
 
     // Frequency of misorientations in the selected region
@@ -36,7 +36,7 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
     for (int n = 0; n < NumberOfOrientations; n++) {
         double AngleZmin = 62.7;
         for (int ll = 0; ll < 3; ll++) {
-            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(n, ll, 2)));
+            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
             if (AngleZ < AngleZmin) {
                 AngleZmin = AngleZ;
             }
@@ -307,88 +307,163 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
 
 //*****************************************************************************/
 void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin, int XMax,
-                         int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H Melted) {
+                         int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H Melted,
+                         bool NewOrientationFormatYN, ViewF_H GrainEulerAngles) {
 
     if (AnalysisTypes[7]) {
 
         // Histogram of orientations for texture determination
-        std::ofstream MTEXPlot;
-        std::string FNameM = BaseFileName + "_MTEXOrientations.csv";
-        MTEXPlot.open(FNameM);
-        int *GOHistogram = new int[NumberOfOrientations];
-        for (int i = 0; i < NumberOfOrientations; i++) {
-            GOHistogram[i] = 0;
-        }
+        ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
         // frequency data on grain ids
         for (int k = ZMin; k <= ZMax; k++) {
             for (int j = YMin; j <= YMax; j++) {
                 for (int i = XMin; i <= XMax; i++) {
                     if (Melted(k, i, j)) {
                         int GOVal = (abs(GrainID(k, i, j)) - 1) % NumberOfOrientations;
-                        GOHistogram[GOVal]++;
+                        GOHistogram(GOVal)++;
                     }
                 }
             }
         }
-        for (int i = 0; i < NumberOfOrientations; i++) {
-            MTEXPlot << GOHistogram[i] << std::endl;
+        if (NewOrientationFormatYN) {
+            // Write pole figure data for this region using the new format
+            std::string FNameM = BaseFileName + "_PFVolumeX" + std::to_string(XMin) + "-" + std::to_string(XMax) + "Y" +
+                                 std::to_string(YMin) + "-" + std::to_string(YMax) + "Z" + std::to_string(ZMin) + "-" +
+                                 std::to_string(ZMax) + ".txt";
+            WritePoleFigureDataToFile(FNameM, NumberOfOrientations, GrainEulerAngles, GOHistogram);
         }
-        MTEXPlot.close();
+        else {
+            // Use the old format
+            std::ofstream MTEXPlot;
+            std::string FNameM = BaseFileName + "_MTEXOrientations.csv";
+            MTEXPlot.open(FNameM);
+            for (int i = 0; i < NumberOfOrientations; i++) {
+                MTEXPlot << GOHistogram[i] << std::endl;
+            }
+            MTEXPlot.close();
+        }
     }
 }
 
 //*****************************************************************************/
-void PrintInversePoleFigureCrossSections(int NumberOfCrossSections, std::string BaseFileName,
-                                         std::vector<int> CrossSectionPlane, std::vector<int> CrossSectionLocation,
-                                         int nx, int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID) {
+void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string BaseFileName,
+                                      std::vector<int> CrossSectionPlane, std::vector<int> CrossSectionLocation, int nx,
+                                      int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
+                                      std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
+                                      bool NewOrientationFormatYN, double deltax, ViewF_H, ViewF_H GrainEulerAngles) {
 
     // Loop over each cross-section specified in the file "AnalysisOutputs.txt"
     for (int n = 0; n < NumberOfCrossSections; n++) {
         // Print data for pyEBSD/MTEX
-        std::string CSType;
-        if (CrossSectionPlane[n] == 0)
-            CSType = "XZ";
-        else if (CrossSectionPlane[n] == 1)
-            CSType = "YZ";
-        else
-            CSType = "XY";
-        //        pyEBSD print routines in progress
-        //        std::string FNameCS1 = BaseFileName + std::to_string(n) + " " + CSType + "pyEBSDCrossSection.ang";
-        //        std::cout << "Cross-section number " << n+1 << " being printed to file " << FNameCS1 << " for pyEBSD"
-        //        << std::endl; std::ofstream GrainplotCS1; GrainplotCS1.open(FNameCS1); GrainplotCS1.close();
-
-        std::string FNameCS2 = BaseFileName + "-" + std::to_string(n) + "_" + CSType + "MTEXCrossSection.txt";
-        std::cout << "Cross-section number " << n + 1 << " being printed to file " << FNameCS2 << " for MTEX"
-                  << std::endl;
-        // Z = 0 cells are wall cells; physical solidification domain spans Z = 1 through Z = nz - 1
-        std::ofstream GrainplotCS2;
-        GrainplotCS2.open(FNameCS2);
-        if (CSType == "XZ") {
-            for (int i = 0; i < nx; i++) {
-                for (int k = 1; k < nz; k++) {
-                    int GOVal = (abs(GrainID(k, i, CrossSectionLocation[n])) - 1) % NumberOfOrientations;
-                    GrainplotCS2 << i << "," << k << "," << GOVal << std::endl;
-                }
-            }
+        std::string ThisCrossSectionPlane; // Which kind of cross-section is this?
+        int Index1Low = 0;
+        int Index2Low = 0;
+        int Index1High, Index2High; // Values depend on the cross-section axes: nx, ny, or nz
+        int ThisCrossSectionLocation = CrossSectionLocation[n]; // Cross-section location out-of-plane
+        if (CrossSectionPlane[n] == 0) {
+            ThisCrossSectionPlane = "XZ";
+            Index1High = nx;
+            Index2High = nz;
         }
-        else if (CSType == "YZ") {
-            for (int j = 0; j < ny; j++) {
-                for (int k = 1; k < nz; k++) {
-                    int GOVal = (abs(GrainID(k, CrossSectionLocation[n], j)) - 1) % NumberOfOrientations;
-                    GrainplotCS2 << j << "," << k << "," << GOVal << std::endl;
-                }
-            }
+        else if (CrossSectionPlane[n] == 1) {
+            ThisCrossSectionPlane = "YZ";
+            Index1High = ny;
+            Index2High = nz;
         }
         else {
-            for (int i = 0; i < nx; i++) {
-                for (int j = 0; j < ny; j++) {
-                    int GOVal = (abs(GrainID(CrossSectionLocation[n], i, j)) - 1) % NumberOfOrientations;
-                    GrainplotCS2 << i << "," << j << "," << GOVal << std::endl;
+            ThisCrossSectionPlane = "XY";
+            Index1High = nx;
+            Index2High = ny;
+        }
+
+        // Should pole figure data be printed for this cross-section?
+        // Should inverse pole figure-mapping data be printed for this cross-section?
+        if ((PrintSectionPF[n]) || (PrintSectionIPF[n])) {
+            // If the option was given in Section 2 analysis file, pole figure data here should be printed with the new
+            // format
+            std::cout << "Printing cross-section data for " << ThisCrossSectionPlane << " and with "
+                      << ThisCrossSectionLocation << " as the out of plane location" << std::endl;
+            std::string FNameIPF = BaseFileName + "-" + ThisCrossSectionPlane +
+                                   std::to_string(ThisCrossSectionLocation) + "_IPFCrossSection.txt";
+            std::ofstream GrainplotIPF;
+            ViewI GOHistogram("GOHistogram", NumberOfOrientations);
+            if (PrintSectionIPF[n]) {
+                GrainplotIPF.open(FNameIPF);
+                GrainplotIPF << std::fixed << std::setprecision(6);
+            }
+
+            for (int Index1 = Index1Low; Index1 < Index1High; Index1++) {
+                for (int Index2 = Index2Low; Index2 < Index2High; Index2++) {
+                    int Index3 = ThisCrossSectionLocation;
+                    // How do Index1, Index2, Index3 correspond to GrainID(Z loc, X loc, Yloc)?
+                    int ZLoc, XLoc, YLoc;
+                    if (ThisCrossSectionPlane == "XY") {
+                        XLoc = Index1;
+                        YLoc = Index2;
+                        ZLoc = Index3;
+                    }
+                    else if (ThisCrossSectionPlane == "YZ") {
+                        XLoc = Index3;
+                        YLoc = Index1;
+                        ZLoc = Index2;
+                    }
+                    else {
+                        XLoc = Index1;
+                        YLoc = Index3;
+                        ZLoc = Index2;
+                    }
+                    int GOVal = (abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % NumberOfOrientations;
+                    // If constructing pole figure data from these orientations, add this value to the frequency data
+                    if (PrintSectionPF[n])
+                        GOHistogram(GOVal)++;
+                    if (PrintSectionIPF[n]) {
+                        if (NewOrientationFormatYN) {
+                            // The grain structure is phase "1" - any unindexed points (which are possible from regions
+                            // that didn't undergo melting) are assigned phase "0"
+                            if (GOVal == -1)
+                                GrainplotIPF << "0 0 0 0 " << Index1 * deltax * pow(10, 6) << " "
+                                             << Index2 * deltax * pow(10, 6) << std::endl;
+                            else
+                                GrainplotIPF << GrainEulerAngles(3 * GOVal) << " " << GrainEulerAngles(3 * GOVal + 1)
+                                             << " " << GrainEulerAngles(3 * GOVal + 2) << " 1 "
+                                             << Index1 * deltax * pow(10, 6) << " " << Index2 * deltax * pow(10, 6)
+                                             << std::endl;
+                        }
+                        else {
+                            GrainplotIPF << Index1 * deltax * pow(10, 6) << "," << Index2 * deltax * pow(10, 6) << ","
+                                         << GOVal << std::endl;
+                        }
+                    }
                 }
             }
+            if (PrintSectionIPF[n])
+                GrainplotIPF.close();
+            if (PrintSectionPF[n]) {
+                std::string FNamePF = BaseFileName + "-" + ThisCrossSectionPlane +
+                                      std::to_string(ThisCrossSectionLocation) + "_PFCrossSection.txt";
+                WritePoleFigureDataToFile(FNamePF, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+            }
         }
-        GrainplotCS2.close();
     }
+}
+
+//*****************************************************************************/
+void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles,
+                               ViewI_H GOHistogram) {
+
+    // Using new format, write pole figure data to "Filename"
+    std::ofstream GrainplotPF;
+    GrainplotPF.open(Filename);
+    GrainplotPF << "% MTEX ODF" << std::endl;
+    GrainplotPF << "% crystal symmetry: \"m-3m\"" << std::endl;
+    GrainplotPF << "% specimen symmetry: \"43\"" << std::endl;
+    GrainplotPF << "% phi1    Phi     phi2    value" << std::endl;
+    GrainplotPF << std::fixed << std::setprecision(6);
+    for (int i = 0; i < NumberOfOrientations; i++) {
+        GrainplotPF << GrainEulerAngles(3 * i) << " " << GrainEulerAngles(3 * i + 1) << " "
+                    << GrainEulerAngles(3 * i + 2) << " " << (float)(GOHistogram(i)) << std::endl;
+    }
+    GrainplotPF.close();
 }
 
 //*****************************************************************************/

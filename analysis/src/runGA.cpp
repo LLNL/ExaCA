@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "runGA.hpp"
+#include "CAparsefiles.hpp"
+#include "CAtypes.hpp"
 #include "GAprint.hpp"
 #include "GAutils.hpp"
 
@@ -21,7 +23,8 @@
 int main(int argc, char *argv[]) {
 
     // Read command line input to obtain name of analysis file
-    std::string AnalysisFile, LogFile, MicrostructureFile, RotationFilename, OutputFileName;
+    bool NewOrientationFormatYN;
+    std::string AnalysisFile, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename, OutputFileName;
     double deltax;
     if (argc < 2) {
         throw std::runtime_error("Error: Full path to and name of analysis file must be given on the command line");
@@ -29,7 +32,10 @@ int main(int argc, char *argv[]) {
     else {
         AnalysisFile = argv[1];
         // Get path to/name of all files of interest by reading the analysis file
-        ParseFilenames(AnalysisFile, LogFile, MicrostructureFile, RotationFilename, OutputFileName);
+        // If the file of orientations is given in both rotation matrix and Euler angle form, it is assumed that the new
+        // output format is used for cross-section orientation data Otherwise, the old format is used
+        ParseFilenames(AnalysisFile, LogFile, MicrostructureFile, RotationFilename, OutputFileName, EulerAnglesFilename,
+                       NewOrientationFormatYN);
     }
     std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile
               << " and the options specified in " << AnalysisFile << std::endl;
@@ -58,10 +64,11 @@ int main(int argc, char *argv[]) {
         std::vector<int> XLow_RVE, XHigh_RVE, YLow_RVE, YHigh_RVE, ZLow_RVE,
             ZHigh_RVE; // Contains data on each individual RVE bounds
 
-        // Part 2: Determine the number of, and planes for, cross-sections to be analyzed by pyEBSD/MTEX
+        // Part 2: Determine the number of, and planes for, cross-sections
         int NumberOfCrossSections = 0;
-        std::vector<int> CrossSectionPlane, CrossSectionLocation; // Contains data on each individual ANG CrossSection
-
+        std::vector<int> CrossSectionPlane, CrossSectionLocation; // Contains data on each individual cross section
+        std::vector<bool> PrintSectionPF, PrintSectionIPF; // Whether or not to print pole figure or IPF-colormap data
+                                                           // for each individual cross section
         // Part 3: Analysis options on a representative region in x, y, and z (can be different than the x, y, and z for
         // ExaConstit)
         bool AnalysisTypes[8] = {0};            // which analysis modes other than the defaults should be considered?
@@ -72,28 +79,35 @@ int main(int argc, char *argv[]) {
         ParseAnalysisFile(AnalysisFile, RotationFilename, NumberOfOrientations, AnalysisTypes, XLow_RVE, XHigh_RVE,
                           YLow_RVE, YHigh_RVE, ZLow_RVE, ZHigh_RVE, NumberOfRVEs, CrossSectionPlane,
                           CrossSectionLocation, NumberOfCrossSections, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz,
-                          LayerID, Melted, NumberOfLayers);
+                          LayerID, Melted, NumberOfLayers, PrintSectionPF, PrintSectionIPF, NewOrientationFormatYN);
 
-        // Allocate memory for grain unit vectors (NumberOfOrientations by 3 by 3)
-        ViewF3D_H GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), NumberOfOrientations, 3,
-                                  3);
+        // Allocate memory for grain unit vectors, grain euler angles (9*NumberOfOrientations and 3*NumberOfOrientations
+        // in size, respectively)
+        ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NumberOfOrientations);
+        ViewF GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"), 3 * NumberOfOrientations);
 
-        ParseGrainOrientationFiles(RotationFilename, NumberOfOrientations, GrainUnitVector);
-
+        // Initialize, then copy back to host. GrainEulerAngles only used with new input file format
+        OrientationInit(0, NumberOfOrientations, GrainUnitVector, RotationFilename, 9);
+        ViewF_H GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
+        if (NewOrientationFormatYN) {
+            OrientationInit(0, NumberOfOrientations, GrainEulerAngles, EulerAnglesFilename, 3);
+        }
+        ViewF_H GrainEulerAngles_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainEulerAngles);
         // Analysis routines
         // Part 1: ExaConstit-specific RVE(s)
         PrintExaConstitRVEData(NumberOfRVEs, OutputFileName, nx, ny, nz, deltax, GrainID, XLow_RVE, XHigh_RVE, YLow_RVE,
                                YHigh_RVE, ZLow_RVE, ZHigh_RVE); // if > 0 RVEs, print file(s) "n_ExaConstit.csv"
 
-        // Part 2: Cross-sections for inverse pole figures
-        PrintInversePoleFigureCrossSections(NumberOfCrossSections, OutputFileName, CrossSectionPlane,
-                                            CrossSectionLocation, nx, ny, nz, NumberOfOrientations, GrainID);
+        // Part 2: Cross-sections for pole figures and inverse pole figure coloring maps of microstructure
+        PrintCrossSectionOrientationData(NumberOfCrossSections, OutputFileName, CrossSectionPlane, CrossSectionLocation,
+                                         nx, ny, nz, NumberOfOrientations, GrainID, PrintSectionPF, PrintSectionIPF,
+                                         NewOrientationFormatYN, deltax, GrainUnitVector_Host, GrainEulerAngles_Host);
 
         // Part 3: Representative volume grain statistics
         // Print data to std::out and if analysis option 0 is toggled, to the file
         // "[OutputFileName]_MisorientationFrequency.csv"
         PrintMisorientationData(AnalysisTypes, OutputFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, Melted,
-                                GrainUnitVector, GrainID, NumberOfOrientations);
+                                GrainUnitVector_Host, GrainID, NumberOfOrientations);
         // Print data to std::out and if analysis options 1, 2, or 5 are toggled, print data to files
         // "[OutputFileName]_VolumeFrequency.csv", "[OutputFileName]_AspectRatioFrequency.csv", and
         // [OutputFileName]_GrainHeightDistribution.csv", respectively
@@ -106,7 +120,7 @@ int main(int argc, char *argv[]) {
         // If analysis option 7 is toggled, print orientation data to files "[OutputFileName]_pyEBSDOrientations.csv"
         // and "[OutputFileName]_MTEXOrientations.csv"
         PrintPoleFigureData(AnalysisTypes, OutputFileName, NumberOfOrientations, XMin, XMax, YMin, YMax, ZMin, ZMax,
-                            GrainID, Melted);
+                            GrainID, Melted, NewOrientationFormatYN, GrainEulerAngles_Host);
     }
     // Finalize kokkos and end program
     Kokkos::finalize();
