@@ -136,9 +136,10 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis, "*****");
 
-    std::vector<std::string> NamesOfFiles = {
-        "name of log (.log) file", "name of microstructure (.vtk) file", "file of grain orientations (rotation",
-        "name of data files of output resulting from this analysis", "file of grain orientations (Bunge"};
+    std::vector<std::string> NamesOfFiles = {"name of log (.log) file", "name of microstructure (.vtk) file",
+                                             "file of grain orientations (rotation matrix form)",
+                                             "name of data files of output resulting from this analysis",
+                                             "file of grain orientations (Bunge Euler angle form ZXZ)"};
     std::vector<std::string> FilesRead(5);
 
     for (int i = 0; i < 5; i++) {
