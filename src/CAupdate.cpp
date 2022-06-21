@@ -129,9 +129,10 @@ void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCou
 //*****************************************************************************/
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step
-void FillSteeringVector(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, ViewI CritTimeStep,
-                        ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
-                        int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host) {
+void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, ViewI CritTimeStep,
+                                 ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
+                                 int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer,
+                                 ViewI_H numSteer_Host) {
 
     // Cells associated with this layer that are not solid type but have passed the liquidus (crit time step) have their
     // undercooling values updated Cells that meet the aforementioned criteria and are active type should be added to

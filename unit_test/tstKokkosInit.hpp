@@ -293,7 +293,7 @@ void testPowderInit() {
         EXPECT_LT(GrainID_H(i), NextLayer_FirstEpitaxialGrainID);
     }
 }
-void testCellTypeInit() {
+void testCellTypeInit_NoRemelt() {
 
     int id, np;
     // Get number of processes
@@ -400,12 +400,13 @@ void testCellTypeInit() {
     Buffer2D BufferSouthWestSend("BufferSouthWestSend", nzActive, 5);
 
     // Initialize cell types and active cell data structures
-    CellTypeInit(layernumber, id, np, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nz,
-                 LocalActiveDomainSize, LocalDomainSize, CellType, CritTimeStep, NeighborX, NeighborY, NeighborZ,
-                 NGrainOrientations, GrainUnitVector, DiagonalLength, GrainID, CritDiagonalLength, DOCenter, LayerID,
-                 BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend,
-                 BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary,
-                 AtSouthBoundary, AtEastBoundary, AtWestBoundary);
+    CellTypeInit_NoRemelt(layernumber, id, np, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
+                          ZBound_Low, nz, LocalActiveDomainSize, LocalDomainSize, CellType, CritTimeStep, NeighborX,
+                          NeighborY, NeighborZ, NGrainOrientations, GrainUnitVector, DiagonalLength, GrainID,
+                          CritDiagonalLength, DOCenter, LayerID, BufferWestSend, BufferEastSend, BufferNorthSend,
+                          BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
+                          BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
+                          AtWestBoundary);
 
     // Copy views back to host to check the results
     ViewF_H DiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DiagonalLength);
@@ -762,105 +763,6 @@ void testNucleiInit(bool RemeltingYN) {
     }
 }
 
-// Test moved from tstInit.hpp to this file, as it now includes kokkos view allocation and value checking
-void testReadTemperatureData() {
-
-    int id, np;
-    // Get number of processes
-    MPI_Comm_size(MPI_COMM_WORLD, &np);
-    // Get individual process ID
-    MPI_Comm_rank(MPI_COMM_WORLD, &id);
-    // Create test data
-    double deltax = 1 * pow(10, -6);
-    double HT_deltax = 1 * pow(10, -6);
-    int HTtoCAratio;
-    // Domain size in y is variable based on the number of ranks
-    // Each MPI rank contains a 3 by 3 subdomain
-    int nx = 6;
-    int ny = 3 * (1 + np / 2);
-    // Each rank gets 1/(number of ranks) of the overall domain
-    int MyXSlices = 3;
-    int MyYSlices = 3;
-    int ProcRow, ProcCol, MyXOffset, MyYOffset;
-    if (id % 2 == 0) {
-        ProcRow = 0;   // even ranks
-        MyXOffset = 0; // no offset in X: contains X = 0-3
-    }
-    else {
-        ProcRow = 1;   // odd ranks
-        MyXOffset = 3; // X = 3 offset, contains X = 4-6
-    }
-    ProcCol = id / 2;        // Ranks 0-1 in 0th col, 2-3 in 1st col, 4-5 in 2nd col, etc
-    MyYOffset = 3 * ProcCol; // each col is separated from the others by 3 cells
-    float XMin = 0.0;
-    float YMin = 0.0;
-    std::string TestTempFileName = "TestData.txt";
-    std::vector<std::string> temp_paths(1);
-    temp_paths[0] = TestTempFileName;
-    int NumberOfLayers = 1;
-    int TempFilesInSeries = 1;
-    int *FirstValue = new int[NumberOfLayers];
-    int *LastValue = new int[NumberOfLayers];
-    unsigned int NumberOfTemperatureDataPoints = 0;
-    // Write fake OpenFOAM data - only rank 0.
-    if (id == 0) {
-        std::ofstream TestDataFile;
-        TestDataFile.open(TestTempFileName);
-        TestDataFile << "x, y, z, tm, tl, cr" << std::endl;
-        for (int j = 0; j < ny; j++) {
-            for (int i = 0; i < nx; i++) {
-                TestDataFile << i * deltax << "," << j * deltax << "," << 0.0 << "," << (float)(i * j) << ","
-                             << (float)(i * j + i) << "," << (float)(i * j + j) << std::endl;
-            }
-        }
-        TestDataFile.close();
-    }
-    // Wait for data to be printed before continuing
-    MPI_Barrier(MPI_COMM_WORLD);
-    // Read in data to "RawData"
-    std::vector<double> RawData(12);
-
-    float *ZMinLayer = new float[NumberOfLayers];
-    float *ZMaxLayer = new float[NumberOfLayers];
-    ZMinLayer[0] = 0.0;
-    ZMaxLayer[0] = 0.0;
-    ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin,
-                        temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
-                        FirstValue, LastValue);
-
-    // Check the results.
-    // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr) for
-    // each of the 9 cells in the subdomain
-    EXPECT_EQ(NumberOfTemperatureDataPoints, 54);
-    // Ratio of HT cell size and CA cell size should be 1
-    EXPECT_EQ(HTtoCAratio, 1);
-    int NumberOfCellsPerRank = 9;
-    // Does each rank have the right temperature data values?
-    for (int n = 0; n < NumberOfCellsPerRank; n++) {
-        double ExpectedValues_ThisDataPoint[6];
-        // Location on local grid
-        int CARow = n % 3;
-        int CACol = n / 3;
-        // X Coordinate
-        ExpectedValues_ThisDataPoint[0] = (CARow + 3 * ProcRow) * deltax;
-        // Y Coordinate
-        ExpectedValues_ThisDataPoint[1] = (CACol + 3 * ProcCol) * deltax;
-        // Z Coordinate
-        ExpectedValues_ThisDataPoint[2] = 0.0;
-        int XInt = ExpectedValues_ThisDataPoint[0] / deltax;
-        int YInt = ExpectedValues_ThisDataPoint[1] / deltax;
-        // Melting time
-        ExpectedValues_ThisDataPoint[3] = XInt * YInt;
-        // Liquidus time
-        ExpectedValues_ThisDataPoint[4] = XInt * YInt + XInt;
-        // Cooling rate
-        ExpectedValues_ThisDataPoint[5] = XInt * YInt + YInt;
-        for (int nn = 0; nn < 6; nn++) {
-            EXPECT_DOUBLE_EQ(ExpectedValues_ThisDataPoint[nn], RawData[6 * n + nn]);
-        }
-    }
-}
-
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
@@ -874,7 +776,7 @@ TEST(TEST_CATEGORY, grain_init_tests) {
     testPowderInit();
 }
 TEST(TEST_CATEGORY, cell_init_test) {
-    testCellTypeInit();
+    testCellTypeInit_NoRemelt();
     testCellTypeInit_Remelt();
 }
 TEST(TEST_CATEGORY, nuclei_init_test) {
@@ -882,6 +784,4 @@ TEST(TEST_CATEGORY, nuclei_init_test) {
     testNucleiInit(true);
     testNucleiInit(false);
 }
-TEST(TEST_CATEGORY, temperature_init_test) { testReadTemperatureData(); }
-
 } // end namespace Test
