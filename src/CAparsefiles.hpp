@@ -35,7 +35,5 @@ void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst,
                        double &FreezingRange);
 std::string parseCoordinatePair(std::string line, int val);
 void parseCommaSeparatedArgs(std::string AnalysisFile, std::string ReadLine, std::vector<std::string> &ParsedLine);
-void OrientationInit(int id, int &NGrainOrientations, ViewF &ReadOrientationData, std::string GrainOrientationFile,
-                     int ValsPerLine = 9);
 
 #endif
