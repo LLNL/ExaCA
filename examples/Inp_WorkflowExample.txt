@@ -10,14 +10,9 @@ Standard deviation of nucleation undercooling: 0.5
 Path to output:./
 Output file base name:ExaCA_workflowoutput
 File of grain orientations:GrainOrientationVectors_Robert.csv
-Heat transport data mesh size: 5
 Time step: 0.3
 Substrate grain spacing: 25
-Path to temperature file(s): examples/Temperatures
-Temperature filename(s): leg.txt
-Number of temperature files: 2
-Number of layers: 20
-Offset between layers: 6
+Path to and name of temperature field assembly instructions: examples/Temperatures/T_WorkflowExample.txt
 ***Output data printing options: (Y or N) which data should be printed***
 Print file of grain misorientation values: N
 Print file of all ExaCA data: Y

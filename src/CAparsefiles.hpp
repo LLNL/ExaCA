@@ -20,7 +20,12 @@ double getInputDouble(std::string val_input, int factor = 0);
 void splitString(std::string line, std::vector<std::string> &parsed_line, std::string separator = ",");
 void checkForHeaderValues(std::string header_line);
 void getTemperatureDataPoint(std::string s, std::vector<double> &XYZTemperaturePoint);
-void getTemperatureFilePaths(const std::string path, const std::string name, std::vector<std::string> &all_paths);
+void parseTemperatureInput_Old(std::vector<std::string> DeprecatedInputs, std::vector<std::string> DeprecatedInputsRead,
+                               int NumDeprecatedInputs, std::vector<bool> DeprecatedInputs_RequiredYN,
+                               int &TempFilesInSeries, int &NumberOfLayers, int &LayerHeight, double deltax,
+                               double &HT_deltax, std::vector<std::string> &temp_paths);
+void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &TempFilesInSeries, int &NumberOfLayers,
+                           int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths);
 bool checkFileExists(const std::string path, const std::string type, const int id, const bool error = true);
 std::string checkFileInstalled(const std::string name, const std::string type, const int id);
 void checkFileNotEmpty(std::string testfilename);

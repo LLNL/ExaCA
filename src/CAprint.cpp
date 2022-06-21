@@ -642,8 +642,8 @@ void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutpu
 void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int DecompositionStrategy,
                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, double AConst, double BConst,
                    double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN,
-                   double dTsigma, std::string tempfile, int TempFilesInSeries, double HT_deltax, bool RemeltingYN,
-                   double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
+                   double dTsigma, std::vector<std::string> temp_paths, int TempFilesInSeries, double HT_deltax,
+                   bool RemeltingYN, double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
                    double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
                    double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
                    int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
@@ -703,8 +703,11 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
             else
                 ExaCALog << "The mean substrate grain size was " << SubstrateGrainSpacing << " microns" << std::endl;
             if (SimulationType == "R") {
-                ExaCALog << "The " << TempFilesInSeries << " temperature file(s) used had the name " << tempfile
-                         << std::endl;
+                ExaCALog << "The " << TempFilesInSeries << " temperature file(s) repeated in the " << NumberOfLayers
+                         << " layer simulation were: " << std::endl;
+                for (int i = 0; i < TempFilesInSeries; i++) {
+                    std::cout << temp_paths[i] << std::endl;
+                }
                 ExaCALog << "The temperature data resolution was " << HT_deltax << " microns" << std::endl;
             }
         }

@@ -3,13 +3,14 @@ ExaCA currently can model three types of problems:
 
 * Problem type C is a directional solidification problem, with the bottom surface initialized with some fraction of sites home to epitaxial grains and at the liquidus temperature and a positive thermal gradient in the +Z direction. The domain is then cooled at a constant rate. 
 * Problem type S is an array of hemispherical spots, with the number of spots in X, Y, and the number of layers for which the pattern is repeated (offset by a specified number of cells in the positive Z direction) specified. This problem type also uses fixed thermal gradient magnitude and cooling rate for each spot. 
-* Problem type R is a custom solidification problem using time-temperature history file(s) (default location is `examples/Temperatures`). The time-temperature history can consist of one file, repeated "Number of Layers" times, with each additional layer offset by "Layer height" cells in the +Z direction, or a pattern of temperature files. For example, if a simulation with alternating even and odd layer time-temperature histories is desired, the file names should be prepended with "1" and "2", and the "Number of temperature files in series" line in the input file should be set to 2. The temperature files should be of the following form:
+* Problem type R is a custom solidification problem using time-temperature history file(s) (default location is `examples/Temperatures`). The format of these files are as follows:
     * The first line should be the names of the columns: x, y, z, tm, tl, cr
     * Each line following the first should have six comma-separated values corresponding to x, y, z, tm, tl, cr. x, y, and z are cell coordinates, in meters, of a given location in the simulation. The spacing between locations should correpond to a Cartesian grid, with a cell size equivalent to that specified in the input file. For each time that an x,y,z coordinate went above and below the liqiuidus temperature of the alloy during a heat transport simulation, a tm (time at which the point went above the liquidus), tl (time at which the point went below the liquidus), and cr (instantaneous cooling rate at the liquidus) should be recorded. 
     * If an x,y,z coordinate melted and solidified multiple times, it should appear in the file multiple times on separate lines. The order of the lines do not matter, except that the header line must be before any data.
     * The top surface (the largest Z coordinate in a file) is assumed to be flat. Additionally, if multiple temperature files are being used (for example, a scan pattern consisting of 10 layers of repeating even and odd file data), the Z coordinate corresponding to this flat top surface should be the same for all files.
-    
+
 All problem types will rely on two additional files. `examples/Materials/Inconel625` is a file containing the interfacial response function data governing solidification rate as a function of undercooling - if a different interfacial response function of the same form is desired, this line in an input file can be changed, and a new Materials file can be created using the Inconel625 file as a template. `examples/Substrate/GrainOrientationVectors_Robert.csv` is a file of grain orientations: the first line is the number of orientations (10000), and each additional line is a list of unit vectors corresponding to a cubic grain's <001> directions in the form 'x1, y1, z1, x2, y2, z2, x3, y3, z3', where the coordinate system used is taken as the ExaCA reference frame. The distribution of orientations is approximately even. Like the material file, the orientation file could be swapped out with one consisting of more (or fewer) orientations, following GrainOrientationVectors_Robert.csv as a template.
+Problems of type R rely on an additional file, with the path and name of this file given in the master input file. Examples of these temperature field assembly files are given in `examples/Temperatures/T_SimpleRaster.txt` and `examples/Temperatures/T_AMBenchMultilayer.txt`.
 
 # ExaCA input files
 The .txt files in the examples subdirectory are provided on the command line to let ExaCA know which problem is being simulated. Any lines prior to the first string of asterisks are ignored, as are any lines starting with an asterisk.
@@ -79,14 +80,20 @@ Some additional inputs are optional while others are required. As was the case f
 | Substrate grain spacing | Y/N | Mean spacing between grain centers in the baseplate/substrate (in microns) (either this OR Sub filename should be given, but not both)
 | Substrate filename      | Y/N | Filename (including path) for substrate data (either this OR Sub grain size should be provided, but not both)
 | Time step         | Y | CA time step, in microseconds
-| Temperature filename(s) | Y | Name of temperature file(s) (assumed glob before the given name if Number of temperature files > 1)
-| Number of temperature files | Y | Number of temperature files used
-| Number of layers  | Y | Number of times the pattern of "Temperature filename"/Number of temperature files pattern is repeated, offset in the +Z (build) direction
-| Offset between layers | Y | If Number of layers > 1, the number of CA cells should separate adjacent layers
-| Extra set of wall cells in lateral domain directions | Y | (Y or N value) should wall cells bound the domain in X and Y, rather than substrate grains (Y or N)?
-| Heat transport data mesh size | N | Resolution of temperature data provided, in microns (if argument not provided, assumed to be equal to CA cell size)
-| Path to temperature file(s) | N | Location of temperature data (if not provided, assumed to be located in examples/Temperatures)
+| Path to and name of temperature field assembly instructions | Y | Additional file containing information on the temperature data
 | default RVE output | N | Whether or not to print representative volume element (RVE) data for ExaConstit, for a 0.5 cubic mm region in the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure
+
+The input "Extra set of wall cells", used in previous versions of ExaCA to create a set of wall cells "padding" the temperature data at the domain's X and Y boundaries, is deprecated and no longer has an effect.
+Additional information regarding the temperature field is provided inside the auxiliary file specified on the "Path to and name of temperature field assembly instructions" line. A temperature field construction file contains the following additional specifications:
+
+|Input              | Required Y/N | Details |
+|-------------------| - |---------|
+| Number of layers  | Y | Number of times the files specified in the second half of this file will be repeated, with each temperature field offset in the +Z (build) direction
+| Offset between layers | Y | If Number of layers > 1, the number of CA cells should separate adjacent layers
+| Heat transport data mesh size | N | Resolution of temperature data provided, in microns (if argument not provided, assumed to be equal to CA cell size)
+
+A comment line starting with an asterisk separates the first half of the file, containing the above data, from the bottom half. The bottom half of the file consists of the temperature files (including the paths) used in construction of the temperature field. If there is one file, that temperature field will be repeated, offset by "Offset between Layers" cells in the build direction, for "Number of layers" layers. If there are multiple files, those temperature fields will be repeated in the same manner. For example, if there are two lines below the asterisks, "Even.txt" and "Odd.txt", Offset between layers = 5, and Number of layers = 7, layers 0, 2, 4, and 6 will use "Even.txt" data and layers 1, 3, and 5 will use "Odd.txt" data. ExaCA will offset the Z coordinates of each layer by 5 cells relative to the previous one; as a result, "Odd.txt" should not have a built in offset in the Z direction from "Even.txt", as this would result in the offset being added in twice. Examples temperature construction files are given in `examples/Temperatures/T_SimpleRaster.txt` and `examples/Temperatures/T_AMBenchMultilayer.txt`. 
+The deprecated form for temperature field input data, where these 3 input lines exist in the top level input file, alongside inputs "Number of temperature files in series: N" and "Temperature filename(s): Data.txt" (which would indicate reading temperature data from files "1Data.txt", "2Data.txt".... "NData.txt", is still allowed but will be removed in a future release.
 
 ## Additional optional inputs for all problem types 
 These values govern the printing intermediate data, for debugging or visualization, either following initialization or at specified increments during simulation
