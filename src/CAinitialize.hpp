@@ -23,7 +23,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
                        bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
                        bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                       bool &PrintDefaultRVE, double &RNGSeed);
+                       bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderDensity);
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
                    std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
@@ -100,13 +100,14 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
                                      bool AtWestBoundary);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
-                            int MyYOffset, int pid, ViewI &GrainID);
+                            int MyYOffset, int pid, ViewI &GrainID, int nzActive, bool BaseplateThroughPowder);
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
                                     int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, double deltax,
-                                    ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID);
+                                    ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID, int nz,
+                                    double BaseplateThroughPowder);
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
                 int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
-                int &NextLayer_FirstEpitaxialGrainID);
+                int &NextLayer_FirstEpitaxialGrainID, double PowderDensity);
 void CellTypeInit_Remelt(int MyXSlices, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI CritTimeStep,
                          int id, int ZBound_Low);
 void CellTypeInit_NoRemelt(int layernumber, int id, int np, int DecompositionStrategy, int MyXSlices, int MyYSlices,

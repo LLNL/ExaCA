@@ -33,7 +33,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
                        bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
                        bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                       bool &PrintDefaultRVE, double &RNGSeed) {
+                       bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderDensity) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -115,18 +115,22 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         RequiredInputs_ProblemSpecific[6] = "Radii of spots";
         RequiredInputs_ProblemSpecific[7] = "Number of layers";
         RequiredInputs_ProblemSpecific[8] = "Offset between layers";
-        OptionalInputs_ProblemSpecific.resize(2);
+        OptionalInputs_ProblemSpecific.resize(4);
         OptionalInputs_ProblemSpecific[0] = "Substrate grain spacing";
         OptionalInputs_ProblemSpecific[1] = "Substrate filename";
+        OptionalInputs_ProblemSpecific[2] = "Extend baseplate through layers";
+        OptionalInputs_ProblemSpecific[3] = "Density of powder surface sites active";
     }
     else if (SimulationType == "R") {
         RequiredInputs_ProblemSpecific.resize(2);
         RequiredInputs_ProblemSpecific[0] = "Time step";
         RequiredInputs_ProblemSpecific[1] = "Path to and name of temperature field assembly instructions";
-        OptionalInputs_ProblemSpecific.resize(3);
+        OptionalInputs_ProblemSpecific.resize(5);
         OptionalInputs_ProblemSpecific[0] = "Substrate grain spacing";
         OptionalInputs_ProblemSpecific[1] = "Substrate filename";
         OptionalInputs_ProblemSpecific[2] = "default RVE output";
+        OptionalInputs_ProblemSpecific[3] = "Extend baseplate through layers";
+        OptionalInputs_ProblemSpecific[4] = "Density of powder surface sites active";
         DeprecatedInputs_ProblemSpecific.resize(7);
         DeprecatedInputs_ProblemSpecific[0] = "Path to temperature file(s)";
         DeprecatedInputs_ProblemSpecific[1] = "Temperature filename";
@@ -249,6 +253,22 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         if (!(RequiredInputsRead_ProblemSpecific[1].empty()))
             parseTInstuctionsFile(id, TemperatureFieldInstructions, TempFilesInSeries, NumberOfLayers, LayerHeight,
                                   deltax, HT_deltax, temp_paths);
+        if ((OptionalInputsRead_ProblemSpecific[3].empty()))
+            BaseplateThroughPowder = false; // defaults to using baseplate only for layer 0 substrate
+        else
+            BaseplateThroughPowder = getInputBool(OptionalInputsRead_ProblemSpecific[3]);
+        if ((OptionalInputsRead_ProblemSpecific[4].empty()))
+            PowderDensity = 1.0; // defaults to a unique grain at each site in the powder layers
+        else {
+            PowderDensity =
+                getInputDouble(OptionalInputsRead_ProblemSpecific[4], 12) / (1.0 / (deltax * deltax * deltax));
+            if ((PowderDensity < 0.0) || (PowderDensity > 1.0))
+                throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
+                                         "than 1/(CA cell volume)");
+            if (BaseplateThroughPowder)
+                throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers it "
+                                         "toggled, a powder density cannot be given");
+        }
         if (id == 0) {
             std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
             std::cout << "The time step is " << deltat << " seconds" << std::endl;
@@ -294,6 +314,23 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         nz = SpotRadius + 1 + (NumberOfLayers - 1) * LayerHeight;
         nx = 2 * SpotRadius + 1 + SpotOffset * (NSpotsX - 1);
         ny = 2 * SpotRadius + 1 + SpotOffset * (NSpotsY - 1);
+        if ((OptionalInputsRead_ProblemSpecific[2].empty()))
+            BaseplateThroughPowder = false; // defaults to using baseplate only for layer 0 substrate
+        else
+            BaseplateThroughPowder = getInputBool(OptionalInputsRead_ProblemSpecific[2]);
+        if ((OptionalInputsRead_ProblemSpecific[3].empty()))
+            PowderDensity =
+                1.0 / (deltax * deltax * deltax); // defaults to a unique grain at each site in the powder layers
+        else {
+            PowderDensity =
+                getInputDouble(OptionalInputsRead_ProblemSpecific[3], 12) * (1.0 / (deltax * deltax * deltax));
+            if ((PowderDensity < 0.0) || (PowderDensity > 1.0))
+                throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
+                                         "than 1/(CA cell volume)");
+            if (BaseplateThroughPowder)
+                throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers it "
+                                         "toggled, a powder density cannot be given");
+        }
         if (id == 0) {
             std::cout << "CA Simulation using a radial, fixed thermal gradient of " << G
                       << " K/m as a series of hemispherical spots, and a cooling rate of " << R << " K/s" << std::endl;
@@ -1852,7 +1889,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
 
 // Initializes Grain ID values where the substrate comes from a file
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
-                            int MyYOffset, int id, ViewI &GrainID_Device) {
+                            int MyYOffset, int id, ViewI &GrainID_Device, int nzActive, bool BaseplateThroughPowder) {
 
     // Assign GrainID values to cells that are part of the substrate - read values from file and initialize using
     // temporary host view
@@ -1864,6 +1901,11 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
     int Substrate_LowY = MyYOffset;
     int Substrate_HighY = MyYOffset + MyYSlices;
     int nxS, nyS, nzS;
+    int BaseplateSizeZ; // in CA cells
+    if (BaseplateThroughPowder)
+        BaseplateSizeZ = nz; // baseplate microstructure used as entire domain's initial condition
+    else
+        BaseplateSizeZ = nzActive; // baseplate microstructure is layer 0's initial condition
     std::string s;
     getline(Substrate, s);
     std::size_t found = s.find("=");
@@ -1877,11 +1919,11 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
     found = s.find("=");
     str = s.substr(found + 1, s.length() - 1);
     nxS = stoi(str, nullptr, 10);
-    if ((id == 0) && (nzS < nz)) {
+    if ((id == 0) && (nzS < BaseplateSizeZ)) {
         // Do not allow simulation if there is inssufficient substrate data in the specified file
         std::string error = "Error: only " + std::to_string(nzS) +
                             " layers of substrate data are present in the file " + SubstrateFileName + " ; at least " +
-                            std::to_string(nz) +
+                            std::to_string(BaseplateSizeZ) +
                             " layers of substrate data are required to simulate the specified solidification problem";
         throw std::runtime_error(error);
     }
@@ -1889,7 +1931,7 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
     // Assign GrainID values to all cells - cells that will be part of the melt pool footprint may still need their
     // initial GrainID
     for (int k = 0; k < nzS; k++) {
-        if (k == nz)
+        if (k == BaseplateSizeZ)
             break;
         for (int j = 0; j < nyS; j++) {
             for (int i = 0; i < nxS; i++) {
@@ -1913,14 +1955,19 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
                                     int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, double deltax,
-                                    ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID) {
+                                    ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID, int nz,
+                                    double BaseplateThroughPowder) {
 
     // Seed random number generator such that each rank generates the same baseplate grain center locations
     // Calls to Xdist(gen), Ydist(gen), Zdist(gen) return random locations for grain seeds
     // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
     // -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5
-    // Baseplate size in Z corresponds to the Z coordinates of layer 0
-    int BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1;
+    int BaseplateSizeZ; // in CA cells
+    if (BaseplateThroughPowder)
+        BaseplateSizeZ = nz; // baseplate microstructure used as entire domain's initial condition
+    else
+        BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) +
+                         1; // baseplate microstructure is layer 0's initial condition
     std::mt19937_64 gen(RNGSeed);
     std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
     std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
@@ -2001,7 +2048,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 // the edges of partially melted powder particles)
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
                 int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
-                int &NextLayer_FirstEpitaxialGrainID) {
+                int &NextLayer_FirstEpitaxialGrainID, double PowderDensity) {
 
     // On all ranks, generate list of powder grain IDs (starting with NextLayer_FirstEpitaxialGrainID, and shuffle them
     // so that their locations aren't sequential and depend on the RNGSeed (different for each layer)
@@ -2009,32 +2056,37 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLay
     std::uniform_real_distribution<double> dis(0.0, 1.0);
 
     // TODO: This should be performed on the device, rather than the host
-    int PowderLayerActiveCells = nx * ny * LayerHeight;
-    std::vector<int> PowderGrainIDs(PowderLayerActiveCells);
-    for (int n = 0; n < PowderLayerActiveCells; n++) {
-        PowderGrainIDs[n] = n + NextLayer_FirstEpitaxialGrainID;
+    int PowderLayerCells = nx * ny * LayerHeight;
+    int PowderLayerAssignedCells = round((double)(PowderLayerCells)*PowderDensity);
+    std::vector<int> PowderGrainIDs(PowderLayerCells, 0);
+    for (int n = 0; n < PowderLayerAssignedCells; n++) {
+        PowderGrainIDs[n] = n + NextLayer_FirstEpitaxialGrainID; // assigned a nonzero GrainID
     }
     std::shuffle(PowderGrainIDs.begin(), PowderGrainIDs.end(), gen);
     // Copy powder layer GrainIDs into a host view, then a device view
-    ViewI_H PowderGrainIDs_Host(Kokkos::ViewAllocateWithoutInitializing("PowderGrainIDs_Host"), nx * ny * LayerHeight);
-    for (int n = 0; n < PowderLayerActiveCells; n++) {
+    ViewI_H PowderGrainIDs_Host(Kokkos::ViewAllocateWithoutInitializing("PowderGrainIDs_Host"), PowderLayerCells);
+    for (int n = 0; n < PowderLayerCells; n++) {
         PowderGrainIDs_Host(n) = PowderGrainIDs[n];
     }
     ViewI PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), PowderGrainIDs_Host);
-
     // Associate powder grain IDs with CA cells in the powder layer
     // Use bounds from temperature field for this layer to determine which cells are part of the powder
     int PowderTopZ = round((ZMaxLayer[layernumber] - ZMin) / deltax) + 1;
     int PowderBottomZ = PowderTopZ - LayerHeight;
+    MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        std::cout << "Initializing powder layer for Z = " << PowderBottomZ << " through " << PowderTopZ - 1
-                  << std::endl;
+        std::cout << "Initializing powder layer for Z = " << PowderBottomZ << " through " << PowderTopZ - 1 << "("
+                  << nx * ny * (PowderTopZ - PowderBottomZ) << " cells)" << std::endl;
 
-    int PowderStart = nx * ny * PowderBottomZ;
-    int PowderEnd = nx * ny * PowderTopZ;
-
+    unsigned int PowderStart =
+        static_cast<unsigned>(nx) * static_cast<unsigned>(ny) * static_cast<unsigned>(PowderBottomZ);
+    unsigned int PowderEnd = static_cast<unsigned>(nx) * static_cast<unsigned>(ny) * static_cast<unsigned>(PowderTopZ);
+    if (id == 0)
+        std::cout << "Powder layer GID limits are " << PowderStart << " and " << PowderEnd << " : "
+                  << " Grain IDs of " << NextLayer_FirstEpitaxialGrainID << " through "
+                  << NextLayer_FirstEpitaxialGrainID + PowderLayerCells - 1 << " will be assigned" << std::endl;
     Kokkos::parallel_for(
-        "PowderGrainInit", Kokkos::RangePolicy<>(PowderStart, PowderEnd), KOKKOS_LAMBDA(const int &n) {
+        "PowderGrainInit", Kokkos::RangePolicy<>(PowderStart, PowderEnd), KOKKOS_LAMBDA(const unsigned int &n) {
             int GlobalZ = n / (nx * ny);
             int Rem = n % (nx * ny);
             int GlobalX = Rem / ny;
@@ -2050,7 +2102,7 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLay
     Kokkos::fence();
 
     // Update NextLayer_FirstEpitaxialGrainID for next layer
-    NextLayer_FirstEpitaxialGrainID += PowderLayerActiveCells;
+    NextLayer_FirstEpitaxialGrainID += PowderLayerAssignedCells;
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Initialized powder grain structure for layer " << layernumber << std::endl;

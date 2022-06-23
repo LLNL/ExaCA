@@ -27,10 +27,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     int PrintDebug, TimeSeriesInc;
     bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, RemeltingYN, UseSubstrateFile,
-        PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE;
+        PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange,
-        NMax, dTN, dTsigma, RNGSeed;
+        NMax, dTN, dTsigma, RNGSeed, PowderDensity;
     std::string SubstrateFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     std::vector<std::string> temp_paths;
 
@@ -41,7 +41,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
                       PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
                       SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
-                      PrintDefaultRVE, RNGSeed);
+                      PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -233,11 +233,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     }
     else {
         if (UseSubstrateFile)
-            SubstrateInit_FromFile(SubstrateFileName, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, GrainID);
+            SubstrateInit_FromFile(SubstrateFileName, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, GrainID,
+                                   nzActive, BaseplateThroughPowder);
         else
             BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyXSlices, MyYSlices,
                                            MyXOffset, MyYOffset, id, deltax, GrainID, RNGSeed,
-                                           NextLayer_FirstEpitaxialGrainID);
+                                           NextLayer_FirstEpitaxialGrainID, nz, BaseplateThroughPowder);
         // Separate routine for active cell data structure init for problems other than constrained solidification
         if (RemeltingYN)
             CellTypeInit_Remelt(MyXSlices, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
@@ -490,9 +491,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // If the baseplate was initialized from a substrate grain spacing, initialize powder layer grain structure
             // for the next layer "layernumber + 1" Otherwise, the entire substrate (baseplate + powder) was read from a
             // file, and the powder layers have already been initialized
-            if (!(UseSubstrateFile))
+            if ((!(UseSubstrateFile)) && (!(BaseplateThroughPowder)))
                 PowderInit(layernumber + 1, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices,
-                           MyXOffset, MyYOffset, id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
+                           MyXOffset, MyYOffset, id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, PowderDensity);
 
             // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
             if (RemeltingYN)
