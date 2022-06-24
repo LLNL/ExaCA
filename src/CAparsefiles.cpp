@@ -160,20 +160,6 @@ void checkForHeaderValues(std::string header_line) {
     }
 }
 
-// From comma separated data on this line, obtain the x, y, and z coordinates
-// if AllColumns = true, also obtain the melting, liquidus, and cooling rate values
-void getTemperatureDataPoint(std::string s, std::vector<double> &XYZTemperaturePoint) {
-
-    // temperature values from file as strings
-    std::size_t point_size = XYZTemperaturePoint.size();
-    std::vector<std::string> TemperatureValues_Read(point_size, "");
-    splitString(s, TemperatureValues_Read);
-
-    // convert to double
-    for (std::size_t n = 0; n < point_size; n++)
-        XYZTemperaturePoint[n] = stod(TemperatureValues_Read[n]);
-}
-
 // Function for obtaining the path to temperature data using the old input file format - TODO: remove in future release
 void getTemperatureFilePaths_Old(const std::string path, const std::string name, std::vector<std::string> &all_paths) {
     std::size_t num_files = all_paths.size();

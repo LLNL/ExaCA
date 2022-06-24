@@ -492,16 +492,15 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
             std::vector<double> XCoordinates(1000000), YCoordinates(1000000), ZCoordinates(1000000);
             long unsigned int XYZPointCounter = 0;
             while (!TemperatureFile.eof()) {
-                std::string s;
-                getline(TemperatureFile, s);
-                if (s.empty())
+                std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
+                std::string ReadLine;
+                if (!getline(TemperatureFile, ReadLine))
                     break;
-                // Only get x, y, and z values
-                std::vector<double> XYZTemperaturePoint(3, 0);
-                getTemperatureDataPoint(s, XYZTemperaturePoint);
-                XCoordinates[XYZPointCounter] = XYZTemperaturePoint[0];
-                YCoordinates[XYZPointCounter] = XYZTemperaturePoint[1];
-                ZCoordinates[XYZPointCounter] = XYZTemperaturePoint[2];
+                // Only get x, y, and z values from ParsedLine
+                parseCommaSeparatedArgs(tempfile_thislayer, ReadLine, ParsedLine);
+                XCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[0]);
+                YCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[1]);
+                ZCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[2]);
                 XYZPointCounter++;
                 if (XYZPointCounter == XCoordinates.size()) {
                     XCoordinates.resize(XYZPointCounter + 1000000);
@@ -690,31 +689,33 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
         // Read data from the remaining lines - values should be separated by commas
         // Space separated data is no longer accepted by ExaCA
         while (!TemperatureFile.eof()) {
-            std::string s;
-            getline(TemperatureFile, s);
-            if (s.empty())
+            std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
+            std::string ReadLine;
+            if (!getline(TemperatureFile, ReadLine))
                 break;
-            // Get x, y, z, melting, liquidus, and cooling rate values
-            std::vector<double> XYZTemperaturePoint(6, 0);
-            getTemperatureDataPoint(s, XYZTemperaturePoint);
-
+            // Only get x and y values from ParsedLine, for now
+            parseCommaSeparatedArgs(tempfile_thislayer, ReadLine, ParsedLine);
+            double XTemperaturePoint = getInputDouble(ParsedLine[0]);
+            double YTemperaturePoint = getInputDouble(ParsedLine[1]);
             // Check the CA grid positions of the data point to see which rank(s) should store it
             int XInt = 0, YInt = 0;
-            XInt = round((XYZTemperaturePoint[0] - XMin) / deltax);
-            YInt = round((XYZTemperaturePoint[1] - YMin) / deltax);
+            XInt = round((XTemperaturePoint - XMin) / deltax);
+            YInt = round((YTemperaturePoint - YMin) / deltax);
             if ((XInt >= LowerXBound) && (XInt <= UpperXBound) && (YInt >= LowerYBound) && (YInt <= UpperYBound)) {
-                // This data point is inside the bounds of interest for this MPI rank - store inside of RawData
-                RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[0];
+                // This data point is inside the bounds of interest for this MPI rank: Store the previously
+                // parsed/converted x and y coordinates, get and convert the corresponding z, tm, tl, and cr vals, and
+                // store inside of RawData
+                RawData[NumberOfTemperatureDataPoints] = XTemperaturePoint;
                 NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[1];
+                RawData[NumberOfTemperatureDataPoints] = YTemperaturePoint;
                 NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[2];
+                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[2]);
                 NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[3];
+                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[3]);
                 NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[4];
+                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[4]);
                 NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = XYZTemperaturePoint[5];
+                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[5]);
                 NumberOfTemperatureDataPoints++;
                 if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
                     int OldSize = RawData.size();
