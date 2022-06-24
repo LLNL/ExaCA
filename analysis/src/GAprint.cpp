@@ -382,7 +382,7 @@ void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string Bas
             std::string FNameIPF = BaseFileName + "-" + ThisCrossSectionPlane +
                                    std::to_string(ThisCrossSectionLocation) + "_IPFCrossSection.txt";
             std::ofstream GrainplotIPF;
-            ViewI GOHistogram("GOHistogram", NumberOfOrientations);
+            ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
             if (PrintSectionIPF[n]) {
                 GrainplotIPF.open(FNameIPF);
                 GrainplotIPF << std::fixed << std::setprecision(6);
