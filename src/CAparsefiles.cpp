@@ -375,3 +375,28 @@ std::string parseCoordinatePair(std::string line, int val) {
     SplitStr = std::regex_replace(SplitStr, r, "");
     return SplitStr;
 }
+
+// Separate ReadLine at commas and place components into ParsedLine, checking to make sure that the size of ParsedLine
+// is equal to the number of comma-separated values in ReadLine
+void parseCommaSeparatedArgs(std::string AnalysisFile, std::string ReadLine, std::vector<std::string> &ParsedLine) {
+
+    int ExpectedNumComponents = ParsedLine.size();
+    std::istringstream ss(ReadLine);
+    int Comp = 0;
+    while (ss) {
+        std::string s;
+        if (!getline(ss, s, ','))
+            break;
+        if (Comp == ExpectedNumComponents) {
+            std::string error = "Error: More comma-sepated components than expected on line in " + AnalysisFile;
+            throw std::runtime_error(error);
+        }
+        ParsedLine[Comp] = removeWhitespace(s);
+        Comp++;
+    }
+    if (Comp != ExpectedNumComponents) {
+        std::string error = "Error: Fewer comma-sepated components than expected on line in " + AnalysisFile +
+                            " (expected " + std::to_string(ExpectedNumComponents) + ")";
+        throw std::runtime_error(error);
+    }
+}

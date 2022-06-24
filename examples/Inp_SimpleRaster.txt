@@ -9,7 +9,7 @@ Mean nucleation undercooling: 5
 Standard deviation of nucleation undercooling: 0.5
 Path to output:./
 Output file base name:TestProblemSimpleRaster
-File of grain orientations:GrainOrientationVectors_Robert.csv
+File of grain orientations:GrainOrientationVectors.csv
 Time step: 0.08333333
 Substrate grain spacing: 25
 Path to and name of temperature field assembly instructions: examples/Temperatures/T_SimpleRaster.txt

@@ -9,7 +9,7 @@ Mean nucleation undercooling: 5
 Standard deviation of nucleation undercooling: 0.5
 Path to output:./
 Output file base name:TestProblemSpot
-File of grain orientations:GrainOrientationVectors_Robert.csv
+File of grain orientations:GrainOrientationVectors.csv
 Thermal gradient: 500000
 Cooling rate: 300000
 Number of spots in x: 3

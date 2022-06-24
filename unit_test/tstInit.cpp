@@ -135,7 +135,7 @@ void testInputReadFromFile() {
             TestDataFile << "Standard deviation of nucleation undercooling: 0.5" << std::endl;
             TestDataFile << "Path to output: ExaCA" << std::endl;
             TestDataFile << "Output file base name: Test" << std::endl;
-            TestDataFile << "File of grain orientations: GrainOrientationVectors_Robert.csv" << std::endl;
+            TestDataFile << "File of grain orientations: GrainOrientationVectors.csv" << std::endl;
             TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
             TestDataFile << "Print file of final undercooling values: Y" << std::endl;
             TestDataFile << "Print default RVE output: Y" << std::endl;

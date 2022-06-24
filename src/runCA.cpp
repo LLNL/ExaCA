@@ -7,6 +7,7 @@
 
 #include "CAghostnodes.hpp"
 #include "CAinitialize.hpp"
+#include "CAparsefiles.hpp"
 #include "CAprint.hpp"
 #include "CAtypes.hpp"
 #include "CAupdate.hpp"
@@ -140,8 +141,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         std::cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of "
                   << nz << " cells in the Z direction" << std::endl;
 
-    int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
-    ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
+    int NGrainOrientations = 0; // Number of grain orientations considered in the simulation
+    // No initialize size yet, will be resized in OrientationInit
+    ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 0);
 
     // Initialize grain orientations
     OrientationInit(id, NGrainOrientations, GrainUnitVector, GrainOrientationFile);
