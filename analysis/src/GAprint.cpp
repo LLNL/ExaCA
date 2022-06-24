@@ -334,14 +334,9 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
             WritePoleFigureDataToFile(FNameM, NumberOfOrientations, GrainEulerAngles, GOHistogram);
         }
         else {
-            // Use the old format
-            std::ofstream MTEXPlot;
+            // Write pole figure data for this region using the old format
             std::string FNameM = BaseFileName + "_MTEXOrientations.csv";
-            MTEXPlot.open(FNameM);
-            for (int i = 0; i < NumberOfOrientations; i++) {
-                MTEXPlot << GOHistogram[i] << std::endl;
-            }
-            MTEXPlot.close();
+            WritePoleFigureDataToFile_OldFormat(FNameM, NumberOfOrientations, GOHistogram);
         }
     }
 }
@@ -465,6 +460,19 @@ void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, V
                     << GrainEulerAngles(3 * i + 2) << " " << (float)(GOHistogram(i)) << std::endl;
     }
     GrainplotPF.close();
+}
+
+//*****************************************************************************/
+void WritePoleFigureDataToFile_OldFormat(std::string Filename, int NumberOfOrientations, ViewI_H GOHistogram) {
+
+    // Using old format, write histogram data (used by a second post-processing script to construct pole figures) to
+    // "Filename"
+    std::ofstream MTEXPlot;
+    MTEXPlot.open(Filename);
+    for (int i = 0; i < NumberOfOrientations; i++) {
+        MTEXPlot << GOHistogram[i] << std::endl;
+    }
+    MTEXPlot.close();
 }
 
 //*****************************************************************************/

@@ -39,5 +39,6 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
                          bool NewOrientationFormatYN, ViewF_H GrainEulerAngles);
 void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles,
                                ViewI_H GOHistogram);
+void WritePoleFigureDataToFile_OldFormat(std::string Filename, int NumberOfOrientations, ViewI_H GOHistogram);
 
 #endif

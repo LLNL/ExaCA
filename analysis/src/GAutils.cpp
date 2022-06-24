@@ -184,7 +184,6 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     if (NewOrientationFormatYN) {
         EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, "Substrate", 0);
         checkFileNotEmpty(EulerAnglesFilename);
-        std::cout << EulerAnglesFilename << std::endl;
     }
 }
 

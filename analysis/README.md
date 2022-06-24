@@ -6,17 +6,17 @@ Running the `grain_analysis` executable after generation of an ExaCA data set (i
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
 ```
 
-The analysis files, such as `examples/AnalysisDirS.txt`, have multiple distinct sections, starting with lines consisting of 5 asterisks, and ending with lines consisting of 10 asterisks. Everything above the first line with an asterisk is part of a header, and ignored by the program.
+The analysis files, such as `examples/AnalyzeDirS.txt`, have multiple distinct sections, starting with lines consisting of 5 asterisks, and ending with lines consisting of 10 asterisks. Everything above the first line with an asterisk is part of a header, and ignored by the program.
 
 ## Section 0: Required inputs
 
-This is where the required inputs for analysis are given: these are:
+This is where the required inputs for analysis are given; these inputs are:
 
-Path to/name of log (.log) file associated with the microstructure of interest
-Path to/name of microstructure (.vtk) file
-Path to file of grain orientations (rotation matrix form)
-Path to/base (without file extension) name of data files of output resulting from this analysis
-Path to file of grain orientations (Bunge Euler angle form ZXZ)
+* Path to/name of log (.log) file associated with the microstructure of interest
+* Path to/name of microstructure (.vtk) file
+* Path to file of grain orientations (rotation matrix form)
+* Path to/base (without file extension) name of data files of output resulting from this analysis
+* Path to file of grain orientations (Bunge Euler angle form ZXZ)
 
 Nothing other than values for these 5 inputs (separated by a colon from the rest of the line) should be given here. If "Path to file of grain orientations (Bunge Euler angle form ZXZ)" is not given, the deprecated form of printing ExaCA cross-section data is assumed - this will be removed in a future release, at which point the lack of including a value for this input will result in a runtime error.
 
