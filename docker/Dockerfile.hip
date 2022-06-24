@@ -1,0 +1,85 @@
+ARG BASE=rocm/dev-ubuntu-18.04:4.2
+FROM $BASE
+
+ARG NPROCS=4
+
+RUN apt-get update && apt-get install -y \
+        build-essential \
+        bc \
+        file \
+        curl \
+        git \
+        kmod \
+        wget \
+        jq \
+        vim \
+        gdb \
+        ccache \
+        libbz2-dev \
+        libicu-dev \
+        python-dev \
+        autotools-dev \
+        && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PATH=/opt/rocm/bin:$PATH
+
+RUN KEYDUMP_URL=https://cloud.cees.ornl.gov/download && \
+    KEYDUMP_FILE=keydump && \
+    wget --quiet ${KEYDUMP_URL}/${KEYDUMP_FILE} && \
+    wget --quiet ${KEYDUMP_URL}/${KEYDUMP_FILE}.sig && \
+    gpg --import ${KEYDUMP_FILE} && \
+    gpg --verify ${KEYDUMP_FILE}.sig ${KEYDUMP_FILE} && \
+    rm ${KEYDUMP_FILE}*
+
+# Install CMake
+ENV CMAKE_DIR=/opt/cmake
+RUN CMAKE_VERSION=3.18.5 && \
+    CMAKE_KEY=2D2CEF1034921684 && \
+    CMAKE_URL=https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION} && \
+    CMAKE_SCRIPT=cmake-${CMAKE_VERSION}-Linux-x86_64.sh && \
+    CMAKE_SHA256=cmake-${CMAKE_VERSION}-SHA-256.txt && \
+    wget --quiet ${CMAKE_URL}/${CMAKE_SHA256} && \
+    wget --quiet ${CMAKE_URL}/${CMAKE_SHA256}.asc && \
+    wget --quiet ${CMAKE_URL}/${CMAKE_SCRIPT} && \
+    gpg --verify ${CMAKE_SHA256}.asc ${CMAKE_SHA256} && \
+    grep ${CMAKE_SCRIPT} ${CMAKE_SHA256} | sha256sum --check && \
+    mkdir -p ${CMAKE_DIR} && \
+    sh ${CMAKE_SCRIPT} --skip-license --prefix=${CMAKE_DIR} && \
+    rm cmake*
+ENV PATH=${CMAKE_DIR}/bin:$PATH
+
+# Install Open MPI
+ENV OPENMPI_DIR=/opt/openmpi
+RUN OPENMPI_VERSION=4.0.4 && \
+    OPENMPI_VERSION_SHORT=4.0 && \
+    OPENMPI_SHA1=50861c22a4b92ca2e069cd49d756dd96c659bfa8 && \
+    OPENMPI_URL=https://download.open-mpi.org/release/open-mpi/v${OPENMPI_VERSION_SHORT}/openmpi-${OPENMPI_VERSION}.tar.bz2 && \
+    OPENMPI_ARCHIVE=openmpi-${OPENMPI_VERSION}.tar.bz2 && \
+    SCRATCH_DIR=/scratch && mkdir -p ${SCRATCH_DIR} && cd ${SCRATCH_DIR} && \
+    wget --quiet ${OPENMPI_URL} --output-document=${OPENMPI_ARCHIVE} && \
+    echo "${OPENMPI_SHA1} ${OPENMPI_ARCHIVE}" | sha1sum -c && \
+    mkdir -p openmpi && \
+    tar -xf ${OPENMPI_ARCHIVE} -C openmpi --strip-components=1 && \
+    mkdir -p build && cd build && \
+    ../openmpi/configure --prefix=${OPENMPI_DIR} CFLAGS=-w && \
+    make -j${NPROCS} install && \
+    rm -rf ${SCRATCH_DIR}
+ENV PATH=${OPENMPI_DIR}/bin:$PATH
+
+# Install Kokkos
+ARG KOKKOS_VERSION=3.4.01
+ARG KOKKOS_OPTIONS="-DKokkos_ENABLE_HIP=ON -DKokkos_ENABLE_LIBDL=OFF -DKokkos_ARCH_VEGA906=ON"
+ENV KOKKOS_DIR=/opt/kokkos
+RUN KOKKOS_URL=https://github.com/kokkos/kokkos/archive/${KOKKOS_VERSION}.tar.gz && \
+    KOKKOS_ARCHIVE=kokkos-${KOKKOS_HASH}.tar.gz && \
+    SCRATCH_DIR=/scratch && mkdir -p ${SCRATCH_DIR} && cd ${SCRATCH_DIR} && \
+    wget --quiet ${KOKKOS_URL} --output-document=${KOKKOS_ARCHIVE} && \
+    mkdir -p kokkos && \
+    tar -xf ${KOKKOS_ARCHIVE} -C kokkos --strip-components=1 && \
+    cd kokkos && \
+    mkdir -p build && cd build && \
+    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=${KOKKOS_DIR} -D CMAKE_CXX_STANDARD=14 -D CMAKE_CXX_COMPILER=hipcc ${KOKKOS_OPTIONS} .. && \
+    make -j${NPROCS} install && \
+    rm -rf ${SCRATCH_DIR}
