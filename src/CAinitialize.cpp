@@ -2277,11 +2277,11 @@ void CellTypeInit_Remelt(int MyXSlices, int MyYSlices, int LocalActiveDomainSize
     int MeltPoolCellCount;
     Kokkos::parallel_reduce(
         "CellTypeInitSolidRM", LocalActiveDomainSize,
-        KOKKOS_LAMBDA(const int &D3D1ConvPosition, int &tmpval) {
+        KOKKOS_LAMBDA(const int &D3D1ConvPosition, int &local_count) {
             int GlobalD3D1ConvPosition = D3D1ConvPosition + ZBound_Low * MyXSlices * MyYSlices;
             if (CritTimeStep(GlobalD3D1ConvPosition) != 0) {
                 CellType(GlobalD3D1ConvPosition) = TempSolid;
-                tmpval++;
+                local_count++;
             }
             else
                 CellType(GlobalD3D1ConvPosition) = Solid;
