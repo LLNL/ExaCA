@@ -256,9 +256,6 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                       << TempFilesInSeries << " in the series" << std::endl;
             std::cout << "A total of " << NumberOfLayers << " layers of solidification offset by " << LayerHeight
                       << " CA cells will be simulated" << std::endl;
-            if (RemeltingYN)
-                std::cout << "This simulation includes logic for multiple melting/solidification events per cell"
-                          << std::endl;
         }
     }
     else if (SimulationType == "C") {
@@ -303,9 +300,6 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             std::cout << "A total of " << NumberOfLayers << " spots per layer, with layers offset by " << LayerHeight
                       << " CA cells will be simulated" << std::endl;
             std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
-            if (RemeltingYN)
-                std::cout << "This simulation includes logic for cells melting and multiple solidification events"
-                          << std::endl;
         }
     }
     // Optional inputs - should files post-initialization be printed for debugging?
@@ -432,6 +426,9 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         if (PrintTimeSeries)
             std::cout << "Intermediate output for movie frames will be printed every " << TimeSeriesInc
                       << " time steps (or every " << TimeSeriesFrameInc_time << " microseconds)" << std::endl;
+        if (RemeltingYN)
+            std::cout << "This simulation includes logic for cells melting and multiple solidification events"
+                      << std::endl;
     }
 }
 
