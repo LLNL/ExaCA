@@ -69,9 +69,15 @@ void testReadTemperatureData() {
     MPI_Barrier(MPI_COMM_WORLD);
     // Read in data to "RawData"
     std::vector<double> RawData(12);
+
+    float *ZMinLayer = new float[NumberOfLayers];
+    float *ZMaxLayer = new float[NumberOfLayers];
+    ZMinLayer[0] = 0.0;
+    ZMaxLayer[0] = 0.0;
     ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin,
                         temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
                         FirstValue, LastValue);
+
     // Check the results.
     // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr) for
     // each of the 9 cells in the subdomain
@@ -281,10 +287,155 @@ void testInputReadFromFile() {
         }
     }
 }
+
+void testcalcZBound_Low(bool RemeltingYN) {
+
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    if (!(RemeltingYN)) {
+        float *ZMinLayer = new float[1];
+        int ZBound_Low_C = calcZBound_Low(RemeltingYN, "C", 0, 0, ZMinLayer, 0, 0);
+        // Should have just set the lower bound to zero, other inputs don't matter
+        EXPECT_EQ(ZBound_Low_C, 0);
+    }
+    else {
+        int LayerHeight = 10 * id; // let LayerHeight depend on the process ID
+        int NumberOfLayers = 10;
+        double deltax = 1 * pow(10, -6);
+        float ZMin = -0.5 * pow(10, -6);
+        float *ZMinLayer = new float[NumberOfLayers];
+        for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+            // Set ZMinLayer for each layer to be offset by LayerHeight cells from the previous one (lets solution for
+            // both problem types by the same)
+            ZMinLayer[layernumber] = ZMin + layernumber * LayerHeight * deltax;
+            // Call function for each layernumber, and for simulation types "S" and "R"
+            int ZBound_Low_S = calcZBound_Low(RemeltingYN, "S", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
+            EXPECT_EQ(ZBound_Low_S, LayerHeight * layernumber);
+            int ZBound_Low_R = calcZBound_Low(RemeltingYN, "R", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
+            EXPECT_EQ(ZBound_Low_R, LayerHeight * layernumber);
+        }
+    }
+}
+
+void testcalcZBound_High() {
+
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    int SpotRadius = 100 * id;
+    int LayerHeight = 10;
+    float ZMin = 0.5 * pow(10, -6);
+    double deltax = 1.0 * pow(10, -6);
+    int nz = 101;
+    int NumberOfLayers = 10;
+    float *ZMaxLayer = new float[NumberOfLayers];
+    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+        // Set ZMaxLayer for each layer to be offset by LayerHeight cells from the previous one, with layer 0 having a
+        // ZMax value of ZMin + SpotRadius (lets solution for both problem types be the same)
+        ZMaxLayer[layernumber] = ZMin + SpotRadius * deltax + layernumber * LayerHeight * deltax;
+        // Call function for each layernumber, and for simulation types "S" and "R"
+        int ZBound_Max_S = calcZBound_High("S", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        EXPECT_EQ(ZBound_Max_S, SpotRadius + LayerHeight * layernumber);
+        int ZBound_Max_R = calcZBound_High("R", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        EXPECT_EQ(ZBound_Max_R, SpotRadius + LayerHeight * layernumber);
+        // For simulation type C, should be independent of layernumber
+        int ZBound_Max_C = calcZBound_High("C", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        EXPECT_EQ(ZBound_Max_C, nz - 1);
+    }
+}
+
+void testcalcnzActive() {
+
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    int ZBound_Low = 5;
+    int NumberOfLayers = 10;
+    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+        int ZBound_High = 6 + id + layernumber;
+        int nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber);
+        EXPECT_EQ(nzActive, 2 + id + layernumber);
+    }
+}
+
+void testcalcLocalActiveDomainSize() {
+
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    int MyXSlices = 5 + id;
+    int MyYSlices = id;
+    int nzActive = 10;
+    int LocalActiveDomainSize = calcLocalActiveDomainSize(MyXSlices, MyYSlices, nzActive);
+    EXPECT_EQ(LocalActiveDomainSize, 10 * id * id + 50 * id);
+}
+
+void testgetTempCoords() {
+
+    int id, np;
+    // Get individual process id
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+
+    // cell size and simulation lower bounds
+    double deltax = 0.5;
+    float XMin = -5;
+    float YMin = 0.0;
+
+    // test - each rank initializes data for layer "id", of "np" total layers
+    int LayerCounter = id;
+    float *ZMinLayer = new float[np];
+    for (int n = 0; n < np; n++) {
+        ZMinLayer[n] = 2 * n;
+    }
+    int LayerHeight = 10;
+
+    // Fill "RawData" with example temperature field data - 2 data point (x,y,z,tm,tl,cr)
+    std::vector<double> RawData = {0.0, 0.0, 3.0, 0.000050, 0.000055, 2000.0,
+                                   5.0, 2.0, 2.0, 0.000150, 0.000155, 3500.0};
+
+    // Read and check RawData values against expected results from getTempCoordX,Y,Z,TM,TL,CR functions
+    // First data point (i = 0 through i = 5 values)
+    int i = 0;
+    int XInt = getTempCoordX(i, XMin, deltax, RawData);
+    int YInt = getTempCoordY(i, YMin, deltax, RawData);
+    int ZInt = getTempCoordZ(i, deltax, RawData, LayerHeight, LayerCounter, ZMinLayer);
+    double TMelting = getTempCoordTM(i, RawData);
+    double TLiquidus = getTempCoordTL(i, RawData);
+    double CoolingRate = getTempCoordCR(i, RawData);
+    EXPECT_EQ(XInt, 10);
+    EXPECT_EQ(YInt, 0);
+    EXPECT_EQ(ZInt, 6 + 6 * id); // different for each rank, since LayerCounter = rank id
+    EXPECT_DOUBLE_EQ(TMelting, 0.000050);
+    EXPECT_DOUBLE_EQ(TLiquidus, 0.000055);
+    EXPECT_DOUBLE_EQ(CoolingRate, 2000.0);
+    // Second data point (i = 6 through i = 11 values)
+    i = 6;
+    XInt = getTempCoordX(i, XMin, deltax, RawData);
+    YInt = getTempCoordY(i, YMin, deltax, RawData);
+    ZInt = getTempCoordZ(i, deltax, RawData, LayerHeight, LayerCounter, ZMinLayer);
+    TMelting = getTempCoordTM(i, RawData);
+    TLiquidus = getTempCoordTL(i, RawData);
+    CoolingRate = getTempCoordCR(i, RawData);
+    EXPECT_EQ(XInt, 20);
+    EXPECT_EQ(YInt, 4);
+    EXPECT_EQ(ZInt, 4 + 6 * id); // different for each rank, since LayerCounter = rank id
+    EXPECT_DOUBLE_EQ(TMelting, 0.000150);
+    EXPECT_DOUBLE_EQ(TLiquidus, 0.000155);
+    EXPECT_DOUBLE_EQ(CoolingRate, 3500.0);
+}
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-TEST(TEST_CATEGORY, temperature_init_test) { testReadTemperatureData(); }
 TEST(TEST_CATEGORY, fileread_test) { testInputReadFromFile(); }
-
+TEST(TEST_CATEGORY, activedomainsizecalc) {
+    // calcZBound_Low tested with and without remelting
+    testcalcZBound_Low(true);
+    testcalcZBound_Low(false);
+    testcalcZBound_High();
+    testcalcnzActive();
+    testcalcLocalActiveDomainSize();
+}
+TEST(TEST_CATEGORY, temperature_init_test) {
+    testReadTemperatureData(); // reading temperature data is performed in the same manner with and without remelting
+    testgetTempCoords();
+}
 } // end namespace Test

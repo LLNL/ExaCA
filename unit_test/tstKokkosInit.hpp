@@ -293,7 +293,7 @@ void testPowderInit() {
         EXPECT_LT(GrainID_H(i), NextLayer_FirstEpitaxialGrainID);
     }
 }
-void testCellTypeInit() {
+void testCellTypeInit_NoRemelt() {
 
     int id, np;
     // Get number of processes
@@ -400,12 +400,13 @@ void testCellTypeInit() {
     Buffer2D BufferSouthWestSend("BufferSouthWestSend", nzActive, 5);
 
     // Initialize cell types and active cell data structures
-    CellTypeInit(layernumber, id, np, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ZBound_Low, nz,
-                 LocalActiveDomainSize, LocalDomainSize, CellType, CritTimeStep, NeighborX, NeighborY, NeighborZ,
-                 NGrainOrientations, GrainUnitVector, DiagonalLength, GrainID, CritDiagonalLength, DOCenter, LayerID,
-                 BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend,
-                 BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary,
-                 AtSouthBoundary, AtEastBoundary, AtWestBoundary);
+    CellTypeInit_NoRemelt(layernumber, id, np, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
+                          ZBound_Low, nz, LocalActiveDomainSize, LocalDomainSize, CellType, CritTimeStep, NeighborX,
+                          NeighborY, NeighborZ, NGrainOrientations, GrainUnitVector, DiagonalLength, GrainID,
+                          CritDiagonalLength, DOCenter, LayerID, BufferWestSend, BufferEastSend, BufferNorthSend,
+                          BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
+                          BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
+                          AtWestBoundary);
 
     // Copy views back to host to check the results
     ViewF_H DiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DiagonalLength);
@@ -500,8 +501,77 @@ void testCellTypeInit() {
     }
 }
 
-void testNucleiInit() {
+void testCellTypeInit_Remelt() {
 
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    // Domain for each rank
+    int MyXSlices = id + 5;
+    int MyYSlices = id + 5;
+    int nzActive = 5;
+    int ZBound_Low = 2;
+    int nz = nzActive + ZBound_Low;
+    int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
+    int LocalDomainSize = MyXSlices * MyYSlices * nz;
+
+    // Temporary host view for initializing CritTimeStep
+    ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
+    for (int GlobalZ = 0; GlobalZ < nz; GlobalZ++) {
+        for (int RankX = 0; RankX < MyXSlices; RankX++) {
+            for (int RankY = 0; RankY < MyYSlices; RankY++) {
+                int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                if (GlobalZ < ZBound_Low) {
+                    // Not in active domain, assign these a negative value
+                    CritTimeStep_Host(GlobalD3D1ConvPosition) = -1;
+                }
+                else {
+                    // Assign some of these a value of 0, and others a positive value
+                    if (RankX + RankY % 2 == 0)
+                        CritTimeStep_Host(GlobalD3D1ConvPosition) = 0;
+                    else
+                        CritTimeStep_Host(GlobalD3D1ConvPosition) = 1;
+                }
+            }
+        }
+    }
+
+    ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), CritTimeStep_Host);
+    // Start with cell type of 0
+    ViewI CellType("CellType", LocalDomainSize);
+
+    // Initialize cell type values
+    CellTypeInit_Remelt(MyXSlices, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
+
+    // Copy cell types back to host to check
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+
+    for (int GlobalZ = 0; GlobalZ < nz; GlobalZ++) {
+        for (int RankX = 0; RankX < MyXSlices; RankX++) {
+            for (int RankY = 0; RankY < MyYSlices; RankY++) {
+                int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                if (GlobalZ < ZBound_Low) {
+                    // These cells should still be 0 (Wall) - untouched by CellTypeInit_Remelt
+                    EXPECT_EQ(CellType_Host(GlobalD3D1ConvPosition), Wall);
+                }
+                else {
+                    // Cells with CritTimeStep of 0 should be solid, others TempSolid
+                    if (RankX + RankY % 2 == 0)
+                        EXPECT_EQ(CellType_Host(GlobalD3D1ConvPosition), Solid);
+                    else
+                        EXPECT_EQ(CellType_Host(GlobalD3D1ConvPosition), TempSolid);
+                }
+            }
+        }
+    }
+}
+
+void testNucleiInit(bool RemeltingYN) {
+
+    // Test is different depending on whether or not remelting is considered
     int id, np;
     // Get number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &np);
@@ -540,6 +610,14 @@ void testNucleiInit() {
     // Each rank has 40 cells - the top 32 cells are part of the active layer and are candidates for nucleation
     // assignment
     double NMax = 0.125; // This nucleation density ensures there will be 4 potential nuclei per MPI rank present
+                         // without remelting (each cell solidifies once)
+    int MaxPotentialNuclei_PerPass = 4 * np;
+    // Without remelting, each cell solidifies once, with remelting, a cell can solidify 1-3 times
+    int MaxSolidificationEvents_Count;
+    if (RemeltingYN)
+        MaxSolidificationEvents_Count = 3;
+    else
+        MaxSolidificationEvents_Count = 1;
     double dTN = 1;
     double dTsigma = 0.0001;
     double RNGSeed = 0.0;
@@ -549,23 +627,6 @@ void testNucleiInit() {
     Kokkos::deep_copy(CellType, Liquid);
     ViewI LayerID("LayerID_Device", LocalDomainSize);
     Kokkos::deep_copy(LayerID, 1);
-
-    // Initialize CritTimeStep values and UndercoolingChange values to values depending on cell coordinates relative to
-    // global grid, then copy to the device
-    ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
-    ViewF_H UndercoolingChange_Host(Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_Host"),
-                                    LocalDomainSize);
-    for (int i = 0; i < LocalDomainSize; i++) {
-        int RankZ = i / (MyXSlices * MyYSlices);
-        int Rem = i % (MyXSlices * MyYSlices);
-        int RankY = Rem % MyYSlices;
-        CritTimeStep_Host(i) = RankZ + RankY + MyYOffset + 1;
-        UndercoolingChange_Host(i) =
-            1.2; // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep value
-    }
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep_Host);
-    ViewF UndercoolingChange = Kokkos::create_mirror_view_and_copy(memory_space(), UndercoolingChange_Host);
 
     // Without knowing PossibleNuclei_ThisRankThisLayer yet, allocate nucleation data structures based on an estimated
     // size NucleationTimes only exists on the host - used to decide whether or not to call nucleation subroutine
@@ -580,31 +641,121 @@ void testNucleiInit() {
     int PossibleNuclei_ThisRankThisLayer; // total successful nucleation events
     int Nuclei_WholeDomain = 100;         // NucleiGrainID should start at -101
 
+    // This part of the test is different depending on whether remelting is considered
+    // Without remelting, initialize MaxSolidificationEvents to 1 for each layer, initialize CritTimeStep values and
+    // UndercoolingChange values to values depending on cell coordinates relative to global grid, then copy to the
+    // device. LayerTimeTempHistory and NumberOfSolidificationEvents are unused on the device With remelting, initialize
+    // MaxSolidificationEvents to 3 for each layer. LayerTimeTempHistory and NumberOfSolidificationEvents are
+    // initialized for each cell on the host and copied to the device, while CritTimeStep and UndercoolingChange go
+    // unused
+    ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
+    ViewF_H UndercoolingChange_Host(Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_Host"),
+                                    LocalDomainSize);
+    ViewI_H MaxSolidificationEvents_Host(Kokkos::ViewAllocateWithoutInitializing("MaxSolidificationEvents_Host"), 2);
+    ViewI_H NumberOfSolidificationEvents_Host(
+        Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents_Host"), LocalActiveDomainSize);
+    ViewF3D LayerTimeTempHistory_Host(Kokkos::ViewAllocateWithoutInitializing("LayerTimeTempHistory_Host"),
+                                      LocalActiveDomainSize, MaxSolidificationEvents_Count, 3);
+    MaxSolidificationEvents_Host(0) = MaxSolidificationEvents_Count;
+    MaxSolidificationEvents_Host(1) = MaxSolidificationEvents_Count;
+    if (RemeltingYN) {
+        // Cells solidify 1, 2, or 3 times, depending on their X coordinate
+        for (int k = 0; k < nzActive; k++) {
+            for (int i = 0; i < MyXSlices; i++) {
+                for (int j = 0; j < MyYSlices; j++) {
+                    int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                    if (i < MyXSlices / 2 - 1)
+                        NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 3;
+                    else if (i < MyXSlices / 2)
+                        NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 2;
+                    else
+                        NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 1;
+                }
+            }
+        }
+        for (int n = 0; n < MaxSolidificationEvents_Count; n++) {
+            for (int RankZ = 0; RankZ < nzActive; RankZ++) {
+                for (int RankX = 0; RankX < MyXSlices; RankX++) {
+                    for (int RankY = 0; RankY < MyYSlices; RankY++) {
+                        int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        int GlobalZ = RankZ + ZBound_Low;
+                        if (n < NumberOfSolidificationEvents_Host(D3D1ConvPosition)) {
+                            LayerTimeTempHistory_Host(D3D1ConvPosition, n, 0) =
+                                GlobalZ + RankY + MyYOffset +
+                                (LocalActiveDomainSize * n); // melting time step depends on solidification event number
+                            LayerTimeTempHistory_Host(D3D1ConvPosition, n, 1) =
+                                GlobalZ + RankY + MyYOffset + 1 +
+                                (LocalActiveDomainSize *
+                                 n); // liquidus time stemp depends on solidification event number
+                            LayerTimeTempHistory_Host(D3D1ConvPosition, n, 2) =
+                                1.2; // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep
+                                     // value
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else {
+        for (int i = 0; i < LocalDomainSize; i++) {
+            int GlobalZ = i / (MyXSlices * MyYSlices);
+            int Rem = i % (MyXSlices * MyYSlices);
+            int RankY = Rem % MyYSlices;
+            CritTimeStep_Host(i) = GlobalZ + RankY + MyYOffset + 1;
+            UndercoolingChange_Host(i) =
+                1.2; // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep value
+        }
+    }
+    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
+    ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep_Host);
+    ViewF UndercoolingChange = Kokkos::create_mirror_view_and_copy(memory_space(), UndercoolingChange_Host);
+    ViewI MaxSolidificationEvents = Kokkos::create_mirror_view_and_copy(memory_space(), MaxSolidificationEvents_Host);
+    ViewI NumberOfSolidificationEvents =
+        Kokkos::create_mirror_view_and_copy(memory_space(), NumberOfSolidificationEvents_Host);
+    ViewF3D LayerTimeTempHistory = Kokkos::create_mirror_view_and_copy(memory_space(), LayerTimeTempHistory_Host);
+
     NucleiInit(layernumber, RNGSeed, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax,
                dTN, dTsigma, deltax, NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep,
                UndercoolingChange, LayerID, PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary,
-               AtSouthBoundary, AtEastBoundary, AtWestBoundary, NucleationCounter);
+               AtSouthBoundary, AtEastBoundary, AtWestBoundary, RemeltingYN, NucleationCounter, MaxSolidificationEvents,
+               NumberOfSolidificationEvents, LayerTimeTempHistory);
 
     // Copy results back to host to check
     ViewI_H NucleiLocation_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NucleiLocation);
     ViewI_H NucleiGrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NucleiGrainID);
+    MaxSolidificationEvents_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
+    NumberOfSolidificationEvents_Host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NumberOfSolidificationEvents);
 
     // Was the nucleation counter initialized to zero?
     EXPECT_EQ(NucleationCounter, 0);
 
-    // Is the total number of nuclei in the system correct?
-    EXPECT_EQ(Nuclei_WholeDomain, 100 + 4 * np);
+    // Is the total number of nuclei in the system correct, based on the number of remelting events? Equal probability
+    // of creating a nucleus each time a cell resolidifies
+    int ExpectedNucleiPerRank = 100 + MaxSolidificationEvents_Count * MaxPotentialNuclei_PerPass;
+    EXPECT_EQ(Nuclei_WholeDomain, ExpectedNucleiPerRank);
     for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
         // Are the nuclei grain IDs negative numbers in the expected range based on the inputs?
-        EXPECT_GT(NucleiGrainID_Host(n), -(100 + 4 * np + 1));
+        EXPECT_GT(NucleiGrainID_Host(n), -(100 + ExpectedNucleiPerRank * np + 1));
         EXPECT_LT(NucleiGrainID_Host(n), -100);
         // Are the correct undercooling values associated with the correct cell locations?
-        int CellLocation = NucleiLocation_Host(n);
-        int RankZ = CellLocation / (MyXSlices * MyYSlices);
-        int Rem = CellLocation % (MyXSlices * MyYSlices);
+        // Cell location is a global position (relative to the bottom of the whole domain, not the layer)
+        int GlobalCellLocation = NucleiLocation_Host(n);
+        int GlobalZ = GlobalCellLocation / (MyXSlices * MyYSlices);
+        int Rem = GlobalCellLocation % (MyXSlices * MyYSlices);
         int RankY = Rem % MyYSlices;
-        int Expected_NucleationTime = RankZ + RankY + MyYOffset + 2;
-        EXPECT_EQ(NucleationTimes_Host(n), Expected_NucleationTime);
+        // Expected nucleation time is known exactly if no remelting
+        int Expected_NucleationTimeNoRM = GlobalZ + RankY + MyYOffset + 2;
+        if (RemeltingYN) {
+            // Expected nucleation time with remelting can be one of 3 possibilities, depending on the associated
+            // solidification event
+            int AssociatedSEvent = NucleationTimes_Host(n) / LocalActiveDomainSize;
+            int Expected_NucleationTimeRM = Expected_NucleationTimeNoRM + AssociatedSEvent * LocalActiveDomainSize;
+            EXPECT_EQ(NucleationTimes_Host(n), Expected_NucleationTimeRM);
+        }
+        else {
+            EXPECT_EQ(NucleationTimes_Host(n), Expected_NucleationTimeNoRM);
+        }
         // Are the nucleation events in order of the time steps at which they may occur?
         if (n < PossibleNuclei_ThisRankThisLayer - 2) {
             EXPECT_LE(NucleationTimes_Host(n), NucleationTimes_Host(n + 1));
@@ -624,6 +775,13 @@ TEST(TEST_CATEGORY, grain_init_tests) {
     testBaseplateInit_FromGrainSpacing();
     testPowderInit();
 }
-TEST(TEST_CATEGORY, cell_init_test) { testCellTypeInit(); }
-TEST(TEST_CATEGORY, nuclei_init_test) { testNucleiInit(); }
+TEST(TEST_CATEGORY, cell_init_test) {
+    testCellTypeInit_NoRemelt();
+    testCellTypeInit_Remelt();
+}
+TEST(TEST_CATEGORY, nuclei_init_test) {
+    // w/ and w/o remelting
+    testNucleiInit(true);
+    testNucleiInit(false);
+}
 } // end namespace Test

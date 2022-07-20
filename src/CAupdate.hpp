@@ -28,19 +28,39 @@ loadghostnodes_2D(const int GhostGID, const float GhostDOCX, const float GhostDO
 void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCounter, int PossibleNuclei_ThisRank,
                 ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID, ViewI CellType, ViewI GrainID,
                 int ZBound_Low, int MyXSlices, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G);
-void FillSteeringVector(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, ViewI CritTimeStep,
-                        ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
-                        int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H);
+void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, ViewI CritTimeStep,
+                                 ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
+                                 int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G,
+                                 ViewI_H numSteer_H);
+void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, NList NeighborX,
+                               NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
+                               ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
+                               ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
+                               int BufSizeX, int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary,
+                               bool AtEastBoundary, bool AtWestBoundary, Buffer2D BufferWestSend,
+                               Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                               Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
+                               Buffer2D BufferSouthWestSend, int DecompositionStrategy);
 void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int LocalDomainSize,
                  int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst,
-                 int MyXOffset, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
-                 ViewF UndercoolingCurrent, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
-                 ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferWestSend,
-                 Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
+                 int MyXOffset, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep,
+                 ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength,
+                 ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations,
+                 Buffer2D BufferWestSend, Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
                  Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
                  Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int nz,
                  ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary,
-                 bool AtEastBoundary, bool AtWestBoundary);
+                 bool AtEastBoundary, bool AtWestBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
+                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN);
+void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, ViewI FutureWorkView,
+                  int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int ZBound_Low, bool RemeltingYN,
+                  ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny, int nz, int MyXOffset,
+                  int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI GrainID,
+                  ViewI CritTimeStep, ViewF GrainUnitVector, ViewF UndercoolingChange, ViewF UndercoolingCurrent,
+                  std::string OutputFile, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
+                  std::string PathToOutput, int &IntermediateFileCounter, int nzActive, double deltax, float XMin,
+                  float YMin, float ZMin, int NumberOfLayers, int &XSwitch, std::string TemperatureDataType,
+                  bool PrintIdleMovieFrames, int MovieFrameInc, int FinishTimeStep);
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
                                 int LocalDomainSize, int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive,
                                 double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
@@ -51,5 +71,13 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                                 ViewF GrainUnitVector, ViewF UndercoolingChange, ViewF UndercoolingCurrent,
                                 std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,
                                 int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers);
+void IntermediateOutputAndCheck_Remelt(
+    int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
+    int nx, int ny, int nz, int nzActive, double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
+    int ProcessorsInXDirection, int ProcessorsInYDirection, int SuccessfulNucEvents_ThisRank, int &XSwitch,
+    ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType, int layernumber, int,
+    int ZBound_Low, int NGrainOrientations, bool *Melted, ViewI LayerID, ViewF GrainUnitVector,
+    ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile,
+    bool PrintIdleMovieFrames, int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep);
 
 #endif
