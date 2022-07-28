@@ -35,6 +35,5 @@ void checkFileNotEmpty(std::string testfilename);
 void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst, double &CConst, double &DConst,
                        double &FreezingRange);
 std::string parseCoordinatePair(std::string line, int val);
-void parseCommaSeparatedArgs(std::string AnalysisFile, std::string ReadLine, std::vector<std::string> &ParsedLine);
 
 #endif
