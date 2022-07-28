@@ -492,12 +492,12 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
             std::vector<double> XCoordinates(1000000), YCoordinates(1000000), ZCoordinates(1000000);
             long unsigned int XYZPointCounter = 0;
             while (!TemperatureFile.eof()) {
-                std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
+                std::vector<std::string> ParsedLine(3); // Get x, y, z - ignore tm, tl, cr
                 std::string ReadLine;
                 if (!getline(TemperatureFile, ReadLine))
                     break;
+                splitString(ReadLine, ParsedLine, ",", 3);
                 // Only get x, y, and z values from ParsedLine
-                parseCommaSeparatedArgs(tempfile_thislayer, ReadLine, ParsedLine);
                 XCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[0]);
                 YCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[1]);
                 ZCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[2]);
@@ -693,8 +693,8 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
             std::string ReadLine;
             if (!getline(TemperatureFile, ReadLine))
                 break;
+            splitString(ReadLine, ParsedLine);
             // Only get x and y values from ParsedLine, for now
-            parseCommaSeparatedArgs(tempfile_thislayer, ReadLine, ParsedLine);
             double XTemperaturePoint = getInputDouble(ParsedLine[0]);
             double YTemperaturePoint = getInputDouble(ParsedLine[1]);
             // Check the CA grid positions of the data point to see which rank(s) should store it
@@ -1181,7 +1181,7 @@ void OrientationInit(int, int &NGrainOrientations, ViewF &GrainOrientationData, 
         std::string ReadLine;
         if (!getline(O, ReadLine))
             break;
-        parseCommaSeparatedArgs(GrainOrientationFile, ReadLine, ParsedLine);
+        splitString(ReadLine, ParsedLine);
         // Place the 3 grain orientation angles or 9 rotation matrix components into the orientation data view
         for (int Comp = 0; Comp < ValsPerLine; Comp++) {
             GrainOrientationData_Host(ValsPerLine * i + Comp) = getInputFloat(ParsedLine[Comp]);
