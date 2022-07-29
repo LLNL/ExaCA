@@ -123,18 +123,13 @@ double getInputDouble(std::string val_input, int factor = 0) {
 
 // Given a string ("line"), parse at "separator" (commas used by default)
 // Modifies "parsed_line" to hold the comma separated values
-void splitString(std::string line, std::vector<std::string> &parsed_line, std::string separator = ",",
-                 int expected_num_commas = -1) {
+// expected_num_commas may be larger than the size of parsed_line, if only a portion of the line is being parsed
+void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_commas,
+                 char separator = ',') {
     std::size_t line_size = parsed_line.size();
     // If reading a comma-separated line, make sure the right number of commas are present
-    if (separator == ",") {
-        int num_commas = std::count(line.begin(), line.end(), ',');
-        // If expected_num_commas was not given (i.e., is the default value of -1), it is equivalent to one less than
-        // the number of elements in parsed_line
-        if (expected_num_commas == -1)
-            expected_num_commas = line_size - 1;
-        // If expected_num_commas is given, we are only parsing some of the line, so the size of parsed_line is
-        // unrelated
+    if (separator == ',') {
+        int num_commas = std::count(line.begin(), line.end(), separator);
         if (expected_num_commas > num_commas) {
             std::string error = "Error: Expected " + std::to_string(line_size - 1) +
                                 " commas while reading file; but " + std::to_string(num_commas) + " were found";
@@ -155,7 +150,7 @@ void checkForHeaderValues(std::string header_line) {
     // Header values from file
     std::size_t header_size = 6;
     std::vector<std::string> header_values(header_size, "");
-    splitString(header_line, header_values);
+    splitString(header_line, header_values, 5);
 
     std::vector<std::vector<std::string>> expected_values = {{"x"}, {"y"}, {"z"}, {"tm"}, {"tl", "ts"}, {"r", "cr"}};
 
