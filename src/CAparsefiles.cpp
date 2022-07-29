@@ -127,14 +127,12 @@ double getInputDouble(std::string val_input, int factor = 0) {
 void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_commas,
                  char separator = ',') {
     std::size_t line_size = parsed_line.size();
-    // If reading a comma-separated line, make sure the right number of commas are present
-    if (separator == ',') {
-        int num_commas = std::count(line.begin(), line.end(), separator);
-        if (expected_num_commas > num_commas) {
-            std::string error = "Error: Expected " + std::to_string(line_size - 1) +
-                                " commas while reading file; but " + std::to_string(num_commas) + " were found";
-            throw std::runtime_error(error);
-        }
+    // Make sure the right number of commas are present
+    int num_commas = std::count(line.begin(), line.end(), separator);
+    if (expected_num_commas > num_commas) {
+        std::string error = "Error: Expected " + std::to_string(line_size - 1) + " commas while reading file; but " +
+                            std::to_string(num_commas) + " were found";
+        throw std::runtime_error(error);
     }
     for (std::size_t n = 0; n < line_size - 1; n++) {
         std::size_t pos = line.find(separator);
