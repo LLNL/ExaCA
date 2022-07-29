@@ -124,12 +124,12 @@ double getInputDouble(std::string val_input, int factor = 0) {
 // Given a string ("line"), parse at "separator" (commas used by default)
 // Modifies "parsed_line" to hold the comma separated values
 // expected_num_commas may be larger than the size of parsed_line, if only a portion of the line is being parsed
-void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_commas,
+void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values,
                  char separator = ',') {
     std::size_t line_size = parsed_line.size();
     // Make sure the right number of commas are present
     int num_commas = std::count(line.begin(), line.end(), separator);
-    if (expected_num_commas > num_commas) {
+    if (expected_num_values > num_commas) {
         std::string error = "Error: Expected " + std::to_string(line_size - 1) + " commas while reading file; but " +
                             std::to_string(num_commas) + " were found";
         throw std::runtime_error(error);
