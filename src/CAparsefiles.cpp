@@ -121,16 +121,26 @@ double getInputDouble(std::string val_input, int factor = 0) {
     return DoubleFromString;
 }
 
-// Given a line "s", parse at the commas and return the parsed values as strings in "ParsedLine"
-// If AllColumns = true, return all 6 values; otherwise, only parse the first 3 commas/values
-void splitString(std::string line, std::vector<std::string> &parsed_line, std::string separator = ",") {
-    std::size_t line_size = parsed_line.size();
-    for (std::size_t n = 0; n < line_size - 1; n++) {
+// Given a string ("line"), parse at "separator" (commas used by default)
+// Modifies "parsed_line" to hold the separated values
+// expected_num_values may be larger than parsed_line_size, if only a portion of the line is being parsed
+void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values,
+                 char separator = ',') {
+    // Make sure the right number of values are present on the line - one more than the number of separators
+    int actual_num_values = std::count(line.begin(), line.end(), separator) + 1;
+    if (expected_num_values != actual_num_values) {
+        std::string error = "Error: Expected " + std::to_string(expected_num_values) +
+                            " values while reading file; but " + std::to_string(actual_num_values) + " were found";
+        throw std::runtime_error(error);
+    }
+    // Separate the line into its components, now that the number of values has been checked
+    std::size_t parsed_line_size = parsed_line.size();
+    for (std::size_t n = 0; n < parsed_line_size - 1; n++) {
         std::size_t pos = line.find(separator);
-        parsed_line[n] = line.substr(0, pos);
+        parsed_line[n] = removeWhitespace(line.substr(0, pos));
         line = line.substr(pos + 1, std::string::npos);
     }
-    parsed_line[line_size - 1] = line;
+    parsed_line[parsed_line_size - 1] = removeWhitespace(line);
 }
 
 // Check to make sure that all expected column names appear in the header for this temperature file
@@ -139,7 +149,7 @@ void checkForHeaderValues(std::string header_line) {
     // Header values from file
     std::size_t header_size = 6;
     std::vector<std::string> header_values(header_size, "");
-    splitString(header_line, header_values);
+    splitString(header_line, header_values, 6);
 
     std::vector<std::vector<std::string>> expected_values = {{"x"}, {"y"}, {"z"}, {"tm"}, {"tl", "ts"}, {"r", "cr"}};
 
@@ -360,29 +370,4 @@ std::string parseCoordinatePair(std::string line, int val) {
     std::regex r("\\s+");
     SplitStr = std::regex_replace(SplitStr, r, "");
     return SplitStr;
-}
-
-// Separate ReadLine at commas and place components into ParsedLine, checking to make sure that the size of ParsedLine
-// is equal to the number of comma-separated values in ReadLine
-void parseCommaSeparatedArgs(std::string AnalysisFile, std::string ReadLine, std::vector<std::string> &ParsedLine) {
-
-    int ExpectedNumComponents = ParsedLine.size();
-    std::istringstream ss(ReadLine);
-    int Comp = 0;
-    while (ss) {
-        std::string s;
-        if (!getline(ss, s, ','))
-            break;
-        if (Comp == ExpectedNumComponents) {
-            std::string error = "Error: More comma-sepated components than expected on line in " + AnalysisFile;
-            throw std::runtime_error(error);
-        }
-        ParsedLine[Comp] = removeWhitespace(s);
-        Comp++;
-    }
-    if (Comp != ExpectedNumComponents) {
-        std::string error = "Error: Fewer comma-sepated components than expected on line in " + AnalysisFile +
-                            " (expected " + std::to_string(ExpectedNumComponents) + ")";
-        throw std::runtime_error(error);
-    }
 }

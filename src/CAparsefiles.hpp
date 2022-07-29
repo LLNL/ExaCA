@@ -19,7 +19,8 @@ bool getInputBool(std::string val_input);
 int getInputInt(std::string val_input);
 float getInputFloat(std::string val_input, int factor = 0);
 double getInputDouble(std::string val_input, int factor = 0);
-void splitString(std::string line, std::vector<std::string> &parsed_line, std::string separator = ",");
+void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values,
+                 char separator = ',');
 void checkForHeaderValues(std::string header_line);
 void getTemperatureDataPoint(std::string s, std::vector<double> &XYZTemperaturePoint);
 void parseTemperatureInput_Old(std::vector<std::string> DeprecatedInputs, std::vector<std::string> DeprecatedInputsRead,
@@ -34,6 +35,5 @@ void checkFileNotEmpty(std::string testfilename);
 void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst, double &CConst, double &DConst,
                        double &FreezingRange);
 std::string parseCoordinatePair(std::string line, int val);
-void parseCommaSeparatedArgs(std::string AnalysisFile, std::string ReadLine, std::vector<std::string> &ParsedLine);
 
 #endif
