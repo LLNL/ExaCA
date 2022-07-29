@@ -122,24 +122,25 @@ double getInputDouble(std::string val_input, int factor = 0) {
 }
 
 // Given a string ("line"), parse at "separator" (commas used by default)
-// Modifies "parsed_line" to hold the comma separated values
-// expected_num_commas may be larger than the size of parsed_line, if only a portion of the line is being parsed
+// Modifies "parsed_line" to hold the separated values
+// expected_num_values may be larger than parsed_line_size, if only a portion of the line is being parsed
 void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values,
                  char separator = ',') {
-    std::size_t line_size = parsed_line.size();
-    // Make sure the right number of commas are present
-    int num_commas = std::count(line.begin(), line.end(), separator);
-    if (expected_num_values > num_commas) {
-        std::string error = "Error: Expected " + std::to_string(line_size - 1) + " commas while reading file; but " +
-                            std::to_string(num_commas) + " were found";
+    // Make sure the right number of values are present on the line - one more than the number of separators
+    int actual_num_values = std::count(line.begin(), line.end(), separator) + 1;
+    if (expected_num_values != actual_num_values) {
+        std::string error = "Error: Expected " + std::to_string(expected_num_values) +
+                            " values while reading file; but " + std::to_string(actual_num_values) + " were found";
         throw std::runtime_error(error);
     }
-    for (std::size_t n = 0; n < line_size - 1; n++) {
+    // Separate the line into its components, now that the number of values has been checked
+    std::size_t parsed_line_size = parsed_line.size();
+    for (std::size_t n = 0; n < parsed_line_size - 1; n++) {
         std::size_t pos = line.find(separator);
         parsed_line[n] = removeWhitespace(line.substr(0, pos));
         line = line.substr(pos + 1, std::string::npos);
     }
-    parsed_line[line_size - 1] = removeWhitespace(line);
+    parsed_line[parsed_line_size - 1] = removeWhitespace(line);
 }
 
 // Check to make sure that all expected column names appear in the header for this temperature file
@@ -148,7 +149,7 @@ void checkForHeaderValues(std::string header_line) {
     // Header values from file
     std::size_t header_size = 6;
     std::vector<std::string> header_values(header_size, "");
-    splitString(header_line, header_values, 5);
+    splitString(header_line, header_values, 6);
 
     std::vector<std::vector<std::string>> expected_values = {{"x"}, {"y"}, {"z"}, {"tm"}, {"tl", "ts"}, {"r", "cr"}};
 

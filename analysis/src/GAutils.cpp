@@ -366,7 +366,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
         std::vector<std::string> CS(4);
         if (NewOrientationFormatYN) {
             // Should be 4 inputs on this line - break it into its components
-            splitString(CSline, CS, 3);
+            splitString(CSline, CS, 4);
             if (CS[2] == "Y")
                 PrintSectionPF.push_back(true);
             else

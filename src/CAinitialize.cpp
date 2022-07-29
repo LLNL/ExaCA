@@ -496,7 +496,7 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
                 std::string ReadLine;
                 if (!getline(TemperatureFile, ReadLine))
                     break;
-                splitString(ReadLine, ParsedLine, 5);
+                splitString(ReadLine, ParsedLine, 6);
                 // Only get x, y, and z values from ParsedLine
                 XCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[0]);
                 YCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[1]);
@@ -693,7 +693,7 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
             std::string ReadLine;
             if (!getline(TemperatureFile, ReadLine))
                 break;
-            splitString(ReadLine, ParsedLine, 5);
+            splitString(ReadLine, ParsedLine, 6);
             // Only get x and y values from ParsedLine, for now
             double XTemperaturePoint = getInputDouble(ParsedLine[0]);
             double YTemperaturePoint = getInputDouble(ParsedLine[1]);
@@ -1181,7 +1181,7 @@ void OrientationInit(int, int &NGrainOrientations, ViewF &GrainOrientationData, 
         std::string ReadLine;
         if (!getline(O, ReadLine))
             break;
-        splitString(ReadLine, ParsedLine, ValsPerLine - 1);
+        splitString(ReadLine, ParsedLine, ValsPerLine);
         // Place the 3 grain orientation angles or 9 rotation matrix components into the orientation data view
         for (int Comp = 0; Comp < ValsPerLine; Comp++) {
             GrainOrientationData_Host(ValsPerLine * i + Comp) = getInputFloat(ParsedLine[Comp]);

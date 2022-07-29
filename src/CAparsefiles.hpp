@@ -19,7 +19,7 @@ bool getInputBool(std::string val_input);
 int getInputInt(std::string val_input);
 float getInputFloat(std::string val_input, int factor = 0);
 double getInputDouble(std::string val_input, int factor = 0);
-void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_commas,
+void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values,
                  char separator = ',');
 void checkForHeaderValues(std::string header_line);
 void getTemperatureDataPoint(std::string s, std::vector<double> &XYZTemperaturePoint);
