@@ -383,6 +383,10 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
             PrintSectionPF.push_back(false);
             PrintSectionIPF.push_back(true);
         }
+        // Remove whitespace from parsed cross-section data
+        for (int n = 0; n < 4; n++) {
+            CS[n] = removeWhitespace(CS[n]);
+        }
         if (CS[0] == "XZ") {
             CrossSectionPlane.push_back(0);
             if (CS[1] == "END")
