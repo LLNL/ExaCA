@@ -137,10 +137,10 @@ void splitString(std::string line, std::vector<std::string> &parsed_line, int ex
     std::size_t parsed_line_size = parsed_line.size();
     for (std::size_t n = 0; n < parsed_line_size - 1; n++) {
         std::size_t pos = line.find(separator);
-        parsed_line[n] = removeWhitespace(line.substr(0, pos));
+        parsed_line[n] = line.substr(0, pos);
         line = line.substr(pos + 1, std::string::npos);
     }
-    parsed_line[parsed_line_size - 1] = removeWhitespace(line);
+    parsed_line[parsed_line_size - 1] = line;
 }
 
 // Check to make sure that all expected column names appear in the header for this temperature file
