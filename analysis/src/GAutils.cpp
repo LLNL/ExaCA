@@ -367,6 +367,10 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
         if (NewOrientationFormatYN) {
             // Should be 4 inputs on this line - break it into its components
             splitString(CSline, CS, 4);
+            // Remove whitespace from parsed cross-section data
+            for (int n = 0; n < 4; n++) {
+                CS[n] = removeWhitespace(CS[n]);
+            }
             if (CS[2] == "Y")
                 PrintSectionPF.push_back(true);
             else
@@ -382,10 +386,6 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
             CS[1] = parseCoordinatePair(CSline, 1);
             PrintSectionPF.push_back(false);
             PrintSectionIPF.push_back(true);
-        }
-        // Remove whitespace from parsed cross-section data
-        for (int n = 0; n < 4; n++) {
-            CS[n] = removeWhitespace(CS[n]);
         }
         if (CS[0] == "XZ") {
             CrossSectionPlane.push_back(0);
