@@ -74,7 +74,7 @@ Some additional inputs are optional while others are required
 | Density of powder surface sites active | See note (b) | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3)
 
 (a) One of these inputs must be provided, but not both
-(b) This is optional, but if this is given, Density of powder surface sites active must be set to N
+(b) This is optional, but if this is given, Extend baseplate through layers must be set to N
 
 ### Problem type R
 Some additional inputs are optional while others are required
@@ -90,7 +90,7 @@ Some additional inputs are optional while others are required
 | Density of powder surface sites active                      | See note (b) | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3)
 
 (a) One of these inputs must be provided, but not both
-(b) This is optional, but if this is given, Density of powder surface sites active must be set to N
+(b) This is optional, but if this is given, Extend baseplate through layers must be set to N
 
 The input "Extra set of wall cells", used in previous versions of ExaCA to create a set of wall cells "padding" the temperature data at the domain's X and Y boundaries, is deprecated and no longer has an effect.
 Additional information regarding the temperature field is provided inside the auxiliary file specified on the "Path to and name of temperature field assembly instructions" line. A temperature field construction file contains the following additional specifications:
