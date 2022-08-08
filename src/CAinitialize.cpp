@@ -268,8 +268,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                 throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
                                          "than 1/(CA cell volume)");
             if (BaseplateThroughPowder)
-                throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers it "
-                                         "toggled, a powder density cannot be given");
+                throw std::runtime_error("Error: if the option to extend the baseplate through through all powder "
+                                         "layers is turned on, a powder density cannot be given");
         }
         if (id == 0) {
             std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
