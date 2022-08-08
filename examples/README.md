@@ -55,33 +55,42 @@ All inputs are required.
 | Fraction surface sites active| What fraction of cells at the bottom surface of the domain are the source of a grain?
 
 ### Problem type S
-All inputs are required - with the exception of sub grain size and sub filename: one of the two should be provided, but not both.
+Some additional inputs are optional while others are required
 
-|Input                       | Details |
-|----------------------------|---------|
-| Thermal gradient  | Thermal gradient in each hemispherical spot, in K/m
-| Cooling rate      | Cooling rate (uniform for each spot), in K/s
-| Time step ratio   | Used to set the time step: time step = cell size/(cooling rate/thermal gradient) x N)
-| Number of spots in x    | Number of spots in the x direction
-| Number of spots in y    | Number of spots in the y direction
-| Offset between spot centers | Offset of spot centers along the x and y axes, in microns
-| Radii of spots    | Spot radii, in microns
-| Number of layers  | Number of times this pattern is repeated, offset in the +Z (build) direction
-| Offset between layers | If Number of layers > 1, the number of CA cells should separate adjacent layers
-| Substrate grain spacing | Mean spacing between grain centers in the baseplate/substrate (in microns)
-| Substrate filename| Filename for substrate data (either this OR Sub grain size should be provided, but not both)
+|Input                                   | Required Y/N | Details |
+|----------------------------------------|--------------|---------|
+| Thermal gradient                       | Y            | Thermal gradient in each hemispherical spot, in K/m
+| Cooling rate                           | Y            | Cooling rate (uniform for each spot), in K/s
+| Time step ratio                        | Y            | Used to set the time step: time step = cell size/(cooling rate/thermal gradient) x N)
+| Number of spots in x                   | Y            | Number of spots in the x direction
+| Number of spots in y                   | Y            | Number of spots in the y direction
+| Offset between spot centers            | Y            | Offset of spot centers along the x and y axes, in microns
+| Radii of spots                         | Y            | Spot radii, in microns
+| Number of layers                       | Y            | Number of times this pattern is repeated, offset in the +Z (build) direction
+| Offset between layers                  | Y            | If Number of layers > 1, the number of CA cells should separate adjacent layers
+| Substrate grain spacing                | See note (a) | Mean spacing between grain centers in the baseplate/substrate (in microns)
+| Substrate filename                     | See note (a) | Path to and filename for substrate data
+| Extend baseplate through layers        | N            | Value should be Y or N: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (default value is N)
+| Density of powder surface sites active | See note (b) | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3)
 
+(a) One of these inputs must be provided, but not both
+(b) This is optional, but if this is given, "Extend baseplate through layers" must be set to N
 
 ### Problem type R
-Some additional inputs are optional while others are required. As was the case for Problem type S, sub grain size and sub filename are both optional inputs, but one of the two must be provided.
+Some additional inputs are optional while others are required
 
-|Input              | Required Y/N | Details |
-|-------------------| - |---------|
-| Substrate grain spacing | Y/N | Mean spacing between grain centers in the baseplate/substrate (in microns) (either this OR Sub filename should be given, but not both)
-| Substrate filename      | Y/N | Filename (including path) for substrate data (either this OR Sub grain size should be provided, but not both)
-| Time step         | Y | CA time step, in microseconds
-| Path to and name of temperature field assembly instructions | Y | Additional file containing information on the temperature data
-| default RVE output | N | Whether or not to print representative volume element (RVE) data for ExaConstit, for a 0.5 cubic mm region in the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure
+|Input                                                        | Required Y/N | Details |
+|-------------------------------------------------------------| -------------|---------|
+| Substrate grain spacing                                     | See note (a) | Mean spacing between grain centers in the baseplate/substrate (in microns)
+| Substrate filename                                          | See note (a) | Path to and filename for substrate data
+| Time step                                                   | Y            | CA time step, in microseconds
+| Path to and name of temperature field assembly instructions | Y            | Additional file containing information on the temperature data
+| default RVE output                                          | N            | Whether or not to print representative volume element (RVE) data for ExaConstit, for a 0.5 cubic mm region in the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure
+| Extend baseplate through layers                             | N            | Value should be Y or N: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (default value is N)
+| Density of powder surface sites active                      | See note (b) | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3)
+
+(a) One of these inputs must be provided, but not both
+(b) This is optional, but if this is given, Extend baseplate through layers must be set to N
 
 The input "Extra set of wall cells", used in previous versions of ExaCA to create a set of wall cells "padding" the temperature data at the domain's X and Y boundaries, is deprecated and no longer has an effect.
 Additional information regarding the temperature field is provided inside the auxiliary file specified on the "Path to and name of temperature field assembly instructions" line. A temperature field construction file contains the following additional specifications:

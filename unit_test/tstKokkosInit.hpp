@@ -216,7 +216,7 @@ void testBaseplateInit_FromGrainSpacing() {
     ViewI GrainID("GrainID_Device", LocalDomainSize);
 
     BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyXSlices, MyYSlices, MyXOffset,
-                                   MyYOffset, id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
+                                   MyYOffset, id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
@@ -272,7 +272,7 @@ void testPowderInit() {
     double RNGSeed = 0.0;
 
     PowderInit(layernumber, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-               id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID);
+               id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, 1.0);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);

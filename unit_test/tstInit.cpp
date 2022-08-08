@@ -147,6 +147,7 @@ void testInputReadFromFile() {
             TestDataFile << "Print default RVE output: Y" << std::endl;
             TestDataFile << "Print file of all ExaCA data: N" << std::endl;
             TestDataFile << "Time step: 1.5" << std::endl;
+            TestDataFile << "Density of powder surface sites active: 1000" << std::endl;
             if (n == 2) {
                 // Deprecated temperature input lines
                 TestDataFile << "Path to temperature file(s): ./" << std::endl;
@@ -199,19 +200,19 @@ void testInputReadFromFile() {
             NSpotsY, SpotOffset, SpotRadius, TimeSeriesInc;
         float SubstrateGrainSpacing;
         double AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R,
-            FractSurfaceSitesActive, RNGSeed;
+            FractSurfaceSitesActive, RNGSeed, PowderDensity;
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
-            UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false;
+            UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false, BaseplateThroughPowder;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput;
         std::vector<std::string> temp_paths;
-        InputReadFromFile(id, FileName, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
-                          FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,
-                          TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
-                          SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                          FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
-                          PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
-                          PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed);
+        InputReadFromFile(
+            id, FileName, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax,
+            NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN,
+            deltat, NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx,
+            ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals,
+            PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
+            PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
@@ -260,6 +261,7 @@ void testInputReadFromFile() {
             EXPECT_EQ(NumberOfLayers, 2);
             EXPECT_EQ(LayerHeight, 20);
             EXPECT_FALSE(UseSubstrateFile);
+            EXPECT_FALSE(BaseplateThroughPowder);
             EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 25.0);
             EXPECT_TRUE(OutputFile == "TestProblemSpot");
             EXPECT_FALSE(PrintFinalUndercoolingVals);
@@ -272,6 +274,8 @@ void testInputReadFromFile() {
             EXPECT_EQ(NumberOfLayers, 2);
             EXPECT_EQ(LayerHeight, 1);
             EXPECT_TRUE(UseSubstrateFile);
+            EXPECT_FALSE(BaseplateThroughPowder);
+            EXPECT_DOUBLE_EQ(PowderDensity, 0.001);
             if (FileName == "Inp_TemperatureTest_Old.txt")
                 EXPECT_DOUBLE_EQ(HT_deltax, 12.0 * pow(10, -6));
             else
