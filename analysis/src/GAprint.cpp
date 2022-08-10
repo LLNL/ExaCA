@@ -387,7 +387,8 @@ void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string Bas
                 GrainplotIPF.open(FNameIPF);
                 GrainplotIPF << std::fixed << std::setprecision(6);
             }
-
+            int NucleatedGrainCells = 0;
+            int CrossSectionSize = (Index1High - Index1Low) * (Index2High - Index2Low);
             for (int Index1 = Index1Low; Index1 < Index1High; Index1++) {
                 for (int Index2 = Index2Low; Index2 < Index2High; Index2++) {
                     int Index3 = ThisCrossSectionLocation;
@@ -409,6 +410,9 @@ void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string Bas
                         ZLoc = Index2;
                     }
                     int GOVal = (abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % NumberOfOrientations;
+                    // Count number of cells in this cross-section have GrainID < 0 (grains formed via nucleation)
+                    if (GrainID(ZLoc, XLoc, YLoc) < 0)
+                        NucleatedGrainCells++;
                     // If constructing pole figure data from these orientations, add this value to the frequency data
                     if (PrintSectionPF[n])
                         GOHistogram(GOVal)++;
@@ -432,6 +436,8 @@ void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string Bas
                     }
                 }
             }
+            std::cout << "The fraction of grains in this cross-section formed via nucleation events is "
+                      << (double)(NucleatedGrainCells) / (double)(CrossSectionSize) << std::endl;
             if (PrintSectionIPF[n])
                 GrainplotIPF.close();
             if (PrintSectionPF[n]) {
@@ -494,13 +500,19 @@ void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int
                    << XHigh_RVE[n] - XLow_RVE[n] + 1 << " by " << YHigh_RVE[n] - YLow_RVE[n] + 1 << " by "
                    << ZHigh_RVE[n] - ZLow_RVE[n] + 1 << " cells" << std::endl;
         GrainplotE << "X coord, Y coord, Z coord, Grain ID" << std::endl;
+        int NucleatedGrainCells = 0;
         for (int k = ZLow_RVE[n]; k <= ZHigh_RVE[n]; k++) {
             for (int i = XLow_RVE[n]; i <= XHigh_RVE[n]; i++) {
                 for (int j = YLow_RVE[n]; j <= YHigh_RVE[n]; j++) {
                     GrainplotE << i << "," << j << "," << k << "," << GrainID(k, i, j) << std::endl;
+                    if (GrainID(k, i, j) < 0)
+                        NucleatedGrainCells++;
                 }
             }
         }
         GrainplotE.close();
+        int RVESize = (XHigh_RVE[n] - XLow_RVE[n]) * (YHigh_RVE[n] - YLow_RVE[n]) * (ZHigh_RVE[n] - ZLow_RVE[n]);
+        std::cout << "The fraction of grains in this RVE is " << (double)(NucleatedGrainCells) / (double)(RVESize)
+                  << std::endl;
     }
 }
