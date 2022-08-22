@@ -437,7 +437,7 @@ void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string Bas
                 }
             }
             std::cout << "The fraction of grains in this cross-section formed via nucleation events is "
-                      << (double)(NucleatedGrainCells) / (double)(CrossSectionSize) << std::endl;
+                      << static_cast<double>(NucleatedGrainCells) / static_cast<double>(CrossSectionSize) << std::endl;
             if (PrintSectionIPF[n])
                 GrainplotIPF.close();
             if (PrintSectionPF[n]) {
@@ -512,7 +512,7 @@ void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int
         }
         GrainplotE.close();
         int RVESize = (XHigh_RVE[n] - XLow_RVE[n]) * (YHigh_RVE[n] - YLow_RVE[n]) * (ZHigh_RVE[n] - ZLow_RVE[n]);
-        std::cout << "The fraction of grains in this RVE is " << (double)(NucleatedGrainCells) / (double)(RVESize)
-                  << std::endl;
+        std::cout << "The fraction of grains formed via nucleation events in this RVE is "
+                  << static_cast<double>(NucleatedGrainCells) / static_cast<double>(RVESize) << std::endl;
     }
 }
