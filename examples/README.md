@@ -9,8 +9,32 @@ ExaCA currently can model three types of problems:
     * If an x,y,z coordinate melted and solidified multiple times, it should appear in the file multiple times on separate lines. The order of the lines do not matter, except that the header line must be before any data.
     * The top surface (the largest Z coordinate in a file) is assumed to be flat. Additionally, if multiple temperature files are being used (for example, a scan pattern consisting of 10 layers of repeating even and odd file data), the Z coordinate corresponding to this flat top surface should be the same for all files.
 
-All problem types will rely on two additional files. `examples/Materials/Inconel625` is a file containing the interfacial response function data governing solidification rate as a function of undercooling - if a different interfacial response function of the same form is desired, this line in an input file can be changed, and a new Materials file can be created using the Inconel625 file as a template. `examples/Substrate/GrainOrientationVectors_Robert.csv` is a file of grain orientations: the first line is the number of orientations (10000), and each additional line is a list of unit vectors corresponding to a cubic grain's <001> directions in the form 'x1, y1, z1, x2, y2, z2, x3, y3, z3', where the coordinate system used is taken as the ExaCA reference frame. The distribution of orientations is approximately even. Like the material file, the orientation file could be swapped out with one consisting of more (or fewer) orientations, following GrainOrientationVectors_Robert.csv as a template.
-Problems of type R rely on an additional file, with the path and name of this file given in the master input file. Examples of these temperature field assembly files are given in `examples/Temperatures/T_SimpleRaster.txt` and `examples/Temperatures/T_AMBenchMultilayer.txt`.
+All problem types rely on two files in addition to the main input file. First,
+a file containing the interfacial response function data governing
+solidification rate as a function of undercooling is required. An example is
+`examples/Materials/Inconel625`; if a different interfacial response function
+of the same form is desired, a new Materials file can be created using the
+Inconel625 file as a template and passed to the main input file. Second, a file
+of grain orientations is required. An example is
+`examples/Substrate/GrainOrientationVectors_Robert.csv`: the first line is the
+number of orientations (10000), and each additional line is a list of unit
+vectors corresponding to a cubic grain's <001> directions in the form 'x1, y1,
+z1, x2, y2, z2, x3, y3, z3', where the coordinate system used is taken as the
+ExaCA reference frame. The distribution of orientations is approximately even.
+Like the material file, the orientation file could be swapped out with one
+consisting of more (or fewer) orientations, following
+`GrainOrientationVectors_Robert.csv` as a template. Both of these material and
+orientation file examples are installed with the executable, making it possible
+to simplfy use the file name in the input file. Custom files must either be
+added to the ExaCA CMake build, use an absolute file path, or a path relative
+to the ExaCA source.
+
+Problems of type R rely on a third file for temperature input, with the path
+and name of this file given in the master input file. Examples of these
+temperature field assembly files are given in
+`examples/Temperatures/T_SimpleRaster.txt` and
+`examples/Temperatures/T_AMBenchMultilayer.txt`. These files should always use
+an absolute file path or path relative to the ExaCA source.
 
 # ExaCA input files
 The .txt files in the examples subdirectory are provided on the command line to let ExaCA know which problem is being simulated. Any lines prior to the first string of asterisks are ignored, as are any lines starting with an asterisk.
