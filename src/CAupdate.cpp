@@ -326,63 +326,62 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                                 GrainID(GlobalNeighborD3D1ConvPosition) = h;
 
                                 // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
-                                double cxold = DOCenter((long int)(3) * D3D1ConvPosition);
-                                double cyold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
-                                double czold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
+                                float cxold = DOCenter((long int)(3) * D3D1ConvPosition);
+                                float cyold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
+                                float czold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
 
                                 // (xp,yp,zp) are the global coordinates of the new cell's center
-                                double xp = GlobalX + NeighborX[l] + 0.5;
-                                double yp = GlobalY + NeighborY[l] + 0.5;
-                                double zp = GlobalZ + NeighborZ[l] + 0.5;
+                                float xp = GlobalX + NeighborX[l] + 0.5;
+                                float yp = GlobalY + NeighborY[l] + 0.5;
+                                float zp = GlobalZ + NeighborZ[l] + 0.5;
 
                                 // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image
                                 // of the center of the new cell
-                                double x0 = xp - cxold;
-                                double y0 = yp - cyold;
-                                double z0 = zp - czold;
+                                float x0 = xp - cxold;
+                                float y0 = yp - cyold;
+                                float z0 = zp - czold;
 
                                 // mag0 is the magnitude of (x0,y0,z0)
-                                double mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
+                                float mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
 
                                 // Calculate unit vectors for the octahedron that intersect the new cell center
-                                double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
+                                float Angle1 = (GrainUnitVector(9 * MyOrientation) * x0 +
+                                                GrainUnitVector(9 * MyOrientation + 1) * y0 +
+                                                GrainUnitVector(9 * MyOrientation + 2) * z0) /
+                                               mag0;
+                                float Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
+                                                GrainUnitVector(9 * MyOrientation + 4) * y0 +
+                                                GrainUnitVector(9 * MyOrientation + 5) * z0) /
+                                               mag0;
+                                float Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
+                                                GrainUnitVector(9 * MyOrientation + 7) * y0 +
+                                                GrainUnitVector(9 * MyOrientation + 8) * z0) /
+                                               mag0;
+                                float Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
+                                float Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
+                                float Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
 
-                                double Angle1 = (GrainUnitVector(9 * MyOrientation) * x0 +
-                                                 GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                                                 GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                                                mag0;
-                                double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
-                                                 GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                                                 GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                                                mag0;
-                                double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
-                                                 GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                                                 GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                                                mag0;
+                                float Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
+                                float Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
+                                float Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
 
-                                Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
-                                Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
-                                Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
+                                float Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
+                                float Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
+                                float Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
 
-                                Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
-                                Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
-                                Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
-
-                                Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
-                                Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
-                                Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
-
-                                double U1[3], U2[3], UU[3], Norm[3];
+                                float U1[3], U2[3];
                                 U1[0] = Diag2X - Diag1X;
                                 U1[1] = Diag2Y - Diag1Y;
                                 U1[2] = Diag2Z - Diag1Z;
                                 U2[0] = Diag3X - Diag1X;
                                 U2[1] = Diag3Y - Diag1Y;
                                 U2[2] = Diag3Z - Diag1Z;
+                                float UU[3];
                                 UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
                                 UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
                                 UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                                double NDem = sqrtf(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                                float NDem = sqrtf(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                                float Norm[3];
                                 Norm[0] = UU[0] / NDem;
                                 Norm[1] = UU[1] / NDem;
                                 Norm[2] = UU[2] / NDem;
@@ -408,7 +407,7 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
 
                                 // Determine which of the 3 corners of the capturing face is closest to the captured
                                 // cell center
-                                double DistToCorner[3];
+                                float DistToCorner[3];
                                 DistToCorner[0] = sqrtf(((TriangleX[0] - xp) * (TriangleX[0] - xp)) +
                                                         ((TriangleY[0] - yp) * (TriangleY[0] - yp)) +
                                                         ((TriangleZ[0] - zp) * (TriangleZ[0] - zp)));
@@ -425,31 +424,31 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                                 z = (DistToCorner[2] < DistToCorner[0]);
 
                                 int idx = 2 * (z - y) * z + (y - x) * y;
-                                double mindisttocorner, xc, yc, zc;
+                                float mindisttocorner = DistToCorner[idx];
+                                float xc = TriangleX[idx];
+                                float yc = TriangleY[idx];
+                                float zc = TriangleZ[idx];
 
-                                mindisttocorner = DistToCorner[idx];
-                                xc = TriangleX[idx], yc = TriangleY[idx], zc = TriangleZ[idx];
+                                float x1 = TriangleX[(idx + 1) % 3];
+                                float y1 = TriangleY[(idx + 1) % 3];
+                                float z1 = TriangleZ[(idx + 1) % 3];
+                                float x2 = TriangleX[(idx + 2) % 3];
+                                float y2 = TriangleY[(idx + 2) % 3];
+                                float z2 = TriangleZ[(idx + 2) % 3];
 
-                                double x1, y1, z1, x2, y2, z2;
-                                x1 = TriangleX[(idx + 1) % 3], y1 = TriangleY[(idx + 1) % 3],
-                                z1 = TriangleZ[(idx + 1) % 3];
-                                x2 = TriangleX[(idx + 2) % 3], y2 = TriangleY[(idx + 2) % 3],
-                                z2 = TriangleZ[(idx + 2) % 3];
-
-                                double D1 =
+                                float D1 =
                                     sqrtf(((xp - x2) * (xp - x2)) + ((yp - y2) * (yp - y2)) + ((zp - z2) * (zp - z2)));
-                                double D2 =
+                                float D2 =
                                     sqrtf(((xc - x2) * (xc - x2)) + ((yc - y2) * (yc - y2)) + ((zc - z2) * (zc - z2)));
-                                double D3 =
+                                float D3 =
                                     sqrtf(((xp - x1) * (xp - x1)) + ((yp - y1) * (yp - y1)) + ((zp - z1) * (zp - z1)));
-                                double D4 =
+                                float D4 =
                                     sqrtf(((xc - x1) * (xc - x1)) + ((yc - y1) * (yc - y1)) + ((zc - z1) * (zc - z1)));
 
-                                double I1, I2, J1, J2;
-                                I1 = 0;
-                                I2 = D2;
-                                J1 = 0;
-                                J2 = D4;
+                                float I1 = 0;
+                                float I2 = D2;
+                                float J1 = 0;
+                                float J2 = D4;
                                 // If minimum distance to corner = 0, the octahedron corner captured the new cell center
                                 if (mindisttocorner != 0) {
                                     I1 = D1 * ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
@@ -459,79 +458,37 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                                          (D3 * D4);
                                     J2 = D4 - J1;
                                 }
-                                double L12 = 0.5 * (min(I1, sqrt(3.0)) + min(I2, sqrt(3.0)));
-                                double L13 = 0.5 * (min(J1, sqrt(3.0)) + min(J2, sqrt(3.0)));
-                                double NewODiagL = sqrt(2.0) * max(L12, L13); // half diagonal length of new octahedron
+                                float L12 = 0.5 * (fmin(I1, sqrtf(3.0)) + fmin(I2, sqrtf(3.0)));
+                                float L13 = 0.5 * (fmin(J1, sqrtf(3.0)) + fmin(J2, sqrtf(3.0)));
+                                float NewODiagL = sqrtf(2.0) * fmax(L12, L13); // half diagonal length of new octahedron
 
                                 DiagonalLength(NeighborD3D1ConvPosition) = NewODiagL;
                                 // Calculate coordinates of new decentered octahedron center
-                                double CaptDiag[3], CaptDiagUV[3];
+                                float CaptDiag[3];
                                 CaptDiag[0] = xc - cxold;
                                 CaptDiag[1] = yc - cyold;
                                 CaptDiag[2] = zc - czold;
 
-                                NDem = sqrt(CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] +
-                                            CaptDiag[2] * CaptDiag[2]);
-                                CaptDiagUV[0] = CaptDiag[0] / NDem;
-                                CaptDiagUV[1] = CaptDiag[1] / NDem;
-                                CaptDiagUV[2] = CaptDiag[2] / NDem;
+                                float CaptDiagMagnitude = sqrt(CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] +
+                                                               CaptDiag[2] * CaptDiag[2]);
+                                float CaptDiagUV[3];
+                                CaptDiagUV[0] = CaptDiag[0] / CaptDiagMagnitude;
+                                CaptDiagUV[1] = CaptDiag[1] / CaptDiagMagnitude;
+                                CaptDiagUV[2] = CaptDiag[2] / CaptDiagMagnitude;
                                 // (cx, cy, cz) are the coordiantes of the new active cell's decentered octahedron
-                                double cx = xc - NewODiagL * CaptDiagUV[0];
-                                double cy = yc - NewODiagL * CaptDiagUV[1];
-                                double cz = zc - NewODiagL * CaptDiagUV[2];
+                                float cx = xc - NewODiagL * CaptDiagUV[0];
+                                float cy = yc - NewODiagL * CaptDiagUV[1];
+                                float cz = zc - NewODiagL * CaptDiagUV[2];
 
                                 DOCenter((long int)(3) * NeighborD3D1ConvPosition) = cx;
                                 DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(1)) = cy;
                                 DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(2)) = cz;
 
-                                // Calculate critical octahedron diagonal length to activate nearest neighbor.
-                                // First, calculate the unique planes (4) associated with all octahedron faces (8)
-                                // Then just look at distance between face and the point of interest (cell center of
-                                // neighbor). The critical diagonal length will be the maximum of these (since all other
-                                // planes will have passed over the point by then
-                                // ... meaning it must be in the octahedron)
-
-                                double Fx[4], Fy[4], Fz[4], D[4], Dfabs;
-
-                                Fx[0] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) +
-                                        GrainUnitVector(9 * MyOrientation + 6);
-                                Fx[1] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) +
-                                        GrainUnitVector(9 * MyOrientation + 6);
-                                Fx[2] = GrainUnitVector(9 * MyOrientation) + GrainUnitVector(9 * MyOrientation + 3) -
-                                        GrainUnitVector(9 * MyOrientation + 6);
-                                Fx[3] = GrainUnitVector(9 * MyOrientation) - GrainUnitVector(9 * MyOrientation + 3) -
-                                        GrainUnitVector(9 * MyOrientation + 6);
-
-                                Fy[0] = GrainUnitVector(9 * MyOrientation + 1) +
-                                        GrainUnitVector(9 * MyOrientation + 4) + GrainUnitVector(9 * MyOrientation + 7);
-                                Fy[1] = GrainUnitVector(9 * MyOrientation + 1) -
-                                        GrainUnitVector(9 * MyOrientation + 4) + GrainUnitVector(9 * MyOrientation + 7);
-                                Fy[2] = GrainUnitVector(9 * MyOrientation + 1) +
-                                        GrainUnitVector(9 * MyOrientation + 4) - GrainUnitVector(9 * MyOrientation + 7);
-                                Fy[3] = GrainUnitVector(9 * MyOrientation + 1) -
-                                        GrainUnitVector(9 * MyOrientation + 4) - GrainUnitVector(9 * MyOrientation + 7);
-
-                                Fz[0] = GrainUnitVector(9 * MyOrientation + 2) +
-                                        GrainUnitVector(9 * MyOrientation + 5) + GrainUnitVector(9 * MyOrientation + 8);
-                                Fz[1] = GrainUnitVector(9 * MyOrientation + 2) -
-                                        GrainUnitVector(9 * MyOrientation + 5) + GrainUnitVector(9 * MyOrientation + 8);
-                                Fz[2] = GrainUnitVector(9 * MyOrientation + 2) +
-                                        GrainUnitVector(9 * MyOrientation + 5) - GrainUnitVector(9 * MyOrientation + 8);
-                                Fz[3] = GrainUnitVector(9 * MyOrientation + 2) -
-                                        GrainUnitVector(9 * MyOrientation + 5) - GrainUnitVector(9 * MyOrientation + 8);
-
-                                for (int n = 0; n < 26; n++) {
-                                    double x0 = xp + NeighborX[n] - cx;
-                                    double y0 = yp + NeighborY[n] - cy;
-                                    double z0 = zp + NeighborZ[n] - cz;
-                                    D[0] = x0 * Fx[0] + y0 * Fy[0] + z0 * Fz[0];
-                                    D[1] = x0 * Fx[1] + y0 * Fy[1] + z0 * Fz[1];
-                                    D[2] = x0 * Fx[2] + y0 * Fy[2] + z0 * Fz[2];
-                                    D[3] = x0 * Fx[3] + y0 * Fy[3] + z0 * Fz[3];
-                                    Dfabs = max(max(fabs(D[0]), fabs(D[1])), max(fabs(D[2]), fabs(D[3])));
-                                    CritDiagonalLength((long int)(26) * NeighborD3D1ConvPosition + (long int)(n)) =
-                                        Dfabs;
-                                }
+                                // Get new critical diagonal length values for the newly activated cell (at array
+                                // position "NeighborD3D1ConvPosition")
+                                calcCritDiagonalLength(NeighborD3D1ConvPosition, xp, yp, zp, cx, cy, cz, NeighborX,
+                                                       NeighborY, NeighborZ, MyOrientation, GrainUnitVector,
+                                                       CritDiagonalLength);
 
                                 if (np > 1) {
 
@@ -604,102 +561,18 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                 int GlobalY = RankY + MyYOffset;
                 int MyGrainID = GrainID(GlobalD3D1ConvPosition); // GrainID was assigned as part of Nucleation
 
-                DiagonalLength(D3D1ConvPosition) = 0.01;
-                long int DOX = (long int)(3) * D3D1ConvPosition;
-                long int DOY = (long int)(3) * D3D1ConvPosition + (long int)(1);
-                long int DOZ = (long int)(3) * D3D1ConvPosition + (long int)(2);
-                DOCenter(DOX) = GlobalX + 0.5;
-                DOCenter(DOY) = GlobalY + 0.5;
-                DOCenter(DOZ) = GlobalZ + 0.5;
+                // Initialize new octahedron
+                createNewOctahedron(D3D1ConvPosition, DiagonalLength, DOCenter, GlobalX, GlobalY, GlobalZ);
                 // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative GrainID
                 // values)
                 int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
+                float cx = GlobalX + 0.5;
+                float cy = GlobalY + 0.5;
+                float cz = GlobalZ + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid
-                // cell
-                for (int n = 0; n < 26; n++) {
-
-                    // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image of the center
-                    // of a neighbor cell
-                    double x0 = NeighborX[n];
-                    double y0 = NeighborY[n];
-                    double z0 = NeighborZ[n];
-
-                    // mag0 is the magnitude of (x0,y0,z0)
-                    double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
-
-                    // Calculate unit vectors for the octahedron that intersect the new cell center
-                    double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                    double Angle1 =
-                        (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                         GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                        mag0;
-                    if (Angle1 < 0) {
-                        Diag1X = GrainUnitVector(9 * MyOrientation);
-                        Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
-                        Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
-                    }
-                    else {
-                        Diag1X = -GrainUnitVector(9 * MyOrientation);
-                        Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
-                        Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
-                    }
-
-                    double Angle2 =
-                        (GrainUnitVector(9 * MyOrientation + 3) * x0 + GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                         GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                        mag0;
-                    if (Angle2 < 0) {
-                        Diag2X = GrainUnitVector(9 * MyOrientation + 3);
-                        Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
-                        Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
-                    }
-                    else {
-                        Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
-                        Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
-                        Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
-                    }
-
-                    double Angle3 =
-                        (GrainUnitVector(9 * MyOrientation + 6) * x0 + GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                         GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                        mag0;
-                    if (Angle3 < 0) {
-                        Diag3X = GrainUnitVector(9 * MyOrientation + 6);
-                        Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
-                        Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
-                    }
-                    else {
-                        Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
-                        Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
-                        Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
-                    }
-
-                    double U1[3], U2[3], UU[3], Norm[3];
-                    U1[0] = Diag2X - Diag1X;
-                    U1[1] = Diag2Y - Diag1Y;
-                    U1[2] = Diag2Z - Diag1Z;
-                    U2[0] = Diag3X - Diag1X;
-                    U2[1] = Diag3Y - Diag1Y;
-                    U2[2] = Diag3Z - Diag1Z;
-                    UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                    UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                    UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                    double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-                    Norm[0] = UU[0] / NDem;
-                    Norm[1] = UU[1] / NDem;
-                    Norm[2] = UU[2] / NDem;
-                    // normal to capturing plane
-                    double normx = Norm[0];
-                    double normy = Norm[1];
-                    double normz = Norm[2];
-                    double ParaT =
-                        (normx * x0 + normy * y0 + normz * z0) / (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
-                    float CDLVal =
-                        pow(pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
-                    long int CDLIndex = (long int)(26) * D3D1ConvPosition + (long int)(n);
-                    CritDiagonalLength(CDLIndex) = CDLVal;
-                    // printf("Nucleated grain with id %d has CDL %d = %f \n",MyGrainID,n,CDLVal);
-                }
+                // cell. Octahedron center and cell center overlap for octahedra created as part of a new grain
+                calcCritDiagonalLength(D3D1ConvPosition, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
+                                       MyOrientation, GrainUnitVector, CritDiagonalLength);
                 if (np > 1) {
 
                     double GhostGID = static_cast<double>(MyGrainID);

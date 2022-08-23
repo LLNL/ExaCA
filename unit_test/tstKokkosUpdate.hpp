@@ -328,12 +328,118 @@ void testFillSteeringVector_Remelt() {
     }
 }
 
+void testcalcCritDiagonalLength() {
+
+    // 2 "cells" in the domain
+    int LocalDomainSize = 2;
+    // First orientation is orientation 12 (starting indexing at 0) of GrainOrientationVectors.csv
+    // Second orientation is orientation 28 (starting indexing at 0)
+    std::vector<float> GrainUnitVectorV{0.52877,  0.651038, -0.544565, -0.572875, 0.747163,  0.336989,
+                                        0.626272, 0.133778, 0.768041,  0.736425,  -0.530983, 0.419208,
+                                        0.664512, 0.683971, -0.301012, -0.126894, 0.500241,  0.856538};
+    // Load unit vectors into view
+    ViewF_H GrainUnitVector_Host(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector_Host"), 9 * LocalDomainSize);
+    for (int i = 0; i < 9 * LocalDomainSize; i++) {
+        GrainUnitVector_Host(i) = GrainUnitVectorV[i];
+    }
+
+    // Initialize neighbor lists
+    NList NeighborX, NeighborY, NeighborZ;
+    NeighborListInit(NeighborX, NeighborY, NeighborZ);
+
+    // Load octahedron centers into view
+    ViewF_H DOCenter_Host(Kokkos::ViewAllocateWithoutInitializing("DOCenter_Host"), 3 * LocalDomainSize);
+    // Octahedron center for first cell (does not align with CA cell center, which is at 31.5, 3.5, 1.5)
+    DOCenter_Host(0) = 30.611142;
+    DOCenter_Host(1) = 3.523741;
+    DOCenter_Host(2) = 0.636301;
+    // Octahedron center for second cell (aligns with CA cell center at 110.5, 60.5, 0.5))
+    DOCenter_Host(3) = 110.5;
+    DOCenter_Host(4) = 60.5;
+    DOCenter_Host(5) = 0.5;
+    // Copy octahedron center and grain unit vector data to the device
+    ViewF DOCenter = Kokkos::create_mirror_view_and_copy(device_memory_space(), DOCenter_Host);
+    ViewF GrainUnitVector = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainUnitVector_Host);
+
+    // View for storing calculated critical diagonal lengths
+    ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalDomainSize);
+
+    // Expected results of calculations
+    std::vector<float> CritDiagonalLength_Expected{
+        2.732952,  3.403329,  2.062575, 3.708569,  1.7573346, 3.038192, 4.378946,  1.7094444, 3.2407162,
+        2.646351,  1.5504522, 3.114523, 3.121724,  3.2783692, 0.177466, 3.1648562, 1.472129,  2.497145,
+        3.2025092, 1.914978,  3.057610, 1.9366806, 3.639777,  3.351627, 3.3160222, 1.4418885, 1.715195,
+        1.914002,  1.927272,  2.291471, 1.851513,  2.346452,  2.236490, 2.902006,  2.613426,  1.576758,
+        1.576758,  2.248777,  2.266173, 2.266173,  2.248777,  1.527831, 1.527831,  1.715195,  1.927272,
+        1.914002,  1.851513,  2.291471, 2.902006,  2.613426,  2.346452, 2.236490};
+
+    // For first grain, calculate critical diagonal lenghts
+    calcCritDiagonalLength(0, 31.5, 3.5, 1.5, DOCenter(0), DOCenter(1), DOCenter(2), NeighborX, NeighborY, NeighborZ, 0,
+                           GrainUnitVector, CritDiagonalLength);
+    // For second grain, calculate critical diagonal lenghts
+    calcCritDiagonalLength(1, 110.5, 60.5, 0.5, DOCenter(3), DOCenter(4), DOCenter(5), NeighborX, NeighborY, NeighborZ,
+                           1, GrainUnitVector, CritDiagonalLength);
+
+    // Copy calculated critical diagonal lengths to the host to check against expected values
+    ViewF_H CritDiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritDiagonalLength);
+
+    // Check results
+    for (int i = 0; i < 26 * LocalDomainSize; i++) {
+        EXPECT_FLOAT_EQ(CritDiagonalLength_Host(i), CritDiagonalLength_Expected[i]);
+    }
+}
+
+void testcreateNewOctahedron() {
+
+    // Create a 18-cell domain with origin at (10, 10, 0)
+    int MyXSlices = 3;
+    int MyYSlices = 2;
+    int nz = 3;
+    int LocalDomainSize = MyXSlices * MyYSlices * nz;
+    int MyXOffset = 10;
+    int MyYOffset = 10;
+    int ZBound_Low = 0;
+
+    // Create diagonal length and octahedron center data structures on device
+    ViewF DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), LocalDomainSize);
+    ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalDomainSize);
+
+    for (int k = 0; k < nz; k++) {
+        for (int i = 0; i < MyXSlices; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
+                int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                int GlobalX = i + MyXOffset;
+                int GlobalY = j + MyYOffset;
+                int GlobalZ = k + ZBound_Low;
+                createNewOctahedron(D3D1ConvPosition, DiagonalLength, DOCenter, GlobalX, GlobalY, GlobalZ);
+            }
+        }
+    }
+
+    // Copy back to host and check values
+    ViewF_H DiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DiagonalLength);
+    ViewF_H DOCenter_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DOCenter);
+    for (int k = 0; k < nz; k++) {
+        for (int i = 0; i < MyXSlices; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
+                int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                EXPECT_FLOAT_EQ(DiagonalLength_Host(D3D1ConvPosition), 0.01);
+                EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition), i + MyXOffset + 0.5);
+                EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition + 1), j + MyYOffset + 0.5);
+                EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition + 2), k + ZBound_Low + 0.5);
+            }
+        }
+    }
+}
+
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, cell_update_tests) {
     testNucleation();
     testFillSteeringVector_Remelt();
+    testcalcCritDiagonalLength();
+    testcreateNewOctahedron();
 }
 
 } // end namespace Test
