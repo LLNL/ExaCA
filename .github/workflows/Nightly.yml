@@ -1,0 +1,37 @@
+name: Nightly
+on:
+  push:
+    branches:
+      - kokkos_develop_testing
+  schedule:
+    - cron:  '0 1 * * *'
+
+jobs:
+  CI:
+    strategy:
+      matrix:
+        backend: ["OPENMP", "SERIAL"]
+        kokkos_ver: ['master', 'develop']
+    runs-on: ubuntu-20.04
+    container: ghcr.io/ecp-copa/ci-containers/ubuntu:latest
+    steps:
+      - name: Checkout kokkos
+        uses: actions/checkout@v2.2.0
+        with:
+          repository: kokkos/kokkos
+          ref: ${{ kokkos_ver }}
+          path: kokkos
+      - name: Build kokkos
+        working-directory: kokkos
+        run: |
+          cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/kokkos -DKokkos_ENABLE_${{ matrix.backend }}=ON
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout ExaCA
+        uses: actions/checkout@v2.2.0
+      - name: Build ExaCA
+        run: |
+          cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/exaca -DCMAKE_PREFIX_PATH="$HOME/kokkos" -DExaCA_ENABLE_TESTING=ON
+          cmake --build build --parallel 2
+          cmake --build build --target test
+          cmake --install build

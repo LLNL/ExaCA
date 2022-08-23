@@ -21,18 +21,18 @@ jobs:
         cxx: ['g++', 'clang++']
         backend: ['SERIAL', 'OPENMP']
         cmake_build_type: ['Debug', 'Release']
-        kokkos_ver: ['3.4.01', 'master', 'develop']
+        kokkos_ver: ['3.4.01']
         include:
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
-            kokkos_ver: 'master'
+            kokkos_ver: '3.4.01'
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
-            kokkos_ver: 'master'
+            kokkos_ver: '3.4.01'
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
