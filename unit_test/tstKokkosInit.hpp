@@ -23,7 +23,7 @@ void testOrientationInit_Vectors() {
 
     int ValsPerLine = 9;
     int NGrainOrientations = 0;
-    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors.csv", "Substrate", id);
+    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors.csv", id);
 
     // View for storing orientation data
     ViewF GrainOrientationData(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData"), 0);
@@ -53,7 +53,7 @@ void testOrientationInit_Angles() {
 
     int ValsPerLine = 3;
     int NGrainOrientations = 0;
-    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationEulerAnglesBungeZXZ.csv", "Substrate", id);
+    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationEulerAnglesBungeZXZ.csv", id);
 
     // View for storing orientation data
     ViewF GrainOrientationData(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData"), 0);
@@ -111,7 +111,7 @@ void testSubstrateInit_ConstrainedGrowth() {
 
     double FractSurfaceSitesActive = 0.5; // Each rank will have 2 active cells each, on average
     double RNGSeed = 0.0;
-    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors.csv", "Substrate", id);
+    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors.csv", id);
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
     ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
     OrientationInit(id, NGrainOrientations, GrainUnitVector, GrainOrientationFile);

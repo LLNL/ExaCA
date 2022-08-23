@@ -218,32 +218,38 @@ void parseTemperatureInput_Old(std::vector<std::string> DeprecatedInputs, std::v
     getTemperatureFilePaths_Old(temppath, tempfile, temp_paths);
 }
 
-bool checkFileExists(const std::string path, const std::string type, const int id, const bool error = true) {
+bool checkFileExists(const std::string path, const int id, const bool error = true) {
     std::ifstream stream;
     stream.open(path);
     if (!(stream.is_open())) {
         stream.close();
         if (error)
-            throw std::runtime_error("Could not locate/open " + type + " file");
+            throw std::runtime_error("Could not locate/open \"" + path + "\"");
         else
             return false;
     }
     stream.close();
     if (id == 0)
-        std::cout << type + " file " << path << " opened" << std::endl;
+        std::cout << "Opened \"" << path << "\"" << std::endl;
     return true;
 }
 
-std::string checkFileInstalled(const std::string name, const std::string type, const int id) {
+std::string checkFileInstalled(const std::string name, const int id) {
     // Path to file. Prefer installed location; if not installed use source location.
     std::string path = ExaCA_DATA_INSTALL;
-    // Note type must match directory.
-    std::string file = path + "/" + type + "/" + name;
-    bool files_installed = checkFileExists(file, type, id, false);
+    std::string file = path + "/" + name;
+    bool files_installed = checkFileExists(file, id, false);
     if (!files_installed) {
-        path = ExaCA_DATA_SOURCE;
-        file = path + "/" + type + "/" + name;
-        checkFileExists(file, type, id);
+        // If full file path, just use it.
+        if (name.substr(0, 1) == "/") {
+            file = name;
+        }
+        // If a relative path, it has to be with respect to the source path.
+        else {
+            path = ExaCA_DATA_SOURCE;
+            file = path + "/" + name;
+        }
+        checkFileExists(file, id);
     }
     return file;
 }
@@ -301,7 +307,7 @@ void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &Te
 
     std::ifstream TemperatureData;
     // Check that file exists and contains data
-    checkFileExists(TFieldInstructions, "Temperature instruction", id);
+    checkFileExists(TFieldInstructions, id);
     checkFileNotEmpty(TFieldInstructions);
     // Open and read temperature instuctions file
     TemperatureData.open(TFieldInstructions);

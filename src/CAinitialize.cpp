@@ -69,7 +69,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     std::string MaterialName, GrainOrientationFile_Read;
 
     // Read the input file provided on the command line - determine which problem type is being simulated
-    checkFileExists(InputFile, "Input", id);
+    checkFileExists(InputFile, id);
     std::ifstream InputData;
     InputData.open(InputFile);
     skipLines(InputData, "*****"); // Skip lines until past the header lines above the asterisks
@@ -420,7 +420,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                 // Check that substrate file exists
                 UseSubstrateFile = true;
                 SubstrateFileName = OptionalInputsRead_ProblemSpecific[1];
-                checkFileExists(SubstrateFileName, "Substrate", id);
+                checkFileExists(SubstrateFileName, id);
             }
         }
     }
@@ -435,7 +435,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         for (int i = 0; i < TempFilesInSeries; i++) {
             if (id == 0)
                 std::cout << "Checking file " << temp_paths[i] << std::endl;
-            checkFileExists(temp_paths[i], "Temperature", id);
+            checkFileExists(temp_paths[i], id);
         }
         if ((!(DeprecatedInputsRead_ProblemSpecific[6].empty())) &&
             (id == 0)) // Fixme: Remove this optional input eventually
@@ -454,14 +454,14 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     }
 
     // Path to file of materials constants based on install/source location
-    std::string MaterialFile = checkFileInstalled(MaterialName, "Materials", id);
+    std::string MaterialFile = checkFileInstalled(MaterialName, id);
     checkFileNotEmpty(MaterialFile);
     // Read material file (specified from main input file) to obtain values for A, B, C, and D for the interfacial
     // reponse function
     parseMaterialFile(MaterialFile, AConst, BConst, CConst, DConst, FreezingRange);
 
     // Path to file of grain orientations based on install/source location
-    GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, "Substrate", id);
+    GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, id);
     checkFileNotEmpty(GrainOrientationFile);
 
     if (id == 0) {

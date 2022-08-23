@@ -2,14 +2,14 @@ Test problem simulating solidification of a series of overlapping spots (Problem
 *****
 Problem type: S
 Decomposition strategy: 1
-Material:Inconel625
+Material: Inconel625
 Cell size: 1
 Heterogeneous nucleation density: 10
 Mean nucleation undercooling: 5
 Standard deviation of nucleation undercooling: 0.5
 Path to output:./
 Output file base name:TestProblemSmallSpot
-File of grain orientations:GrainOrientationVectors.csv
+File of grain orientations: GrainOrientationVectors.csv
 Thermal gradient: 500000
 Cooling rate: 300000
 Number of spots in x: 1

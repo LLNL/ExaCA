@@ -175,14 +175,14 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     }
     Analysis.close();
     // Path to file of grain orientations based on install/source location
-    RotationFilename = checkFileInstalled(RotationFilename, "Substrate", 0);
+    RotationFilename = checkFileInstalled(RotationFilename, 0);
     // Check that files are not empty
     checkFileNotEmpty(LogFile);
     checkFileNotEmpty(MicrostructureFile);
     checkFileNotEmpty(RotationFilename);
     // Same checks for EulerAnglesFilename, if given
     if (NewOrientationFormatYN) {
-        EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, "Substrate", 0);
+        EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
         checkFileNotEmpty(EulerAnglesFilename);
     }
 }

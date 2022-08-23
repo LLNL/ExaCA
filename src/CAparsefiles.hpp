@@ -29,8 +29,8 @@ void parseTemperatureInput_Old(std::vector<std::string> DeprecatedInputs, std::v
                                double &HT_deltax, std::vector<std::string> &temp_paths);
 void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &TempFilesInSeries, int &NumberOfLayers,
                            int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths);
-bool checkFileExists(const std::string path, const std::string type, const int id, const bool error = true);
-std::string checkFileInstalled(const std::string name, const std::string type, const int id);
+bool checkFileExists(const std::string path, const int id, const bool error = true);
+std::string checkFileInstalled(const std::string name, const int id);
 void checkFileNotEmpty(std::string testfilename);
 void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst, double &CConst, double &DConst,
                        double &FreezingRange);
