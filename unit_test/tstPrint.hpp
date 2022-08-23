@@ -16,14 +16,8 @@ namespace Test {
 //---------------------------------------------------------------------------//
 void testPrintExaConstitDefaultRVE() {
 
-    int id, np;
-    // Get individual process ID
-    MPI_Comm_rank(MPI_COMM_WORLD, &id);
-    // Get number of processes
-    MPI_Comm_size(MPI_COMM_WORLD, &np);
-
     // File name/path for test RVE output (each rank writes/reads different file)
-    std::string BaseFileName = "TestRVERank_" + std::to_string(id);
+    std::string BaseFileName = "TestRVERank_0";
     std::string PathToOutput = "";
 
     // Create test grid - set up so that the RVE is 5 cells in X, Y, and Z
@@ -41,7 +35,7 @@ void testPrintExaConstitDefaultRVE() {
         for (int i = 0; i < nx; i++) {
             for (int j = 0; j < ny; j++) {
                 LayerID_WholeDomain(k, i, j) = k;
-                GrainID_WholeDomain(k, i, j) = id * i + j;
+                GrainID_WholeDomain(k, i, j) = i + j;
             }
         }
     }
@@ -63,8 +57,8 @@ void testPrintExaConstitDefaultRVE() {
     for (int k = 4; k < 9; k++) {
         for (int i = 3; i < 8; i++) {
             for (int j = 3; j < 8; j++) {
-                std::string ExpectedLine = std::to_string(i) + "," + std::to_string(j) + "," + std::to_string(k) + "," +
-                                           std::to_string(id * i + j);
+                std::string ExpectedLine =
+                    std::to_string(i) + "," + std::to_string(j) + "," + std::to_string(k) + "," + std::to_string(i + j);
                 std::getline(GrainplotE, line);
                 EXPECT_TRUE(line == ExpectedLine);
             }
