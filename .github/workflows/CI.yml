@@ -52,7 +52,7 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_INSTALL_PREFIX=$HOME/kokkos \
-            -DKokkos_ENABLE_OPENMP=${{ matrix.openmp }} \
+            -DKokkos_ENABLE_${{ matrix.backend }}=ON \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DKokkos_ENABLE_HWLOC=ON \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
