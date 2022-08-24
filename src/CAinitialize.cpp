@@ -342,16 +342,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
         }
     }
-    // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur when
-    // assigning powder layer GrainIDs
-    if (((SimulationType == "R") || (SimulationType == "S")) && (!(BaseplateThroughPowder))) {
-        long int NumCellsPowderLayers =
-            (long int)(nx) * (long int)(ny) * (long int)(LayerHeight) * (long int)(NumberOfLayers - 1);
-        long int NumAssignedCellsPowderLayers = std::lround((double)(NumCellsPowderLayers)*PowderDensity);
-        if (NumAssignedCellsPowderLayers > INT_MAX)
-            throw std::runtime_error("Error: A smaller value for powder density is required to avoid potential integer "
-                                     "overflow when assigning powder layer GrainID");
-    }
+
     // Optional inputs - should files post-initialization be printed for debugging?
     bool PrintDebugA = false;
     bool PrintDebugB = false;
@@ -479,6 +470,22 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         if (RemeltingYN)
             std::cout << "This simulation includes logic for cells melting and multiple solidification events"
                       << std::endl;
+    }
+}
+
+void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
+                         double PowderDensity) {
+
+    // Check to make sure powder grain density is compatible with the number of powder sites
+    // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur when
+    // assigning powder layer GrainIDs
+    if (!(BaseplateThroughPowder)) {
+        long int NumCellsPowderLayers =
+            (long int)(nx) * (long int)(ny) * (long int)(LayerHeight) * (long int)(NumberOfLayers - 1);
+        long int NumAssignedCellsPowderLayers = std::lround((double)(NumCellsPowderLayers)*PowderDensity);
+        if (NumAssignedCellsPowderLayers > INT_MAX)
+            throw std::runtime_error("Error: A smaller value for powder density is required to avoid potential integer "
+                                     "overflow when assigning powder layer GrainID");
     }
 }
 

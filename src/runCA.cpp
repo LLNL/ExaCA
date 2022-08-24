@@ -82,6 +82,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     FindXYZBounds(SimulationType, id, deltax, nx, ny, nz, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerHeight,
                   NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer, SpotRadius);
 
+    // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
+    if ((SimulationType == "R") || (SimulationType == "S"))
+        checkPowderOverflow(nx, ny, LayerHeight, NumberOfLayers, BaseplateThroughPowder, PowderDensity);
+
     // Decompose the domain into subdomains on each MPI rank: Each subdomain contains "MyXSlices" cells in X, and
     // "MyYSlices" in Y. Each subdomain is offset from the full domain origin by "MyXOffset" cells in X, and "MyYOffset"
     // cells in Y
