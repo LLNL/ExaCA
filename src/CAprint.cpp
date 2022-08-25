@@ -177,7 +177,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     int NGrainOrientations, bool *Melted, std::string PathToOutput, int PrintDebug,
                     bool PrintMisorientation, bool PrintFinalUndercoolingVals, bool PrintFullOutput,
                     bool PrintTimeSeries, bool PrintDefaultRVE, int IntermediateFileCounter, int ZBound_Low,
-                    int nzActive, double deltax, float XMin, float YMin, float ZMin, int NumberOfLayers) {
+                    int nzActive, double deltax, float XMin, float YMin, float ZMin, int NumberOfLayers, int RVESize) {
 
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
@@ -275,7 +275,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                                    UndercoolingCurrent_WholeDomain, deltax, XMin, YMin, ZMin);
         if (PrintDefaultRVE)
             PrintExaConstitDefaultRVE(BaseFileName, PathToOutput, nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain,
-                                      deltax, NumberOfLayers);
+                                      deltax, NumberOfLayers, RVESize);
         if ((PrintFullOutput) || (PrintDebug > 0))
             PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
@@ -565,16 +565,13 @@ void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, 
 // microstructure, and centered in the simulation domain in X and Y Default RVE size is 0.5 by 0.5 by 0.5 mm
 void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, double deltax,
-                               int NumberOfLayers) {
-
-    // Determine the size, in CA cells of the RVE
-    long int RVESize = std::lrint(0.0005 / deltax);
+                               int NumberOfLayers, int RVESize) {
 
     // Determine the lower and upper Y bounds of the RVE
-    long int RVE_XLow = std::floor(nx / 2) - std::floor(RVESize / 2);
-    long int RVE_XHigh = RVE_XLow + RVESize - 1;
-    long int RVE_YLow = std::floor(ny / 2) - std::floor(RVESize / 2);
-    long int RVE_YHigh = RVE_YLow + RVESize - 1;
+    int RVE_XLow = std::floor(nx / 2) - std::floor(RVESize / 2);
+    int RVE_XHigh = RVE_XLow + RVESize - 1;
+    int RVE_YLow = std::floor(ny / 2) - std::floor(RVESize / 2);
+    int RVE_YHigh = RVE_YLow + RVESize - 1;
 
     // Make sure the RVE fits in the simulation domain in X and Y
     if ((RVE_XLow < 0) || (RVE_XHigh > nx - 1) || (RVE_YLow < 0) || (RVE_YHigh > ny - 1)) {
@@ -592,7 +589,7 @@ void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutpu
 
     // Determine the upper Z bound of the RVE - largest Z for which all cells in the RVE do not contain LayerID values
     // of the last layer
-    long int RVE_ZHigh = nz - 1;
+    int RVE_ZHigh = nz - 1;
     for (int k = nz - 1; k >= 0; k--) {
         [&] {
             for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
@@ -607,7 +604,7 @@ void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutpu
     }
 
     // Determine the lower Z bound of the RVE, and make sure the RVE fits in the simulation domain in X and Y
-    long int RVE_ZLow = RVE_ZHigh - RVESize + 1;
+    int RVE_ZLow = RVE_ZHigh - RVESize + 1;
     if (RVE_ZLow < 0) {
         std::cout << "WARNING: Simulation domain is too small to obtain default RVE data (should be at least "
                   << RVESize << " cells in the Z direction, more layers are required" << std::endl;

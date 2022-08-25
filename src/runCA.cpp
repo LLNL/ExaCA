@@ -23,7 +23,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartInitTime = MPI_Wtime();
 
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
-    int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio;
+    int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, RVESize;
     unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
     int PrintDebug, TimeSeriesInc;
     bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, RemeltingYN, UseSubstrateFile,
@@ -41,7 +41,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
                       PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
                       SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
-                      PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity);
+                      PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -574,7 +574,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                        CellType, UndercoolingChange, UndercoolingCurrent, OutputFile, DecompositionStrategy,
                        NGrainOrientations, Melted, PathToOutput, 0, PrintMisorientation, PrintFinalUndercoolingVals,
                        PrintFullOutput, false, PrintDefaultRVE, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                       NumberOfLayers);
+                       NumberOfLayers, RVESize);
     }
     else {
         if (id == 0)

@@ -12,8 +12,6 @@
 
 #include <string>
 
-void PrintGrainIDsForExaConstit(std::string FName, int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain,
-                                double deltax);
 void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
                      int np, ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
                      ViewI_H RBufSize);
@@ -36,7 +34,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     int NGrainOrientations, bool *Melted, std::string PathToOutput, int PrintDebug,
                     bool PrintMisorientation, bool PrintFinalUndercooling, bool PrintFullOutput, bool PrintTimeSeries,
                     bool PrintDefaultRVE, int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax,
-                    float XMin, float YMin, float ZMin, int NumberOfLayers);
+                    float XMin, float YMin, float ZMin, int NumberOfLayers, int RVESize = 0);
 void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int DecompositionStrategy,
                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, double AConst, double BConst,
                    double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN,
@@ -61,7 +59,7 @@ void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, 
                             float XMin, float YMin, float ZMin);
 void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, double deltax,
-                               int NumberOfLayers);
+                               int NumberOfLayers, int RVESize);
 void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, std::string BaseFileName,
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain, ViewF_H GrainUnitVector,

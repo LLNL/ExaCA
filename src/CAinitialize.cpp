@@ -34,7 +34,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
                        bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
                        bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                       bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderDensity) {
+                       bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderDensity,
+                       int &RVESize) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -126,12 +127,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         RequiredInputs_ProblemSpecific.resize(2);
         RequiredInputs_ProblemSpecific[0] = "Time step";
         RequiredInputs_ProblemSpecific[1] = "Path to and name of temperature field assembly instructions";
-        OptionalInputs_ProblemSpecific.resize(5);
+        OptionalInputs_ProblemSpecific.resize(6);
         OptionalInputs_ProblemSpecific[0] = "Substrate grain spacing";
         OptionalInputs_ProblemSpecific[1] = "Substrate filename";
         OptionalInputs_ProblemSpecific[2] = "default RVE output";
         OptionalInputs_ProblemSpecific[3] = "Extend baseplate through layers";
         OptionalInputs_ProblemSpecific[4] = "Density of powder surface sites active";
+        OptionalInputs_ProblemSpecific[5] = "Default RVE size, in CA cells";
         DeprecatedInputs_ProblemSpecific.resize(7);
         DeprecatedInputs_ProblemSpecific[0] = "Path to temperature file(s)";
         DeprecatedInputs_ProblemSpecific[1] = "Temperature filename";
@@ -439,6 +441,14 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         PrintDefaultRVE = false;
         if (!(OptionalInputsRead_ProblemSpecific[2].empty()))
             PrintDefaultRVE = getInputBool(OptionalInputsRead_ProblemSpecific[2]);
+        // If printing RVE data, specify RVE size (in cells per side). Otherwise, RVE is 0.5 mm per side
+        if (!(OptionalInputsRead_ProblemSpecific[5].empty()))
+            RVESize = getInputInt(OptionalInputsRead_ProblemSpecific[5]);
+        else
+            RVESize = 0.0005 / deltax;
+        if ((id == 0) && (PrintDefaultRVE))
+            std::cout << "RVE data from a default location in the simulation will be printed, consisting of " << RVESize
+                      << " cells per side" << std::endl;
     }
     else {
         // RVE data print option is only for simulation type R
