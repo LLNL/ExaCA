@@ -5,6 +5,7 @@
 
 #include "CAghostnodes.hpp"
 #include "CAfunctions.hpp"
+#include "CAupdate.hpp"
 #include "mpi.h"
 
 #include <cmath>
@@ -234,7 +235,6 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         // Update this ghost node cell's information with data from other rank
                         int GlobalZ = RankZ + ZBound_Low;
                         int GlobalCellLocation = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                        CellType(GlobalCellLocation) = Active;
                         GrainID(GlobalCellLocation) = NewGrainID;
                         DOCenter((long int)(3) * CellLocation) = static_cast<float>(DOCenterX);
                         DOCenter((long int)(3) * CellLocation + (long int)(1)) = static_cast<float>(DOCenterY);
@@ -247,99 +247,10 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         double zp = GlobalZ + 0.5;
                         // Calculate critical values at which this active cell leads to the activation of a neighboring
                         // liquid cell
-                        for (int n = 0; n < 26; n++) {
-
-                            int MyNeighborX = RankX + NeighborX[n];
-                            int MyNeighborY = RankY + NeighborY[n];
-                            int MyNeighborZ = RankZ + NeighborZ[n];
-                            long int NeighborPosition =
-                                MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-
-                            if (NeighborPosition == CellLocation) {
-                                // Do not calculate critical diagonal length req'd for the newly captured cell to
-                                // capture the original
-                                CritDiagonalLength((long int)(26) * NeighborPosition + (long int)(n)) = 10000000.0;
-                            }
-
-                            // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the global
-                            // coordinates of the center of a neighbor cell
-                            double x0 = xp + NeighborX[n] - DOCenterX;
-                            double y0 = yp + NeighborY[n] - DOCenterY;
-                            double z0 = zp + NeighborZ[n] - DOCenterZ;
-                            // mag0 is the magnitude of (x0,y0,z0)
-                            double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
-
-                            // Calculate unit vectors for the octahedron that intersect the new cell center
-                            double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                            double Angle1 =
-                                (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                                 GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                                mag0;
-                            if (Angle1 < 0) {
-                                Diag1X = GrainUnitVector(9 * MyOrientation);
-                                Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
-                                Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
-                            }
-                            else {
-                                Diag1X = -GrainUnitVector(9 * MyOrientation);
-                                Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
-                                Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
-                            }
-
-                            double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
-                                             GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                                             GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                                            mag0;
-                            if (Angle2 < 0) {
-                                Diag2X = GrainUnitVector(9 * MyOrientation + 3);
-                                Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
-                                Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
-                            }
-                            else {
-                                Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
-                                Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
-                                Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
-                            }
-
-                            double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
-                                             GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                                             GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                                            mag0;
-                            if (Angle3 < 0) {
-                                Diag3X = GrainUnitVector(9 * MyOrientation + 6);
-                                Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
-                                Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
-                            }
-                            else {
-                                Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
-                                Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
-                                Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
-                            }
-
-                            double U1[3], U2[3], UU[3], Norm[3];
-                            U1[0] = Diag2X - Diag1X;
-                            U1[1] = Diag2Y - Diag1Y;
-                            U1[2] = Diag2Z - Diag1Z;
-                            U2[0] = Diag3X - Diag1X;
-                            U2[1] = Diag3Y - Diag1Y;
-                            U2[2] = Diag3Z - Diag1Z;
-                            UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                            UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                            UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                            double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-                            Norm[0] = UU[0] / NDem;
-                            Norm[1] = UU[1] / NDem;
-                            Norm[2] = UU[2] / NDem;
-                            // normal to capturing plane
-                            double normx = Norm[0];
-                            double normy = Norm[1];
-                            double normz = Norm[2];
-                            double ParaT = (normx * x0 + normy * y0 + normz * z0) /
-                                           (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
-                            float CDLVal = pow(
-                                pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
-                            CritDiagonalLength((long int)(26) * CellLocation + (long int)(n)) = CDLVal;
-                        }
+                        calcCritDiagonalLength(CellLocation, xp, yp, zp, DOCenterX, DOCenterY, DOCenterZ, NeighborX,
+                                               NeighborY, NeighborZ, MyOrientation, GrainUnitVector,
+                                               CritDiagonalLength);
+                        CellType(GlobalCellLocation) = Active;
                     }
                 });
         }
@@ -439,97 +350,9 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         double zp = GlobalZ + 0.5;
                         // Calculate critical values at which this active cell leads to the activation of a neighboring
                         // liquid cell
-                        for (int n = 0; n < 26; n++) {
-
-                            int MyNeighborX = RankX + NeighborX[n];
-                            int MyNeighborY = RankY + NeighborY[n];
-                            int MyNeighborZ = RankZ + NeighborZ[n];
-                            long int NeighborPosition =
-                                MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                            if (NeighborPosition == CellLocation) {
-                                // Do not calculate critical diagonal length req'd for the newly captured cell to
-                                // capture the original
-                                CritDiagonalLength((long int)(26) * NeighborPosition + (long int)(n)) = 10000000.0;
-                            }
-
-                            // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the global
-                            // coordinates of the center of a neighbor cell
-                            double x0 = xp + NeighborX[n] - DOCenterX;
-                            double y0 = yp + NeighborY[n] - DOCenterY;
-                            double z0 = zp + NeighborZ[n] - DOCenterZ;
-                            // mag0 is the magnitude of (x0,y0,z0)
-                            double mag0 = pow(pow(x0, 2.0) + pow(y0, 2.0) + pow(z0, 2.0), 0.5);
-
-                            // Calculate unit vectors for the octahedron that intersect the new cell center
-                            double Diag1X, Diag1Y, Diag1Z, Diag2X, Diag2Y, Diag2Z, Diag3X, Diag3Y, Diag3Z;
-                            double Angle1 =
-                                (GrainUnitVector(9 * MyOrientation) * x0 + GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                                 GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                                mag0;
-                            if (Angle1 < 0) {
-                                Diag1X = GrainUnitVector(9 * MyOrientation);
-                                Diag1Y = GrainUnitVector(9 * MyOrientation + 1);
-                                Diag1Z = GrainUnitVector(9 * MyOrientation + 2);
-                            }
-                            else {
-                                Diag1X = -GrainUnitVector(9 * MyOrientation);
-                                Diag1Y = -GrainUnitVector(9 * MyOrientation + 1);
-                                Diag1Z = -GrainUnitVector(9 * MyOrientation + 2);
-                            }
-
-                            double Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
-                                             GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                                             GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                                            mag0;
-                            if (Angle2 < 0) {
-                                Diag2X = GrainUnitVector(9 * MyOrientation + 3);
-                                Diag2Y = GrainUnitVector(9 * MyOrientation + 4);
-                                Diag2Z = GrainUnitVector(9 * MyOrientation + 5);
-                            }
-                            else {
-                                Diag2X = -GrainUnitVector(9 * MyOrientation + 3);
-                                Diag2Y = -GrainUnitVector(9 * MyOrientation + 4);
-                                Diag2Z = -GrainUnitVector(9 * MyOrientation + 5);
-                            }
-
-                            double Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
-                                             GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                                             GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                                            mag0;
-                            if (Angle3 < 0) {
-                                Diag3X = GrainUnitVector(9 * MyOrientation + 6);
-                                Diag3Y = GrainUnitVector(9 * MyOrientation + 7);
-                                Diag3Z = GrainUnitVector(9 * MyOrientation + 8);
-                            }
-                            else {
-                                Diag3X = -GrainUnitVector(9 * MyOrientation + 6);
-                                Diag3Y = -GrainUnitVector(9 * MyOrientation + 7);
-                                Diag3Z = -GrainUnitVector(9 * MyOrientation + 8);
-                            }
-                            double U1[3], U2[3], UU[3], Norm[3];
-                            U1[0] = Diag2X - Diag1X;
-                            U1[1] = Diag2Y - Diag1Y;
-                            U1[2] = Diag2Z - Diag1Z;
-                            U2[0] = Diag3X - Diag1X;
-                            U2[1] = Diag3Y - Diag1Y;
-                            U2[2] = Diag3Z - Diag1Z;
-                            UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                            UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                            UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                            double NDem = sqrt(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
-                            Norm[0] = UU[0] / NDem;
-                            Norm[1] = UU[1] / NDem;
-                            Norm[2] = UU[2] / NDem;
-                            // normal to capturing plane
-                            double normx = Norm[0];
-                            double normy = Norm[1];
-                            double normz = Norm[2];
-                            double ParaT = (normx * x0 + normy * y0 + normz * z0) /
-                                           (normx * Diag1X + normy * Diag1Y + normz * Diag1Z);
-                            float CDLVal = pow(
-                                pow(ParaT * Diag1X, 2.0) + pow(ParaT * Diag1Y, 2.0) + pow(ParaT * Diag1Z, 2.0), 0.5);
-                            CritDiagonalLength((long int)(26) * CellLocation + (long int)(n)) = CDLVal;
-                        }
+                        calcCritDiagonalLength(CellLocation, xp, yp, zp, DOCenterX, DOCenterY, DOCenterZ, NeighborX,
+                                               NeighborY, NeighborZ, MyOrientation, GrainUnitVector,
+                                               CritDiagonalLength);
                         CellType(GlobalCellLocation) = Active;
                     }
                 });
