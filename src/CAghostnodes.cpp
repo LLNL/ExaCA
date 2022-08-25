@@ -250,8 +250,6 @@ void GhostNodes2D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         calcCritDiagonalLength(CellLocation, xp, yp, zp, DOCenterX, DOCenterY, DOCenterZ, NeighborX,
                                                NeighborY, NeighborZ, MyOrientation, GrainUnitVector,
                                                CritDiagonalLength);
-                        // Change cell type to active only after CritDiagonalLength values were updated (for consistency
-                        // with 1D ghost node exchange)
                         CellType(GlobalCellLocation) = Active;
                     }
                 });
