@@ -313,8 +313,6 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         CellLocation = RankZ * MyXSlices * MyYSlices + MyYSlices * RankX + RankY;
                         int GlobalCellLocation = CellLocation + ZBound_Low * MyXSlices * MyYSlices;
                         if ((BufferSouthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
-                            //                            printf("Data placed BufPosition = %d val was %f
-                            //                            \n",BufPosition,BufferSouthRecv(BufPosition, 4));
                             Place = true;
                             NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
                             DOCenterX = BufferSouthRecv(BufPosition, 1);
