@@ -58,8 +58,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Neighbor lists for cells
     NList NeighborX, NeighborY, NeighborZ;
     float XMin, YMin, ZMin, XMax, YMax, ZMax; // OpenFOAM simulation bounds (if using OpenFOAM data)
-    float *ZMinLayer = new float[NumberOfLayers];
-    float *ZMaxLayer = new float[NumberOfLayers];
+    // Bounds for each layer of the simulation - host and device copies maintained
+    ViewF ZMinLayer(Kokkos::ViewAllocateWithoutInitializing("ZMinLayer"), NumberOfLayers);
+    ViewF ZMaxLayer(Kokkos::ViewAllocateWithoutInitializing("ZMaxLayer"), NumberOfLayers);
+    ViewF_H ZMinLayer_Host(Kokkos::ViewAllocateWithoutInitializing("ZMinLayer"), NumberOfLayers);
+    ViewF_H ZMaxLayer_Host(Kokkos::ViewAllocateWithoutInitializing("ZMaxLayer"), NumberOfLayers);
     int *FinishTimeStep = new int[NumberOfLayers];
 
     // Data structure for storing raw temperature data from file(s)
@@ -80,7 +83,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading
     // temperature data files and parsing the coordinates
     FindXYZBounds(SimulationType, id, deltax, nx, ny, nz, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerHeight,
-                  NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer, SpotRadius);
+                  NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer, ZMinLayer_Host, ZMaxLayer_Host, SpotRadius);
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
     if ((SimulationType == "R") || (SimulationType == "S"))
@@ -127,8 +130,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewI MeltTimeStep(Kokkos::ViewAllocateWithoutInitializing("MeltTimeStep"), 0);
 
     // Determine the bounds of the current layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
-    int ZBound_Low = calcZBound_Low(RemeltingYN, SimulationType, LayerHeight, 0, ZMinLayer, ZMin, deltax);
-    int ZBound_High = calcZBound_High(SimulationType, SpotRadius, LayerHeight, 0, ZMin, deltax, nz, ZMaxLayer);
+    int ZBound_Low = calcZBound_Low(RemeltingYN, SimulationType, LayerHeight, 0, ZMinLayer_Host, ZMin, deltax);
+    int ZBound_High = calcZBound_High(SimulationType, SpotRadius, LayerHeight, 0, ZMin, deltax, nz, ZMaxLayer_Host);
     int nzActive = calcnzActive(ZBound_Low, ZBound_High, id, 0);
     int LocalActiveDomainSize =
         calcLocalActiveDomainSize(MyXSlices, MyYSlices, nzActive); // Number of active cells on this MPI rank
@@ -139,14 +142,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             TempInit_ReadDataRemelt(0, id, MyXSlices, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyXOffset,
                                     MyYOffset, deltax, deltat, FreezingRange, LayerTimeTempHistory,
                                     NumberOfSolidificationEvents, MaxSolidificationEvents, MeltTimeStep, CritTimeStep,
-                                    UndercoolingChange, UndercoolingCurrent, XMin, YMin, ZMinLayer, LayerHeight,
+                                    UndercoolingChange, UndercoolingCurrent, XMin, YMin, ZMinLayer_Host, LayerHeight,
                                     nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue, LastValue, RawData,
                                     SolidificationEventCounter, TempFilesInSeries);
         else
             TempInit_ReadDataNoRemelt(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HTtoCAratio, deltat, nz,
                                       LocalDomainSize, CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, ZMinLayer,
-                                      ZMaxLayer, LayerHeight, NumberOfLayers, FinishTimeStep, FreezingRange, LayerID,
-                                      FirstValue, LastValue, RawData);
+                                      ZMaxLayer, ZMinLayer_Host, ZMaxLayer_Host, LayerHeight, NumberOfLayers,
+                                      FinishTimeStep, FreezingRange, LayerID, FirstValue, LastValue, RawData);
     }
     else if (SimulationType == "S") {
         // spot melt array test problem - with or without remelting
@@ -240,8 +243,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             SubstrateInit_FromFile(SubstrateFileName, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, id, GrainID,
                                    nzActive, BaseplateThroughPowder);
         else
-            BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyXSlices, MyYSlices,
-                                           MyXOffset, MyYOffset, id, deltax, GrainID, RNGSeed,
+            BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer_Host, ZMaxLayer_Host, MyXSlices,
+                                           MyYSlices, MyXOffset, MyYOffset, id, deltax, GrainID, RNGSeed,
                                            NextLayer_FirstEpitaxialGrainID, nz, BaseplateThroughPowder);
         // Separate routine for active cell data structure init for problems other than constrained solidification
         if (RemeltingYN)
@@ -443,10 +446,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // TODO: Make the procedure for determining Z bounds, active domain size consistent regardless of remelting
             if (RemeltingYN) {
                 // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
-                ZBound_Low =
-                    calcZBound_Low(RemeltingYN, SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
+                ZBound_Low = calcZBound_Low(RemeltingYN, SimulationType, LayerHeight, layernumber + 1, ZMinLayer_Host,
+                                            ZMin, deltax);
                 ZBound_High = calcZBound_High(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin, deltax,
-                                              nz, ZMaxLayer);
+                                              nz, ZMaxLayer_Host);
                 nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber + 1);
                 LocalActiveDomainSize = calcLocalActiveDomainSize(MyXSlices, MyYSlices,
                                                                   nzActive); // Number of active cells on this MPI rank
@@ -465,8 +468,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                             LocalDomainSize, MyXOffset, MyYOffset, deltax, deltat, FreezingRange,
                                             LayerTimeTempHistory, NumberOfSolidificationEvents, MaxSolidificationEvents,
                                             MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent, XMin,
-                                            YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID,
-                                            FirstValue, LastValue, RawData, SolidificationEventCounter,
+                                            YMin, ZMinLayer_Host, LayerHeight, nzActive, ZBound_Low, FinishTimeStep,
+                                            LayerID, FirstValue, LastValue, RawData, SolidificationEventCounter,
                                             TempFilesInSeries);
                 // Update buffer size
                 BufSizeZ = nzActive;
@@ -496,7 +499,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // for the next layer "layernumber + 1" Otherwise, the entire substrate (baseplate + powder) was read from a
             // file, and the powder layers have already been initialized
             if ((!(UseSubstrateFile)) && (!(BaseplateThroughPowder)))
-                PowderInit(layernumber + 1, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices,
+                PowderInit(layernumber + 1, nx, ny, LayerHeight, ZMaxLayer_Host, ZMin, deltax, MyXSlices, MyYSlices,
                            MyXOffset, MyYOffset, id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, PowderDensity);
 
             // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"

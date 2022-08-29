@@ -31,7 +31,7 @@ void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
                    std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
                    float &ZMin, float &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
-                   float *ZMinLayer, float *ZMaxLayer, int SpotRadius);
+                   ViewF &ZMinLayer, ViewF &ZMaxLayer, ViewF_H ZMinLayer_Host, ViewF_H ZMaxLayer_Host, int SpotRadius);
 void DomainDecomposition(int DecompositionStrategy, int id, int np, int &MyXSlices, int &MyYSlices, int &MyXOffset,
                          int &MyYOffset, int &NeighborRank_North, int &NeighborRank_South, int &NeighborRank_East,
                          int &NeighborRank_West, int &NeighborRank_NorthEast, int &NeighborRank_NorthWest,
@@ -42,10 +42,10 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
                          int MyXOffset, int MyYOffset, float XMin, float YMin, std::vector<std::string> &temp_paths,
                          int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
                          std::vector<double> &RawData, int *FirstValue, int *LastValue);
-int calcZBound_Low(bool RemeltingYN, std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer,
+int calcZBound_Low(bool RemeltingYN, std::string SimulationType, int LayerHeight, int layernumber, ViewF_H ZMinLayer,
                    float ZMin, double deltax);
 int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
-                    double deltax, int nz, float *ZMaxLayer);
+                    double deltax, int nz, ViewF_H ZMaxLayer_Host);
 int calcnzActive(int ZBound_Low, int ZBound_High, int id, int layernumber);
 int calcLocalActiveDomainSize(int MyXSlices, int MyYSlices, int nzActive);
 void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, double deltax,
@@ -70,16 +70,16 @@ void TempInit_SpotNoRemelt(double G, double R, std::string SimulationType, int i
 int getTempCoordX(int i, float XMin, double deltax, const std::vector<double> &RawData);
 int getTempCoordY(int i, float YMin, double deltax, const std::vector<double> &RawData);
 int getTempCoordZ(int i, double deltax, const std::vector<double> &RawData, int LayerHeight, int LayerCounter,
-                  float *ZMinLayer);
+                  ViewF_H ZMinLayer);
 double getTempCoordTM(int i, const std::vector<double> &RawData);
 double getTempCoordTL(int i, const std::vector<double> &RawData);
 double getTempCoordCR(int i, const std::vector<double> &RawData);
 void TempInit_ReadDataNoRemelt(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax,
                                int HTtoCAratio, double deltat, int nz, int LocalDomainSize, ViewI &CritTimeStep,
-                               ViewF &UndercoolingChange, float XMin, float YMin, float ZMin, float *ZMinLayer,
-                               float *ZMaxLayer, int LayerHeight, int NumberOfLayers, int *FinishTimeStep,
-                               double FreezingRange, ViewI &LayerID, int *FirstValue, int *LastValue,
-                               std::vector<double> RawData);
+                               ViewF &UndercoolingChange, float XMin, float YMin, float ZMin, ViewF ZMinLayer,
+                               ViewF ZMaxLayer, ViewF_H ZMinLayer_Host, ViewF_H ZMaxLayer_Host, int LayerHeight,
+                               int NumberOfLayers, int *FinishTimeStep, double FreezingRange, ViewI &LayerID,
+                               int *FirstValue, int *LastValue, std::vector<double> RawData);
 void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries, ViewI_H MaxSolidificationEvents_Host,
                                   int StartRange, int EndRange, std::vector<double> RawData, float XMin, float YMin,
                                   double deltax, float *ZMinLayer, int LayerHeight, int MyXSlices, int MyYSlices,
@@ -89,7 +89,7 @@ void TempInit_ReadDataRemelt(int layernumber, int id, int MyXSlices, int MyYSlic
                              double FreezingRange, ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents,
                              ViewI &MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep,
                              ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, float XMin, float YMin,
-                             float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
+                             ViewF_H ZMinLayer_Host, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
                              ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData,
                              ViewI &SolidificationEventCounter, int TempFilesInSeries);
 void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyXSlices, int MyYSlices, int nx,
@@ -104,11 +104,11 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      bool AtWestBoundary);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int MyXSlices, int MyYSlices, int MyXOffset,
                             int MyYOffset, int pid, ViewI &GrainID, int nzActive, bool BaseplateThroughPowder);
-void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
-                                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, double deltax,
-                                    ViewI GrainID, double RNGSeed, int &NextLayer_FirstEpitaxialGrainID, int nz,
-                                    double BaseplateThroughPowder);
-void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
+void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, ViewF_H ZMinLayer_Host,
+                                    ViewF_H ZMaxLayer_Host, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
+                                    int id, double deltax, ViewI GrainID, double RNGSeed,
+                                    int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder);
+void PowderInit(int layernumber, int nx, int ny, int LayerHeight, ViewF_H ZMaxLayer_Host, float ZMin, double deltax,
                 int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
                 int &NextLayer_FirstEpitaxialGrainID, double PowderDensity);
 void CellTypeInit_Remelt(int MyXSlices, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI CritTimeStep,
@@ -157,13 +157,97 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeY, int B
                     Buffer2D &BufferNorthRecv, Buffer2D &BufferSouthRecv, Buffer2D &BufferNorthEastRecv,
                     Buffer2D &BufferNorthWestRecv, Buffer2D &BufferSouthEastRecv, Buffer2D &BufferSouthWestRecv,
                     ViewI &SteeringVector);
+void InterpolateSparseData(ViewD3D &TL, ViewD3D &CR, int nxTemp, int nyTemp, int nzTemp, int HTtoCAratio);
+//*****************************************************************************/
+// Inline interpolation functions called during InterpolateSparseData parallel loops:
 
-void skipLines(std::ifstream &stream, std::string seperator = "*****");
-std::string parseInput(std::ifstream &stream, std::string key);
-bool parseInputFromList(std::string line, std::vector<std::string> Inputs, std::vector<std::string> &InputsRead,
-                        int NumInputs);
-bool getInputBool(std::string val);
-std::string checkFileInstalled(const std::string name, const std::string type, const int id);
-void checkFileNotEmpty(std::string testfilename);
+// Interpolate a value at coordinate "DirectionIndex" (between LowIndex and HighIndex, not inclusive), where LowVal is
+// the value at coordinate LowIndex and HighVal is the value at coordinate HighIndex, and HTtoCAratio is equivalent to
+// HighIndex-LowIndex
+KOKKOS_INLINE_FUNCTION double getInterpolatedValue_line(double LowVal, double HighVal, int DirectionIndex, int LowIndex,
+                                                        int HighIndex, int HTtoCAratio, double OriginalVal) {
+
+    double InterpolatedValue;
+    // Should this value be interpolated or should it be left as OriginalVal? Need values at both points to successfully
+    // interpolate along a line First make sure that the points needed for interpolation are in bounds, then check to
+    // make sure they have real values
+    if (DirectionIndex % HTtoCAratio != 0) {
+        if ((LowVal != -1) && (HighVal != -1)) {
+            double LowWeight = (double)(HighIndex - DirectionIndex) / (double)(HTtoCAratio);
+            double HighWeight = (double)(DirectionIndex - LowIndex) / (double)(HTtoCAratio);
+            InterpolatedValue = LowWeight * LowVal + HighWeight * HighVal;
+        }
+        else
+            InterpolatedValue = OriginalVal;
+    }
+    else
+        InterpolatedValue = OriginalVal;
+    return InterpolatedValue;
+}
+
+// Interpolate a value in the plane of DirectionIndex1 and DirectionIndex2, from values LowVal1, HighVal1, LowVal2, and
+// HighVal2
+KOKKOS_INLINE_FUNCTION double getInterpolatedValue_plane(double LowVal1, double HighVal1, double LowVal2,
+                                                         double HighVal2, int DirectionIndex1, int DirectionIndex2,
+                                                         int LowIndex1, int HighIndex1, int LowIndex2, int HighIndex2,
+                                                         int HTtoCAratio, double OriginalVal) {
+
+    double Fract = static_cast<double>(1) / static_cast<double>(2);
+    double InterpolatedValue;
+    // Should this value be interpolated or should it be left as OriginalVal? Need values at all 4 points to
+    // successfully interpolate in the plane First make sure that the points needed for interpolation are in bounds,
+    // then check to make sure they have real values
+    if ((DirectionIndex1 % HTtoCAratio != 0) && (DirectionIndex2 % HTtoCAratio != 0)) {
+        if ((LowVal1 != -1) && (HighVal1 != -1) && (LowVal2 != -1) && (HighVal2 != -1)) {
+            double LowWeight1 = (double)(HighIndex1 - DirectionIndex1) / (double)(HTtoCAratio);
+            double HighWeight1 = (double)(DirectionIndex1 - LowIndex1) / (double)(HTtoCAratio);
+            double LowWeight2 = (double)(HighIndex2 - DirectionIndex2) / (double)(HTtoCAratio);
+            double HighWeight2 = (double)(DirectionIndex2 - LowIndex2) / (double)(HTtoCAratio);
+            InterpolatedValue = Fract * (LowWeight1 * LowVal1 + HighWeight1 * HighVal1) +
+                                Fract * (LowWeight2 * LowVal2 + HighWeight2 * HighVal2);
+        }
+        else
+            InterpolatedValue = OriginalVal;
+    }
+    else
+        InterpolatedValue = OriginalVal;
+    return InterpolatedValue;
+}
+
+// Interpolate a value between planes bounded by LowVal1 and HighVal1 in the DirectionIndex1 direction, LowVal2 and
+// HighVal2 in DirectionIndex2, and LowVal3 and HighVal3 in DirectionIndex3
+KOKKOS_INLINE_FUNCTION double getInterpolatedValue_volume(double LowVal1, double HighVal1, double LowVal2,
+                                                          double HighVal2, double LowVal3, double HighVal3,
+                                                          int DirectionIndex1, int DirectionIndex2, int DirectionIndex3,
+                                                          int LowIndex1, int HighIndex1, int LowIndex2, int HighIndex2,
+                                                          int LowIndex3, int HighIndex3, int HTtoCAratio,
+                                                          double OriginalVal) {
+
+    double Fract = static_cast<double>(1) / static_cast<double>(3);
+    double InterpolatedValue;
+    // Should this value be interpolated or should it be left as OriginalVal? Need values at all 8 points to
+    // successfully interpolate in the volume First make sure that the points needed for interpolation are in bounds,
+    // then check to make sure they have real values
+    if ((DirectionIndex1 % HTtoCAratio != 0) && (DirectionIndex2 % HTtoCAratio != 0) &&
+        (DirectionIndex3 % HTtoCAratio != 0)) {
+        if ((LowVal1 != -1) && (HighVal1 != -1) && (LowVal2 != -1) && (HighVal2 != -1) && (LowVal3 != -1) &&
+            (HighVal3 != -1)) {
+            double LowWeight1 = (double)(HighIndex1 - DirectionIndex1) / (double)(HTtoCAratio);
+            double HighWeight1 = (double)(DirectionIndex1 - LowIndex1) / (double)(HTtoCAratio);
+            double LowWeight2 = (double)(HighIndex2 - DirectionIndex2) / (double)(HTtoCAratio);
+            double HighWeight2 = (double)(DirectionIndex2 - LowIndex2) / (double)(HTtoCAratio);
+            double LowWeight3 = (double)(HighIndex3 - DirectionIndex3) / (double)(HTtoCAratio);
+            double HighWeight3 = (double)(DirectionIndex3 - LowIndex3) / (double)(HTtoCAratio);
+            InterpolatedValue = Fract * (LowWeight1 * LowVal1 + HighWeight1 * HighVal1) +
+                                Fract * (LowWeight2 * LowVal2 + HighWeight2 * HighVal2) +
+                                Fract * (LowWeight3 * LowVal3 + HighWeight3 * HighVal3);
+        }
+        else
+            InterpolatedValue = OriginalVal;
+    }
+    else
+        InterpolatedValue = OriginalVal;
+    return InterpolatedValue;
+}
 
 #endif

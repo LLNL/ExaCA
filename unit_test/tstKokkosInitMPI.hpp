@@ -133,10 +133,10 @@ void testBaseplateInit_FromGrainSpacing() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     // Create test data
     int nz = 4;
-    float ZMinLayer[1];
-    float ZMaxLayer[1];
-    ZMinLayer[0] = 0;
-    ZMaxLayer[0] = 2 * pow(10, -6);
+    ViewF_H ZMinLayer_Host(Kokkos::ViewAllocateWithoutInitializing("ZMinLayer_Host"), 1);
+    ViewF_H ZMaxLayer_Host(Kokkos::ViewAllocateWithoutInitializing("ZMaxLayer_Host"), 1);
+    ZMinLayer_Host(0) = 0;
+    ZMaxLayer_Host(0) = 2 * pow(10, -6);
     int nx = 3;
     int MyXSlices = 3;
     int MyXOffset = 0;
@@ -145,7 +145,7 @@ void testBaseplateInit_FromGrainSpacing() {
     int MyYSlices = 3;
     int MyYOffset = 3 * id;
     double deltax = 1 * pow(10, -6);
-    int BaseplateSize = MyXSlices * MyYSlices * (round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1);
+    int BaseplateSize = MyXSlices * MyYSlices * (round((ZMaxLayer_Host(0) - ZMinLayer_Host(0)) / deltax) + 1);
     int LocalDomainSize = MyXSlices * MyYSlices * nz;
     // There are 36 * np total cells in this domain (nx * ny * nz)
     // Each rank has 36 cells - the bottom 27 cells are assigned baseplate Grain ID values
@@ -158,8 +158,9 @@ void testBaseplateInit_FromGrainSpacing() {
     // Initialize GrainIDs to 0 on device
     ViewI GrainID("GrainID_Device", LocalDomainSize);
 
-    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyXSlices, MyYSlices, MyXOffset,
-                                   MyYOffset, id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false);
+    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer_Host, ZMaxLayer_Host, MyXSlices, MyYSlices,
+                                   MyXOffset, MyYOffset, id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID,
+                                   nz, false);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
@@ -190,8 +191,8 @@ void testPowderInit() {
     int nz = 6;
     int layernumber = 1;
     // Z = 4 and Z = 5 should be the region seeded with powder layer Grain IDs
-    float ZMaxLayer[2];
-    ZMaxLayer[1] = 5.0 * pow(10, -6);
+    ViewF_H ZMaxLayer_Host(Kokkos::ViewAllocateWithoutInitializing("ZMaxLayer_Host"), 2);
+    ZMaxLayer_Host(1) = 5.0 * pow(10, -6);
     double deltax = 1.0 * pow(10, -6);
     float ZMin = 0;
     int LayerHeight = 2;
@@ -214,8 +215,8 @@ void testPowderInit() {
     // Seed used to shuffle powder layer grain IDs
     double RNGSeed = 0.0;
 
-    PowderInit(layernumber, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-               id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, 1.0);
+    PowderInit(layernumber, nx, ny, LayerHeight, ZMaxLayer_Host, ZMin, deltax, MyXSlices, MyYSlices, MyXOffset,
+               MyYOffset, id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, 1.0);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
