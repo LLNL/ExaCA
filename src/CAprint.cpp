@@ -561,8 +561,10 @@ void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, 
 }
 
 //*****************************************************************************/
-// Print the "default" representative volume element from this multilayer simulation, not including the final layer's
-// microstructure, and centered in the simulation domain in X and Y Default RVE size is 0.5 by 0.5 by 0.5 mm
+// Print a representative volume element (RVE) from this multilayer simulation from the "default" location in the
+// domain. The default location is as close to the center of the domain in X and Y as possible, and as close to the top
+// of the domain while not including the final layer's microstructure. If an RVE size was not specified in the input
+// file, the default size is 0.5 by 0.5 by 0.5 mm
 void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, double deltax,
                                int NumberOfLayers, int RVESize) {
