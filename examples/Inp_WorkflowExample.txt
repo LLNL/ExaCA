@@ -18,6 +18,8 @@ Print file of grain misorientation values: N
 Print file of all ExaCA data: Y
 Debug check (reduced): N
 Debug check (extensive): N
+Print default RVE output: Y
+Default RVE size, in CA cells: 100
 ***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
 Print intermediate output frames: N
 Increment to separate frames: 0

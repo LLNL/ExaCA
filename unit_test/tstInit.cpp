@@ -197,7 +197,7 @@ void testInputReadFromFile() {
     // Read and parse each input file
     for (auto FileName : InputFilenames) {
         int DecompositionStrategy, TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, PrintDebug, NSpotsX,
-            NSpotsY, SpotOffset, SpotRadius, TimeSeriesInc;
+            NSpotsY, SpotOffset, SpotRadius, TimeSeriesInc, RVESize;
         float SubstrateGrainSpacing;
         double AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R,
             FractSurfaceSitesActive, RNGSeed, PowderDensity;
@@ -212,7 +212,7 @@ void testInputReadFromFile() {
             deltat, NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx,
             ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals,
             PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
-            PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity);
+            PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within

@@ -32,6 +32,7 @@ void testPrintExaConstitDefaultRVE() {
     int nz = 10;
     int NumberOfLayers = 10;
     double deltax = 0.0001; // in meters
+    int RVESize = 0.0005 / deltax;
 
     // Create test data
     ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), nz, nx, ny);
@@ -47,7 +48,7 @@ void testPrintExaConstitDefaultRVE() {
 
     // Print RVE
     PrintExaConstitDefaultRVE(BaseFileName, PathToOutput, nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain, deltax,
-                              NumberOfLayers);
+                              NumberOfLayers, RVESize);
 
     // Check printed RVE
     std::ifstream GrainplotE;
