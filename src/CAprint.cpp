@@ -174,10 +174,10 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI GrainID,
                     ViewI CritTimeStep, ViewF GrainUnitVector, ViewI LayerID, ViewI CellType, ViewF UndercoolingChange,
                     ViewF UndercoolingCurrent, std::string BaseFileName, int DecompositionStrategy,
-                    int NGrainOrientations, bool *Melted, std::string PathToOutput, int PrintDebug,
-                    bool PrintMisorientation, bool PrintFinalUndercoolingVals, bool PrintFullOutput,
-                    bool PrintTimeSeries, bool PrintDefaultRVE, int IntermediateFileCounter, int ZBound_Low,
-                    int nzActive, double deltax, float XMin, float YMin, float ZMin, int NumberOfLayers, int RVESize) {
+                    int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
+                    bool PrintFinalUndercoolingVals, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
+                    int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, float XMin, float YMin,
+                    float ZMin, int NumberOfLayers, int RVESize) {
 
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
@@ -198,15 +198,14 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         }
         // Create variables for each possible data structure being collected on rank 0
         // If PrintDebug = 0, we aren't printing any debug files after initialization, but we are printing either the
-        // misorientations (requiring Melted and GrainID) or we are printing the full end-of-run dataset (Melted,
-        // GrainID, LayerID) If PrintDebug = 1, we are plotting CellType, LayerID, and CritTimeStep If PrintDebug = 2,
+        // misorientations (requiring GrainID) or we are printing the full end-of-run dataset (GrainID, LayerID)
+        // If PrintDebug = 1, we are plotting CellType, LayerID, and CritTimeStep If PrintDebug = 2,
         // we are plotting all possible data structures
         // These views are allocated as size 0 x 0 x 0, and resized to nz by nx by ny, or size 0 by 0 by 0 if being
         // collected/printed on rank 0 (to avoid allocating memory unncessarily)
         // Utilize the fact that kokkos automatically initializes all values in these views to 0
         ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), 0, 0, 0);
         ViewI3D_H LayerID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("LayerID_WholeDomain"), 0, 0, 0);
-        ViewI3D_H Melted_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("Melted_WholeDomain"), 0, 0, 0);
         ViewI3D_H CritTimeStep_WholeDomain(
             Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_WholeDomain_WholeDomain"), 0, 0, 0);
         ViewI3D_H CellType_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("CellType_WholeDomain"), 0, 0, 0);
@@ -215,24 +214,15 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         ViewF3D_H UndercoolingCurrent_WholeDomain(
             Kokkos::ViewAllocateWithoutInitializing("UndercoolingCurrent_WholeDomain"), 0, 0, 0);
 
-        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput) || (PrintDefaultRVE)) {
-            // Collect all data on rank 0, for all data structures of interest
-            ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
-            Kokkos::resize(GrainID_WholeDomain, nz, nx, ny);
-            CollectIntField(GrainID_WholeDomain, GrainID_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
-                            RecvXSlices, RecvYSlices, RBufSize);
-        }
-        if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2) || (PrintFinalUndercoolingVals)) {
-            Kokkos::resize(Melted_WholeDomain, nz, nx, ny);
-            CollectBoolField(Melted_WholeDomain, Melted, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
-                             RecvXSlices, RecvYSlices, RBufSize);
-        }
-        if ((PrintFullOutput) || (PrintDebug > 0) || (PrintDefaultRVE)) {
-            ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
-            Kokkos::resize(LayerID_WholeDomain, nz, nx, ny);
-            CollectIntField(LayerID_WholeDomain, LayerID_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
-                            RecvXSlices, RecvYSlices, RBufSize);
-        }
+        // Collect all data on rank 0, for all data structures of interest
+        ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
+        Kokkos::resize(GrainID_WholeDomain, nz, nx, ny);
+        CollectIntField(GrainID_WholeDomain, GrainID_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+                        RecvXSlices, RecvYSlices, RBufSize);
+        ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
+        Kokkos::resize(LayerID_WholeDomain, nz, nx, ny);
+        CollectIntField(LayerID_WholeDomain, LayerID_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
+                        RecvXSlices, RecvYSlices, RBufSize);
         if ((PrintDebug > 0) || (PrintTimeSeries)) {
             ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
             Kokkos::resize(CellType_WholeDomain, nz, nx, ny);
@@ -262,7 +252,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         if ((PrintMisorientation) || (PrintTimeSeries)) {
             ViewF_H GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
             if (PrintMisorientation)
-                PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain,
+                PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, LayerID_WholeDomain,
                                           GrainID_WholeDomain, GrainUnitVector_Host, NGrainOrientations, deltax, XMin,
                                           YMin, ZMin);
             if (PrintTimeSeries)
@@ -271,16 +261,15 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                                             GrainUnitVector_Host, NGrainOrientations, deltax, XMin, YMin, ZMin);
         }
         if (PrintFinalUndercoolingVals)
-            PrintFinalUndercooling(BaseFileName, PathToOutput, nx, ny, nz, Melted_WholeDomain,
-                                   UndercoolingCurrent_WholeDomain, deltax, XMin, YMin, ZMin);
+            PrintFinalUndercooling(BaseFileName, PathToOutput, nx, ny, nz, UndercoolingCurrent_WholeDomain,
+                                   LayerID_WholeDomain, deltax, XMin, YMin, ZMin);
         if (PrintDefaultRVE)
             PrintExaConstitDefaultRVE(BaseFileName, PathToOutput, nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain,
                                       deltax, NumberOfLayers, RVESize);
         if ((PrintFullOutput) || (PrintDebug > 0))
             PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
-                          Melted_WholeDomain, PathToOutput, BaseFileName, PrintDebug, PrintFullOutput, deltax, XMin,
-                          YMin, ZMin);
+                          PathToOutput, BaseFileName, PrintDebug, PrintFullOutput, deltax, XMin, YMin, ZMin);
     }
     else {
 
@@ -305,15 +294,12 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
 
         int SendBufSize = (SendBufEndX - SendBufStartX) * (SendBufEndY - SendBufStartY) * nz;
 
-        // Collect Melted/Grain ID data on rank 0
+        // Collect Grain ID data on rank 0
         if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput) || (PrintDefaultRVE)) {
             ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
             SendIntField(GrainID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
                          SendBufEndY);
         }
-        if ((PrintMisorientation) || (PrintFullOutput) || (PrintDebug == 2) || (PrintFinalUndercoolingVals))
-            SendBoolField(Melted, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
-                          SendBufEndY);
         if ((PrintFullOutput) || (PrintDebug > 0) || (PrintDefaultRVE)) {
             ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
             SendIntField(LayerID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
@@ -349,8 +335,8 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
 void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3D_H LayerID_WholeDomain,
                    ViewI3D_H CritTimeStep_WholeDomain, ViewI3D_H CellType_WholeDomain,
                    ViewF3D_H UndercoolingChange_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain,
-                   ViewI3D_H Melted_WholeDomain, std::string PathToOutput, std::string BaseFileName, int PrintDebug,
-                   bool PrintFullOutput, double deltax, float XMin, float YMin, float ZMin) {
+                   std::string PathToOutput, std::string BaseFileName, int PrintDebug, bool PrintFullOutput,
+                   double deltax, float XMin, float YMin, float ZMin) {
 
     std::string FName;
     if (PrintFullOutput) {
@@ -395,17 +381,6 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
             }
             Grainplot << std::endl;
         }
-        // Print Melted data
-        Grainplot << "SCALARS Melted int 1" << std::endl;
-        Grainplot << "LOOKUP_TABLE default" << std::endl;
-        for (int k = 0; k < nz; k++) {
-            for (int j = 0; j < ny; j++) {
-                for (int i = 0; i < nx; i++) {
-                    Grainplot << Melted_WholeDomain(k, i, j) << " ";
-                }
-            }
-            Grainplot << std::endl;
-        }
     }
     if (PrintDebug > 0) {
         // Print CritTimeStep data
@@ -444,7 +419,7 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
             Grainplot << std::endl;
         }
         // Print Undercooling current data
-        Grainplot << "SCALARS Melted float 1" << std::endl;
+        Grainplot << "SCALARS UndercoolingCurrent float 1" << std::endl;
         Grainplot << "LOOKUP_TABLE default" << std::endl;
         for (int k = 0; k < nz; k++) {
             for (int j = 0; j < ny; j++) {
@@ -460,7 +435,7 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
 //*****************************************************************************/
 // Print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview file
 void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
-                               ViewI3D_H Melted_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewF_H GrainUnitVector,
+                               ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewF_H GrainUnitVector,
                                int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin) {
 
     std::string FName = PathToOutput + BaseFileName + "_Misorientations.vtk";
@@ -500,7 +475,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
-                if (Melted_WholeDomain(k, i, j) == 0)
+                if (LayerID_WholeDomain(k, i, j) == -1)
                     GrainplotM << 200 << " ";
                 else {
                     MeltedCells++;
@@ -527,7 +502,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
 // Print the undercooling at which each cell solidified (went from active to solid type), for all cells that underwent
 // solidification, to a paraview file
 void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
-                            ViewI3D_H Melted_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain, double deltax,
+                            ViewF3D_H UndercoolingCurrent_WholeDomain, ViewI3D_H LayerID_WholeDomain, double deltax,
                             float XMin, float YMin, float ZMin) {
 
     std::string FName = PathToOutput + BaseFileName + "_FinalUndercooling.vtk";
@@ -549,7 +524,7 @@ void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, 
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
-                if (Melted_WholeDomain(k, i, j) == 0)
+                if (LayerID_WholeDomain(k, i, j) == -1)
                     UndercoolingPlot << 0.0 << " ";
                 else
                     UndercoolingPlot << UndercoolingCurrent_WholeDomain(k, i, j) << " ";

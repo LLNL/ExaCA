@@ -112,7 +112,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewI LayerID(Kokkos::ViewAllocateWithoutInitializing("LayerID"), LocalDomainSize);
     ViewF UndercoolingChange(Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange"), LocalDomainSize);
     ViewF UndercoolingCurrent("UndercoolingCurrent", LocalDomainSize);
-    bool *Melted = new bool[LocalDomainSize];
+
     // With remelting, temperature fields are also characterized by these variables:
     // Maximum number of times a cell in a given layer undergoes solidification
     ViewI MaxSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfRemeltEvents"), NumberOfLayers);
@@ -139,32 +139,32 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             TempInit_ReadDataRemelt(0, id, MyXSlices, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyXOffset,
                                     MyYOffset, deltax, deltat, FreezingRange, LayerTimeTempHistory,
                                     NumberOfSolidificationEvents, MaxSolidificationEvents, MeltTimeStep, CritTimeStep,
-                                    UndercoolingChange, UndercoolingCurrent, XMin, YMin, Melted, ZMinLayer, LayerHeight,
+                                    UndercoolingChange, UndercoolingCurrent, XMin, YMin, ZMinLayer, LayerHeight,
                                     nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue, LastValue, RawData,
                                     SolidificationEventCounter, TempFilesInSeries);
         else
             TempInit_ReadDataNoRemelt(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HTtoCAratio, deltat, nz,
-                                      LocalDomainSize, CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, Melted,
-                                      ZMinLayer, ZMaxLayer, LayerHeight, NumberOfLayers, FinishTimeStep, FreezingRange,
-                                      LayerID, FirstValue, LastValue, RawData);
+                                      LocalDomainSize, CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, ZMinLayer,
+                                      ZMaxLayer, LayerHeight, NumberOfLayers, FinishTimeStep, FreezingRange, LayerID,
+                                      FirstValue, LastValue, RawData);
     }
     else if (SimulationType == "S") {
         // spot melt array test problem - with or without remelting
         if (RemeltingYN)
-            TempInit_SpotRemelt(
-                0, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, ZBound_Low, nz,
-                LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange, UndercoolingCurrent, Melted,
-                LayerHeight, FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset, LayerTimeTempHistory,
-                NumberOfSolidificationEvents, MeltTimeStep, MaxSolidificationEvents, SolidificationEventCounter);
+            TempInit_SpotRemelt(0, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat,
+                                ZBound_Low, nz, LocalActiveDomainSize, LocalDomainSize, CritTimeStep,
+                                UndercoolingChange, UndercoolingCurrent, LayerHeight, FreezingRange, LayerID, NSpotsX,
+                                NSpotsY, SpotRadius, SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents,
+                                MeltTimeStep, MaxSolidificationEvents, SolidificationEventCounter);
         else
             TempInit_SpotNoRemelt(G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat,
-                                  nz, LocalDomainSize, CritTimeStep, UndercoolingChange, Melted, LayerHeight,
-                                  NumberOfLayers, FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset);
+                                  nz, LocalDomainSize, CritTimeStep, UndercoolingChange, LayerHeight, NumberOfLayers,
+                                  FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset);
     }
     else if (SimulationType == "C") {
         // directional/constrained solidification test problem
         TempInit_DirSolidification(G, R, id, MyXSlices, MyYSlices, deltax, deltat, nz, LocalDomainSize, CritTimeStep,
-                                   UndercoolingChange, Melted, LayerID);
+                                   UndercoolingChange, LayerID);
     }
     // Delete temporary data structure for temperature data read if remelting is not performed (otherwise keep it to
     // avoid having to reread temperature files)
@@ -319,8 +319,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         PrintExaCAData(id, -1, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset, ProcessorsInXDirection,
                        ProcessorsInYDirection, GrainID, CritTimeStep, GrainUnitVector, LayerID, CellType,
                        UndercoolingChange, UndercoolingCurrent, OutputFile, DecompositionStrategy, NGrainOrientations,
-                       Melted, PathToOutput, PrintDebug, false, false, false, false, false, 0, ZBound_Low, nzActive,
-                       deltax, XMin, YMin, ZMin, NumberOfLayers);
+                       PathToOutput, PrintDebug, false, false, false, false, false, 0, ZBound_Low, nzActive, deltax,
+                       XMin, YMin, ZMin, NumberOfLayers);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Initialization data file(s) printed" << std::endl;
@@ -344,8 +344,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
                                ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep, GrainUnitVector,
                                LayerID, CellType, UndercoolingChange, UndercoolingCurrent, OutputFile,
-                               DecompositionStrategy, NGrainOrientations, Melted, PathToOutput, 0, false, false, false,
-                               true, false, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
+                               DecompositionStrategy, NGrainOrientations, PathToOutput, 0, false, false, false, true,
+                               false, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
                                NumberOfLayers);
                 IntermediateFileCounter++;
             }
@@ -418,7 +418,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         id, np, cycle, MyXSlices, MyYSlices, MyXOffset, MyYOffset, LocalActiveDomainSize, nx, ny, nz,
                         nzActive, deltax, XMin, YMin, ZMin, DecompositionStrategy, ProcessorsInXDirection,
                         ProcessorsInYDirection, SuccessfulNucEvents_ThisRank, XSwitch, CellType, CritTimeStep, GrainID,
-                        SimulationType, layernumber, NumberOfLayers, ZBound_Low, NGrainOrientations, Melted, LayerID,
+                        SimulationType, layernumber, NumberOfLayers, ZBound_Low, NGrainOrientations, LayerID,
                         GrainUnitVector, UndercoolingChange, UndercoolingCurrent, PathToOutput, OutputFile,
                         PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter, NumberOfLayers,
                         MeltTimeStep);
@@ -428,7 +428,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         LocalActiveDomainSize, nx, ny, nz, nzActive, deltax, XMin, YMin, ZMin, DecompositionStrategy,
                         ProcessorsInXDirection, ProcessorsInYDirection, SuccessfulNucEvents_ThisRank, XSwitch, CellType,
                         CritTimeStep, GrainID, SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low,
-                        NGrainOrientations, Melted, LayerID, GrainUnitVector, UndercoolingChange, UndercoolingCurrent,
+                        NGrainOrientations, LayerID, GrainUnitVector, UndercoolingChange, UndercoolingCurrent,
                         PathToOutput, OutputFile, PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter,
                         NumberOfLayers);
             }
@@ -456,7 +456,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 if (SimulationType == "S")
                     TempInit_SpotRemelt(layernumber + 1, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset,
                                         MyYOffset, deltax, deltat, ZBound_Low, nz, LocalActiveDomainSize,
-                                        LocalDomainSize, CritTimeStep, UndercoolingChange, UndercoolingCurrent, Melted,
+                                        LocalDomainSize, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
                                         LayerHeight, FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset,
                                         LayerTimeTempHistory, NumberOfSolidificationEvents, MeltTimeStep,
                                         MaxSolidificationEvents, SolidificationEventCounter);
@@ -465,8 +465,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                             LocalDomainSize, MyXOffset, MyYOffset, deltax, deltat, FreezingRange,
                                             LayerTimeTempHistory, NumberOfSolidificationEvents, MaxSolidificationEvents,
                                             MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent, XMin,
-                                            YMin, Melted, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep,
-                                            LayerID, FirstValue, LastValue, RawData, SolidificationEventCounter,
+                                            YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID,
+                                            FirstValue, LastValue, RawData, SolidificationEventCounter,
                                             TempFilesInSeries);
                 // Update buffer size
                 BufSizeZ = nzActive;
@@ -572,7 +572,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         PrintExaCAData(id, NumberOfLayers - 1, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
                        ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep, GrainUnitVector, LayerID,
                        CellType, UndercoolingChange, UndercoolingCurrent, OutputFile, DecompositionStrategy,
-                       NGrainOrientations, Melted, PathToOutput, 0, PrintMisorientation, PrintFinalUndercoolingVals,
+                       NGrainOrientations, PathToOutput, 0, PrintMisorientation, PrintFinalUndercoolingVals,
                        PrintFullOutput, false, PrintDefaultRVE, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
                        NumberOfLayers, RVESize);
     }

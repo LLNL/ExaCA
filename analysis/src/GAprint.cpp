@@ -16,7 +16,7 @@
 
 //*****************************************************************************/
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
-                             int ZMin, int ZMax, ViewI3D_H Melted, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
+                             int ZMin, int ZMax, ViewI3D_H LayerID, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
                              int NumberOfOrientations) {
 
     // Frequency of misorientations in the selected region
@@ -47,8 +47,8 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
     for (int k = ZMin; k <= ZMax; k++) {
         for (int i = XMin; i <= XMax; i++) {
             for (int j = YMin; j <= YMax; j++) {
-                // Only take data from cells in the representative area that underwent melting
-                if (Melted(k, i, j) == 1) {
+                // Only take data from cells in the representative area that underwent melting (LayerID >= 0)
+                if (LayerID(k, i, j) != -1) {
                     int MyOrientation = ((abs(GrainID(k, i, j)) - 1) % NumberOfOrientations);
                     float MyMisorientation = GrainMisorientation(MyOrientation);
                     if (AnalysisTypes[0])
@@ -308,7 +308,7 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
 
 //*****************************************************************************/
 void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin, int XMax,
-                         int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H Melted,
+                         int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H LayerID,
                          bool NewOrientationFormatYN, ViewF_H GrainEulerAngles) {
 
     if (AnalysisTypes[7]) {
@@ -319,7 +319,7 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
         for (int k = ZMin; k <= ZMax; k++) {
             for (int j = YMin; j <= YMax; j++) {
                 for (int i = XMin; i <= XMax; i++) {
-                    if (Melted(k, i, j)) {
+                    if (LayerID(k, i, j) != -1) {
                         int GOVal = (abs(GrainID(k, i, j)) - 1) % NumberOfOrientations;
                         GOHistogram(GOVal)++;
                     }
