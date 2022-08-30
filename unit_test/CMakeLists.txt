@@ -109,6 +109,6 @@ ExaCA_add_tests_nobackend(NAMES Init)
 
 ExaCA_add_tests_nobackend(MPI NAMES InitMPI)
 
-ExaCA_add_tests(NAMES Print)
+ExaCA_add_tests(NAMES KokkosUpdate KokkosPrint)
 
-ExaCA_add_tests(MPI NAMES KokkosInit KokkosUpdate)
+ExaCA_add_tests(MPI NAMES KokkosInitMPI)

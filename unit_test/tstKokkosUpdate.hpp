@@ -6,8 +6,6 @@
 
 #include <gtest/gtest.h>
 
-#include "mpi.h"
-
 #include <fstream>
 #include <string>
 #include <vector>
@@ -15,12 +13,6 @@
 namespace Test {
 //---------------------------------------------------------------------------//
 void testNucleation() {
-
-    int id, np;
-    // Get number of processes
-    MPI_Comm_size(MPI_COMM_WORLD, &np);
-    // Get individual process ID
-    MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
     int SuccessfulNucEvents_ThisRank = 0; // nucleation event counter
     // Counters for nucleation events (successful or not) - host and device
@@ -52,7 +44,7 @@ void testNucleation() {
     for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
         // NucleationTimes values should be in the order in which the events occur - let these times depend on the
         // process id
-        NucleationTimes_Host(n) = 2 * id + n;
+        NucleationTimes_Host(n) = 4 + n;
         NucleiLocation_Host(n) = ZBound_Low * MyXSlices * MyYSlices + n;
         // Give these nucleation events grain IDs based on their order, starting with -1 and counting down
         NucleiGrainID_Host(n) = -(n + 1);
@@ -92,7 +84,7 @@ void testNucleation() {
     ViewI numSteer("SteeringVector", 1);
 
     // Take enough time steps such that every nucleation event has a chance to occur
-    for (int cycle = 0; cycle <= (2 * id + 11); cycle++) {
+    for (int cycle = 0; cycle <= (15); cycle++) {
         Nucleation(cycle, SuccessfulNucEvents_ThisRank, NucleationCounter, PossibleNuclei_ThisRankThisLayer,
                    NucleationTimes_Host, NucleiLocation, NucleiGrainID, CellType, GrainID, ZBound_Low, MyXSlices,
                    MyYSlices, SteeringVector, numSteer);
@@ -139,16 +131,10 @@ void testNucleation() {
 
 void testFillSteeringVector_Remelt() {
 
-    int id, np;
-    // Get number of processes
-    MPI_Comm_size(MPI_COMM_WORLD, &np);
-    // Get individual process ID
-    MPI_Comm_rank(MPI_COMM_WORLD, &id);
-
     // Create views - each rank has 125 cells, 75 of which are part of the active region of the domain
     int MyXSlices = 5;
     int MyYSlices = 5;
-    int MyYOffset = 5 * id;
+    int MyYOffset = 5;
     int nz = 5;
     int ZBound_Low = 2;
     int nzActive = 3;
@@ -198,8 +184,8 @@ void testFillSteeringVector_Remelt() {
         int Rem = i % (MyXSlices * MyYSlices);
         int RankY = Rem % MyYSlices;
         // Let cells be assigned GrainIDs based on the rank ID
-        // Cells on rank 0 have grain ID 0, rank 1 have grain ID 1, etc
-        GrainID_Host(i) = id;
+        // Cells have grain ID 1
+        GrainID_Host(i) = 1;
         // Cells at Z = 0 through Z = 2 are Solid, Z = 3 and 4 are TempSolid
         if (GlobalZ <= 2)
             CellType_Host(i) = Solid;
@@ -211,7 +197,7 @@ void testFillSteeringVector_Remelt() {
         // Cells reach liquidus during cooling 2 time steps after melting
         CritTimeStep_Host(i) = MeltTimeStep_Host(i) + 2;
         // Let the cooling rate of the cells from the liquidus depend on the rank ID
-        UndercoolingChange_Host(i) = 0.2 * id;
+        UndercoolingChange_Host(i) = 0.2;
     }
 
     // Steering Vector
@@ -276,8 +262,8 @@ void testFillSteeringVector_Remelt() {
                 EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(i), 0.0);
             }
             else {
-                EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(i), (numcycles - CritTimeStep_Host(i)) * 0.2 * id);
-                if ((id == 0) || (GlobalZ == 4))
+                EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(i), (numcycles - CritTimeStep_Host(i)) * 0.2);
+                if (GlobalZ == 4)
                     EXPECT_EQ(CellType_Host(i), Liquid);
                 else {
                     EXPECT_EQ(CellType_Host(i), FutureActive);
@@ -286,7 +272,6 @@ void testFillSteeringVector_Remelt() {
             }
         }
     }
-    std::cout << "Future active cells rank " << id << " : " << FutureActiveCells << std::endl;
     // Check the steering vector values on the host
     EXPECT_EQ(FutureActiveCells, numSteer_Host(0));
     for (int i = 0; i < FutureActiveCells; i++) {

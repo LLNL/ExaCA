@@ -6,8 +6,6 @@
 
 #include <gtest/gtest.h>
 
-#include "mpi.h"
-
 #include <fstream>
 #include <string>
 #include <vector>
