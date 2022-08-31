@@ -182,7 +182,7 @@ Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` 
 
 ## Contributing
 
-We encourage you to contribute to ExaCA! Please check the
+We encourage you to contribute to ExaCA. Please check the
 [contribution guidelines](CONTRIBUTING.md).
 
 ## License
