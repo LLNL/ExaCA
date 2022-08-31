@@ -907,7 +907,7 @@ int calcLocalActiveDomainSize(int MyXSlices, int MyYSlices, int nzActive) {
 // Initialize temperature data for a constrained solidification test problem
 void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &MyYSlices, double deltax, double deltat,
                                 int nz, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
-                                bool *Melted, ViewI &LayerID) {
+                                ViewI &LayerID) {
 
     // These views are initialized on the host, filled with data, and then copied to the device for layer "layernumber"
     // This view is initialized with zeros
@@ -924,7 +924,6 @@ void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &My
                 int GlobalD3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
                 UndercoolingChange_Host(GlobalD3D1ConvPosition) = R * deltat;
                 CritTimeStep_Host(GlobalD3D1ConvPosition) = (int)((k * G * deltax) / (R * deltat));
-                Melted[GlobalD3D1ConvPosition] = true;
             }
         }
     }
@@ -938,28 +937,17 @@ void TempInit_DirSolidification(double G, double R, int, int &MyXSlices, int &My
 // Initialize temperature data for an array of overlapping spot melts (done during simulation initialization, no
 // remelting)
 void TempInit_SpotNoRemelt(double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices, int &MyXOffset,
-                           int &MyYOffset, double deltax, double deltat, int nz, int LocalDomainSize,
-                           ViewI &CritTimeStep, ViewF &UndercoolingChange, bool *Melted, int LayerHeight,
-                           int NumberOfLayers, double FreezingRange, ViewI &LayerID, int NSpotsX, int NSpotsY,
-                           int SpotRadius, int SpotOffset) {
+                           int &MyYOffset, double deltax, double deltat, int, int LocalDomainSize, ViewI &CritTimeStep,
+                           ViewF &UndercoolingChange, int LayerHeight, int NumberOfLayers, double FreezingRange,
+                           ViewI &LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset) {
 
-    // This view will be filled with non-zero values on the host, and later copied to the device
+    // This view is initialized with -1 for all cells, populated with other data, and later copied to the device
     ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_H"), LocalDomainSize);
+    Kokkos::deep_copy(LayerID_Host, -1);
     // These views are initialized with zero values on the host, populated with other data, and later copied to the
     // device
     ViewI_H CritTimeStep_Host("CritTimeStep_H", LocalDomainSize);
     ViewF_H UndercoolingChange_Host("UndercoolingChange_H", LocalDomainSize);
-
-    // No cells intitially have undercooling, nor have melting/solidification data
-    for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < MyXSlices; i++) {
-            for (int j = 0; j < MyYSlices; j++) {
-                int GlobalD3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                Melted[GlobalD3D1ConvPosition] = false;
-                LayerID_Host(GlobalD3D1ConvPosition) = -1;
-            }
-        }
-    }
 
     int NumberOfSpots = NSpotsX * NSpotsY;
     // Outer edges of spots are initialized at the liquidus temperature
@@ -997,7 +985,6 @@ void TempInit_SpotNoRemelt(double G, double R, std::string, int id, int &MyXSlic
                                 1 + (int)(((float)(SpotRadius)-TotDist) / IsothermVelocity) + TimeBetweenSpots * n;
                             UndercoolingChange_Host(GlobalD3D1ConvPosition) = R * deltat;
                             LayerID_Host(GlobalD3D1ConvPosition) = layernumber;
-                            Melted[GlobalD3D1ConvPosition] = true;
                         }
                     }
                 }
@@ -1050,10 +1037,10 @@ int calcMaxSolidificationEventsSpot(int MyXSlices, int MyYSlices, int NumberOfSp
 
 // Initialize temperature data for an array of overlapping spot melts (done at the start of each layer, with remelting)
 void TempInit_SpotRemelt(int layernumber, double G, double R, std::string, int id, int &MyXSlices, int &MyYSlices,
-                         int &MyXOffset, int &MyYOffset, double deltax, double deltat, int ZBound_Low, int nz,
+                         int &MyXOffset, int &MyYOffset, double deltax, double deltat, int ZBound_Low, int,
                          int LocalActiveDomainSize, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
-                         ViewF &UndercoolingCurrent, bool *Melted, int, double FreezingRange, ViewI &LayerID,
-                         int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset, ViewF3D &LayerTimeTempHistory,
+                         ViewF &UndercoolingCurrent, int, double FreezingRange, ViewI &LayerID, int NSpotsX,
+                         int NSpotsY, int SpotRadius, int SpotOffset, ViewF3D &LayerTimeTempHistory,
                          ViewI &NumberOfSolidificationEvents, ViewI &MeltTimeStep, ViewI &MaxSolidificationEvents,
                          ViewI &SolidificationEventCounter) {
 
@@ -1088,18 +1075,9 @@ void TempInit_SpotRemelt(int layernumber, double G, double R, std::string, int i
     ViewI_H CritTimeStep_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritTimeStep);
     ViewF_H UndercoolingChange_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingChange);
 
-    if (layernumber == 0) {
-        // No cells intitially have undercooling, nor have melting/solidification data
-        for (int k = 0; k < nz; k++) {
-            for (int i = 0; i < MyXSlices; i++) {
-                for (int j = 0; j < MyYSlices; j++) {
-                    int GlobalD3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                    Melted[GlobalD3D1ConvPosition] = false;
-                    LayerID_Host(GlobalD3D1ConvPosition) = -1;
-                }
-            }
-        }
-    }
+    // First layer - all LayerID values are -1, to later be populated with other values
+    if (layernumber == 0)
+        Kokkos::deep_copy(LayerID_Host, -1);
 
     // Outer edges of spots are initialized at the liquidus temperature
     // Spots cool at constant rate R, spot thermal gradient = G
@@ -1161,7 +1139,6 @@ void TempInit_SpotRemelt(int layernumber, double G, double R, std::string, int i
                     CritTimeStep_Host(GlobalD3D1ConvPosition) = LayerTimeTempHistory_Host(D3D1ConvPosition, 0, 1);
                     UndercoolingChange_Host(GlobalD3D1ConvPosition) = LayerTimeTempHistory_Host(D3D1ConvPosition, 0, 2);
                     LayerID_Host(GlobalD3D1ConvPosition) = layernumber;
-                    Melted[GlobalD3D1ConvPosition] = true;
                 }
                 else {
                     MeltTimeStep_Host(GlobalD3D1ConvPosition) = 0;
@@ -1227,11 +1204,11 @@ double getTempCoordCR(int i, const std::vector<double> &RawData) {
 // Initialize temperature data for a problem using the reduced/sparse data format and input temperature data from
 // file(s)
 void TempInit_ReadDataNoRemelt(int id, int &MyXSlices, int &MyYSlices, int &MyXOffset, int &MyYOffset, double deltax,
-                               int HTtoCAratio, double deltat, int nz, int LocalDomainSize, ViewI &CritTimeStep,
-                               ViewF &UndercoolingChange, float XMin, float YMin, float ZMin, bool *Melted,
-                               float *ZMinLayer, float *ZMaxLayer, int LayerHeight, int NumberOfLayers,
-                               int *FinishTimeStep, double FreezingRange, ViewI &LayerID, int *FirstValue,
-                               int *LastValue, std::vector<double> RawData) {
+                               int HTtoCAratio, double deltat, int, int LocalDomainSize, ViewI &CritTimeStep,
+                               ViewF &UndercoolingChange, float XMin, float YMin, float ZMin, float *ZMinLayer,
+                               float *ZMaxLayer, int LayerHeight, int NumberOfLayers, int *FinishTimeStep,
+                               double FreezingRange, ViewI &LayerID, int *FirstValue, int *LastValue,
+                               std::vector<double> RawData) {
 
     // These views are initialized to zeros on the host, filled with data, and then copied to the device for layer
     // "layernumber"
@@ -1249,10 +1226,6 @@ void TempInit_ReadDataNoRemelt(int id, int &MyXSlices, int &MyYSlices, int &MyXO
     int UpperXBound = MyXOffset + MyXSlices - 1 + HTtoCAratio - ((MyXOffset + MyYSlices - 1) % HTtoCAratio);
     int UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + MyYSlices - 1) % HTtoCAratio);
 
-    // No sites have melted yet
-    for (int i = 0; i < MyXSlices * MyYSlices * nz; i++) {
-        Melted[i] = false;
-    }
     // LayerID = -1 for cells that don't solidify as part of any layer of the multilayer problem
     Kokkos::deep_copy(LayerID_Host, -1);
 
@@ -1433,7 +1406,6 @@ void TempInit_ReadDataNoRemelt(int id, int &MyXSlices, int &MyYSlices, int &MyXO
                             // grid? Adjust Z coordinate by ZMin
                             int ZOffset = round((ZMinLayer[LayerCounter] - ZMin) / deltax) + k;
                             int Coord3D1D = ZOffset * MyXSlices * MyYSlices + Adj_i * MyYSlices + Adj_j;
-                            Melted[Coord3D1D] = true;
                             CritTimeStep_Host(Coord3D1D) = round(CTLiq / deltat);
                             LayerID_Host(Coord3D1D) = LayerCounter;
                             UndercoolingChange_Host(Coord3D1D) =
@@ -1500,14 +1472,14 @@ void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries
 }
 
 // Initialize temperature fields for this layer if remelting is considered and data comes from files
-void TempInit_ReadDataRemelt(int layernumber, int id, int MyXSlices, int MyYSlices, int nz, int LocalActiveDomainSize,
+void TempInit_ReadDataRemelt(int layernumber, int id, int MyXSlices, int MyYSlices, int, int LocalActiveDomainSize,
                              int LocalDomainSize, int MyXOffset, int MyYOffset, double &deltax, double deltat,
                              double FreezingRange, ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents,
                              ViewI &MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep,
                              ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, float XMin, float YMin,
-                             bool *Melted, float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low,
-                             int *FinishTimeStep, ViewI &LayerID, int *FirstValue, int *LastValue,
-                             std::vector<double> RawData, ViewI &SolidificationEventCounter, int TempFilesInSeries) {
+                             float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
+                             ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData,
+                             ViewI &SolidificationEventCounter, int TempFilesInSeries) {
 
     // Data was already read into the "RawData" temporary data structure
     // Determine which section of "RawData" is relevant for this layer of the overall domain
@@ -1546,13 +1518,9 @@ void TempInit_ReadDataRemelt(int layernumber, int id, int MyXSlices, int MyYSlic
                                         MaxSolidificationEvents_Host(layernumber), 3);
     ViewI_H NumberOfSolidificationEvents_Host("NumSEvents_H", LocalActiveDomainSize);
 
-    if (layernumber == 0) {
-        // No sites have melted yet
-        for (int i = 0; i < MyXSlices * MyYSlices * nz; i++) {
-            Melted[i] = false;
-            LayerID_Host(i) = -1;
-        }
-    }
+    // First layer - all LayerID values are -1, to later be populated with other values
+    if (layernumber == 0)
+        Kokkos::deep_copy(LayerID_Host, -1);
 
     double LargestTime = 0;
     double LargestTime_Global = 0;
@@ -1655,7 +1623,6 @@ void TempInit_ReadDataRemelt(int layernumber, int id, int MyXSlices, int MyYSlic
                 int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + i * MyYSlices + j;
                 if (LayerTimeTempHistory_Host(D3D1ConvPosition, 0, 0) > 0) {
                     // This cell undergoes solidification in layer "layernumber" at least once
-                    Melted[GlobalD3D1ConvPosition] = true;
                     LayerID_Host(GlobalD3D1ConvPosition) = layernumber;
                     MeltTimeStep_Host(GlobalD3D1ConvPosition) =
                         (int)(LayerTimeTempHistory_Host(D3D1ConvPosition, 0, 0));

@@ -123,6 +123,13 @@ void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H
     }
 }
 
+// Reads and ignored field data
+void ReadIgnoreField(std::ifstream &InputDataStream, int nx, int ny, int nz) {
+    std::string line;
+    for (int i = 0; i < nx * ny * nz; i++)
+        getline(InputDataStream, line);
+}
+
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
                     std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
@@ -187,8 +194,7 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     }
 }
 
-void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID,
-                    ViewI3D_H Melted) {
+void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID) {
 
     std::ifstream InputDataStream;
     InputDataStream.open(MicrostructureFile);
@@ -201,11 +207,13 @@ void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, View
     }
     for (int field = 0; field < 3; field++) {
         // This line says which variable appears next in the file
+        // A blank line ends the file read
         getline(InputDataStream, line);
-        size_t FoundGrainID, FoundLayerID, FoundMelted;
-        FoundGrainID = line.find("GrainID");
-        FoundLayerID = line.find("LayerID");
-        FoundMelted = line.find("Melted");
+        if (line.empty())
+            break;
+        size_t FoundGrainID = line.find("GrainID");
+        size_t FoundLayerID = line.find("LayerID");
+        size_t FoundMelted = line.find("Melted");
         // 1 more unused line
         getline(InputDataStream, line);
         // Place appropriate data
@@ -213,12 +221,21 @@ void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, View
             ReadField(InputDataStream, nx, ny, nz, GrainID);
         else if (FoundLayerID != std::string::npos)
             ReadField(InputDataStream, nx, ny, nz, LayerID);
-        else if (FoundMelted != std::string::npos)
-            ReadField(InputDataStream, nx, ny, nz, Melted);
+        else if (FoundMelted != std::string::npos) {
+            std::cout << "Note: Melted data is no longer used and will be ignored" << std::endl;
+            ReadIgnoreField(InputDataStream, nx, ny, nz);
+        }
         else
             throw std::runtime_error(
-                "Error: unexpected data field in ExaCA microstructure file (not GrainID, LayerID, nor Melted");
-        std::cout << "Data field " << field + 1 << " of 3 read" << std::endl;
+                "Error: unexpected data field in ExaCA microstructure file (not GrainID or LayerID)");
+        std::string Fieldname;
+        if (FoundGrainID != std::string::npos)
+            Fieldname = "GrainID";
+        else if (FoundLayerID != std::string::npos)
+            Fieldname = "LayerID";
+        else if (FoundMelted != std::string::npos)
+            Fieldname = "Melted";
+        std::cout << "Data field " << Fieldname << " read" << std::endl;
     }
     InputDataStream.close();
 }
@@ -229,7 +246,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        std::vector<int> &YLow_RVE, std::vector<int> &YHigh_RVE, std::vector<int> &ZLow_RVE,
                        std::vector<int> &ZHigh_RVE, int &NumberOfRVEs, std::vector<int> &CrossSectionPlane,
                        std::vector<int> &CrossSectionLocation, int &NumberOfCrossSections, int &XMin, int &XMax,
-                       int &YMin, int &YMax, int &ZMin, int &ZMax, int nx, int ny, int nz, ViewI3D_H LayerID, ViewI3D_H,
+                       int &YMin, int &YMax, int &ZMin, int &ZMax, int nx, int ny, int nz, ViewI3D_H LayerID,
                        int NumberOfLayers, std::vector<bool> &PrintSectionPF, std::vector<bool> &PrintSectionIPF,
                        bool NewOrientationFormatYN) {
 

@@ -18,23 +18,18 @@ void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nx, int n
 void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nx, int ny, int nz, int MyXSlices,
                        int MyYSlices, int np, ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices,
                        ViewI_H RecvYSlices, ViewI_H RBufSize);
-void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
-                      int np, ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
-                      ViewI_H RBufSize);
 void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
                   int SendBufEndX, int SendBufStartY, int SendBufEndY);
 void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
                     int SendBufEndX, int SendBufStartY, int SendBufEndY);
-void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
-                   int SendBufEndX, int SendBufStartY, int SendBufEndY);
 void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
                     int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI GrainID,
                     ViewI CritTimeStep, ViewF GrainUnitVector, ViewI LayerID, ViewI CellType, ViewF UndercoolingChange,
                     ViewF UndercoolingCurrent, std::string BaseFileName, int DecompositionStrategy,
-                    int NGrainOrientations, bool *Melted, std::string PathToOutput, int PrintDebug,
-                    bool PrintMisorientation, bool PrintFinalUndercooling, bool PrintFullOutput, bool PrintTimeSeries,
-                    bool PrintDefaultRVE, int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax,
-                    float XMin, float YMin, float ZMin, int NumberOfLayers, int RVESize = 0);
+                    int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
+                    bool PrintFinalUndercooling, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
+                    int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, float XMin, float YMin,
+                    float ZMin, int NumberOfLayers, int RVESize = 0);
 void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int DecompositionStrategy,
                    int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, double AConst, double BConst,
                    double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN,
@@ -49,13 +44,13 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
 void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3D_H LayerID_WholeDomain,
                    ViewI3D_H CritTimeStep_WholeDomain, ViewI3D_H CellType_WholeDomain,
                    ViewF3D_H UndercoolingChange_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain,
-                   ViewI3D_H Melted_WholeDomain, std::string PathToOutput, std::string BaseFileName, int PrintDebug,
-                   bool PrintFullOutput, double deltax, float XMin, float YMin, float ZMin);
+                   std::string PathToOutput, std::string BaseFileName, int PrintDebug, bool PrintFullOutput,
+                   double deltax, float XMin, float YMin, float ZMin);
 void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
-                               ViewI3D_H Melted_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewF_H GrainUnitVector,
+                               ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewF_H GrainUnitVector,
                                int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin);
 void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
-                            ViewI3D_H Melted_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain, double deltax,
+                            ViewF3D_H UndercoolingCurrent_WholeDomain, ViewI3D_H LayerID_WholeDomain, double deltax,
                             float XMin, float YMin, float ZMin);
 void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, double deltax,

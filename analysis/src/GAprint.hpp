@@ -28,14 +28,14 @@ void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string Bas
                                       bool NewOrientationFormatYN, double deltax, ViewF_H GrainUnitVectors,
                                       ViewF_H GrainEulerAngles);
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
-                             int ZMin, int ZMax, ViewI3D_H Melted, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
+                             int ZMin, int ZMax, ViewI3D_H LayerID, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
                              int NumberOfOrientations);
 void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax, int ZMin,
-                   int ZMax, int nx, int ny, int nz, ViewI3D_H Melted, ViewI3D_H GrainID_WholeDomain, double deltax);
+                   int ZMax, int nx, int ny, int nz, ViewI3D_H LayerID, ViewI3D_H GrainID_WholeDomain, double deltax);
 void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double deltax, int XMin, int XMax, int YMin,
                         int YMax, int ZMin, int ZMax, ViewI3D_H GrainID);
 void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin, int XMax,
-                         int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H Melted,
+                         int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H LayerID,
                          bool NewOrientationFormatYN, ViewF_H GrainEulerAngles);
 void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles,
                                ViewI_H GOHistogram);

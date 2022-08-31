@@ -120,27 +120,27 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, ViewI 
                   ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny, int nz, int MyXOffset,
                   int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI GrainID,
                   ViewI CritTimeStep, ViewF GrainUnitVector, ViewF UndercoolingChange, ViewF UndercoolingCurrent,
-                  std::string OutputFile, int DecompositionStrategy, int NGrainOrientations, bool *Melted,
-                  std::string PathToOutput, int &IntermediateFileCounter, int nzActive, double deltax, float XMin,
-                  float YMin, float ZMin, int NumberOfLayers, int &XSwitch, std::string TemperatureDataType,
-                  bool PrintIdleMovieFrames, int MovieFrameInc, int FinishTimeStep);
+                  std::string OutputFile, int DecompositionStrategy, int NGrainOrientations, std::string PathToOutput,
+                  int &IntermediateFileCounter, int nzActive, double deltax, float XMin, float YMin, float ZMin,
+                  int NumberOfLayers, int &XSwitch, std::string TemperatureDataType, bool PrintIdleMovieFrames,
+                  int MovieFrameInc, int FinishTimeStep);
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
                                 int LocalDomainSize, int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive,
                                 double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
                                 int ProcessorsInXDirection, int ProcessorsInYDirection,
                                 int SuccessfulNucEvents_ThisRank, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
                                 ViewI GrainID, std::string TemperatureDataType, int *FinishTimeStep, int layernumber,
-                                int, int ZBound_Low, int NGrainOrientations, bool *Melted, ViewI LayerID,
-                                ViewF GrainUnitVector, ViewF UndercoolingChange, ViewF UndercoolingCurrent,
-                                std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,
-                                int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers);
+                                int, int ZBound_Low, int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector,
+                                ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string PathToOutput,
+                                std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
+                                int &IntermediateFileCounter, int NumberOfLayers);
 void IntermediateOutputAndCheck_Remelt(
     int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
     int nx, int ny, int nz, int nzActive, double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
     int ProcessorsInXDirection, int ProcessorsInYDirection, int SuccessfulNucEvents_ThisRank, int &XSwitch,
     ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType, int layernumber, int,
-    int ZBound_Low, int NGrainOrientations, bool *Melted, ViewI LayerID, ViewF GrainUnitVector,
-    ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile,
-    bool PrintIdleMovieFrames, int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep);
+    int ZBound_Low, int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector, ViewF UndercoolingChange,
+    ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,
+    int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep);
 
 #endif

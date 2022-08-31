@@ -50,13 +50,12 @@ int main(int argc, char *argv[]) {
         int nx, ny, nz, NumberOfLayers;
         ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers);
 
-        // Allocate memory blocks for GrainID, LayerID, and Melted data
+        // Allocate memory blocks for GrainID and LayerID data
         ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
         ViewI3D_H LayerID(Kokkos::ViewAllocateWithoutInitializing("LayerID"), nz, nx, ny);
-        ViewI3D_H Melted(Kokkos::ViewAllocateWithoutInitializing("Melted"), nz, nx, ny);
 
         // Fill arrays with data from paraview file
-        InitializeData(MicrostructureFile, nx, ny, nz, GrainID, LayerID, Melted);
+        InitializeData(MicrostructureFile, nx, ny, nz, GrainID, LayerID);
 
         // Read analysis file ("ExaCA/examples/Outputs.txt") to determine which analysis should be done
         // There are three parts to this analysis:
@@ -80,7 +79,7 @@ int main(int argc, char *argv[]) {
         ParseAnalysisFile(AnalysisFile, RotationFilename, NumberOfOrientations, AnalysisTypes, XLow_RVE, XHigh_RVE,
                           YLow_RVE, YHigh_RVE, ZLow_RVE, ZHigh_RVE, NumberOfRVEs, CrossSectionPlane,
                           CrossSectionLocation, NumberOfCrossSections, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz,
-                          LayerID, Melted, NumberOfLayers, PrintSectionPF, PrintSectionIPF, NewOrientationFormatYN);
+                          LayerID, NumberOfLayers, PrintSectionPF, PrintSectionIPF, NewOrientationFormatYN);
 
         // Allocate memory for grain unit vectors, grain euler angles (9*NumberOfOrientations and 3*NumberOfOrientations
         // in size, respectively)
@@ -107,12 +106,12 @@ int main(int argc, char *argv[]) {
         // Part 3: Representative volume grain statistics
         // Print data to std::out and if analysis option 0 is toggled, to the file
         // "[OutputFileName]_MisorientationFrequency.csv"
-        PrintMisorientationData(AnalysisTypes, OutputFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, Melted,
+        PrintMisorientationData(AnalysisTypes, OutputFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerID,
                                 GrainUnitVector_Host, GrainID, NumberOfOrientations);
         // Print data to std::out and if analysis options 1, 2, or 5 are toggled, print data to files
         // "[OutputFileName]_VolumeFrequency.csv", "[OutputFileName]_AspectRatioFrequency.csv", and
         // [OutputFileName]_GrainHeightDistribution.csv", respectively
-        PrintSizeData(AnalysisTypes, OutputFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz, Melted, GrainID,
+        PrintSizeData(AnalysisTypes, OutputFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz, LayerID, GrainID,
                       deltax);
         // Print data to std::out and if analysis options 3, 4, or 6 are toggled, print data to files
         // "[OutputFileName]_GrainAreas.csv", "[OutputFileName]_WeightedGrainAreas.csv", and
@@ -121,7 +120,7 @@ int main(int argc, char *argv[]) {
         // If analysis option 7 is toggled, print orientation data to files "[OutputFileName]_pyEBSDOrientations.csv"
         // and "[OutputFileName]_MTEXOrientations.csv"
         PrintPoleFigureData(AnalysisTypes, OutputFileName, NumberOfOrientations, XMin, XMax, YMin, YMax, ZMin, ZMax,
-                            GrainID, Melted, NewOrientationFormatYN, GrainEulerAngles_Host);
+                            GrainID, LayerID, NewOrientationFormatYN, GrainEulerAngles_Host);
     }
     // Finalize kokkos and end program
     Kokkos::finalize();
