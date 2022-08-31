@@ -294,17 +294,13 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
 
         int SendBufSize = (SendBufEndX - SendBufStartX) * (SendBufEndY - SendBufStartY) * nz;
 
-        // Collect Grain ID data on rank 0
-        if ((PrintTimeSeries) || (PrintMisorientation) || (PrintDebug == 2) || (PrintFullOutput) || (PrintDefaultRVE)) {
-            ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
-            SendIntField(GrainID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
-                         SendBufEndY);
-        }
-        if ((PrintFullOutput) || (PrintDebug > 0) || (PrintDefaultRVE)) {
-            ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
-            SendIntField(LayerID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
-                         SendBufEndY);
-        }
+        // Send Grain ID and Layer ID data to rank 0 for all print options
+        ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
+        SendIntField(GrainID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
+                     SendBufEndY);
+        ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
+        SendIntField(LayerID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
+                     SendBufEndY);
         if ((PrintDebug > 0) || (PrintTimeSeries)) {
             ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
             SendIntField(CellType_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
