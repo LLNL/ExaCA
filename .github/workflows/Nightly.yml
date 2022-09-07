@@ -33,5 +33,5 @@ jobs:
         run: |
           cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/exaca -DCMAKE_PREFIX_PATH="$HOME/kokkos" -DExaCA_ENABLE_TESTING=ON
           cmake --build build --parallel 2
-          cmake --build build --target test
+          CTEST_OUTPUT_ON_FAILURE=1 cmake --build build --target test
           cmake --install build
