@@ -466,6 +466,12 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, id);
     checkFileNotEmpty(GrainOrientationFile);
 
+    // No printing of debug data if remelting is used - not currently supported
+    if ((RemeltingYN) && (PrintDebug > 0)) {
+        std::cout << "Printing of views following initialization with use of remelting is not currently supported"
+                  << std::endl;
+        PrintDebug = 0;
+    }
     if (id == 0) {
         std::cout << "Decomposition Strategy is " << DecompositionStrategy << std::endl;
         std::cout << "Material simulated is " << MaterialName
