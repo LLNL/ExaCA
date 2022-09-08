@@ -42,10 +42,12 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
                          int MyXOffset, int MyYOffset, float XMin, float YMin, std::vector<std::string> &temp_paths,
                          int NumberOfLayers, int TempFilesInSeries, unsigned int &NumberOfTemperatureDataPoints,
                          std::vector<double> &RawData, int *FirstValue, int *LastValue);
-int calcZBound_Low(bool RemeltingYN, std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer,
-                   float ZMin, double deltax);
-int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
-                    double deltax, int nz, float *ZMaxLayer);
+int calcZBound_Low_Remelt(std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer, float ZMin,
+                          double deltax);
+int calcZBound_High_Remelt(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
+                           double deltax, int nz, float *ZMaxLayer);
+int calcZBound_Low_NoRemelt(int id, int MyXSlices, int MyYSlices, int LocalDomainSize, int layernumber, ViewI LayerID);
+int calcZBound_High_NoRemelt(int id, int MyXSlices, int MyYSlices, int LocalDomainSize, int layernumber, ViewI LayerID);
 int calcnzActive(int ZBound_Low, int ZBound_High, int id, int layernumber);
 int calcLocalActiveDomainSize(int MyXSlices, int MyYSlices, int nzActive);
 void TempInit_DirSolidification(double G, double R, int id, int &MyXSlices, int &MyYSlices, double deltax,
@@ -146,9 +148,6 @@ void placeNucleiData_Remelt(int NucleiMultiplier, int Nuclei_ThisLayerSingle, Vi
                             std::vector<double> NucleiUndercooling_WholeDomain_V,
                             std::vector<int> &NucleiGrainID_MyRank_V, std::vector<int> &NucleiLocation_MyRank_V,
                             std::vector<int> &NucleationTimes_MyRank_V, int &PossibleNuclei_ThisRankThisLayer);
-void DomainShiftAndResize_NoRemelt(int id, int MyXSlices, int MyYSlices, int &ZShift, int &ZBound_Low, int &ZBound_High,
-                                   int &nzActive, int LocalDomainSize, int &LocalActiveDomainSize, int &BufSizeZ,
-                                   int LayerHeight, ViewI CellType, int layernumber, ViewI LayerID);
 void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeY, int BufSizeZ, ViewF &DiagonalLength,
                     ViewF &CritDiagonalLength, ViewF &DOCenter, int DecompositionStrategy, Buffer2D &BufferWestSend,
                     Buffer2D &BufferEastSend, Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend,
