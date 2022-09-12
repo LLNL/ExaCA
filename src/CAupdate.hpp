@@ -90,11 +90,12 @@ loadghostnodes_2D(const int GhostGID, const float GhostDOCX, const float GhostDO
                   Buffer2D BufferNorthWestSend);
 void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCounter, int PossibleNuclei_ThisRank,
                 ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID, ViewI CellType, ViewI GrainID,
-                int ZBound_Low, int MyXSlices, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G);
+                int ZBound_Low, int MyXSlices, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G,
+                ViewI OnSteeringVector);
 void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, ViewI CritTimeStep,
                                  ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
                                  int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G,
-                                 ViewI_H numSteer_H);
+                                 ViewI_H numSteer_H, ViewI OnSteeringVector);
 void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, NList NeighborX,
                                NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                                ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
@@ -103,7 +104,7 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlic
                                bool AtEastBoundary, bool AtWestBoundary, Buffer2D BufferWestSend,
                                Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
                                Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
-                               Buffer2D BufferSouthWestSend, int DecompositionStrategy);
+                               Buffer2D BufferSouthWestSend, int DecompositionStrategy, ViewI OnSteeringVector);
 void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int LocalActiveDomainSize, int LocalDomainSize,
                  int MyXSlices, int MyYSlices, double AConst, double BConst, double CConst, double DConst,
                  int MyXOffset, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep,
@@ -114,7 +115,10 @@ void CellCapture(int id, int np, int cycle, int DecompositionStrategy, int Local
                  Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int nz,
                  ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary,
                  bool AtEastBoundary, bool AtWestBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
-                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN);
+                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN,
+                 ViewI OnSteeringVector);
+void CleanSteeringVector(int LocalActiveDomainSize, ViewI OnSteeringVector, ViewI SteeringVector, ViewI numSteer,
+                         ViewI_H numSteer_Host);
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, ViewI FutureWorkView,
                   int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int ZBound_Low, bool RemeltingYN,
                   ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny, int nz, int MyXOffset,

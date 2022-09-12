@@ -82,18 +82,20 @@ void testNucleation() {
     ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
     // Initialize steering vector size to 0
     ViewI numSteer("SteeringVector", 1);
+    ViewI OnSteeringVector("OnSteeringVector", LocalActiveDomainSize);
 
     // Take enough time steps such that every nucleation event has a chance to occur
     for (int cycle = 0; cycle <= (15); cycle++) {
         Nucleation(cycle, SuccessfulNucEvents_ThisRank, NucleationCounter, PossibleNuclei_ThisRankThisLayer,
                    NucleationTimes_Host, NucleiLocation, NucleiGrainID, CellType, GrainID, ZBound_Low, MyXSlices,
-                   MyYSlices, SteeringVector, numSteer);
+                   MyYSlices, SteeringVector, numSteer, OnSteeringVector);
     }
 
     // Copy CellType, SteeringVector, numSteer, GrainID back to host to check nucleation results
     CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     ViewI_H SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SteeringVector);
     ViewI_H numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), numSteer);
+    ViewI_H OnSteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), OnSteeringVector);
     GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Check that all 10 possible nucleation events were attempted
@@ -126,6 +128,8 @@ void testNucleation() {
         // Check that this cell type is marked as "FutureActive", and the GrainID matches the expected value
         EXPECT_EQ(CellType_Host(CellLocation_AllLayers), FutureActive);
         EXPECT_EQ(GrainID_Host(CellLocation_AllLayers), SuccessfulNuc_GrainIDs[n]);
+        // Check that the cell has been marked as part of the steering vector
+        EXPECT_EQ(OnSteeringVector_Host(CellLocation_ThisLayer), 1);
     }
 }
 
@@ -204,6 +208,7 @@ void testFillSteeringVector_Remelt() {
     ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
     ViewI_H numSteer_Host(Kokkos::ViewAllocateWithoutInitializing("SteeringVectorSize"), 1);
     numSteer_Host(0) = 0;
+    ViewI OnSteeringVector("OnSteeringVector", LocalActiveDomainSize);
 
     // Copy views to device for test
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
@@ -217,12 +222,12 @@ void testFillSteeringVector_Remelt() {
     int numcycles = 15;
     for (int cycle = 1; cycle <= numcycles; cycle++) {
         // Update cell types, local undercooling each time step, and fill the steering vector
-        FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, MyXSlices, MyYSlices, NeighborX, NeighborY, NeighborZ,
-                                  CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID, ZBound_Low,
-                                  nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep, BufSizeX, BufSizeY,
-                                  AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary, BufferWestSend,
-                                  BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend,
-                                  BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, DecompositionStrategy);
+        FillSteeringVector_Remelt(
+            cycle, LocalActiveDomainSize, MyXSlices, MyYSlices, NeighborX, NeighborY, NeighborZ, CritTimeStep,
+            UndercoolingCurrent, UndercoolingChange, CellType, GrainID, ZBound_Low, nzActive, SteeringVector, numSteer,
+            numSteer_Host, MeltTimeStep, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
+            AtWestBoundary, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend,
+            BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, DecompositionStrategy, OnSteeringVector);
     }
 
     // Copy CellType, SteeringVector, numSteer, UndercoolingCurrent, Buffers back to host to check steering vector

@@ -2499,10 +2499,11 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeY, int B
                     Buffer2D &BufferSouthWestSend, Buffer2D &BufferWestRecv, Buffer2D &BufferEastRecv,
                     Buffer2D &BufferNorthRecv, Buffer2D &BufferSouthRecv, Buffer2D &BufferNorthEastRecv,
                     Buffer2D &BufferNorthWestRecv, Buffer2D &BufferSouthEastRecv, Buffer2D &BufferSouthWestRecv,
-                    ViewI &SteeringVector) {
+                    ViewI &SteeringVector, ViewI &OnSteeringVector) {
 
     // Realloc steering vector as LocalActiveDomainSize may have changed (old values aren't needed)
     Kokkos::realloc(SteeringVector, LocalActiveDomainSize);
+    Kokkos::realloc(OnSteeringVector, LocalActiveDomainSize);
 
     // Realloc active cell data structure and halo regions on device (old values not needed)
     Kokkos::realloc(DiagonalLength, LocalActiveDomainSize);
@@ -2527,6 +2528,7 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeY, int B
     Kokkos::realloc(BufferSouthWestRecv, BufSizeZ, 5);
 
     // Reset active cell data structures on device
+    Kokkos::deep_copy(OnSteeringVector, 0);
     Kokkos::deep_copy(DiagonalLength, 0);
     Kokkos::deep_copy(DOCenter, 0);
     Kokkos::deep_copy(CritDiagonalLength, 0);

@@ -21,6 +21,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double NuclTime = 0.0, CreateSVTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
     double StartNuclTime, StartCreateSVTime, StartCaptureTime, StartGhostTime;
     double StartInitTime = MPI_Wtime();
+    int CleanInt = 10;
 
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, RVESize;
@@ -289,6 +290,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewI_H numSteer_Host(Kokkos::ViewAllocateWithoutInitializing("SteeringVectorSize"), 1);
     numSteer_Host(0) = 0;
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
+    // Whether or not each cell is on the steering vector (0s if not, change to 1 is a cell is added)
+    ViewI OnSteeringVector("OnSteeringVector", LocalActiveDomainSize);
 
     // Update ghost node data for initial state of simulation - only needed if no remelting, as there are no active
     // cells inititially in simulations that directly model the melting process
@@ -357,7 +360,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             StartNuclTime = MPI_Wtime();
             Nucleation(cycle, SuccessfulNucEvents_ThisRank, NucleationCounter, PossibleNuclei_ThisRankThisLayer,
                        NucleationTimes_Host, NucleiLocation, NucleiGrainID, CellType, GrainID, ZBound_Low, MyXSlices,
-                       MyYSlices, SteeringVector, numSteer);
+                       MyYSlices, SteeringVector, numSteer, OnSteeringVector);
             NuclTime += MPI_Wtime() - StartNuclTime;
 
             // Update cells on GPU - new active cells, solidification of old active cells
@@ -366,17 +369,17 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // perform active cell creation and capture operations
             StartCreateSVTime = MPI_Wtime();
             if (RemeltingYN)
-                FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, MyXSlices, MyYSlices, NeighborX, NeighborY,
-                                          NeighborZ, CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType,
-                                          GrainID, ZBound_Low, nzActive, SteeringVector, numSteer, numSteer_Host,
-                                          MeltTimeStep, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary,
-                                          AtEastBoundary, AtWestBoundary, BufferWestSend, BufferEastSend,
-                                          BufferNorthSend, BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend,
-                                          BufferSouthEastSend, BufferSouthWestSend, DecompositionStrategy);
+                FillSteeringVector_Remelt(
+                    cycle, LocalActiveDomainSize, MyXSlices, MyYSlices, NeighborX, NeighborY, NeighborZ, CritTimeStep,
+                    UndercoolingCurrent, UndercoolingChange, CellType, GrainID, ZBound_Low, nzActive, SteeringVector,
+                    numSteer, numSteer_Host, MeltTimeStep, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary,
+                    AtEastBoundary, AtWestBoundary, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend,
+                    BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend,
+                    DecompositionStrategy, OnSteeringVector);
             else
                 FillSteeringVector_NoRemelt(cycle, LocalActiveDomainSize, MyXSlices, MyYSlices, CritTimeStep,
                                             UndercoolingCurrent, UndercoolingChange, CellType, ZBound_Low, layernumber,
-                                            LayerID, SteeringVector, numSteer, numSteer_Host);
+                                            LayerID, SteeringVector, numSteer, numSteer_Host, OnSteeringVector);
             CreateSVTime += MPI_Wtime() - StartCreateSVTime;
 
             StartCaptureTime = MPI_Wtime();
@@ -388,7 +391,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, BufSizeX, BufSizeY, ZBound_Low,
                         nzActive, nz, SteeringVector, numSteer, numSteer_Host, AtNorthBoundary, AtSouthBoundary,
                         AtEastBoundary, AtWestBoundary, SolidificationEventCounter, MeltTimeStep, LayerTimeTempHistory,
-                        NumberOfSolidificationEvents, RemeltingYN);
+                        NumberOfSolidificationEvents, RemeltingYN, OnSteeringVector);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
@@ -413,6 +416,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
+            if (cycle % CleanInt == 0) {
+                CleanSteeringVector(LocalActiveDomainSize, OnSteeringVector, SteeringVector, numSteer, numSteer_Host);
+            }
             if (cycle % 1000 == 0) {
 
                 if (RemeltingYN)
@@ -487,7 +493,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                            BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
                            BufferSouthWestSend, BufferWestRecv, BufferEastRecv, BufferNorthRecv, BufferSouthRecv,
                            BufferNorthEastRecv, BufferNorthWestRecv, BufferSouthEastRecv, BufferSouthWestRecv,
-                           SteeringVector);
+                           SteeringVector, OnSteeringVector);
 
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0)

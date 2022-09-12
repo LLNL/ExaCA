@@ -156,7 +156,7 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeY, int B
                     Buffer2D &BufferSouthWestSend, Buffer2D &BufferWestRecv, Buffer2D &BufferEastRecv,
                     Buffer2D &BufferNorthRecv, Buffer2D &BufferSouthRecv, Buffer2D &BufferNorthEastRecv,
                     Buffer2D &BufferNorthWestRecv, Buffer2D &BufferSouthEastRecv, Buffer2D &BufferSouthWestRecv,
-                    ViewI &SteeringVector);
+                    ViewI &SteeringVector, ViewI &OnSteeringVector);
 
 void skipLines(std::ifstream &stream, std::string seperator = "*****");
 std::string parseInput(std::ifstream &stream, std::string key);

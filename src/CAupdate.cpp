@@ -68,7 +68,8 @@ struct reduction_identity<sample::ValueType> {
 //*****************************************************************************/
 void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCounter, int PossibleNuclei_ThisRank,
                 ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID, ViewI CellType, ViewI GrainID,
-                int ZBound_Low, int MyXSlices, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G) {
+                int ZBound_Low, int MyXSlices, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G,
+                ViewI OnSteeringVector) {
 
     // Is there nucleation left in this layer to check?
     if (NucleationCounter < PossibleNuclei_ThisRank) {
@@ -112,7 +113,9 @@ void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCou
                         int RankZ = GlobalZ - ZBound_Low;
                         int NucleationEventLocation_LocalGrid =
                             RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        // Cell is added to the steering vector
                         SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = NucleationEventLocation_LocalGrid;
+                        OnSteeringVector(NucleationEventLocation_LocalGrid) = 1;
                         // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
                         // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)
                         update++;
@@ -132,7 +135,7 @@ void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCou
 void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, ViewI CritTimeStep,
                                  ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
                                  int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer,
-                                 ViewI_H numSteer_Host) {
+                                 ViewI_H numSteer_Host, ViewI OnSteeringVector) {
 
     // Cells associated with this layer that are not solid type but have passed the liquidus (crit time step) have their
     // undercooling values updated Cells that meet the aforementioned criteria and are active type should be added to
@@ -158,8 +161,11 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int MyXSl
             if (layerCheck && isNotSolid && pastCritTime) {
                 UndercoolingCurrent(GlobalD3D1ConvPosition) +=
                     UndercoolingChange(GlobalD3D1ConvPosition) * (cell_Liquid + cell_Active);
-                if (cell_Active) {
+                if ((cell_Active) && (OnSteeringVector(D3D1ConvPosition) == 0)) {
+                    // If cell isn't already on the steering vector, is below the liquidus, and is active, add to
+                    // steering vector
                     SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
+                    OnSteeringVector(D3D1ConvPosition) = 1;
                 }
             }
         });
@@ -177,7 +183,7 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlic
                                bool AtEastBoundary, bool AtWestBoundary, Buffer2D BufferWestSend,
                                Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
                                Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
-                               Buffer2D BufferSouthWestSend, int DecompositionStrategy) {
+                               Buffer2D BufferSouthWestSend, int DecompositionStrategy, ViewI OnSteeringVector) {
 
     Kokkos::parallel_for(
         "FillSV_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
@@ -211,9 +217,10 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlic
             else if ((isNotSolid) && (pastCritTime)) {
                 // Update cell undercooling
                 UndercoolingCurrent(GlobalD3D1ConvPosition) += UndercoolingChange(GlobalD3D1ConvPosition);
-                if (cellType == Active) {
-                    // Add active cells below liquidus to steering vector
+                if ((cellType == Active) && (OnSteeringVector(D3D1ConvPosition) == 0)) {
+                    // Add active cells below liquidus to steering vector - if not already on steering vector
                     SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
+                    OnSteeringVector(D3D1ConvPosition) = 1;
                 }
                 else if ((cellType == Liquid) && (GrainID(GlobalD3D1ConvPosition) != 0)) {
                     // If this cell borders at least one solid/tempsolid cell and is part of a grain, it should become
@@ -235,6 +242,7 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlic
                                 SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
                                 CellType(GlobalD3D1ConvPosition) =
                                     FutureActive; // this cell cannot be captured - is being activated
+                                OnSteeringVector(D3D1ConvPosition) = 1; // mark as added to steering vector
                             }
                         }
                     }
@@ -256,16 +264,15 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                  Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
                  Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
                  Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int,
-                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
-                 bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary, ViewI SolidificationEventCounter,
-                 ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents,
-                 bool RemeltingYN) {
+                 ViewI SteeringVector, ViewI, ViewI_H numSteer_Host, bool AtNorthBoundary, bool AtSouthBoundary,
+                 bool AtEastBoundary, bool AtWestBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
+                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN,
+                 ViewI OnSteeringVector) {
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
     Kokkos::parallel_for(
         "CellCapture", numSteer_Host(0), KOKKOS_LAMBDA(const int &num) {
-            numSteer(0) = 0;
             int D3D1ConvPosition = SteeringVector(num);
             // Cells of interest for the CA - active cells and future active cells
             int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
@@ -524,6 +531,8 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                 }             // End loop over all neighbors of this active cell
                 if (DeactivateCell) {
                     // This active cell has no more neighboring cells to be captured
+                    // Should be marked to be removed from the steering vector
+                    OnSteeringVector(D3D1ConvPosition) = 0;
                     if (RemeltingYN) {
                         // Update the counter for the number of times this cell went from liquid to active to solid
                         SolidificationEventCounter(D3D1ConvPosition)++;
@@ -599,6 +608,23 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
     Kokkos::fence();
 }
 
+// Remake the steering vector
+void CleanSteeringVector(int LocalActiveDomainSize, ViewI OnSteeringVector, ViewI SteeringVector, ViewI numSteer,
+                         ViewI_H numSteer_Host) {
+
+    // Rebuild steering vector with the cells that should still be associated with it
+    // Reset size to 0
+    numSteer_Host(0) = 0;
+    Kokkos::deep_copy(numSteer, 0);
+    Kokkos::parallel_for(
+        "RebuildSV", LocalActiveDomainSize, KOKKOS_LAMBDA(const int D3D1ConvPosition) {
+            if (OnSteeringVector(D3D1ConvPosition) == 1) {
+                SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
+            }
+        });
+    // Update steering vector size on the host
+    Kokkos::deep_copy(numSteer_Host, numSteer);
+}
 //*****************************************************************************/
 // Jump to the next time step with work to be done, if nothing left to do in the near future
 // Without remelting, the cells of interest are undercooled liquid cells, and the view checked for future work is
