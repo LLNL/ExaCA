@@ -21,7 +21,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double NuclTime = 0.0, CreateSVTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
     double StartNuclTime, StartCreateSVTime, StartCaptureTime, StartGhostTime;
     double StartInitTime = MPI_Wtime();
-    int CleanInt = 10;
+    // Hardcoded increment - every CleanInt time steps, rebuild the steering vector
+    int CleanInt = 100;
 
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, RVESize;
