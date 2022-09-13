@@ -18,8 +18,8 @@
 #include <vector>
 
 void RunProgram_Reduced(int id, int np, std::string InputFile) {
-    double NuclTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
-    double StartNuclTime, StartCaptureTime, StartGhostTime;
+    double NuclTime = 0.0, CreateSVTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
+    double StartNuclTime, StartCreateSVTime, StartCaptureTime, StartGhostTime;
     double StartInitTime = MPI_Wtime();
 
     int nx, ny, nz, DecompositionStrategy, NumberOfLayers, LayerHeight, TempFilesInSeries;
@@ -364,7 +364,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Cell capture performed in two steps - first, adding cells of interest to a steering vector (different
             // subroutine called with versus without remelting), and second, iterating over the steering vector to
             // perform active cell creation and capture operations
-            StartCaptureTime = MPI_Wtime();
+            StartCreateSVTime = MPI_Wtime();
             if (RemeltingYN)
                 FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, MyXSlices, MyYSlices, NeighborX, NeighborY,
                                           NeighborZ, CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType,
@@ -377,7 +377,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 FillSteeringVector_NoRemelt(cycle, LocalActiveDomainSize, MyXSlices, MyYSlices, CritTimeStep,
                                             UndercoolingCurrent, UndercoolingChange, CellType, ZBound_Low, layernumber,
                                             LayerID, SteeringVector, numSteer, numSteer_Host);
+            CreateSVTime += MPI_Wtime() - StartCreateSVTime;
 
+            StartCaptureTime = MPI_Wtime();
             CellCapture(id, np, cycle, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize, MyXSlices,
                         MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, NeighborX, NeighborY,
                         NeighborZ, CritTimeStep, UndercoolingCurrent, UndercoolingChange, GrainUnitVector,
@@ -583,11 +585,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     double OutTime = MPI_Wtime() - StartOutTime;
     double InitMaxTime, InitMinTime, OutMaxTime, OutMinTime = 0.0;
-    double NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime = 0.0;
+    double NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime,
+        GhostMinTime = 0.0;
     MPI_Allreduce(&InitTime, &InitMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&InitTime, &InitMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
     MPI_Allreduce(&NuclTime, &NuclMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&NuclTime, &NuclMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(&CreateSVTime, &CreateSVMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&CreateSVTime, &CreateSVMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
     MPI_Allreduce(&CaptureTime, &CaptureMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&CaptureTime, &CaptureMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
     MPI_Allreduce(&GhostTime, &GhostMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
@@ -600,6 +605,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
                   SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
                   NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
-                  InitMinTime, NuclMaxTime, NuclMinTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
-                  OutMaxTime, OutMinTime);
+                  InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
+                  CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime);
 }
