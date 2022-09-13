@@ -618,8 +618,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
                    int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
                    double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
-                   double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime, double GhostMinTime,
-                   double OutMaxTime, double OutMinTime) {
+                   double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
+                   double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime) {
 
     int *XSlices = new int[np];
     int *YSlices = new int[np];
@@ -691,6 +691,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                  << std::endl;
         ExaCALog << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s"
                  << std::endl;
+        ExaCALog << "Max/min rank time in CA steering vector creation = " << CreateSVMaxTime << " / " << CreateSVMinTime
+                 << " s" << std::endl;
         ExaCALog << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s"
                  << std::endl;
         ExaCALog << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s"
@@ -711,6 +713,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                   << std::endl;
         std::cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s"
                   << std::endl;
+        std::cout << "Max/min rank time in CA steering vector creation = " << CreateSVMaxTime << " / "
+                  << CreateSVMinTime << " s" << std::endl;
         std::cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s"
                   << std::endl;
         std::cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s"
