@@ -8,9 +8,9 @@
 #include "CAconfig.hpp"
 #include "CAfunctions.hpp"
 #include "CAghostnodes.hpp"
+#include "CAhalo.hpp"
 #include "CAparsefiles.hpp"
 #include "CAupdate.hpp"
-
 #include "mpi.h"
 
 #include <algorithm>
@@ -1718,8 +1718,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
                                      ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType, ViewI GrainID,
                                      ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed,
-                                     int np, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, int BufSizeX,
-                                     bool AtNorthBoundary, bool AtSouthBoundary) {
+                                     int np, Halo &halo, int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary) {
 
     // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
     // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
@@ -1785,14 +1784,14 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                 // If this new active cell is in the halo region, load the send buffers
                 if (np > 1) {
 
-                    float GhostGID = GrainID(D3D1ConvPosition);
+                    int GhostGID = GrainID(D3D1ConvPosition);
                     float GhostDOCX = GlobalX + 0.5;
                     float GhostDOCY = GlobalY + 0.5;
                     float GhostDOCZ = GlobalZ + 0.5;
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                    halo.loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices,
+                                        GlobalX, LocalY, 0, AtNorthBoundary, AtSouthBoundary);
                 } // End if statement for serial/parallel code
             }
         });
@@ -2020,8 +2019,8 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                            int nz, int LocalActiveDomainSize, int LocalDomainSize, ViewI CellType, ViewI CritTimeStep,
                            NList NeighborX, NList NeighborY, NList NeighborZ, int NGrainOrientations,
                            ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID, ViewF CritDiagonalLength,
-                           ViewF DOCenter, ViewI LayerID, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                           int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary) {
+                           ViewF DOCenter, ViewI LayerID, Halo &halo, int BufSizeX, bool AtNorthBoundary,
+                           bool AtSouthBoundary) {
 
     // Start with all cells as solid for the first layer, with liquid cells where temperature data exists
     if (layernumber == 0) {
@@ -2109,15 +2108,14 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                 // If this new active cell is in the halo region, load the send buffers
                 if (np > 1) {
 
-                    double GhostGID = static_cast<double>(MyGrainID);
-                    double GhostDOCX = static_cast<double>(GlobalX + 0.5);
-                    double GhostDOCY = static_cast<double>(GlobalY + 0.5);
-                    double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
-                    double GhostDL = 0.01;
+                    int GhostGID = MyGrainID;
+                    float GhostDOCX = GlobalX + 0.5;
+                    float GhostDOCY = GlobalY + 0.5;
+                    float GhostDOCZ = GlobalZ + 0.5;
+                    float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
-
+                    halo.loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices,
+                                        GlobalX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary);
                 } // End if statement for serial/parallel code
             }
         });
@@ -2404,8 +2402,7 @@ void NucleiInit(int layernumber, double RNGSeed, int MyYSlices, int MyYOffset, i
 
 //*****************************************************************************/
 void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeZ, ViewF &DiagonalLength,
-                    ViewF &CritDiagonalLength, ViewF &DOCenter, Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend,
-                    Buffer2D &BufferNorthRecv, Buffer2D &BufferSouthRecv, ViewI &SteeringVector) {
+                    ViewF &CritDiagonalLength, ViewF &DOCenter, Halo &halo, ViewI &SteeringVector) {
 
     // Realloc steering vector as LocalActiveDomainSize may have changed (old values aren't needed)
     Kokkos::realloc(SteeringVector, LocalActiveDomainSize);
@@ -2414,18 +2411,16 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeZ, ViewF
     Kokkos::realloc(DiagonalLength, LocalActiveDomainSize);
     Kokkos::realloc(DOCenter, 3 * LocalActiveDomainSize);
     Kokkos::realloc(CritDiagonalLength, 26 * LocalActiveDomainSize);
-    Kokkos::realloc(BufferNorthSend, BufSizeX * BufSizeZ, 5);
-    Kokkos::realloc(BufferSouthSend, BufSizeX * BufSizeZ, 5);
-    Kokkos::realloc(BufferNorthRecv, BufSizeX * BufSizeZ, 5);
-    Kokkos::realloc(BufferSouthRecv, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(halo.BufferNorthSend, BufSizeX * BufSizeZ);
+    Kokkos::realloc(halo.BufferSouthSend, BufSizeX * BufSizeZ);
+    Kokkos::realloc(halo.BufferNorthRecv, BufSizeX * BufSizeZ);
+    Kokkos::realloc(halo.BufferSouthRecv, BufSizeX * BufSizeZ);
 
     // Reset active cell data structures on device
     Kokkos::deep_copy(DiagonalLength, 0);
     Kokkos::deep_copy(DOCenter, 0);
     Kokkos::deep_copy(CritDiagonalLength, 0);
+
     // Reset halo region structures on device
-    Kokkos::deep_copy(BufferSouthSend, 0.0);
-    Kokkos::deep_copy(BufferSouthRecv, 0.0);
-    Kokkos::deep_copy(BufferNorthSend, 0.0);
-    Kokkos::deep_copy(BufferNorthRecv, 0.0);
+    halo.reset(BufSizeX * BufSizeZ);
 }

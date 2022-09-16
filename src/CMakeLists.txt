@@ -8,6 +8,7 @@ set(EXACA_HEADERS
     CAprint.hpp
     CAupdate.hpp
     runCA.hpp
+    CAhalo.hpp
 )
 set(EXACA_SOURCES
     CAfunctions.cpp
@@ -17,6 +18,7 @@ set(EXACA_SOURCES
     CAprint.cpp
     CAupdate.cpp
     runCA.cpp
+    CAhalo.cpp
 )
 
 install(FILES ${EXACA_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

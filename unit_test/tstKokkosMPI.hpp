@@ -54,7 +54,6 @@ void testGhostNodes1D() {
     // Domain is a 4 by (3 * np) by 10 region
     // The top half of the domain is the active portion of it
     int nx = 4;
-    int MyXSlices = nx;
     int nz = 10;
     int ZBound_Low = 5;
     int nzActive = 5;
@@ -75,8 +74,8 @@ void testGhostNodes1D() {
         MyYOffset = 0;
     else
         MyYOffset = 3 * (id - 1) + 2;
-    int LocalDomainSize = MyXSlices * MyYSlices * nz;
-    int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
+    int LocalDomainSize = nx * MyYSlices * nz;
+    int LocalActiveDomainSize = nx * MyYSlices * nzActive;
 
     // Intialize grain orientations
     std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors.csv", id);
@@ -102,10 +101,10 @@ void testGhostNodes1D() {
     // Active cells will be located at Y = 1 and Y = MyYSlices-2 on each rank... these are located in the halo regions
     // and should be loaded into the send buffers
     int HaloLocations[2], HaloLocations_ActiveRegion[2];
-    HaloLocations[0] = 6 * MyXSlices * MyYSlices + 2 * MyYSlices + 1;
-    HaloLocations[1] = 6 * MyXSlices * MyYSlices + 2 * MyYSlices + MyYSlices - 2;
-    HaloLocations_ActiveRegion[0] = (6 - ZBound_Low) * MyXSlices * MyYSlices + 2 * MyYSlices + 1;
-    HaloLocations_ActiveRegion[1] = (6 - ZBound_Low) * MyXSlices * MyYSlices + 2 * MyYSlices + MyYSlices - 2;
+    HaloLocations[0] = 6 * nx * MyYSlices + 2 * MyYSlices + 1;
+    HaloLocations[1] = 6 * nx * MyYSlices + 2 * MyYSlices + MyYSlices - 2;
+    HaloLocations_ActiveRegion[0] = (6 - ZBound_Low) * nx * MyYSlices + 2 * MyYSlices + 1;
+    HaloLocations_ActiveRegion[1] = (6 - ZBound_Low) * nx * MyYSlices + 2 * MyYSlices + MyYSlices - 2;
     // Physical cell centers in Y are different for each location and each rank
     float OctCentersY[2];
     OctCentersY[0] = MyYOffset + 1.5;
@@ -124,14 +123,14 @@ void testGhostNodes1D() {
     // to be updated: X = 2, Z = 7 is chosen for active cell placement on all ranks Four active cells are located at Y =
     // 0, Y = 1, Y = MyYSlices - 2, and Y = MyYSlices - 1
     int HaloLocations_Alt[4], HaloLocations_Alt_ActiveRegion[4];
-    HaloLocations_Alt[0] = 7 * MyXSlices * MyYSlices + 2 * MyYSlices + 0;
-    HaloLocations_Alt[1] = 7 * MyXSlices * MyYSlices + 2 * MyYSlices + 1;
-    HaloLocations_Alt[2] = 7 * MyXSlices * MyYSlices + 2 * MyYSlices + MyYSlices - 2;
-    HaloLocations_Alt[3] = 7 * MyXSlices * MyYSlices + 2 * MyYSlices + MyYSlices - 1;
-    HaloLocations_Alt_ActiveRegion[0] = (7 - ZBound_Low) * MyXSlices * MyYSlices + 2 * MyYSlices + 0;
-    HaloLocations_Alt_ActiveRegion[1] = (7 - ZBound_Low) * MyXSlices * MyYSlices + 2 * MyYSlices + 1;
-    HaloLocations_Alt_ActiveRegion[2] = (7 - ZBound_Low) * MyXSlices * MyYSlices + 2 * MyYSlices + MyYSlices - 2;
-    HaloLocations_Alt_ActiveRegion[3] = (7 - ZBound_Low) * MyXSlices * MyYSlices + 2 * MyYSlices + MyYSlices - 1;
+    HaloLocations_Alt[0] = 7 * nx * MyYSlices + 2 * MyYSlices + 0;
+    HaloLocations_Alt[1] = 7 * nx * MyYSlices + 2 * MyYSlices + 1;
+    HaloLocations_Alt[2] = 7 * nx * MyYSlices + 2 * MyYSlices + MyYSlices - 2;
+    HaloLocations_Alt[3] = 7 * nx * MyYSlices + 2 * MyYSlices + MyYSlices - 1;
+    HaloLocations_Alt_ActiveRegion[0] = (7 - ZBound_Low) * nx * MyYSlices + 2 * MyYSlices + 0;
+    HaloLocations_Alt_ActiveRegion[1] = (7 - ZBound_Low) * nx * MyYSlices + 2 * MyYSlices + 1;
+    HaloLocations_Alt_ActiveRegion[2] = (7 - ZBound_Low) * nx * MyYSlices + 2 * MyYSlices + MyYSlices - 2;
+    HaloLocations_Alt_ActiveRegion[3] = (7 - ZBound_Low) * nx * MyYSlices + 2 * MyYSlices + MyYSlices - 1;
     // Physical cell centers in Y are different for each location and each rank
     float OctCentersY_Alt[4];
     OctCentersY_Alt[0] = MyYOffset + 0.5;
@@ -156,41 +155,37 @@ void testGhostNodes1D() {
     ViewF DOCenter = Kokkos::create_mirror_view_and_copy(device_memory_space(), DOCenter_Host);
 
     // Buffer sizes
-    int BufSizeX = MyXSlices;
+    int BufSizeX = nx;
     int BufSizeZ = nzActive;
 
     // Send/recv buffers for ghost node data should be initialized with zeros
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferSouthRecv("BufferSouthRecv", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthRecv("BufferNorthRecv", BufSizeX * BufSizeZ, 5);
+    Halo halo(BufSizeX, BufSizeZ);
 
     // Fill send buffers
     Kokkos::parallel_for(
         "testloadghostnodes", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
             // 3D Coordinate of this cell on the "global" (all cells in the Z direction) grid
-            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankZ = D3D1ConvPosition / (nx * MyYSlices);
+            int Rem = D3D1ConvPosition % (nx * MyYSlices);
             int RankX = Rem / MyYSlices;
             int RankY = Rem % MyYSlices;
             int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
             if (CellType(GlobalD3D1ConvPosition) == Active) {
-                double GhostGID = static_cast<double>(GrainID(GlobalD3D1ConvPosition));
-                double GhostDOCX = static_cast<double>(DOCenter(3 * D3D1ConvPosition));
-                double GhostDOCY = static_cast<double>(DOCenter(3 * D3D1ConvPosition + 1));
-                double GhostDOCZ = static_cast<double>(DOCenter(3 * D3D1ConvPosition + 2));
-                double GhostDL = static_cast<double>(DiagonalLength(D3D1ConvPosition));
-                loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX, RankY,
-                               RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                int GhostGID = GrainID(GlobalD3D1ConvPosition);
+                float GhostDOCX = DOCenter(3 * D3D1ConvPosition);
+                float GhostDOCY = DOCenter(3 * D3D1ConvPosition + 1);
+                float GhostDOCZ = DOCenter(3 * D3D1ConvPosition + 2);
+                float GhostDL = DiagonalLength(D3D1ConvPosition);
+                halo.loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
+                                    RankY, RankZ, AtNorthBoundary, AtSouthBoundary);
             }
         });
 
     // Perform halo exchange in 1D
-    GhostNodes1D(0, 0, NeighborRank_North, NeighborRank_South, MyXSlices, MyYSlices, MyYOffset, NeighborX, NeighborY,
+    GhostNodes1D(0, 0, NeighborRank_North, NeighborRank_South, nx, MyYSlices, MyYOffset, NeighborX, NeighborY,
                  NeighborZ, CellType, DOCenter, GrainID, GrainUnitVector, DiagonalLength, CritDiagonalLength,
-                 NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSizeX,
-                 BufSizeZ, ZBound_Low);
+                 NGrainOrientations, halo, BufSizeX, BufSizeZ, ZBound_Low);
 
     // Copy CellType, GrainID, DiagonalLength, DOCenter, CritDiagonalLength views to host to check values
     CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
@@ -208,10 +203,10 @@ void testGhostNodes1D() {
                                                    2.291471, 2.902006, 2.613426, 2.346452, 2.236490};
     int HaloLocations_Unpacked[2], HaloLocations_Unpacked_ActiveRegion[2];
     float OctCentersY_Unpacked[2];
-    HaloLocations_Unpacked[0] = 6 * MyXSlices * MyYSlices + 2 * MyYSlices;
-    HaloLocations_Unpacked[1] = 6 * MyXSlices * MyYSlices + 2 * MyYSlices + MyYSlices - 1;
-    HaloLocations_Unpacked_ActiveRegion[0] = (6 - ZBound_Low) * MyXSlices * MyYSlices + 2 * MyYSlices;
-    HaloLocations_Unpacked_ActiveRegion[1] = (6 - ZBound_Low) * MyXSlices * MyYSlices + 2 * MyYSlices + MyYSlices - 1;
+    HaloLocations_Unpacked[0] = 6 * nx * MyYSlices + 2 * MyYSlices;
+    HaloLocations_Unpacked[1] = 6 * nx * MyYSlices + 2 * MyYSlices + MyYSlices - 1;
+    HaloLocations_Unpacked_ActiveRegion[0] = (6 - ZBound_Low) * nx * MyYSlices + 2 * MyYSlices;
+    HaloLocations_Unpacked_ActiveRegion[1] = (6 - ZBound_Low) * nx * MyYSlices + 2 * MyYSlices + MyYSlices - 1;
     OctCentersY_Unpacked[0] = MyYOffset + 0.5;
     OctCentersY_Unpacked[1] = MyYOffset + MyYSlices - 0.5;
     for (int n = 0; n < 2; n++) {

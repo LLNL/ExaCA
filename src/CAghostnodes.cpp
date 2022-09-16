@@ -16,23 +16,22 @@
 void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int MyYSlices, int MyYOffset,
                   NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID,
                   ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations,
-                  Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
-                  Buffer2D BufferSouthRecv, int BufSizeX, int BufSizeZ, int ZBound_Low) {
+                  Halo &halo, int BufSizeX, int BufSizeZ, int ZBound_Low) {
 
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_South, 0, MPI_COMM_WORLD,
-              &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_North, 0, MPI_COMM_WORLD,
-              &SendRequests[1]);
+    MPI_Isend(halo.BufferSouthSend.data(), BufSizeX * BufSizeZ * sizeof(CommData), MPI_BYTE, NeighborRank_South, 0,
+              MPI_COMM_WORLD, &SendRequests[0]);
+    MPI_Isend(halo.BufferNorthSend.data(), BufSizeX * BufSizeZ * sizeof(CommData), MPI_BYTE, NeighborRank_North, 0,
+              MPI_COMM_WORLD, &SendRequests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_South, 0, MPI_COMM_WORLD,
-              &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_North, 0, MPI_COMM_WORLD,
-              &RecvRequests[1]);
+    MPI_Irecv(halo.BufferSouthRecv.data(), BufSizeX * BufSizeZ * sizeof(CommData), MPI_BYTE, NeighborRank_South, 0,
+              MPI_COMM_WORLD, &RecvRequests[0]);
+    MPI_Irecv(halo.BufferNorthRecv.data(), BufSizeX * BufSizeZ * sizeof(CommData), MPI_BYTE, NeighborRank_North, 0,
+              MPI_COMM_WORLD, &RecvRequests[1]);
 
     // unpack in any order
     bool unpack_complete = false;
@@ -61,13 +60,14 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = 0;
                         CellLocation = RankZ * nx * MyYSlices + MyYSlices * RankX + RankY;
                         int GlobalCellLocation = CellLocation + ZBound_Low * nx * MyYSlices;
-                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
+                        if ((halo.BufferSouthRecv(BufPosition).DiagonalLength > 0) &&
+                            (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
-                            NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
-                            DOCenterX = BufferSouthRecv(BufPosition, 1);
-                            DOCenterY = BufferSouthRecv(BufPosition, 2);
-                            DOCenterZ = BufferSouthRecv(BufPosition, 3);
-                            NewDiagonalLength = BufferSouthRecv(BufPosition, 4);
+                            NewGrainID = halo.BufferSouthRecv(BufPosition).GrainID;
+                            DOCenterX = halo.BufferSouthRecv(BufPosition).DOCenterX;
+                            DOCenterY = halo.BufferSouthRecv(BufPosition).DOCenterY;
+                            DOCenterZ = halo.BufferSouthRecv(BufPosition).DOCenterZ;
+                            NewDiagonalLength = halo.BufferSouthRecv(BufPosition).DiagonalLength;
                         }
                     }
                     else if ((unpack_index == 1) && (NeighborRank_North != MPI_PROC_NULL)) {
@@ -75,13 +75,14 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = MyYSlices - 1;
                         CellLocation = RankZ * nx * MyYSlices + MyYSlices * RankX + RankY;
                         int GlobalCellLocation = CellLocation + ZBound_Low * nx * MyYSlices;
-                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
+                        if ((halo.BufferNorthRecv(BufPosition).DiagonalLength > 0) &&
+                            (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
-                            NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
-                            DOCenterX = BufferNorthRecv(BufPosition, 1);
-                            DOCenterY = BufferNorthRecv(BufPosition, 2);
-                            DOCenterZ = BufferNorthRecv(BufPosition, 3);
-                            NewDiagonalLength = BufferNorthRecv(BufPosition, 4);
+                            NewGrainID = halo.BufferNorthRecv(BufPosition).GrainID;
+                            DOCenterX = halo.BufferNorthRecv(BufPosition).DOCenterX;
+                            DOCenterY = halo.BufferNorthRecv(BufPosition).DOCenterY;
+                            DOCenterZ = halo.BufferNorthRecv(BufPosition).DOCenterZ;
+                            NewDiagonalLength = halo.BufferNorthRecv(BufPosition).DiagonalLength;
                         }
                     }
                     if (Place) {

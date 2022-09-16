@@ -6,6 +6,7 @@
 #ifndef EXACA_UPDATE_HPP
 #define EXACA_UPDATE_HPP
 
+#include "CAhalo.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAtypes.hpp"
 
@@ -89,16 +90,15 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
                                NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                                ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
                                ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
-                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Buffer2D BufferNorthSend,
-                               Buffer2D BufferSouthSend);
+                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Halo &halo);
 void CellCapture(int id, int np, int cycle, int LocalActiveDomainSize, int LocalDomainSize, int nx, int MyYSlices,
                  InterfacialResponseFunction irf, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
                  ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector,
                  ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID,
-                 int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, int BufSizeX,
-                 int ZBound_Low, int nzActive, int nz, ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H,
-                 bool AtNorthBoundary, bool AtSouthBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
-                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN);
+                 int NGrainOrientations, Halo &halo, int BufSizeX, int ZBound_Low, int nzActive, int nz,
+                 ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary,
+                 ViewI SolidificationEventCounter, ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory,
+                 ViewI NumberOfSolidificationEvents, bool RemeltingYN);
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, ViewI FutureWorkView,
                   unsigned long int LocalIncompleteCells, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low,
                   bool RemeltingYN, ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny,

@@ -6,6 +6,7 @@
 #ifndef EXACA_INIT_HPP
 #define EXACA_INIT_HPP
 
+#include "CAhalo.hpp"
 #include "CAtypes.hpp"
 
 #include <Kokkos_Core.hpp>
@@ -94,8 +95,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
                                      ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType, ViewI GrainID,
                                      ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed,
-                                     int np, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, int BufSizeX,
-                                     bool AtNorthBoundary, bool AtSouthBoundary);
+                                     int np, Halo &halo, int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int pid,
                             ViewI &GrainID, int nzActive, bool BaseplateThroughPowder);
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
@@ -110,8 +110,8 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                            int nz, int LocalActiveDomainSize, int LocalDomainSize, ViewI CellType, ViewI CritTimeStep,
                            NList NeighborX, NList NeighborY, NList NeighborZ, int NGrainOrientations,
                            ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID, ViewF CritDiagonalLength,
-                           ViewF DOCenter, ViewI LayerID, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                           int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary);
+                           ViewF DOCenter, ViewI LayerID, Halo &halo, int BufSizeX, bool AtNorthBoundary,
+                           bool AtSouthBoundary);
 void NucleiInit(int layernumber, double RNGSeed, int MyYSlices, int MyYOffset, int nx, int ny, int nzActive,
                 int ZBound_Low, int id, double NMax, double dTN, double dTsigma, double deltax, ViewI &NucleiLocation,
                 ViewI_H &NucleationTimes_Host, ViewI &NucleiGrainID, ViewI CellType, ViewI CritTimeStep,
@@ -134,7 +134,6 @@ void placeNucleiData_Remelt(int NucleiMultiplier, int Nuclei_ThisLayerSingle, Vi
                             std::vector<int> &NucleiGrainID_MyRank_V, std::vector<int> &NucleiLocation_MyRank_V,
                             std::vector<int> &NucleationTimes_MyRank_V, int &PossibleNuclei_ThisRankThisLayer);
 void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeZ, ViewF &DiagonalLength,
-                    ViewF &CritDiagonalLength, ViewF &DOCenter, Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend,
-                    Buffer2D &BufferNorthRecv, Buffer2D &BufferSouthRecv, ViewI &SteeringVector);
+                    ViewF &CritDiagonalLength, ViewF &DOCenter, Halo &halo, ViewI &SteeringVector);
 
 #endif

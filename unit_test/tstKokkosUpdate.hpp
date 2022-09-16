@@ -23,7 +23,7 @@ void testNucleation() {
     // Counters for nucleation events (successful or not) - host and device
     int NucleationCounter = 0;
 
-    // Create views - 125 cells, 75 of which are part of the active layer of the domain (Z = 2-5)
+    // Create views - each rank has 125 cells, 75 of which are part of the active region of the domain
     int nx = 5;
     int MyYSlices = 5;
     int nz = 5;
@@ -161,10 +161,19 @@ void testFillSteeringVector_Remelt() {
     int BufSizeZ = nzActive;
 
     // Send/recv buffers for ghost node data - initialize with values of 1.0
-    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX * BufSizeZ, 5);
-    Kokkos::deep_copy(BufferSouthSend, 1.0);
-    Kokkos::deep_copy(BufferNorthSend, 1.0);
+    Halo halo(BufSizeX, BufSizeZ);
+    for (int BufPosition = 0; BufPosition < BufSizeX * BufSizeZ; BufPosition++) {
+        halo.BufferNorthSend(BufPosition).GrainID = 1;
+        halo.BufferNorthSend(BufPosition).DOCenterX = 1;
+        halo.BufferNorthSend(BufPosition).DOCenterY = 1;
+        halo.BufferNorthSend(BufPosition).DOCenterZ = 1;
+        halo.BufferNorthSend(BufPosition).DiagonalLength = 1;
+        halo.BufferSouthSend(BufPosition).GrainID = 1;
+        halo.BufferSouthSend(BufPosition).DOCenterX = 1;
+        halo.BufferSouthSend(BufPosition).DOCenterY = 1;
+        halo.BufferSouthSend(BufPosition).DOCenterZ = 1;
+        halo.BufferSouthSend(BufPosition).DiagonalLength = 1;
+    }
 
     // Initialize neighbor lists
     NList NeighborX, NeighborY, NeighborZ;
@@ -221,7 +230,7 @@ void testFillSteeringVector_Remelt() {
         FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, nx, MyYSlices, NeighborX, NeighborY, NeighborZ,
                                   CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID, ZBound_Low,
                                   nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep, BufSizeX,
-                                  AtNorthBoundary, AtSouthBoundary, BufferNorthSend, BufferSouthSend);
+                                  AtNorthBoundary, AtSouthBoundary, halo);
     }
 
     // Copy CellType, SteeringVector, numSteer, UndercoolingCurrent, Buffers back to host to check steering vector
@@ -230,8 +239,8 @@ void testFillSteeringVector_Remelt() {
     ViewI_H SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SteeringVector);
     numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), numSteer);
     UndercoolingCurrent_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingCurrent);
-    Buffer2D_H BufferSouthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthSend);
-    Buffer2D_H BufferNorthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
+    auto BufferSouthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), halo.BufferSouthSend);
+    auto BufferNorthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), halo.BufferNorthSend);
 
     // Check the modified CellType and UndercoolingCurrent values on the host:
     // Check that the cells corresponding to outside of the "active" portion of the domain have unchanged values
@@ -289,25 +298,33 @@ void testFillSteeringVector_Remelt() {
         int RankX = i % nx;
         int NorthCellCoordinate = GlobalZ * nx * MyYSlices + RankX * MyYSlices + (MyYSlices - 1);
         if ((CellType_Host(NorthCellCoordinate) == TempSolid) || (CellType_Host(NorthCellCoordinate) == Solid)) {
-            for (int j = 0; j < 5; j++) {
-                EXPECT_EQ(BufferNorthSend_Host(i, j), 1.0);
-            }
+            EXPECT_EQ(BufferNorthSend_Host(i).GrainID, 1);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterX, 1.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterY, 1.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterZ, 1.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DiagonalLength, 1.0);
         }
         else {
-            for (int j = 0; j < 5; j++) {
-                EXPECT_EQ(BufferNorthSend_Host(i, j), 0.0);
-            }
+            EXPECT_EQ(BufferNorthSend_Host(i).GrainID, 0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterX, 0.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterY, 0.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterZ, 0.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DiagonalLength, 0.0);
         }
         int SouthCellCoordinate = GlobalZ * nx * MyYSlices + RankX * MyYSlices + (MyYSlices - 1);
         if ((CellType_Host(SouthCellCoordinate) == TempSolid) || (CellType_Host(SouthCellCoordinate) == Solid)) {
-            for (int j = 0; j < 5; j++) {
-                EXPECT_EQ(BufferNorthSend_Host(i, j), 1.0);
-            }
+            EXPECT_EQ(BufferNorthSend_Host(i).GrainID, 1);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterX, 1.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterY, 1.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterZ, 1.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DiagonalLength, 1.0);
         }
         else {
-            for (int j = 0; j < 5; j++) {
-                EXPECT_EQ(BufferNorthSend_Host(i, j), 0.0);
-            }
+            EXPECT_EQ(BufferNorthSend_Host(i).GrainID, 0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterX, 0.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterY, 0.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DOCenterZ, 0.0);
+            EXPECT_EQ(BufferNorthSend_Host(i).DiagonalLength, 0.0);
         }
     }
 }
