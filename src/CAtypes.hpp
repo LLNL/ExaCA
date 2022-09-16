@@ -31,6 +31,7 @@ typedef Kokkos::View<float ***> ViewF3D;
 using exe_space = Kokkos::DefaultExecutionSpace::execution_space;
 using device_memory_space = Kokkos::DefaultExecutionSpace::memory_space;
 typedef typename exe_space::array_layout layout;
+typedef Kokkos::View<double *, layout, Kokkos::HostSpace> ViewD_H;
 typedef Kokkos::View<float *, layout, Kokkos::HostSpace> ViewF_H;
 typedef Kokkos::View<float **, layout, Kokkos::HostSpace> ViewF2D_H;
 typedef Kokkos::View<float ***, layout, Kokkos::HostSpace> ViewF3D_H;

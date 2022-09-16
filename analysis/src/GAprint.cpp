@@ -41,7 +41,7 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
             for (int j = YMin; j <= YMax; j++) {
                 // Only take data from cells in the representative area that underwent melting (LayerID >= 0)
                 if (LayerID(k, i, j) != -1) {
-                    int MyOrientation = ((abs(GrainID(k, i, j)) - 1) % NumberOfOrientations);
+                    int MyOrientation = getGrainOrientation(GrainID(k, i, j), NumberOfOrientations);
                     float MyMisorientation = GrainMisorientation(MyOrientation);
                     if (AnalysisTypes[0])
                         MisorientationPlot << MyMisorientation << std::endl;

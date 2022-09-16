@@ -61,7 +61,8 @@ int FindTopOrBottom(ViewI3D_H LayerID, int XLow, int XHigh, int YLow, int YHigh,
     return TopBottomZ;
 }
 
-void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers) {
+void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
+                  bool UseXYZBounds, std::vector<double> &XYZBounds) {
 
     std::ifstream InputDataStream;
     InputDataStream.open(LogFile);
@@ -86,6 +87,20 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
     deltax = atof(deltaxString.c_str());
     std::cout << "Dimensions of data are: nx = " << nx << ", ny = " << ny << ", nz = " << nz << std::endl;
     std::cout << "Cell size is " << deltax << " microns" << std::endl;
+
+    // Time step not used by analysis script
+    getline(InputDataStream, line);
+
+    // Get domain bounds
+    std::vector<std::string> XYZBoundsString(6);
+    XYZBoundsString[0] = parseInput(InputDataStream, "Lower bound of domain in x");
+    XYZBoundsString[1] = parseInput(InputDataStream, "Lower bound of domain in y");
+    XYZBoundsString[2] = parseInput(InputDataStream, "Lower bound of domain in z");
+    XYZBoundsString[3] = parseInput(InputDataStream, "Upper bound of domain in x");
+    XYZBoundsString[4] = parseInput(InputDataStream, "Upper bound of domain in y");
+    XYZBoundsString[5] = parseInput(InputDataStream, "Upper bound of domain in z");
+
+    // Get number of layers
     if (SimulationType == "C")
         NumberOfLayers = 1;
     else {
@@ -103,6 +118,15 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
     }
     std::cout << "Number of layers in microstructure data: " << NumberOfLayers << std::endl;
     InputDataStream.close();
+
+    // If log file contained the X, Y, Z bounds of the domain and they're used in the analysis, convert them
+    if (UseXYZBounds) {
+        for (int n = 0; n < 6; n++)
+            XYZBounds[n] = getInputDouble(XYZBoundsString[n]);
+        std::cout << "X bounds of data are " << XYZBounds[0] << ", " << XYZBounds[3] << "; Y bounds of data are "
+                  << XYZBounds[1] << ", " << XYZBounds[4] << "; Z bounds of data are " << XYZBounds[2] << ", "
+                  << XYZBounds[5] << std::endl;
+    }
 }
 
 // Reads portion of a paraview file and places data in the appropriate data structure
@@ -194,6 +218,24 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     }
 }
 
+// Ensure that the appropriate files exist
+void ParseFilenames_AMB(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
+                        std::string &RotationFilename, std::string &EulerAnglesFilename) {
+
+    // Names of files
+    LogFile = BaseFileName + ".log";
+    MicrostructureFile = BaseFileName + ".vtk";
+    RotationFilename = "GrainOrientationVectors.csv";
+    RotationFilename = checkFileInstalled(RotationFilename, 0);
+    EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ.csv";
+    EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
+
+    // Check that files are not empty
+    checkFileNotEmpty(LogFile);
+    checkFileNotEmpty(MicrostructureFile);
+    checkFileNotEmpty(RotationFilename);
+    checkFileNotEmpty(EulerAnglesFilename);
+}
 void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID) {
 
     std::ifstream InputDataStream;
