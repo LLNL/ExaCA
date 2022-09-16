@@ -58,7 +58,6 @@ void testGhostNodes1D() {
     int nz = 10;
     int ZBound_Low = 5;
     int nzActive = 5;
-    int MyXOffset = 0;
     // Domain is subdivided in Y, with ghost nodes between ranks
     // Each rank is size 3 in Y, plus ghost nodes if needed (i.e, not at problem boundary)
     // For example, if np = 4:
@@ -188,9 +187,9 @@ void testGhostNodes1D() {
         });
 
     // Perform halo exchange in 1D
-    GhostNodes1D(0, 0, NeighborRank_North, NeighborRank_South, MyXSlices, MyYSlices, MyXOffset, MyYOffset, NeighborX,
-                 NeighborY, NeighborZ, CellType, DOCenter, GrainID, GrainUnitVector, DiagonalLength, CritDiagonalLength,
-                 NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSizeX, 0,
+    GhostNodes1D(0, 0, NeighborRank_North, NeighborRank_South, MyXSlices, MyYSlices, MyYOffset, NeighborX, NeighborY,
+                 NeighborZ, CellType, DOCenter, GrainID, GrainUnitVector, DiagonalLength, CritDiagonalLength,
+                 NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSizeX,
                  BufSizeZ, ZBound_Low);
 
     // Copy CellType, GrainID, DiagonalLength, DOCenter, CritDiagonalLength views to host to check values

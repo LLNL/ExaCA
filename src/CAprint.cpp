@@ -14,14 +14,13 @@
 //*****************************************************************************/
 //*****************************************************************************/
 // On rank 0, collect data for one single int view
-void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nz, int MyXSlices, int MyYSlices, int np,
-                     ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
-                     ViewI_H RBufSize) {
+void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nz, int nx, int MyYSlices, int np,
+                     ViewI_H RecvYOffset, ViewI_H RecvYSlices, ViewI_H RBufSize) {
 
     for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < MyXSlices; i++) {
+        for (int i = 0; i < nx; i++) {
             for (int j = 0; j < MyYSlices; j++) {
-                IntVar_WholeDomain(k, i, j) = IntVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
+                IntVar_WholeDomain(k, i, j) = IntVar(k * nx * MyYSlices + i * MyYSlices + j);
             }
         }
     }
@@ -34,9 +33,9 @@ void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nz, int M
 
         int DataCounter = 0;
         for (int k = 0; k < nz; k++) {
-            for (int i = 0; i < RecvXSlices(p); i++) {
+            for (int i = 0; i < nx; i++) {
                 for (int j = 0; j < RecvYSlices(p); j++) {
-                    IntVar_WholeDomain(k, i + RecvXOffset(p), j + RecvYOffset(p)) = RecvBufIntVar(DataCounter);
+                    IntVar_WholeDomain(k, i, j + RecvYOffset(p)) = RecvBufIntVar(DataCounter);
                     DataCounter++;
                 }
             }
@@ -45,15 +44,14 @@ void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nz, int M
 }
 
 // On rank 0, collect data for one single float view
-void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nz, int MyXSlices, int MyYSlices, int np,
-                       ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
-                       ViewI_H RBufSize) {
+void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nz, int nx, int MyYSlices, int np,
+                       ViewI_H RecvYOffset, ViewI_H RecvYSlices, ViewI_H RBufSize) {
 
     // Set float variable to 0 for whole domain and place values for rank 0
     for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < MyXSlices; i++) {
+        for (int i = 0; i < nx; i++) {
             for (int j = 0; j < MyYSlices; j++) {
-                FloatVar_WholeDomain(k, i, j) = FloatVar(k * MyXSlices * MyYSlices + i * MyYSlices + j);
+                FloatVar_WholeDomain(k, i, j) = FloatVar(k * nx * MyYSlices + i * MyYSlices + j);
             }
         }
     }
@@ -66,9 +64,9 @@ void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nz,
 
         int DataCounter = 0;
         for (int k = 0; k < nz; k++) {
-            for (int i = 0; i < RecvXSlices(p); i++) {
+            for (int i = 0; i < nx; i++) {
                 for (int j = 0; j < RecvYSlices(p); j++) {
-                    FloatVar_WholeDomain(k, i + RecvXOffset(p), j + RecvYOffset(p)) = RecvBufFloatVar(DataCounter);
+                    FloatVar_WholeDomain(k, i, j + RecvYOffset(p)) = RecvBufFloatVar(DataCounter);
                     DataCounter++;
                 }
             }
@@ -77,15 +75,14 @@ void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nz,
 }
 
 // On rank 0, collect data for one single bool array (and convert it to integer 0s and 1s for MPI)
-void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int MyXSlices, int MyYSlices, int np,
-                      ViewI_H RecvXOffset, ViewI_H RecvYOffset, ViewI_H RecvXSlices, ViewI_H RecvYSlices,
-                      ViewI_H RBufSize) {
+void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int nx, int MyYSlices, int np,
+                      ViewI_H RecvYOffset, ViewI_H RecvYSlices, ViewI_H RBufSize) {
 
     // Resize bool variable for whole domain and place values for rank 0
     for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < MyXSlices; i++) {
+        for (int i = 0; i < nx; i++) {
             for (int j = 0; j < MyYSlices; j++) {
-                if (BoolVar[k * MyXSlices * MyYSlices + i * MyYSlices + j])
+                if (BoolVar[k * nx * MyYSlices + i * MyYSlices + j])
                     IntVar_WholeDomain(k, i, j) = 1;
             }
         }
@@ -99,9 +96,9 @@ void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int M
 
         int DataCounter = 0;
         for (int k = 0; k < nz; k++) {
-            for (int i = 0; i < RecvXSlices[p]; i++) {
+            for (int i = 0; i < nx; i++) {
                 for (int j = 0; j < RecvYSlices[p]; j++) {
-                    IntVar_WholeDomain(k, i + RecvXOffset(p), j + RecvYOffset(p)) = RecvBufIntVar(DataCounter);
+                    IntVar_WholeDomain(k, i, j + RecvYOffset(p)) = RecvBufIntVar(DataCounter);
                     DataCounter++;
                 }
             }
@@ -111,16 +108,16 @@ void CollectBoolField(ViewI3D_H IntVar_WholeDomain, bool *BoolVar, int nz, int M
 
 //*****************************************************************************/
 // On rank > 0, send data for an integer view to rank 0
-void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
-                  int SendBufEndX, int SendBufStartY, int SendBufEndY) {
+void SendIntField(ViewI_H VarToSend, int nz, int nx, int MyYSlices, int SendBufSize, int SendBufStartY,
+                  int SendBufEndY) {
 
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     ViewI_H SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
     for (int k = 0; k < nz; k++) {
-        for (int i = SendBufStartX; i < SendBufEndX; i++) {
+        for (int i = 0; i < nx; i++) {
             for (int j = SendBufStartY; j < SendBufEndY; j++) {
-                SendBuf(DataCounter) = VarToSend(k * MyXSlices * MyYSlices + i * MyYSlices + j);
+                SendBuf(DataCounter) = VarToSend(k * nx * MyYSlices + i * MyYSlices + j);
                 DataCounter++;
             }
         }
@@ -129,16 +126,16 @@ void SendIntField(ViewI_H VarToSend, int nz, int MyXSlices, int MyYSlices, int S
 }
 
 // On rank > 0, send data for an float view to rank 0
-void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
-                    int SendBufEndX, int SendBufStartY, int SendBufEndY) {
+void SendFloatField(ViewF_H VarToSend, int nz, int nx, int MyYSlices, int SendBufSize, int SendBufStartY,
+                    int SendBufEndY) {
 
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     ViewF_H SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
     for (int k = 0; k < nz; k++) {
-        for (int i = SendBufStartX; i < SendBufEndX; i++) {
+        for (int i = 0; i < nx; i++) {
             for (int j = SendBufStartY; j < SendBufEndY; j++) {
-                SendBuf(DataCounter) = VarToSend(k * MyXSlices * MyYSlices + i * MyYSlices + j);
+                SendBuf(DataCounter) = VarToSend(k * nx * MyYSlices + i * MyYSlices + j);
                 DataCounter++;
             }
         }
@@ -147,16 +144,16 @@ void SendFloatField(ViewF_H VarToSend, int nz, int MyXSlices, int MyYSlices, int
 }
 
 // On rank > 0, send data for a bool array (converted into integers for MPI) to rank 0
-void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int SendBufSize, int SendBufStartX,
-                   int SendBufEndX, int SendBufStartY, int SendBufEndY) {
+void SendBoolField(bool *VarToSend, int nz, int nx, int MyYSlices, int SendBufSize, int SendBufStartY,
+                   int SendBufEndY) {
 
     // Send non-ghost node data to rank 0
     int DataCounter = 0;
     ViewI_H SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
     for (int k = 0; k < nz; k++) {
-        for (int i = SendBufStartX; i < SendBufEndX; i++) {
+        for (int i = 0; i < nx; i++) {
             for (int j = SendBufStartY; j < SendBufEndY; j++) {
-                if (VarToSend[k * MyXSlices * MyYSlices + i * MyYSlices + j])
+                if (VarToSend[k * nx * MyYSlices + i * MyYSlices + j])
                     SendBuf(DataCounter) = 1;
                 else
                     SendBuf(DataCounter) = 0;
@@ -169,10 +166,9 @@ void SendBoolField(bool *VarToSend, int nz, int MyXSlices, int MyYSlices, int Se
 
 //*****************************************************************************/
 // Prints values of selected data structures to Paraview files
-void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyXSlices, int MyYSlices,
-                    int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI GrainID,
-                    ViewI CritTimeStep, ViewF GrainUnitVector, ViewI LayerID, ViewI CellType, ViewF UndercoolingChange,
-                    ViewF UndercoolingCurrent, std::string BaseFileName, int DecompositionStrategy,
+void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int MyYSlices, int MyYOffset,
+                    ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector, ViewI LayerID, ViewI CellType,
+                    ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string BaseFileName,
                     int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
                     bool PrintFinalUndercoolingVals, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
                     int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, float XMin, float YMin,
@@ -180,20 +176,14 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
 
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
-        ViewI_H RecvXOffset(Kokkos::ViewAllocateWithoutInitializing("RecvXOffset"), np);
         ViewI_H RecvYOffset(Kokkos::ViewAllocateWithoutInitializing("RecvYOffset"), np);
-        ViewI_H RecvXSlices(Kokkos::ViewAllocateWithoutInitializing("RecvXSlices"), np);
         ViewI_H RecvYSlices(Kokkos::ViewAllocateWithoutInitializing("RecvYSlices"), np);
         ViewI_H RBufSize(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np);
 
         for (int p = 1; p < np; p++) {
-            RecvXOffset(p) = XOffsetCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
-            RecvXSlices(p) =
-                XMPSlicesCalc(p, nx, ProcessorsInXDirection, ProcessorsInYDirection, DecompositionStrategy);
-            RecvYOffset(p) = YOffsetCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy);
-            RecvYSlices(p) = YMPSlicesCalc(p, ny, ProcessorsInYDirection, np, DecompositionStrategy);
-
-            RBufSize(p) = RecvXSlices(p) * RecvYSlices(p) * nz;
+            RecvYOffset(p) = YOffsetCalc(p, ny, np);
+            RecvYSlices(p) = YMPSlicesCalc(p, ny, np);
+            RBufSize(p) = nx * RecvYSlices(p) * nz;
         }
         // Create variables for each possible data structure being collected on rank 0
         // If PrintDebug = 0, we aren't printing any debug files after initialization, but we are printing either the
@@ -216,37 +206,35 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
         // Collect all data on rank 0, for all data structures of interest
         ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
         Kokkos::resize(GrainID_WholeDomain, nz, nx, ny);
-        CollectIntField(GrainID_WholeDomain, GrainID_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
-                        RecvXSlices, RecvYSlices, RBufSize);
+        CollectIntField(GrainID_WholeDomain, GrainID_Host, nz, nx, MyYSlices, np, RecvYOffset, RecvYSlices, RBufSize);
         ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
         Kokkos::resize(LayerID_WholeDomain, nz, nx, ny);
-        CollectIntField(LayerID_WholeDomain, LayerID_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
-                        RecvXSlices, RecvYSlices, RBufSize);
+        CollectIntField(LayerID_WholeDomain, LayerID_Host, nz, nx, MyYSlices, np, RecvYOffset, RecvYSlices, RBufSize);
         if ((PrintDebug > 0) || (PrintTimeSeries)) {
             ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
             Kokkos::resize(CellType_WholeDomain, nz, nx, ny);
-            CollectIntField(CellType_WholeDomain, CellType_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset, RecvYOffset,
-                            RecvXSlices, RecvYSlices, RBufSize);
+            CollectIntField(CellType_WholeDomain, CellType_Host, nz, nx, MyYSlices, np, RecvYOffset, RecvYSlices,
+                            RBufSize);
         }
         if (PrintDebug > 0) {
             ViewI_H CritTimeStep_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritTimeStep);
             Kokkos::resize(CritTimeStep_WholeDomain, nz, nx, ny);
-            CollectIntField(CritTimeStep_WholeDomain, CritTimeStep_Host, nz, MyXSlices, MyYSlices, np, RecvXOffset,
-                            RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectIntField(CritTimeStep_WholeDomain, CritTimeStep_Host, nz, nx, MyYSlices, np, RecvYOffset,
+                            RecvYSlices, RBufSize);
         }
         if (PrintDebug == 2) {
             ViewF_H UndercoolingChange_Host =
                 Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingChange);
             Kokkos::resize(UndercoolingChange_WholeDomain, nz, nx, ny);
-            CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange_Host, nz, MyXSlices, MyYSlices, np,
-                              RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectFloatField(UndercoolingChange_WholeDomain, UndercoolingChange_Host, nz, nx, MyYSlices, np,
+                              RecvYOffset, RecvYSlices, RBufSize);
         }
         if ((PrintDebug == 2) || (PrintFinalUndercoolingVals)) {
             ViewF_H UndercoolingCurrent_Host =
                 Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingCurrent);
             Kokkos::resize(UndercoolingCurrent_WholeDomain, nz, nx, ny);
-            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent_Host, nz, MyXSlices, MyYSlices, np,
-                              RecvXOffset, RecvYOffset, RecvXSlices, RecvYSlices, RBufSize);
+            CollectFloatField(UndercoolingCurrent_WholeDomain, UndercoolingCurrent_Host, nz, nx, MyYSlices, np,
+                              RecvYOffset, RecvYSlices, RBufSize);
         }
         if ((PrintMisorientation) || (PrintTimeSeries)) {
             ViewF_H GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
@@ -273,7 +261,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
     else {
 
         // No ghost nodes in sent data:
-        int SendBufStartX, SendBufEndX, SendBufStartY, SendBufEndY;
+        int SendBufStartY, SendBufEndY;
         if (MyYOffset == 0)
             SendBufStartY = 0;
         else
@@ -282,45 +270,31 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
             SendBufEndY = MyYSlices;
         else
             SendBufEndY = MyYSlices - 1;
-        if (MyXOffset == 0)
-            SendBufStartX = 0;
-        else
-            SendBufStartX = 1;
-        if (MyXSlices + MyXOffset == nx)
-            SendBufEndX = MyXSlices;
-        else
-            SendBufEndX = MyXSlices - 1;
 
-        int SendBufSize = (SendBufEndX - SendBufStartX) * (SendBufEndY - SendBufStartY) * nz;
+        int SendBufSize = nx * (SendBufEndY - SendBufStartY) * nz;
 
         // Send Grain ID and Layer ID data to rank 0 for all print options
         ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
-        SendIntField(GrainID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
-                     SendBufEndY);
+        SendIntField(GrainID_Host, nz, nx, MyYSlices, SendBufSize, SendBufStartY, SendBufEndY);
         ViewI_H LayerID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerID);
-        SendIntField(LayerID_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX, SendBufStartY,
-                     SendBufEndY);
+        SendIntField(LayerID_Host, nz, nx, MyYSlices, SendBufSize, SendBufStartY, SendBufEndY);
         if ((PrintDebug > 0) || (PrintTimeSeries)) {
             ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
-            SendIntField(CellType_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
-                         SendBufStartY, SendBufEndY);
+            SendIntField(CellType_Host, nz, nx, MyYSlices, SendBufSize, SendBufStartY, SendBufEndY);
         }
         if (PrintDebug > 0) {
             ViewI_H CritTimeStep_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritTimeStep);
-            SendIntField(CritTimeStep_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
-                         SendBufStartY, SendBufEndY);
+            SendIntField(CritTimeStep_Host, nz, nx, MyYSlices, SendBufSize, SendBufStartY, SendBufEndY);
         }
         if (PrintDebug == 2) {
             ViewF_H UndercoolingChange_Host =
                 Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingChange);
-            SendFloatField(UndercoolingChange_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
-                           SendBufStartY, SendBufEndY);
+            SendFloatField(UndercoolingChange_Host, nz, nx, MyYSlices, SendBufSize, SendBufStartY, SendBufEndY);
         }
         if ((PrintDebug == 2) || (PrintFinalUndercoolingVals)) {
             ViewF_H UndercoolingCurrent_Host =
                 Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingCurrent);
-            SendFloatField(UndercoolingCurrent_Host, nz, MyXSlices, MyYSlices, SendBufSize, SendBufStartX, SendBufEndX,
-                           SendBufStartY, SendBufEndY);
+            SendFloatField(UndercoolingCurrent_Host, nz, nx, MyYSlices, SendBufSize, SendBufStartY, SendBufEndY);
         }
     }
 }
@@ -608,8 +582,7 @@ void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutpu
 //*****************************************************************************/
 // Print a log file for this ExaCA run, containing information about the run parameters used
 // from the input file as well as the decomposition scheme
-void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int DecompositionStrategy,
-                   int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, InterfacialResponseFunction irf,
+void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int MyYSlices, int MyXOffset, int MyYOffset, InterfacialResponseFunction irf,
                    double deltax, double NMax, double dTN, double dTsigma, std::vector<std::string> temp_paths,
                    int TempFilesInSeries, double HT_deltax, bool RemeltingYN, double deltat, int NumberOfLayers,
                    int LayerHeight, std::string SubstrateFileName, double SubstrateGrainSpacing, bool SubstrateFile,
@@ -620,13 +593,9 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime, double GhostMinTime,
                    double OutMaxTime, double OutMinTime) {
 
-    int *XSlices = new int[np];
     int *YSlices = new int[np];
-    int *XOffset = new int[np];
     int *YOffset = new int[np];
-    MPI_Gather(&MyXSlices, 1, MPI_INT, XSlices, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Gather(&MyYSlices, 1, MPI_INT, YSlices, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Gather(&MyXOffset, 1, MPI_INT, XOffset, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Gather(&MyYOffset, 1, MPI_INT, YOffset, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (id == 0) {
@@ -679,11 +648,10 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                 ExaCALog << "The temperature data resolution was " << HT_deltax << " microns" << std::endl;
             }
         }
-        ExaCALog << "The decomposition scheme used was: " << DecompositionStrategy << std::endl;
+        ExaCALog << "The decomposition scheme used was a 1D decomposition along the Y direction" << std::endl;
         for (int i = 0; i < np; i++) {
-            ExaCALog << "Rank " << i << " contained " << XSlices[i] << " cells in x , " << YSlices[i]
-                     << " cells in y; subdomain was offset by " << XOffset[i] << " in x , " << YOffset[i] << " in y"
-                     << std::endl;
+            ExaCALog << "Rank " << i << " contained " << YSlices[i] << " cells in y; subdomain was offset by "
+                     << YOffset[i] << " in y" << std::endl;
         }
         ExaCALog << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime << " s"
                  << std::endl;

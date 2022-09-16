@@ -18,7 +18,7 @@ using std::min;
 //*****************************************************************************/
 void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCounter, int PossibleNuclei_ThisRank,
                 ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID, ViewI CellType, ViewI GrainID,
-                int ZBound_Low, int MyXSlices, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G) {
+                int ZBound_Low, int nx, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G) {
 
     // Is there nucleation left in this layer to check?
     if (NucleationCounter < PossibleNuclei_ThisRank) {
@@ -55,13 +55,12 @@ void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCou
                         // exchange is successful (cell was liquid) Add future active cell location to steering
                         // vector and change cell type, assign new Grain ID
                         GrainID(NucleationEventLocation_GlobalGrid) = NucleiGrainID(NucleationCounter_Device);
-                        int GlobalZ = NucleationEventLocation_GlobalGrid / (MyXSlices * MyYSlices);
-                        int Rem = NucleationEventLocation_GlobalGrid % (MyXSlices * MyYSlices);
+                        int GlobalZ = NucleationEventLocation_GlobalGrid / (nx * MyYSlices);
+                        int Rem = NucleationEventLocation_GlobalGrid % (nx * MyYSlices);
                         int RankX = Rem / MyYSlices;
                         int RankY = Rem % MyYSlices;
                         int RankZ = GlobalZ - ZBound_Low;
-                        int NucleationEventLocation_LocalGrid =
-                            RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        int NucleationEventLocation_LocalGrid = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
                         SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = NucleationEventLocation_LocalGrid;
                         // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
                         // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)
@@ -79,7 +78,7 @@ void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCou
 //*****************************************************************************/
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step
-void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, ViewI CritTimeStep,
+void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, ViewI CritTimeStep,
                                  ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
                                  int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer,
                                  ViewI_H numSteer_Host) {
@@ -90,12 +89,12 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int MyXSl
     Kokkos::parallel_for(
         "FillSV", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
             // Cells of interest for the CA
-            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankZ = D3D1ConvPosition / (nx * MyYSlices);
+            int Rem = D3D1ConvPosition % (nx * MyYSlices);
             int RankX = Rem / MyYSlices;
             int RankY = Rem % MyYSlices;
             int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
             int cellType = CellType(GlobalD3D1ConvPosition);
 
             int layerCheck = (LayerID(GlobalD3D1ConvPosition) <= layernumber);
@@ -119,25 +118,22 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int MyXSl
 //*****************************************************************************/
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step - version with remelting
-void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, NList NeighborX,
+void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, NList NeighborX,
                                NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                                ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
                                ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
-                               int BufSizeX, int BufSizeY, bool AtNorthBoundary, bool AtSouthBoundary,
-                               bool AtEastBoundary, bool AtWestBoundary, Buffer2D BufferWestSend,
-                               Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                               Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
-                               Buffer2D BufferSouthWestSend, int DecompositionStrategy) {
+                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Buffer2D BufferNorthSend,
+                               Buffer2D BufferSouthSend) {
 
     Kokkos::parallel_for(
         "FillSV_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
             // Coordinate of this cell on the "global" (all cells in the Z direction) grid
-            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankZ = D3D1ConvPosition / (nx * MyYSlices);
+            int Rem = D3D1ConvPosition % (nx * MyYSlices);
             int RankX = Rem / MyYSlices;
             int RankY = Rem % MyYSlices;
             int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
 
             int cellType = CellType(GlobalD3D1ConvPosition);
             bool isNotSolid = ((cellType != TempSolid) && (cellType != Solid));
@@ -149,14 +145,8 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlic
                 // Reset current undercooling to zero
                 UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
                 // Remove solid cell data from the buffer
-                if (DecompositionStrategy == 1)
-                    loadghostnodes(0, 0, 0, 0, 0, BufSizeX, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary,
-                                   AtSouthBoundary, BufferSouthSend, BufferNorthSend);
-                else
-                    loadghostnodes(0, 0, 0, 0, 0, BufSizeX, BufSizeY, MyXSlices, MyYSlices, RankX, RankY, RankZ,
-                                   AtNorthBoundary, AtSouthBoundary, AtWestBoundary, AtEastBoundary, BufferSouthSend,
-                                   BufferNorthSend, BufferWestSend, BufferEastSend, BufferNorthEastSend,
-                                   BufferSouthEastSend, BufferSouthWestSend, BufferNorthWestSend);
+                loadghostnodes(0, 0, 0, 0, 0, BufSizeX, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary,
+                               AtSouthBoundary, BufferSouthSend, BufferNorthSend);
             }
             else if ((isNotSolid) && (pastCritTime)) {
                 // Update cell undercooling
@@ -174,10 +164,10 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlic
                         int MyNeighborX = RankX + NeighborX[l];
                         int MyNeighborY = RankY + NeighborY[l];
                         int MyNeighborZ = RankZ + NeighborZ[l];
-                        if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
+                        if ((MyNeighborX >= 0) && (MyNeighborX < nx) && (MyNeighborY >= 0) &&
                             (MyNeighborY < MyYSlices) && (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
-                            int GlobalNeighborD3D1ConvPosition = (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices +
-                                                                 MyNeighborX * MyYSlices + MyNeighborY;
+                            int GlobalNeighborD3D1ConvPosition =
+                                (MyNeighborZ + ZBound_Low) * nx * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
                             if ((CellType(GlobalNeighborD3D1ConvPosition) == TempSolid) ||
                                 (CellType(GlobalNeighborD3D1ConvPosition) == Solid) || (RankZ == 0)) {
                                 // Cell activation to be performed as part of steering vector
@@ -198,16 +188,12 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlic
 }
 
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXSlices, int MyYSlices,
-                 InterfacialResponseFunction irf, int MyXOffset, int MyYOffset, NList NeighborX, NList NeighborY,
-                 NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange,
-                 ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI CellType, ViewF DOCenter,
-                 ViewI GrainID, int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
-                 Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
-                 Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX,
-                 int BufSizeY, int ZBound_Low, int nzActive, int, ViewI SteeringVector, ViewI numSteer,
-                 ViewI_H numSteer_Host, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
-                 bool AtWestBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
+void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialResponseFunction irf, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep,
+                 ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength,
+                 ViewF DiagonalLength, ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations,
+                 Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, int BufSizeX, int ZBound_Low, int nzActive, int,
+                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
+                 bool AtSouthBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
                  ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN) {
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
@@ -217,12 +203,12 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
             numSteer(0) = 0;
             int D3D1ConvPosition = SteeringVector(num);
             // Cells of interest for the CA - active cells and future active cells
-            int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-            int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+            int RankZ = D3D1ConvPosition / (nx * MyYSlices);
+            int Rem = D3D1ConvPosition % (nx * MyYSlices);
             int RankX = Rem / MyYSlices;
             int RankY = Rem % MyYSlices;
             int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
             if (CellType(GlobalD3D1ConvPosition) == Active) {
                 // Update local diagonal length of active cell
                 double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
@@ -239,12 +225,12 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                     int MyNeighborY = RankY + NeighborY[l];
                     int MyNeighborZ = RankZ + NeighborZ[l];
                     // Check if neighbor is in bounds
-                    if ((MyNeighborX >= 0) && (MyNeighborX < MyXSlices) && (MyNeighborY >= 0) &&
-                        (MyNeighborY < MyYSlices) && (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
+                    if ((MyNeighborX >= 0) && (MyNeighborX < nx) && (MyNeighborY >= 0) && (MyNeighborY < MyYSlices) &&
+                        (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
                         long int NeighborD3D1ConvPosition =
-                            MyNeighborZ * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                            MyNeighborZ * nx * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
                         long int GlobalNeighborD3D1ConvPosition =
-                            (MyNeighborZ + ZBound_Low) * MyXSlices * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
+                            (MyNeighborZ + ZBound_Low) * nx * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
                         if (CellType(GlobalNeighborD3D1ConvPosition) == Liquid)
                             DeactivateCell = false;
                         // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
@@ -265,7 +251,7 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                             // Only proceed if CellType was previously liquid (this current thread changed the value to
                             // TemporaryUpdate)
                             if (OldCellTypeValue == Liquid) {
-                                int GlobalX = RankX + MyXOffset;
+                                int GlobalX = RankX;
                                 int GlobalY = RankY + MyYOffset;
                                 int h = GrainID(GlobalD3D1ConvPosition);
                                 int MyOrientation = getGrainOrientation(h, NGrainOrientations);
@@ -447,18 +433,9 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                                     double GhostDL = NewODiagL;
                                     // Collect data for the ghost nodes, if necessary
                                     // Data loaded into the ghost nodes is for the cell that was just captured
-                                    if (DecompositionStrategy == 1)
-                                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
-                                                       MyYSlices, MyNeighborX, MyNeighborY, MyNeighborZ,
-                                                       AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                                       BufferNorthSend);
-                                    else
-                                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
-                                                       BufSizeY, MyXSlices, MyYSlices, MyNeighborX, MyNeighborY,
-                                                       MyNeighborZ, AtNorthBoundary, AtSouthBoundary, AtWestBoundary,
-                                                       AtEastBoundary, BufferSouthSend, BufferNorthSend, BufferWestSend,
-                                                       BufferEastSend, BufferNorthEastSend, BufferSouthEastSend,
-                                                       BufferSouthWestSend, BufferNorthWestSend);
+                                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
+                                                   MyYSlices, MyNeighborX, MyNeighborY, MyNeighborZ, AtNorthBoundary,
+                                                   AtSouthBoundary, BufferSouthSend, BufferNorthSend);
                                 } // End if statement for serial/parallel code
                                 // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
                                 // Diagonal Length values have been assigned to it Avoids the race condition in which
@@ -505,7 +482,7 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                                                                     // associated octahedron data is initialized
 
                 // Location of this cell on the global grid
-                int GlobalX = RankX + MyXOffset;
+                int GlobalX = RankX;
                 int GlobalY = RankY + MyYOffset;
                 int MyGrainID = GrainID(GlobalD3D1ConvPosition); // GrainID was assigned as part of Nucleation
 
@@ -529,16 +506,8 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                     double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
                     double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    if (DecompositionStrategy == 1)
-                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
-                                       RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                       BufferNorthSend);
-                    else
-                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, BufSizeY,
-                                       MyXSlices, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
-                                       AtWestBoundary, AtEastBoundary, BufferSouthSend, BufferNorthSend, BufferWestSend,
-                                       BufferEastSend, BufferNorthEastSend, BufferSouthEastSend, BufferSouthWestSend,
-                                       BufferNorthWestSend);
+                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
+                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
                 } // End if statement for serial/parallel code
                 // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
                 CellType(GlobalD3D1ConvPosition) = Active;
@@ -553,14 +522,13 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
 // CritTimeStep With remelting, the cells of interest are active cells, and the view checked for future work is
 // MeltTimeStep Print intermediate output during this jump if PrintIdleMovieFrames = true
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalIncompleteCells,
-                  ViewI FutureWorkView, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int ZBound_Low,
-                  bool RemeltingYN, ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny,
-                  int nz, int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection,
+                  ViewI FutureWorkView, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low, bool RemeltingYN,
+                  ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny, int nz, int MyYOffset,
                   ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector, ViewF UndercoolingChange,
-                  ViewF UndercoolingCurrent, std::string OutputFile, int DecompositionStrategy, int NGrainOrientations,
-                  std::string PathToOutput, int &IntermediateFileCounter, int nzActive, double deltax, float XMin,
-                  float YMin, float ZMin, int NumberOfLayers, int &XSwitch, std::string TemperatureDataType,
-                  bool PrintIdleMovieFrames, int MovieFrameInc, int FinishTimeStep = 0) {
+                  ViewF UndercoolingCurrent, std::string OutputFile, int NGrainOrientations, std::string PathToOutput,
+                  int &IntermediateFileCounter, int nzActive, double deltax, float XMin, float YMin, float ZMin,
+                  int NumberOfLayers, int &XSwitch, std::string TemperatureDataType, bool PrintIdleMovieFrames,
+                  int MovieFrameInc, int FinishTimeStep = 0) {
 
     MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
     if (RemainingCellsOfInterest == 0) {
@@ -573,12 +541,12 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
             Kokkos::parallel_reduce(
                 "CheckNextTSForWork", LocalActiveDomainSize,
                 KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &tempv) {
-                    int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-                    int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+                    int RankZ = D3D1ConvPosition / (nx * MyYSlices);
+                    int Rem = D3D1ConvPosition % (nx * MyYSlices);
                     int RankX = Rem / MyYSlices;
                     int RankY = Rem % MyYSlices;
                     int GlobalZ = RankZ + ZBound_Low;
-                    int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                    int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
                     unsigned long int NextWorkTimeStep_ThisCell =
                         (unsigned long int)(FutureWorkView(GlobalD3D1ConvPosition));
                     // remelting/no remelting criteria for a cell to be associated with future work
@@ -604,12 +572,11 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
                         // Print current state of ExaCA simulation (up to and including the current layer's data)
                         // Host mirrors of CellType and GrainID are not maintained - pass device views and perform
                         // copy inside of subroutine
-                        PrintExaCAData(id, layernumber, np, nx, ny, nz, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-                                       ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep,
+                        PrintExaCAData(id, layernumber, np, nx, ny, nz, MyYSlices, MyYOffset, GrainID, CritTimeStep,
                                        GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent,
-                                       OutputFile, DecompositionStrategy, NGrainOrientations, PathToOutput, 0, false,
-                                       false, false, true, false, IntermediateFileCounter, ZBound_Low, nzActive, deltax,
-                                       XMin, YMin, ZMin, NumberOfLayers);
+                                       OutputFile, NGrainOrientations, PathToOutput, 0, false, false, false, true,
+                                       false, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
+                                       NumberOfLayers);
                         IntermediateFileCounter++;
                     }
                 }
@@ -627,16 +594,15 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
 
 //*****************************************************************************/
 // Prints intermediate code output to stdout, checks to see if solidification is complete
-void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset,
-                                int LocalDomainSize, int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive,
-                                double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
-                                int ProcessorsInXDirection, int ProcessorsInYDirection,
-                                int SuccessfulNucEvents_ThisRank, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
-                                ViewI GrainID, std::string TemperatureDataType, int *FinishTimeStep, int layernumber,
-                                int, int ZBound_Low, int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector,
-                                ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string PathToOutput,
-                                std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
-                                int &IntermediateFileCounter, int NumberOfLayers) {
+void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int MyYOffset, int LocalDomainSize,
+                                int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
+                                float XMin, float YMin, float ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch,
+                                ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType,
+                                int *FinishTimeStep, int layernumber, int, int ZBound_Low, int NGrainOrientations,
+                                ViewI LayerID, ViewF GrainUnitVector, ViewF UndercoolingChange,
+                                ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile,
+                                bool PrintIdleMovieFrames, int MovieFrameInc, int &IntermediateFileCounter,
+                                int NumberOfLayers) {
 
     unsigned long int LocalSuperheatedCells;
     unsigned long int LocalUndercooledCells;
@@ -694,9 +660,8 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
     // if nothing left to do in the near future
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
         JumpTimeStep(cycle, GlobalUndercooledCells, LocalSuperheatedCells, CritTimeStep, LocalActiveDomainSize,
-                     MyXSlices, MyYSlices, ZBound_Low, false, CellType, LayerID, id, layernumber, np, nx, ny, nz,
-                     MyXOffset, MyYOffset, ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep,
-                     GrainUnitVector, UndercoolingChange, UndercoolingCurrent, OutputFile, DecompositionStrategy,
+                     MyYSlices, ZBound_Low, false, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyYOffset,
+                     GrainID, CritTimeStep, GrainUnitVector, UndercoolingChange, UndercoolingCurrent, OutputFile,
                      NGrainOrientations, PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin,
                      NumberOfLayers, XSwitch, TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc,
                      FinishTimeStep[layernumber]);
@@ -705,14 +670,15 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
 //*****************************************************************************/
 // Prints intermediate code output to stdout (intermediate output collected and printed is different than without
 // remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
-void IntermediateOutputAndCheck_Remelt(
-    int id, int np, int &cycle, int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, int LocalActiveDomainSize,
-    int nx, int ny, int nz, int nzActive, double deltax, float XMin, float YMin, float ZMin, int DecompositionStrategy,
-    int ProcessorsInXDirection, int ProcessorsInYDirection, int SuccessfulNucEvents_ThisRank, int &XSwitch,
-    ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType, int layernumber, int,
-    int ZBound_Low, int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector, ViewF UndercoolingChange,
-    ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,
-    int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep) {
+void IntermediateOutputAndCheck_Remelt(int id, int np, int &cycle, int MyYSlices, int MyYOffset,
+                                       int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
+                                       float XMin, float YMin, float ZMin, int SuccessfulNucEvents_ThisRank,
+                                       int &XSwitch, ViewI CellType, ViewI CritTimeStep, ViewI GrainID,
+                                       std::string TemperatureDataType, int layernumber, int, int ZBound_Low,
+                                       int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector,
+                                       ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string PathToOutput,
+                                       std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
+                                       int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep) {
 
     unsigned long int LocalSuperheatedCells;
     unsigned long int LocalUndercooledCells;
@@ -724,7 +690,7 @@ void IntermediateOutputAndCheck_Remelt(
         KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &sum_superheated,
                       unsigned long int &sum_undercooled, unsigned long int &sum_active,
                       unsigned long int &sum_temp_solid, unsigned long int &sum_finished_solid) {
-            int GlobalD3D1ConvPosition = D3D1ConvPosition + ZBound_Low * MyXSlices * MyYSlices;
+            int GlobalD3D1ConvPosition = D3D1ConvPosition + ZBound_Low * nx * MyYSlices;
             if (CellType(GlobalD3D1ConvPosition) == Liquid) {
                 if (CritTimeStep(GlobalD3D1ConvPosition) > cycle)
                     sum_superheated += 1;
@@ -763,10 +729,9 @@ void IntermediateOutputAndCheck_Remelt(
     }
     MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
-        JumpTimeStep(cycle, GlobalActiveCells, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize, MyXSlices,
-                     MyYSlices, ZBound_Low, true, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyXOffset,
-                     MyYOffset, ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep, GrainUnitVector,
-                     UndercoolingChange, UndercoolingCurrent, OutputFile, DecompositionStrategy, NGrainOrientations,
-                     PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers, XSwitch,
-                     TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc);
+        JumpTimeStep(cycle, GlobalActiveCells, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize, MyYSlices,
+                     ZBound_Low, true, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyYOffset, GrainID,
+                     CritTimeStep, GrainUnitVector, UndercoolingChange, UndercoolingCurrent, OutputFile,
+                     NGrainOrientations, PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin,
+                     NumberOfLayers, XSwitch, TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc);
 }

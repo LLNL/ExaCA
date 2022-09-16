@@ -34,20 +34,15 @@ void testSubstrateInit_ConstrainedGrowth() {
     int nz = 2;
     int nzActive = 2;
     int nx = 1;
-    int MyXSlices = 1;
-    int MyXOffset = 0;
     // Domain size in Y depends on the number of ranks - each rank has 4 cells in Y
     // Each rank is assigned a different portion of the domain in Y
-    int DecompositionStrategy = 1;
     int ny = 4 * np;
     int MyYSlices = 4;
     int MyYOffset = 4 * id;
-    int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
-    int LocalDomainSize = MyXSlices * MyYSlices * nz;
+    int LocalActiveDomainSize = nx * MyYSlices * nzActive;
+    int LocalDomainSize = nx * MyYSlices * nz;
     // MPI rank locations relative to the global grid
     bool AtNorthBoundary, AtSouthBoundary;
-    bool AtEastBoundary = false;
-    bool AtWestBoundary = false;
     if (id == 0)
         AtSouthBoundary = true;
     else
@@ -77,39 +72,22 @@ void testSubstrateInit_ConstrainedGrowth() {
     ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
 
     // Buffer sizes
-    int BufSizeX = MyXSlices;
-    int BufSizeY = 0;
+    int BufSizeX = nx;
     int BufSizeZ = nzActive;
 
     // Send/recv buffers for ghost node data should be initialized with zeros
     Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 5);
     Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferEastSend("BufferEastSend", BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferWestSend("BufferWestSend", BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferNorthEastSend("BufferNorthEastSend", BufSizeZ, 5);
-    Buffer2D BufferNorthWestSend("BufferNorthWestSend", BufSizeZ, 5);
-    Buffer2D BufferSouthEastSend("BufferSouthEastSend", BufSizeZ, 5);
-    Buffer2D BufferSouthWestSend("BufferSouthWestSend", BufSizeZ, 5);
-    Buffer2D BufferSouthRecv("BufferSouthRecv", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthRecv("BufferNorthRecv", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferEastRecv("BufferEastRecv", BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferWestRecv("BufferWestRecv", BufSizeY * BufSizeZ, 5);
-    Buffer2D BufferNorthEastRecv("BufferNorthEastRecv", BufSizeZ, 5);
-    Buffer2D BufferNorthWestRecv("BufferNorthWestRecv", BufSizeZ, 5);
-    Buffer2D BufferSouthEastRecv("BufferSouthEastRecv", BufSizeZ, 5);
-    Buffer2D BufferSouthWestRecv("BufferSouthWestRecv", BufSizeZ, 5);
-    SubstrateInit_ConstrainedGrowth(
-        id, FractSurfaceSitesActive, MyXSlices, MyYSlices, nx, ny, MyXOffset, MyYOffset, NeighborX, NeighborY,
-        NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID, DiagonalLength, DOCenter, CritDiagonalLength,
-        RNGSeed, np, DecompositionStrategy, BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend,
-        BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, BufSizeX, BufSizeY,
-        AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary);
+    SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
+                                    NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID, DiagonalLength,
+                                    DOCenter, CritDiagonalLength, RNGSeed, np, BufferNorthSend, BufferSouthSend,
+                                    BufSizeX, AtNorthBoundary, AtSouthBoundary);
 
     // Copy CellType, GrainID views to host to check values
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
     for (int i = 0; i < LocalDomainSize; i++) {
-        if (i >= MyXSlices * MyYSlices) {
+        if (i >= nx * MyYSlices) {
             // Not at bottom surface - should be liquid cells with GrainID still equal to 0
             EXPECT_EQ(GrainID_Host(i), 0);
             EXPECT_EQ(CellType_Host(i), Liquid);
@@ -143,15 +121,13 @@ void testBaseplateInit_FromGrainSpacing() {
     ZMinLayer[0] = 0;
     ZMaxLayer[0] = 2 * pow(10, -6);
     int nx = 3;
-    int MyXSlices = 3;
-    int MyXOffset = 0;
     // Each rank is assigned a different portion of the domain in Y
     int ny = 3 * np;
     int MyYSlices = 3;
     int MyYOffset = 3 * id;
     double deltax = 1 * pow(10, -6);
-    int BaseplateSize = MyXSlices * MyYSlices * (round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1);
-    int LocalDomainSize = MyXSlices * MyYSlices * nz;
+    int BaseplateSize = nx * MyYSlices * (round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1);
+    int LocalDomainSize = nx * MyYSlices * nz;
     // There are 36 * np total cells in this domain (nx * ny * nz)
     // Each rank has 36 cells - the bottom 27 cells are assigned baseplate Grain ID values
     // The top cells (Z = 4) are outside the "active" portion of the domain and are not assigned Grain IDs with the rest
@@ -163,8 +139,8 @@ void testBaseplateInit_FromGrainSpacing() {
     // Initialize GrainIDs to 0 on device
     ViewI GrainID("GrainID_Device", LocalDomainSize);
 
-    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyXSlices, MyYSlices, MyXOffset,
-                                   MyYOffset, id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false);
+    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyYSlices, MyYOffset, id,
+                                   deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
@@ -201,13 +177,11 @@ void testPowderInit() {
     float ZMin = 0;
     int LayerHeight = 2;
     int nx = 1;
-    int MyXSlices = 1;
-    int MyXOffset = 0;
     // Each rank is assigned a different portion of the domain in Y
     int ny = 2 * np;
     int MyYSlices = 2;
     int MyYOffset = 2 * id;
-    int LocalDomainSize = MyXSlices * MyYSlices * nz;
+    int LocalDomainSize = nx * MyYSlices * nz;
 
     // Initialize GrainIDs to 0 on device
     ViewI GrainID("GrainID_Device", LocalDomainSize);
@@ -219,8 +193,8 @@ void testPowderInit() {
     // Seed used to shuffle powder layer grain IDs
     double RNGSeed = 0.0;
 
-    PowderInit(layernumber, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-               id, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, 1.0);
+    PowderInit(layernumber, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyYSlices, MyYOffset, id, GrainID, RNGSeed,
+               NextLayer_FirstEpitaxialGrainID, 1.0);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
@@ -232,7 +206,7 @@ void testPowderInit() {
     // Check the results - powder grains should have unique Grain ID values larger than
     // PreviousLayer_FirstEpitaxialGrainID-1 and smaller than NextLayer_FirstEpitaxialGrainID. Other cells should still
     // have Grain IDs of 0
-    int TopPowderLayer = MyXSlices * MyYSlices * (nz - LayerHeight);
+    int TopPowderLayer = nx * MyYSlices * (nz - LayerHeight);
     for (int i = 0; i < TopPowderLayer; i++) {
         EXPECT_EQ(GrainID_H(i), 0);
     }
@@ -261,18 +235,14 @@ void testCellTypeInit_NoRemelt() {
     int ZBound_Low = ZBound_High - (5 - (id % nz));
     int nzActive = ZBound_High - ZBound_Low + 1;
     // Each rank is assigned the same X and Y regions
-    int MyXSlices = 7;
-    int MyXOffset = 0;
+    int nx = 7;
     // Each rank is assigned a different portion of the domain in Y
     int MyYSlices = 4;
     int MyYOffset = 0;
-    int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
-    int LocalDomainSize = MyXSlices * MyYSlices * nz;
-    int DecompositionStrategy = 1;
+    int LocalActiveDomainSize = nx * MyYSlices * nzActive;
+    int LocalDomainSize = nx * MyYSlices * nz;
     // MPI rank locations relative to the global grid
     bool AtNorthBoundary, AtSouthBoundary;
-    bool AtEastBoundary = false;
-    bool AtWestBoundary = false;
     if (id == 0)
         AtSouthBoundary = true;
     else
@@ -292,9 +262,9 @@ void testCellTypeInit_NoRemelt() {
     ViewI_H GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"), LocalDomainSize);
     ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_Host"), LocalDomainSize);
     for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < MyXSlices; i++) {
+        for (int i = 0; i < nx; i++) {
             for (int j = 0; j < MyYSlices; j++) {
-                int D3D1ConvPositionGlobal = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                int D3D1ConvPositionGlobal = k * nx * MyYSlices + i * MyYSlices + j;
                 GrainID_Host(D3D1ConvPositionGlobal) = 1;
                 // Let the top portion of the cells be part of a different layernumber
                 if (k == nz - 1)
@@ -337,27 +307,17 @@ void testCellTypeInit_NoRemelt() {
     ViewI CellType(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalDomainSize);
 
     // Buffers for ghost node data (fixed size)
-    int BufSizeX = MyXSlices;
-    int BufSizeY = 0;
+    int BufSizeX = nx;
 
     // Send buffers for ghost node data should be initialized with zeros
     Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * nzActive, 5);
     Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * nzActive, 5);
-    Buffer2D BufferEastSend("BufferEastSend", BufSizeY * nzActive, 5);
-    Buffer2D BufferWestSend("BufferWestSend", BufSizeY * nzActive, 5);
-    Buffer2D BufferNorthEastSend("BufferNorthEastSend", nzActive, 5);
-    Buffer2D BufferNorthWestSend("BufferNorthWestSend", nzActive, 5);
-    Buffer2D BufferSouthEastSend("BufferSouthEastSend", nzActive, 5);
-    Buffer2D BufferSouthWestSend("BufferSouthWestSend", nzActive, 5);
 
     // Initialize cell types and active cell data structures
-    CellTypeInit_NoRemelt(layernumber, id, np, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-                          ZBound_Low, nz, LocalActiveDomainSize, LocalDomainSize, CellType, CritTimeStep, NeighborX,
-                          NeighborY, NeighborZ, NGrainOrientations, GrainUnitVector, DiagonalLength, GrainID,
-                          CritDiagonalLength, DOCenter, LayerID, BufferWestSend, BufferEastSend, BufferNorthSend,
-                          BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
-                          BufferSouthWestSend, BufSizeX, BufSizeY, AtNorthBoundary, AtSouthBoundary, AtEastBoundary,
-                          AtWestBoundary);
+    CellTypeInit_NoRemelt(layernumber, id, np, nx, MyYSlices, MyYOffset, ZBound_Low, nz, LocalActiveDomainSize,
+                          LocalDomainSize, CellType, CritTimeStep, NeighborX, NeighborY, NeighborZ, NGrainOrientations,
+                          GrainUnitVector, DiagonalLength, GrainID, CritDiagonalLength, DOCenter, LayerID,
+                          BufferNorthSend, BufferSouthSend, BufSizeX, AtNorthBoundary, AtSouthBoundary);
 
     // Copy views back to host to check the results
     ViewF_H DiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DiagonalLength);
@@ -376,9 +336,9 @@ void testCellTypeInit_NoRemelt() {
         1.5170407, 1.5170407, 2.0631709, 2.4170833, 2.4170833, 2.0631709, 1.4566354, 1.4566354, 1.7009791,
         1.9409314, 2.1710088, 2.2444904, 1.9225541, 2.6560757, 2.1579263, 2.6762404, 2.7775438};
     for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < MyXSlices; i++) {
+        for (int i = 0; i < nx; i++) {
             for (int j = 0; j < MyYSlices; j++) {
-                int D3D1ConvPositionGlobal = k * MyXSlices * MyYSlices + i * MyYSlices + j;
+                int D3D1ConvPositionGlobal = k * nx * MyYSlices + i * MyYSlices + j;
                 if (i + k <= 5) {
                     EXPECT_EQ(CellType_Host(D3D1ConvPositionGlobal), Solid);
                 }
@@ -387,13 +347,13 @@ void testCellTypeInit_NoRemelt() {
                     // Check that active cell data structures were initialized properly for cells in the active portion
                     // of the domain
                     if ((k >= ZBound_Low) && (k <= ZBound_High)) {
-                        int D3D1ConvPosition = (k - ZBound_Low) * MyXSlices * MyYSlices + i * MyYSlices + j;
+                        int D3D1ConvPosition = (k - ZBound_Low) * nx * MyYSlices + i * MyYSlices + j;
                         EXPECT_FLOAT_EQ(DiagonalLength_Host(D3D1ConvPosition),
                                         0.01); // initial octahedron diagonal length
                         // Octahedron center should be at the origin of the active cell on the grid in x, y, z (0, 1, 0)
                         // plus 0.5 to each coordinate, since the center is coincident with the cell center
                         EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition),
-                                        i + MyXOffset + 0.5); // X position of octahedron center
+                                        i + 0.5); // X position of octahedron center
                         EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition + 1),
                                         j + MyYOffset + 0.5); // Y position of octahedron center
                         EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition + 2),
@@ -417,14 +377,13 @@ void testCellTypeInit_NoRemelt() {
     // Further check that active cell data was properly loaded into send buffers, and that locations in the send buffers
     // not corresponding to active cells were left alone (should still be 0s)
     for (int k = ZBound_Low; k <= ZBound_High; k++) {
-        for (int i = 0; i < MyXSlices; i++) {
+        for (int i = 0; i < nx; i++) {
             int GNPosition = (k - ZBound_Low) * BufSizeX + i; // Position of cell in buffer
             // Check the south buffer - Data being sent to the "south" (BufferSouthSend) is from active cells at Y = 1
-            int D3D1ConvPositionGlobal_South =
-                k * MyXSlices * MyYSlices + i * MyYSlices + 1; // Position of cell on grid
+            int D3D1ConvPositionGlobal_South = k * nx * MyYSlices + i * MyYSlices + 1; // Position of cell on grid
             if ((CellType_Host(D3D1ConvPositionGlobal_South) == Active) && (!(AtSouthBoundary))) {
                 EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 0), 1);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 1), i + MyXOffset + 0.5);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 1), i + 0.5);
                 EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 2), 1 + MyYOffset + 0.5);
                 EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 3), k + 0.5);
                 EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 4), 0.01);
@@ -435,10 +394,10 @@ void testCellTypeInit_NoRemelt() {
                 }
             }
             // Check the north buffer - Data being sent to the "north" (BufferNorthSend) is from active cells at Y = 2
-            int D3D1ConvPositionGlobal_North = k * MyXSlices * MyYSlices + i * MyYSlices + 2;
+            int D3D1ConvPositionGlobal_North = k * nx * MyYSlices + i * MyYSlices + 2;
             if ((CellType_Host(D3D1ConvPositionGlobal_North) == Active) && (!(AtNorthBoundary))) {
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 0), 1);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 1), i + MyXOffset + 0.5);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 1), i + 0.5);
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 2), 2 + MyYOffset + 0.5);
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 3), k + 0.5);
                 EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 4), 0.01);
@@ -461,20 +420,20 @@ void testCellTypeInit_Remelt() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
     // Domain for each rank
-    int MyXSlices = id + 5;
+    int nx = id + 5;
     int MyYSlices = id + 5;
     int nzActive = 5;
     int ZBound_Low = 2;
     int nz = nzActive + ZBound_Low;
-    int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
-    int LocalDomainSize = MyXSlices * MyYSlices * nz;
+    int LocalActiveDomainSize = nx * MyYSlices * nzActive;
+    int LocalDomainSize = nx * MyYSlices * nz;
 
     // Temporary host view for initializing CritTimeStep
     ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
     for (int GlobalZ = 0; GlobalZ < nz; GlobalZ++) {
-        for (int RankX = 0; RankX < MyXSlices; RankX++) {
+        for (int RankX = 0; RankX < nx; RankX++) {
             for (int RankY = 0; RankY < MyYSlices; RankY++) {
-                int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
                 if (GlobalZ < ZBound_Low) {
                     // Not in active domain, assign these a negative value
                     CritTimeStep_Host(GlobalD3D1ConvPosition) = -1;
@@ -495,15 +454,15 @@ void testCellTypeInit_Remelt() {
     ViewI CellType("CellType", LocalDomainSize);
 
     // Initialize cell type values
-    CellTypeInit_Remelt(MyXSlices, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
+    CellTypeInit_Remelt(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
 
     // Copy cell types back to host to check
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
 
     for (int GlobalZ = 0; GlobalZ < nz; GlobalZ++) {
-        for (int RankX = 0; RankX < MyXSlices; RankX++) {
+        for (int RankX = 0; RankX < nx; RankX++) {
             for (int RankY = 0; RankY < MyYSlices; RankY++) {
-                int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
                 if (GlobalZ < ZBound_Low) {
                     // These cells should still be 0 (Wall) - untouched by CellTypeInit_Remelt
                     EXPECT_EQ(CellType_Host(GlobalD3D1ConvPosition), Wall);
@@ -537,19 +496,15 @@ void testNucleiInit(bool RemeltingYN) {
     int ZBound_Low = 1;
     int layernumber = 1;
     int nx = 4;
-    int MyXSlices = 4;
-    int MyXOffset = 0;
     // Each rank is assigned a different portion of the domain in Y
     int ny = 2 * np;
     int MyYSlices = 2;
     int MyYOffset = 2 * id;
     double deltax = 1;
-    int LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
-    int LocalDomainSize = MyXSlices * MyYSlices * nz;
+    int LocalActiveDomainSize = nx * MyYSlices * nzActive;
+    int LocalDomainSize = nx * MyYSlices * nz;
     // MPI rank locations relative to the global grid
     bool AtNorthBoundary, AtSouthBoundary;
-    bool AtEastBoundary = true;
-    bool AtWestBoundary = true;
     if (id == 0)
         AtSouthBoundary = true;
     else
@@ -614,12 +569,12 @@ void testNucleiInit(bool RemeltingYN) {
     if (RemeltingYN) {
         // Cells solidify 1, 2, or 3 times, depending on their X coordinate
         for (int k = 0; k < nzActive; k++) {
-            for (int i = 0; i < MyXSlices; i++) {
+            for (int i = 0; i < nx; i++) {
                 for (int j = 0; j < MyYSlices; j++) {
-                    int D3D1ConvPosition = k * MyXSlices * MyYSlices + i * MyYSlices + j;
-                    if (i < MyXSlices / 2 - 1)
+                    int D3D1ConvPosition = k * nx * MyYSlices + i * MyYSlices + j;
+                    if (i < nx / 2 - 1)
                         NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 3;
-                    else if (i < MyXSlices / 2)
+                    else if (i < nx / 2)
                         NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 2;
                     else
                         NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 1;
@@ -628,9 +583,9 @@ void testNucleiInit(bool RemeltingYN) {
         }
         for (int n = 0; n < MaxSolidificationEvents_Count; n++) {
             for (int RankZ = 0; RankZ < nzActive; RankZ++) {
-                for (int RankX = 0; RankX < MyXSlices; RankX++) {
+                for (int RankX = 0; RankX < nx; RankX++) {
                     for (int RankY = 0; RankY < MyYSlices; RankY++) {
-                        int D3D1ConvPosition = RankZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                        int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
                         int GlobalZ = RankZ + ZBound_Low;
                         if (n < NumberOfSolidificationEvents_Host(D3D1ConvPosition)) {
                             LayerTimeTempHistory_Host(D3D1ConvPosition, n, 0) =
@@ -651,8 +606,8 @@ void testNucleiInit(bool RemeltingYN) {
     }
     else {
         for (int i = 0; i < LocalDomainSize; i++) {
-            int GlobalZ = i / (MyXSlices * MyYSlices);
-            int Rem = i % (MyXSlices * MyYSlices);
+            int GlobalZ = i / (nx * MyYSlices);
+            int Rem = i % (nx * MyYSlices);
             int RankY = Rem % MyYSlices;
             CritTimeStep_Host(i) = GlobalZ + RankY + MyYOffset + 1;
             UndercoolingChange_Host(i) =
@@ -667,11 +622,10 @@ void testNucleiInit(bool RemeltingYN) {
         Kokkos::create_mirror_view_and_copy(memory_space(), NumberOfSolidificationEvents_Host);
     ViewF3D LayerTimeTempHistory = Kokkos::create_mirror_view_and_copy(memory_space(), LayerTimeTempHistory_Host);
 
-    NucleiInit(layernumber, RNGSeed, MyXSlices, MyYSlices, MyXOffset, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax,
-               dTN, dTsigma, deltax, NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep,
-               UndercoolingChange, LayerID, PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary,
-               AtSouthBoundary, AtEastBoundary, AtWestBoundary, RemeltingYN, NucleationCounter, MaxSolidificationEvents,
-               NumberOfSolidificationEvents, LayerTimeTempHistory);
+    NucleiInit(layernumber, RNGSeed, MyYSlices, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax, dTN, dTsigma, deltax,
+               NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep, UndercoolingChange, LayerID,
+               PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary, RemeltingYN,
+               NucleationCounter, MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory);
 
     // Copy results back to host to check
     ViewI_H NucleiLocation_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NucleiLocation);
@@ -694,8 +648,8 @@ void testNucleiInit(bool RemeltingYN) {
         // Are the correct undercooling values associated with the correct cell locations?
         // Cell location is a global position (relative to the bottom of the whole domain, not the layer)
         int GlobalCellLocation = NucleiLocation_Host(n);
-        int GlobalZ = GlobalCellLocation / (MyXSlices * MyYSlices);
-        int Rem = GlobalCellLocation % (MyXSlices * MyYSlices);
+        int GlobalZ = GlobalCellLocation / (nx * MyYSlices);
+        int Rem = GlobalCellLocation % (nx * MyYSlices);
         int RankY = Rem % MyYSlices;
         // Expected nucleation time is known exactly if no remelting
         int Expected_NucleationTimeNoRM = GlobalZ + RankY + MyYOffset + 2;

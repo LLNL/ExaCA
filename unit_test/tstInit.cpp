@@ -101,8 +101,8 @@ void testInputReadFromFile() {
 
     // Read and parse each input file
     for (auto FileName : InputFilenames) {
-        int DecompositionStrategy, TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, PrintDebug, NSpotsX,
-            NSpotsY, SpotOffset, SpotRadius, TimeSeriesInc, RVESize;
+        int TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, PrintDebug, NSpotsX, NSpotsY, SpotOffset,
+            SpotRadius, TimeSeriesInc, RVESize;
         float SubstrateGrainSpacing;
         double deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R, FractSurfaceSitesActive, RNGSeed, PowderDensity;
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
@@ -110,8 +110,7 @@ void testInputReadFromFile() {
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput, MaterialFileName;
         std::vector<std::string> temp_paths;
-        InputReadFromFile(id, FileName, SimulationType, DecompositionStrategy, deltax, NMax, dTN, dTsigma, OutputFile,
-                          GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
+        InputReadFromFile(id, FileName, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
                           NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName, SubstrateGrainSpacing,
                           UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
                           PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
@@ -123,7 +122,11 @@ void testInputReadFromFile() {
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
         // InputReadFromFile
         // These should be the same for all 3 test problems
-        EXPECT_EQ(DecompositionStrategy, 1);
+        EXPECT_DOUBLE_EQ(AConst, -0.00000010302);
+        EXPECT_DOUBLE_EQ(BConst, 0.00010533);
+        EXPECT_DOUBLE_EQ(CConst, 0.0022196);
+        EXPECT_DOUBLE_EQ(DConst, 0);
+        EXPECT_DOUBLE_EQ(FreezingRange, 210);
         EXPECT_DOUBLE_EQ(deltax, 1.0 * pow(10, -6));
         EXPECT_DOUBLE_EQ(NMax, 1.0 * pow(10, 13));
         EXPECT_DOUBLE_EQ(dTN, 5.0);
@@ -261,10 +264,10 @@ void testcalcnzActive() {
 
 void testcalcLocalActiveDomainSize() {
 
-    int MyXSlices = 5;
+    int nx = 5;
     int MyYSlices = 4;
     int nzActive = 10;
-    int LocalActiveDomainSize = calcLocalActiveDomainSize(MyXSlices, MyYSlices, nzActive);
+    int LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
     EXPECT_EQ(LocalActiveDomainSize, 10 * 5 * 4);
 }
 
@@ -277,9 +280,9 @@ void testReadTemperatureData() {
     double deltax = 1 * pow(10, -6);
     double HT_deltax = 1 * pow(10, -6);
     int HTtoCAratio;
-    // Domain size is a 6 by 6 region
-    int nx = 6;
-    int ny = 6;
+    // Domain size is a 3 by 12 region
+    int nx = 3;
+    int ny = 12;
     // Write fake OpenFOAM data - only rank 0.
     std::string TestTempFileName = "TestData.txt";
     std::ofstream TestDataFile;
@@ -293,22 +296,10 @@ void testReadTemperatureData() {
     }
     TestDataFile.close();
 
-    // Test each 3 by 3 subdomain
+    // Test each 12 by 3 subdomain
     for (int id = 0; id < 4; id++) {
-        int MyXSlices = 3;
         int MyYSlices = 3;
-        int ProcRow, ProcCol, MyXOffset, MyYOffset;
-        if (id % 2 == 0) {
-            ProcRow = 0;   // even ranks
-            MyXOffset = 0; // no offset in X: contains X = 0-3
-        }
-        else {
-            ProcRow = 1;   // odd ranks
-            MyXOffset = 3; // X = 3 offset, contains X = 4-6
-        }
-        ProcCol = id / 2;        // Ranks 0-1 in 0th col, 2-3 in 1st col
-        MyYOffset = 3 * ProcCol; // each col is separated from the others by 3 cells
-        float XMin = 0.0;
+        int MyYOffset = 3 * id; // each col is separated from the others by 3 cells
         float YMin = 0.0;
         std::vector<std::string> temp_paths(1);
         temp_paths[0] = TestTempFileName;
@@ -325,13 +316,12 @@ void testReadTemperatureData() {
         float *ZMaxLayer = new float[NumberOfLayers];
         ZMinLayer[0] = 0.0;
         ZMaxLayer[0] = 0.0;
-        ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyXSlices, MyYSlices, MyXOffset, MyYOffset, XMin, YMin,
-                            temp_paths, NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
-                            FirstValue, LastValue);
+        ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths, NumberOfLayers,
+                            TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue, LastValue);
 
         // Check the results.
         // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr)
-        // for each of the 9 cells in the subdomain
+        // for each of the 12 cells in the subdomain
         EXPECT_EQ(NumberOfTemperatureDataPoints, 54);
         // Ratio of HT cell size and CA cell size should be 1
         EXPECT_EQ(HTtoCAratio, 1);
@@ -343,9 +333,9 @@ void testReadTemperatureData() {
             int CARow = n % 3;
             int CACol = n / 3;
             // X Coordinate
-            ExpectedValues_ThisDataPoint[0] = (CARow + 3 * ProcRow) * deltax;
+            ExpectedValues_ThisDataPoint[0] = CARow * deltax;
             // Y Coordinate
-            ExpectedValues_ThisDataPoint[1] = (CACol + 3 * ProcCol) * deltax;
+            ExpectedValues_ThisDataPoint[1] = (CACol + 3 * id) * deltax;
             // Z Coordinate
             ExpectedValues_ThisDataPoint[2] = 0.0;
             int XInt = ExpectedValues_ThisDataPoint[0] / deltax;
