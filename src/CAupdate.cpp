@@ -604,40 +604,47 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
 // Without remelting, the cells of interest are undercooled liquid cells, and the view checked for future work is
 // CritTimeStep With remelting, the cells of interest are active cells, and the view checked for future work is
 // MeltTimeStep Print intermediate output during this jump if PrintIdleMovieFrames = true
-void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, ViewI FutureWorkView,
-                  int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int ZBound_Low, bool RemeltingYN,
-                  ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny, int nz, int MyXOffset,
-                  int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection, ViewI GrainID,
-                  ViewI CritTimeStep, ViewF GrainUnitVector, ViewF UndercoolingChange, ViewF UndercoolingCurrent,
-                  std::string OutputFile, int DecompositionStrategy, int NGrainOrientations, std::string PathToOutput,
-                  int &IntermediateFileCounter, int nzActive, double deltax, float XMin, float YMin, float ZMin,
-                  int NumberOfLayers, int &XSwitch, std::string TemperatureDataType, bool PrintIdleMovieFrames,
-                  int MovieFrameInc, int FinishTimeStep = 0) {
+void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalIncompleteCells,
+                  ViewI FutureWorkView, int LocalActiveDomainSize, int MyXSlices, int MyYSlices, int ZBound_Low,
+                  bool RemeltingYN, ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny,
+                  int nz, int MyXOffset, int MyYOffset, int ProcessorsInXDirection, int ProcessorsInYDirection,
+                  ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector, ViewF UndercoolingChange,
+                  ViewF UndercoolingCurrent, std::string OutputFile, int DecompositionStrategy, int NGrainOrientations,
+                  std::string PathToOutput, int &IntermediateFileCounter, int nzActive, double deltax, float XMin,
+                  float YMin, float ZMin, int NumberOfLayers, int &XSwitch, std::string TemperatureDataType,
+                  bool PrintIdleMovieFrames, int MovieFrameInc, int FinishTimeStep = 0) {
 
     MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
     if (RemainingCellsOfInterest == 0) {
-        // Check when the next superheated cells go below the liquidus
+        // If this rank still has cells that will later undergo transformation (LocalIncompleteCells > 0), check when
+        // the next superheated cells go below the liquidus (no remelting) or check when the next solid cells go above
+        // the liquidus (remelting) Otherwise, assign the largest possible time step as the next time work needs to be
+        // done on the rank
         unsigned long int NextWorkTimeStep;
-        Kokkos::parallel_reduce(
-            "CellCapture", LocalActiveDomainSize,
-            KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &tempv) {
-                int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-                int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
-                int RankX = Rem / MyYSlices;
-                int RankY = Rem % MyYSlices;
-                int GlobalZ = RankZ + ZBound_Low;
-                int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
-                unsigned long int NextWorkTimeStep_ThisCell =
-                    (unsigned long int)(FutureWorkView(GlobalD3D1ConvPosition));
-                // remelting/no remelting criteria for a cell to be associated with future work
-                if (((!(RemeltingYN)) && (CellType(GlobalD3D1ConvPosition) == Liquid) &&
-                     (LayerID(GlobalD3D1ConvPosition) == layernumber)) ||
-                    ((RemeltingYN) && (CellType(GlobalD3D1ConvPosition) == TempSolid))) {
-                    if (NextWorkTimeStep_ThisCell < tempv)
-                        tempv = NextWorkTimeStep_ThisCell;
-                }
-            },
-            Kokkos::Min<unsigned long int>(NextWorkTimeStep));
+        if (LocalIncompleteCells > 0) {
+            Kokkos::parallel_reduce(
+                "CheckNextTSForWork", LocalActiveDomainSize,
+                KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &tempv) {
+                    int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+                    int Rem = D3D1ConvPosition % (MyXSlices * MyYSlices);
+                    int RankX = Rem / MyYSlices;
+                    int RankY = Rem % MyYSlices;
+                    int GlobalZ = RankZ + ZBound_Low;
+                    int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
+                    unsigned long int NextWorkTimeStep_ThisCell =
+                        (unsigned long int)(FutureWorkView(GlobalD3D1ConvPosition));
+                    // remelting/no remelting criteria for a cell to be associated with future work
+                    if (((!(RemeltingYN)) && (CellType(GlobalD3D1ConvPosition) == Liquid) &&
+                         (LayerID(GlobalD3D1ConvPosition) == layernumber)) ||
+                        ((RemeltingYN) && (CellType(GlobalD3D1ConvPosition) == TempSolid))) {
+                        if (NextWorkTimeStep_ThisCell < tempv)
+                            tempv = NextWorkTimeStep_ThisCell;
+                    }
+                },
+                Kokkos::Min<unsigned long int>(NextWorkTimeStep));
+        }
+        else
+            NextWorkTimeStep = INT_MAX;
 
         unsigned long int GlobalNextWorkTimeStep;
         MPI_Allreduce(&NextWorkTimeStep, &GlobalNextWorkTimeStep, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
@@ -737,12 +744,13 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
     // If an appropraite problem type/solidification is not finished, jump to the next time step with work to be done,
     // if nothing left to do in the near future
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
-        JumpTimeStep(cycle, GlobalUndercooledCells, CritTimeStep, LocalActiveDomainSize, MyXSlices, MyYSlices,
-                     ZBound_Low, false, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyXOffset, MyYOffset,
-                     ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep, GrainUnitVector,
-                     UndercoolingChange, UndercoolingCurrent, OutputFile, DecompositionStrategy, NGrainOrientations,
-                     PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers, XSwitch,
-                     TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc, FinishTimeStep[layernumber]);
+        JumpTimeStep(cycle, GlobalUndercooledCells, LocalSuperheatedCells, CritTimeStep, LocalActiveDomainSize,
+                     MyXSlices, MyYSlices, ZBound_Low, false, CellType, LayerID, id, layernumber, np, nx, ny, nz,
+                     MyXOffset, MyYOffset, ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep,
+                     GrainUnitVector, UndercoolingChange, UndercoolingCurrent, OutputFile, DecompositionStrategy,
+                     NGrainOrientations, PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin,
+                     NumberOfLayers, XSwitch, TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc,
+                     FinishTimeStep[layernumber]);
 }
 
 //*****************************************************************************/
@@ -805,9 +813,9 @@ void IntermediateOutputAndCheck_Remelt(
     }
     MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
-        JumpTimeStep(cycle, GlobalActiveCells, MeltTimeStep, LocalActiveDomainSize, MyXSlices, MyYSlices, ZBound_Low,
-                     true, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyXOffset, MyYOffset,
-                     ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep, GrainUnitVector,
+        JumpTimeStep(cycle, GlobalActiveCells, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize, MyXSlices,
+                     MyYSlices, ZBound_Low, true, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyXOffset,
+                     MyYOffset, ProcessorsInXDirection, ProcessorsInYDirection, GrainID, CritTimeStep, GrainUnitVector,
                      UndercoolingChange, UndercoolingCurrent, OutputFile, DecompositionStrategy, NGrainOrientations,
                      PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers, XSwitch,
                      TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc);
