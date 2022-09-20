@@ -1,5 +1,5 @@
 # ExaCA problem types and auxiliary files
-ExaCA currently can model three types of problems:
+ExaCA currently can model five types of problems:
 
 * Problem type C is a directional solidification problem, with the bottom surface initialized with some fraction of sites home to epitaxial grains and at the liquidus temperature and a positive thermal gradient in the +Z direction. The domain is then cooled at a constant rate. 
 * Problem type S is an array of hemispherical spots, with the number of spots in X, Y, and the number of layers for which the pattern is repeated (offset by a specified number of cells in the positive Z direction) specified. This problem type also uses fixed thermal gradient magnitude and cooling rate for each spot. 
@@ -8,6 +8,7 @@ ExaCA currently can model three types of problems:
     * Each line following the first should have six comma-separated values corresponding to x, y, z, tm, tl, cr. x, y, and z are cell coordinates, in meters, of a given location in the simulation. The spacing between locations should correpond to a Cartesian grid, with a cell size equivalent to that specified in the input file. For each time that an x,y,z coordinate went above and below the liqiuidus temperature of the alloy during a heat transport simulation, a tm (time at which the point went above the liquidus), tl (time at which the point went below the liquidus), and cr (instantaneous cooling rate at the liquidus) should be recorded. 
     * If an x,y,z coordinate melted and solidified multiple times, it should appear in the file multiple times on separate lines. The order of the lines do not matter, except that the header line must be before any data.
     * The top surface (the largest Z coordinate in a file) is assumed to be flat. Additionally, if multiple temperature files are being used (for example, a scan pattern consisting of 10 layers of repeating even and odd file data), the Z coordinate corresponding to this flat top surface should be the same for all files.
+* Problem types SM and RM are modifications of problem types S and R that include multiple melting and solidification events per cell. This is as opposed to problem types S and R, within which all cells that will eventually undergo melting are initialized as liquid, and only the final time that a given cell goes below the liquidus temperature is modeled. To guarantee accurate results for a generic problem using external time-temperature history data, all melting and solidification events should be modeled; however, for some problem geometries, the microstructure resulting from only considering the final solidification event in each cell is a reasonable fast approximation.
 
 All problem types rely on two files in addition to the main input file. First,
 a file containing the interfacial response function data governing
@@ -29,7 +30,7 @@ to simplfy use the file name in the input file. Custom files must either be
 added to the ExaCA CMake build, use an absolute file path, or a path relative
 to the ExaCA source.
 
-Problems of type R rely on a third file for temperature input, with the path
+Problems of type R or RM rely on a third file for temperature input, with the path
 and name of this file given in the master input file. Examples of these
 temperature field assembly files are given in
 `examples/Temperatures/T_SimpleRaster.txt` and
@@ -47,6 +48,7 @@ The below lines are required regardless of problem type. They can be in any orde
 | Problem type           | C for directional solidification (thermal gradient in build direction, fixed cooling rate)
 |                        | S for spot melt array problem (fixed thermal gradient/constant cooling rate for each hemispherical spot)
 |                        | R for use of temperature data provided in the appropriate format (see README file in examples/Temperatures)
+|                        | M should be appended to problem type if multiple melting and solidifcation events are desired (i.e, SM or RM)
 | Decomposition strategy | 1 for a 1D domain decomposition along the Y direction
 |                        | 2 for a decomposition along the Y direction, with a single partiton along the X direction
 |                        | 3 for a decomposition with roughly equal partitions along the X and Y directions
@@ -78,7 +80,7 @@ All inputs are required.
 | Domain size in z  | Domain size in z
 | Fraction surface sites active| What fraction of cells at the bottom surface of the domain are the source of a grain?
 
-### Problem type S
+### Problem type S or SM
 Some additional inputs are optional while others are required
 
 |Input                                   | Required Y/N | Details |
@@ -100,7 +102,7 @@ Some additional inputs are optional while others are required
 (a) One of these inputs must be provided, but not both
 (b) This is optional, but if this is given, "Extend baseplate through layers" must be set to N
 
-### Problem type R
+### Problem type R or RM
 Some additional inputs are optional while others are required
 
 |Input                                                        | Required Y/N | Details |
@@ -129,7 +131,7 @@ A comment line starting with an asterisk separates the first half of the file, c
 The deprecated form for temperature field input data, where these 3 input lines exist in the top level input file, alongside inputs "Number of temperature files in series: N" and "Temperature filename(s): Data.txt" (which would indicate reading temperature data from files "1Data.txt", "2Data.txt".... "NData.txt", is still allowed but will be removed in a future release.
 
 ## Additional optional inputs for all problem types 
-These values govern the printing intermediate data, for debugging or visualization, either following initialization or at specified increments during simulation
+These values govern the printing intermediate data, for debugging or visualization, either following initialization or at specified increments during simulation. Debug check options are currently only available for simulations that do not include multiple melting/soldification events per cell (i.e., only problem types C, S, and R, not SM nor RM)
 
 |Input                       | Details |
 |----------------------------|---------|
