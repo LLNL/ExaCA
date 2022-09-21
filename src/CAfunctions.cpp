@@ -13,24 +13,6 @@
 /*************************** FUNCTIONS CALLED THROUGH MAIN SUBROUTINES ***************************/
 
 //*****************************************************************************/
-// Return the three terms of the cross product between two column vectors of length three
-double CrossP1(double TestVec1[3], double TestVec2[3]) {
-    double CrossPOut;
-    CrossPOut = TestVec1[1] * TestVec2[2] - TestVec1[2] * TestVec2[1];
-    return CrossPOut;
-}
-double CrossP2(double TestVec1[3], double TestVec2[3]) {
-    double CrossPOut;
-    CrossPOut = TestVec1[2] * TestVec2[0] - TestVec1[0] * TestVec2[2];
-    return CrossPOut;
-}
-double CrossP3(double TestVec1[3], double TestVec2[3]) {
-    double CrossPOut;
-    CrossPOut = TestVec1[0] * TestVec2[1] - TestVec1[1] * TestVec2[0];
-    return CrossPOut;
-}
-
-//*****************************************************************************/
 int XMPSlicesCalc(int p, int nx, int ProcessorsInXDirection, int ProcessorsInYDirection, int DecompositionStrategy) {
     int XRemoteMPSlices = 0;
     if (DecompositionStrategy == 1) {
@@ -237,29 +219,6 @@ int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices) {
         }
     }
     return ItBounds;
-}
-
-//*****************************************************************************/
-// Given a list of 6 values, return the index of the largest one
-int MaxIndex(double TestVec3[6]) {
-    int MaxIT = 0;
-    for (int i = 1; i < 6; i++) {
-        if (TestVec3[MaxIT] < TestVec3[i]) {
-            MaxIT = i;
-        }
-    }
-    return MaxIT;
-}
-
-// Given a list of 6 values, return the largest one
-double MaxVal(double TestVec3[6], int NVals) {
-    double MaxIT = TestVec3[0];
-    for (int i = 1; i < NVals; i++) {
-        if (MaxIT < TestVec3[i]) {
-            MaxIT = TestVec3[i];
-        }
-    }
-    return MaxIT;
 }
 
 //*****************************************************************************/
