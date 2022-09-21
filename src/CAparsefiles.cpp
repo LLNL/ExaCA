@@ -21,7 +21,7 @@
 
 //*****************************************************************************/
 // Remove whitespace from "line", optional argument to take only portion of the line after position "pos"
-std::string removeWhitespace(std::string line, int pos = -1) {
+std::string removeWhitespace(std::string line, int pos) {
 
     std::string val = line.substr(pos + 1, std::string::npos);
     std::regex r("\\s+");
@@ -44,7 +44,7 @@ void skipLines(std::ifstream &stream, std::string seperator) {
 // from InputKeys Store the appropriate portion of the line read from the file in ParsedInputs Return whether a match
 // was found for the input or not
 bool parseInputFromList(std::string line, std::vector<std::string> InputKeys, std::vector<std::string> &ParsedInputs,
-                        int NumInputs = 1) {
+                        int NumInputs) {
 
     // Only attempt to parse the line if it isn't empty - ignore empty lines
     if (line.empty())
@@ -112,13 +112,13 @@ int getInputInt(std::string val_input) {
 }
 
 // Convert string "val_input" to float value multipled by 10^(factor)
-float getInputFloat(std::string val_input, int factor = 0) {
+float getInputFloat(std::string val_input, int factor) {
     float FloatFromString = atof(val_input.c_str()) * pow(10, factor);
     return FloatFromString;
 }
 
 // Convert string "val_input" to double value multipled by 10^(factor)
-double getInputDouble(std::string val_input, int factor = 0) {
+double getInputDouble(std::string val_input, int factor) {
     double DoubleFromString = std::stod(val_input.c_str()) * pow(10, factor);
     return DoubleFromString;
 }
@@ -126,8 +126,7 @@ double getInputDouble(std::string val_input, int factor = 0) {
 // Given a string ("line"), parse at "separator" (commas used by default)
 // Modifies "parsed_line" to hold the separated values
 // expected_num_values may be larger than parsed_line_size, if only a portion of the line is being parsed
-void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values,
-                 char separator = ',') {
+void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values, char separator) {
     // Make sure the right number of values are present on the line - one more than the number of separators
     int actual_num_values = std::count(line.begin(), line.end(), separator) + 1;
     if (expected_num_values != actual_num_values) {
@@ -220,7 +219,7 @@ void parseTemperatureInput_Old(std::vector<std::string> DeprecatedInputs, std::v
     getTemperatureFilePaths_Old(temppath, tempfile, temp_paths);
 }
 
-bool checkFileExists(const std::string path, const int id, const bool error = true) {
+bool checkFileExists(const std::string path, const int id, const bool error) {
     std::ifstream stream;
     stream.open(path);
     if (!(stream.is_open())) {
