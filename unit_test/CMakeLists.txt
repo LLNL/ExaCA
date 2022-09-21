@@ -45,7 +45,7 @@ macro(ExaCA_add_tests_nobackend)
     foreach(_np ${EXACA_UNIT_TEST_MPIEXEC_NUMPROCS})
       add_test(NAME ${_target}_np_${_np} COMMAND
         ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_np} ${MPIEXEC_PREFLAGS}
-        ${_target} ${MPIEXEC_POSTFLAGS} ${gtest_args})
+        $<TARGET_FILE:${_target}> ${MPIEXEC_POSTFLAGS} ${gtest_args})
     endforeach()
   endforeach()
 endmacro()
@@ -93,12 +93,12 @@ macro(ExaCA_add_tests)
           foreach(_thread ${EXACA_UNIT_TEST_NUMTHREADS})
             add_test(NAME ${_target}_np_${_np}_nt_${_thread} COMMAND
               ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_np} ${MPIEXEC_PREFLAGS}
-              ${_target} ${MPIEXEC_POSTFLAGS} ${gtest_args} --kokkos-threads=${_thread})
+              $<TARGET_FILE:${_target}> ${MPIEXEC_POSTFLAGS} ${gtest_args} --kokkos-threads=${_thread})
           endforeach()
         else()
 	    add_test(NAME ${_target}_np_${_np} COMMAND
               ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_np} ${MPIEXEC_PREFLAGS}
-              ${_target} ${MPIEXEC_POSTFLAGS} ${gtest_args})
+              $<TARGET_FILE:${_target}> ${MPIEXEC_POSTFLAGS} ${gtest_args})
         endif()
       endforeach()
     endforeach()
