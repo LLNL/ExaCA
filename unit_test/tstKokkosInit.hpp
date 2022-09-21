@@ -2,6 +2,7 @@
 
 #include "CAfunctions.hpp"
 #include "CAinitialize.hpp"
+#include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 
 #include <gtest/gtest.h>
