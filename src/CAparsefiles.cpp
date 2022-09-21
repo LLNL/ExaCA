@@ -3,6 +3,8 @@
 //
 // SPDX-License-Identifier: MIT
 
+#include "CAparsefiles.hpp"
+
 #include "CAconfig.hpp"
 #include "CAfunctions.hpp"
 
