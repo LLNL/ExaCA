@@ -158,12 +158,4 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeY, int B
                     Buffer2D &BufferNorthWestRecv, Buffer2D &BufferSouthEastRecv, Buffer2D &BufferSouthWestRecv,
                     ViewI &SteeringVector);
 
-void skipLines(std::ifstream &stream, std::string seperator = "*****");
-std::string parseInput(std::ifstream &stream, std::string key);
-bool parseInputFromList(std::string line, std::vector<std::string> Inputs, std::vector<std::string> &InputsRead,
-                        int NumInputs);
-bool getInputBool(std::string val);
-std::string checkFileInstalled(const std::string name, const std::string type, const int id);
-void checkFileNotEmpty(std::string testfilename);
-
 #endif
