@@ -237,6 +237,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Convert information read from the file into values usable by ExaCA
     // Required inputs for all problems
     DecompositionStrategy = getInputInt(RequiredInputsRead_General[0]);
+    // Warn that decomposition strategy will be deprecated in the future
+    if ((id == 0) && (DecompositionStrategy != 1))
+        std::cout << "Warning: the domain decomposition option will be deprecated in a future release and 1D "
+                     "decompositions will be used in all cases"
+                  << std::endl;
     MaterialName = RequiredInputsRead_General[1];
     deltax = getInputDouble(RequiredInputsRead_General[2], -6);
     NMax = getInputDouble(RequiredInputsRead_General[3], 12);
