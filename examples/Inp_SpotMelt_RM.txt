@@ -1,0 +1,31 @@
+Test problem simulating solidification of a series of overlapping spots, with remelting of spots (Problem type 'SM')
+*****
+Problem type: SM
+Decomposition strategy: 1
+Material:Inconel625
+Cell size: 1
+Heterogeneous nucleation density: 10
+Mean nucleation undercooling: 5
+Standard deviation of nucleation undercooling: 0.5
+Path to output:./
+Output file base name:TestProblemSpot
+File of grain orientations:GrainOrientationVectors.csv
+Thermal gradient: 500000
+Cooling rate: 300000
+Number of spots in x: 3
+Number of spots in y: 2
+Offset between spot centers: 100
+Radii of spots: 75
+Number of layers: 2
+Offset between layers: 20
+Time step ratio (from steady-state Velocity): 25
+Substrate grain spacing: 25
+***Output data printing options: (Y or N) which data should be printed***
+Print file of grain misorientation values: Y
+Print file of all ExaCA data: Y
+Debug check (reduced): N
+Debug check (extensive): N
+***Intermediate output printing as a time series of vtk files (these can be read as a movie by Paraview)***
+Print intermediate output frames: N
+Increment to separate frames: 2500
+Intermediate output even if system is unchanged from previous state: N
