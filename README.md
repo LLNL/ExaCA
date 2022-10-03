@@ -183,6 +183,26 @@ Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output
 ```
 Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file.
 
+## Citing ExaCA
+
+If you use ExaCA in your work, please cite the following paper:
+```
+@article{rolchigo2022,
+  title = {ExaCA: A performance portable exascale cellular automata application for alloy solidification modeling},
+  journal = {Computational Materials Science},
+  volume = {214},
+  pages = {111692},
+  year = {2022},
+  issn = {0927-0256},
+  doi = {https://doi.org/10.1016/j.commatsci.2022.111692},
+  url = {https://www.sciencedirect.com/science/article/pii/S0927025622004189},
+  author = {Matt Rolchigo and Samuel Temple Reeve and Benjamin Stump and Gerald L. Knapp and John Coleman and Alex Plotkowski and James Belak},
+}
+```
+
+If you would like to cite the software itself, cite the current release or
+version used from [Zenodo](https://zenodo.org/record/7126168#.Yzs_TCHMJOU).
+
 ## Contributing
 
 We encourage you to contribute to ExaCA. Please check the
