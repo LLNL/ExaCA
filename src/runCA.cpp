@@ -293,6 +293,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     AConst = AConst * deltat / deltax;
     BConst = BConst * deltat / deltax;
     CConst = CConst * deltat / deltax;
+    DConst = DConst * deltat / deltax;
     int cycle;
 
     // Steering Vector
