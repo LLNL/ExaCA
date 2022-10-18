@@ -582,16 +582,16 @@ void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutpu
 //*****************************************************************************/
 // Print a log file for this ExaCA run, containing information about the run parameters used
 // from the input file as well as the decomposition scheme
-void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int MyYSlices, int MyXOffset, int MyYOffset, InterfacialResponseFunction irf,
-                   double deltax, double NMax, double dTN, double dTsigma, std::vector<std::string> temp_paths,
-                   int TempFilesInSeries, double HT_deltax, bool RemeltingYN, double deltat, int NumberOfLayers,
-                   int LayerHeight, std::string SubstrateFileName, double SubstrateGrainSpacing, bool SubstrateFile,
-                   double G, double R, int nx, int ny, int nz, double FractSurfaceSitesActive, std::string PathToOutput,
-                   int NSpotsX, int NSpotsY, int SpotOffset, int SpotRadius, std::string BaseFileName, double InitTime,
-                   double RunTime, double OutTime, int cycle, double InitMaxTime, double InitMinTime,
-                   double NuclMaxTime, double NuclMinTime, double CreateSVMinTime, double CreateSVMaxTime,
-                   double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime, double GhostMinTime,
-                   double OutMaxTime, double OutMinTime) {
+void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int MyYSlices, int MyYOffset,
+                   InterfacialResponseFunction irf, double deltax, double NMax, double dTN, double dTsigma,
+                   std::vector<std::string> temp_paths, int TempFilesInSeries, double HT_deltax, bool RemeltingYN,
+                   double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
+                   double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
+                   double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
+                   int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
+                   double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
+                   double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
+                   double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime) {
 
     int *YSlices = new int[np];
     int *YOffset = new int[np];

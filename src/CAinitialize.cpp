@@ -24,9 +24,10 @@
 
 //*****************************************************************************/
 // Read ExaCA input file.
-void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
-                       std::string &GrainOrientationFile, int &TempFilesInSeries, std::vector<std::string> &temp_paths,
-                       double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
+void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
+                       double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
+                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
+                       bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
                        std::string &MaterialFileName, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
                        bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
                        double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
@@ -37,17 +38,16 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
-        "Decomposition strategy",                        // Required input 0
-        "Material",                                      // Required input 1
-        "Cell size",                                     // Required input 2
-        "Heterogeneous nucleation density",              // Required input 3
-        "Mean nucleation undercooling",                  // Required input 4
-        "Standard deviation of nucleation undercooling", // Required input 5
-        "Path to output",                                // Required input 6
-        "Output file base name",                         // Required input 7
-        "File of grain orientations",                    // Required input 8
-        "grain misorientation values",                   // Required input 9
-        "all ExaCA data"                                 // Required input 10
+        "Material",                                      // Required input 0
+        "Cell size",                                     // Required input 1
+        "Heterogeneous nucleation density",              // Required input 2
+        "Mean nucleation undercooling",                  // Required input 3
+        "Standard deviation of nucleation undercooling", // Required input 4
+        "Path to output",                                // Required input 5
+        "Output file base name",                         // Required input 6
+        "File of grain orientations",                    // Required input 7
+        "grain misorientation values",                   // Required input 8
+        "all ExaCA data"                                 // Required input 9
     };
 
     // Optional inputs that may be present in the input file, regardless of problem type
@@ -59,6 +59,9 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         "output even if system is unchanged",           // Optional input 4
         "file of final undercooling values",            // Optional input 5
         "Random seed for grains and nuclei generation", // Optional input 6
+    };
+    std::vector<std::string> DeprecatedInputs_General = {
+        "Decomposition strategy", // Deprecated input 0
     };
 
     // Values used temporarily to store information from the file
@@ -158,11 +161,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     int NumRequiredInputs_ProblemSpecific = RequiredInputs_ProblemSpecific.size();
     int NumOptionalInputs_ProblemSpecific = OptionalInputs_ProblemSpecific.size();
     int NumDeprecatedInputs_ProblemSpecific = DeprecatedInputs_ProblemSpecific.size();
+    int NumDeprecatedInputs_General = DeprecatedInputs_General.size();
     std::vector<std::string> RequiredInputsRead_General(NumRequiredInputs_General),
         OptionalInputsRead_General(NumOptionalInputs_General),
         RequiredInputsRead_ProblemSpecific(NumRequiredInputs_ProblemSpecific),
         OptionalInputsRead_ProblemSpecific(NumOptionalInputs_ProblemSpecific),
-        DeprecatedInputsRead_ProblemSpecific(NumDeprecatedInputs_ProblemSpecific);
+        DeprecatedInputsRead_ProblemSpecific(NumDeprecatedInputs_ProblemSpecific),
+        DeprecatedInputsRead_General(NumDeprecatedInputs_General);
 
     // Read the rest of the input file to initialize required and optional input parameters
     std::string line;
@@ -188,9 +193,14 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                                            NumOptionalInputs_ProblemSpecific);
                     if (!(OptionalYN)) {
                         // If not a general/problem type specific optional input, check against deprecated inputs
+                        // (general and problem specific)
                         bool DeprecatedYN = parseInputFromList(line, DeprecatedInputs_ProblemSpecific,
                                                                DeprecatedInputsRead_ProblemSpecific,
                                                                NumDeprecatedInputs_ProblemSpecific);
+                        if (!(DeprecatedYN))
+                            DeprecatedYN =
+                                parseInputFromList(line, DeprecatedInputs_General, DeprecatedInputsRead_General,
+                                                   NumDeprecatedInputs_General);
                         if (!(DeprecatedYN) && (id == 0)) {
                             std::cout << "WARNING: input " << line
                                       << " did not match any optional, required, nor deprecated inputs known to ExaCA "
@@ -234,22 +244,16 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Convert information read from the file into values usable by ExaCA
     // Required inputs for all problems
-    int DecompositionStrategy = getInputInt(RequiredInputsRead_General[0]);
-    // Warn that decomposition strategy will be deprecated in the future
-    if ((id == 0) && (DecompositionStrategy != 1))
-        std::cout << "Warning: the domain decomposition option will be deprecated in a future release and 1D "
-                     "decompositions will be used in all cases"
-                  << std::endl;
-    MaterialName = RequiredInputsRead_General[1];
-    deltax = getInputDouble(RequiredInputsRead_General[2], -6);
-    NMax = getInputDouble(RequiredInputsRead_General[3], 12);
-    dTN = getInputDouble(RequiredInputsRead_General[4]);
-    dTsigma = getInputDouble(RequiredInputsRead_General[5]);
-    PathToOutput = RequiredInputsRead_General[6];
-    OutputFile = RequiredInputsRead_General[7];
-    GrainOrientationFile_Read = RequiredInputsRead_General[8];
-    PrintMisorientation = getInputBool(RequiredInputsRead_General[9]);
-    PrintFullOutput = getInputBool(RequiredInputsRead_General[10]);
+    MaterialName = RequiredInputsRead_General[0];
+    deltax = getInputDouble(RequiredInputsRead_General[1], -6);
+    NMax = getInputDouble(RequiredInputsRead_General[2], 12);
+    dTN = getInputDouble(RequiredInputsRead_General[3]);
+    dTsigma = getInputDouble(RequiredInputsRead_General[4]);
+    PathToOutput = RequiredInputsRead_General[5];
+    OutputFile = RequiredInputsRead_General[6];
+    GrainOrientationFile_Read = RequiredInputsRead_General[7];
+    PrintMisorientation = getInputBool(RequiredInputsRead_General[8]);
+    PrintFullOutput = getInputBool(RequiredInputsRead_General[9]);
     // Problem type-specific inputs
     if (SimulationType == "R") {
         deltat = getInputDouble(RequiredInputsRead_ProblemSpecific[0], -6);
@@ -474,9 +478,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     }
     if (id == 0) {
         std::cout << "Decomposition Strategy is 1D, with the domain partitioned in the Y direction" << std::endl;
-        std::cout << "Material simulated is " << MaterialName
-                  << ", interfacial response function constants are A = " << AConst << ", B = " << BConst
-                  << ", C = " << CConst << ", and D = " << DConst << std::endl;
+        std::cout << "Material simulated is " << MaterialName << std::endl;
         std::cout << "CA cell size is " << deltax * pow(10, 6) << " microns" << std::endl;
         std::cout << "Nucleation density is " << NMax << " per m^3" << std::endl;
         std::cout << "Mean nucleation undercooling is " << dTN << " K, standard deviation of distribution is "
@@ -1760,13 +1762,12 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                 // Convert X and Y coordinates to values relative to this MPI rank's grid (Z = 0 for these active cells,
                 // at bottom surface) GrainIDs come from the position on the list of substrate active cells to avoid
                 // reusing the same value
-                int LocalX = ActCellX_Device(n);
+                int GlobalX = ActCellX_Device(n);
                 int LocalY = ActCellY_Device(n) - MyYOffset;
-                int D3D1ConvPosition = LocalX * MyYSlices + LocalY;
+                int D3D1ConvPosition = GlobalX * MyYSlices + LocalY;
                 CellType(D3D1ConvPosition) = Active;
                 GrainID(D3D1ConvPosition) = n + 1; // assign GrainID > 0 to epitaxial seeds
                 // Initialize active cell data structures
-                int GlobalX = LocalX;
                 int GlobalY = LocalY + MyYOffset;
                 int GlobalZ = 0;
                 // Initialize new octahedron
@@ -1790,7 +1791,7 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                     float GhostDOCZ = GlobalZ + 0.5;
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, LocalX,
+                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
                                    LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
                 } // End if statement for serial/parallel code
             }
@@ -2083,16 +2084,15 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
             // Cells of interest for the CA
             int RankZ = D3D1ConvPosition / (nx * MyYSlices);
             int Rem = D3D1ConvPosition % (nx * MyYSlices);
-            int RankX = Rem / MyYSlices;
+            int GlobalX = Rem / MyYSlices;
             int RankY = Rem % MyYSlices;
             int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + GlobalX * MyYSlices + RankY;
             if ((CellType(GlobalD3D1ConvPosition) == Active) && (LayerID(GlobalD3D1ConvPosition) == layernumber)) {
                 // This cell was marked as active previously - initialize active cell data structures
-                int GlobalX = RankX;
                 int GlobalY = RankY + MyYOffset;
                 int RankZ = GlobalZ - ZBound_Low;
-                int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+                int D3D1ConvPosition = RankZ * nx * MyYSlices + GlobalX * MyYSlices + RankY;
                 int MyGrainID = GrainID(GlobalD3D1ConvPosition);
                 // Initialize new octahedron
                 createNewOctahedron(D3D1ConvPosition, DiagonalLength, DOCenter, GlobalX, GlobalY, GlobalZ);
@@ -2115,7 +2115,7 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                     double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
                     double GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX,
+                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
                                    RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
 
                 } // End if statement for serial/parallel code

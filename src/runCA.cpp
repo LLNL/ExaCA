@@ -33,12 +33,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     std::vector<std::string> temp_paths;
 
     // Read input data
-    InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile,
-                      GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
-                      NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName, SubstrateGrainSpacing,
-                      UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
-                      PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset,
-                      SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
+    InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,
+                      TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
+                      MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
+                      FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+                      PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
+                      PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
                       BaseplateThroughPowder, PowderDensity, RVESize);
     // Read material data.
     InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
@@ -143,9 +143,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         else if (SimulationType == "S")
             TempInit_SpotRemelt(0, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, ZBound_Low, nz,
                                 LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange,
-                                UndercoolingCurrent, LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius,
-                                SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents, MeltTimeStep,
-                                MaxSolidificationEvents, SolidificationEventCounter);
+                                UndercoolingCurrent, LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY,
+                                SpotRadius, SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents,
+                                MeltTimeStep, MaxSolidificationEvents, SolidificationEventCounter);
     }
     else {
         // For simulations without remelting, ZBound_Low/ZBound_High/nzActive/LocalActiveDomainSize are calculated after
@@ -156,8 +156,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         if (SimulationType == "R")
             TempInit_ReadDataNoRemelt(id, nx, MyYSlices, MyYOffset, deltax, HTtoCAratio, deltat, nz, LocalDomainSize,
                                       CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, ZMinLayer, ZMaxLayer,
-                                      LayerHeight, NumberOfLayers, FinishTimeStep, irf.FreezingRange, LayerID, FirstValue,
-                                      LastValue, RawData);
+                                      LayerHeight, NumberOfLayers, FinishTimeStep, irf.FreezingRange, LayerID,
+                                      FirstValue, LastValue, RawData);
         else if (SimulationType == "S")
             TempInit_SpotNoRemelt(G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, nz,
                                   LocalDomainSize, CritTimeStep, UndercoolingChange, LayerHeight, NumberOfLayers,
@@ -339,12 +339,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             CreateSVTime += MPI_Wtime() - StartCreateSVTime;
 
             StartCaptureTime = MPI_Wtime();
-            CellCapture(id, np, cycle, LocalActiveDomainSize, LocalDomainSize, nx, MyYSlices, irf, MyYOffset, NeighborX, NeighborY, NeighborZ, CritTimeStep, UndercoolingCurrent,
-                        UndercoolingChange, GrainUnitVector, CritDiagonalLength, DiagonalLength, CellType, DOCenter,
-                        GrainID, NGrainOrientations, BufferNorthSend, BufferSouthSend, BufSizeX, ZBound_Low, nzActive,
-                        nz, SteeringVector, numSteer, numSteer_Host, AtNorthBoundary, AtSouthBoundary,
-                        SolidificationEventCounter, MeltTimeStep, LayerTimeTempHistory, NumberOfSolidificationEvents,
-                        RemeltingYN);
+            CellCapture(id, np, cycle, LocalActiveDomainSize, LocalDomainSize, nx, MyYSlices, irf, MyYOffset, NeighborX,
+                        NeighborY, NeighborZ, CritTimeStep, UndercoolingCurrent, UndercoolingChange, GrainUnitVector,
+                        CritDiagonalLength, DiagonalLength, CellType, DOCenter, GrainID, NGrainOrientations,
+                        BufferNorthSend, BufferSouthSend, BufSizeX, ZBound_Low, nzActive, nz, SteeringVector, numSteer,
+                        numSteer_Host, AtNorthBoundary, AtSouthBoundary, SolidificationEventCounter, MeltTimeStep,
+                        LayerTimeTempHistory, NumberOfSolidificationEvents, RemeltingYN);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
@@ -386,8 +386,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Determine new active cell domain size and offset from bottom of global domain
             if (RemeltingYN) {
                 // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
-                ZBound_Low = calcZBound_Low_Remelt(SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
-                ZBound_High = calcZBound_High_Remelt(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin, deltax, nz, ZMaxLayer);
+                ZBound_Low =
+                    calcZBound_Low_Remelt(SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
+                ZBound_High = calcZBound_High_Remelt(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin,
+                                                     deltax, nz, ZMaxLayer);
                 nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber + 1);
                 // Number of active cells on this MPI rank
                 LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
@@ -397,8 +399,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 if (SimulationType == "S")
                     TempInit_SpotRemelt(layernumber + 1, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax,
                                         deltat, ZBound_Low, nz, LocalActiveDomainSize, LocalDomainSize, CritTimeStep,
-                                        UndercoolingChange, UndercoolingCurrent, LayerHeight, irf.FreezingRange, LayerID,
-                                        NSpotsX, NSpotsY, SpotRadius, SpotOffset, LayerTimeTempHistory,
+                                        UndercoolingChange, UndercoolingCurrent, LayerHeight, irf.FreezingRange,
+                                        LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset, LayerTimeTempHistory,
                                         NumberOfSolidificationEvents, MeltTimeStep, MaxSolidificationEvents,
                                         SolidificationEventCounter);
                 else if (SimulationType == "R")
@@ -520,10 +522,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Allreduce(&OutTime, &OutMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
-    PrintExaCALog(id, np, InputFile, SimulationType, MyYSlices, MyYOffset, irf, deltax, NMax, dTN, dTsigma, temp_paths, TempFilesInSeries, HT_deltax, RemeltingYN,
-                  deltat, NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R,
-                  nx, ny, nz, FractSurfaceSitesActive, PathToOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
-                  OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
-                  CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
-                  OutMaxTime, OutMinTime);
+    PrintExaCALog(id, np, InputFile, SimulationType, MyYSlices, MyYOffset, irf, deltax, NMax, dTN, dTsigma, temp_paths,
+                  TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
+                  SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
+                  NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
+                  InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
+                  CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime);
 }

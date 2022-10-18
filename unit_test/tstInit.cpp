@@ -110,23 +110,19 @@ void testInputReadFromFile() {
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput, MaterialFileName;
         std::vector<std::string> temp_paths;
-        InputReadFromFile(id, FileName, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
-                          NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName, SubstrateGrainSpacing,
-                          UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
-                          PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
-                          SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
-                          PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
+        InputReadFromFile(id, FileName, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,
+                          TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
+                          MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
+                          nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+                          PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
+                          PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
+                          BaseplateThroughPowder, PowderDensity, RVESize);
         InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
         // InputReadFromFile
         // These should be the same for all 3 test problems
-        EXPECT_DOUBLE_EQ(AConst, -0.00000010302);
-        EXPECT_DOUBLE_EQ(BConst, 0.00010533);
-        EXPECT_DOUBLE_EQ(CConst, 0.0022196);
-        EXPECT_DOUBLE_EQ(DConst, 0);
-        EXPECT_DOUBLE_EQ(FreezingRange, 210);
         EXPECT_DOUBLE_EQ(deltax, 1.0 * pow(10, -6));
         EXPECT_DOUBLE_EQ(NMax, 1.0 * pow(10, 13));
         EXPECT_DOUBLE_EQ(dTN, 5.0);

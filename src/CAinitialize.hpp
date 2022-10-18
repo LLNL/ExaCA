@@ -13,9 +13,10 @@
 #include <string>
 #include <vector>
 
-void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
-                       std::string &GrainOrientationFile, int &TempFilesInSeries, std::vector<std::string> &temp_paths,
-                       double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
+void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
+                       double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
+                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
+                       bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
                        std::string &MaterialFileName, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
                        bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
                        double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
