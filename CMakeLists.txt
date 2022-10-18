@@ -4,7 +4,7 @@ project(ExaCA CXX)
 
 include(GNUInstallDirs)
 
-find_package(Kokkos 3 REQUIRED)
+find_package(Kokkos 3.2 REQUIRED)
 find_package(MPI REQUIRED)
 
 # NOTE: this order is specifically used in the unit tests.

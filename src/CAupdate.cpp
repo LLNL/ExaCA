@@ -15,56 +15,6 @@
 using std::max;
 using std::min;
 
-namespace sample { // namespace helps with name resolution in reduction identity
-template <class ScalarType, int N>
-struct array_type {
-    ScalarType the_array[N];
-
-    KOKKOS_INLINE_FUNCTION // Default constructor - Initialize to 0's
-    array_type() {
-        for (int i = 0; i < N; i++) {
-            the_array[i] = 0;
-        }
-    }
-    KOKKOS_INLINE_FUNCTION // Copy Constructor
-    array_type(const array_type &rhs) {
-        for (int i = 0; i < N; i++) {
-            the_array[i] = rhs.the_array[i];
-        }
-    }
-    KOKKOS_INLINE_FUNCTION // Assignment operator
-        array_type &
-        operator=(const array_type &src) {
-        for (int i = 0; i < N; i++) {
-            the_array[i] = src.the_array[i];
-        }
-        return *this;
-    }
-    KOKKOS_INLINE_FUNCTION // add operator
-        array_type &
-        operator+=(const array_type &src) {
-        for (int i = 0; i < N; i++) {
-            the_array[i] += src.the_array[i];
-        }
-        return *this;
-    }
-    KOKKOS_INLINE_FUNCTION // volatile add operator
-        void
-        operator+=(const volatile array_type &src) volatile {
-        for (int i = 0; i < N; i++) {
-            the_array[i] += src.the_array[i];
-        }
-    }
-};
-typedef array_type<unsigned long int, 5> ValueType; // used to simplify code below
-} // namespace sample
-namespace Kokkos { // reduction identity must be defined in Kokkos namespace
-template <>
-struct reduction_identity<sample::ValueType> {
-    KOKKOS_FORCEINLINE_FUNCTION static sample::ValueType sum() { return sample::ValueType(); }
-};
-} // namespace Kokkos
-
 //*****************************************************************************/
 void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCounter, int PossibleNuclei_ThisRank,
                 ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID, ViewI CellType, ViewI GrainID,
@@ -690,35 +640,36 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyXSlices, int M
                                 std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
                                 int &IntermediateFileCounter, int NumberOfLayers) {
 
-    sample::ValueType CellTypeStorage;
+    unsigned long int LocalSuperheatedCells;
+    unsigned long int LocalUndercooledCells;
+    unsigned long int LocalActiveCells;
+    unsigned long int LocalSolidCells;
+    unsigned long int LocalRemainingLiquidCells;
     Kokkos::parallel_reduce(
         LocalDomainSize,
-        KOKKOS_LAMBDA(const int &D3D1ConvPosition, sample::ValueType &upd) {
+        KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &sum_superheated,
+                      unsigned long int &sum_undercooled, unsigned long int &sum_active, unsigned long int &sum_solid,
+                      unsigned long int &sum_remaining_liquid) {
             if (LayerID(D3D1ConvPosition) == layernumber) {
                 if (CellType(D3D1ConvPosition) == Liquid) {
                     if (CritTimeStep(D3D1ConvPosition) > cycle)
-                        upd.the_array[0] += 1;
+                        sum_superheated += 1;
                     else
-                        upd.the_array[1] += 1;
+                        sum_undercooled += 1;
                 }
                 else if (CellType(D3D1ConvPosition) == Active)
-                    upd.the_array[2] += 1;
+                    sum_active += 1;
                 else if (CellType(D3D1ConvPosition) == Solid)
-                    upd.the_array[3] += 1;
+                    sum_solid += 1;
             }
             else {
                 if (CellType(D3D1ConvPosition) == Liquid)
-                    upd.the_array[4] += 1;
+                    sum_remaining_liquid += 1;
             }
         },
-        Kokkos::Sum<sample::ValueType>(CellTypeStorage));
-    unsigned long int Global_SuccessfulNucEvents_ThisRank = 0;
-    unsigned long int LocalSuperheatedCells = CellTypeStorage.the_array[0];
-    unsigned long int LocalUndercooledCells = CellTypeStorage.the_array[1];
-    unsigned long int LocalActiveCells = CellTypeStorage.the_array[2];
-    unsigned long int LocalSolidCells = CellTypeStorage.the_array[3];
-    unsigned long int LocalRemainingLiquidCells = CellTypeStorage.the_array[4];
+        LocalSuperheatedCells, LocalUndercooledCells, LocalActiveCells, LocalSolidCells, LocalRemainingLiquidCells);
 
+    unsigned long int Global_SuccessfulNucEvents_ThisRank = 0;
     unsigned long int GlobalSuperheatedCells, GlobalUndercooledCells, GlobalActiveCells, GlobalSolidCells,
         GlobalRemainingLiquidCells;
     MPI_Reduce(&LocalSuperheatedCells, &GlobalSuperheatedCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -765,32 +716,33 @@ void IntermediateOutputAndCheck_Remelt(
     ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,
     int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep) {
 
-    sample::ValueType CellTypeStorage;
+    unsigned long int LocalSuperheatedCells;
+    unsigned long int LocalUndercooledCells;
+    unsigned long int LocalActiveCells;
+    unsigned long int LocalTempSolidCells;
+    unsigned long int LocalFinishedSolidCells;
     Kokkos::parallel_reduce(
         LocalActiveDomainSize,
-        KOKKOS_LAMBDA(const int &D3D1ConvPosition, sample::ValueType &upd) {
+        KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &sum_superheated,
+                      unsigned long int &sum_undercooled, unsigned long int &sum_active,
+                      unsigned long int &sum_temp_solid, unsigned long int &sum_finished_solid) {
             int GlobalD3D1ConvPosition = D3D1ConvPosition + ZBound_Low * MyXSlices * MyYSlices;
             if (CellType(GlobalD3D1ConvPosition) == Liquid) {
                 if (CritTimeStep(GlobalD3D1ConvPosition) > cycle)
-                    upd.the_array[0] += 1;
+                    sum_superheated += 1;
                 else
-                    upd.the_array[1] += 1;
+                    sum_undercooled += 1;
             }
             else if (CellType(GlobalD3D1ConvPosition) == Active)
-                upd.the_array[2] += 1;
+                sum_active += 1;
             else if (CellType(GlobalD3D1ConvPosition) == TempSolid)
-                upd.the_array[3] += 1;
+                sum_temp_solid += 1;
             else if (CellType(GlobalD3D1ConvPosition) == Solid)
-                upd.the_array[4] += 1;
+                sum_finished_solid += 1;
         },
-        Kokkos::Sum<sample::ValueType>(CellTypeStorage));
-    unsigned long int Global_SuccessfulNucEvents_ThisRank = 0;
-    unsigned long int LocalSuperheatedCells = CellTypeStorage.the_array[0];
-    unsigned long int LocalUndercooledCells = CellTypeStorage.the_array[1];
-    unsigned long int LocalActiveCells = CellTypeStorage.the_array[2];
-    unsigned long int LocalTempSolidCells = CellTypeStorage.the_array[3];
-    unsigned long int LocalFinishedSolidCells = CellTypeStorage.the_array[4];
+        LocalSuperheatedCells, LocalUndercooledCells, LocalActiveCells, LocalTempSolidCells, LocalFinishedSolidCells);
 
+    unsigned long int Global_SuccessfulNucEvents_ThisRank = 0;
     unsigned long int GlobalSuperheatedCells, GlobalUndercooledCells, GlobalActiveCells, GlobalTempSolidCells,
         GlobalFinishedSolidCells;
     MPI_Reduce(&LocalSuperheatedCells, &GlobalSuperheatedCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
