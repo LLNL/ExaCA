@@ -108,16 +108,16 @@ void testInputReadFromFile() {
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
             UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false, BaseplateThroughPowder;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
-            PathToOutput;
+            PathToOutput, MaterialFileName;
         std::vector<std::string> temp_paths;
-        auto MaterialFile = InputReadFromFile(
-            id, FileName, SimulationType, DecompositionStrategy, deltax, NMax, dTN, dTsigma, OutputFile,
-            GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
-            LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-            FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals,
-            PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
-            PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
-        InterfacialResponseFunction irf(MaterialFile);
+        InputReadFromFile(id, FileName, SimulationType, DecompositionStrategy, deltax, NMax, dTN, dTsigma, OutputFile,
+                          GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
+                          NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName, SubstrateGrainSpacing,
+                          UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
+                          PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
+                          SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
+                          PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
+        InterfacialResponseFunction irf(MaterialFileName);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within

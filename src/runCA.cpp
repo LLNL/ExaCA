@@ -29,19 +29,19 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderDensity;
-    std::string SubstrateFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
+    std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     std::vector<std::string> temp_paths;
 
     // Read input data
-    std::string MaterialFile = InputReadFromFile(
-        id, InputFile, SimulationType, DecompositionStrategy, deltax, NMax, dTN, dTsigma, OutputFile,
-        GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
-        LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-        FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals,
-        PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
-        PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
+    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, deltax, NMax, dTN, dTsigma, OutputFile,
+                      GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
+                      NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName, SubstrateGrainSpacing,
+                      UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
+                      PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset,
+                      SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
+                      BaseplateThroughPowder, PowderDensity, RVESize);
     // Read material data.
-    InterfacialResponseFunction irf(MaterialFile);
+    InterfacialResponseFunction irf(MaterialFileName);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;

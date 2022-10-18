@@ -24,18 +24,17 @@
 
 //*****************************************************************************/
 // Read ExaCA input file.
-std::string InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
-                              double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
-                              std::string &GrainOrientationFile, int &TempFilesInSeries,
-                              std::vector<std::string> &temp_paths, double &HT_deltax, bool &RemeltingYN,
-                              double &deltat, int &NumberOfLayers, int &LayerHeight, std::string &SubstrateFileName,
-                              float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx,
-                              int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
-                              int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
-                              bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
-                              bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                              bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder,
-                              double &PowderDensity, int &RVESize) {
+void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
+                       double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
+                       std::string &GrainOrientationFile, int &TempFilesInSeries, std::vector<std::string> &temp_paths,
+                       double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
+                       std::string &MaterialFileName, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
+                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
+                       double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
+                       bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput, int &NSpotsX,
+                       int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
+                       bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
+                       bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -461,8 +460,8 @@ std::string InputReadFromFile(int id, std::string InputFile, std::string &Simula
     }
 
     // Path to file of materials constants based on install/source location
-    std::string MaterialFile = checkFileInstalled(MaterialName, id);
-    checkFileNotEmpty(MaterialFile);
+    MaterialFileName = checkFileInstalled(MaterialName, id);
+    checkFileNotEmpty(MaterialFileName);
 
     // Path to file of grain orientations based on install/source location
     GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, id);
@@ -488,7 +487,6 @@ std::string InputReadFromFile(int id, std::string InputFile, std::string &Simula
             std::cout << "This simulation includes logic for cells melting and multiple solidification events"
                       << std::endl;
     }
-    return MaterialFile;
 }
 
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
