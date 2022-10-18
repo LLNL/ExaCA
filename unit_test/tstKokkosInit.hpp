@@ -79,6 +79,45 @@ void testOrientationInit_Angles() {
     }
 }
 
+// Tests calcZBound_Low_NoRemelt and calcZBound_High_NoRemelt
+void testcalcZBounds_NoRemelt() {
+
+    // Domain setup
+    int nx = 5;
+    int ny = 4;
+    int nz = 12;
+    int DomainSize = nx * ny * nz;
+    ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_Host"), DomainSize);
+
+    int layernumber = 0;
+    // Fill LayerID with -1s (not associated with a layer), assign a few cells the value "layernumber", assign a few
+    // other cells the value "layernumber + 1"
+    Kokkos::deep_copy(LayerID_Host, -1);
+    for (int k = 0; k < nz; k++) {
+        for (int i = 0; i < nx; i++) {
+            for (int j = 0; j < ny; j++) {
+                int Coordinate1D = k * nx * ny + i * ny + j;
+                if ((i == 2) && (j == 2) && (k > 4)) {
+                    if (k < 8)
+                        LayerID_Host(Coordinate1D) = layernumber;
+                    else
+                        LayerID_Host(Coordinate1D) = layernumber + 1;
+                }
+            }
+        }
+    }
+
+    // Copy view to device
+    ViewI LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
+
+    // Calculate ZBound_Low and ZBound_High
+    int ZBound_Low = calcZBound_Low_NoRemelt(0, nx, ny, DomainSize, layernumber, LayerID);
+    int ZBound_High = calcZBound_High_NoRemelt(0, nx, ny, DomainSize, layernumber, LayerID);
+
+    // Check against expected values
+    EXPECT_EQ(ZBound_Low, 5);
+    EXPECT_EQ(ZBound_High, 7);
+}
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
@@ -86,4 +125,5 @@ TEST(TEST_CATEGORY, orientation_init_tests) {
     testOrientationInit_Vectors();
     testOrientationInit_Angles();
 }
+TEST(TEST_CATEGORY, activedomainsizecalc) { testcalcZBounds_NoRemelt(); }
 } // end namespace Test

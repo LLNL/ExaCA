@@ -847,38 +847,51 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
 //*****************************************************************************/
 // Get the Z coordinate of the lower bound of iteration
 // If using remelting, this is called before initializing temperature data views for each layer
-// If not using remelting, this is only called before initializing temperature data view for the first layer, since the
-// existing DomainShiftAndResize subroutine already exists for other layers. These functions should be unified in a
-// future update
-int calcZBound_Low(bool RemeltingYN, std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer,
-                   float ZMin, double deltax) {
+int calcZBound_Low_Remelt(std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer, float ZMin,
+                          double deltax) {
 
-    int ZBound_Low = 0; // set to zero if no remelting (was previously done in individual TempInit_[ProblemType]
-                        // subroutines - implicitly assumes bottom of layer 0 is the bottom of the overall domain - this
-                        // should be fixed in the future for edge cases where this isn't true)
-    if (RemeltingYN) {
-        if (SimulationType == "S") {
-            // lower bound of domain is an integer multiple of the layer spacing, since the temperature field is the
-            // same for every layer
-            ZBound_Low = LayerHeight * layernumber;
-        }
-        else if (SimulationType == "R") {
-            // lower bound of domain is based on the data read from the file(s)
-            ZBound_Low = round((ZMinLayer[layernumber] - ZMin) / deltax);
-        }
-        else
-            throw std::runtime_error("Error: simulations with remelting must be simulation type SM or RM");
+    int ZBound_Low = -1; // assign dummy initial value
+    if (SimulationType == "S") {
+        // lower bound of domain is an integer multiple of the layer spacing, since the temperature field is the
+        // same for every layer
+        ZBound_Low = LayerHeight * layernumber;
     }
+    else if (SimulationType == "R") {
+        // lower bound of domain is based on the data read from the file(s)
+        ZBound_Low = round((ZMinLayer[layernumber] - ZMin) / deltax);
+    }
+    if (ZBound_Low == -1)
+        throw std::runtime_error("Error: ZBound_Low went uninitialized, problem type must be C, S, or R");
+    return ZBound_Low;
+}
+// If not using remelting, determine the smallest Z coordinate containing cells of the present layer ID
+// Previously done in the subroutine DomainShiftAndResize_NoRemelt
+int calcZBound_Low_NoRemelt(int id, int MyXSlices, int MyYSlices, int LocalDomainSize, int layernumber, ViewI LayerID) {
+
+    // The new "bottom" of the active domain is located at the lowest Z coordinate containing LayerID values
+    // corresponding to the specified layernumber
+    int NewMin, ZBound_Low;
+    Kokkos::parallel_reduce(
+        "MinReduce", LocalDomainSize,
+        KOKKOS_LAMBDA(const int &D3D1ConvPosition, int &lmin) {
+            if (LayerID(D3D1ConvPosition) == layernumber) {
+                // Check Z position of this active cell
+                int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+                if (RankZ < lmin)
+                    lmin = RankZ;
+            }
+        },
+        Kokkos::Min<int>(NewMin));
+    MPI_Allreduce(&NewMin, &ZBound_Low, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "New domain bottom at Z = " << ZBound_Low << std::endl;
     return ZBound_Low;
 }
 //*****************************************************************************/
 // Get the Z coordinate of the upper bound of iteration
 // If using remelting, this is called before initializing temperature data views for each layer
-// If not using remelting, this is only called before initializing temperature data view for the first layer, since the
-// existing DomainShiftAndResize subroutine already exists for other layers. These functions should be unified in a
-// future update
-int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
-                    double deltax, int nz, float *ZMaxLayer) {
+int calcZBound_High_Remelt(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
+                           double deltax, int nz, float *ZMaxLayer) {
 
     int ZBound_High = -1; // assign dummy initial value
     if (SimulationType == "C") {
@@ -897,6 +910,31 @@ int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight,
     }
     if (ZBound_High == -1)
         throw std::runtime_error("Error: ZBound_High went uninitialized, problem type must be C, S, or R");
+    return ZBound_High;
+}
+// If not using remelting, this is only called before initializing temperature data view for the first layer, since the
+// existing DomainShiftAndResize subroutine already exists for other layers. These functions should be unified in a
+// future update
+int calcZBound_High_NoRemelt(int id, int MyXSlices, int MyYSlices, int LocalDomainSize, int layernumber,
+                             ViewI LayerID) {
+
+    // The new "top" of the active domain is located at the highest Z coordinate with cells associated with the
+    // specified layernumber
+    int NewMax, ZBound_High;
+    Kokkos::parallel_reduce(
+        "MaxReduce", LocalDomainSize,
+        KOKKOS_LAMBDA(const int &D3D1ConvPosition, int &lmax) {
+            if (LayerID(D3D1ConvPosition) == layernumber) {
+                // Check Z position of this active cell
+                int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
+                if (RankZ > lmax)
+                    lmax = RankZ;
+            }
+        },
+        Kokkos::Max<int>(NewMax));
+    MPI_Allreduce(&NewMax, &ZBound_High, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "New domain top at Z = " << ZBound_High << std::endl;
     return ZBound_High;
 }
 //*****************************************************************************/
@@ -2434,66 +2472,6 @@ void NucleiInit(int layernumber, double RNGSeed, int MyXSlices, int MyYSlices, i
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Nucleation data structures for layer " << layernumber << " initialized" << std::endl;
-}
-
-//*****************************************************************************/
-void DomainShiftAndResize_NoRemelt(int id, int MyXSlices, int MyYSlices, int &ZShift, int &ZBound_Low, int &ZBound_High,
-                                   int &nzActive, int LocalDomainSize, int &LocalActiveDomainSize, int &BufSizeZ,
-                                   int LayerHeight, ViewI CellType, int layernumber, ViewI LayerID) {
-
-    int ZBound_LowOld = ZBound_Low;
-
-    // The top "top" of the active domain is a shift of "LayerHeight" from the previous domain top
-    ZBound_High += LayerHeight;
-
-    // The new "bottom" of the active domain is located at the Z coordinate of the lowest active cells remaining in the
-    // domain
-    int NewMin;
-    Kokkos::parallel_reduce(
-        "MinReduce", LocalDomainSize,
-        KOKKOS_LAMBDA(const int &D3D1ConvPosition, int &lmin) {
-            if (CellType(D3D1ConvPosition) == Active) {
-                // Check Z position of this active cell
-                int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-                if (RankZ < lmin)
-                    lmin = RankZ;
-            }
-        },
-        Kokkos::Min<int>(NewMin));
-    MPI_Allreduce(&NewMin, &ZBound_Low, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-    // Shift in +Z direction for the bottom of the active region
-    ZShift = ZBound_Low - ZBound_LowOld;
-
-    if (id == 0)
-        std::cout << "New domain bottom at Z = " << ZBound_Low << ", a shift of " << ZShift << " cells" << std::endl;
-
-    // The new "top" of the active domain is located at the highest location with cells solidifying during the next
-    // layer
-    int NewMax;
-    Kokkos::parallel_reduce(
-        "MaxReduce", LocalDomainSize,
-        KOKKOS_LAMBDA(const int &D3D1ConvPosition, int &lmax) {
-            if (LayerID(D3D1ConvPosition) == layernumber + 1) {
-                // Check Z position of this active cell
-                int RankZ = D3D1ConvPosition / (MyXSlices * MyYSlices);
-                if (RankZ > lmax)
-                    lmax = RankZ;
-            }
-        },
-        Kokkos::Max<int>(NewMax));
-    MPI_Allreduce(&NewMax, &ZBound_High, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "New domain top at Z = " << ZBound_High << std::endl;
-    // Change in active region data structures' sizes
-    nzActive = ZBound_High - ZBound_Low + 1;
-    LocalActiveDomainSize = MyXSlices * MyYSlices * nzActive;
-
-    // Change in height of buffers
-    BufSizeZ = nzActive;
-
-    if (id == 0)
-        std::cout << "New active domain height is " << nzActive << std::endl;
 }
 
 //*****************************************************************************/
