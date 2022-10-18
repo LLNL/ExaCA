@@ -13,18 +13,18 @@
 #include <string>
 #include <vector>
 
-void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
-                       double &AConst, double &BConst, double &CConst, double &DConst, double &FreezingRange,
-                       double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
-                       std::string &GrainOrientationFile, int &TempFilesInSeries, std::vector<std::string> &temp_paths,
-                       double &HT_deltax, bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
-                       std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
-                       double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
-                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
-                       bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
-                       bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                       bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderDensity,
-                       int &RVESize);
+std::string InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, int &DecompositionStrategy,
+                              double &deltax, double &NMax, double &dTN, double &dTsigma, std::string &OutputFile,
+                              std::string &GrainOrientationFile, int &TempFilesInSeries,
+                              std::vector<std::string> &temp_paths, double &HT_deltax, bool &RemeltingYN,
+                              double &deltat, int &NumberOfLayers, int &LayerHeight, std::string &SubstrateFileName,
+                              float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx,
+                              int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
+                              int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
+                              bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
+                              bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
+                              bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder,
+                              double &PowderDensity, int &RVESize);
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
                          double PowderDensity);
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);

@@ -266,43 +266,6 @@ void checkFileNotEmpty(std::string testfilename) {
     testfilestream.close();
 }
 
-void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst, double &CConst, double &DConst,
-                       double &FreezingRange) {
-    std::ifstream MaterialData;
-    MaterialData.open(MaterialFile);
-    skipLines(MaterialData, "*****");
-    std::string val;
-    // Interfacial response function A, B, C, D, and the solidification range for the alloy
-    // The order of these is important: "Alloy freezing range" should be before "A", as a search for "A" in either
-    // string will return true
-    std::vector<std::string> MaterialInputs = {
-        "Alloy freezing range", // Required input 0
-        "A",                    // Required input 1
-        "B",                    // Required input 2
-        "C",                    // Required input 3
-        "D",                    // Required input 4
-    };
-    int NumMaterialInputs = MaterialInputs.size();
-    std::vector<std::string> MaterialInputsRead(NumMaterialInputs);
-    while (std::getline(MaterialData, val)) {
-        // Check if this is one of the expected inputs - otherwise throw an error
-        bool FoundInput = parseInputFromList(val, MaterialInputs, MaterialInputsRead, NumMaterialInputs);
-        if (!(FoundInput)) {
-            std::string error = "Error: Unexpected line " + val + " present in material file " + MaterialFile +
-                                " : file should only contain A, B, C, D, and Alloy freezing range";
-            throw std::runtime_error(error);
-        }
-    }
-
-    FreezingRange = getInputDouble(MaterialInputsRead[0]);
-    AConst = getInputDouble(MaterialInputsRead[1]);
-    BConst = getInputDouble(MaterialInputsRead[2]);
-    CConst = getInputDouble(MaterialInputsRead[3]);
-    DConst = getInputDouble(MaterialInputsRead[4]);
-
-    MaterialData.close();
-}
-
 void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &TempFilesInSeries, int &NumberOfLayers,
                            int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths) {
 

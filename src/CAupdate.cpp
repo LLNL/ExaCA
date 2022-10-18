@@ -198,18 +198,17 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int MyXSlic
 }
 
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXSlices, int MyYSlices, double AConst,
-                 double BConst, double CConst, double DConst, int MyXOffset, int MyYOffset, NList NeighborX,
-                 NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
-                 ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
-                 ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferWestSend,
-                 Buffer2D BufferEastSend, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                 Buffer2D BufferNorthEastSend, Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend,
-                 Buffer2D BufferSouthWestSend, int BufSizeX, int BufSizeY, int ZBound_Low, int nzActive, int,
-                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
-                 bool AtSouthBoundary, bool AtEastBoundary, bool AtWestBoundary, ViewI SolidificationEventCounter,
-                 ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents,
-                 bool RemeltingYN) {
+void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXSlices, int MyYSlices,
+                 InterfacialResponseFunction irf, int MyXOffset, int MyYOffset, NList NeighborX, NList NeighborY,
+                 NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange,
+                 ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength, ViewI CellType, ViewF DOCenter,
+                 ViewI GrainID, int NGrainOrientations, Buffer2D BufferWestSend, Buffer2D BufferEastSend,
+                 Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthEastSend,
+                 Buffer2D BufferNorthWestSend, Buffer2D BufferSouthEastSend, Buffer2D BufferSouthWestSend, int BufSizeX,
+                 int BufSizeY, int ZBound_Low, int nzActive, int, ViewI SteeringVector, ViewI numSteer,
+                 ViewI_H numSteer_Host, bool AtNorthBoundary, bool AtSouthBoundary, bool AtEastBoundary,
+                 bool AtWestBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
+                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN) {
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
@@ -228,8 +227,7 @@ void CellCapture(int, int np, int, int DecompositionStrategy, int, int, int MyXS
                 // Update local diagonal length of active cell
                 double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
                 LocU = min(210.0, LocU);
-                double V = AConst * pow(LocU, 3.0) + BConst * pow(LocU, 2.0) + CConst * LocU + DConst;
-                V = max(0.0, V);
+                double V = irf.compute(LocU);
                 DiagonalLength(D3D1ConvPosition) += min(0.045, V); // Max amount the diagonal can grow per time step
                 // Cycle through all neigboring cells on this processor to see if they have been captured
                 // Cells in ghost nodes cannot capture cells on other processors

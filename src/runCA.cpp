@@ -28,19 +28,20 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, RemeltingYN, UseSubstrateFile,
         PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder;
     float SubstrateGrainSpacing;
-    double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, AConst, BConst, CConst, DConst, FreezingRange,
-        NMax, dTN, dTsigma, RNGSeed, PowderDensity;
+    double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderDensity;
     std::string SubstrateFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     std::vector<std::string> temp_paths;
 
     // Read input data
-    InputReadFromFile(id, InputFile, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst,
-                      FreezingRange, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, TempFilesInSeries,
-                      temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
-                      SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
-                      PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
-                      SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
-                      PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
+    std::string MaterialFile = InputReadFromFile(
+        id, InputFile, SimulationType, DecompositionStrategy, deltax, NMax, dTN, dTsigma, OutputFile,
+        GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers,
+        LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
+        FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals,
+        PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
+        PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
+    // Read material data.
+    InterfacialResponseFunction irf(MaterialFile);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -140,17 +141,17 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         // S: spot melt array test problem (with remelting)
         if (SimulationType == "R")
             TempInit_ReadDataRemelt(0, id, MyXSlices, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyXOffset,
-                                    MyYOffset, deltax, deltat, FreezingRange, LayerTimeTempHistory,
+                                    MyYOffset, deltax, deltat, irf.FreezingRange, LayerTimeTempHistory,
                                     NumberOfSolidificationEvents, MaxSolidificationEvents, MeltTimeStep, CritTimeStep,
                                     UndercoolingChange, UndercoolingCurrent, XMin, YMin, ZMinLayer, LayerHeight,
                                     nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue, LastValue, RawData,
                                     SolidificationEventCounter, TempFilesInSeries);
         else if (SimulationType == "S")
-            TempInit_SpotRemelt(0, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat,
-                                ZBound_Low, nz, LocalActiveDomainSize, LocalDomainSize, CritTimeStep,
-                                UndercoolingChange, UndercoolingCurrent, LayerHeight, FreezingRange, LayerID, NSpotsX,
-                                NSpotsY, SpotRadius, SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents,
-                                MeltTimeStep, MaxSolidificationEvents, SolidificationEventCounter);
+            TempInit_SpotRemelt(
+                0, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat, ZBound_Low, nz,
+                LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
+                LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset, LayerTimeTempHistory,
+                NumberOfSolidificationEvents, MeltTimeStep, MaxSolidificationEvents, SolidificationEventCounter);
     }
     else {
         // For simulations without remelting, ZBound_Low/ZBound_High/nzActive/LocalActiveDomainSize are calculated after
@@ -161,12 +162,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         if (SimulationType == "R")
             TempInit_ReadDataNoRemelt(id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, HTtoCAratio, deltat, nz,
                                       LocalDomainSize, CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, ZMinLayer,
-                                      ZMaxLayer, LayerHeight, NumberOfLayers, FinishTimeStep, FreezingRange, LayerID,
-                                      FirstValue, LastValue, RawData);
+                                      ZMaxLayer, LayerHeight, NumberOfLayers, FinishTimeStep, irf.FreezingRange,
+                                      LayerID, FirstValue, LastValue, RawData);
         else if (SimulationType == "S")
             TempInit_SpotNoRemelt(G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset, MyYOffset, deltax, deltat,
                                   nz, LocalDomainSize, CritTimeStep, UndercoolingChange, LayerHeight, NumberOfLayers,
-                                  FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset);
+                                  irf.FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset);
         else if (SimulationType == "C")
             TempInit_DirSolidification(G, R, id, MyXSlices, MyYSlices, deltax, deltat, nz, LocalDomainSize,
                                        CritTimeStep, UndercoolingChange, LayerID);
@@ -290,10 +291,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                NumberOfSolidificationEvents, LayerTimeTempHistory);
 
     // Normalize solidification parameters
-    AConst = AConst * deltat / deltax;
-    BConst = BConst * deltat / deltax;
-    CConst = CConst * deltat / deltax;
-    DConst = DConst * deltat / deltax;
+    irf.normalize(deltat, deltax);
     int cycle;
 
     // Steering Vector
@@ -393,14 +391,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             StartCaptureTime = MPI_Wtime();
             CellCapture(id, np, cycle, DecompositionStrategy, LocalActiveDomainSize, LocalDomainSize, MyXSlices,
-                        MyYSlices, AConst, BConst, CConst, DConst, MyXOffset, MyYOffset, NeighborX, NeighborY,
-                        NeighborZ, CritTimeStep, UndercoolingCurrent, UndercoolingChange, GrainUnitVector,
-                        CritDiagonalLength, DiagonalLength, CellType, DOCenter, GrainID, NGrainOrientations,
-                        BufferWestSend, BufferEastSend, BufferNorthSend, BufferSouthSend, BufferNorthEastSend,
-                        BufferNorthWestSend, BufferSouthEastSend, BufferSouthWestSend, BufSizeX, BufSizeY, ZBound_Low,
-                        nzActive, nz, SteeringVector, numSteer, numSteer_Host, AtNorthBoundary, AtSouthBoundary,
-                        AtEastBoundary, AtWestBoundary, SolidificationEventCounter, MeltTimeStep, LayerTimeTempHistory,
-                        NumberOfSolidificationEvents, RemeltingYN);
+                        MyYSlices, irf, MyXOffset, MyYOffset, NeighborX, NeighborY, NeighborZ, CritTimeStep,
+                        UndercoolingCurrent, UndercoolingChange, GrainUnitVector, CritDiagonalLength, DiagonalLength,
+                        CellType, DOCenter, GrainID, NGrainOrientations, BufferWestSend, BufferEastSend,
+                        BufferNorthSend, BufferSouthSend, BufferNorthEastSend, BufferNorthWestSend, BufferSouthEastSend,
+                        BufferSouthWestSend, BufSizeX, BufSizeY, ZBound_Low, nzActive, nz, SteeringVector, numSteer,
+                        numSteer_Host, AtNorthBoundary, AtSouthBoundary, AtEastBoundary, AtWestBoundary,
+                        SolidificationEventCounter, MeltTimeStep, LayerTimeTempHistory, NumberOfSolidificationEvents,
+                        RemeltingYN);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
@@ -470,12 +468,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                     TempInit_SpotRemelt(layernumber + 1, G, R, SimulationType, id, MyXSlices, MyYSlices, MyXOffset,
                                         MyYOffset, deltax, deltat, ZBound_Low, nz, LocalActiveDomainSize,
                                         LocalDomainSize, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
-                                        LayerHeight, FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset,
-                                        LayerTimeTempHistory, NumberOfSolidificationEvents, MeltTimeStep,
+                                        LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius,
+                                        SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents, MeltTimeStep,
                                         MaxSolidificationEvents, SolidificationEventCounter);
                 else if (SimulationType == "R")
                     TempInit_ReadDataRemelt(layernumber + 1, id, MyXSlices, MyYSlices, nz, LocalActiveDomainSize,
-                                            LocalDomainSize, MyXOffset, MyYOffset, deltax, deltat, FreezingRange,
+                                            LocalDomainSize, MyXOffset, MyYOffset, deltax, deltat, irf.FreezingRange,
                                             LayerTimeTempHistory, NumberOfSolidificationEvents, MaxSolidificationEvents,
                                             MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent, XMin,
                                             YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID,
@@ -617,10 +615,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
     PrintExaCALog(id, np, InputFile, SimulationType, DecompositionStrategy, MyXSlices, MyYSlices, MyXOffset, MyYOffset,
-                  AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, temp_paths,
-                  TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
-                  SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
-                  NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
-                  InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
-                  CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime);
+                  irf, deltax, NMax, dTN, dTsigma, temp_paths, TempFilesInSeries, HT_deltax, RemeltingYN, deltat,
+                  NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
+                  nz, FractSurfaceSitesActive, PathToOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile,
+                  InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
+                  CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
+                  OutMaxTime, OutMinTime);
 }

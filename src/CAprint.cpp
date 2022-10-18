@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: MIT
 
 #include "CAprint.hpp"
-
 #include "CAfunctions.hpp"
 
 #include "mpi.h"
@@ -610,16 +609,16 @@ void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutpu
 // Print a log file for this ExaCA run, containing information about the run parameters used
 // from the input file as well as the decomposition scheme
 void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int DecompositionStrategy,
-                   int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, double AConst, double BConst,
-                   double CConst, double DConst, double FreezingRange, double deltax, double NMax, double dTN,
-                   double dTsigma, std::vector<std::string> temp_paths, int TempFilesInSeries, double HT_deltax,
-                   bool RemeltingYN, double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
-                   double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
-                   double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY, int SpotOffset,
-                   int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
-                   double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
-                   double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
-                   double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime) {
+                   int MyXSlices, int MyYSlices, int MyXOffset, int MyYOffset, InterfacialResponseFunction irf,
+                   double deltax, double NMax, double dTN, double dTsigma, std::vector<std::string> temp_paths,
+                   int TempFilesInSeries, double HT_deltax, bool RemeltingYN, double deltat, int NumberOfLayers,
+                   int LayerHeight, std::string SubstrateFileName, double SubstrateGrainSpacing, bool SubstrateFile,
+                   double G, double R, int nx, int ny, int nz, double FractSurfaceSitesActive, std::string PathToOutput,
+                   int NSpotsX, int NSpotsY, int SpotOffset, int SpotRadius, std::string BaseFileName, double InitTime,
+                   double RunTime, double OutTime, int cycle, double InitMaxTime, double InitMinTime,
+                   double NuclMaxTime, double NuclMinTime, double CreateSVMinTime, double CreateSVMaxTime,
+                   double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime, double GhostMinTime,
+                   double OutMaxTime, double OutMinTime) {
 
     int *XSlices = new int[np];
     int *YSlices = new int[np];
@@ -649,8 +648,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         ExaCALog << "Time step: " << deltat << " microseconds" << std::endl;
         ExaCALog << "Nucleation density was " << NMax << " m^-3 , mean nucleation undercooling was " << dTN
                  << " K, and standard deviation of nucleation undercooling was " << dTsigma << " K" << std::endl;
-        ExaCALog << "Interfacial response function parameters used were " << AConst << " , " << BConst << " , "
-                 << CConst << " , " << DConst << " , and the alloy freezing range was " << FreezingRange << std::endl;
+        ExaCALog << irf.print() << std::endl;
         if (SimulationType == "C") {
             ExaCALog << "The thermal gradient was " << G << " K/m, and the cooling rate " << R << " K/s" << std::endl;
             ExaCALog << "The fraction of surface sites active was " << FractSurfaceSitesActive << std::endl;
