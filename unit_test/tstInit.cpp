@@ -196,7 +196,6 @@ void testInputReadFromFile() {
 //---------------------------------------------------------------------------//
 void testcalcZBound_Low_Remelt() {
 
-    // A separate function is now used for ZBound_Low calculation without remelting
     int LayerHeight = 10;
     int NumberOfLayers = 10;
     double deltax = 1 * pow(10, -6);

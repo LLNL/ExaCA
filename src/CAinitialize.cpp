@@ -850,7 +850,7 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
 int calcZBound_Low_Remelt(std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer, float ZMin,
                           double deltax) {
 
-    int ZBound_Low;
+    int ZBound_Low = -1; // assign dummy initial value
     if (SimulationType == "S") {
         // lower bound of domain is an integer multiple of the layer spacing, since the temperature field is the
         // same for every layer
@@ -860,8 +860,8 @@ int calcZBound_Low_Remelt(std::string SimulationType, int LayerHeight, int layer
         // lower bound of domain is based on the data read from the file(s)
         ZBound_Low = round((ZMinLayer[layernumber] - ZMin) / deltax);
     }
-    else
-        throw std::runtime_error("Error: simulations with remelting must be simulation type SM or RM");
+    if (ZBound_Low == -1)
+        throw std::runtime_error("Error: ZBound_Low went uninitialized, problem type must be C, S, or R");
     return ZBound_Low;
 }
 // If not using remelting, determine the smallest Z coordinate containing cells of the present layer ID
