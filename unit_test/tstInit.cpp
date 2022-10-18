@@ -117,7 +117,7 @@ void testInputReadFromFile() {
                           PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
                           SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
                           PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
-        InterfacialResponseFunction irf(MaterialFileName);
+        InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
@@ -129,9 +129,9 @@ void testInputReadFromFile() {
         EXPECT_DOUBLE_EQ(dTN, 5.0);
         EXPECT_DOUBLE_EQ(dTsigma, 0.5);
         EXPECT_EQ(PrintDebug, 0);
-        EXPECT_DOUBLE_EQ(irf.A, -0.00000010302);
-        EXPECT_DOUBLE_EQ(irf.B, 0.00010533);
-        EXPECT_DOUBLE_EQ(irf.C, 0.0022196);
+        EXPECT_DOUBLE_EQ(irf.A, -0.00000010302 * deltat / deltax);
+        EXPECT_DOUBLE_EQ(irf.B, 0.00010533 * deltat / deltax);
+        EXPECT_DOUBLE_EQ(irf.C, 0.0022196 * deltat / deltax);
         EXPECT_DOUBLE_EQ(irf.D, 0);
         EXPECT_DOUBLE_EQ(irf.FreezingRange, 210);
 

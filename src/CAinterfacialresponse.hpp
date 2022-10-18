@@ -29,7 +29,7 @@ struct InterfacialResponseFunction {
     double D;
 
     // Constructor. Read data from file.
-    InterfacialResponseFunction(std::string MaterialFile) {
+    InterfacialResponseFunction(std::string MaterialFile, const double deltat, const double deltax) {
         std::ifstream MaterialData;
         MaterialData.open(MaterialFile);
         skipLines(MaterialData, "*****");
@@ -64,6 +64,8 @@ struct InterfacialResponseFunction {
         D = getInputDouble(MaterialInputsRead[4]);
 
         MaterialData.close();
+
+        normalize(deltat, deltax);
     }
 
     // Compute velocity from local undercooling.

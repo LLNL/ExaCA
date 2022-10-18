@@ -41,7 +41,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
                       BaseplateThroughPowder, PowderDensity, RVESize);
     // Read material data.
-    InterfacialResponseFunction irf(MaterialFileName);
+    InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
 
     // Grid decomposition
     int ProcessorsInXDirection, ProcessorsInYDirection;
@@ -290,10 +290,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                AtSouthBoundary, AtEastBoundary, AtWestBoundary, RemeltingYN, NucleationCounter, MaxSolidificationEvents,
                NumberOfSolidificationEvents, LayerTimeTempHistory);
 
-    // Normalize solidification parameters
-    irf.normalize(deltat, deltax);
-    int cycle;
-
     // Steering Vector
     ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
     ViewI_H numSteer_Host(Kokkos::ViewAllocateWithoutInitializing("SteeringVectorSize"), 1);
@@ -335,7 +331,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         if (id == 0)
             std::cout << "Initialization data file(s) printed" << std::endl;
     }
-    cycle = 0;
+    int cycle = 0;
     int IntermediateFileCounter = 0;
     double StartRunTime = MPI_Wtime();
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
