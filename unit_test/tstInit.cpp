@@ -6,6 +6,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "CAinitialize.hpp"
+#include "CAinterfacialresponse.hpp"
 
 #include <gtest/gtest.h>
 
@@ -103,36 +104,37 @@ void testInputReadFromFile() {
         int DecompositionStrategy, TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, PrintDebug, NSpotsX,
             NSpotsY, SpotOffset, SpotRadius, TimeSeriesInc, RVESize;
         float SubstrateGrainSpacing;
-        double AConst, BConst, CConst, DConst, FreezingRange, deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R,
-            FractSurfaceSitesActive, RNGSeed, PowderDensity;
+        double deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R, FractSurfaceSitesActive, RNGSeed, PowderDensity;
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
             UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false, BaseplateThroughPowder;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
-            PathToOutput;
+            PathToOutput, MaterialFileName;
         std::vector<std::string> temp_paths;
-        InputReadFromFile(
-            id, FileName, SimulationType, DecompositionStrategy, AConst, BConst, CConst, DConst, FreezingRange, deltax,
-            NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN,
-            deltat, NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx,
-            ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals,
-            PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
-            PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
+        InputReadFromFile(id, FileName, SimulationType, DecompositionStrategy, deltax, NMax, dTN, dTsigma, OutputFile,
+                          GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
+                          NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName, SubstrateGrainSpacing,
+                          UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
+                          PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
+                          SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
+                          PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderDensity, RVESize);
+        InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
         // InputReadFromFile
         // These should be the same for all 3 test problems
         EXPECT_EQ(DecompositionStrategy, 1);
-        EXPECT_DOUBLE_EQ(AConst, -0.00000010302);
-        EXPECT_DOUBLE_EQ(BConst, 0.00010533);
-        EXPECT_DOUBLE_EQ(CConst, 0.0022196);
-        EXPECT_DOUBLE_EQ(DConst, 0);
-        EXPECT_DOUBLE_EQ(FreezingRange, 210);
         EXPECT_DOUBLE_EQ(deltax, 1.0 * pow(10, -6));
         EXPECT_DOUBLE_EQ(NMax, 1.0 * pow(10, 13));
         EXPECT_DOUBLE_EQ(dTN, 5.0);
         EXPECT_DOUBLE_EQ(dTsigma, 0.5);
         EXPECT_EQ(PrintDebug, 0);
+        EXPECT_DOUBLE_EQ(irf.A, -0.00000010302 * deltat / deltax);
+        EXPECT_DOUBLE_EQ(irf.B, 0.00010533 * deltat / deltax);
+        EXPECT_DOUBLE_EQ(irf.C, 0.0022196 * deltat / deltax);
+        EXPECT_DOUBLE_EQ(irf.D, 0);
+        EXPECT_DOUBLE_EQ(irf.FreezingRange, 210);
+
         // These are different for all 3 test problems
         if (FileName == "Inp_DirSolidification.txt") {
             EXPECT_TRUE(PrintTimeSeries);
