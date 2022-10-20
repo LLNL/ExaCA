@@ -1,8 +1,9 @@
 name: Nightly
 on:
-  push:
-    branches:
-      - kokkos_develop_testing
+  workflow_dispatch:
+    inputs:
+      cmake_args:
+        description: 'Extra CMake args'
   schedule:
     - cron:  '0 1 * * *'
 
@@ -11,7 +12,7 @@ jobs:
     strategy:
       matrix:
         backend: ["OPENMP", "SERIAL"]
-        kokkos_ver: ["master", "develop"]
+        kokkos_ver: ["develop"]
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/ubuntu:latest
     steps:
@@ -24,14 +25,14 @@ jobs:
       - name: Build kokkos
         working-directory: kokkos
         run: |
-          cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/kokkos -DKokkos_ENABLE_${{ matrix.backend }}=ON
+          cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/kokkos -DKokkos_ENABLE_${{ matrix.backend }}=ON -DCMAKE_BUILD_TYPE=Debug
           cmake --build build --parallel 2
           cmake --install build
       - name: Checkout ExaCA
         uses: actions/checkout@v2.2.0
       - name: Build ExaCA
         run: |
-          cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/exaca -DCMAKE_PREFIX_PATH="$HOME/kokkos" -DExaCA_ENABLE_TESTING=ON
+          cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/exaca -DCMAKE_PREFIX_PATH="$HOME/kokkos" -DExaCA_ENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug ${{ github.event.inputs.cmake_args }}
           cmake --build build --parallel 2
           cmake --install build
           CTEST_OUTPUT_ON_FAILURE=1 cmake --build build --target test
