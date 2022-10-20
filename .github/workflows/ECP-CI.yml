@@ -1,0 +1,17 @@
+name: ECP-CI
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  trigger-gitlab-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Gitlab
+        uses: eic/trigger-gitlab-ci@v2
+        with:
+          url: https://code.ornl.gov
+          project_id: 7121
+          token: ${{ secrets.GITLAB_TOKEN }}
+          ref_name: ${{ github.head_ref }}
