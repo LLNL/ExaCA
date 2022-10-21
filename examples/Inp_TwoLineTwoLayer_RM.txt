@@ -8,7 +8,7 @@ Heterogeneous nucleation density: 100
 Mean nucleation undercooling: 5
 Standard deviation of nucleation undercooling: 0.5
 Path to output:./
-Output file base name:TestProblemTwoLineTwoLayer
+Output file base name:TestProblemTwoLineTwoLayer_RM
 File of grain orientations:GrainOrientationVectors.csv
 Time step: 0.0825
 Substrate grain spacing: 25
