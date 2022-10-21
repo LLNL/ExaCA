@@ -34,8 +34,8 @@ void testPrintExaConstitDefaultRVE() {
     ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), nz, nx, ny);
     ViewI3D_H LayerID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("LayerID_WholeDomain"), nz, nx, ny);
     for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < ny; j++) {
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
                 LayerID_WholeDomain(k, i, j) = k;
                 GrainID_WholeDomain(k, i, j) = i + j;
             }
@@ -57,8 +57,8 @@ void testPrintExaConstitDefaultRVE() {
     std::getline(GrainplotE, line);
     EXPECT_TRUE(line == "X coord, Y coord, Z coord, Grain ID");
     for (int k = 4; k < 9; k++) {
-        for (int i = 3; i < 8; i++) {
-            for (int j = 3; j < 8; j++) {
+        for (int j = 3; j < 8; j++) {
+            for (int i = 3; i < 8; i++) {
                 std::string ExpectedLine =
                     std::to_string(i) + "," + std::to_string(j) + "," + std::to_string(k) + "," + std::to_string(i + j);
                 std::getline(GrainplotE, line);
