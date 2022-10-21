@@ -23,7 +23,7 @@ void testNucleation() {
     // Counters for nucleation events (successful or not) - host and device
     int NucleationCounter = 0;
 
-    // Create views - each rank has 125 cells, 75 of which are part of the active region of the domain
+    // Create views - 125 cells, 75 of which are part of the active layer of the domain (Z = 2-5)
     int nx = 5;
     int MyYSlices = 5;
     int nz = 5;
@@ -38,7 +38,7 @@ void testNucleation() {
     ViewI_H CellType_Host(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), LocalDomainSize);
     Kokkos::deep_copy(CellType_Host, Liquid);
 
-    // Create test nucleation data - 10 possible events per MPI rank
+    // Create test nucleation data - 10 possible events
     int PossibleNuclei_ThisRankThisLayer = 10;
     ViewI_H NucleationTimes_Host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
                                  PossibleNuclei_ThisRankThisLayer);
@@ -47,30 +47,32 @@ void testNucleation() {
     ViewI_H NucleiGrainID_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
                                PossibleNuclei_ThisRankThisLayer);
     for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
-        // NucleationTimes values should be in the order in which the events occur - let these times depend on the
-        // process id
-        NucleationTimes_Host(n) = 4 + n;
+        // NucleationTimes values should be in the order in which the events occur - start with setting them between 0
+        // and 9 NucleiLocations are in order starting with 50, through 59 (locations relative to the bottom of the
+        // whole domain)
+        NucleationTimes_Host(n) = n;
         NucleiLocation_Host(n) = ZBound_Low * nx * MyYSlices + n;
         // Give these nucleation events grain IDs based on their order, starting with -1 and counting down
         NucleiGrainID_Host(n) = -(n + 1);
     }
     // Include the case where 2 potential nucleation events (3 and 4) happen on the same time step - both successful
+    // Let nucleation events 3 and 4 both occur on time step 4
     NucleationTimes_Host(3) = NucleationTimes_Host(4);
 
-    // Include the case where a potential nucleation event (2) is unsuccessful
+    // Include the case where a potential nucleation event (2) is unsuccessful (time step 2)
     int UnsuccessfulLocA = ZBound_Low * nx * MyYSlices + 2;
     CellType_Host(UnsuccessfulLocA) = Active;
     GrainID_Host(UnsuccessfulLocA) = 1;
 
-    // Include the case where 2 potential nucleation events (5 and 6) happen on the same time step - the first
-    // successful, the second unsuccessful
+    // Include the case where 2 potential nucleation events (5 and 6) happen on the same time step (time step 6) - the
+    // first successful, the second unsuccessful
     NucleationTimes_Host(5) = NucleationTimes_Host(6);
     int UnsuccessfulLocC = ZBound_Low * nx * MyYSlices + 6;
     CellType_Host(UnsuccessfulLocC) = Active;
     GrainID_Host(UnsuccessfulLocC) = 2;
 
-    // Include the case where 2 potential nucleation events (8 and 9) happen on the same time step - the first
-    // unsuccessful, the second successful
+    // Include the case where 2 potential nucleation events (8 and 9) happen on the same time step (time step 8) - the
+    // first unsuccessful, the second successful
     NucleationTimes_Host(8) = NucleationTimes_Host(9);
     int UnsuccessfulLocB = ZBound_Low * nx * MyYSlices + 8;
     CellType_Host(UnsuccessfulLocB) = Active;
@@ -89,7 +91,7 @@ void testNucleation() {
     ViewI numSteer("SteeringVector", 1);
 
     // Take enough time steps such that every nucleation event has a chance to occur
-    for (int cycle = 0; cycle <= (15); cycle++) {
+    for (int cycle = 0; cycle < 10; cycle++) {
         Nucleation(cycle, SuccessfulNucEvents_ThisRank, NucleationCounter, PossibleNuclei_ThisRankThisLayer,
                    NucleationTimes_Host, NucleiLocation, NucleiGrainID, CellType, GrainID, ZBound_Low, nx, MyYSlices,
                    SteeringVector, numSteer);
@@ -117,20 +119,24 @@ void testNucleation() {
     EXPECT_EQ(GrainID_Host(ZBound_Low * nx * MyYSlices + 8), 3);
 
     // Check that the successful nucleation events occurred as expected
+    // For each cell location (relative to the domain bottom) that should be home to a successful nucleation event,
+    // check that the CellType has been set to FutureActive and the GrainID matches the expected value Also check that
+    // the adjusted cell coordinate (relative to the current layer bounds) appears somewhere within the steering vector
     std::vector<int> SuccessfulNuc_GrainIDs{-1, -2, -4, -5, -6, -8, -10};
-    for (int n = 0; n < 7; n++) {
-        // Cell's location within the active layer
-        int CellLocation_ThisLayer = SteeringVector_Host(n);
-        int RankZ = CellLocation_ThisLayer / (nx * MyYSlices);
-        int Rem = CellLocation_ThisLayer % (nx * MyYSlices);
-        int RankX = Rem / MyYSlices;
-        int RankY = Rem % MyYSlices;
-        int GlobalZ = RankZ + ZBound_Low;
-        // Cell location within the overall domain
-        int CellLocation_AllLayers = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
-        // Check that this cell type is marked as "FutureActive", and the GrainID matches the expected value
+    std::vector<int> SuccessfulNuc_CellLocations{50, 51, 53, 54, 55, 57, 59};
+    for (int nevent = 0; nevent < 7; nevent++) {
+        int CellLocation_AllLayers = SuccessfulNuc_CellLocations[nevent];
         EXPECT_EQ(CellType_Host(CellLocation_AllLayers), FutureActive);
-        EXPECT_EQ(GrainID_Host(CellLocation_AllLayers), SuccessfulNuc_GrainIDs[n]);
+        EXPECT_EQ(GrainID_Host(CellLocation_AllLayers), SuccessfulNuc_GrainIDs[nevent]);
+        bool OnSteeringVector = false;
+        for (int svloc = 0; svloc < 7; svloc++) {
+            int CellLocation_CurrentLayer = CellLocation_AllLayers - nx * MyYSlices * ZBound_Low;
+            if (SteeringVector_Host(svloc) == CellLocation_CurrentLayer) {
+                OnSteeringVector = true;
+                break;
+            }
+        }
+        EXPECT_TRUE(OnSteeringVector);
     }
 }
 
