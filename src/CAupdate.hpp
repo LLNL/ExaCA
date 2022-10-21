@@ -14,8 +14,9 @@
 #include <string>
 
 // Assign octahedron a small initial size, and a center location
-KOKKOS_INLINE_FUNCTION void createNewOctahedron(int D3D1ConvPosition, ViewF DiagonalLength, ViewF DOCenter, int GlobalX,
-                                                int GlobalY, int GlobalZ) {
+template <typename ViewType>
+KOKKOS_INLINE_FUNCTION void createNewOctahedron(int D3D1ConvPosition, ViewType DiagonalLength, ViewType DOCenter,
+                                                int GlobalX, int GlobalY, int GlobalZ) {
     DiagonalLength(D3D1ConvPosition) = 0.01;
     DOCenter(3 * D3D1ConvPosition) = GlobalX + 0.5;
     DOCenter(3 * D3D1ConvPosition + 1) = GlobalY + 0.5;
@@ -24,10 +25,11 @@ KOKKOS_INLINE_FUNCTION void createNewOctahedron(int D3D1ConvPosition, ViewF Diag
 
 // For the newly active cell located at 1D array position D3D1ConvPosition (3D center coordinate of xp, yp, zp), update
 // CritDiagonalLength values for cell capture of neighboring cells. The octahedron has a center located at (cx, cy, cz)
+template <typename ViewType>
 KOKKOS_INLINE_FUNCTION void calcCritDiagonalLength(int D3D1ConvPosition, float xp, float yp, float zp, float cx,
                                                    float cy, float cz, NList NeighborX, NList NeighborY,
-                                                   NList NeighborZ, int MyOrientation, ViewF GrainUnitVector,
-                                                   ViewF CritDiagonalLength) {
+                                                   NList NeighborZ, int MyOrientation, ViewType GrainUnitVector,
+                                                   ViewType CritDiagonalLength) {
     // Calculate critical octahedron diagonal length to activate nearest neighbor.
     // First, calculate the unique planes (4) associated with all octahedron faces (8)
     // Then just look at distance between face and the point of interest (cell center of
