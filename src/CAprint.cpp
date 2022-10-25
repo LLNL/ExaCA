@@ -538,8 +538,8 @@ void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutpu
     int RVE_ZHigh = nz - 1;
     for (int k = nz - 1; k >= 0; k--) {
         [&] {
-            for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
-                for (int j = RVE_YLow; j <= RVE_YHigh; j++) {
+            for (int j = RVE_YLow; j <= RVE_YHigh; j++) {
+                for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
                     if (LayerID_WholeDomain(k, i, j) == (NumberOfLayers - 1))
                         return; // check next lowest value for k
                 }
@@ -570,8 +570,8 @@ void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutpu
                << " by " << RVE_YHigh - RVE_YLow + 1 << " by " << RVE_ZHigh - RVE_ZLow + 1 << " cells" << std::endl;
     GrainplotE << "X coord, Y coord, Z coord, Grain ID" << std::endl;
     for (int k = RVE_ZLow; k <= RVE_ZHigh; k++) {
-        for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
-            for (int j = RVE_YLow; j <= RVE_YHigh; j++) {
+        for (int j = RVE_YLow; j <= RVE_YHigh; j++) {
+            for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
                 GrainplotE << i << "," << j << "," << k << "," << GrainID_WholeDomain(k, i, j) << std::endl;
             }
         }

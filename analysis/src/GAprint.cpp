@@ -502,8 +502,8 @@ void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int
         GrainplotE << "X coord, Y coord, Z coord, Grain ID" << std::endl;
         int NucleatedGrainCells = 0;
         for (int k = ZLow_RVE[n]; k <= ZHigh_RVE[n]; k++) {
-            for (int i = XLow_RVE[n]; i <= XHigh_RVE[n]; i++) {
-                for (int j = YLow_RVE[n]; j <= YHigh_RVE[n]; j++) {
+            for (int j = YLow_RVE[n]; j <= YHigh_RVE[n]; j++) {
+                for (int i = XLow_RVE[n]; i <= XHigh_RVE[n]; i++) {
                     GrainplotE << i << "," << j << "," << k << "," << GrainID(k, i, j) << std::endl;
                     if (GrainID(k, i, j) < 0)
                         NucleatedGrainCells++;
