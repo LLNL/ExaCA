@@ -426,21 +426,8 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
 
     int NucleatedGrainCells = 0;
     int MeltedCells = 0;
-    ViewI_H GrainMisorientation_Round(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"),
-                                      NGrainOrientations);
-    for (int n = 0; n < NGrainOrientations; n++) {
-        // Find the smallest possible misorientation between the domain +Z direction, and this grain orientations' 6
-        // possible 001 directions (where 62.7 degrees is the largest possible misorientation between two 001 directions
-        // for a cubic crystal system)
-        float AngleZmin = 62.7;
-        for (int ll = 0; ll < 3; ll++) {
-            float AngleZ = std::abs((180 / M_PI) * std::acos(GrainUnitVector(9 * n + 3 * ll + 2)));
-            if (AngleZ < AngleZmin) {
-                AngleZmin = AngleZ;
-            }
-        }
-        GrainMisorientation_Round(n) = round(AngleZmin);
-    }
+    // Get grain misorientations relative to the Z direction for each orientation
+    ViewF_H GrainMisorientation = MisorientationCalc(NGrainOrientations, GrainUnitVector, 2);
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
@@ -451,11 +438,11 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
                     int RoundedAngle;
                     int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
                     if (GrainID_WholeDomain(k, i, j) < 0) {
-                        RoundedAngle = GrainMisorientation_Round(MyOrientation) + 100;
+                        RoundedAngle = std::round(GrainMisorientation(MyOrientation)) + 100;
                         NucleatedGrainCells++;
                     }
                     else
-                        RoundedAngle = GrainMisorientation_Round(MyOrientation);
+                        RoundedAngle = std::round(GrainMisorientation(MyOrientation));
                     GrainplotM << RoundedAngle << " ";
                 }
             }

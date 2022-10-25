@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 #include "GAprint.hpp"
+#include "CAfunctions.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -33,17 +34,7 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
     long double MisorientationSum = 0.0;
     int NumberOfMeltedCellsTop = 0;
     long double MisorientationSumTop = 0.0;
-    ViewF_H GrainMisorientation(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"), NumberOfOrientations);
-    for (int n = 0; n < NumberOfOrientations; n++) {
-        double AngleZmin = 62.7;
-        for (int ll = 0; ll < 3; ll++) {
-            double AngleZ = std::abs((180 / M_PI) * acos(GrainUnitVector(9 * n + 3 * ll + 2)));
-            if (AngleZ < AngleZmin) {
-                AngleZmin = AngleZ;
-            }
-        }
-        GrainMisorientation(n) = AngleZmin;
-    }
+    ViewF_H GrainMisorientation = MisorientationCalc(NumberOfOrientations, GrainUnitVector, 2);
     for (int k = ZMin; k <= ZMax; k++) {
         for (int i = XMin; i <= XMax; i++) {
             for (int j = YMin; j <= YMax; j++) {
