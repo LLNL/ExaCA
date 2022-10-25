@@ -35,5 +35,6 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        int &YMin, int &YMax, int &ZMin, int &ZMax, int nx, int ny, int nz, ViewI3D_H LayerID,
                        int NumberOfLayers, std::vector<bool> &PrintSectionPF, std::vector<bool> &PrintSectionIPF,
                        bool NewOrientationFormatYN);
+std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector);
 
 #endif

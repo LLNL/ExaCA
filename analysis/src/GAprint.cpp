@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 #include "GAprint.hpp"
 #include "CAfunctions.hpp"
+#include "GAutils.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -75,21 +76,18 @@ void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int 
     int Counter = 0;
     int NucleatedGrainCells = 0;
     int DomainVol = (ZMax - ZMin + 1) * (YMax - YMin + 1) * (XMax - XMin + 1);
-    std::vector<int> UniqueGrainIDs(DomainVol);
+    std::vector<int> AllGrainIDs(DomainVol);
     for (int k = ZMin; k <= ZMax; k++) {
         for (int i = XMin; i <= XMax; i++) {
             for (int j = YMin; j <= YMax; j++) {
-                UniqueGrainIDs[Counter] = GrainID(k, i, j);
+                AllGrainIDs[Counter] = GrainID(k, i, j);
                 Counter++;
                 if (GrainID(k, i, j) < 0)
                     NucleatedGrainCells++;
             }
         }
     }
-    std::sort(UniqueGrainIDs.begin(), UniqueGrainIDs.end());
-    std::vector<int>::iterator it;
-    it = std::unique(UniqueGrainIDs.begin(), UniqueGrainIDs.end());
-    UniqueGrainIDs.resize(std::distance(UniqueGrainIDs.begin(), it));
+    std::vector<int> UniqueGrainIDs = FindUniqueGrains(AllGrainIDs);
     int NumberOfGrains = UniqueGrainIDs.size();
     std::cout << "-- There are " << NumberOfGrains << " grains in this volume, and the mean grain volume is "
               << deltax * deltax * pow(10, 12) * ((double)(DomainVol) / (double)(NumberOfGrains)) << " cubic microns"
@@ -219,12 +217,8 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
                 Counter++;
             }
         }
-        std::vector<int> GIDVals_ThisLayer;
-        GIDVals_ThisLayer = GIDAllVals_ThisLayer;
-        std::vector<int>::iterator it;
-        std::sort(GIDVals_ThisLayer.begin(), GIDVals_ThisLayer.end());
-        it = std::unique(GIDVals_ThisLayer.begin(), GIDVals_ThisLayer.end());
-        GIDVals_ThisLayer.resize(std::distance(GIDVals_ThisLayer.begin(), it));
+        // List of unique grain ID values from the list of all values
+        std::vector<int> GIDVals_ThisLayer = FindUniqueGrains(GIDAllVals_ThisLayer);
         int GrainsThisLayer = GIDVals_ThisLayer.size();
         double MeanGrainAreaThisLayer = (double)(LayerArea) / (double)(GrainsThisLayer);
         if (k == ZMax) {

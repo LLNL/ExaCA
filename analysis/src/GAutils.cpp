@@ -527,3 +527,14 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
     }
     Analysis.close();
 }
+
+// Given an input vector of integer Grain ID values, return an output vector consisting of the unique Grain ID values,
+// sorted from lowest to highest
+std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector) {
+    std::vector<int> UniqueGrainIDVector = GrainIDVector;
+    std::sort(UniqueGrainIDVector.begin(), UniqueGrainIDVector.end());
+    std::vector<int>::iterator it;
+    it = std::unique(UniqueGrainIDVector.begin(), UniqueGrainIDVector.end());
+    UniqueGrainIDVector.resize(std::distance(UniqueGrainIDVector.begin(), it));
+    return UniqueGrainIDVector;
+}
