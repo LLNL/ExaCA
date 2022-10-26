@@ -106,7 +106,8 @@ void testInputReadFromFile() {
         float SubstrateGrainSpacing;
         double deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R, FractSurfaceSitesActive, RNGSeed, PowderDensity;
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
-            UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false, BaseplateThroughPowder;
+            UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false, BaseplateThroughPowder,
+                                                         LayerwiseTempInit;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput, MaterialFileName;
         std::vector<std::string> temp_paths;
@@ -116,7 +117,7 @@ void testInputReadFromFile() {
                           nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
                           PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                           PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
-                          BaseplateThroughPowder, PowderDensity, RVESize);
+                          BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempInit);
         InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
 
         // Check the results
@@ -313,7 +314,7 @@ void testReadTemperatureData() {
         ZMinLayer[0] = 0.0;
         ZMaxLayer[0] = 0.0;
         ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths, NumberOfLayers,
-                            TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue, LastValue);
+                            TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue, LastValue, false, 0);
 
         // Check the results.
         // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr)

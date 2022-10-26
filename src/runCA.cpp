@@ -23,10 +23,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     int nx, ny, nz, NumberOfLayers, LayerHeight, TempFilesInSeries;
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, RVESize;
-    unsigned int NumberOfTemperatureDataPoints = 0; // Initialized to 0 - updated if/when temperature files are read
+    unsigned int NumberOfTemperatureDataPoints;
     int PrintDebug, TimeSeriesInc;
     bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, RemeltingYN, UseSubstrateFile,
-        PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder;
+        PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderDensity;
     std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
@@ -39,7 +39,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
                       PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                       PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
-                      BaseplateThroughPowder, PowderDensity, RVESize);
+                      BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempRead);
     // Read material data.
     InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
 
@@ -78,6 +78,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading
     // temperature data files and parsing the coordinates
+    // For simulations using input temperature data with remelting: even if only LayerwiseTempRead is true, all files
+    // need to be read to determine the domain bounds
     FindXYZBounds(SimulationType, id, deltax, nx, ny, nz, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerHeight,
                   NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer, SpotRadius);
 
@@ -94,7 +96,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // data
     if (SimulationType == "R")
         ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths, NumberOfLayers,
-                            TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue, LastValue);
+                            TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue, LastValue,
+                            LayerwiseTempRead, 0);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
@@ -173,8 +176,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             calcLocalActiveDomainSize(nx, MyYSlices, nzActive); // Number of active cells on this MPI rank
     }
     // Delete temporary data structure for temperature data read if remelting is not performed (otherwise keep it to
-    // avoid having to reread temperature files)
-    if (!(RemeltingYN))
+    // avoid having to reread temperature files, unless specified that temperatures are initialized one layer at a time)
+    if ((!(RemeltingYN)) || (LayerwiseTempRead))
         RawData.clear();
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
@@ -379,6 +382,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
         } while (XSwitch == 0);
         if (layernumber != NumberOfLayers - 1) {
+            MPI_Barrier(MPI_COMM_WORLD);
+            if (id == 0)
+                std::cout << "Layer " << layernumber << " finished solidification; initializing layer "
+                          << layernumber + 1 << std::endl;
+
             // Reset intermediate file counter to zero if printing video files
             if (PrintTimeSeries)
                 IntermediateFileCounter = 0;
@@ -386,6 +394,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Determine new active cell domain size and offset from bottom of global domain
             if (RemeltingYN) {
                 // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
+                // If the next layer's temperature data isn't already stored, it should be read
+                if ((SimulationType == "R") && (LayerwiseTempRead)) {
+                    ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths,
+                                        NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
+                                        FirstValue, LastValue, LayerwiseTempRead, layernumber + 1);
+                }
                 ZBound_Low =
                     calcZBound_Low_Remelt(SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
                 ZBound_High = calcZBound_High_Remelt(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin,
@@ -403,13 +417,16 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                         LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset, LayerTimeTempHistory,
                                         NumberOfSolidificationEvents, MeltTimeStep, MaxSolidificationEvents,
                                         SolidificationEventCounter);
-                else if (SimulationType == "R")
+                else if (SimulationType == "R") {
                     TempInit_ReadDataRemelt(
                         layernumber + 1, id, nx, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyYOffset,
                         deltax, deltat, irf.FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
                         MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
                         XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue,
                         LastValue, RawData, SolidificationEventCounter, TempFilesInSeries);
+                    if (LayerwiseTempRead)
+                        RawData.clear();
+                }
             }
             else {
                 // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
