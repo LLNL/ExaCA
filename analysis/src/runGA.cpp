@@ -47,7 +47,8 @@ int main(int argc, char *argv[]) {
         // Given the input file name, parse the paraview file for the cell size, x, y, and z dimensions, number of
         // layers
         int nx, ny, nz, NumberOfLayers;
-        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers);
+        std::vector<double> XYZBounds(6);
+        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, false, XYZBounds);
 
         // Allocate memory blocks for GrainID and LayerID data
         ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);

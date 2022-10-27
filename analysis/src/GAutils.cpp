@@ -88,17 +88,42 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
     std::cout << "Dimensions of data are: nx = " << nx << ", ny = " << ny << ", nz = " << nz << std::endl;
     std::cout << "Cell size is " << deltax << " microns" << std::endl;
 
-    // Time step not used by analysis script
-    getline(InputDataStream, line);
+    if (UseXYZBounds) {
+        // Time step not used by analysis script
+        getline(InputDataStream, line);
 
-    // Get domain bounds
-    std::vector<std::string> XYZBoundsString(6);
-    XYZBoundsString[0] = parseInput(InputDataStream, "Lower bound of domain in x");
-    XYZBoundsString[1] = parseInput(InputDataStream, "Lower bound of domain in y");
-    XYZBoundsString[2] = parseInput(InputDataStream, "Lower bound of domain in z");
-    XYZBoundsString[3] = parseInput(InputDataStream, "Upper bound of domain in x");
-    XYZBoundsString[4] = parseInput(InputDataStream, "Upper bound of domain in y");
-    XYZBoundsString[5] = parseInput(InputDataStream, "Upper bound of domain in z");
+        // Get domain bounds
+        std::vector<std::string> XYZBoundsString(6);
+
+        // Check that the bounds are present in the file
+        // If this line does not contain the lower bound of the domain in x, throw an error that the input data set is
+        // not compatible with this executable
+        std::string testline;
+        std::string expectedline = "Lower bound of domain in x:";
+        std::getline(InputDataStream, testline);
+        if (testline.find(expectedline) == std::string::npos)
+            throw std::runtime_error("Error: input data set not compatible with amb analysis executable: domain bounds "
+                                     "are not listed in the log file");
+        else {
+            // Parse this line as normal
+            std::size_t colon = testline.find(":");
+            XYZBoundsString[0] = testline.substr(colon + 1, std::string::npos);
+            XYZBoundsString[0] = removeWhitespace(XYZBoundsString[0]);
+        }
+        // Parse remaining bounds
+        XYZBoundsString[1] = parseInput(InputDataStream, "Lower bound of domain in y");
+        XYZBoundsString[2] = parseInput(InputDataStream, "Lower bound of domain in z");
+        XYZBoundsString[3] = parseInput(InputDataStream, "Upper bound of domain in x");
+        XYZBoundsString[4] = parseInput(InputDataStream, "Upper bound of domain in y");
+        XYZBoundsString[5] = parseInput(InputDataStream, "Upper bound of domain in z");
+
+        // If log file contained the X, Y, Z bounds of the domain and they're used in the analysis, convert them
+        for (int n = 0; n < 6; n++)
+            XYZBounds[n] = getInputDouble(XYZBoundsString[n]);
+        std::cout << "X bounds of data are " << XYZBounds[0] << ", " << XYZBounds[3] << "; Y bounds of data are "
+                  << XYZBounds[1] << ", " << XYZBounds[4] << "; Z bounds of data are " << XYZBounds[2] << ", "
+                  << XYZBounds[5] << std::endl;
+    }
 
     // Get number of layers
     if (SimulationType == "C")
@@ -118,15 +143,6 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
     }
     std::cout << "Number of layers in microstructure data: " << NumberOfLayers << std::endl;
     InputDataStream.close();
-
-    // If log file contained the X, Y, Z bounds of the domain and they're used in the analysis, convert them
-    if (UseXYZBounds) {
-        for (int n = 0; n < 6; n++)
-            XYZBounds[n] = getInputDouble(XYZBoundsString[n]);
-        std::cout << "X bounds of data are " << XYZBounds[0] << ", " << XYZBounds[3] << "; Y bounds of data are "
-                  << XYZBounds[1] << ", " << XYZBounds[4] << "; Z bounds of data are " << XYZBounds[2] << ", "
-                  << XYZBounds[5] << std::endl;
-    }
 }
 
 // Reads portion of a paraview file and places data in the appropriate data structure

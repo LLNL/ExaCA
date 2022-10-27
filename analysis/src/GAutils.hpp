@@ -21,9 +21,8 @@ std::string parseCoordinatePair(std::string line, int val);
 int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow);
 
 // These are used in reading/parsing ExaCA microstructure data
-static std::vector<double> DEFAULT_VECTOR;
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
-                  bool UseXYZBounds = false, std::vector<double> &XYZBounds = DEFAULT_VECTOR);
+                  bool UseXYZBounds, std::vector<double> &XYZBounds);
 void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest);
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
                     std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
