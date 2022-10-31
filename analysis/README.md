@@ -17,8 +17,9 @@ This is where the required inputs for analysis are given; these inputs are:
 * Path to file of grain orientations (rotation matrix form)
 * Path to/base (without file extension) name of data files of output resulting from this analysis
 * Path to file of grain orientations (Bunge Euler angle form ZXZ)
+* Path to file corresponding to grain orientation IPF-Z colors as fractional RGB values
 
-Nothing other than values for these 5 inputs (separated by a colon from the rest of the line) should be given here. If "Path to file of grain orientations (Bunge Euler angle form ZXZ)" is not given, the deprecated form of printing ExaCA cross-section data is assumed - this will be removed in a future release, at which point the lack of including a value for this input will result in a runtime error.
+Nothing other than values for these 6 inputs (separated by a colon from the rest of the line) should be given here. If "Path to file of grain orientations (Bunge Euler angle form ZXZ)" is not given, the deprecated form of printing ExaCA cross-section data is assumed - this will be removed in a future release, at which point the lack of including a value for this input will result in a runtime error. If "Path to file corresponding to grain orientation IPF-Z colors as fractional RGB values" is not given, the default file (examples/Substrate/GrainOrientationRGB_IPF-Z.csv) will be used to map orientations to RGB values - the lack of inclusion of this input in future releases will also result in a runtime error.
 
 ## Section 1: ExaConstit representative volume element (RVE) printing
 

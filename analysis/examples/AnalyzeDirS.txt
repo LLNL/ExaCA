@@ -5,6 +5,7 @@ Path to/name of microstructure (.vtk) file: TestProblemDirS.vtk
 Path to file of grain orientations (rotation matrix form): GrainOrientationVectors.csv
 Path to/base (without file extension) name of data files of output resulting from this analysis: TestProblemDirS
 Path to file of grain orientations (Bunge Euler angle form ZXZ): GrainOrientationEulerAnglesBungeZXZ.csv
+Path to file corresponding to grain orientation IPF-Z colors as fractional RGB values: GrainOrientationRGB_IPF-Z.csv
 **********
 SECTION 1: ExaConstit representative volume elements: lines have the format [size, center x, center y, center z]
 *****

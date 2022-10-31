@@ -6,16 +6,6 @@
 #include "CAfunctions.hpp"
 #include "GAutils.hpp"
 
-#include <algorithm>
-#include <cmath>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
 //*****************************************************************************/
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
                              int ZMin, int ZMax, ViewI3D_H LayerID, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
@@ -326,46 +316,275 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
     }
 }
 
-//*****************************************************************************/
-void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string BaseFileName,
-                                      std::vector<int> CrossSectionPlane, std::vector<int> CrossSectionLocation, int nx,
-                                      int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
-                                      std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
-                                      bool NewOrientationFormatYN, double deltax, ViewF_H, ViewF_H GrainEulerAngles) {
+// Helper function for unimodal analysis of the grains in the specified cross-section
+void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
+                                  double deltax, int NumberOfGrains, int CrossSectionSize,
+                                  std::vector<int> GrainAreas) {
 
-    // Loop over each cross-section specified in the file "AnalysisOutputs.txt"
+    // Count grain areas large enough to be counted
+    int NumGrainsAboveThreshold = 0, AreaGrainsAboveThreshold = 0;
+    int MinGrainSize = 5; // in cells
+    for (int n = 0; n < NumberOfGrains; n++) {
+        if (GrainAreas[n] >= MinGrainSize) {
+            AreaGrainsAboveThreshold += GrainAreas[n];
+            NumGrainsAboveThreshold++;
+        }
+    }
+
+    // What fraction of the cross-sectional area consists of grains large enough to be counted?
+    double FractAreaAboveThreshold =
+        static_cast<double>(AreaGrainsAboveThreshold) / static_cast<double>(CrossSectionSize);
+    std::cout << "Area fraction of grains too small to include in statistics ( < " << MinGrainSize
+              << " cells in area or less): " << 1 - FractAreaAboveThreshold << std::endl;
+
+    // What's the average area for the grains large enough to be counted?
+    double AvgAreaAboveThreshold =
+        static_cast<double>(CrossSectionSize * FractAreaAboveThreshold) / static_cast<double>(NumGrainsAboveThreshold);
+    std::cout << "Average grain area (in square microns): " << AvgAreaAboveThreshold * deltax * deltax * pow(10, 12)
+              << std::endl;
+    QoIs << "Average grain area (in square microns): " << AvgAreaAboveThreshold * deltax * deltax * pow(10, 12)
+         << std::endl;
+
+    // Print area of each grain to a file, as a fraction of the total area filled by grains large enough to be
+    // considered
+    std::string AreasFile = BaseFileName + "_" + ThisCrossSectionPlane + "_Areas.txt";
+    std::ofstream Areas;
+    Areas.open(AreasFile);
+    for (int n = 0; n < NumberOfGrains; n++) {
+        if (GrainAreas[n] >= MinGrainSize) {
+            Areas << static_cast<double>(GrainAreas[n]) / static_cast<double>(AreaGrainsAboveThreshold) << std::endl;
+        }
+    }
+    Areas.close();
+}
+
+// Helper function for bimodal analysis of the grains in the specified cross-section
+void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
+                                 double deltax, int NumberOfGrains, int CrossSectionSize,
+                                 std::vector<int> UniqueGrainIDs, std::vector<int> GrainAreas, int NumberOfOrientations,
+                                 ViewF_H GrainUnitVector, ViewF_H GrainRGBValues) {
+
+    // Make list of grains < 5 cells ("too small to include in statistics"), larger than 1500 sq microns ("large"), and
+    // in between ("small")
+    int MinGrainSize = 5; // in cells
+    int SmallLargeCutoff = 1500 / (deltax * deltax * pow(10, 12));
+    int NumTooSmallGrains = 0, NumSmallGrains = 0, NumLargeGrains = 0;
+    int AreaTooSmallGrains = 0, AreaSmallGrains = 0, AreaLargeGrains = 0;
+    for (int n = 0; n < NumberOfGrains; n++) {
+        if (GrainAreas[n] < MinGrainSize) {
+            AreaTooSmallGrains += GrainAreas[n];
+            NumTooSmallGrains++;
+        }
+        else {
+            if (GrainAreas[n] < SmallLargeCutoff) {
+                AreaSmallGrains += GrainAreas[n];
+                NumSmallGrains++;
+            }
+            else {
+                AreaLargeGrains += GrainAreas[n];
+                NumLargeGrains++;
+            }
+        }
+    }
+
+    // What fraction of the cross-sectional area consists of each type of grain?
+    double FractAreaTooSmall = static_cast<double>(AreaTooSmallGrains) / static_cast<double>(CrossSectionSize);
+    double FractAreaSmall = static_cast<double>(AreaSmallGrains) / static_cast<double>(CrossSectionSize);
+    double FractAreaLarge = static_cast<double>(AreaLargeGrains) / static_cast<double>(CrossSectionSize);
+    std::cout << "Area fraction of grains too small to include in statistics ( < " << MinGrainSize
+              << " cells in area or less): " << FractAreaTooSmall << std::endl;
+    std::cout << "Area fraction of grains smaller than 1500 sq microns: " << FractAreaSmall << std::endl;
+    QoIs << "Area fraction of grains smaller than 1500 sq microns: " << FractAreaSmall << std::endl;
+    std::cout << "Area fraction of grains greater than or equal to 1500 sq microns: " << FractAreaLarge << std::endl;
+
+    // What's the average area for small and large grains?
+    double AvgAreaSmall = static_cast<double>(CrossSectionSize * FractAreaSmall) / static_cast<double>(NumSmallGrains);
+    double AvgAreaLarge = static_cast<double>(CrossSectionSize * FractAreaLarge) / static_cast<double>(NumLargeGrains);
+    std::cout << "Average area (in square microns) for small grains: " << AvgAreaSmall * deltax * deltax * pow(10, 12)
+              << std::endl;
+    std::cout << "Average area (in square microns) for large grains: " << AvgAreaLarge * deltax * deltax * pow(10, 12)
+              << std::endl;
+    QoIs << "Average area (in square microns) for small grains: " << AvgAreaSmall * deltax * deltax * pow(10, 12)
+         << std::endl;
+    QoIs << "Average area (in square microns) for large grains: " << AvgAreaLarge * deltax * deltax * pow(10, 12)
+         << std::endl;
+
+    // Print area of each small grain to a file, and area of each large grain to a file
+    std::string SmallAreasFile = BaseFileName + "_" + ThisCrossSectionPlane + "_SmallAreas.txt";
+    std::string LargeAreasFile = BaseFileName + "_" + ThisCrossSectionPlane + "_LargeAreas.txt";
+    std::ofstream SmallAreas, LargeAreas;
+    SmallAreas.open(SmallAreasFile);
+    LargeAreas.open(LargeAreasFile);
+    for (int n = 0; n < NumberOfGrains; n++) {
+        if (GrainAreas[n] >= MinGrainSize) {
+            if (GrainAreas[n] < SmallLargeCutoff)
+                SmallAreas << static_cast<double>(GrainAreas[n] * deltax * deltax * pow(10, 12)) << std::endl;
+            else
+                LargeAreas << static_cast<double>(GrainAreas[n] * deltax * deltax * pow(10, 12)) << std::endl;
+        }
+    }
+    SmallAreas.close();
+    LargeAreas.close();
+
+    // Print misorientation relative to the X, Y, and Z directions for small and large grains, weighted by grain area
+    // For large grains, calculate the ratio of green (101 orientations) to blue (111 orientations)
+    std::string MisorientationFileSmallX =
+        BaseFileName + "_" + ThisCrossSectionPlane + "_XMisorientationSmallAreas.txt";
+    std::string MisorientationFileSmallY =
+        BaseFileName + "_" + ThisCrossSectionPlane + "_YMisorientationSmallAreas.txt";
+    std::string MisorientationFileSmallZ =
+        BaseFileName + "_" + ThisCrossSectionPlane + "_ZMisorientationSmallAreas.txt";
+    std::string MisorientationFileLargeX =
+        BaseFileName + "_" + ThisCrossSectionPlane + "_XMisorientationLargeAreas.txt";
+    std::string MisorientationFileLargeY =
+        BaseFileName + "_" + ThisCrossSectionPlane + "_YMisorientationLargeAreas.txt";
+    std::string MisorientationFileLargeZ =
+        BaseFileName + "_" + ThisCrossSectionPlane + "_ZMisorientationLargeAreas.txt";
+    std::ofstream MisorientationSmallX, MisorientationSmallY, MisorientationSmallZ, MisorientationLargeX,
+        MisorientationLargeY, MisorientationLargeZ;
+    MisorientationSmallX.open(MisorientationFileSmallX);
+    MisorientationSmallY.open(MisorientationFileSmallY);
+    MisorientationSmallZ.open(MisorientationFileSmallZ);
+    MisorientationLargeX.open(MisorientationFileLargeX);
+    MisorientationLargeY.open(MisorientationFileLargeY);
+    MisorientationLargeZ.open(MisorientationFileLargeZ);
+
+    ViewF_H GrainMisorientationX = MisorientationCalc(NumberOfOrientations, GrainUnitVector, 0);
+    ViewF_H GrainMisorientationY = MisorientationCalc(NumberOfOrientations, GrainUnitVector, 1);
+    ViewF_H GrainMisorientationZ = MisorientationCalc(NumberOfOrientations, GrainUnitVector, 2);
+    float GrainMisorientation_small_sumx = 0, GrainMisorientation_small_sumy = 0, GrainMisorientation_small_sumz = 0;
+    float GrainMisorientation_large_sumx = 0, GrainMisorientation_large_sumy = 0, GrainMisorientation_large_sumz = 0;
+    float GreenBlueRatioSum = 0.0;
+    for (int n = 0; n < NumberOfGrains; n++) {
+        if (GrainAreas[n] >= MinGrainSize) {
+
+            int ThisGrainOrientation = getGrainOrientation(UniqueGrainIDs[n], NumberOfOrientations);
+            if (ThisGrainOrientation < 0)
+                throw std::runtime_error(
+                    "Error analyzing grain misorientations: GrainID = 0 grain is present in the XY cross-section");
+            float ThisGrainMisorientationX = GrainMisorientationX(ThisGrainOrientation);
+            float ThisGrainMisorientationY = GrainMisorientationY(ThisGrainOrientation);
+            float ThisGrainMisorientationZ = GrainMisorientationZ(ThisGrainOrientation);
+
+            if (GrainAreas[n] < SmallLargeCutoff) {
+                GrainMisorientation_small_sumx += GrainAreas[n] * ThisGrainMisorientationX;
+                GrainMisorientation_small_sumy += GrainAreas[n] * ThisGrainMisorientationY;
+                GrainMisorientation_small_sumz += GrainAreas[n] * ThisGrainMisorientationZ;
+                for (int nn = 0; nn < GrainAreas[n]; nn++) {
+                    MisorientationSmallX << ThisGrainMisorientationX << std::endl;
+                    MisorientationSmallY << ThisGrainMisorientationY << std::endl;
+                    MisorientationSmallZ << ThisGrainMisorientationZ << std::endl;
+                }
+            }
+            else {
+                GrainMisorientation_large_sumx += GrainAreas[n] * ThisGrainMisorientationX;
+                GrainMisorientation_large_sumy += GrainAreas[n] * ThisGrainMisorientationY;
+                GrainMisorientation_large_sumz += GrainAreas[n] * ThisGrainMisorientationZ;
+                float Green = GrainRGBValues(3 * ThisGrainOrientation + 1);
+                float Blue = GrainRGBValues(3 * ThisGrainOrientation + 2);
+                float GreenBlueRatio_ThisGrain;
+                if (Green > Blue)
+                    GreenBlueRatio_ThisGrain = 1.0 - 0.5 * (Blue / Green);
+                else
+                    GreenBlueRatio_ThisGrain = 0.5 * (Green / Blue);
+                GreenBlueRatioSum += GreenBlueRatio_ThisGrain;
+                for (int nn = 0; nn < GrainAreas[n]; nn++) {
+                    MisorientationLargeX << ThisGrainMisorientationX << std::endl;
+                    MisorientationLargeY << ThisGrainMisorientationY << std::endl;
+                    MisorientationLargeZ << ThisGrainMisorientationZ << std::endl;
+                }
+            }
+        }
+    }
+    MisorientationSmallX.close();
+    MisorientationSmallY.close();
+    MisorientationSmallZ.close();
+    MisorientationLargeX.close();
+    MisorientationLargeY.close();
+    MisorientationLargeZ.close();
+    float AvgMisorientation_Small_X = GrainMisorientation_small_sumx / static_cast<float>(AreaSmallGrains);
+    float AvgMisorientation_Small_Y = GrainMisorientation_small_sumy / static_cast<float>(AreaSmallGrains);
+    float AvgMisorientation_Small_Z = GrainMisorientation_small_sumz / static_cast<float>(AreaSmallGrains);
+    float AvgMisorientation_Large_X = GrainMisorientation_large_sumx / static_cast<float>(AreaLargeGrains);
+    float AvgMisorientation_Large_Y = GrainMisorientation_large_sumy / static_cast<float>(AreaLargeGrains);
+    float AvgMisorientation_Large_Z = GrainMisorientation_large_sumz / static_cast<float>(AreaLargeGrains);
+    float AvgGreenBlueRatio = GreenBlueRatioSum / NumLargeGrains;
+    std::cout << "Average misorientation for small grains relative to the X direction: " << AvgMisorientation_Small_X
+              << std::endl;
+    std::cout << "Average misorientation for small grains relative to the Y direction: " << AvgMisorientation_Small_Y
+              << std::endl;
+    std::cout << "Average misorientation for small grains relative to the Z direction: " << AvgMisorientation_Small_Z
+              << std::endl;
+    std::cout << "Average misorientation for large grains relative to the X direction: " << AvgMisorientation_Large_X
+              << std::endl;
+    std::cout << "Average misorientation for large grains relative to the Y direction: " << AvgMisorientation_Large_Y
+              << std::endl;
+    std::cout << "Average misorientation for large grains relative to the Z direction: " << AvgMisorientation_Large_Z
+              << std::endl;
+    std::cout << "Average 101:111 ratio for large grains relative to the Z direction: " << AvgGreenBlueRatio
+              << std::endl;
+    QoIs << "Average misorientation for small grains relative to the X direction: " << AvgMisorientation_Small_X
+         << std::endl;
+    QoIs << "Average misorientation for small grains relative to the Y direction: " << AvgMisorientation_Small_Y
+         << std::endl;
+    QoIs << "Average misorientation for small grains relative to the Z direction: " << AvgMisorientation_Small_Z
+         << std::endl;
+    QoIs << "Average misorientation for large grains relative to the X direction: " << AvgMisorientation_Large_X
+         << std::endl;
+    QoIs << "Average misorientation for large grains relative to the Y direction: " << AvgMisorientation_Large_Y
+         << std::endl;
+    QoIs << "Average misorientation for large grains relative to the Z direction: " << AvgMisorientation_Large_Z
+         << std::endl;
+    QoIs << "Average 101:111 ratio for large grains relative to the Z direction: " << AvgGreenBlueRatio << std::endl;
+}
+
+// Analysis of data for the speified cross-section(s)
+void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
+                           std::vector<std::string> CrossSectionPlane, std::vector<int> CrossSectionLocation, int nx,
+                           int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
+                           std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
+                           std::vector<bool> BimodalAnalysis, bool NewOrientationFormatYN, double deltax,
+                           ViewF_H GrainUnitVector, ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues,
+                           std::vector<std::string> CSLabels) {
+
+    // Open file of cross-section quantities of interest
+    std::ofstream QoIs;
+    std::string OutputFilenameQoIs = BaseFileName + "_QoI.txt";
+    QoIs.open(OutputFilenameQoIs);
+
+    // Loop over each cross-section specified in the analysis file (grain_analysis) or over the two default
+    // cross-sections (grain_analysis_amb)
     for (int n = 0; n < NumberOfCrossSections; n++) {
+
+        // Print cross-section label to file
+        QoIs << CSLabels[n] << std::endl;
+
         // Print data for pyEBSD/MTEX
-        std::string ThisCrossSectionPlane; // Which kind of cross-section is this?
+        std::string ThisCrossSectionPlane = CrossSectionPlane[n]; // Which kind of cross-section is this?
         int Index1Low = 0;
         int Index2Low = 0;
         int Index1High, Index2High; // Values depend on the cross-section axes: nx, ny, or nz
-        int ThisCrossSectionLocation = CrossSectionLocation[n]; // Cross-section location out-of-plane
-        if (CrossSectionPlane[n] == 0) {
-            ThisCrossSectionPlane = "XZ";
+        if (ThisCrossSectionPlane.find("XZ") != std::string::npos) {
             Index1High = nx;
             Index2High = nz;
         }
-        else if (CrossSectionPlane[n] == 1) {
-            ThisCrossSectionPlane = "YZ";
+        else if (ThisCrossSectionPlane.find("YZ") != std::string::npos) {
             Index1High = ny;
             Index2High = nz;
         }
-        else {
-            ThisCrossSectionPlane = "XY";
+        else if (ThisCrossSectionPlane.find("XY") != std::string::npos) {
             Index1High = nx;
             Index2High = ny;
         }
+        else
+            throw std::runtime_error("Error: cross-section for analysis must be XZ, YZ, or XY");
 
         // Should pole figure data be printed for this cross-section?
         // Should inverse pole figure-mapping data be printed for this cross-section?
         if ((PrintSectionPF[n]) || (PrintSectionIPF[n])) {
-            // If the option was given in Section 2 analysis file, pole figure data here should be printed with the new
-            // format
-            std::cout << "Printing cross-section data for " << ThisCrossSectionPlane << " and with "
-                      << ThisCrossSectionLocation << " as the out of plane location" << std::endl;
-            std::string FNameIPF = BaseFileName + "-" + ThisCrossSectionPlane +
-                                   std::to_string(ThisCrossSectionLocation) + "_IPFCrossSection.txt";
+            std::cout << "Printing cross-section data for cross-section " << ThisCrossSectionPlane << std::endl;
+            std::string FNameIPF = BaseFileName + "-" + ThisCrossSectionPlane + "_IPFCrossSection.txt";
+
             std::ofstream GrainplotIPF;
             ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
             if (PrintSectionIPF[n]) {
@@ -374,9 +593,11 @@ void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string Bas
             }
             int NucleatedGrainCells = 0;
             int CrossSectionSize = (Index1High - Index1Low) * (Index2High - Index2Low);
+            std::vector<int> CrossSectionGrainIDs(CrossSectionSize);
+            int Counter = 0;
             for (int Index1 = Index1Low; Index1 < Index1High; Index1++) {
                 for (int Index2 = Index2Low; Index2 < Index2High; Index2++) {
-                    int Index3 = ThisCrossSectionLocation;
+                    int Index3 = CrossSectionLocation[n];
                     // How do Index1, Index2, Index3 correspond to GrainID(Z loc, X loc, Yloc)?
                     int ZLoc, XLoc, YLoc;
                     if (ThisCrossSectionPlane == "XY") {
@@ -398,6 +619,9 @@ void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string Bas
                     // Count number of cells in this cross-section have GrainID < 0 (grains formed via nucleation)
                     if (GrainID(ZLoc, XLoc, YLoc) < 0)
                         NucleatedGrainCells++;
+                    // Add this GrainID to the vector of GrainIDs for this cross-section
+                    CrossSectionGrainIDs[Counter] = GrainID(ZLoc, XLoc, YLoc);
+                    Counter++;
                     // If constructing pole figure data from these orientations, add this value to the frequency data
                     if (PrintSectionPF[n])
                         GOHistogram(GOVal)++;
@@ -423,15 +647,38 @@ void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string Bas
             }
             std::cout << "The fraction of grains in this cross-section formed via nucleation events is "
                       << static_cast<double>(NucleatedGrainCells) / static_cast<double>(CrossSectionSize) << std::endl;
+            QoIs << "The fraction of grains in this cross-section formed via nucleation events is "
+                 << static_cast<double>(NucleatedGrainCells) / static_cast<double>(CrossSectionSize) << std::endl;
             if (PrintSectionIPF[n])
                 GrainplotIPF.close();
             if (PrintSectionPF[n]) {
-                std::string FNamePF = BaseFileName + "-" + ThisCrossSectionPlane +
-                                      std::to_string(ThisCrossSectionLocation) + "_PFCrossSection.txt";
+                std::string FNamePF = BaseFileName + "-" + ThisCrossSectionPlane + "_PFCrossSection.txt";
                 WritePoleFigureDataToFile(FNamePF, NumberOfOrientations, GrainEulerAngles, GOHistogram);
             }
+            // Make list of unique grains and corresponding grain areas
+            std::vector<int> UniqueGrainIDs = FindUniqueGrains(CrossSectionGrainIDs);
+            int NumberOfGrains = UniqueGrainIDs.size();
+            std::cout << "The number of grains in this cross-section is " << NumberOfGrains << std::endl;
+            std::vector<int> GrainAreas(NumberOfGrains, 0);
+            for (int i = 0; i < NumberOfGrains; i++) {
+                for (int j = 0; j < CrossSectionSize; j++) {
+                    if (UniqueGrainIDs[i] == CrossSectionGrainIDs[j])
+                        GrainAreas[i]++;
+                }
+            }
+
+            // Should these grains be analyzed as a single distribution of grain areas, or a bimodal distribution
+            // (bimodal distribution option also includes printing of misorientation data)
+            if (BimodalAnalysis[n])
+                AnalyzeCrossSection_Bimodal(QoIs, BaseFileName, ThisCrossSectionPlane, deltax, NumberOfGrains,
+                                            CrossSectionSize, UniqueGrainIDs, GrainAreas, NumberOfOrientations,
+                                            GrainUnitVector, GrainRGBValues);
+            else
+                AnalyzeCrossSection_Unimodal(QoIs, BaseFileName, ThisCrossSectionPlane, deltax, NumberOfGrains,
+                                             CrossSectionSize, GrainAreas);
         }
     }
+    QoIs.close();
 }
 
 //*****************************************************************************/

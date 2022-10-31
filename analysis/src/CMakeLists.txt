@@ -10,12 +10,12 @@ set(EXAGA_SOURCES
 )
 set(EXAGA_AMB_HEADERS
     runGA_AMB.hpp
-    GAprint_AMB.hpp
+    GAprint.hpp
     GAutils.hpp
 )
 set(EXAGA_AMB_SOURCES
     runGA_AMB.cpp
-    GAprint_AMB.cpp
+    GAprint.cpp
     GAutils.cpp
 )
 

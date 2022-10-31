@@ -7,7 +7,7 @@
 #include "CAinitialize.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
-#include "GAprint_AMB.hpp"
+#include "GAprint.hpp"
 #include "GAutils.hpp"
 
 #include <cmath>
@@ -24,14 +24,16 @@
 int main(int argc, char *argv[]) {
 
     // Read command line input to obtain name of analysis file
-    std::string BaseFileName, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename, OutputFileName;
+    std::string BaseFileName, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename, RGBFilename,
+        OutputFileName;
     double deltax;
     if (argc < 2) {
         throw std::runtime_error("Error: Full path to/prefix for vtk and log data must be given");
     }
     else {
         BaseFileName = argv[1];
-        ParseFilenames_AMB(BaseFileName, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename);
+        CheckInputFiles_AMB(BaseFileName, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename,
+                            RGBFilename);
     }
     std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile << std::endl;
 
@@ -52,26 +54,39 @@ int main(int argc, char *argv[]) {
         // Fill arrays with data from paraview file
         InitializeData(MicrostructureFile, nx, ny, nz, GrainID, LayerID);
 
-        // Allocate memory for grain unit vectors, grain euler angles (9*NumberOfOrientations and 3*NumberOfOrientations
-        // in size, respectively)
+        // Allocate memory for grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
+        // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
         int NumberOfOrientations = 10000;
         ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NumberOfOrientations);
         ViewF GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"), 3 * NumberOfOrientations);
+        ViewF GrainRGBValues(Kokkos::ViewAllocateWithoutInitializing("GrainRGBValues"), 3 * NumberOfOrientations);
 
         // Initialize, then copy back to host
         OrientationInit(0, NumberOfOrientations, GrainUnitVector, RotationFilename, 9);
         ViewF_H GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
         OrientationInit(0, NumberOfOrientations, GrainEulerAngles, EulerAnglesFilename, 3);
         ViewF_H GrainEulerAngles_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainEulerAngles);
-
-        // Print series of cross-section every 4 CA cells
-        // PrintXYCrossSectionSeries_AMB(BaseFileName, nx, ny, nz, NumberOfOrientations, GrainID, deltax,
-        // GrainEulerAngles_Host, XYZBounds[2]);
+        OrientationInit(0, NumberOfOrientations, GrainRGBValues, RGBFilename, 3);
+        ViewF_H GrainRGBValues_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainRGBValues);
 
         // Print information about 2 specific cross-sections: Z = 1 mm above the base plate, and X = midway through the
         // volume of the microstructure
-        PrintDefaultCrossSectionData_AMB(BaseFileName, nx, ny, nz, NumberOfOrientations, GrainID, deltax,
-                                         GrainEulerAngles_Host, GrainUnitVector_Host, XYZBounds[2]);
+        int NumberOfCrossSections = 2;
+        std::vector<std::string> CrossSectionPlane = {"XY", "YZ"};
+        int ZLocCrossSection = std::round((0.001 - XYZBounds[2]) / deltax);
+        int XLocCrossSection = std::round(nx / 2);
+        std::vector<int> CrossSectionLocation = {ZLocCrossSection, XLocCrossSection};
+        std::vector<bool> PrintSectionPF = {true, true};
+        std::vector<bool> PrintSectionIPF = {true, true};
+        std::vector<bool> BimodalAnalysis = {true, false};
+        std::string CSNameXY =
+            "XY Cross-section located approx 1 mm above the baseplate (Z = " + std::to_string(ZLocCrossSection) + "):";
+        std::string CSNameYZ =
+            "YZ cross-section located through simulation center (X = " + std::to_string(XLocCrossSection) + "):";
+        std::vector<std::string> CSLabels = {CSNameXY, CSNameYZ};
+        PrintCrossSectionData(NumberOfCrossSections, BaseFileName, CrossSectionPlane, CrossSectionLocation, nx, ny, nz,
+                              NumberOfOrientations, GrainID, PrintSectionPF, PrintSectionIPF, BimodalAnalysis, true,
+                              deltax, GrainUnitVector_Host, GrainEulerAngles_Host, GrainRGBValues_Host, CSLabels);
     }
     // Finalize kokkos and end program
     Kokkos::finalize();

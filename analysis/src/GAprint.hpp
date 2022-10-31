@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstddef>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -21,12 +22,19 @@ void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int nx, 
                             ViewI3D_H GrainID, std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE,
                             std::vector<int> YLow_RVE, std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE,
                             std::vector<int> ZHigh_RVE);
-void PrintCrossSectionOrientationData(int NumberOfCrossSections, std::string BaseFileName,
-                                      std::vector<int> CrossSectionPlane, std::vector<int> CrossSectionLocation, int nx,
-                                      int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
-                                      std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
-                                      bool NewOrientationFormatYN, double deltax, ViewF_H GrainUnitVectors,
-                                      ViewF_H GrainEulerAngles);
+void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
+                                  double deltax, int NumberOfGrains, int CrossSectionSize, std::vector<int> GrainAreas);
+void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
+                                 double deltax, int NumberOfGrains, int CrossSectionSize,
+                                 std::vector<int> UniqueGrainIDs, std::vector<int> GrainAreas, int NumberOfOrientations,
+                                 ViewF_H GrainUnitVector, ViewF_H GrainRGBValues);
+void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
+                           std::vector<std::string> CrossSectionPlane, std::vector<int> CrossSectionLocation, int nx,
+                           int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
+                           std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
+                           std::vector<bool> BimodalAnalysis, bool NewOrientationFormatYN, double deltax,
+                           ViewF_H GrainUnitVector, ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues,
+                           std::vector<std::string> CSLabels);
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
                              int ZMin, int ZMax, ViewI3D_H LayerID, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
                              int NumberOfOrientations);

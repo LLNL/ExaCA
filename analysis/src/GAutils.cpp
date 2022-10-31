@@ -173,7 +173,7 @@ void ReadIgnoreField(std::ifstream &InputDataStream, int nx, int ny, int nz) {
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
                     std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
-                    bool &NewOrientationFormatYN) {
+                    bool &NewOrientationFormatYN, std::string &RGBFilename) {
 
     // The analysis file should be in the analysis subdirectory of ExaCA
     std::cout << "Looking for analysis file: " << AnalysisFile << std::endl;
@@ -183,13 +183,16 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis, "*****");
 
-    std::vector<std::string> NamesOfFiles = {"name of log (.log) file", "name of microstructure (.vtk) file",
-                                             "file of grain orientations (rotation matrix form)",
-                                             "name of data files of output resulting from this analysis",
-                                             "file of grain orientations (Bunge Euler angle form ZXZ)"};
-    std::vector<std::string> FilesRead(5);
+    std::vector<std::string> NamesOfFiles = {
+        "name of log (.log) file",
+        "name of microstructure (.vtk) file",
+        "file of grain orientations (rotation matrix form)",
+        "name of data files of output resulting from this analysis",
+        "file of grain orientations (Bunge Euler angle form ZXZ)",
+        "file corresponding to grain orientation IPF-Z colors as fractional RGB values"};
+    std::vector<std::string> FilesRead(6);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
         std::string line;
         std::getline(Analysis, line);
         if (line == "**********")
@@ -215,6 +218,9 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     // otherwise, set NewOrientationFormatYN to false
     if (FilesRead[4].empty()) {
         NewOrientationFormatYN = false;
+        std::cout << "Warning: the name of the file of Euler angles was not provided in the analysis input file, but "
+                     "will be required in a future release"
+                  << std::endl;
     }
     else {
         NewOrientationFormatYN = true;
@@ -232,11 +238,24 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
         checkFileNotEmpty(EulerAnglesFilename);
     }
+    // RGB file - default value or value from file
+    if (FilesRead[5].empty()) {
+        std::cout << "Warning: the name of the file of RGB colors for each orientation corresponding to the IPF-Z "
+                     "color was not required, but will be required in a future release. The default file "
+                     "GrainOrientationRGB_IPF-Z.csv will be used to map colors to orientations"
+                  << std::endl;
+        RGBFilename = "GrainOrientationRGB_IPF-Z.csv";
+    }
+    else
+        RGBFilename = FilesRead[5];
+    // Check that file exists and was successfully installed
+    RGBFilename = checkFileInstalled(RGBFilename, 0);
 }
 
-// Ensure that the appropriate files exist
-void ParseFilenames_AMB(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
-                        std::string &RotationFilename, std::string &EulerAnglesFilename) {
+// Ensure that the appropriate files exist - orientation files should be installed, other files should start with the
+// BaseFileName value given from the command line
+void CheckInputFiles_AMB(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
+                         std::string &RotationFilename, std::string &EulerAnglesFilename, std::string &RGBFilename) {
 
     // Names of files
     LogFile = BaseFileName + ".log";
@@ -245,12 +264,15 @@ void ParseFilenames_AMB(std::string BaseFileName, std::string &LogFile, std::str
     RotationFilename = checkFileInstalled(RotationFilename, 0);
     EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ.csv";
     EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
+    RGBFilename = "GrainOrientationRGB_IPF-Z.csv";
+    RGBFilename = checkFileInstalled(RGBFilename, 0);
 
     // Check that files are not empty
     checkFileNotEmpty(LogFile);
     checkFileNotEmpty(MicrostructureFile);
     checkFileNotEmpty(RotationFilename);
     checkFileNotEmpty(EulerAnglesFilename);
+    checkFileNotEmpty(RGBFilename);
 }
 void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID) {
 
@@ -302,11 +324,12 @@ void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, View
 void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, int &NumberOfOrientations,
                        bool *AnalysisTypes, std::vector<int> &XLow_RVE, std::vector<int> &XHigh_RVE,
                        std::vector<int> &YLow_RVE, std::vector<int> &YHigh_RVE, std::vector<int> &ZLow_RVE,
-                       std::vector<int> &ZHigh_RVE, int &NumberOfRVEs, std::vector<int> &CrossSectionPlane,
+                       std::vector<int> &ZHigh_RVE, int &NumberOfRVEs, std::vector<std::string> &CrossSectionPlane,
                        std::vector<int> &CrossSectionLocation, int &NumberOfCrossSections, int &XMin, int &XMax,
                        int &YMin, int &YMax, int &ZMin, int &ZMax, int nx, int ny, int nz, ViewI3D_H LayerID,
                        int NumberOfLayers, std::vector<bool> &PrintSectionPF, std::vector<bool> &PrintSectionIPF,
-                       bool NewOrientationFormatYN) {
+                       std::vector<bool> &BimodalAnalysis, bool NewOrientationFormatYN,
+                       std::vector<std::string> &CSLabels) {
 
     int FullDomainCenterX = nx / 2;
     int FullDomainCenterY = ny / 2;
@@ -438,12 +461,20 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
         // Check for "old" format ([section type, coordinate out of plane]
         // vs "new" format (section type, coordinate out of plane, print pole figure data Y/N, print IPF-colored
         // cross-section data Y/N)
-        std::vector<std::string> CS(4);
+        // For the "new" format, there are either 4 or 5 comma-separated components on this line, depending on whether
+        // the option of analyzing small and large area grains separately is given. If it is not given, a single
+        // distribution of grain areas in the cross-section will be analyzed
+        int NumComponents;
+        if (NewOrientationFormatYN)
+            NumComponents = std::count(CSline.begin(), CSline.end(), ',') + 1;
+        else
+            NumComponents = 2;
+        std::vector<std::string> CS(NumComponents);
         if (NewOrientationFormatYN) {
-            // Should be 4 inputs on this line - break it into its components
-            splitString(CSline, CS, 4);
+            // Should be 4 or 5 inputs on this line - break it into its components
+            splitString(CSline, CS, NumComponents);
             // Remove whitespace from parsed cross-section data
-            for (int n = 0; n < 4; n++) {
+            for (int n = 0; n < NumComponents; n++) {
                 CS[n] = removeWhitespace(CS[n]);
             }
             if (CS[2] == "Y")
@@ -454,6 +485,14 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                 PrintSectionIPF.push_back(true);
             else
                 PrintSectionIPF.push_back(false);
+            if (NumComponents == 4)
+                BimodalAnalysis.push_back(false);
+            else {
+                if (CS[4] == "Y")
+                    BimodalAnalysis.push_back(true);
+                else
+                    BimodalAnalysis.push_back(false);
+            }
         }
         else {
             // Should be 2 inputs on this line - break it into its components
@@ -461,9 +500,12 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
             CS[1] = parseCoordinatePair(CSline, 1);
             PrintSectionPF.push_back(false);
             PrintSectionIPF.push_back(true);
+            BimodalAnalysis.push_back(false);
+            std::cout << "Warning: old format (2 comma-separated values per line) for Section 2 of analysis input file "
+                         "detected, the new format will be required in a future release"
+                      << std::endl;
         }
         if (CS[0] == "XZ") {
-            CrossSectionPlane.push_back(0);
             if (CS[1] == "END")
                 CrossSectionLocation.push_back(ny - 2);
             else if (CS[1] == "D")
@@ -478,7 +520,6 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
             }
         }
         else if (CS[0] == "YZ") {
-            CrossSectionPlane.push_back(1);
             if (CS[1] == "END")
                 CrossSectionLocation.push_back(nx - 2);
             else if (CS[1] == "D")
@@ -493,7 +534,6 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
             }
         }
         else {
-            CrossSectionPlane.push_back(2);
             if (CS[1] == "END")
                 CrossSectionLocation.push_back(nz - 2);
             else if (CS[1] == "D")
@@ -507,9 +547,14 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                 }
             }
         }
+        std::string ThisCrossSectionPlane = CS[0] + std::to_string(CrossSectionLocation[NumberOfCrossSections]);
+        CrossSectionPlane.push_back(ThisCrossSectionPlane);
         std::cout << "Cross-section number " << NumberOfCrossSections << " has parsed string data "
                   << CrossSectionPlane[NumberOfCrossSections] << " " << CrossSectionLocation[NumberOfCrossSections]
                   << std::endl;
+        std::string CrossSectionLabel = CS[0] + " cross-section located at out-of-plane coordinate " +
+                                        std::to_string(CrossSectionLocation[NumberOfCrossSections]);
+        CSLabels.push_back(CrossSectionLabel);
         NumberOfCrossSections++;
     }
     skipLines(Analysis, "*****");
@@ -583,6 +628,10 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
         else
             AnalysisTypes[i] = false;
     }
+    if (!(AnalysisOptionsYN[7].empty()))
+        std::cout << "Note: ability to print pole figure data for the specified volume will be deprecated in a future "
+                     "release, option will be available for cross-sections only"
+                  << std::endl;
     Analysis.close();
 }
 
