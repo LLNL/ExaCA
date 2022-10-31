@@ -564,17 +564,21 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
         int Index1Low = 0;
         int Index2Low = 0;
         int Index1High, Index2High; // Values depend on the cross-section axes: nx, ny, or nz
+        std::string Plane;
         if (ThisCrossSectionPlane.find("XZ") != std::string::npos) {
             Index1High = nx;
             Index2High = nz;
+            Plane = "XZ";
         }
         else if (ThisCrossSectionPlane.find("YZ") != std::string::npos) {
             Index1High = ny;
             Index2High = nz;
+            Plane = "YZ";
         }
         else if (ThisCrossSectionPlane.find("XY") != std::string::npos) {
             Index1High = nx;
             Index2High = ny;
+            Plane = "XY";
         }
         else
             throw std::runtime_error("Error: cross-section for analysis must be XZ, YZ, or XY");
@@ -600,12 +604,12 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                     int Index3 = CrossSectionLocation[n];
                     // How do Index1, Index2, Index3 correspond to GrainID(Z loc, X loc, Yloc)?
                     int ZLoc, XLoc, YLoc;
-                    if (ThisCrossSectionPlane == "XY") {
+                    if (Plane == "XY") {
                         XLoc = Index1;
                         YLoc = Index2;
                         ZLoc = Index3;
                     }
-                    else if (ThisCrossSectionPlane == "YZ") {
+                    else if (Plane == "YZ") {
                         XLoc = Index3;
                         YLoc = Index1;
                         ZLoc = Index2;
