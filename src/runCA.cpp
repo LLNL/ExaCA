@@ -26,7 +26,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     unsigned int NumberOfTemperatureDataPoints;
     int PrintDebug, TimeSeriesInc;
     bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, RemeltingYN, UseSubstrateFile,
-        PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead;
+        PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead,
+        PrintBinary;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderDensity;
     std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
@@ -39,7 +40,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
                       PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                       PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
-                      BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempRead);
+                      BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempRead, PrintBinary);
     // Read material data.
     InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
 
@@ -283,7 +284,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         PrintExaCAData(id, -1, np, nx, ny, nz, MyYSlices, MyYOffset, GrainID, CritTimeStep, GrainUnitVector, LayerID,
                        CellType, UndercoolingChange, UndercoolingCurrent, OutputFile, NGrainOrientations, PathToOutput,
                        PrintDebug, false, false, false, false, false, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                       NumberOfLayers);
+                       NumberOfLayers, PrintBinary);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Initialization data file(s) printed" << std::endl;
@@ -307,7 +308,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 PrintExaCAData(id, layernumber, np, nx, ny, nz, MyYSlices, MyYOffset, GrainID, CritTimeStep,
                                GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent, OutputFile,
                                NGrainOrientations, PathToOutput, 0, false, false, false, true, false,
-                               IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers);
+                               IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers,
+                               PrintBinary);
                 IntermediateFileCounter++;
             }
             cycle++;
@@ -364,8 +366,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         YMin, ZMin, SuccessfulNucEvents_ThisRank, XSwitch, CellType, CritTimeStep, GrainID,
                         SimulationType, layernumber, NumberOfLayers, ZBound_Low, NGrainOrientations, LayerID,
                         GrainUnitVector, UndercoolingChange, UndercoolingCurrent, PathToOutput, OutputFile,
-                        PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter, NumberOfLayers,
-                        MeltTimeStep);
+                        PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter, NumberOfLayers, MeltTimeStep,
+                        PrintBinary);
                 else
                     IntermediateOutputAndCheck(id, np, cycle, MyYSlices, MyYOffset, LocalDomainSize,
                                                LocalActiveDomainSize, nx, ny, nz, nzActive, deltax, XMin, YMin, ZMin,
@@ -373,7 +375,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                                SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low,
                                                NGrainOrientations, LayerID, GrainUnitVector, UndercoolingChange,
                                                UndercoolingCurrent, PathToOutput, OutputFile, PrintIdleTimeSeriesFrames,
-                                               TimeSeriesInc, IntermediateFileCounter, NumberOfLayers);
+                                               TimeSeriesInc, IntermediateFileCounter, NumberOfLayers, PrintBinary);
             }
 
         } while (XSwitch == 0);
@@ -509,7 +511,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                        GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent, OutputFile,
                        NGrainOrientations, PathToOutput, 0, PrintMisorientation, PrintFinalUndercoolingVals,
                        PrintFullOutput, false, PrintDefaultRVE, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                       NumberOfLayers, RVESize);
+                       NumberOfLayers, PrintBinary, RVESize);
     }
     else {
         if (id == 0)

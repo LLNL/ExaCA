@@ -34,7 +34,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput, int &NSpotsX,
                        int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
-                       bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize, bool &LayerwiseTempRead) {
+                       bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize, bool &LayerwiseTempRead,
+                       bool &PrintBinary) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -59,6 +60,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         "output even if system is unchanged",           // Optional input 4
         "file of final undercooling values",            // Optional input 5
         "Random seed for grains and nuclei generation", // Optional input 6
+        "Print vtk data as binary",                     // Optional input 7
     };
     std::vector<std::string> DeprecatedInputs_General = {
         "Decomposition strategy", // Deprecated input 0
@@ -403,6 +405,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         RNGSeed = 0.0;
     else
         RNGSeed = getInputDouble(OptionalInputsRead_General[6]);
+    // Should the vtk output files be printed as binary data? (By default, they are printed as ASCII data)
+    if (OptionalInputsRead_General[7].empty())
+        PrintBinary = false;
+    else
+        PrintBinary = getInputBool(OptionalInputsRead_General[7]);
     // For simulations with substrate grain structures, should an input grain spacing or a substrate file be used?
     if ((SimulationType == "S") || (SimulationType == "R")) {
         // Exactly one of the two inputs "sub grain size" and "sub filename" should be present

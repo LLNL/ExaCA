@@ -8,6 +8,9 @@
 
 #include "CAtypes.hpp"
 
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include <string>
 
 void skipLines(std::ifstream &stream, std::string seperator);
@@ -36,5 +39,33 @@ void checkFileNotEmpty(std::string testfilename);
 void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst, double &CConst, double &DConst,
                        double &FreezingRange);
 std::string parseCoordinatePair(std::string line, int val);
+// Swaps bits for a variable of type SwapType
+template <typename SwapType>
+void SwapEndian(SwapType &var) {
+    // Cast var into a char array (bit values)
+    char *varArray = reinterpret_cast<char *>(&var);
+    // Size of char array
+    int varSize = sizeof(var);
+    // Swap the "ith" bit with the bit "i" from the end of the array
+    for (long i = 0; i < static_cast<long>(varSize / 2); i++)
+        std::swap(varArray[varSize - 1 - i], varArray[i]);
+}
+// Reads binary data of the type ReadType, optionally swapping the endian format
+template <typename ReadType>
+ReadType ReadBinaryData(std::ifstream &instream, bool SwapEndianYN = false) {
+    unsigned char temp[sizeof(ReadType)];
+    instream.read(reinterpret_cast<char *>(temp), sizeof(ReadType));
+    if (SwapEndianYN)
+        SwapEndian(temp);
+    ReadType readValue = reinterpret_cast<ReadType &>(temp);
+    return readValue;
+}
+// Parse space-separated ASCII data loaded into the string stream
+template <typename ReadType>
+ReadType ParseASCIIData(std::istringstream &ss) {
+    ReadType readValue;
+    ss >> readValue;
+    return readValue;
+}
 
 #endif
