@@ -79,11 +79,12 @@ void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int 
     }
     std::vector<int> UniqueGrainIDs = FindUniqueGrains(AllGrainIDs);
     int NumberOfGrains = UniqueGrainIDs.size();
+    double AvgVolPerGrain = DivideInts(DomainVol, NumberOfGrains);
+    double AvgVolPerGrain_Norm = AvgVolPerGrain * deltax * deltax * pow(10, 12);
     std::cout << "-- There are " << NumberOfGrains << " grains in this volume, and the mean grain volume is "
-              << deltax * deltax * pow(10, 12) * ((double)(DomainVol) / (double)(NumberOfGrains)) << " cubic microns"
-              << std::endl;
-    std::cout << "-- The volume fraction consisting of nucleated grains is "
-              << ((double)(NucleatedGrainCells)) / ((double)(DomainVol)) << std::endl;
+              << AvgVolPerGrain_Norm << " cubic microns" << std::endl;
+    double VolFractNucGrains = DivideInts(NucleatedGrainCells, DomainVol);
+    std::cout << "-- The volume fraction consisting of nucleated grains is " << VolFractNucGrains << std::endl;
 
     float *AspectRatio = new float[NumberOfGrains];
     int *VolGrain = new int[NumberOfGrains];
@@ -210,7 +211,7 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
         // List of unique grain ID values from the list of all values
         std::vector<int> GIDVals_ThisLayer = FindUniqueGrains(GIDAllVals_ThisLayer);
         int GrainsThisLayer = GIDVals_ThisLayer.size();
-        double MeanGrainAreaThisLayer = (double)(LayerArea) / (double)(GrainsThisLayer);
+        double MeanGrainAreaThisLayer = DivideInts(LayerArea, GrainsThisLayer);
         if (k == ZMax) {
             std::cout << "Number of grains at the representative region top (Z = " << ZMax << "): " << GrainsThisLayer
                       << std::endl;
@@ -262,7 +263,7 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
                 }
                 AreaXArea += MyGrainArea * MyGrainArea;
             }
-            double WeightedArea = ((double)(AreaXArea) / (double)(LayerArea));
+            double WeightedArea = DivideInts(AreaXArea, LayerArea);
             if (AnalysisTypes[3])
                 Grainplot2 << WeightedArea * deltax * deltax / pow(10, -12) << std::endl;
             if (k == ZMax)
@@ -318,12 +319,11 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
 
 // Helper function for unimodal analysis of the grains in the specified cross-section
 void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
-                                  double deltax, int NumberOfGrains, int CrossSectionSize,
-                                  std::vector<int> GrainAreas) {
+                                  double deltax, int NumberOfGrains, int CrossSectionSize, std::vector<int> GrainAreas,
+                                  int MinGrainSize = 5) {
 
     // Count grain areas large enough to be counted
     int NumGrainsAboveThreshold = 0, AreaGrainsAboveThreshold = 0;
-    int MinGrainSize = 5; // in cells
     for (int n = 0; n < NumberOfGrains; n++) {
         if (GrainAreas[n] >= MinGrainSize) {
             AreaGrainsAboveThreshold += GrainAreas[n];
@@ -332,14 +332,12 @@ void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName,
     }
 
     // What fraction of the cross-sectional area consists of grains large enough to be counted?
-    double FractAreaAboveThreshold =
-        static_cast<double>(AreaGrainsAboveThreshold) / static_cast<double>(CrossSectionSize);
+    double FractAreaAboveThreshold = DivideInts(AreaGrainsAboveThreshold, CrossSectionSize);
     std::cout << "Area fraction of grains too small to include in statistics ( < " << MinGrainSize
               << " cells in area or less): " << 1 - FractAreaAboveThreshold << std::endl;
 
     // What's the average area for the grains large enough to be counted?
-    double AvgAreaAboveThreshold =
-        static_cast<double>(CrossSectionSize * FractAreaAboveThreshold) / static_cast<double>(NumGrainsAboveThreshold);
+    double AvgAreaAboveThreshold = DivideInts(CrossSectionSize * FractAreaAboveThreshold, NumGrainsAboveThreshold);
     std::cout << "Average grain area (in square microns): " << AvgAreaAboveThreshold * deltax * deltax * pow(10, 12)
               << std::endl;
     QoIs << "Average grain area (in square microns): " << AvgAreaAboveThreshold * deltax * deltax * pow(10, 12)
@@ -352,7 +350,8 @@ void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName,
     Areas.open(AreasFile);
     for (int n = 0; n < NumberOfGrains; n++) {
         if (GrainAreas[n] >= MinGrainSize) {
-            Areas << static_cast<double>(GrainAreas[n]) / static_cast<double>(AreaGrainsAboveThreshold) << std::endl;
+            double ThisGrainArea = DivideInts(GrainAreas[n], AreaGrainsAboveThreshold);
+            Areas << ThisGrainArea << std::endl;
         }
     }
     Areas.close();
@@ -362,12 +361,15 @@ void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName,
 void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
                                  double deltax, int NumberOfGrains, int CrossSectionSize,
                                  std::vector<int> UniqueGrainIDs, std::vector<int> GrainAreas, int NumberOfOrientations,
-                                 ViewF_H GrainUnitVector, ViewF_H GrainRGBValues) {
+                                 ViewF_H GrainUnitVector, ViewF_H GrainRGBValues, float MinGrainSize_microns = 7.8125,
+                                 float SmallLargeCutoff_microns = 1500) {
 
-    // Make list of grains < 5 cells ("too small to include in statistics"), larger than 1500 sq microns ("large"), and
-    // in between ("small")
-    int MinGrainSize = 5; // in cells
-    int SmallLargeCutoff = 1500 / (deltax * deltax * pow(10, 12));
+    // Make list of grains < "MinGrainSize" cells ("too small to include in statistics"), larger than
+    // SmallLargeCutoff_microns sq microns ("large"), and in between ("small")
+    int MinGrainSize =
+        std::round(MinGrainSize_microns / (deltax * deltax * pow(10, 12))); // convert area to value in cells
+    int SmallLargeCutoff =
+        std::round(SmallLargeCutoff_microns / (deltax * deltax * pow(10, 12))); // convert area to value in cells
     int NumTooSmallGrains = 0, NumSmallGrains = 0, NumLargeGrains = 0;
     int AreaTooSmallGrains = 0, AreaSmallGrains = 0, AreaLargeGrains = 0;
     for (int n = 0; n < NumberOfGrains; n++) {
@@ -388,9 +390,9 @@ void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, 
     }
 
     // What fraction of the cross-sectional area consists of each type of grain?
-    double FractAreaTooSmall = static_cast<double>(AreaTooSmallGrains) / static_cast<double>(CrossSectionSize);
-    double FractAreaSmall = static_cast<double>(AreaSmallGrains) / static_cast<double>(CrossSectionSize);
-    double FractAreaLarge = static_cast<double>(AreaLargeGrains) / static_cast<double>(CrossSectionSize);
+    double FractAreaTooSmall = DivideInts(AreaTooSmallGrains, CrossSectionSize);
+    double FractAreaSmall = DivideInts(AreaSmallGrains, CrossSectionSize);
+    double FractAreaLarge = DivideInts(AreaLargeGrains, CrossSectionSize);
     std::cout << "Area fraction of grains too small to include in statistics ( < " << MinGrainSize
               << " cells in area or less): " << FractAreaTooSmall << std::endl;
     std::cout << "Area fraction of grains smaller than 1500 sq microns: " << FractAreaSmall << std::endl;
@@ -398,8 +400,8 @@ void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, 
     std::cout << "Area fraction of grains greater than or equal to 1500 sq microns: " << FractAreaLarge << std::endl;
 
     // What's the average area for small and large grains?
-    double AvgAreaSmall = static_cast<double>(CrossSectionSize * FractAreaSmall) / static_cast<double>(NumSmallGrains);
-    double AvgAreaLarge = static_cast<double>(CrossSectionSize * FractAreaLarge) / static_cast<double>(NumLargeGrains);
+    double AvgAreaSmall = DivideInts(CrossSectionSize * FractAreaSmall, NumSmallGrains);
+    double AvgAreaLarge = DivideInts(CrossSectionSize * FractAreaLarge, NumLargeGrains);
     std::cout << "Average area (in square microns) for small grains: " << AvgAreaSmall * deltax * deltax * pow(10, 12)
               << std::endl;
     std::cout << "Average area (in square microns) for large grains: " << AvgAreaLarge * deltax * deltax * pow(10, 12)
@@ -649,10 +651,11 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                     }
                 }
             }
+            double AreaFractNucleatedGrains = DivideInts(NucleatedGrainCells, CrossSectionSize);
             std::cout << "The fraction of grains in this cross-section formed via nucleation events is "
-                      << static_cast<double>(NucleatedGrainCells) / static_cast<double>(CrossSectionSize) << std::endl;
+                      << AreaFractNucleatedGrains << std::endl;
             QoIs << "The fraction of grains in this cross-section formed via nucleation events is "
-                 << static_cast<double>(NucleatedGrainCells) / static_cast<double>(CrossSectionSize) << std::endl;
+                 << AreaFractNucleatedGrains << std::endl;
             if (PrintSectionIPF[n])
                 GrainplotIPF.close();
             if (PrintSectionPF[n]) {
@@ -748,7 +751,8 @@ void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int
         }
         GrainplotE.close();
         int RVESize = (XHigh_RVE[n] - XLow_RVE[n]) * (YHigh_RVE[n] - YLow_RVE[n]) * (ZHigh_RVE[n] - ZLow_RVE[n]);
-        std::cout << "The fraction of grains formed via nucleation events in this RVE is "
-                  << static_cast<double>(NucleatedGrainCells) / static_cast<double>(RVESize) << std::endl;
+        double RVEFractNucleatedGrains = DivideInts(NucleatedGrainCells, RVESize);
+        std::cout << "The fraction of grains formed via nucleation events in this RVE is " << RVEFractNucleatedGrains
+                  << std::endl;
     }
 }

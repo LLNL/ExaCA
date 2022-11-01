@@ -42,5 +42,6 @@ std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector);
 void CheckInputFiles_AMB(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
                          std::string &RotationFilename, std::string &RGBFilename, std::string &EulerAnglesFilename);
 std::vector<int> FindUniqueGrains(std::vector<int> GrainIDVector);
+double DivideInts(int Int1, int Int2);
 
 #endif
