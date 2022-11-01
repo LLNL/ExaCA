@@ -254,8 +254,8 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
 
 // Ensure that the appropriate files exist - orientation files should be installed, other files should start with the
 // BaseFileName value given from the command line
-void CheckInputFiles_AMB(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
-                         std::string &RotationFilename, std::string &EulerAnglesFilename, std::string &RGBFilename) {
+void CheckInputFiles(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
+                     std::string &RotationFilename, std::string &EulerAnglesFilename, std::string &RGBFilename) {
 
     // Names of files
     LogFile = BaseFileName + ".log";

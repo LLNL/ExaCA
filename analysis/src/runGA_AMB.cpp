@@ -32,8 +32,7 @@ int main(int argc, char *argv[]) {
     }
     else {
         BaseFileName = argv[1];
-        CheckInputFiles_AMB(BaseFileName, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename,
-                            RGBFilename);
+        CheckInputFiles(BaseFileName, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename, RGBFilename);
     }
     std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile << std::endl;
 

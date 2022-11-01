@@ -39,8 +39,8 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        std::vector<std::string> &CSLabels);
 std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector);
 
-void CheckInputFiles_AMB(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
-                         std::string &RotationFilename, std::string &RGBFilename, std::string &EulerAnglesFilename);
+void CheckInputFiles(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
+                     std::string &RotationFilename, std::string &RGBFilename, std::string &EulerAnglesFilename);
 std::vector<int> FindUniqueGrains(std::vector<int> GrainIDVector);
 double DivideInts(int Int1, int Int2);
 
