@@ -440,14 +440,16 @@ void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, 
         BaseFileName + "_" + ThisCrossSectionPlane + "_YMisorientationLargeAreas.txt";
     std::string MisorientationFileLargeZ =
         BaseFileName + "_" + ThisCrossSectionPlane + "_ZMisorientationLargeAreas.txt";
+    std::string GreenBlueFreqFile = BaseFileName + "_" + ThisCrossSectionPlane + "_GreenBlueRatio.txt";
     std::ofstream MisorientationSmallX, MisorientationSmallY, MisorientationSmallZ, MisorientationLargeX,
-        MisorientationLargeY, MisorientationLargeZ;
+        MisorientationLargeY, MisorientationLargeZ, GreenBlueFreq;
     MisorientationSmallX.open(MisorientationFileSmallX);
     MisorientationSmallY.open(MisorientationFileSmallY);
     MisorientationSmallZ.open(MisorientationFileSmallZ);
     MisorientationLargeX.open(MisorientationFileLargeX);
     MisorientationLargeY.open(MisorientationFileLargeY);
     MisorientationLargeZ.open(MisorientationFileLargeZ);
+    GreenBlueFreq.open(GreenBlueFreqFile);
 
     ViewF_H GrainMisorientationX = MisorientationCalc(NumberOfOrientations, GrainUnitVector, 0);
     ViewF_H GrainMisorientationY = MisorientationCalc(NumberOfOrientations, GrainUnitVector, 1);
@@ -482,11 +484,8 @@ void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, 
                 GrainMisorientation_large_sumz += GrainAreas[n] * ThisGrainMisorientationZ;
                 float Green = GrainRGBValues(3 * ThisGrainOrientation + 1);
                 float Blue = GrainRGBValues(3 * ThisGrainOrientation + 2);
-                float GreenBlueRatio_ThisGrain;
-                if (Green > Blue)
-                    GreenBlueRatio_ThisGrain = 1.0 - 0.5 * (Blue / Green);
-                else
-                    GreenBlueRatio_ThisGrain = 0.5 * (Green / Blue);
+                float GreenBlueRatio_ThisGrain = Green / (Green + Blue);
+                GreenBlueFreq << GreenBlueRatio_ThisGrain << std::endl;
                 GreenBlueRatioSum += GreenBlueRatio_ThisGrain;
                 for (int nn = 0; nn < GrainAreas[n]; nn++) {
                     MisorientationLargeX << ThisGrainMisorientationX << std::endl;
@@ -502,6 +501,7 @@ void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, 
     MisorientationLargeX.close();
     MisorientationLargeY.close();
     MisorientationLargeZ.close();
+    GreenBlueFreq.close();
     float AvgMisorientation_Small_X = GrainMisorientation_small_sumx / static_cast<float>(AreaSmallGrains);
     float AvgMisorientation_Small_Y = GrainMisorientation_small_sumy / static_cast<float>(AreaSmallGrains);
     float AvgMisorientation_Small_Z = GrainMisorientation_small_sumz / static_cast<float>(AreaSmallGrains);
