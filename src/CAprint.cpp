@@ -578,7 +578,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    int SpotRadius, std::string BaseFileName, double InitTime, double RunTime, double OutTime, int cycle,
                    double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
                    double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
-                   double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime) {
+                   double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
+                   double XMax, double YMin, double YMax, double ZMin, double ZMax) {
 
     int *YSlices = new int[np];
     int *YOffset = new int[np];
@@ -602,6 +603,12 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         ExaCALog << "Domain size in z: " << nz << std::endl;
         ExaCALog << "Cell size: " << deltax << " microns" << std::endl;
         ExaCALog << "Time step: " << deltat << " microseconds" << std::endl;
+        ExaCALog << "Lower bound of domain in x: " << XMin << std::endl;
+        ExaCALog << "Lower bound of domain in y: " << YMin << std::endl;
+        ExaCALog << "Lower bound of domain in z: " << ZMin << std::endl;
+        ExaCALog << "Upper bound of domain in x: " << XMax << std::endl;
+        ExaCALog << "Upper bound of domain in y: " << YMax << std::endl;
+        ExaCALog << "Upper bound of domain in z: " << ZMax << std::endl;
         ExaCALog << "Nucleation density was " << NMax << " m^-3 , mean nucleation undercooling was " << dTN
                  << " K, and standard deviation of nucleation undercooling was " << dTsigma << " K" << std::endl;
         ExaCALog << irf.print() << std::endl;
