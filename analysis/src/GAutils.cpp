@@ -645,9 +645,3 @@ std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector) {
     UniqueGrainIDVector.resize(std::distance(UniqueGrainIDVector.begin(), it));
     return UniqueGrainIDVector;
 }
-
-// Cast two integers to double, divide them, and return the result
-double DivideInts(int Int1, int Int2) {
-    double quotient = static_cast<double>(Int1) / static_cast<double>(Int2);
-    return quotient;
-}

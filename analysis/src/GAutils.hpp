@@ -42,6 +42,9 @@ std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector);
 void CheckInputFiles(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
                      std::string &RotationFilename, std::string &RGBFilename, std::string &EulerAnglesFilename);
 std::vector<int> FindUniqueGrains(std::vector<int> GrainIDVector);
-double DivideInts(int Int1, int Int2);
+template <typename ReturnType, typename FirstType, typename SecondType>
+ReturnType DivideCast(FirstType Int1, SecondType Int2) {
+    return static_cast<ReturnType>(Int1) / static_cast<ReturnType>(Int2);
+}
 
 #endif
