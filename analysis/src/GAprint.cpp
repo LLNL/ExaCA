@@ -320,10 +320,12 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
 // Helper function for unimodal analysis of the grains in the specified cross-section
 void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
                                   double deltax, int NumberOfGrains, int CrossSectionSize, std::vector<int> GrainAreas,
-                                  int MinGrainSize = 5) {
+                                  float MinGrainSize_microns = 7.8125) {
 
     // Count grain areas large enough to be counted
     int NumGrainsAboveThreshold = 0, AreaGrainsAboveThreshold = 0;
+    int MinGrainSize =
+        std::round(MinGrainSize_microns / (deltax * deltax * pow(10, 12))); // convert area to value in cells
     for (int n = 0; n < NumberOfGrains; n++) {
         if (GrainAreas[n] >= MinGrainSize) {
             AreaGrainsAboveThreshold += GrainAreas[n];

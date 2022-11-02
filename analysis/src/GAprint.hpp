@@ -24,7 +24,7 @@ void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int nx, 
                             std::vector<int> ZHigh_RVE);
 void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
                                   double deltax, int NumberOfGrains, int CrossSectionSize, std::vector<int> GrainAreas,
-                                  float MinGrainSize);
+                                  float MinGrainSize_microns);
 void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
                                  double deltax, int NumberOfGrains, int CrossSectionSize,
                                  std::vector<int> UniqueGrainIDs, std::vector<int> GrainAreas, int NumberOfOrientations,
