@@ -755,8 +755,6 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
     if (LayerwiseTempRead) {
         FirstLayerToRead = layernumber;
         LastLayerToRead = layernumber;
-        // This was resized to 0 at the end of the last layer, resize with an estimated size for this layer
-        RawData.resize(1000000);
     }
     else {
         FirstLayerToRead = 0;
@@ -846,9 +844,6 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
                 }
             }
         }
-    }
-    else {
-        // Determine Z bounds of this layer, in case they are different than those of the first layer
     }
 }
 

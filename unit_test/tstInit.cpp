@@ -271,7 +271,7 @@ void testcalcLocalActiveDomainSize() {
 //---------------------------------------------------------------------------//
 // temp_init_test
 //---------------------------------------------------------------------------//
-void testReadTemperatureData() {
+void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead) {
 
     // Create test data
     double deltax = 1 * pow(10, -6);
@@ -280,71 +280,91 @@ void testReadTemperatureData() {
     // Domain size is a 3 by 12 region
     int nx = 3;
     int ny = 12;
-    // Write fake OpenFOAM data - only rank 0.
-    std::string TestTempFileName = "TestData.txt";
-    std::ofstream TestDataFile;
-    TestDataFile.open(TestTempFileName);
-    TestDataFile << "x, y, z, tm, tl, cr" << std::endl;
+    // Write fake OpenFOAM data - only rank 0. Temperature data should be of type double
+    // Write two files, one or both of which should be read
+    std::string TestTempFileName1 = "TestData1.txt";
+    std::ofstream TestDataFile1;
+    TestDataFile1.open(TestTempFileName1);
+    TestDataFile1 << "x, y, z, tm, tl, cr" << std::endl;
     for (int j = 0; j < ny; j++) {
         for (int i = 0; i < nx; i++) {
-            TestDataFile << i * deltax << "," << j * deltax << "," << 0.0 << "," << (float)(i * j) << ","
-                         << (float)(i * j + i) << "," << (float)(i * j + j) << std::endl;
+            TestDataFile1 << i * deltax << "," << j * deltax << "," << 0.0 << "," << static_cast<double>(i * j) << ","
+                          << static_cast<double>(i * j + i) << "," << static_cast<double>(i * j + j) << std::endl;
         }
     }
-    TestDataFile.close();
+    TestDataFile1.close();
+    std::string TestTempFileName2 = "TestData2.txt";
+    std::ofstream TestDataFile2;
+    TestDataFile2.open(TestTempFileName2);
+    TestDataFile2 << "x, y, z, tm, tl, cr" << std::endl;
+    for (int j = 0; j < ny; j++) {
+        for (int i = 0; i < nx; i++) {
+            TestDataFile2 << i * deltax << "," << j * deltax << "," << deltax << "," << static_cast<double>(i * j)
+                          << "," << static_cast<double>(i * j + i) << "," << static_cast<double>(i * j + j)
+                          << std::endl;
+        }
+    }
+    TestDataFile2.close();
 
     // Test each 12 by 3 subdomain
     for (int id = 0; id < 4; id++) {
         int MyYSlices = 3;
         int MyYOffset = 3 * id; // each col is separated from the others by 3 cells
         float YMin = 0.0;
-        std::vector<std::string> temp_paths(1);
-        temp_paths[0] = TestTempFileName;
-        int NumberOfLayers = 1;
-        int TempFilesInSeries = 1;
+        int layernumber = 0;
+        std::vector<std::string> temp_paths(2);
+        temp_paths[0] = TestTempFileName1;
+        temp_paths[1] = TestTempFileName2;
+        int TempFilesInSeries = 2;
         int *FirstValue = new int[NumberOfLayers];
         int *LastValue = new int[NumberOfLayers];
         unsigned int NumberOfTemperatureDataPoints = 0;
 
-        // Read in data to "RawData"
-        std::vector<double> RawData(12);
+        // Read in data to "RawData" (initial guess at size shouldn't matter)
+        std::vector<double> RawData(9);
 
-        float *ZMinLayer = new float[NumberOfLayers];
-        float *ZMaxLayer = new float[NumberOfLayers];
-        ZMinLayer[0] = 0.0;
-        ZMaxLayer[0] = 0.0;
         ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths, NumberOfLayers,
-                            TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue, LastValue, false, 0);
+                            TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue, LastValue,
+                            LayerwiseTempRead, layernumber);
 
         // Check the results.
         // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr)
-        // for each of the 12 cells in the subdomain
-        EXPECT_EQ(NumberOfTemperatureDataPoints, 54);
+        // for each of the 9 cells in the subdomain
+        // If both files were read, twice as many temperature data points per file should be present
+        int NumTempPointsMultiplier;
+        if (LayerwiseTempRead)
+            NumTempPointsMultiplier = 1;
+        else
+            NumTempPointsMultiplier = std::min(NumberOfLayers, TempFilesInSeries);
+        EXPECT_EQ(NumberOfTemperatureDataPoints, 54 * NumTempPointsMultiplier);
         // Ratio of HT cell size and CA cell size should be 1
         EXPECT_EQ(HTtoCAratio, 1);
         int NumberOfCellsPerRank = 9;
         // Does each rank have the right temperature data values?
-        for (int n = 0; n < NumberOfCellsPerRank; n++) {
-            double ExpectedValues_ThisDataPoint[6];
-            // Location on local grid
-            int CARow = n % 3;
-            int CACol = n / 3;
-            // X Coordinate
-            ExpectedValues_ThisDataPoint[0] = CARow * deltax;
-            // Y Coordinate
-            ExpectedValues_ThisDataPoint[1] = (CACol + 3 * id) * deltax;
-            // Z Coordinate
-            ExpectedValues_ThisDataPoint[2] = 0.0;
-            int XInt = ExpectedValues_ThisDataPoint[0] / deltax;
-            int YInt = ExpectedValues_ThisDataPoint[1] / deltax;
-            // Melting time
-            ExpectedValues_ThisDataPoint[3] = XInt * YInt;
-            // Liquidus time
-            ExpectedValues_ThisDataPoint[4] = XInt * YInt + XInt;
-            // Cooling rate
-            ExpectedValues_ThisDataPoint[5] = XInt * YInt + YInt;
-            for (int nn = 0; nn < 6; nn++) {
-                EXPECT_DOUBLE_EQ(ExpectedValues_ThisDataPoint[nn], RawData[6 * n + nn]);
+        for (int layercounter = 0; layercounter < NumTempPointsMultiplier; layercounter++) {
+            for (int n = 0; n < NumberOfCellsPerRank; n++) {
+                double ExpectedValues_ThisDataPoint[6];
+                // Location on local grid
+                int CARow = n % 3;
+                int CACol = n / 3;
+                // X Coordinate
+                ExpectedValues_ThisDataPoint[0] = CARow * deltax;
+                // Y Coordinate
+                ExpectedValues_ThisDataPoint[1] = (CACol + 3 * id) * deltax;
+                // Z Coordinate
+                ExpectedValues_ThisDataPoint[2] = deltax * layercounter;
+                int XInt = ExpectedValues_ThisDataPoint[0] / deltax;
+                int YInt = ExpectedValues_ThisDataPoint[1] / deltax;
+                // Melting time
+                ExpectedValues_ThisDataPoint[3] = XInt * YInt;
+                // Liquidus time
+                ExpectedValues_ThisDataPoint[4] = XInt * YInt + XInt;
+                // Cooling rate
+                ExpectedValues_ThisDataPoint[5] = XInt * YInt + YInt;
+                for (int nn = 0; nn < 6; nn++) {
+                    EXPECT_DOUBLE_EQ(ExpectedValues_ThisDataPoint[nn],
+                                     RawData[NumberOfCellsPerRank * 6 * layercounter + 6 * n + nn]);
+                }
             }
         }
     }
@@ -412,7 +432,11 @@ TEST(TEST_CATEGORY, activedomainsizecalc) {
     testcalcLocalActiveDomainSize();
 }
 TEST(TEST_CATEGORY, temperature_init_test) {
-    testReadTemperatureData(); // reading temperature data is performed in the same manner with and without remelting
+    testReadTemperatureData(
+        1, false); // reading one file of temperature data - performed in the same manner with and without remelting
+    testReadTemperatureData(
+        2, true); // reading temperature data when two files of data are present - reading either one or both
+    testReadTemperatureData(2, false);
     testgetTempCoords();
 }
 } // end namespace Test
