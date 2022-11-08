@@ -320,7 +320,7 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead) {
         int *LastValue = new int[NumberOfLayers];
         unsigned int NumberOfTemperatureDataPoints = 0;
 
-        // Read in data to "RawData" (initial guess at size shouldn't matter)
+        // Read in data to "RawData"
         std::vector<double> RawData(9);
 
         ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths, NumberOfLayers,
@@ -432,10 +432,10 @@ TEST(TEST_CATEGORY, activedomainsizecalc) {
     testcalcLocalActiveDomainSize();
 }
 TEST(TEST_CATEGORY, temperature_init_test) {
-    testReadTemperatureData(
-        1, false); // reading one file of temperature data - performed in the same manner with and without remelting
-    testReadTemperatureData(
-        2, true); // reading temperature data when two files of data are present - reading either one or both
+    // reading one file of temperature data - performed in the same manner with and without remelting
+    testReadTemperatureData(1, false);
+    // reading temperature data when two files are present - reading either one (true) or both (false)
+    testReadTemperatureData(2, true);
     testReadTemperatureData(2, false);
     testgetTempCoords();
 }

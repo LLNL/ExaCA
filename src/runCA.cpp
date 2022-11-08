@@ -175,14 +175,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         LocalActiveDomainSize =
             calcLocalActiveDomainSize(nx, MyYSlices, nzActive); // Number of active cells on this MPI rank
     }
-    // Delete temporary data structure for temperature data read if remelting is not performed.
-    // If remelting is performed, keep RawData intact to avoid having to reread temperature files, unless specified that
-    // temperatures are initialized one layer at a time (in which case the vector is resized back to the initial guess
-    // for the next call to ReadTemperatureData)
-    if ((!(RemeltingYN)) || (LayerwiseTempRead))
-        RawData.clear();
-    else if (LayerwiseTempRead)
-        RawData.resize(1000000);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of "
@@ -428,8 +420,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
                         XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue,
                         LastValue, RawData, SolidificationEventCounter, TempFilesInSeries);
-                    if (LayerwiseTempRead)
-                        RawData.clear();
                 }
             }
             else {

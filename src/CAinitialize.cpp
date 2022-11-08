@@ -535,12 +535,12 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         // remelting events in the simulation can also be calculated. The second pass reads the actual X/Y/Z/liquidus
         // time/cooling rate data and each rank stores the data relevant to itself in "RawData" - this is done in the
         // subroutine "ReadTemperatureData"
-        XMin = 1000000.0;
-        YMin = 1000000.0;
-        ZMin = 1000000.0;
-        XMax = -1000000.0;
-        YMax = -1000000.0;
-        ZMax = -1000000.0;
+        XMin = std::numeric_limits<float>::max();
+        YMin = std::numeric_limits<float>::max();
+        ZMin = std::numeric_limits<float>::max();
+        XMax = std::numeric_limits<float>::min();
+        YMax = std::numeric_limits<float>::min();
+        ZMax = std::numeric_limits<float>::min();
 
         // Read the first temperature file, first line to determine if the "new" OpenFOAM output format (with a 1 line
         // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
@@ -780,8 +780,8 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
 
         // Read data from the remaining lines - values should be separated by commas
         // Space separated data is no longer accepted by ExaCA
-        double ZMin_ThisLayer = 1000000;
-        double ZMax_ThisLayer = -1000000;
+        double ZMin_ThisLayer = std::numeric_limits<double>::max();
+        double ZMax_ThisLayer = std::numeric_limits<double>::min();
         while (!TemperatureFile.eof()) {
             std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
             std::string ReadLine;
