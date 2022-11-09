@@ -267,7 +267,8 @@ void checkFileNotEmpty(std::string testfilename) {
 }
 
 void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &TempFilesInSeries, int &NumberOfLayers,
-                           int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths) {
+                           int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths,
+                           bool &RemeltingYN, bool &LayerwiseTempRead) {
 
     std::ifstream TemperatureData;
     // Check that file exists and contains data
@@ -276,14 +277,20 @@ void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &Te
     // Open and read temperature instuctions file
     TemperatureData.open(TFieldInstructions);
     std::string val;
-    // Three required inputs should be present in the temperature file
-    std::vector<std::string> TemperatureInputs = {
+    // These required inputs should be present in the temperature file
+    std::vector<std::string> RequiredTemperatureInputs = {
         "Number of layers",
         "Offset between layers",
+    };
+    // These may or may not be in the temperature file
+    std::vector<std::string> OptionalTemperatureInputs = {
+        "Discard temperature data and reread temperature files after each layer",
         "Heat transport data mesh size",
     };
-    int NumTemperatureInputs = TemperatureInputs.size();
-    std::vector<std::string> TemperatureInputsRead(NumTemperatureInputs);
+    int NumRequiredTemperatureInputs = RequiredTemperatureInputs.size();
+    int NumOptionalTemperatureInputs = OptionalTemperatureInputs.size();
+    std::vector<std::string> RequiredTemperatureInputsRead(NumRequiredTemperatureInputs);
+    std::vector<std::string> OptionalTemperatureInputsRead(NumOptionalTemperatureInputs);
     // Read first portion of the file to get Number of layers, Offset between layers, Heat transport data mesh size (if
     // given)
     bool ReadingArgs = true;
@@ -295,20 +302,39 @@ void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &Te
             ReadingArgs = false;
         }
         else {
-            bool FoundArg = parseInputFromList(val, TemperatureInputs, TemperatureInputsRead, NumTemperatureInputs);
-            if (!(FoundArg))
-                std::cout << "Ignoring unknown line " << val << " in temperature instructions file "
-                          << TFieldInstructions << std::endl;
+            bool FoundArg = parseInputFromList(val, RequiredTemperatureInputs, RequiredTemperatureInputsRead,
+                                               NumRequiredTemperatureInputs);
+            if (!(FoundArg)) {
+                FoundArg = parseInputFromList(val, OptionalTemperatureInputs, OptionalTemperatureInputsRead,
+                                              NumOptionalTemperatureInputs);
+                if (!(FoundArg))
+                    std::cout << "Ignoring unknown line " << val << " in temperature instructions file "
+                              << TFieldInstructions << std::endl;
+            }
         }
         if (!(TemperatureData.is_open()))
             throw std::runtime_error("Error: Required separator not found in temperature instructions file");
     }
-    NumberOfLayers = getInputInt(TemperatureInputsRead[0]);
-    LayerHeight = getInputInt(TemperatureInputsRead[1]);
-    if (TemperatureInputsRead[2].empty())
+    NumberOfLayers = getInputInt(RequiredTemperatureInputsRead[0]);
+    LayerHeight = getInputInt(RequiredTemperatureInputsRead[1]);
+    // If this input was not given, default to reading/storing all temperature data during initialization
+    if (OptionalTemperatureInputsRead[0].empty())
+        LayerwiseTempRead = false;
+    else
+        LayerwiseTempRead = getInputBool(OptionalTemperatureInputsRead[0]);
+    // If this input was not given, default to using CA cell size as the assumed temperature data resolution
+    if (OptionalTemperatureInputsRead[1].empty())
         HT_deltax = deltax;
     else
-        HT_deltax = getInputDouble(TemperatureInputsRead[2], -6);
+        HT_deltax = getInputDouble(OptionalTemperatureInputsRead[1], -6);
+
+    if ((!(RemeltingYN)) && (LayerwiseTempRead)) {
+        if (id == 0)
+            std::cout << "Warning: ability to read temperature files one at a time during initialization of "
+                         "new layers is only supported for simulations with remelting"
+                      << std::endl;
+        LayerwiseTempRead = false;
+    }
     // Read second part of file to get the paths/names of the temperature data files used
     TempFilesInSeries = 0;
     while (TemperatureData.is_open()) {

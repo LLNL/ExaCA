@@ -34,7 +34,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput, int &NSpotsX,
                        int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
-                       bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize) {
+                       bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize, bool &LayerwiseTempRead) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -262,7 +262,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         std::string TemperatureFieldInstructions = RequiredInputsRead_ProblemSpecific[1];
         if (!(RequiredInputsRead_ProblemSpecific[1].empty()))
             parseTInstuctionsFile(id, TemperatureFieldInstructions, TempFilesInSeries, NumberOfLayers, LayerHeight,
-                                  deltax, HT_deltax, temp_paths);
+                                  deltax, HT_deltax, temp_paths, RemeltingYN, LayerwiseTempRead);
         if ((OptionalInputsRead_ProblemSpecific[3].empty()))
             BaseplateThroughPowder = false; // defaults to using baseplate only for layer 0 substrate
         else
@@ -535,12 +535,12 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         // remelting events in the simulation can also be calculated. The second pass reads the actual X/Y/Z/liquidus
         // time/cooling rate data and each rank stores the data relevant to itself in "RawData" - this is done in the
         // subroutine "ReadTemperatureData"
-        XMin = 1000000.0;
-        YMin = 1000000.0;
-        ZMin = 1000000.0;
-        XMax = -1000000.0;
-        YMax = -1000000.0;
-        ZMax = -1000000.0;
+        XMin = std::numeric_limits<float>::max();
+        YMin = std::numeric_limits<float>::max();
+        ZMin = std::numeric_limits<float>::max();
+        XMax = std::numeric_limits<float>::min();
+        YMax = std::numeric_limits<float>::min();
+        ZMax = std::numeric_limits<float>::min();
 
         // Read the first temperature file, first line to determine if the "new" OpenFOAM output format (with a 1 line
         // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
@@ -716,7 +716,7 @@ void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &Ne
 void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyYSlices, int MyYOffset,
                          float YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
                          unsigned int &NumberOfTemperatureDataPoints, std::vector<double> &RawData, int *FirstValue,
-                         int *LastValue) {
+                         int *LastValue, bool LayerwiseTempRead, int layernumber) {
 
     double HTtoCAratio_unrounded = HT_deltax / deltax;
     double HTtoCAratio_floor = floor(HTtoCAratio_unrounded);
@@ -749,14 +749,30 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
     // time/cooling rate data and each rank stores the data relevant to itself in "RawData". With remelting
     // (SimulationType == "RM"), this is the same except that some X/Y/Z coordinates may be repeated in a file, and
     // a "melting time" value is stored in addition to liquidus time and cooling rate
+    NumberOfTemperatureDataPoints = 0; // reset to 0 during each call to ReadTemperatureData
     // Second pass through the files - ignore header line
-    int LayersToRead = std::min(NumberOfLayers, TempFilesInSeries); // was given in input file
-    for (int LayerReadCount = 1; LayerReadCount <= LayersToRead; LayerReadCount++) {
+    int FirstLayerToRead, LastLayerToRead;
+    if (LayerwiseTempRead) {
+        FirstLayerToRead = layernumber;
+        LastLayerToRead = layernumber;
+    }
+    else {
+        FirstLayerToRead = 0;
+        LastLayerToRead = std::min(NumberOfLayers, TempFilesInSeries) - 1;
+    }
+    // Which temperature files should be read? Just the one file for layer "layernumber", or all of them?
+    for (int LayerReadCount = FirstLayerToRead; LayerReadCount <= LastLayerToRead; LayerReadCount++) {
 
-        std::string tempfile_thislayer = temp_paths[LayerReadCount - 1];
+        std::string tempfile_thislayer;
+        if (LayerwiseTempRead) {
+            int LayerInSeries = layernumber % TempFilesInSeries;
+            tempfile_thislayer = temp_paths[LayerInSeries];
+        }
+        else
+            tempfile_thislayer = temp_paths[LayerReadCount];
         std::ifstream TemperatureFile;
         TemperatureFile.open(tempfile_thislayer);
-        FirstValue[LayerReadCount - 1] = NumberOfTemperatureDataPoints;
+        FirstValue[LayerReadCount] = NumberOfTemperatureDataPoints;
 
         std::string DummyLine;
         // ignore header line
@@ -764,6 +780,8 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
 
         // Read data from the remaining lines - values should be separated by commas
         // Space separated data is no longer accepted by ExaCA
+        double ZMin_ThisLayer = std::numeric_limits<double>::max();
+        double ZMax_ThisLayer = std::numeric_limits<double>::min();
         while (!TemperatureFile.eof()) {
             std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
             std::string ReadLine;
@@ -783,6 +801,11 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
                 RawData[NumberOfTemperatureDataPoints] = YTemperaturePoint;
                 NumberOfTemperatureDataPoints++;
                 RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[2]);
+                double Z = RawData[NumberOfTemperatureDataPoints];
+                if (Z < ZMin_ThisLayer)
+                    ZMin_ThisLayer = Z;
+                else if (Z > ZMax_ThisLayer)
+                    ZMax_ThisLayer = Z;
                 NumberOfTemperatureDataPoints++;
                 RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[3]);
                 NumberOfTemperatureDataPoints++;
@@ -800,23 +823,25 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
                 }
             }
         }
-        LastValue[LayerReadCount - 1] = NumberOfTemperatureDataPoints;
+        LastValue[LayerReadCount] = NumberOfTemperatureDataPoints;
     } // End loop over all files read for all layers
     RawData.resize(NumberOfTemperatureDataPoints);
-    // Determine start values for each layer's data within "RawData"
-    if (NumberOfLayers > TempFilesInSeries) {
-        for (int LayerReadCount = TempFilesInSeries; LayerReadCount < NumberOfLayers; LayerReadCount++) {
-            if (TempFilesInSeries == 1) {
-                // Since all layers have the same temperature data, each layer's "ZMinLayer" is just
-                // translated from that of the first layer
-                FirstValue[LayerReadCount] = FirstValue[LayerReadCount - 1];
-                LastValue[LayerReadCount] = LastValue[LayerReadCount - 1];
-            }
-            else {
-                // All layers have different temperature data but in a repeating pattern
-                int RepeatedFile = (LayerReadCount) % TempFilesInSeries;
-                FirstValue[LayerReadCount] = FirstValue[RepeatedFile];
-                LastValue[LayerReadCount] = LastValue[RepeatedFile];
+    // Determine start values for each layer's data within "RawData", if all layers were read
+    if (!(LayerwiseTempRead)) {
+        if (NumberOfLayers > TempFilesInSeries) {
+            for (int LayerReadCount = TempFilesInSeries; LayerReadCount < NumberOfLayers; LayerReadCount++) {
+                if (TempFilesInSeries == 1) {
+                    // Since all layers have the same temperature data, each layer's "ZMinLayer" is just
+                    // translated from that of the first layer
+                    FirstValue[LayerReadCount] = FirstValue[LayerReadCount - 1];
+                    LastValue[LayerReadCount] = LastValue[LayerReadCount - 1];
+                }
+                else {
+                    // All layers have different temperature data but in a repeating pattern
+                    int RepeatedFile = (LayerReadCount) % TempFilesInSeries;
+                    FirstValue[LayerReadCount] = FirstValue[RepeatedFile];
+                    LastValue[LayerReadCount] = LastValue[RepeatedFile];
+                }
             }
         }
     }
