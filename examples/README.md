@@ -92,7 +92,7 @@ Some additional inputs are optional while others are required
 | Number of spots in y                   | Y            | Number of spots in the y direction
 | Offset between spot centers            | Y            | Offset of spot centers along the x and y axes, in microns
 | Radii of spots                         | Y            | Spot radii, in microns
-| Number of layers                       | Y            | Number of times this pattern is repeated, offset in the +Z (build) direction
+| Number of layers                       | Y            | Number of times this pattern is repeated, offset in the +Z (build) direction. Max value is 32767
 | Offset between layers                  | Y            | If Number of layers > 1, the number of CA cells should separate adjacent layers
 | Substrate grain spacing                | See note (a) | Mean spacing between grain centers in the baseplate/substrate (in microns)
 | Substrate filename                     | See note (a) | Path to and filename for substrate data
@@ -142,3 +142,4 @@ These values govern the printing intermediate data, for debugging or visualizati
 | Increment to separate frames | If Print intermediate frames = Y, the number of microseconds defining the ExaCA output intermediate data increment
 | Intermediate output even if system is unchanged from previous state | (Y or N) If Print intermediate frames = Y, whether or not ExaCA should print intermediate output regardless of whether the simulation has changed from the last frame (if Print intermediate frames = N, Print intermediate frames strict should also be = N)
 | Random seed for grains and nuclei generation | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
+| Print vtk data as binary | Whether or not ExaCA vtk output data should be printed as big endian binary data, or as ASCII characters (default value is false if not provided)

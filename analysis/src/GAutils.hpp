@@ -23,7 +23,9 @@ int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, in
 // These are used in reading/parsing ExaCA microstructure data
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
                   bool UseXYZBounds, std::vector<double> &XYZBounds);
-void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest);
+void ReadASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest);
+void ReadBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest,
+                     std::string FieldName);
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
                     std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
                     bool &NewOrientationFormatYN, std::string &RGBFilename);

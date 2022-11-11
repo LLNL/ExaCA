@@ -5,13 +5,30 @@
 
 #include "CAprint.hpp"
 #include "CAfunctions.hpp"
+#include "CAparsefiles.hpp"
 
 #include "mpi.h"
 
-#include <cmath>
-#include <fstream>
+// Print Paraview file header data, for either binary or ASCII output
+void WriteHeader(std::ofstream &ParaviewOutputStream, std::string FName, bool PrintBinary, int nx, int ny, int nz,
+                 double deltax, double XMin, double YMin, double ZMin) {
 
-//*****************************************************************************/
+    if (PrintBinary)
+        ParaviewOutputStream.open(FName, std::ios::out | std::ios::binary);
+    else
+        ParaviewOutputStream.open(FName);
+    ParaviewOutputStream << "# vtk DataFile Version 3.0" << std::endl;
+    ParaviewOutputStream << "vtk output" << std::endl;
+    if (PrintBinary)
+        ParaviewOutputStream << "BINARY" << std::endl;
+    else
+        ParaviewOutputStream << "ASCII" << std::endl;
+    ParaviewOutputStream << "DATASET STRUCTURED_POINTS" << std::endl;
+    ParaviewOutputStream << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
+    ParaviewOutputStream << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
+    ParaviewOutputStream << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
+    ParaviewOutputStream << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
+}
 //*****************************************************************************/
 // On rank 0, collect data for one single int view
 void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nz, int nx, int MyYSlices, int np,
@@ -172,7 +189,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
                     bool PrintFinalUndercoolingVals, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
                     int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, float XMin, float YMin,
-                    float ZMin, int NumberOfLayers, int RVESize) {
+                    float ZMin, int NumberOfLayers, bool PrintBinary, int RVESize) {
 
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
@@ -241,22 +258,24 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
             if (PrintMisorientation)
                 PrintGrainMisorientations(BaseFileName, PathToOutput, nx, ny, nz, LayerID_WholeDomain,
                                           GrainID_WholeDomain, GrainUnitVector_Host, NGrainOrientations, deltax, XMin,
-                                          YMin, ZMin);
+                                          YMin, ZMin, PrintBinary);
             if (PrintTimeSeries)
                 PrintIntermediateExaCAState(IntermediateFileCounter, layernumber, BaseFileName, PathToOutput,
                                             ZBound_Low, nzActive, nx, ny, GrainID_WholeDomain, CellType_WholeDomain,
-                                            GrainUnitVector_Host, NGrainOrientations, deltax, XMin, YMin, ZMin);
+                                            GrainUnitVector_Host, NGrainOrientations, deltax, XMin, YMin, ZMin,
+                                            PrintBinary);
         }
         if (PrintFinalUndercoolingVals)
             PrintFinalUndercooling(BaseFileName, PathToOutput, nx, ny, nz, UndercoolingCurrent_WholeDomain,
-                                   LayerID_WholeDomain, deltax, XMin, YMin, ZMin);
+                                   LayerID_WholeDomain, deltax, XMin, YMin, ZMin, PrintBinary);
         if (PrintDefaultRVE)
             PrintExaConstitDefaultRVE(BaseFileName, PathToOutput, nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain,
                                       deltax, NumberOfLayers, RVESize);
         if ((PrintFullOutput) || (PrintDebug > 0))
             PrintCAFields(nx, ny, nz, GrainID_WholeDomain, LayerID_WholeDomain, CritTimeStep_WholeDomain,
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
-                          PathToOutput, BaseFileName, PrintDebug, PrintFullOutput, deltax, XMin, YMin, ZMin);
+                          PathToOutput, BaseFileName, PrintDebug, PrintFullOutput, deltax, XMin, YMin, ZMin,
+                          PrintBinary);
     }
     else {
 
@@ -305,7 +324,7 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
                    ViewI3D_H CritTimeStep_WholeDomain, ViewI3D_H CellType_WholeDomain,
                    ViewF3D_H UndercoolingChange_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain,
                    std::string PathToOutput, std::string BaseFileName, int PrintDebug, bool PrintFullOutput,
-                   double deltax, float XMin, float YMin, float ZMin) {
+                   double deltax, float XMin, float YMin, float ZMin, bool PrintBinary) {
 
     std::string FName;
     if (PrintFullOutput) {
@@ -318,25 +337,21 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
         std::cout << "Printing initial data structures to a vtk file " << FName << " for debugging" << std::endl;
     }
     std::ofstream Grainplot;
-    Grainplot.open(FName);
-    Grainplot << "# vtk DataFile Version 3.0" << std::endl;
-    Grainplot << "vtk output" << std::endl;
-    Grainplot << "ASCII" << std::endl;
-    Grainplot << "DATASET STRUCTURED_POINTS" << std::endl;
-    Grainplot << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
-    Grainplot << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
-    Grainplot << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
-    Grainplot << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
+    WriteHeader(Grainplot, FName, PrintBinary, nx, ny, nz, deltax, XMin, YMin, ZMin);
     // Print Layer ID data
-    Grainplot << "SCALARS LayerID int 1" << std::endl;
+    Grainplot << "SCALARS LayerID short 1" << std::endl;
     Grainplot << "LOOKUP_TABLE default" << std::endl;
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
-                Grainplot << LayerID_WholeDomain(k, i, j) << " ";
+                short ShortLayerID = static_cast<short>(LayerID_WholeDomain(k, i, j));
+                WriteData(Grainplot, ShortLayerID, PrintBinary, true);
             }
         }
-        Grainplot << std::endl;
+        // Do not insert newline character if using binary writing, as this will break the binary data read by adding a
+        // blank line
+        if (!(PrintBinary))
+            Grainplot << std::endl;
     }
     if ((PrintFullOutput) || (PrintDebug == 2)) {
         // Print Grain ID data
@@ -345,10 +360,11 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
         for (int k = 0; k < nz; k++) {
             for (int j = 0; j < ny; j++) {
                 for (int i = 0; i < nx; i++) {
-                    Grainplot << GrainID_WholeDomain(k, i, j) << " ";
+                    WriteData(Grainplot, GrainID_WholeDomain(k, i, j), PrintBinary, true);
                 }
             }
-            Grainplot << std::endl;
+            if (!(PrintBinary))
+                Grainplot << std::endl;
         }
     }
     if (PrintDebug > 0) {
@@ -358,10 +374,11 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
         for (int k = 0; k < nz; k++) {
             for (int j = 0; j < ny; j++) {
                 for (int i = 0; i < nx; i++) {
-                    Grainplot << CritTimeStep_WholeDomain(k, i, j) << " ";
+                    WriteData(Grainplot, CritTimeStep_WholeDomain(k, i, j), PrintBinary, true);
                 }
             }
-            Grainplot << std::endl;
+            if (!(PrintBinary))
+                Grainplot << std::endl;
         }
         // Print CellType data
         Grainplot << "SCALARS CellType int 1" << std::endl;
@@ -369,10 +386,11 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
         for (int k = 0; k < nz; k++) {
             for (int j = 0; j < ny; j++) {
                 for (int i = 0; i < nx; i++) {
-                    Grainplot << CellType_WholeDomain(k, i, j) << " ";
+                    WriteData(Grainplot, CellType_WholeDomain(k, i, j), PrintBinary, true);
                 }
             }
-            Grainplot << std::endl;
+            if (!(PrintBinary))
+                Grainplot << std::endl;
         }
     }
     if (PrintDebug == 2) {
@@ -382,10 +400,11 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
         for (int k = 0; k < nz; k++) {
             for (int j = 0; j < ny; j++) {
                 for (int i = 0; i < nx; i++) {
-                    Grainplot << UndercoolingChange_WholeDomain(k, i, j) << " ";
+                    WriteData(Grainplot, UndercoolingChange_WholeDomain(k, i, j), PrintBinary, true);
                 }
             }
-            Grainplot << std::endl;
+            if (!(PrintBinary))
+                Grainplot << std::endl;
         }
         // Print Undercooling current data
         Grainplot << "SCALARS UndercoolingCurrent float 1" << std::endl;
@@ -393,10 +412,11 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
         for (int k = 0; k < nz; k++) {
             for (int j = 0; j < ny; j++) {
                 for (int i = 0; i < nx; i++) {
-                    Grainplot << UndercoolingCurrent_WholeDomain(k, i, j) << " ";
+                    WriteData(Grainplot, UndercoolingCurrent_WholeDomain(k, i, j), PrintBinary, true);
                 }
             }
-            Grainplot << std::endl;
+            if (!(PrintBinary))
+                Grainplot << std::endl;
         }
     }
     Grainplot.close();
@@ -405,23 +425,15 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
 // Print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview file
 void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewF_H GrainUnitVector,
-                               int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin) {
+                               int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin,
+                               bool PrintBinary) {
 
     std::string FName = PathToOutput + BaseFileName + "_Misorientations.vtk";
     std::cout << "Printing Paraview file of grain misorientations" << std::endl;
     // Print grain orientations to file
     std::ofstream GrainplotM;
-    // New vtk file - don't print wall cells at +/- X/Y boundaries, nor at -Z boundary
-    GrainplotM.open(FName);
-    GrainplotM << "# vtk DataFile Version 3.0" << std::endl;
-    GrainplotM << "vtk output" << std::endl;
-    GrainplotM << "ASCII" << std::endl;
-    GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
-    GrainplotM << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
-    GrainplotM << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
-    GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
-    GrainplotM << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
-    GrainplotM << "SCALARS Angle_z int 1" << std::endl;
+    WriteHeader(GrainplotM, FName, PrintBinary, nx, ny, nz, deltax, XMin, YMin, ZMin);
+    GrainplotM << "SCALARS Angle_z unsigned_short 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
     int NucleatedGrainCells = 0;
@@ -431,23 +443,24 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
+                unsigned short IntPrintVal;
                 if (LayerID_WholeDomain(k, i, j) == -1)
-                    GrainplotM << 200 << " ";
+                    IntPrintVal = 200;
                 else {
                     MeltedCells++;
-                    int RoundedAngle;
                     int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
                     if (GrainID_WholeDomain(k, i, j) < 0) {
-                        RoundedAngle = std::round(GrainMisorientation(MyOrientation)) + 100;
+                        IntPrintVal = static_cast<unsigned short>(std::round(GrainMisorientation(MyOrientation)) + 100);
                         NucleatedGrainCells++;
                     }
                     else
-                        RoundedAngle = std::round(GrainMisorientation(MyOrientation));
-                    GrainplotM << RoundedAngle << " ";
+                        IntPrintVal = static_cast<unsigned short>(std::round(GrainMisorientation(MyOrientation)));
                 }
+                WriteData(GrainplotM, IntPrintVal, PrintBinary, true);
             }
         }
-        GrainplotM << std::endl;
+        if (!(PrintBinary))
+            GrainplotM << std::endl;
     }
     GrainplotM.close();
     std::cout << "Volume fraction of solidified portion of domain claimed by nucleated grains: "
@@ -459,34 +472,29 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
 // solidification, to a paraview file
 void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                             ViewF3D_H UndercoolingCurrent_WholeDomain, ViewI3D_H LayerID_WholeDomain, double deltax,
-                            float XMin, float YMin, float ZMin) {
+                            float XMin, float YMin, float ZMin, bool PrintBinary) {
 
     std::string FName = PathToOutput + BaseFileName + "_FinalUndercooling.vtk";
     std::cout << "Printing Paraview file of final undercooling values" << std::endl;
     // Print undercooling to file
     std::ofstream UndercoolingPlot;
-    UndercoolingPlot.open(FName);
-    UndercoolingPlot << "# vtk DataFile Version 3.0" << std::endl;
-    UndercoolingPlot << "vtk output" << std::endl;
-    UndercoolingPlot << "ASCII" << std::endl;
-    UndercoolingPlot << "DATASET STRUCTURED_POINTS" << std::endl;
-    UndercoolingPlot << "DIMENSIONS " << nx << " " << ny << " " << nz << std::endl;
-    UndercoolingPlot << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
-    UndercoolingPlot << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
-    UndercoolingPlot << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
+    WriteHeader(UndercoolingPlot, FName, PrintBinary, nx, ny, nz, deltax, XMin, YMin, ZMin);
     UndercoolingPlot << "SCALARS UndercoolingFinal float 1" << std::endl;
     UndercoolingPlot << "LOOKUP_TABLE default" << std::endl;
     // Print 0s for the undercooling for cells that did not undergo solidification
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
+                float FloatPrintVal;
                 if (LayerID_WholeDomain(k, i, j) == -1)
-                    UndercoolingPlot << 0.0 << " ";
+                    FloatPrintVal = 0.0;
                 else
-                    UndercoolingPlot << UndercoolingCurrent_WholeDomain(k, i, j) << " ";
+                    FloatPrintVal = UndercoolingCurrent_WholeDomain(k, i, j);
+                WriteData(UndercoolingPlot, FloatPrintVal, PrintBinary, true);
             }
         }
-        UndercoolingPlot << std::endl;
+        if (!(PrintBinary))
+            UndercoolingPlot << std::endl;
     }
     UndercoolingPlot.close();
 }
@@ -694,7 +702,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
 void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, std::string BaseFileName,
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain, ViewF_H GrainUnitVector,
-                                 int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin) {
+                                 int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin,
+                                 bool PrintBinary) {
 
     std::string FName = PathToOutput + BaseFileName + "_layer" + std::to_string(layernumber) + "_" +
                         std::to_string(IntermediateFileCounter) + ".vtk";
@@ -718,35 +727,27 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
         GrainMisorientation(n) = AngleZmin;
     }
     std::ofstream GrainplotM;
-
-    GrainplotM.open(FName);
-    GrainplotM << "# vtk DataFile Version 3.0" << std::endl;
-    GrainplotM << "vtk output" << std::endl;
-    GrainplotM << "ASCII" << std::endl;
-    GrainplotM << "DATASET STRUCTURED_POINTS" << std::endl;
-    GrainplotM << "DIMENSIONS " << nx << " " << ny << " " << ZPrintSize << std::endl;
-    GrainplotM << "ORIGIN " << XMin << " " << YMin << " " << ZMin << std::endl;
-    GrainplotM << "SPACING " << deltax << " " << deltax << " " << deltax << std::endl;
-    GrainplotM << std::fixed << "POINT_DATA " << nx * ny * ZPrintSize << std::endl;
+    WriteHeader(GrainplotM, FName, PrintBinary, nx, ny, ZPrintSize, deltax, XMin, YMin, ZMin);
     GrainplotM << "SCALARS Angle_z float 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
     for (int k = 0; k < ZPrintSize; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
+                float FloatPrintVal;
                 if (CellType_WholeDomain(k, i, j) != Liquid) {
-                    if (GrainID_WholeDomain(k, i, j) == 0)
-                        std::cout << i << " " << j << " " << k << " " << CellType_WholeDomain(k, i, j) << std::endl;
                     int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
                     if (GrainID_WholeDomain(k, i, j) < 0)
-                        GrainplotM << GrainMisorientation(MyOrientation) + 100.0 << " ";
+                        FloatPrintVal = GrainMisorientation(MyOrientation) + 100.0;
                     else
-                        GrainplotM << GrainMisorientation(MyOrientation) << " ";
+                        FloatPrintVal = GrainMisorientation(MyOrientation);
                 }
                 else
-                    GrainplotM << -1.0 << " ";
+                    FloatPrintVal = -1.0;
+                WriteData(GrainplotM, FloatPrintVal, PrintBinary, true);
             }
         }
-        GrainplotM << std::endl;
+        if (!(PrintBinary))
+            GrainplotM << std::endl;
     }
     GrainplotM.close();
 }

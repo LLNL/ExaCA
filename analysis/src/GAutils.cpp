@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "GAutils.hpp"
-
-#include <CAparsefiles.hpp>
+#include "CAparsefiles.hpp"
+#include "CAprint.hpp"
 
 #include <cmath>
 #include <fstream>
@@ -146,18 +146,34 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
 }
 
 // Reads portion of a paraview file and places data in the appropriate data structure
-void ReadField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest) {
-    std::string line;
+// ASCII data at each Z value is separated by a newline
+void ReadASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest) {
     for (int k = 0; k < nz; k++) {
+        // Get line from file
+        std::string line;
         getline(InputDataStream, line);
-        // Used to split string around spaces
+        // Parse string at spaces
         std::istringstream ss(line);
-        std::string GIDVal; // for storing each separated string
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
-                int val;
-                ss >> val;
-                FieldOfInterest(k, i, j) = val;
+                FieldOfInterest(k, i, j) = ParseASCIIData<int>(ss);
+            }
+        }
+    }
+}
+
+// Reads binary string from a paraview file, converts to int field, and places data in the appropriate data structure
+// Each field consists of a single binary string (no newlines)
+void ReadBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest,
+                     std::string FieldName) {
+    for (int k = 0; k < nz; k++) {
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
+                // Store converted values in view - LayerID data is a short int, GrainID data is an int
+                if (FieldName == "GrainID")
+                    FieldOfInterest(k, i, j) = ReadBinaryData<int>(InputDataStream, true);
+                else if (FieldName == "LayerID")
+                    FieldOfInterest(k, i, j) = ReadBinaryData<short>(InputDataStream, true);
             }
         }
     }
@@ -281,9 +297,14 @@ void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, View
     if (!(InputDataStream))
         throw std::runtime_error("Error: Cannot find ExaCA microstructure file");
     std::string line;
-    // 8 unused lines at beginning of Paraview file from header
-    for (int DummyLines = 0; DummyLines < 8; DummyLines++) {
+    bool Binaryvtk = false;
+    // 8 header lines at beginning of Paraview file from header
+    // 3rd line tells whether data is in ASCII or binary format
+    for (int HeaderLines = 0; HeaderLines < 8; HeaderLines++) {
         getline(InputDataStream, line);
+        if (HeaderLines == 2)
+            if (line.find("BINARY") != std::string::npos)
+                Binaryvtk = true;
     }
     for (int field = 0; field < 3; field++) {
         // This line says which variable appears next in the file
@@ -297,12 +318,22 @@ void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, View
         // 1 more unused line
         getline(InputDataStream, line);
         // Place appropriate data
-        if (FoundGrainID != std::string::npos)
-            ReadField(InputDataStream, nx, ny, nz, GrainID);
-        else if (FoundLayerID != std::string::npos)
-            ReadField(InputDataStream, nx, ny, nz, LayerID);
+        if (FoundGrainID != std::string::npos) {
+            if (Binaryvtk)
+                ReadBinaryField(InputDataStream, nx, ny, nz, GrainID, "GrainID");
+            else
+                ReadASCIIField(InputDataStream, nx, ny, nz, GrainID);
+        }
+        else if (FoundLayerID != std::string::npos) {
+            if (Binaryvtk)
+                ReadBinaryField(InputDataStream, nx, ny, nz, LayerID, "LayerID");
+            else
+                ReadASCIIField(InputDataStream, nx, ny, nz, LayerID);
+        }
         else if (FoundMelted != std::string::npos) {
             std::cout << "Note: Melted data is no longer used and will be ignored" << std::endl;
+            // Note: version of ExaCA that printed output with melted data is older than the version that prints binary
+            // vtk output, melted field will always consist of ASCII characters if present in the output
             ReadIgnoreField(InputDataStream, nx, ny, nz);
         }
         else

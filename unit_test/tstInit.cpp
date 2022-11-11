@@ -7,6 +7,8 @@
 
 #include "CAinitialize.hpp"
 #include "CAinterfacialresponse.hpp"
+#include "CAparsefiles.hpp"
+#include "CAprint.hpp"
 
 #include <gtest/gtest.h>
 
@@ -63,8 +65,12 @@ void testInputReadFromFile() {
             TestDataFile << "Number of layers: 2" << std::endl;
             TestDataFile << "Offset between layers: 1" << std::endl;
             TestDataFile << "Heat transport data mesh size: 12" << std::endl;
+            // Print data as ASCII
+            TestDataFile << "Print vtk data as binary: N" << std::endl;
         }
         else {
+            // Print data as binary
+            TestDataFile << "Print vtk data as binary: Y" << std::endl;
             // New temperature input lines
             TestDataFile << "Path to and name of temperature field assembly instructions: TInstructions.txt"
                          << std::endl;
@@ -107,7 +113,7 @@ void testInputReadFromFile() {
         double deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R, FractSurfaceSitesActive, RNGSeed, PowderDensity;
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
             UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false, BaseplateThroughPowder,
-                                                         LayerwiseTempInit;
+                                                         LayerwiseTempInit, PrintBinary;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput, MaterialFileName;
         std::vector<std::string> temp_paths;
@@ -117,7 +123,7 @@ void testInputReadFromFile() {
                           nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
                           PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                           PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
-                          BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempInit);
+                          BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempInit, PrintBinary);
         InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
 
         // Check the results
@@ -152,6 +158,7 @@ void testInputReadFromFile() {
             EXPECT_FALSE(PrintFinalUndercoolingVals);
             EXPECT_TRUE(PrintFullOutput);
             EXPECT_DOUBLE_EQ(RNGSeed, 0.0);
+            EXPECT_FALSE(PrintBinary);
         }
         else if (FileName == "Inp_SpotMelt.txt") {
             EXPECT_TRUE(PrintTimeSeries);
@@ -173,6 +180,7 @@ void testInputReadFromFile() {
             EXPECT_FALSE(PrintFinalUndercoolingVals);
             EXPECT_TRUE(PrintFullOutput);
             EXPECT_DOUBLE_EQ(RNGSeed, 0.0);
+            EXPECT_FALSE(PrintBinary);
         }
         else if ((FileName == "Inp_TemperatureTest_Old.txt") || (FileName == "Inp_TemperatureTest_Old.txt")) {
             EXPECT_DOUBLE_EQ(deltat, 1.5 * pow(10, -6));
@@ -194,6 +202,67 @@ void testInputReadFromFile() {
             EXPECT_TRUE(PrintDefaultRVE);
             EXPECT_FALSE(PrintFullOutput);
             EXPECT_DOUBLE_EQ(RNGSeed, 2.0);
+            if (FileName == "Inp_TemperatureTest_Old.txt")
+                EXPECT_FALSE(PrintBinary);
+            else
+                EXPECT_TRUE(PrintBinary);
+        }
+    }
+}
+
+void testReadWrite(bool PrintReadBinary) {
+
+    // Make lists of some int and float data
+    int IntData[5] = {-2, 0, 2, 4, 6};
+    float FloatData[5] = {-1.0, 0.0, 1.0, 2.0, 3.0};
+
+    // Write data as binary to be used as input
+    std::ofstream TestIntData;
+    std::ofstream TestFloatData;
+    if (PrintReadBinary) {
+        TestIntData.open("TestIntData.txt", std::ios::out | std::ios::binary);
+        TestFloatData.open("TestFloatData.txt", std::ios::out | std::ios::binary);
+    }
+    else {
+        TestIntData.open("TestIntData.txt");
+        TestFloatData.open("TestFloatData.txt");
+    }
+    for (int n = 0; n < 5; n++) {
+        // Write to files
+        WriteData(TestIntData, IntData[n], PrintReadBinary, true);
+        WriteData(TestFloatData, FloatData[n], PrintReadBinary, true);
+    }
+    TestIntData.close();
+    TestFloatData.close();
+
+    // Read data and convert back to ints and floats, compare to original values
+    std::ifstream TestIntDataRead;
+    TestIntDataRead.open("TestIntData.txt");
+    std::ifstream TestFloatDataRead;
+    TestFloatDataRead.open("TestFloatData.txt");
+    // For reading ASCII data, obtain the lines from the files first, then parse the string stream at the spaces
+    if (PrintReadBinary) {
+        for (int n = 0; n < 5; n++) {
+            int IntToCompare = ReadBinaryData<int>(TestIntDataRead, true);
+            float FloatToCompare = ReadBinaryData<float>(TestFloatDataRead, true);
+            // Compare to expected values
+            EXPECT_EQ(IntToCompare, IntData[n]);
+            EXPECT_FLOAT_EQ(FloatToCompare, FloatData[n]);
+        }
+    }
+    else {
+        std::string intline, floatline;
+        getline(TestIntDataRead, intline);
+        getline(TestFloatDataRead, floatline);
+        std::istringstream intss(intline);
+        std::istringstream floatss(floatline);
+        for (int n = 0; n < 5; n++) {
+            // Get values from string stream
+            int IntToCompare = ParseASCIIData<float>(intss);
+            float FloatToCompare = ParseASCIIData<float>(floatss);
+            // Compare to expected values
+            EXPECT_EQ(IntToCompare, IntData[n]);
+            EXPECT_FLOAT_EQ(FloatToCompare, FloatData[n]);
         }
     }
 }
@@ -424,7 +493,12 @@ void testgetTempCoords() {
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-TEST(TEST_CATEGORY, fileread_test) { testInputReadFromFile(); }
+TEST(TEST_CATEGORY, fileread_test) {
+    testInputReadFromFile();
+    // test functions for reading and writing data as binary (true) and ASCII (false)
+    testReadWrite(true);
+    testReadWrite(false);
+}
 TEST(TEST_CATEGORY, activedomainsizecalc) {
     testcalcZBound_Low_Remelt();
     testcalcZBound_High_Remelt();

@@ -7,13 +7,20 @@
 #define EXACA_PRINT_HPP
 
 #include "CAinterfacialresponse.hpp"
+#include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 
 #include <Kokkos_Core.hpp>
 
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
+void WriteHeader(std::ofstream &ParaviewOutputStream, std::string FName, bool PrintBinary, int nx, int ny, int nz,
+                 double deltax, double XMin, double YMin, double ZMin);
 void CollectIntField(ViewI3D_H IntVar_WholeDomain, ViewI_H IntVar, int nx, int ny, int nz, int MyYSlices, int np,
                      ViewI_H RecvYOffset, ViewI_H RecvYSlices, ViewI_H RBufSize);
 void CollectFloatField(ViewF3D_H FloatVar_WholeDomain, ViewF_H FloatVar, int nx, int ny, int nz, int MyYSlices, int np,
@@ -28,7 +35,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
                     bool PrintFinalUndercooling, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
                     int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, float XMin, float YMin,
-                    float ZMin, int NumberOfLayers, int RVESize = 0);
+                    float ZMin, int NumberOfLayers, bool PrintBinary, int RVESize = 0);
 void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int MyYSlices, int MyYOffset,
                    InterfacialResponseFunction irf, double deltax, double NMax, double dTN, double dTsigma,
                    std::vector<std::string> temp_paths, int TempFilesInSeries, double HT_deltax, bool RemeltingYN,
@@ -44,19 +51,33 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
                    ViewI3D_H CritTimeStep_WholeDomain, ViewI3D_H CellType_WholeDomain,
                    ViewF3D_H UndercoolingChange_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain,
                    std::string PathToOutput, std::string BaseFileName, int PrintDebug, bool PrintFullOutput,
-                   double deltax, float XMin, float YMin, float ZMin);
+                   double deltax, float XMin, float YMin, float ZMin, bool PrintBinary);
 void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewF_H GrainUnitVector,
-                               int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin);
+                               int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin,
+                               bool PrintBinary);
 void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                             ViewF3D_H UndercoolingCurrent_WholeDomain, ViewI3D_H LayerID_WholeDomain, double deltax,
-                            float XMin, float YMin, float ZMin);
+                            float XMin, float YMin, float ZMin, bool PrintBinary);
 void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, double deltax,
                                int NumberOfLayers, int RVESize);
 void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, std::string BaseFileName,
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain, ViewF_H GrainUnitVector,
-                                 int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin);
+                                 int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin,
+                                 bool PrintBinary);
+// Write data of type PrintType as ascii or binary, with option to convert between big and small endian binary
+template <typename PrintType>
+void WriteData(std::ofstream &outstream, PrintType PrintValue, bool PrintBinary, bool SwapEndianYN = false) {
+    if (PrintBinary) {
+        if (SwapEndianYN)
+            SwapEndian(PrintValue);
+        int varSize = sizeof(PrintType);
+        outstream.write((char *)&PrintValue, varSize);
+    }
+    else
+        outstream << PrintValue << " ";
+}
 
 #endif
