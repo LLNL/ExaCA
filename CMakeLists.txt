@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.11)
 
 project(ExaCA CXX)
 
@@ -40,6 +40,13 @@ if(ExaCA_ENABLE_TESTING)
   endif()
   enable_testing()
   add_subdirectory(unit_test)
+endif()
+
+option(ExaCA_ENABLE_JSON "Enable JSON input file support." OFF)
+if (ExaCA_ENABLE_JSON)
+  include(FetchContent)
+  FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
+  FetchContent_MakeAvailable(json)
 endif()
 
 # clang-format

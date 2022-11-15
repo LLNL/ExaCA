@@ -10,6 +10,10 @@
 
 #include <Kokkos_Core.hpp>
 
+#if ExaCA_ENABLE_JSON
+#include <nlohmann/json.hpp>
+#endif
+
 #include <string>
 #include <vector>
 

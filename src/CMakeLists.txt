@@ -30,6 +30,11 @@ target_link_libraries(ExaCA PUBLIC
     MPI::MPI_CXX
     Kokkos::kokkos
 )
+
+if (ExaCA_ENABLE_JSON)
+  target_link_libraries(ExaCA PUBLIC nlohmann_json::nlohmann_json)
+endif()
+
 target_include_directories(ExaCA PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
