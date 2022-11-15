@@ -20,17 +20,26 @@ jobs:
         backend: ['SERIAL', 'OPENMP']
         cmake_build_type: ['Debug', 'Release']
         kokkos_ver: ['3.4.01']
+        json: ['ON']
         include:
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
+            json: 'ON'
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
+            json: 'ON'
+          - distro: 'ubuntu:latest'
+            cxx: 'g++'
+            backend: 'OPENMP'
+            cmake_build_type: 'Debug'
+            kokkos_ver: '3.4.01'
+            json: 'OFF'
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
@@ -68,7 +77,8 @@ jobs:
             -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror" \
             -D MPIEXEC_MAX_NUMPROCS=2 \
             -D MPIEXEC_PREFLAGS="--oversubscribe" \
-            -D ExaCA_ENABLE_TESTING=ON
+            -D ExaCA_ENABLE_TESTING=ON \
+            -D ExaCA_ENABLE_JSON=${{ matrix.json }}
           cmake --build build --parallel 2
           cmake --install build
       - name: Format ExaCA

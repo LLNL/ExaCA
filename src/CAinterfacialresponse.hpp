@@ -6,10 +6,15 @@
 #ifndef EXACA_IRF_HPP
 #define EXACA_IRF_HPP
 
+#include "CAconfig.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 
 #include <Kokkos_Core.hpp>
+
+#ifdef ExaCA_ENABLE_JSON
+#include <nlohmann/json.hpp>
+#endif
 
 #include <fstream>
 #include <iostream>

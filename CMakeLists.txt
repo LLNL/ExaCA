@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.11)
 
 project(ExaCA CXX)
 
@@ -6,6 +6,17 @@ include(GNUInstallDirs)
 
 find_package(Kokkos 3.2 REQUIRED)
 find_package(MPI REQUIRED)
+
+option(ExaCA_ENABLE_JSON "Enable JSON input file support." OFF)
+if(ExaCA_ENABLE_JSON)
+  find_package(nlohmann_json 3.10.0 QUIET)
+  if(NOT NLOHMANN_JSON_FOUND)
+    include(FetchContent)
+    # Using most recent release here
+    FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
+    FetchContent_MakeAvailable(json)
+  endif()
+endif()
 
 # NOTE: this order is specifically used in the unit tests.
 set(EXACA_SUPPORTED_DEVICES SERIAL PTHREAD OPENMP CUDA HIP)
