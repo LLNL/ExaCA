@@ -2,10 +2,10 @@ configure_file(CAconfig.hpp.cmakein CAconfig.hpp)
 
 set(EXACA_HEADERS
     CAfunctions.hpp
-    CAparsefiles.hpp
     CAghostnodes.hpp
     CAinitialize.hpp
     CAinterfacialresponse.hpp
+    CAparsefiles.hpp
     CAprint.hpp
     CAtypes.hpp
     CAupdate.hpp
@@ -13,9 +13,9 @@ set(EXACA_HEADERS
 )
 set(EXACA_SOURCES
     CAfunctions.cpp
-    CAparsefiles.cpp
     CAghostnodes.cpp
     CAinitialize.cpp
+    CAparsefiles.cpp
     CAprint.cpp
     CAupdate.cpp
     runCA.cpp
