@@ -1,0 +1,9 @@
+{
+   "function": "exponential",
+   "fittingParams": {
+      "A": 0.000007325,
+      "B": 3.12,
+      "C": 0
+    },
+    "freezingRange": 26.5
+}

@@ -124,7 +124,7 @@ void testInputReadFromFile() {
                           PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                           PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
                           BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempInit, PrintBinary);
-        InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
+        InterfacialResponseFunction irf(0, MaterialFileName, deltat, deltax);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
@@ -264,6 +264,98 @@ void testReadWrite(bool PrintReadBinary) {
             EXPECT_EQ(IntToCompare, IntData[n]);
             EXPECT_FLOAT_EQ(FloatToCompare, FloatData[n]);
         }
+    }
+}
+
+void testInterfacialResponse_Old() {
+
+    // Test that the interfacial response can be read for the old file format
+    std::ofstream TestDataFile;
+    double ATest = -0.00000010302;
+    double BTest = 0.00010533;
+    double CTest = 0.0022196;
+    double DTest = 0;
+    double FreezingRangeTest = 210;
+    TestDataFile.open("Inconel625_Old");
+    TestDataFile << "Polynomial representation of interfacial response function, in the form V = A*(Undercooling)^3 + "
+                    "B*(Undercooling)^2 + C*Undercooling + D"
+                 << std::endl;
+    TestDataFile << "*****" << std::endl;
+    TestDataFile << "A: " << ATest << std::endl;
+    TestDataFile << "B: " << BTest << std::endl;
+    TestDataFile << "C: " << CTest << std::endl;
+    TestDataFile << "D: " << DTest << std::endl;
+    TestDataFile << "Alloy freezing range (K): " << std::to_string(FreezingRangeTest) << std::endl;
+    TestDataFile.close();
+
+    double deltax = 0.5;
+    double deltat = 1.0;
+    InterfacialResponseFunction irf(0, "Inconel625_Old", deltat, deltax);
+
+    EXPECT_EQ(irf.function, 0);
+    // Fitting parameters should've been normalized by deltat / deltax, i.e. twice as large as the numbers in the file
+    EXPECT_DOUBLE_EQ(irf.A, ATest * 2);
+    EXPECT_DOUBLE_EQ(irf.B, BTest * 2);
+    EXPECT_DOUBLE_EQ(irf.C, CTest * 2);
+    EXPECT_DOUBLE_EQ(irf.D, DTest * 2);
+    EXPECT_DOUBLE_EQ(irf.FreezingRange, FreezingRangeTest);
+
+    // Check that the update function works
+    double LocU = 11.0;
+    double ExpectedV = irf.A * pow(LocU, 3.0) + irf.B * pow(LocU, 2.0) + irf.C * LocU + irf.D;
+    double ComputedV = irf.compute(LocU);
+    EXPECT_DOUBLE_EQ(ComputedV, ExpectedV);
+}
+
+void testInterfacialResponse_New() {
+
+    // Test that the interfacial response can be read for the new file format
+    std::vector<std::string> MaterialFileName = {"Inconel625", "Inconel625_Approx", "SS316"};
+    double deltax = 0.5;
+    double deltat = 1.0;
+    for (int irfform = 0; irfform < 3; irfform++) {
+        std::cout << "Reading " << MaterialFileName[irfform] << std::endl;
+        InterfacialResponseFunction irf(0, MaterialFileName[irfform], deltat, deltax);
+        // Check that functional form is correct
+        EXPECT_EQ(irfform, irf.function);
+
+        // Check that fitting parameters were correctly initialized and normalized
+        // Fitting parameters should've been normalized by deltat / deltax, i.e. twice as large as the numbers in the
+        // file
+        double ATest, BTest, CTest, DTest, FreezingRangeTest, ExpectedV;
+        double LocU = 11.0;
+        switch (irf.function) {
+        case 0:
+            ATest = -0.00000010302;
+            BTest = 0.00010533;
+            CTest = 0.0022196;
+            DTest = 0;
+            FreezingRangeTest = 210;
+            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, 3.0) + BTest * pow(LocU, 2.0) + CTest * LocU + DTest);
+            break;
+        case 1:
+            ATest = 0.000072879;
+            BTest = 0.004939;
+            CTest = -0.047024;
+            FreezingRangeTest = 210;
+            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, 2.0) + BTest * LocU + CTest);
+            break;
+        case 2:
+            ATest = 0.000007325;
+            BTest = 3.12;
+            CTest = 0;
+            FreezingRangeTest = 26.5;
+            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, (deltat / deltax) * BTest) + CTest);
+            break;
+        }
+        EXPECT_DOUBLE_EQ(irf.A, ATest * 2);
+        EXPECT_DOUBLE_EQ(irf.B, BTest * 2);
+        EXPECT_DOUBLE_EQ(irf.C, CTest * 2);
+        if (irf.function != 2)
+            EXPECT_DOUBLE_EQ(irf.D, DTest * 2);
+        EXPECT_DOUBLE_EQ(irf.FreezingRange, FreezingRangeTest);
+        double ComputedV = irf.compute(LocU);
+        EXPECT_DOUBLE_EQ(ComputedV, ExpectedV);
     }
 }
 //---------------------------------------------------------------------------//
@@ -498,6 +590,8 @@ TEST(TEST_CATEGORY, fileread_test) {
     // test functions for reading and writing data as binary (true) and ASCII (false)
     testReadWrite(true);
     testReadWrite(false);
+    testInterfacialResponse_Old();
+    testInterfacialResponse_New();
 }
 TEST(TEST_CATEGORY, activedomainsizecalc) {
     testcalcZBound_Low_Remelt();

@@ -1,7 +1,10 @@
-Polynomial representation of interfacial response function, in the form V = A*(Undercooling)^3 + B*(Undercooling)^2 + C*Undercooling + D
-*****
-A: -0.00000010302
-B: 0.00010533
-C: 0.0022196
-D: 0
-Alloy freezing range (K): 210
+{
+   "function": "cubic",
+   "fittingParams": {
+      "A": -0.00000010302,
+      "B": 0.00010533,
+      "C": 0.0022196,
+      "D": 0
+    },
+    "freezingRange": 210
+}

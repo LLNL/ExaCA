@@ -19,7 +19,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ExaCAconfig.cmake"
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ExaCA)
 
 # Install data files
-file(GLOB MATERIALS examples/Materials/Inconel625)
+file(GLOB MATERIALS examples/Materials/*)
 file(GLOB SUBSTRATE examples/Substrate/GrainOrientation*.csv)
 install(FILES ${MATERIALS}
   DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/ExaCA)
@@ -42,7 +42,7 @@ if(ExaCA_ENABLE_TESTING)
   add_subdirectory(unit_test)
 endif()
 
-option(ExaCA_ENABLE_JSON "Enable JSON input file support." OFF)
+option(ExaCA_ENABLE_JSON "Enable JSON input file support." ON)
 if (ExaCA_ENABLE_JSON)
   include(FetchContent)
   FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
