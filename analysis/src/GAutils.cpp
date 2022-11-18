@@ -4,8 +4,6 @@
 // SPDX-License-Identifier: MIT
 
 #include "GAutils.hpp"
-#include "CAparsefiles.hpp"
-#include "CAprint.hpp"
 
 #include <cmath>
 #include <fstream>

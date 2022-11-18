@@ -9,6 +9,7 @@ set(EXACA_HEADERS
     CAprint.hpp
     CAtypes.hpp
     CAupdate.hpp
+    ExaCA.hpp
     runCA.hpp
 )
 set(EXACA_SOURCES
