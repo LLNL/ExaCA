@@ -348,8 +348,9 @@ void testInterfacialResponse_New() {
         EXPECT_DOUBLE_EQ(irf->A, ATest * 2);
         EXPECT_DOUBLE_EQ(irf->B, BTest * 2);
         EXPECT_DOUBLE_EQ(irf->C, CTest * 2);
-        if (file_name == "Inconel625")
+        if (file_name == "Inconel625") {
             EXPECT_DOUBLE_EQ(irf->D, DTest * 2);
+        }
         EXPECT_DOUBLE_EQ(irf->FreezingRange, FreezingRangeTest);
         double ComputedV = irf->compute(LocU);
         EXPECT_DOUBLE_EQ(ComputedV, ExpectedV);
