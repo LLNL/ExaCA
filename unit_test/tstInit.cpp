@@ -311,7 +311,7 @@ void testInterfacialResponse_Old() {
 void testInterfacialResponse_New() {
 
     // Test that the interfacial response can be read for the new file format
-    std::vector<std::string> material_file_names = {"Inconel625", "Inconel625_Approx", "SS316"};
+    std::vector<std::string> material_file_names = {"Inconel625", "Inconel625_Quadratic", "SS316"};
     double deltax = 0.5;
     double deltat = 1.0;
     for (auto file_name : material_file_names) {
@@ -331,7 +331,7 @@ void testInterfacialResponse_New() {
             FreezingRangeTest = 210;
             ExpectedV = (deltat / deltax) * (ATest * pow(LocU, 3.0) + BTest * pow(LocU, 2.0) + CTest * LocU + DTest);
         }
-        else if (file_name == "Inconel625_Approx") {
+        else if (file_name == "Inconel625_Quadratic") {
             ATest = 0.000072879;
             BTest = 0.004939;
             CTest = -0.047024;
