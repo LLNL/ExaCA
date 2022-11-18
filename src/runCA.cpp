@@ -125,57 +125,40 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewI MeltTimeStep(Kokkos::ViewAllocateWithoutInitializing("MeltTimeStep"), 0);
 
     // Bounds of the current layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
-    int ZBound_Low, ZBound_High, nzActive, LocalActiveDomainSize;
-    if (RemeltingYN) {
-        // For simulations with remelting, ZBound_Low/ZBound_High/nzActive/LocalActiveDomainSize are calculated in
-        // advance of the first layer
-        ZBound_Low = calcZBound_Low_Remelt(SimulationType, LayerHeight, 0, ZMinLayer, ZMin, deltax);
-        ZBound_High = calcZBound_High_Remelt(SimulationType, SpotRadius, LayerHeight, 0, ZMin, deltax, nz, ZMaxLayer);
-        nzActive = calcnzActive(ZBound_Low, ZBound_High, id, 0);
-        LocalActiveDomainSize =
-            calcLocalActiveDomainSize(nx, MyYSlices, nzActive); // Number of active cells on this MPI rank
-        // Initialize the temperature fields:
-        // R: input temperature data from files using reduced/sparse data format (with remelting)
-        // S: spot melt array test problem (with remelting)
-        if (SimulationType == "R")
-            TempInit_ReadDataRemelt(0, id, nx, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyYOffset, deltax,
-                                    deltat, irf.FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
-                                    MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange,
-                                    UndercoolingCurrent, XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low,
-                                    FinishTimeStep, LayerID, FirstValue, LastValue, RawData, SolidificationEventCounter,
-                                    TempFilesInSeries);
-        else if (SimulationType == "S")
-            TempInit_SpotRemelt(0, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, ZBound_Low, nz,
-                                LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange,
-                                UndercoolingCurrent, LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY,
-                                SpotRadius, SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents,
-                                MeltTimeStep, MaxSolidificationEvents, SolidificationEventCounter);
-    }
-    else {
-        // For simulations without remelting, ZBound_Low/ZBound_High/nzActive/LocalActiveDomainSize are calculated after
-        // the multilayer temperature field is initialized, to avoid unneeded inclusion of cells that solidify during
-        // the first layer, but remelt during the second layer Initialize the temperature fields R: input temperature
-        // data from files using reduced/sparse data format (without remelting) S: spot melt array test problem (without
-        // remelting) C: directional/constrained solidification test problem
-        if (SimulationType == "R")
-            TempInit_ReadDataNoRemelt(id, nx, MyYSlices, MyYOffset, deltax, HTtoCAratio, deltat, nz, LocalDomainSize,
-                                      CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, ZMinLayer, ZMaxLayer,
-                                      LayerHeight, NumberOfLayers, FinishTimeStep, irf.FreezingRange, LayerID,
-                                      FirstValue, LastValue, RawData);
-        else if (SimulationType == "S")
-            TempInit_SpotNoRemelt(G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, nz,
-                                  LocalDomainSize, CritTimeStep, UndercoolingChange, LayerHeight, NumberOfLayers,
-                                  irf.FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset);
-        else if (SimulationType == "C")
-            TempInit_DirSolidification(G, R, id, nx, MyYSlices, deltax, deltat, nz, LocalDomainSize, CritTimeStep,
-                                       UndercoolingChange, LayerID);
-        // Assign values to the bounds of the current layer now that the multilayer temperature field is initialized
-        ZBound_Low = calcZBound_Low_NoRemelt(id, nx, MyYSlices, LocalDomainSize, 0, LayerID);
-        ZBound_High = calcZBound_High_NoRemelt(id, nx, MyYSlices, LocalDomainSize, 0, LayerID);
-        nzActive = calcnzActive(ZBound_Low, ZBound_High, id, 0);
-        LocalActiveDomainSize =
-            calcLocalActiveDomainSize(nx, MyYSlices, nzActive); // Number of active cells on this MPI rank
-    }
+    int ZBound_Low = calcZBound_Low(SimulationType, LayerHeight, 0, ZMinLayer, ZMin, deltax);
+    int ZBound_High = calcZBound_High(SimulationType, SpotRadius, LayerHeight, 0, ZMin, deltax, nz, ZMaxLayer);
+    int nzActive = calcnzActive(ZBound_Low, ZBound_High, id, 0);
+    int LocalActiveDomainSize =
+        calcLocalActiveDomainSize(nx, MyYSlices, nzActive); // Number of active cells on this MPI rank
+    // Initialize the temperature fields:
+    // R: input temperature data from files using reduced/sparse data format (with or without remelting)
+    // S: spot melt array test problem (with or without remelting)
+    // C: directional/constrained solidification test problem
+    if ((SimulationType == "R") && (RemeltingYN))
+        TempInit_ReadDataRemelt(0, id, nx, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyYOffset, deltax,
+                                deltat, irf.FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
+                                MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange,
+                                UndercoolingCurrent, XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low,
+                                FinishTimeStep, LayerID, FirstValue, LastValue, RawData, SolidificationEventCounter,
+                                TempFilesInSeries);
+    else if ((SimulationType == "S") && (RemeltingYN))
+        TempInit_SpotRemelt(0, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, ZBound_Low, nz,
+                            LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange,
+                            UndercoolingCurrent, LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius,
+                            SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents, MeltTimeStep,
+                            MaxSolidificationEvents, SolidificationEventCounter);
+    else if ((SimulationType == "R") && (!RemeltingYN))
+        TempInit_ReadDataNoRemelt(id, nx, MyYSlices, MyYOffset, deltax, HTtoCAratio, deltat, nz, LocalDomainSize,
+                                  CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, ZMinLayer, ZMaxLayer, LayerHeight,
+                                  NumberOfLayers, FinishTimeStep, irf.FreezingRange, LayerID, FirstValue, LastValue,
+                                  RawData);
+    else if ((SimulationType == "S") && (!RemeltingYN))
+        TempInit_SpotNoRemelt(G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, nz, LocalDomainSize,
+                              CritTimeStep, UndercoolingChange, LayerHeight, NumberOfLayers, irf.FreezingRange, LayerID,
+                              NSpotsX, NSpotsY, SpotRadius, SpotOffset);
+    else if (SimulationType == "C")
+        TempInit_DirSolidification(G, R, id, nx, MyYSlices, deltax, deltat, nz, LocalDomainSize, CritTimeStep,
+                                   UndercoolingChange, LayerID);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of "
@@ -390,6 +373,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 IntermediateFileCounter = 0;
 
             // Determine new active cell domain size and offset from bottom of global domain
+            ZBound_Low = calcZBound_Low(SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
+            ZBound_High =
+                calcZBound_High(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin, deltax, nz, ZMaxLayer);
+            nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber + 1);
+            LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
             if (RemeltingYN) {
                 // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
                 // If the next layer's temperature data isn't already stored, it should be read
@@ -398,13 +386,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                         NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
                                         FirstValue, LastValue, LayerwiseTempRead, layernumber + 1);
                 }
-                ZBound_Low =
-                    calcZBound_Low_Remelt(SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
-                ZBound_High = calcZBound_High_Remelt(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin,
-                                                     deltax, nz, ZMaxLayer);
-                nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber + 1);
-                // Number of active cells on this MPI rank
-                LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
                 // With remelting, also reinitialize temperature views back to zero and resize LayerTimeTempHistory, in
                 // preparation for loading the next layer's (layernumber + 1) temperature data from RawData into the
                 // temperature views
@@ -423,14 +404,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue,
                         LastValue, RawData, SolidificationEventCounter, TempFilesInSeries);
                 }
-            }
-            else {
-                // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
-                ZBound_Low = calcZBound_Low_NoRemelt(id, nx, MyYSlices, LocalDomainSize, layernumber + 1, LayerID);
-                ZBound_High = calcZBound_High_NoRemelt(id, nx, MyYSlices, LocalDomainSize, layernumber + 1, LayerID);
-                nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber + 1);
-                // Number of active cells on this MPI rank
-                LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
             }
 
             // Update buffer size
