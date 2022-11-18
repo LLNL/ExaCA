@@ -29,7 +29,7 @@ struct Quadratic {};
 struct Cubic {};
 struct Exponential {};
 
-// "quadratic", "cubic", or "exponential" interfacial repsonse function
+// "quadratic", "cubic", or "power" interfacial repsonse function
 // Quadratic function has the form V = A*(Undercooling)^2 + B*(Undercooling) + C
 // Cubic function has the form V = A*(Undercooling)^3 + B*(Undercooling)^2 + C*(Undercooling) + D
 // Exponential function has the form of V = A * (Undercooling)^B + C
@@ -139,29 +139,29 @@ inline std::shared_ptr<InterfacialResponseFunctionBase> parseMaterialJson(std::s
                                                                           const double deltax) {
     std::ifstream MaterialData(MaterialFile);
     nlohmann::json data = nlohmann::json::parse(MaterialData);
-    double FR = data["freezingRange"];
-    double A = data["fittingParams"]["A"];
-    double B = data["fittingParams"]["B"];
-    double C = data["fittingParams"]["C"];
+    double FR = data["freezing_range"];
+    double A = data["coefficients"]["A"];
+    double B = data["coefficients"]["B"];
+    double C = data["coefficients"]["C"];
     double D = -1;
     if (data["function"] == "cubic") {
-        D = data["fittingParams"]["D"];
+        D = data["coefficients"]["D"];
         return std::make_shared<InterfacialResponseFunction<Cubic>>(A, B, C, D, FR, deltat, deltax);
     }
-    else if ((data["function"] == "quadratic") || (data["function"] == "exponential")) {
+    else if ((data["function"] == "quadratic") || (data["function"] == "power")) {
         // D should not have been given, this functional form only takes 3 input fitting parameters
-        if (data["fittingParams"]["D"] != nullptr) {
+        if (data["coefficients"]["D"] != nullptr) {
             std::string error = "Error: functional form of this type takes only A, B, and C as inputs";
             throw std::runtime_error(error);
         }
         if (data["function"] == "quadratic")
             return std::make_shared<InterfacialResponseFunction<Quadratic>>(A, B, C, FR, deltat, deltax);
-        else if (data["function"] == "exponential")
+        else if (data["function"] == "power")
             return std::make_shared<InterfacialResponseFunction<Exponential>>(A, B, C, FR, deltat, deltax);
     }
 
     throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
-                             "supported options are quadratic, cubic, and exponential");
+                             "supported options are quadratic, cubic, and power");
 }
 #endif
 

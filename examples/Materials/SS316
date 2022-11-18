@@ -1,9 +1,9 @@
 {
-   "function": "exponential",
-   "fittingParams": {
+   "function": "power",
+   "coefficients": {
       "A": 0.000007325,
       "B": 3.12,
       "C": 0
     },
-    "freezingRange": 26.5
+    "freezing_range": 26.5
 }
