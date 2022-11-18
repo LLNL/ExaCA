@@ -39,7 +39,7 @@ struct InterfacialResponseFunctionBase {
     double A;
     double B;
     double C;
-    double D = 0;
+    double D = 0.0;
 
     // Constructor for 4 parameter forms.
     InterfacialResponseFunctionBase(const double _A, const double _B, const double _C, const double _D, const double FR,
@@ -110,7 +110,6 @@ struct InterfacialResponseFunction<Quadratic> : InterfacialResponseFunctionBase 
     using base_type::A;
     using base_type::B;
     using base_type::C;
-    using base_type::D;
     using base_type::FreezingRange;
 
     using base_type::base_type;
@@ -126,7 +125,6 @@ struct InterfacialResponseFunction<Exponential> : InterfacialResponseFunctionBas
     using base_type::A;
     using base_type::B;
     using base_type::C;
-    using base_type::D;
     using base_type::FreezingRange;
 
     using base_type::base_type;
