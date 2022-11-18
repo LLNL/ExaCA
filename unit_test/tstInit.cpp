@@ -5,6 +5,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "CAconfig.hpp"
 #include "CAinitialize.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAparsefiles.hpp"
@@ -124,6 +125,7 @@ void testInputReadFromFile() {
                           PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                           PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
                           BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempInit, PrintBinary);
+#ifdef ExaCA_ENABLE_JSON
         auto irf = createIRF(0, MaterialFileName, deltat, deltax);
 
         // Check the results
@@ -140,7 +142,7 @@ void testInputReadFromFile() {
         EXPECT_DOUBLE_EQ(irf->C, 0.0022196 * deltat / deltax);
         EXPECT_DOUBLE_EQ(irf->D, 0);
         EXPECT_DOUBLE_EQ(irf->FreezingRange, 210);
-
+#endif
         // These are different for all 3 test problems
         if (FileName == "Inp_DirSolidification.txt") {
             EXPECT_TRUE(PrintTimeSeries);
@@ -586,7 +588,9 @@ TEST(TEST_CATEGORY, fileread_test) {
     testReadWrite(true);
     testReadWrite(false);
     testInterfacialResponse_Old();
+#ifdef ExaCA_ENABLE_JSON
     testInterfacialResponse_New();
+#endif
 }
 TEST(TEST_CATEGORY, activedomainsizecalc) {
     testcalcZBound_Low_Remelt();

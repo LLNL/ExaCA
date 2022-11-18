@@ -6,6 +6,7 @@
 #ifndef EXACA_IRF_HPP
 #define EXACA_IRF_HPP
 
+#include "CAconfig.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 
@@ -16,7 +17,9 @@
 #include <string>
 #include <vector>
 
+#ifdef ExaCA_ENABLE_JSON
 #include <nlohmann/json.hpp>
+#endif
 
 // Using for compatibility with device math functions.
 using std::max;
@@ -132,6 +135,7 @@ struct InterfacialResponseFunction<Exponential> : InterfacialResponseFunctionBas
     KOKKOS_INLINE_FUNCTION double compute(const double LocU) const { return A * pow(LocU, B) + C; }
 };
 
+#ifdef ExaCA_ENABLE_JSON
 // Used for reading material file in new json format
 inline std::shared_ptr<InterfacialResponseFunctionBase> parseMaterialJson(std::string MaterialFile, const double deltat,
                                                                           const double deltax) {
@@ -161,6 +165,7 @@ inline std::shared_ptr<InterfacialResponseFunctionBase> parseMaterialJson(std::s
     throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
                              "supported options are quadratic, cubic, and exponential");
 }
+#endif
 
 inline std::shared_ptr<InterfacialResponseFunctionBase> createIRF(int id, std::string MaterialFile, const double deltat,
                                                                   const double deltax) {
@@ -169,9 +174,13 @@ inline std::shared_ptr<InterfacialResponseFunctionBase> createIRF(int id, std::s
     std::string firstline;
     getline(MaterialData, firstline);
     if (firstline.find('{') != std::string::npos) {
+#ifdef ExaCA_ENABLE_JSON
         // New json input format for material data detected
         MaterialData.close();
         return parseMaterialJson(MaterialFile, deltat, deltax);
+#else
+        throw std::runtime_error("Cannot use JSON input file without ExaCA_ENABLE_JSON=ON");
+#endif
     }
     else {
         // Old input file format for material data (cubic function)
