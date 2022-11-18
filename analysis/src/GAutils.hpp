@@ -6,8 +6,10 @@
 #ifndef GA_UTIL_HPP
 #define GA_UTIL_HPP
 
-#include "CAtypes.hpp"
+#include "ExaCA.hpp"
+
 #include <Kokkos_Core.hpp>
+
 #include <cmath>
 #include <cstddef>
 #include <fstream>

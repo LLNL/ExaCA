@@ -4,10 +4,10 @@
 // SPDX-License-Identifier: MIT
 
 #include "runGA.hpp"
-#include "CAinitialize.hpp"
-#include "CAtypes.hpp"
 #include "GAprint.hpp"
 #include "GAutils.hpp"
+
+#include "ExaCA.hpp"
 
 #include <cmath>
 #include <fstream>

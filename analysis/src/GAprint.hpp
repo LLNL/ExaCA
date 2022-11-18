@@ -6,8 +6,10 @@
 #ifndef GA_PRINT_HPP
 #define GA_PRINT_HPP
 
-#include "CAtypes.hpp"
 #include <Kokkos_Core.hpp>
+
+#include "ExaCA.hpp"
+
 #include <cmath>
 #include <cstddef>
 #include <fstream>

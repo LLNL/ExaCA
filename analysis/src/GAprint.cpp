@@ -2,8 +2,8 @@
 // See the top-level LICENSE file for details.
 //
 // SPDX-License-Identifier: MIT
+
 #include "GAprint.hpp"
-#include "CAfunctions.hpp"
 #include "GAutils.hpp"
 
 //*****************************************************************************/
