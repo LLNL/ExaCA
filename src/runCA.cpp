@@ -42,7 +42,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
                       BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempRead, PrintBinary);
     // Read material data.
-    InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
+    auto irf = createIRF(id, MaterialFileName, deltat, deltax);
 
     // Variables characterizing local processor grids relative to global domain
     // 1D decomposition in Y: Each MPI rank has a subset consisting of of MyYSlices cells, out of ny cells in Y
@@ -139,7 +139,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         // S: spot melt array test problem (with remelting)
         if (SimulationType == "R")
             TempInit_ReadDataRemelt(0, id, nx, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyYOffset, deltax,
-                                    deltat, irf.FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
+                                    deltat, irf->FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
                                     MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange,
                                     UndercoolingCurrent, XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low,
                                     FinishTimeStep, LayerID, FirstValue, LastValue, RawData, SolidificationEventCounter,
@@ -147,7 +147,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         else if (SimulationType == "S")
             TempInit_SpotRemelt(0, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, ZBound_Low, nz,
                                 LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange,
-                                UndercoolingCurrent, LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY,
+                                UndercoolingCurrent, LayerHeight, irf->FreezingRange, LayerID, NSpotsX, NSpotsY,
                                 SpotRadius, SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents,
                                 MeltTimeStep, MaxSolidificationEvents, SolidificationEventCounter);
     }
@@ -160,12 +160,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         if (SimulationType == "R")
             TempInit_ReadDataNoRemelt(id, nx, MyYSlices, MyYOffset, deltax, HTtoCAratio, deltat, nz, LocalDomainSize,
                                       CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, ZMinLayer, ZMaxLayer,
-                                      LayerHeight, NumberOfLayers, FinishTimeStep, irf.FreezingRange, LayerID,
+                                      LayerHeight, NumberOfLayers, FinishTimeStep, irf->FreezingRange, LayerID,
                                       FirstValue, LastValue, RawData);
         else if (SimulationType == "S")
             TempInit_SpotNoRemelt(G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, nz,
                                   LocalDomainSize, CritTimeStep, UndercoolingChange, LayerHeight, NumberOfLayers,
-                                  irf.FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset);
+                                  irf->FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset);
         else if (SimulationType == "C")
             TempInit_DirSolidification(G, R, id, nx, MyYSlices, deltax, deltat, nz, LocalDomainSize, CritTimeStep,
                                        UndercoolingChange, LayerID);
@@ -411,14 +411,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 if (SimulationType == "S")
                     TempInit_SpotRemelt(layernumber + 1, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax,
                                         deltat, ZBound_Low, nz, LocalActiveDomainSize, LocalDomainSize, CritTimeStep,
-                                        UndercoolingChange, UndercoolingCurrent, LayerHeight, irf.FreezingRange,
+                                        UndercoolingChange, UndercoolingCurrent, LayerHeight, irf->FreezingRange,
                                         LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset, LayerTimeTempHistory,
                                         NumberOfSolidificationEvents, MeltTimeStep, MaxSolidificationEvents,
                                         SolidificationEventCounter);
                 else if (SimulationType == "R") {
                     TempInit_ReadDataRemelt(
                         layernumber + 1, id, nx, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyYOffset,
-                        deltax, deltat, irf.FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
+                        deltax, deltat, irf->FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
                         MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
                         XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue,
                         LastValue, RawData, SolidificationEventCounter, TempFilesInSeries);
