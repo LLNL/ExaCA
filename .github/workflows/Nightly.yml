@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v2.2.0
       - name: Build ExaCA
         run: |
-          cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/exaca -DCMAKE_PREFIX_PATH="$HOME/kokkos" -DExaCA_ENABLE_TESTING=ON -DExaCA_ENABLE_JSON=ON -DCMAKE_BUILD_TYPE=Debug ${{ github.event.inputs.cmake_args }}
+          cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/exaca -DCMAKE_PREFIX_PATH="$HOME/kokkos" -DExaCA_ENABLE_TESTING=ON -DCMAKE_BUILD_TYPE=Debug ${{ github.event.inputs.cmake_args }}
           cmake --build build --parallel 2
           cmake --install build
           CTEST_OUTPUT_ON_FAILURE=1 cmake --build build --target test

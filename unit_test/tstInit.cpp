@@ -5,7 +5,6 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "CAconfig.hpp"
 #include "CAinitialize.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAparsefiles.hpp"
@@ -125,8 +124,7 @@ void testInputReadFromFile() {
                           PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                           PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
                           BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempInit, PrintBinary);
-#ifdef ExaCA_ENABLE_JSON
-        auto irf = createIRF(0, MaterialFileName, deltat, deltax);
+        InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
@@ -137,12 +135,12 @@ void testInputReadFromFile() {
         EXPECT_DOUBLE_EQ(dTN, 5.0);
         EXPECT_DOUBLE_EQ(dTsigma, 0.5);
         EXPECT_EQ(PrintDebug, 0);
-        EXPECT_DOUBLE_EQ(irf->A, -0.00000010302 * deltat / deltax);
-        EXPECT_DOUBLE_EQ(irf->B, 0.00010533 * deltat / deltax);
-        EXPECT_DOUBLE_EQ(irf->C, 0.0022196 * deltat / deltax);
-        EXPECT_DOUBLE_EQ(irf->D, 0);
-        EXPECT_DOUBLE_EQ(irf->FreezingRange, 210);
-#endif
+        EXPECT_DOUBLE_EQ(irf.A, -0.00000010302 * deltat / deltax);
+        EXPECT_DOUBLE_EQ(irf.B, 0.00010533 * deltat / deltax);
+        EXPECT_DOUBLE_EQ(irf.C, 0.0022196 * deltat / deltax);
+        EXPECT_DOUBLE_EQ(irf.D, 0);
+        EXPECT_DOUBLE_EQ(irf.FreezingRange, 210);
+
         // These are different for all 3 test problems
         if (FileName == "Inp_DirSolidification.txt") {
             EXPECT_TRUE(PrintTimeSeries);
@@ -266,94 +264,6 @@ void testReadWrite(bool PrintReadBinary) {
             EXPECT_EQ(IntToCompare, IntData[n]);
             EXPECT_FLOAT_EQ(FloatToCompare, FloatData[n]);
         }
-    }
-}
-
-void testInterfacialResponse_Old() {
-
-    // Test that the interfacial response can be read for the old file format
-    std::ofstream TestDataFile;
-    double ATest = -0.00000010302;
-    double BTest = 0.00010533;
-    double CTest = 0.0022196;
-    double DTest = 0;
-    double FreezingRangeTest = 210;
-    TestDataFile.open("Inconel625_Old");
-    TestDataFile << "Polynomial representation of interfacial response function, in the form V = A*(Undercooling)^3 + "
-                    "B*(Undercooling)^2 + C*Undercooling + D"
-                 << std::endl;
-    TestDataFile << "*****" << std::endl;
-    TestDataFile << "A: " << ATest << std::endl;
-    TestDataFile << "B: " << BTest << std::endl;
-    TestDataFile << "C: " << CTest << std::endl;
-    TestDataFile << "D: " << DTest << std::endl;
-    TestDataFile << "Alloy freezing range (K): " << std::to_string(FreezingRangeTest) << std::endl;
-    TestDataFile.close();
-
-    double deltax = 0.5;
-    double deltat = 1.0;
-    auto irf = createIRF(0, "Inconel625_Old", deltat, deltax);
-
-    // Fitting parameters should've been normalized by deltat / deltax, i.e. twice as large as the numbers in the file
-    EXPECT_DOUBLE_EQ(irf->A, ATest * 2);
-    EXPECT_DOUBLE_EQ(irf->B, BTest * 2);
-    EXPECT_DOUBLE_EQ(irf->C, CTest * 2);
-    EXPECT_DOUBLE_EQ(irf->D, DTest * 2);
-    EXPECT_DOUBLE_EQ(irf->FreezingRange, FreezingRangeTest);
-
-    // Check that the update function works
-    double LocU = 11.0;
-    double ExpectedV = irf->A * pow(LocU, 3.0) + irf->B * pow(LocU, 2.0) + irf->C * LocU + irf->D;
-    double ComputedV = irf->compute(LocU);
-    EXPECT_DOUBLE_EQ(ComputedV, ExpectedV);
-}
-
-void testInterfacialResponse_New() {
-
-    // Test that the interfacial response can be read for the new file format
-    std::vector<std::string> material_file_names = {"Inconel625", "Inconel625_Quadratic", "SS316"};
-    double deltax = 0.5;
-    double deltat = 1.0;
-    for (auto file_name : material_file_names) {
-        std::cout << "Reading " << file_name << std::endl;
-        auto irf = createIRF(0, file_name, deltat, deltax);
-
-        // Check that fitting parameters were correctly initialized and normalized
-        // Fitting parameters should've been normalized by deltat / deltax, i.e. twice as large as the numbers in the
-        // file
-        double ATest, BTest, CTest, DTest, FreezingRangeTest, ExpectedV;
-        double LocU = 11.0;
-        if (file_name == "Inconel625") {
-            ATest = -0.00000010302;
-            BTest = 0.00010533;
-            CTest = 0.0022196;
-            DTest = 0;
-            FreezingRangeTest = 210;
-            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, 3.0) + BTest * pow(LocU, 2.0) + CTest * LocU + DTest);
-        }
-        else if (file_name == "Inconel625_Quadratic") {
-            ATest = 0.000072879;
-            BTest = 0.004939;
-            CTest = -0.047024;
-            FreezingRangeTest = 210;
-            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, 2.0) + BTest * LocU + CTest);
-        }
-        else {
-            ATest = 0.000007325;
-            BTest = 3.12;
-            CTest = 0;
-            FreezingRangeTest = 26.5;
-            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, (deltat / deltax) * BTest) + CTest);
-        }
-        EXPECT_DOUBLE_EQ(irf->A, ATest * 2);
-        EXPECT_DOUBLE_EQ(irf->B, BTest * 2);
-        EXPECT_DOUBLE_EQ(irf->C, CTest * 2);
-        if (file_name == "Inconel625") {
-            EXPECT_DOUBLE_EQ(irf->D, DTest * 2);
-        }
-        EXPECT_DOUBLE_EQ(irf->FreezingRange, FreezingRangeTest);
-        double ComputedV = irf->compute(LocU);
-        EXPECT_DOUBLE_EQ(ComputedV, ExpectedV);
     }
 }
 //---------------------------------------------------------------------------//
@@ -588,10 +498,6 @@ TEST(TEST_CATEGORY, fileread_test) {
     // test functions for reading and writing data as binary (true) and ASCII (false)
     testReadWrite(true);
     testReadWrite(false);
-    testInterfacialResponse_Old();
-#ifdef ExaCA_ENABLE_JSON
-    testInterfacialResponse_New();
-#endif
 }
 TEST(TEST_CATEGORY, activedomainsizecalc) {
     testcalcZBound_Low_Remelt();
