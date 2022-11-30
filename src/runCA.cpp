@@ -42,7 +42,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
                       BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempRead, PrintBinary);
     // Read material data.
-    InterfacialResponseFunction irf(MaterialFileName, deltat, deltax);
+    InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax);
 
     // Variables characterizing local processor grids relative to global domain
     // 1D decomposition in Y: Each MPI rank has a subset consisting of of MyYSlices cells, out of ny cells in Y
