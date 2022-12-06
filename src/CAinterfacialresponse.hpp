@@ -32,7 +32,12 @@ struct InterfacialResponseFunction {
     double B;
     double C;
     double D = 0.0;
-    int function = 0;
+    enum IRFtypes {
+        cubic = 0,
+        quadratic = 1,
+        power = 2,
+    };
+    int function = cubic;
 
     // Constructor - old (colon-delimited list) or new (json) format for interfacial response data
     // FIXME: remove old format in future release
@@ -100,7 +105,7 @@ struct InterfacialResponseFunction {
         C = data["coefficients"]["C"];
         if (data["function"] == "cubic") {
             D = data["coefficients"]["D"];
-            function = 0;
+            function = cubic;
         }
         else if ((data["function"] == "quadratic") || (data["function"] == "power")) {
             // D should not have been given, this functional form only takes 3 input fitting parameters
@@ -109,9 +114,9 @@ struct InterfacialResponseFunction {
                 throw std::runtime_error(error);
             }
             if (data["function"] == "quadratic")
-                function = 1;
+                function = quadratic;
             else if (data["function"] == "power")
-                function = 2;
+                function = power;
         }
         else
             throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
@@ -128,16 +133,16 @@ struct InterfacialResponseFunction {
     }
 
     // Compute velocity from local undercooling.
-    // functional form is assumed to be cubic, quadratic, or power (0, 1, or 2)
+    // functional form is assumed to be cubic if not explicitly given in input file
     KOKKOS_INLINE_FUNCTION
     double compute(const double LocU) const {
         double V;
-        if (function == 0)
-            V = A * pow(LocU, 3.0) + B * pow(LocU, 2.0) + C * LocU + D;
-        else if (function == 1)
+        if (function == quadratic)
             V = A * pow(LocU, 2.0) + B * LocU + C;
-        else
+        else if (function == power)
             V = A * pow(LocU, B) + C;
+        else
+            V = A * pow(LocU, 3.0) + B * pow(LocU, 2.0) + C * LocU + D;
         return max(0.0, V);
     }
 
