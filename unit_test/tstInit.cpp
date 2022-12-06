@@ -269,7 +269,7 @@ void testReadWrite(bool PrintReadBinary) {
 //---------------------------------------------------------------------------//
 // activedomainsizecalc
 //---------------------------------------------------------------------------//
-void testcalcZBound_Low_Remelt() {
+void testcalcZBound_Low() {
 
     int LayerHeight = 10;
     int NumberOfLayers = 10;
@@ -281,16 +281,16 @@ void testcalcZBound_Low_Remelt() {
         // both problem types by the same)
         ZMinLayer[layernumber] = ZMin + layernumber * LayerHeight * deltax;
         // Call function for each layernumber, and for simulation types "S" and "R"
-        int ZBound_Low_S = calcZBound_Low_Remelt("S", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
+        int ZBound_Low_S = calcZBound_Low("S", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
         EXPECT_EQ(ZBound_Low_S, LayerHeight * layernumber);
-        int ZBound_Low_R = calcZBound_Low_Remelt("R", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
+        int ZBound_Low_R = calcZBound_Low("R", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
         EXPECT_EQ(ZBound_Low_R, LayerHeight * layernumber);
     }
 }
 
-void testcalcZBound_High_Remelt() {
+void testcalcZBound_High() {
 
-    // A separate function is now used for ZBound_High calculation without remelting
+    // A separate function is now used for ZBound_High calculation
     int SpotRadius = 100;
     int LayerHeight = 10;
     float ZMin = 0.5 * pow(10, -6);
@@ -303,15 +303,12 @@ void testcalcZBound_High_Remelt() {
         // ZMax value of ZMin + SpotRadius (lets solution for both problem types be the same)
         ZMaxLayer[layernumber] = ZMin + SpotRadius * deltax + layernumber * LayerHeight * deltax;
         // Call function for each layernumber, and for simulation types "S" and "R"
-        int ZBound_Max_S =
-            calcZBound_High_Remelt("S", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        int ZBound_Max_S = calcZBound_High("S", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
         EXPECT_EQ(ZBound_Max_S, SpotRadius + LayerHeight * layernumber);
-        int ZBound_Max_R =
-            calcZBound_High_Remelt("R", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        int ZBound_Max_R = calcZBound_High("R", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
         EXPECT_EQ(ZBound_Max_R, SpotRadius + LayerHeight * layernumber);
         // For simulation type C, should be independent of layernumber
-        int ZBound_Max_C =
-            calcZBound_High_Remelt("C", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        int ZBound_Max_C = calcZBound_High("C", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
         EXPECT_EQ(ZBound_Max_C, nz - 1);
     }
 }
@@ -500,8 +497,8 @@ TEST(TEST_CATEGORY, fileread_test) {
     testReadWrite(false);
 }
 TEST(TEST_CATEGORY, activedomainsizecalc) {
-    testcalcZBound_Low_Remelt();
-    testcalcZBound_High_Remelt();
+    testcalcZBound_Low();
+    testcalcZBound_High();
     testcalcnzActive();
     testcalcLocalActiveDomainSize();
 }

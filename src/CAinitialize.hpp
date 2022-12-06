@@ -39,12 +39,10 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
                          float YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
                          unsigned int &NumberOfTemperatureDataPoints, std::vector<double> &RawData, int *FirstValue,
                          int *LastValue, bool LayerwiseTempRead, int layernumber);
-int calcZBound_Low_Remelt(std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer, float ZMin,
-                          double deltax);
-int calcZBound_High_Remelt(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
-                           double deltax, int nz, float *ZMaxLayer);
-int calcZBound_Low_NoRemelt(int id, int MyXSlices, int MyYSlices, int LocalDomainSize, int layernumber, ViewI LayerID);
-int calcZBound_High_NoRemelt(int id, int MyXSlices, int MyYSlices, int LocalDomainSize, int layernumber, ViewI LayerID);
+int calcZBound_Low(std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer, float ZMin,
+                   double deltax);
+int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
+                    double deltax, int nz, float *ZMaxLayer);
 int calcnzActive(int ZBound_Low, int ZBound_High, int id, int layernumber);
 int calcLocalActiveDomainSize(int nx, int MyYSlices, int nzActive);
 void TempInit_DirSolidification(double G, double R, int id, int &nx, int &MyYSlices, double deltax, double deltat,
