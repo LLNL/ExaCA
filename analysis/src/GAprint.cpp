@@ -601,6 +601,7 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                 GrainplotIPF << std::fixed << std::setprecision(6);
             }
             int NucleatedGrainCells = 0;
+            int UnmeltedCells = 0;
             int CrossSectionSize = (Index1High - Index1Low) * (Index2High - Index2Low);
             std::vector<int> CrossSectionGrainIDs(CrossSectionSize);
             int Counter = 0;
@@ -628,9 +629,13 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                     // Count number of cells in this cross-section have GrainID < 0 (grains formed via nucleation)
                     if (GrainID(ZLoc, XLoc, YLoc) < 0)
                         NucleatedGrainCells++;
-                    // Add this GrainID to the vector of GrainIDs for this cross-section
-                    CrossSectionGrainIDs[Counter] = GrainID(ZLoc, XLoc, YLoc);
-                    Counter++;
+                    // Add this GrainID to the vector of GrainIDs for this cross-section only if it is not equal to 0
+                    if (GrainID(ZLoc, XLoc, YLoc) == 0)
+                        UnmeltedCells++;
+                    else {
+                        CrossSectionGrainIDs[Counter] = GrainID(ZLoc, XLoc, YLoc);
+                        Counter++;
+                    }
                     // If constructing pole figure data from these orientations, add this value to the frequency data
                     if (PrintSectionPF[n])
                         GOHistogram(GOVal)++;
@@ -655,8 +660,12 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                 }
             }
             double AreaFractNucleatedGrains = DivideCast<double>(NucleatedGrainCells, CrossSectionSize);
-            std::cout << "The fraction of grains in this cross-section formed via nucleation events is "
-                      << AreaFractNucleatedGrains << std::endl;
+            double AreaFractUnmelted = DivideCast<double>(UnmeltedCells, CrossSectionSize);
+            std::cout << "The fraction of the cross-section that went unmelted (not assigned a GrainID) is "
+                      << AreaFractUnmelted << std::endl;
+            // Resize cross-section to exclude unmelted cells
+            CrossSectionSize = Counter;
+            CrossSectionGrainIDs.resize(CrossSectionSize);
             QoIs << "The fraction of grains in this cross-section formed via nucleation events is "
                  << AreaFractNucleatedGrains << std::endl;
             if (PrintSectionIPF[n])
