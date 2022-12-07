@@ -1101,7 +1101,6 @@ void TempInit_SpotRemelt(int layernumber, double G, double R, std::string, int i
                   << ", each of which takes approximately " << TimeBetweenSpots << " time steps to solidify"
                   << std::endl;
 
-    int Count = 0;
     for (int n = 0; n < NumberOfSpots; n++) {
         if (id == 0)
             std::cout << "Initializing spot " << n << " on layer " << layernumber << std::endl;
@@ -1130,7 +1129,6 @@ void TempInit_SpotRemelt(int layernumber, double G, double R, std::string, int i
                         LayerTimeTempHistory_Host(D3D1ConvPosition, NumberOfSolidificationEvents_Host(D3D1ConvPosition),
                                                   2) = R * deltat;
                         NumberOfSolidificationEvents_Host(D3D1ConvPosition)++;
-                        Count++;
                     }
                 }
             }

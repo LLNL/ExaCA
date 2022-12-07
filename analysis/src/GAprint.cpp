@@ -373,12 +373,11 @@ void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, 
         std::round(MinGrainSize_microns / (deltax * deltax * pow(10, 12))); // convert area to value in cells
     int SmallLargeCutoff =
         std::round(SmallLargeCutoff_microns / (deltax * deltax * pow(10, 12))); // convert area to value in cells
-    int NumTooSmallGrains = 0, NumSmallGrains = 0, NumLargeGrains = 0;
+    int NumSmallGrains = 0, NumLargeGrains = 0;
     int AreaTooSmallGrains = 0, AreaSmallGrains = 0, AreaLargeGrains = 0;
     for (int n = 0; n < NumberOfGrains; n++) {
         if (GrainAreas[n] < MinGrainSize) {
             AreaTooSmallGrains += GrainAreas[n];
-            NumTooSmallGrains++;
         }
         else {
             if (GrainAreas[n] < SmallLargeCutoff) {
