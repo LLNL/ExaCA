@@ -32,64 +32,49 @@ void testInputReadFromFile() {
     // directory ( would need examples/Temperatures) using the C++11 standard, dummy input files are written and parsed
     // to test an example problem that uses temperature data from a file.
     std::vector<std::string> InputFilenames = {"Inp_DirSolidification.txt", "Inp_SpotMelt.txt",
-                                               "Inp_TemperatureTest_Old.txt", "Inp_TemperatureTest.txt"};
+                                               "Inp_TemperatureTest.txt"};
     std::vector<std::string> TemperatureFNames = {"1DummyTemperature.txt", "2DummyTemperature.txt"};
 
-    // Write dummy input files for using read temperature data (InputFilenames[2] and [3])
-    for (int n = 2; n < 4; n++) {
-        std::ofstream TestDataFile;
-        TestDataFile.open(InputFilenames[n]);
-        // Write required inputs to all files
-        TestDataFile << "Test problem data set" << std::endl;
-        TestDataFile << "*****" << std::endl;
-        TestDataFile << "Problem type: R" << std::endl;
-        TestDataFile << "Decomposition strategy: 1" << std::endl;
-        TestDataFile << "Material: Inconel625" << std::endl;
-        TestDataFile << "Cell size: 1" << std::endl;
-        TestDataFile << "Heterogeneous nucleation density: 10" << std::endl;
-        TestDataFile << "Mean nucleation undercooling: 5" << std::endl;
-        TestDataFile << "Standard deviation of nucleation undercooling: 0.5" << std::endl;
-        TestDataFile << "Path to output: ExaCA" << std::endl;
-        TestDataFile << "Output file base name: Test" << std::endl;
-        TestDataFile << "File of grain orientations: GrainOrientationVectors.csv" << std::endl;
-        TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
-        TestDataFile << "Print file of final undercooling values: Y" << std::endl;
-        TestDataFile << "Print default RVE output: Y" << std::endl;
-        TestDataFile << "Print file of all ExaCA data: N" << std::endl;
-        TestDataFile << "Time step: 1.5" << std::endl;
-        TestDataFile << "Density of powder surface sites active: 1000" << std::endl;
-        if (n == 2) {
-            // Deprecated temperature input lines
-            TestDataFile << "Path to temperature file(s): ./" << std::endl;
-            TestDataFile << "Temperature filename(s): DummyTemperature.txt" << std::endl;
-            TestDataFile << "Number of temperature files: 2" << std::endl;
-            TestDataFile << "Number of layers: 2" << std::endl;
-            TestDataFile << "Offset between layers: 1" << std::endl;
-            TestDataFile << "Heat transport data mesh size: 12" << std::endl;
-            // Print data as ASCII
-            TestDataFile << "Print vtk data as binary: N" << std::endl;
-        }
-        else {
-            // Print data as binary
-            TestDataFile << "Print vtk data as binary: Y" << std::endl;
-            // New temperature input lines
-            TestDataFile << "Path to and name of temperature field assembly instructions: TInstructions.txt"
-                         << std::endl;
-            // Write test temperature instructions file - don't give HT_deltax, let value default to deltax
-            std::ofstream TestTField;
-            TestTField.open("TInstructions.txt");
-            TestTField << "Number of layers: 2" << std::endl;
-            TestTField << "Offset between layers: 1" << std::endl;
-            TestTField << "*****" << std::endl;
-            TestTField << ".//" << TemperatureFNames[0] << std::endl;
-            TestTField << ".//" << TemperatureFNames[1] << std::endl;
-            TestTField.close();
-        }
-        TestDataFile << "Extra set of wall cells in lateral domain directions: N" << std::endl;
-        TestDataFile << "Random seed for grains and nuclei generation: 2.0" << std::endl;
-        TestDataFile << "Substrate filename: DummySubstrate.txt" << std::endl;
-        TestDataFile.close();
-    }
+    // Write dummy input files for using read temperature data (Inp_TemperatureTest.txt)
+    std::ofstream TestDataFile;
+    TestDataFile.open(InputFilenames[2]);
+    // Write required inputs to all files
+    TestDataFile << "Test problem data set" << std::endl;
+    TestDataFile << "*****" << std::endl;
+    TestDataFile << "Problem type: R" << std::endl;
+    TestDataFile << "Decomposition strategy: 1" << std::endl;
+    TestDataFile << "Material: Inconel625" << std::endl;
+    TestDataFile << "Cell size: 1" << std::endl;
+    TestDataFile << "Heterogeneous nucleation density: 10" << std::endl;
+    TestDataFile << "Mean nucleation undercooling: 5" << std::endl;
+    TestDataFile << "Standard deviation of nucleation undercooling: 0.5" << std::endl;
+    TestDataFile << "Path to output: ExaCA" << std::endl;
+    TestDataFile << "Output file base name: Test" << std::endl;
+    TestDataFile << "File of grain orientations: GrainOrientationVectors.csv" << std::endl;
+    TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
+    TestDataFile << "Print file of final undercooling values: Y" << std::endl;
+    TestDataFile << "Print default RVE output: Y" << std::endl;
+    TestDataFile << "Print file of all ExaCA data: N" << std::endl;
+    TestDataFile << "Time step: 1.5" << std::endl;
+    TestDataFile << "Density of powder surface sites active: 1000" << std::endl;
+    // Print data as binary
+    TestDataFile << "Print vtk data as binary: Y" << std::endl;
+    // Temperature file input
+    TestDataFile << "Path to and name of temperature field assembly instructions: TInstructions.txt" << std::endl;
+    TestDataFile << "Extra set of wall cells in lateral domain directions: N" << std::endl;
+    TestDataFile << "Random seed for grains and nuclei generation: 2.0" << std::endl;
+    TestDataFile << "Substrate filename: DummySubstrate.txt" << std::endl;
+    TestDataFile.close();
+
+    // Write test temperature instructions file - don't give HT_deltax, let value default to deltax
+    std::ofstream TestTField;
+    TestTField.open("TInstructions.txt");
+    TestTField << "Number of layers: 2" << std::endl;
+    TestTField << "Offset between layers: 1" << std::endl;
+    TestTField << "*****" << std::endl;
+    TestTField << ".//" << TemperatureFNames[0] << std::endl;
+    TestTField << ".//" << TemperatureFNames[1] << std::endl;
+    TestTField.close();
 
     // Create test temperature files "1DummyTemperature.txt", "2DummyTemperature.txt"
     std::ofstream TestTemp1, TestTemp2;

@@ -226,21 +226,9 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     }
     for (int i = 0; i < NumRequiredInputs_ProblemSpecific; i++) {
         if (RequiredInputsRead_ProblemSpecific[i].empty()) {
-            if ((SimulationType == "R") && (i == 1)) {
-                if (id == 0)
-                    std::cout << "Missing temperature field assembly instructions : checking for deprecated "
-                                 "temperature inputs"
-                              << std::endl;
-                parseTemperatureInput_Old(DeprecatedInputs_ProblemSpecific, DeprecatedInputsRead_ProblemSpecific,
-                                          NumDeprecatedInputs_ProblemSpecific, DeprecatedInputs_RequiredYN,
-                                          TempFilesInSeries, NumberOfLayers, LayerHeight, deltax, HT_deltax,
-                                          temp_paths);
-            }
-            else {
-                std::string error =
-                    "Error: Required input " + RequiredInputs_ProblemSpecific[i] + " was not present in the input file";
-                throw std::runtime_error(error);
-            }
+            std::string error =
+                "Error: Required input " + RequiredInputs_ProblemSpecific[i] + " was not present in the input file";
+            throw std::runtime_error(error);
         }
     }
 

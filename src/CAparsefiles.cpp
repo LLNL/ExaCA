@@ -171,54 +171,6 @@ void checkForHeaderValues(std::string header_line) {
     }
 }
 
-// Function for obtaining the path to temperature data using the old input file format - TODO: remove in future release
-void getTemperatureFilePaths_Old(const std::string path, const std::string name, std::vector<std::string> &all_paths) {
-    std::size_t num_files = all_paths.size();
-    for (std::size_t i = 1; i < num_files + 1; i++) {
-        std::string curr_path = path + "/";
-        if (num_files > 1)
-            curr_path += std::to_string(i) + name;
-        else
-            curr_path += name;
-        all_paths[i - 1] = curr_path;
-    }
-}
-// Function for parsing temperature input data using the file format - TODO: remove in future release
-void parseTemperatureInput_Old(std::vector<std::string> DeprecatedInputs, std::vector<std::string> DeprecatedInputsRead,
-                               int NumDeprecatedInputs, std::vector<bool> DeprecatedInputs_RequiredYN,
-                               int &TempFilesInSeries, int &NumberOfLayers, int &LayerHeight, double deltax,
-                               double &HT_deltax, std::vector<std::string> &temp_paths) {
-
-    // Check that the required deprecated temperature input information exists
-    for (int i = 0; i < NumDeprecatedInputs; i++) {
-        if ((DeprecatedInputsRead[i].empty()) && (DeprecatedInputs_RequiredYN[i])) {
-            std::string error = "Error: Missing " + DeprecatedInputs[i] + " line in input file";
-            throw std::runtime_error(error);
-        }
-    }
-
-    // Parse temperature information
-    std::string temppath, tempfile;
-    // Path to temperature files may be given, otherwise assumed to be in Temperatures folder
-    if (DeprecatedInputsRead[0].empty())
-        temppath = "examples/Temperatures";
-    else
-        temppath = DeprecatedInputsRead[0];
-    tempfile = DeprecatedInputsRead[1];
-    TempFilesInSeries = getInputInt(DeprecatedInputsRead[2]);
-    NumberOfLayers = getInputInt(DeprecatedInputsRead[3]);
-    LayerHeight = getInputInt(DeprecatedInputsRead[4]);
-    // Input temperature data spacing may be given, otherwise it is assumed HT_deltax = CA cell size
-    if (DeprecatedInputsRead[5].empty())
-        HT_deltax = deltax;
-    else
-        HT_deltax = getInputDouble(DeprecatedInputsRead[5], -6);
-
-    // Parse deprecated temperature input information into "temp_paths" vector
-    temp_paths.resize(TempFilesInSeries, "");
-    getTemperatureFilePaths_Old(temppath, tempfile, temp_paths);
-}
-
 bool checkFileExists(const std::string path, const int id, const bool error) {
     std::ifstream stream;
     stream.open(path);
