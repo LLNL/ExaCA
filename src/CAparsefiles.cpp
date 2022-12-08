@@ -319,3 +319,157 @@ std::string parseCoordinatePair(std::string line, int val) {
     SplitStr = std::regex_replace(SplitStr, r, "");
     return SplitStr;
 }
+
+// Read x, y, z coordinates in tempfile_thislayer (temperature file in either an ASCII or binary format) and return the
+// min and max values
+std::array<double, 6> parseTemperatureCoordinateMinMax(std::string tempfile_thislayer, bool BinaryInputData) {
+
+    std::array<double, 6> XYZMinMax;
+    std::ifstream TemperatureFilestream;
+    TemperatureFilestream.open(tempfile_thislayer);
+
+    if (!(BinaryInputData)) {
+        // Read the header line data
+        // Make sure the first line contains all required column names: x, y, z, tm, tl, cr
+        std::string HeaderLine;
+        getline(TemperatureFilestream, HeaderLine);
+        checkForHeaderValues(HeaderLine);
+    }
+
+    // Units are assumed to be in meters, meters, seconds, seconds, and K/second
+    int XYZPointCount_Estimate = 1000000;
+    std::vector<double> XCoordinates(XYZPointCount_Estimate), YCoordinates(XYZPointCount_Estimate),
+        ZCoordinates(XYZPointCount_Estimate);
+    long unsigned int XYZPointCounter = 0;
+    if (BinaryInputData) {
+        while (!TemperatureFilestream.eof()) {
+            // Get x from the binary string, or, if no data is left, exit the file read
+            double XValue = ReadBinaryData<double>(TemperatureFilestream);
+            if (!(TemperatureFilestream))
+                break;
+            // Store the x value that was read, and parse the y and z values
+            XCoordinates[XYZPointCounter] = XValue;
+            YCoordinates[XYZPointCounter] = ReadBinaryData<double>(TemperatureFilestream);
+            ZCoordinates[XYZPointCounter] = ReadBinaryData<double>(TemperatureFilestream);
+            // Ignore the tm, tl, cr values associated with this x, y, z
+            unsigned char temp[3 * sizeof(double)];
+            TemperatureFilestream.read(reinterpret_cast<char *>(temp), 3 * sizeof(double));
+            XYZPointCounter++;
+            if (XYZPointCounter == XCoordinates.size()) {
+                XCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                YCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                ZCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+            }
+        }
+    }
+    else {
+        while (!TemperatureFilestream.eof()) {
+            std::vector<std::string> ParsedLine(3); // Get x, y, z - ignore tm, tl, cr
+            std::string ReadLine;
+            if (!getline(TemperatureFilestream, ReadLine))
+                break;
+            splitString(ReadLine, ParsedLine, 6);
+            // Only get x, y, and z values from ParsedLine
+            XCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[0]);
+            YCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[1]);
+            ZCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[2]);
+            XYZPointCounter++;
+            if (XYZPointCounter == XCoordinates.size()) {
+                XCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                YCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                ZCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+            }
+        }
+    }
+
+    XCoordinates.resize(XYZPointCounter);
+    YCoordinates.resize(XYZPointCounter);
+    ZCoordinates.resize(XYZPointCounter);
+    TemperatureFilestream.close();
+
+    // Min/max x, y, and z coordinates from this layer's data
+    XYZMinMax[0] = *min_element(XCoordinates.begin(), XCoordinates.end());
+    XYZMinMax[1] = *max_element(XCoordinates.begin(), XCoordinates.end());
+    XYZMinMax[2] = *min_element(YCoordinates.begin(), YCoordinates.end());
+    XYZMinMax[3] = *max_element(YCoordinates.begin(), YCoordinates.end());
+    XYZMinMax[4] = *min_element(ZCoordinates.begin(), ZCoordinates.end());
+    XYZMinMax[5] = *max_element(ZCoordinates.begin(), ZCoordinates.end());
+    return XYZMinMax;
+}
+
+// Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header line -
+// or a binary string of double precision values), storing the x, y, z, tm, tl, cr values in the RawData vector. Each
+// rank only contains the points corresponding to cells within the associated Y bounds. NumberOfTemperatureDataPoints is
+// incremented on each rank as data is added to RawData
+void parseTemperatureData(std::string tempfile_thislayer, double YMin, double deltax, int LowerYBound, int UpperYBound,
+                          std::vector<double> &RawData, unsigned int &NumberOfTemperatureDataPoints,
+                          bool BinaryInputData) {
+
+    std::ifstream TemperatureFilestream;
+    TemperatureFilestream.open(tempfile_thislayer);
+    if (BinaryInputData) {
+        while (!TemperatureFilestream.eof()) {
+            double XTemperaturePoint = ReadBinaryData<double>(TemperatureFilestream);
+            double YTemperaturePoint = ReadBinaryData<double>(TemperatureFilestream);
+            // If no data was extracted from the stream, the end of the file was reached
+            if (!(TemperatureFilestream))
+                break;
+            // Check the y value from ParsedLine, to check if this point is stored on this rank
+            // Check the CA grid positions of the data point to see which rank(s) should store it
+            int YInt = round((YTemperaturePoint - YMin) / deltax);
+            if ((YInt >= LowerYBound) && (YInt <= UpperYBound)) {
+                // This data point is inside the bounds of interest for this MPI rank
+                // Store the x and y values in RawData
+                RawData[NumberOfTemperatureDataPoints] = XTemperaturePoint;
+                NumberOfTemperatureDataPoints++;
+                RawData[NumberOfTemperatureDataPoints] = YTemperaturePoint;
+                NumberOfTemperatureDataPoints++;
+                // Parse the remaining 4 components (z, tm, tl, cr) from the line and store in RawData
+                for (int component = 2; component < 6; component++) {
+                    RawData[NumberOfTemperatureDataPoints] = ReadBinaryData<double>(TemperatureFilestream);
+                    NumberOfTemperatureDataPoints++;
+                }
+                // Adjust size of RawData if it is near full
+                if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
+                    int OldSize = RawData.size();
+                    RawData.resize(OldSize + 1000000);
+                }
+            }
+            else {
+                // This data point is inside the bounds of interest for this MPI rank
+                // ignore the z, tm, tl, cr values associated with it
+                unsigned char temp[4 * sizeof(double)];
+                TemperatureFilestream.read(reinterpret_cast<char *>(temp), 4 * sizeof(double));
+            }
+        }
+    }
+    else {
+        std::string DummyLine;
+        // ignore header line
+        getline(TemperatureFilestream, DummyLine);
+        while (!TemperatureFilestream.eof()) {
+            std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
+            std::string ReadLine;
+            if (!getline(TemperatureFilestream, ReadLine))
+                break;
+            splitString(ReadLine, ParsedLine, 6);
+            // Check the y value from ParsedLine, to check if this point is stored on this rank
+            double YTemperaturePoint = getInputDouble(ParsedLine[1]);
+            // Check the CA grid positions of the data point to see which rank(s) should store it
+            int YInt = round((YTemperaturePoint - YMin) / deltax);
+            if ((YInt >= LowerYBound) && (YInt <= UpperYBound)) {
+                // This data point is inside the bounds of interest for this MPI rank: Store the x, z, tm, tl, and cr
+                // vals inside of RawData, incrementing with each value added
+                for (int component = 0; component < 6; component++) {
+                    RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[component]);
+                    NumberOfTemperatureDataPoints++;
+                }
+                // Adjust size of RawData if it is near full
+                if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
+                    int OldSize = RawData.size();
+                    RawData.resize(OldSize + 1000000);
+                }
+            }
+        }
+    }
+}

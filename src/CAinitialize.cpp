@@ -501,6 +501,17 @@ void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ) {
     NeighborZ = {0, 0, 0, 1, -1, 1, 1, -1, -1, 1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, -1};
 }
 
+// Check if the temperature data is in ASCII or binary format
+bool checkTemperatureFileFormat(std::string tempfile_thislayer) {
+    bool BinaryInputData;
+    std::size_t found = tempfile_thislayer.find(".catemp");
+    if (found == std::string::npos)
+        BinaryInputData = false;
+    else
+        BinaryInputData = true;
+    return BinaryInputData;
+}
+
 // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading temperature
 // data files and parsing the coordinates
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
@@ -542,77 +553,35 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         for (int LayerReadCount = 1; LayerReadCount <= LayersToRead; LayerReadCount++) {
 
             std::string tempfile_thislayer = temp_paths[LayerReadCount - 1];
-            std::ifstream TemperatureFile;
-            TemperatureFile.open(tempfile_thislayer);
-
-            // Read the header line data
-            // Make sure the first line contains all required column names: x, y, z, tm, tl, cr
-            // Check 2 mixes of lower and uppercase letters/similar possible column names just in case
-            std::string HeaderLine;
-            getline(TemperatureFile, HeaderLine);
-            checkForHeaderValues(HeaderLine);
-
-            double XMin_ThisLayer = std::numeric_limits<double>::max();
-            double YMin_ThisLayer = std::numeric_limits<double>::max();
-            double ZMin_ThisLayer = std::numeric_limits<double>::max();
-            double XMax_ThisLayer = std::numeric_limits<double>::lowest();
-            double YMax_ThisLayer = std::numeric_limits<double>::lowest();
-            double ZMax_ThisLayer = std::numeric_limits<double>::lowest();
-
-            // Units are assumed to be in meters, meters, seconds, seconds, and K/second
-            std::vector<double> XCoordinates(1000000), YCoordinates(1000000), ZCoordinates(1000000);
-            long unsigned int XYZPointCounter = 0;
-            while (!TemperatureFile.eof()) {
-                std::vector<std::string> ParsedLine(3); // Get x, y, z - ignore tm, tl, cr
-                std::string ReadLine;
-                if (!getline(TemperatureFile, ReadLine))
-                    break;
-                splitString(ReadLine, ParsedLine, 6);
-                // Only get x, y, and z values from ParsedLine
-                XCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[0]);
-                YCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[1]);
-                ZCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[2]);
-                XYZPointCounter++;
-                if (XYZPointCounter == XCoordinates.size()) {
-                    XCoordinates.resize(XYZPointCounter + 1000000);
-                    YCoordinates.resize(XYZPointCounter + 1000000);
-                    ZCoordinates.resize(XYZPointCounter + 1000000);
-                }
-            }
-            XCoordinates.resize(XYZPointCounter);
-            YCoordinates.resize(XYZPointCounter);
-            ZCoordinates.resize(XYZPointCounter);
-            TemperatureFile.close();
-            // Min/max x, y, and z coordinates from this layer's data
-            XMin_ThisLayer = *min_element(XCoordinates.begin(), XCoordinates.end());
-            YMin_ThisLayer = *min_element(YCoordinates.begin(), YCoordinates.end());
-            ZMin_ThisLayer = *min_element(ZCoordinates.begin(), ZCoordinates.end());
-            XMax_ThisLayer = *max_element(XCoordinates.begin(), XCoordinates.end());
-            YMax_ThisLayer = *max_element(YCoordinates.begin(), YCoordinates.end());
-            ZMax_ThisLayer = *max_element(ZCoordinates.begin(), ZCoordinates.end());
+            // Get min and max x coordinates in this file, which can be a binary or ASCII input file
+            // binary file type uses extension .catemp, all other file types assumed to be comma-separated ASCII input
+            bool BinaryInputData = checkTemperatureFileFormat(tempfile_thislayer);
+            // { Xmin, Xmax, Ymin, Ymax, Zmin, Zmax }
+            std::array<double, 6> XYZMinMax_ThisLayer =
+                parseTemperatureCoordinateMinMax(tempfile_thislayer, BinaryInputData);
 
             // Based on the input file's layer offset, adjust ZMin/ZMax from the temperature data coordinate
             // system to the multilayer CA coordinate system Check to see in the XYZ bounds for this layer are
             // also limiting for the entire multilayer CA coordinate system
-            ZMin_ThisLayer += deltax * LayerHeight * (LayerReadCount - 1);
-            ZMax_ThisLayer += deltax * LayerHeight * (LayerReadCount - 1);
-            if (XMin_ThisLayer < XMin)
-                XMin = XMin_ThisLayer;
-            if (XMax_ThisLayer > XMax)
-                XMax = XMax_ThisLayer;
-            if (YMin_ThisLayer < YMin)
-                YMin = YMin_ThisLayer;
-            if (YMax_ThisLayer > YMax)
-                YMax = YMax_ThisLayer;
-            if (ZMin_ThisLayer < ZMin)
-                ZMin = ZMin_ThisLayer;
-            if (ZMax_ThisLayer > ZMax)
-                ZMax = ZMax_ThisLayer;
-            ZMinLayer[LayerReadCount - 1] = ZMin_ThisLayer;
-            ZMaxLayer[LayerReadCount - 1] = ZMax_ThisLayer;
+            XYZMinMax_ThisLayer[4] += deltax * LayerHeight * (LayerReadCount - 1);
+            XYZMinMax_ThisLayer[5] += deltax * LayerHeight * (LayerReadCount - 1);
+            if (XYZMinMax_ThisLayer[0] < XMin)
+                XMin = XYZMinMax_ThisLayer[0];
+            if (XYZMinMax_ThisLayer[1] > XMax)
+                XMax = XYZMinMax_ThisLayer[1];
+            if (XYZMinMax_ThisLayer[2] < YMin)
+                YMin = XYZMinMax_ThisLayer[2];
+            if (XYZMinMax_ThisLayer[3] > YMax)
+                YMax = XYZMinMax_ThisLayer[3];
+            if (XYZMinMax_ThisLayer[4] < ZMin)
+                ZMin = XYZMinMax_ThisLayer[4];
+            if (XYZMinMax_ThisLayer[5] > ZMax)
+                ZMax = XYZMinMax_ThisLayer[5];
+            ZMinLayer[LayerReadCount - 1] = XYZMinMax_ThisLayer[4];
+            ZMaxLayer[LayerReadCount - 1] = XYZMinMax_ThisLayer[5];
             if (id == 0)
-                std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMin_ThisLayer << " " << ZMax_ThisLayer
-                          << std::endl;
+                std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << XYZMinMax_ThisLayer[4] << " "
+                          << XYZMinMax_ThisLayer[5] << std::endl;
         }
         // Extend domain in Z (build) direction if the number of layers are simulated is greater than the number
         // of temperature files read
@@ -750,59 +719,13 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
         }
         else
             tempfile_thislayer = temp_paths[LayerReadCount];
-        std::ifstream TemperatureFile;
-        TemperatureFile.open(tempfile_thislayer);
+
         FirstValue[LayerReadCount] = NumberOfTemperatureDataPoints;
-
-        std::string DummyLine;
-        // ignore header line
-        getline(TemperatureFile, DummyLine);
-
-        // Read data from the remaining lines - values should be separated by commas
-        // Space separated data is no longer accepted by ExaCA
-        double ZMin_ThisLayer = std::numeric_limits<double>::max();
-        double ZMax_ThisLayer = std::numeric_limits<double>::lowest();
-        while (!TemperatureFile.eof()) {
-            std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
-            std::string ReadLine;
-            if (!getline(TemperatureFile, ReadLine))
-                break;
-            splitString(ReadLine, ParsedLine, 6);
-            // Only get y values from ParsedLine, to check if this point is stored on this rank
-            double YTemperaturePoint = getInputDouble(ParsedLine[1]);
-            // Check the CA grid positions of the data point to see which rank(s) should store it
-            int YInt = round((YTemperaturePoint - YMin) / deltax);
-            if ((YInt >= LowerYBound) && (YInt <= UpperYBound)) {
-                // This data point is inside the bounds of interest for this MPI rank: Store the previously
-                // parsed/converted y coordinate, get and convert the corresponding x, z, tm, tl, and cr vals, and
-                // store inside of RawData
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[0]);
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = YTemperaturePoint;
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[2]);
-                double Z = RawData[NumberOfTemperatureDataPoints];
-                if (Z < ZMin_ThisLayer)
-                    ZMin_ThisLayer = Z;
-                else if (Z > ZMax_ThisLayer)
-                    ZMax_ThisLayer = Z;
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[3]);
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[4]);
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[5]);
-                NumberOfTemperatureDataPoints++;
-                // Increment view for number of times this cell coordinate has appeared in the file
-                // Since ZMinLayer is not the raw "smallest Z value" from the temperature file, but rather is the
-                // "CA-adjusted" smallest Z value with each layer being offset by deltax * LayerHeight meters, this same
-                // adjustment must be made to the raw Z value read from the file here
-                if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
-                    int OldSize = RawData.size();
-                    RawData.resize(OldSize + 1000000);
-                }
-            }
-        }
+        // Read and parse temperature file for either binary or ASCII, storing the appropriate values on each MPI rank
+        // within RawData and incrementing NumberOfTemperatureDataPoints appropriately
+        bool BinaryInputData = checkTemperatureFileFormat(tempfile_thislayer);
+        parseTemperatureData(tempfile_thislayer, YMin, deltax, LowerYBound, UpperYBound, RawData,
+                             NumberOfTemperatureDataPoints, BinaryInputData);
         LastValue[LayerReadCount] = NumberOfTemperatureDataPoints;
     } // End loop over all files read for all layers
     RawData.resize(NumberOfTemperatureDataPoints);
