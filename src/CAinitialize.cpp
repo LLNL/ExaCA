@@ -1575,9 +1575,9 @@ void TempInit_ReadDataRemelt(int layernumber, int id, int nx, int MyYSlices, int
                 for (int j = (i + 1); j < NumberOfSolidificationEvents_Host(n); j++) {
                     if (LayerTimeTempHistory_Host(n, i, 0) > LayerTimeTempHistory_Host(n, j, 0)) {
                         // Swap these two points - melting event "j" happens before event "i"
-                        double OldMeltVal = LayerTimeTempHistory_Host(n, i, 0);
-                        double OldLiqVal = LayerTimeTempHistory_Host(n, i, 1);
-                        double OldCRVal = LayerTimeTempHistory_Host(n, i, 2);
+                        float OldMeltVal = LayerTimeTempHistory_Host(n, i, 0);
+                        float OldLiqVal = LayerTimeTempHistory_Host(n, i, 1);
+                        float OldCRVal = LayerTimeTempHistory_Host(n, i, 2);
                         LayerTimeTempHistory_Host(n, i, 0) = LayerTimeTempHistory_Host(n, j, 0);
                         LayerTimeTempHistory_Host(n, i, 1) = LayerTimeTempHistory_Host(n, j, 1);
                         LayerTimeTempHistory_Host(n, i, 2) = LayerTimeTempHistory_Host(n, j, 2);
