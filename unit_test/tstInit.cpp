@@ -274,8 +274,8 @@ void testcalcZBound_Low() {
     int LayerHeight = 10;
     int NumberOfLayers = 10;
     double deltax = 1 * pow(10, -6);
-    float ZMin = -0.5 * pow(10, -6);
-    float *ZMinLayer = new float[NumberOfLayers];
+    double ZMin = -0.5 * pow(10, -6);
+    double *ZMinLayer = new double[NumberOfLayers];
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
         // Set ZMinLayer for each layer to be offset by LayerHeight cells from the previous one (lets solution for
         // both problem types by the same)
@@ -293,11 +293,11 @@ void testcalcZBound_High() {
     // A separate function is now used for ZBound_High calculation
     int SpotRadius = 100;
     int LayerHeight = 10;
-    float ZMin = 0.5 * pow(10, -6);
+    double ZMin = 0.5 * pow(10, -6);
     double deltax = 1.0 * pow(10, -6);
     int nz = 101;
     int NumberOfLayers = 10;
-    float *ZMaxLayer = new float[NumberOfLayers];
+    double *ZMaxLayer = new double[NumberOfLayers];
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
         // Set ZMaxLayer for each layer to be offset by LayerHeight cells from the previous one, with layer 0 having a
         // ZMax value of ZMin + SpotRadius (lets solution for both problem types be the same)
@@ -376,7 +376,7 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead) {
     for (int id = 0; id < 4; id++) {
         int MyYSlices = 3;
         int MyYOffset = 3 * id; // each col is separated from the others by 3 cells
-        float YMin = 0.0;
+        double YMin = 0.0;
         int layernumber = 0;
         std::vector<std::string> temp_paths(2);
         temp_paths[0] = TestTempFileName1;
@@ -440,12 +440,12 @@ void testgetTempCoords() {
 
     // cell size and simulation lower bounds
     double deltax = 0.5;
-    float XMin = -5;
-    float YMin = 0.0;
+    double XMin = -5;
+    double YMin = 0.0;
 
     // test - each rank initializes data for layer id, of 4 total layers
     for (int layernumber = 0; layernumber < 4; layernumber++) {
-        float *ZMinLayer = new float[4];
+        double *ZMinLayer = new double[4];
         for (int n = 0; n < 4; n++) {
             ZMinLayer[n] = 2 * n;
         }

@@ -57,9 +57,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // View initialization is performed on host views, but copied to the device views within subroutines
     // Neighbor lists for cells
     NList NeighborX, NeighborY, NeighborZ;
-    float XMin, YMin, ZMin, XMax, YMax, ZMax; // OpenFOAM simulation bounds (if using OpenFOAM data)
-    float *ZMinLayer = new float[NumberOfLayers];
-    float *ZMaxLayer = new float[NumberOfLayers];
+    double XMin, YMin, ZMin, XMax, YMax, ZMax; // OpenFOAM simulation bounds (if using OpenFOAM data)
+    double *ZMinLayer = new double[NumberOfLayers];
+    double *ZMaxLayer = new double[NumberOfLayers];
     int *FinishTimeStep = new int[NumberOfLayers];
 
     // Data structure for storing raw temperature data from file(s)
