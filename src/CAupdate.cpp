@@ -525,7 +525,7 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
                   ViewI CellType, ViewI LayerID, int id, int layernumber, int np, int nx, int ny, int nz, int MyYOffset,
                   ViewI GrainID, ViewI CritTimeStep, ViewF GrainUnitVector, ViewF UndercoolingChange,
                   ViewF UndercoolingCurrent, std::string OutputFile, int NGrainOrientations, std::string PathToOutput,
-                  int &IntermediateFileCounter, int nzActive, double deltax, float XMin, float YMin, float ZMin,
+                  int &IntermediateFileCounter, int nzActive, double deltax, double XMin, double YMin, double ZMin,
                   int NumberOfLayers, int &XSwitch, std::string TemperatureDataType, bool PrintIdleMovieFrames,
                   int MovieFrameInc, bool PrintBinary, int FinishTimeStep = 0) {
 
@@ -595,7 +595,7 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
 // Prints intermediate code output to stdout, checks to see if solidification is complete
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int MyYOffset, int LocalDomainSize,
                                 int LocalActiveDomainSize, int nx, int ny, int nz, int nzActive, double deltax,
-                                float XMin, float YMin, float ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch,
+                                double XMin, double YMin, double ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch,
                                 ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType,
                                 int *FinishTimeStep, int layernumber, int, int ZBound_Low, int NGrainOrientations,
                                 ViewI LayerID, ViewF GrainUnitVector, ViewF UndercoolingChange,
@@ -671,7 +671,7 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int M
 // remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
 void IntermediateOutputAndCheck_Remelt(
     int id, int np, int &cycle, int MyYSlices, int MyYOffset, int LocalActiveDomainSize, int nx, int ny, int nz,
-    int nzActive, double deltax, float XMin, float YMin, float ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch,
+    int nzActive, double deltax, double XMin, double YMin, double ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch,
     ViewI CellType, ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType, int layernumber, int,
     int ZBound_Low, int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector, ViewF UndercoolingChange,
     ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,

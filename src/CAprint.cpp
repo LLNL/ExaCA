@@ -188,8 +188,8 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string BaseFileName,
                     int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
                     bool PrintFinalUndercoolingVals, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
-                    int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, float XMin, float YMin,
-                    float ZMin, int NumberOfLayers, bool PrintBinary, int RVESize) {
+                    int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, double XMin, double YMin,
+                    double ZMin, int NumberOfLayers, bool PrintBinary, int RVESize) {
 
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
@@ -324,7 +324,7 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
                    ViewI3D_H CritTimeStep_WholeDomain, ViewI3D_H CellType_WholeDomain,
                    ViewF3D_H UndercoolingChange_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain,
                    std::string PathToOutput, std::string BaseFileName, int PrintDebug, bool PrintFullOutput,
-                   double deltax, float XMin, float YMin, float ZMin, bool PrintBinary) {
+                   double deltax, double XMin, double YMin, double ZMin, bool PrintBinary) {
 
     std::string FName;
     if (PrintFullOutput) {
@@ -425,7 +425,7 @@ void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3
 // Print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview file
 void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                                ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain, ViewF_H GrainUnitVector,
-                               int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin,
+                               int NGrainOrientations, double deltax, double XMin, double YMin, double ZMin,
                                bool PrintBinary) {
 
     std::string FName = PathToOutput + BaseFileName + "_Misorientations.vtk";
@@ -472,7 +472,7 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
 // solidification, to a paraview file
 void PrintFinalUndercooling(std::string BaseFileName, std::string PathToOutput, int nx, int ny, int nz,
                             ViewF3D_H UndercoolingCurrent_WholeDomain, ViewI3D_H LayerID_WholeDomain, double deltax,
-                            float XMin, float YMin, float ZMin, bool PrintBinary) {
+                            double XMin, double YMin, double ZMin, bool PrintBinary) {
 
     std::string FName = PathToOutput + BaseFileName + "_FinalUndercooling.vtk";
     std::cout << "Printing Paraview file of final undercooling values" << std::endl;
@@ -702,7 +702,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
 void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, std::string BaseFileName,
                                  std::string PathToOutput, int ZBound_Low, int nzActive, int nx, int ny,
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain, ViewF_H GrainUnitVector,
-                                 int NGrainOrientations, double deltax, float XMin, float YMin, float ZMin,
+                                 int NGrainOrientations, double deltax, double XMin, double YMin, double ZMin,
                                  bool PrintBinary) {
 
     std::string FName = PathToOutput + BaseFileName + "_layer" + std::to_string(layernumber) + "_" +

@@ -29,20 +29,20 @@ void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bo
                          double PowderDensity);
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
-                   std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
-                   float &ZMin, float &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
-                   float *ZMinLayer, float *ZMaxLayer, int SpotRadius);
+                   std::vector<std::string> &temp_paths, double &XMin, double &XMax, double &YMin, double &YMax,
+                   double &ZMin, double &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
+                   double *ZMinLayer, double *ZMaxLayer, int SpotRadius);
 void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &NeighborRank_North,
                          int &NeighborRank_South, int &nx, int &ny, int &nz, long int &LocalDomainSize,
                          bool &AtNorthBoundary, bool &AtSouthBoundary);
 void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyYSlices, int MyYOffset,
-                         float YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
+                         double YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
                          unsigned int &NumberOfTemperatureDataPoints, std::vector<double> &RawData, int *FirstValue,
                          int *LastValue, bool LayerwiseTempRead, int layernumber);
-int calcZBound_Low(std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer, float ZMin,
+int calcZBound_Low(std::string SimulationType, int LayerHeight, int layernumber, double *ZMinLayer, double ZMin,
                    double deltax);
-int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
-                    double deltax, int nz, float *ZMaxLayer);
+int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, double ZMin,
+                    double deltax, int nz, double *ZMaxLayer);
 int calcnzActive(int ZBound_Low, int ZBound_High, int id, int layernumber);
 int calcLocalActiveDomainSize(int nx, int MyYSlices, int nzActive);
 void TempInit_DirSolidification(double G, double R, int id, int &nx, int &MyYSlices, double deltax, double deltat,
@@ -64,29 +64,29 @@ void TempInit_SpotNoRemelt(double G, double R, std::string SimulationType, int i
                            ViewI &CritTimeStep, ViewF &UndercoolingChange, int LayerHeight, int NumberOfLayers,
                            double FreezingRange, ViewI &LayerID, int NSpotsX, int NSpotsY, int SpotRadius,
                            int SpotOffset);
-int getTempCoordX(int i, float XMin, double deltax, const std::vector<double> &RawData);
-int getTempCoordY(int i, float YMin, double deltax, const std::vector<double> &RawData);
+int getTempCoordX(int i, double XMin, double deltax, const std::vector<double> &RawData);
+int getTempCoordY(int i, double YMin, double deltax, const std::vector<double> &RawData);
 int getTempCoordZ(int i, double deltax, const std::vector<double> &RawData, int LayerHeight, int LayerCounter,
-                  float *ZMinLayer);
+                  double *ZMinLayer);
 double getTempCoordTM(int i, const std::vector<double> &RawData);
 double getTempCoordTL(int i, const std::vector<double> &RawData);
 double getTempCoordCR(int i, const std::vector<double> &RawData);
 void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, double deltax, int HTtoCAratio,
                                double deltat, int nz, int LocalDomainSize, ViewI &CritTimeStep,
-                               ViewF &UndercoolingChange, float XMin, float YMin, float ZMin, float *ZMinLayer,
-                               float *ZMaxLayer, int LayerHeight, int NumberOfLayers, int *FinishTimeStep,
+                               ViewF &UndercoolingChange, double XMin, double YMin, double ZMin, double *ZMinLayer,
+                               double *ZMaxLayer, int LayerHeight, int NumberOfLayers, int *FinishTimeStep,
                                double FreezingRange, ViewI &LayerID, int *FirstValue, int *LastValue,
                                std::vector<double> RawData);
 void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries, ViewI_H MaxSolidificationEvents_Host,
-                                  int StartRange, int EndRange, std::vector<double> RawData, float XMin, float YMin,
-                                  double deltax, float *ZMinLayer, int LayerHeight, int nx, int MyYSlices,
+                                  int StartRange, int EndRange, std::vector<double> RawData, double XMin, double YMin,
+                                  double deltax, double *ZMinLayer, int LayerHeight, int nx, int MyYSlices,
                                   int MyYOffset, int LocalActiveDomainSize);
 void TempInit_ReadDataRemelt(int layernumber, int id, int nx, int MyYSlices, int nz, int LocalActiveDomainSize,
                              int LocalDomainSize, int MyYOffset, double &deltax, double deltat, double FreezingRange,
                              ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents,
                              ViewI &MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep,
-                             ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, float XMin, float YMin,
-                             float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
+                             ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, double XMin, double YMin,
+                             double *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
                              ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData,
                              ViewI &SolidificationEventCounter, int TempFilesInSeries);
 void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyYSlices, int nx, int ny,
@@ -97,10 +97,10 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      bool AtNorthBoundary, bool AtSouthBoundary);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int pid,
                             ViewI &GrainID, int nzActive, bool BaseplateThroughPowder);
-void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
+void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, double *ZMinLayer, double *ZMaxLayer,
                                     int MyYSlices, int MyYOffset, int id, double deltax, ViewI GrainID, double RNGSeed,
                                     int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder);
-void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
+void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLayer, double ZMin, double deltax,
                 int MyYSlices, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
                 int &NextLayer_FirstEpitaxialGrainID, double PowderDensity);
 void CellTypeInit_Remelt(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI CritTimeStep, int id,

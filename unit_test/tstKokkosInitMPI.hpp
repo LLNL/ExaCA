@@ -116,8 +116,8 @@ void testBaseplateInit_FromGrainSpacing() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     // Create test data
     int nz = 4;
-    float ZMinLayer[1];
-    float ZMaxLayer[1];
+    double ZMinLayer[1];
+    double ZMaxLayer[1];
     ZMinLayer[0] = 0;
     ZMaxLayer[0] = 2 * pow(10, -6);
     int nx = 3;
@@ -171,10 +171,10 @@ void testPowderInit() {
     int nz = 6;
     int layernumber = 1;
     // Z = 4 and Z = 5 should be the region seeded with powder layer Grain IDs
-    float ZMaxLayer[2];
+    double ZMaxLayer[2];
     ZMaxLayer[1] = 5.0 * pow(10, -6);
     double deltax = 1.0 * pow(10, -6);
-    float ZMin = 0;
+    double ZMin = 0;
     int LayerHeight = 2;
     int nx = 1;
     // Each rank is assigned a different portion of the domain in Y

@@ -531,9 +531,9 @@ void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ) {
 // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading temperature
 // data files and parsing the coordinates
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
-                   std::vector<std::string> &temp_paths, float &XMin, float &XMax, float &YMin, float &YMax,
-                   float &ZMin, float &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
-                   float *ZMinLayer, float *ZMaxLayer, int SpotRadius) {
+                   std::vector<std::string> &temp_paths, double &XMin, double &XMax, double &YMin, double &YMax,
+                   double &ZMin, double &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
+                   double *ZMinLayer, double *ZMaxLayer, int SpotRadius) {
 
     if (SimulationType == "R") {
         // Two passes through reading temperature data files- the first pass only reads the headers to
@@ -542,12 +542,12 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         // remelting events in the simulation can also be calculated. The second pass reads the actual X/Y/Z/liquidus
         // time/cooling rate data and each rank stores the data relevant to itself in "RawData" - this is done in the
         // subroutine "ReadTemperatureData"
-        XMin = std::numeric_limits<float>::max();
-        YMin = std::numeric_limits<float>::max();
-        ZMin = std::numeric_limits<float>::max();
-        XMax = std::numeric_limits<float>::min();
-        YMax = std::numeric_limits<float>::min();
-        ZMax = std::numeric_limits<float>::min();
+        XMin = std::numeric_limits<double>::max();
+        YMin = std::numeric_limits<double>::max();
+        ZMin = std::numeric_limits<double>::max();
+        XMax = std::numeric_limits<double>::min();
+        YMax = std::numeric_limits<double>::min();
+        ZMax = std::numeric_limits<double>::min();
 
         // Read the first temperature file, first line to determine if the "new" OpenFOAM output format (with a 1 line
         // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
@@ -579,12 +579,12 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
             getline(TemperatureFile, HeaderLine);
             checkForHeaderValues(HeaderLine);
 
-            double XMin_ThisLayer = 1000000.0;
-            double XMax_ThisLayer = -1000000.0;
-            double YMin_ThisLayer = 1000000.0;
-            double YMax_ThisLayer = -1000000.0;
-            double ZMin_ThisLayer = 1000000.0;
-            double ZMax_ThisLayer = -100000.0;
+            double XMin_ThisLayer = std::numeric_limits<double>::max();
+            double YMin_ThisLayer = std::numeric_limits<double>::max();
+            double ZMin_ThisLayer = std::numeric_limits<double>::max();
+            double XMax_ThisLayer = std::numeric_limits<double>::min();
+            double YMax_ThisLayer = std::numeric_limits<double>::min();
+            double ZMax_ThisLayer = std::numeric_limits<double>::min();
 
             // Units are assumed to be in meters, meters, seconds, seconds, and K/second
             std::vector<double> XCoordinates(1000000), YCoordinates(1000000), ZCoordinates(1000000);
@@ -721,7 +721,7 @@ void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &Ne
 
 // Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate data
 void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyYSlices, int MyYOffset,
-                         float YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
+                         double YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
                          unsigned int &NumberOfTemperatureDataPoints, std::vector<double> &RawData, int *FirstValue,
                          int *LastValue, bool LayerwiseTempRead, int layernumber) {
 
@@ -856,7 +856,7 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
 
 //*****************************************************************************/
 // Get the Z coordinate of the lower bound of iteration
-int calcZBound_Low(std::string SimulationType, int LayerHeight, int layernumber, float *ZMinLayer, float ZMin,
+int calcZBound_Low(std::string SimulationType, int LayerHeight, int layernumber, double *ZMinLayer, double ZMin,
                    double deltax) {
 
     int ZBound_Low = -1; // assign dummy initial value
@@ -879,8 +879,8 @@ int calcZBound_Low(std::string SimulationType, int LayerHeight, int layernumber,
 }
 //*****************************************************************************/
 // Get the Z coordinate of the upper bound of iteration
-int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, float ZMin,
-                    double deltax, int nz, float *ZMaxLayer) {
+int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, double ZMin,
+                    double deltax, int nz, double *ZMaxLayer) {
 
     int ZBound_High = -1; // assign dummy initial value
     if (SimulationType == "C") {
@@ -1177,18 +1177,18 @@ void TempInit_SpotRemelt(int layernumber, double G, double R, std::string, int i
 }
 
 // Read data from storage, and calculate the normalized x value of the data point
-int getTempCoordX(int i, float XMin, double deltax, const std::vector<double> &RawData) {
+int getTempCoordX(int i, double XMin, double deltax, const std::vector<double> &RawData) {
     int XInt = round((RawData[i] - XMin) / deltax);
     return XInt;
 }
 // Read data from storage, and calculate the normalized y value of the data point
-int getTempCoordY(int i, float YMin, double deltax, const std::vector<double> &RawData) {
+int getTempCoordY(int i, double YMin, double deltax, const std::vector<double> &RawData) {
     int YInt = round((RawData[i + 1] - YMin) / deltax);
     return YInt;
 }
 // Read data from storage, and calculate the normalized z value of the data point
 int getTempCoordZ(int i, double deltax, const std::vector<double> &RawData, int LayerHeight, int LayerCounter,
-                  float *ZMinLayer) {
+                  double *ZMinLayer) {
     int ZInt = round((RawData[i + 2] + deltax * LayerHeight * LayerCounter - ZMinLayer[LayerCounter]) / deltax);
     return ZInt;
 }
@@ -1212,9 +1212,9 @@ double getTempCoordCR(int i, const std::vector<double> &RawData) {
 // file(s)
 void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, double deltax, int HTtoCAratio,
                                double deltat, int, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
-                               float XMin, float YMin, float ZMin, float *ZMinLayer, float *ZMaxLayer, int LayerHeight,
-                               int NumberOfLayers, int *FinishTimeStep, double FreezingRange, ViewI &LayerID,
-                               int *FirstValue, int *LastValue, std::vector<double> RawData) {
+                               double XMin, double YMin, double ZMin, double *ZMinLayer, double *ZMaxLayer,
+                               int LayerHeight, int NumberOfLayers, int *FinishTimeStep, double FreezingRange,
+                               ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData) {
 
     // These views are initialized to zeros on the host, filled with data, and then copied to the device for layer
     // "layernumber"
@@ -1287,7 +1287,7 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
                 }
                 double CoolingRate = getTempCoordCR(i, RawData);
                 CR[ZInt][XInt][YInt - LowerYBound] = CoolingRate;
-                float SolidusTime =
+                double SolidusTime =
                     CritTL[ZInt][XInt][YInt - LowerYBound] + FreezingRange / CR[ZInt][XInt][YInt - LowerYBound];
                 if (SolidusTime > LargestTime) {
                     // Store largest TSolidus value (based on liquidus/cooling rate/freezing range) over all cells
@@ -1427,8 +1427,8 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
 // Calculate the number of times that a cell in layer "layernumber" undergoes melting/solidification, and store in
 // MaxSolidificationEvents_Host
 void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries, ViewI_H MaxSolidificationEvents_Host,
-                                  int StartRange, int EndRange, std::vector<double> RawData, float XMin, float YMin,
-                                  double deltax, float *ZMinLayer, int LayerHeight, int nx, int MyYSlices,
+                                  int StartRange, int EndRange, std::vector<double> RawData, double XMin, double YMin,
+                                  double deltax, double *ZMinLayer, int LayerHeight, int nx, int MyYSlices,
                                   int MyYOffset, int LocalActiveDomainSize) {
 
     if (layernumber > TempFilesInSeries) {
@@ -1477,8 +1477,8 @@ void TempInit_ReadDataRemelt(int layernumber, int id, int nx, int MyYSlices, int
                              int LocalDomainSize, int MyYOffset, double &deltax, double deltat, double FreezingRange,
                              ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents,
                              ViewI &MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep,
-                             ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, float XMin, float YMin,
-                             float *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
+                             ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, double XMin, double YMin,
+                             double *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
                              ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData,
                              ViewI &SolidificationEventCounter, int TempFilesInSeries) {
 
@@ -1848,7 +1848,7 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int M
 }
 
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation
-void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, float *ZMinLayer, float *ZMaxLayer,
+void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, double *ZMinLayer, double *ZMaxLayer,
                                     int MyYSlices, int MyYOffset, int id, double deltax, ViewI GrainID, double RNGSeed,
                                     int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder) {
 
@@ -1939,7 +1939,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 
 // Each layer's top Z coordinates are seeded with CA-cell sized substrate grains (emulating bulk nucleation alongside
 // the edges of partially melted powder particles)
-void PowderInit(int layernumber, int nx, int ny, int LayerHeight, float *ZMaxLayer, float ZMin, double deltax,
+void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLayer, double ZMin, double deltax,
                 int MyYSlices, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
                 int &NextLayer_FirstEpitaxialGrainID, double PowderDensity) {
 
