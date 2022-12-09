@@ -146,6 +146,12 @@ cmake \
 make install
 ```
 
+## Test
+
+Unit tests can be run if the `ExaCA_ENABLE_TESTING` CMake option is enabled by
+running `ctest` in the build directory (this requires the GoogleTest
+framework). Tests are automatically generated for the enabled Kokkos backend.
+
 ## Run
 
 ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - A separate README file located in the `examples/` directory goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
