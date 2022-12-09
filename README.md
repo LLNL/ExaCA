@@ -11,7 +11,7 @@ ExaCA-Kokkos uses Kokkos and MPI for parallelism.
 |Dependency | Version | Required | Details|
 |---------- | ------- |--------  |------- |
 |[CMake](https://cmake.org/download/)       | 3.11+    | Yes      | Build system
-|[Kokkos](https://github.com/kokkos/kokkos) | 3.0+    | Yes      | Provides portable on-node parallelism.
+|[Kokkos](https://github.com/kokkos/kokkos) | 3.2+    | Yes      | Provides portable on-node parallelism.
 |MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Message Passing Interface
 |[nlohmann_json](https://github.com/nlohmann/json) | 3.10+| No       | Input parsing (Note: this will become a required dependency in a future release)
 |[GoogleTest](https://github.com/google/googletest) | 1.10+   | No       | Unit test framework
