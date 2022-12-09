@@ -85,6 +85,10 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     std::vector<std::string> RequiredInputs_ProblemSpecific, OptionalInputs_ProblemSpecific,
         DeprecatedInputs_ProblemSpecific;
     std::vector<bool> DeprecatedInputs_RequiredYN;
+    // Currently no deprecated inputs. Keeping variables in anticipation of more in the future.
+    DeprecatedInputs_ProblemSpecific.resize(0);
+    // If using deprecated inputs, which ones are required/optional
+    DeprecatedInputs_RequiredYN.resize(0);
     if (SimulationType == "RM") {
         // Simulation using external temperature data ("R") with remelting
         SimulationType = "R";
@@ -137,22 +141,6 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         OptionalInputs_ProblemSpecific[3] = "Extend baseplate through layers";
         OptionalInputs_ProblemSpecific[4] = "Density of powder surface sites active";
         OptionalInputs_ProblemSpecific[5] = "Default RVE size, in CA cells";
-        DeprecatedInputs_ProblemSpecific.resize(7);
-        DeprecatedInputs_ProblemSpecific[0] = "Path to temperature file(s)";
-        DeprecatedInputs_ProblemSpecific[1] = "Temperature filename";
-        DeprecatedInputs_ProblemSpecific[2] = "Number of temperature files";
-        DeprecatedInputs_ProblemSpecific[3] = "Number of layers";
-        DeprecatedInputs_ProblemSpecific[4] = "Offset between layers";
-        DeprecatedInputs_ProblemSpecific[5] = "Heat transport data mesh size";
-        DeprecatedInputs_ProblemSpecific[6] = "Extra set of wall cells";
-        // If using deprecated inputs, which ones are required/optional
-        DeprecatedInputs_RequiredYN.resize(7);
-        DeprecatedInputs_RequiredYN[0] = false;
-        for (int i = 1; i < 5; i++) {
-            DeprecatedInputs_RequiredYN[i] = true;
-        }
-        DeprecatedInputs_RequiredYN[5] = false;
-        DeprecatedInputs_RequiredYN[6] = false;
     }
     else {
         std::string error = "Error: problem type must be C, S, or R: the value given was " + SimulationType;
@@ -226,21 +214,9 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     }
     for (int i = 0; i < NumRequiredInputs_ProblemSpecific; i++) {
         if (RequiredInputsRead_ProblemSpecific[i].empty()) {
-            if ((SimulationType == "R") && (i == 1)) {
-                if (id == 0)
-                    std::cout << "Missing temperature field assembly instructions : checking for deprecated "
-                                 "temperature inputs"
-                              << std::endl;
-                parseTemperatureInput_Old(DeprecatedInputs_ProblemSpecific, DeprecatedInputsRead_ProblemSpecific,
-                                          NumDeprecatedInputs_ProblemSpecific, DeprecatedInputs_RequiredYN,
-                                          TempFilesInSeries, NumberOfLayers, LayerHeight, deltax, HT_deltax,
-                                          temp_paths);
-            }
-            else {
-                std::string error =
-                    "Error: Required input " + RequiredInputs_ProblemSpecific[i] + " was not present in the input file";
-                throw std::runtime_error(error);
-            }
+            std::string error =
+                "Error: Required input " + RequiredInputs_ProblemSpecific[i] + " was not present in the input file";
+            throw std::runtime_error(error);
         }
     }
 
@@ -445,11 +421,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                 std::cout << "Checking file " << temp_paths[i] << std::endl;
             checkFileExists(temp_paths[i], id);
         }
-        if ((!(DeprecatedInputsRead_ProblemSpecific[6].empty())) &&
-            (id == 0)) // Fixme: Remove this optional input eventually
-            std::cout << "Note: optional input ExtraWalls is no longer used, all simulations by default have no walls "
-                         "cells along domain boundaries"
-                      << std::endl;
+
         // Should optional RVE data be printed for the standard location (center of domain in X and Y, as close to the
         // top of the domain in Z as possiblewithout including the last layer's microstructure)?
         PrintDefaultRVE = false;

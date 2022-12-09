@@ -26,10 +26,6 @@ void splitString(std::string line, std::vector<std::string> &parsed_line, int ex
                  char separator = ',');
 void checkForHeaderValues(std::string header_line);
 void getTemperatureDataPoint(std::string s, std::vector<double> &XYZTemperaturePoint);
-void parseTemperatureInput_Old(std::vector<std::string> DeprecatedInputs, std::vector<std::string> DeprecatedInputsRead,
-                               int NumDeprecatedInputs, std::vector<bool> DeprecatedInputs_RequiredYN,
-                               int &TempFilesInSeries, int &NumberOfLayers, int &LayerHeight, double deltax,
-                               double &HT_deltax, std::vector<std::string> &temp_paths);
 void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &TempFilesInSeries, int &NumberOfLayers,
                            int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths,
                            bool &RemeltingYN, bool &LayerwiseTempRead);
