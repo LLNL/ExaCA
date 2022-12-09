@@ -10,9 +10,10 @@ ExaCA-Kokkos uses Kokkos and MPI for parallelism.
 
 |Dependency | Version | Required | Details|
 |---------- | ------- |--------  |------- |
-|CMake      | 3.9+    | Yes       | Build system
+|CMake      | 3.11+   | Yes      | Build system
 |Kokkos     | 3.0+   | Yes      | Provides portable on-node parallelism.
 |MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Message Passing Interface
+|[nlohmann_json](https://github.com/nlohmann/json) | 3.10+| No       | Input parsing (Note: this will become a required dependency in a future release)
 |GoogleTest | 1.10+   | No       | Unit test framework
 |CUDA       | 9+      | No       | Programming model for NVIDIA GPUs
 |HIP       | 3.5+      | No       | Programming model for AMD GPUs
@@ -66,6 +67,11 @@ cmake \
 make install
 cd ../..
 ```
+
+One additional CMake option can be set to enable JSON input parsing:
+`ExaCA_ENABLE_JSON`. The library will be automatically downloaded if requested,
+but not found. Note that this option will be removed in a future release when
+plain text input files are removed (and JSON is required).
 
 ### Build CUDA
 
