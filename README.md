@@ -10,13 +10,13 @@ ExaCA-Kokkos uses Kokkos and MPI for parallelism.
 
 |Dependency | Version | Required | Details|
 |---------- | ------- |--------  |------- |
-|CMake      | 3.11+   | Yes      | Build system
-|Kokkos     | 3.0+   | Yes      | Provides portable on-node parallelism.
+|[CMake](https://cmake.org/download/)       | 3.11+    | Yes      | Build system
+|[Kokkos](https://github.com/kokkos/kokkos) | 3.0+    | Yes      | Provides portable on-node parallelism.
 |MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Message Passing Interface
 |[nlohmann_json](https://github.com/nlohmann/json) | 3.10+| No       | Input parsing (Note: this will become a required dependency in a future release)
-|GoogleTest | 1.10+   | No       | Unit test framework
+|[GoogleTest](https://github.com/google/googletest) | 1.10+   | No       | Unit test framework
 |CUDA       | 9+      | No       | Programming model for NVIDIA GPUs
-|HIP       | 3.5+      | No       | Programming model for AMD GPUs
+|HIP        | 3.5+    | No       | Programming model for AMD GPUs
 
 Kokkos and MPI are available on many systems; if not, obtain the desired
 versions:
@@ -176,7 +176,7 @@ the script will generate an ensemble of input files in the `examples` directory,
 
 If the "Print file of grain misorientations" option is turned on within an input file, ExaCA will output a scalar field "Angle_z" as a vtk file ending with "Misorientations.vtk". Angle_z corresponds to the orientation (in degrees) of a given grain relative to the positive Z direction in a simulation (the thermal gradient direction for directional solidification problems, the build/layer offset direction for other problems). Epitaxial grains (from the initial grain structure or powder layer) are assigned values between 0 and 62.7, while nucleated grains (not present in the initial grain structure) are assigned values between 100 and 162.7 (the offset of 100 is simply used to ensure the two types of grains are differentiated, but a nucleated grain with Angle_z = 135 actually has a misorientation of 35 degrees).
 
-If the "Print Paraview vtk file" option is turned on within an input file, post-processing can be performed on the output data set. This functionality is a separate executable from ExaCA, located in the `analysis/` directory and is linked to the ExaCA library for input utilities. 
+If the "Print Paraview vtk file" option is turned on within an input file, post-processing can be performed on the output data set. This functionality is a separate executable from ExaCA, located in the `analysis/` directory and is linked to the ExaCA library for input utilities.
 
 Specifying debug check options can be done to print various ExaCA data fields to files following simulation initialization. The "reduced" debug check will print "CritTimeStep" (the time step at which each cell goes below the liquidus for the final time), "LayerID" (the layer associated with each cell going below the liquidus for the final time, with layer 0 being the first layer, and -1 for all cells that did not undergo solidification) and "CellType" (integers corrsponding to cell types specified in src/CAtypes.hpp). The "extensive" debug check will, in addition to the "reduced" data fields, also print "UndercoolingChange" (the rate at which a cell cools per time step after reaching its "CritTimeStep" value), "UndercoolingCurrent" (the initial undercooling of each cell), and "Melted" (1 for cells that are part of the melt pool, 0 for cells that are not).
 
