@@ -17,6 +17,14 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_DirSolidification.txt
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_DirSolidification.txt COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SpotMelt.txt
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_SpotMelt.txt COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Materials/Inconel625
+  ${CMAKE_CURRENT_BINARY_DIR}/Inconel625 COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Materials/Inconel625.json
+  ${CMAKE_CURRENT_BINARY_DIR}/Inconel625.json COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Materials/Inconel625_Quadratic.json
+  ${CMAKE_CURRENT_BINARY_DIR}/Inconel625_Quadratic.json COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Materials/SS316.json
+  ${CMAKE_CURRENT_BINARY_DIR}/SS316.json COPYONLY)
 
 ##--------------------------------------------------------------------------##
 ## Create tests without Kokkos

@@ -1,0 +1,9 @@
+{
+   "function": "quadratic",
+   "coefficients": {
+      "A": 0.000072879,
+      "B": 0.004939,
+      "C": -0.047024
+    },
+    "freezing_range": 210
+}

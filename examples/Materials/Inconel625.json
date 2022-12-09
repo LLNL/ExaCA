@@ -1,0 +1,10 @@
+{
+   "function": "cubic",
+   "coefficients": {
+      "A": -0.00000010302,
+      "B": 0.00010533,
+      "C": 0.0022196,
+      "D": 0
+    },
+    "freezing_range": 210
+}
