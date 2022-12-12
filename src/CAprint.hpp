@@ -67,6 +67,9 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
                                  ViewI3D_H GrainID_WholeDomain, ViewI3D_H CellType_WholeDomain, ViewF_H GrainUnitVector,
                                  int NGrainOrientations, double deltax, double XMin, double YMin, double ZMin,
                                  bool PrintBinary);
+std::string version();
+std::string gitCommitHash();
+
 // Write data of type PrintType as ascii or binary, with option to convert between big and small endian binary
 template <typename PrintType>
 void WriteData(std::ofstream &outstream, PrintType PrintValue, bool PrintBinary, bool SwapEndianYN = false) {
