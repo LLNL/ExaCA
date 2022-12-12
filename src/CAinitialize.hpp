@@ -76,7 +76,7 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
                                ViewF &UndercoolingChange, double XMin, double YMin, double ZMin, double *ZMinLayer,
                                double *ZMaxLayer, int LayerHeight, int NumberOfLayers, int *FinishTimeStep,
                                double FreezingRange, ViewI &LayerID, int *FirstValue, int *LastValue,
-                               std::vector<double> RawData);
+                               std::vector<double> RawData, int ny);
 void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries, ViewI_H MaxSolidificationEvents_Host,
                                   int StartRange, int EndRange, std::vector<double> RawData, double XMin, double YMin,
                                   double deltax, double *ZMinLayer, int LayerHeight, int nx, int MyYSlices,

@@ -1186,7 +1186,7 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
                                double deltat, int, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
                                double XMin, double YMin, double ZMin, double *ZMinLayer, double *ZMaxLayer,
                                int LayerHeight, int NumberOfLayers, int *FinishTimeStep, double FreezingRange,
-                               ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData) {
+                               ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData, int ny) {
 
     // These views are initialized to zeros on the host, filled with data, and then copied to the device for layer
     // "layernumber"
@@ -1201,6 +1201,9 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
     // from HT_deltax to deltax
     int LowerYBound = MyYOffset - (MyYOffset % HTtoCAratio);
     int UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + MyYSlices - 1) % HTtoCAratio);
+    // Make sure that upper Y bound doesn't extend beyond simulation domain
+    if (UpperYBound >= ny)
+        UpperYBound = ny - 1;
 
     // LayerID = -1 for cells that don't solidify as part of any layer of the multilayer problem
     Kokkos::deep_copy(LayerID_Host, -1);
@@ -1306,15 +1309,15 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
                     int HighX = LowX + HTtoCAratio;
                     double FHighX = (double)(i - LowX) / (double)(HTtoCAratio);
                     double FLowX = 1.0 - FHighX;
-                    if (HighX > nx)
-                        HighX = nx;
+                    if (HighX >= nx)
+                        HighX = LowX;
 
                     for (int j = 0; j <= UpperYBound - LowerYBound; j++) {
                         int LowY = j - (j % HTtoCAratio);
                         int HighY = LowY + HTtoCAratio;
                         double FHighY = (float)(j - LowY) / (float)(HTtoCAratio);
                         double FLowY = 1.0 - FHighY;
-                        if (HighY >= UpperYBound - LowerYBound)
+                        if (HighY > UpperYBound - LowerYBound)
                             HighY = LowY;
                         double Pt1 = CritTL[LowZ][LowX][LowY];
                         double Pt2 = CritTL[LowZ][HighX][LowY];
