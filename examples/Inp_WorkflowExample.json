@@ -1,0 +1,38 @@
+{
+   "SimulationType": "R",
+   "MaterialFileName": "Inconel625.json",
+   "GrainOrientationFile": "GrainOrientationVectors.csv",
+   "RNGSeed": 0.0,
+   "Domain": {
+       "deltax": 2.5,
+       "deltat": 0.3,
+       "numberOfLayers": 20,
+       "layerOffset": 6
+   },
+   "Nucleation": {
+      "NMax": 10,
+      "dTN": 5,
+      "dTsigma": 0.5
+   },
+   "TemperatureData": {
+       "HTdeltax": 5,
+       "layerwiseTempRead": false,
+       "TemperatureFiles": ["examples/Temperatures/1leg.txt","examples/Temperatures/2leg.txt"]
+   },
+   "Substrate": {
+      "S0": 25
+   },
+   "Printing": {
+      "pathToOutput": "./",
+      "outputFile": "ExaCA_workflowoutput",
+      "printBinary": false,
+      "printExaConstitDefault": true,
+      "printExaConstitSize": 100,
+      "PrintFieldsInit": [],
+      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
+      "PrintIntermediateOutput": {
+          "Frequency": 0,
+          "PrintIdleFrames": false
+      }
+   }
+}

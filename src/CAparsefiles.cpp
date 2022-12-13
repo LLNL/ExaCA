@@ -10,6 +10,10 @@
 
 #include "mpi.h"
 
+#ifdef ExaCA_ENABLE_JSON
+#include <nlohmann/json.hpp>
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -217,6 +221,52 @@ void checkFileNotEmpty(std::string testfilename) {
         throw std::runtime_error("First line of file " + testfilename + " appears empty");
     testfilestream.close();
 }
+
+// Check that the input file exists and whether it uses the old input file format or the new json input file format
+// (which starts with a left bracket)
+bool checkInputFileFormat(std::string InputFile, int id) {
+    bool JsonInputFormat;
+    checkFileExists(InputFile, id);
+
+    // Assume files with .json suffix are json formatted
+    if (InputFile.find(".json") == std::string::npos)
+        JsonInputFormat = false;
+    else
+        JsonInputFormat = true;
+#ifndef ExaCA_ENABLE_JSON
+    if (JsonInputFormat)
+        throw std::runtime_error("Cannot use JSON input file without ExaCA_ENABLE_JSON=ON");
+#endif
+    if (id == 0) {
+        if (JsonInputFormat)
+            std::cout << "Using json input file format" << std::endl;
+        else
+            std::cout << "Warning: Old input file format detected, this is now deprecated and will be replaced with "
+                         "the json format in a future release. See the README for details"
+                      << std::endl;
+    }
+    return JsonInputFormat;
+}
+
+#ifdef ExaCA_ENABLE_JSON
+// Check the field names from the given input (Fieldtype = PrintFieldsInit or PrintFieldsFinal) against the possible
+// fieldnames listed in Fieldnames_key. Fill the vector PrintFields_given with true or false values depending on whether
+// the corresponding field name from Fieldnames_key appeared in the input or not
+std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fieldtype,
+                                      std::vector<std::string> Fieldnames_key) {
+    int NumFields_key = Fieldnames_key.size();
+    int NumFields_given = inputdata["Printing"][Fieldtype].size();
+    std::vector<bool> PrintFields_given(NumFields_key, false);
+    // Check each given field against each possible input field name
+    for (int field_given = 0; field_given < NumFields_given; field_given++) {
+        for (int field_key = 0; field_key < NumFields_key; field_key++) {
+            if (inputdata["Printing"][Fieldtype][field_given] == Fieldnames_key[field_key])
+                PrintFields_given[field_key] = true;
+        }
+    }
+    return PrintFields_given;
+}
+#endif
 
 void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &TempFilesInSeries, int &NumberOfLayers,
                            int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths,

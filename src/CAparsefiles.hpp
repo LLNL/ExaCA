@@ -8,6 +8,10 @@
 
 #include "CAtypes.hpp"
 
+#ifdef ExaCA_ENABLE_JSON
+#include <nlohmann/json.hpp>
+#endif
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -32,6 +36,11 @@ void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &Te
 bool checkFileExists(const std::string path, const int id, const bool error = true);
 std::string checkFileInstalled(const std::string name, const int id);
 void checkFileNotEmpty(std::string testfilename);
+bool checkInputFileFormat(std::string InputFile, int id);
+#ifdef ExaCA_ENABLE_JSON
+std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fieldtype,
+                                      std::vector<std::string> Fieldnames_key);
+#endif
 void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst, double &CConst, double &DConst,
                        double &FreezingRange);
 std::string parseCoordinatePair(std::string line, int val);

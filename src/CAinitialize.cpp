@@ -13,6 +13,10 @@
 
 #include "mpi.h"
 
+#ifdef ExaCA_ENABLE_JSON
+#include <nlohmann/json.hpp>
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -21,21 +25,20 @@
 #include <regex>
 
 // Initializes input parameters, mesh, temperature field, and grain structures for CA simulations
-
 //*****************************************************************************/
 // Read ExaCA input file.
-void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
-                       double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
-                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
-                       bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
-                       std::string &MaterialFileName, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
-                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
-                       bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput, int &NSpotsX,
-                       int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
-                       bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
-                       bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
-                       bool &LayerwiseTempRead, bool &PrintBinary) {
+void InputReadFromFile_Old(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
+                           double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
+                           int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
+                           bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
+                           std::string &MaterialFileName, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
+                           bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
+                           double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
+                           bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput,
+                           int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries,
+                           int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
+                           bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
+                           bool &LayerwiseTempRead, bool &PrintBinary) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -470,6 +473,309 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                       << std::endl;
     }
 }
+
+// Read ExaCA input file - new (json) file format
+#ifdef ExaCA_ENABLE_JSON
+void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
+                       double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
+                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
+                       bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
+                       std::string &MaterialFileName, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
+                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
+                       double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
+                       bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput, int &NSpotsX,
+                       int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
+                       bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
+                       bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
+                       bool &LayerwiseTempRead, bool &PrintBinary) {
+
+    std::ifstream InputData(InputFile);
+    nlohmann::json inputdata = nlohmann::json::parse(InputData);
+
+    // General inputs
+    SimulationType = inputdata["SimulationType"];
+    // "C": constrained (directional) solidification
+    // "S": array of overlapping hemispherical spots
+    // "R": time-temperature history comes from external files
+    // Check if simulation type includes remelting ("M" suffix to input problem type)
+    if (SimulationType == "RM") {
+        SimulationType = "R";
+        RemeltingYN = true;
+    }
+    else if (SimulationType == "SM") {
+        SimulationType = "S";
+        RemeltingYN = true;
+    }
+    else {
+        // Simulation does not including remelting logic
+        RemeltingYN = false;
+    }
+    // Input files that should be present for all problem types
+    std::string MaterialFileName_Read = inputdata["MaterialFileName"];
+    std::string GrainOrientationFile_Read = inputdata["GrainOrientationFile"];
+    // Path to file of materials constants based on install/source location
+    MaterialFileName = checkFileInstalled(MaterialFileName_Read, id);
+    checkFileNotEmpty(MaterialFileName);
+    // Path to file of grain orientations based on install/source location
+    GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, id);
+    checkFileNotEmpty(GrainOrientationFile);
+    // Seed for random number generator (defaults to 0 if not given)
+    if (inputdata.contains("RNGSeed"))
+        RNGSeed = inputdata["RNGSeed"];
+    else
+        RNGSeed = 0.0;
+
+    // Domain inputs:
+    // Cell size - given in meters, stored in micrometers
+    deltax = inputdata["Domain"]["deltax"];
+    deltax = deltax * pow(10, -6);
+    // Time step - given in seconds, stored in microseconds
+    deltat = inputdata["Domain"]["deltat"];
+    deltat = deltat * pow(10, -6);
+    if (SimulationType == "C") {
+        // Domain size, in cells
+        nx = inputdata["Domain"]["nx"];
+        ny = inputdata["Domain"]["ny"];
+        nz = inputdata["Domain"]["nz"];
+        NumberOfLayers = 1;
+        LayerHeight = nz;
+    }
+    else {
+        // Number of layers, layer height are needed for problem types S and R
+        NumberOfLayers = inputdata["Domain"]["numberOfLayers"];
+        LayerHeight = inputdata["Domain"]["layerOffset"];
+        // Type S needs spot information, which is then used to compute the domain bounds
+        if (SimulationType == "S") {
+            NSpotsX = inputdata["Domain"]["nSpotsX"];
+            NSpotsY = inputdata["Domain"]["nSpotsY"];
+            // Radius and offset are given in micrometers, convert to cells
+            SpotRadius = inputdata["Domain"]["rSpots"];
+            SpotRadius = SpotRadius * pow(10, -6) / deltax;
+            SpotOffset = inputdata["Domain"]["spotOffset"];
+            SpotOffset = SpotOffset * pow(10, -6) / deltax;
+            // Calculate nx, ny, and nz based on spot array pattern and number of layers
+            nz = SpotRadius + 1 + (NumberOfLayers - 1) * LayerHeight;
+            nx = 2 * SpotRadius + 1 + SpotOffset * (NSpotsX - 1);
+            ny = 2 * SpotRadius + 1 + SpotOffset * (NSpotsY - 1);
+        }
+    }
+
+    // Nucleation inputs:
+    // Nucleation density (normalized by 10^12 m^-3), mean nucleation undercooling/st dev undercooling(K)
+    NMax = inputdata["Nucleation"]["NMax"];
+    NMax = NMax * pow(10, 12);
+    dTN = inputdata["Nucleation"]["dTN"];
+    dTsigma = inputdata["Nucleation"]["dTsigma"];
+
+    // Temperature inputs:
+    if (SimulationType == "R") {
+        // Temperature data resolution - default to using CA cell size if the assumed temperature data resolution if not
+        // given
+        if (inputdata["TemperatureData"].contains("HTdeltax")) {
+            HT_deltax = inputdata["TemperatureData"]["HTdeltax"];
+            // Value is given in micrometers, convert to meters
+            HT_deltax = HT_deltax * pow(10, -6);
+        }
+        else
+            HT_deltax = deltax;
+        if ((RemeltingYN) && (HT_deltax != deltax))
+            throw std::runtime_error("Error: For simulations with external temperature data and remelting logic, CA "
+                                     "cell size and input temperature data resolution must be equivalent");
+        // Read all temperature files at once (default), or one at a time?
+        if (inputdata["TemperatureData"].contains("layerwiseTempRead")) {
+            LayerwiseTempRead = inputdata["TemperatureData"]["layerwiseTempRead"];
+            if ((!(RemeltingYN)) && (LayerwiseTempRead)) {
+                if (id == 0)
+                    std::cout << "Warning: ability to read temperature files one at a time during initialization of "
+                                 "new layers is only supported for simulations with remelting"
+                              << std::endl;
+                LayerwiseTempRead = false;
+            }
+        }
+        else
+            LayerwiseTempRead = false;
+        // Get the paths/number of/names of the temperature data files used
+        TempFilesInSeries = inputdata["TemperatureData"]["TemperatureFiles"].size();
+        if (TempFilesInSeries == 0)
+            throw std::runtime_error("Error: No temperature files listed in the temperature instructions file");
+        else {
+            for (int filename = 0; filename < TempFilesInSeries; filename++)
+                temp_paths.push_back(inputdata["TemperatureData"]["TemperatureFiles"][filename]);
+        }
+    }
+    else {
+        // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
+        G = inputdata["TemperatureData"]["G"];
+        R = inputdata["TemperatureData"]["R"];
+    }
+
+    // Substrate inputs:
+    if (SimulationType == "C") {
+        // Fraction of sites at bottom surface active
+        FractSurfaceSitesActive = inputdata["Substrate"]["fActive"];
+    }
+    else {
+        // Substrate data - should data come from an initial size or a file?
+        if ((inputdata["Substrate"].contains("substrateFilename")) && (inputdata["Substrate"].contains("S0")))
+            throw std::runtime_error("Error: only one of substrate grain size and substrate structure filename should "
+                                     "be provided in the input file");
+        else if (inputdata["Substrate"].contains("substrateFilename")) {
+            SubstrateFileName = inputdata["Substrate"]["substrateFilename"];
+            UseSubstrateFile = true;
+        }
+        else if (inputdata["Substrate"].contains("S0")) {
+            SubstrateGrainSpacing = inputdata["Substrate"]["S0"];
+            UseSubstrateFile = false;
+        }
+        // Should the baseplate microstructure be extended through the powder layers? Default is false
+        if (inputdata["Substrate"].contains("extendSubstrateThroughPower"))
+            BaseplateThroughPowder = inputdata["Substrate"]["extendSubstrateThroughPower"];
+        else
+            BaseplateThroughPowder = false;
+        if (inputdata["Substrate"].contains("powderDensity")) {
+            // powder density is given as a density per unit volume, normalized by 10^12 m^-3 --> convert this into a
+            // density of sites active on the CA grid (0 to 1)
+            PowderActiveFraction = inputdata["Substrate"]["powderDensity"];
+            PowderActiveFraction = PowderActiveFraction * pow(10, 12) * pow(deltax, 3);
+            if ((PowderActiveFraction < 0.0) || (PowderActiveFraction > 1.0))
+                throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
+                                         "than 1/(CA cell volume)");
+            if (BaseplateThroughPowder)
+                throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers it "
+                                         "toggled, a powder density cannot be given");
+        }
+        else
+            PowderActiveFraction = 1.0; // defaults to a unique grain at each site in the powder layers
+    }
+
+    // Printing inputs:
+    // Path to output data
+    PathToOutput = inputdata["Printing"]["pathToOutput"];
+    // Name of output data
+    OutputFile = inputdata["Printing"]["outputFile"];
+    // Should ASCII or binary be used to print vtk data? Defaults to ASCII if not given
+    if (inputdata["Printing"].contains("printBinary"))
+        PrintBinary = inputdata["Printing"]["printBinary"];
+    else
+        PrintBinary = false;
+    // Should default ExaConstit output be printed after the simulation?
+    if (inputdata["Printing"].contains("printExaConstitDefault")) {
+        PrintDefaultRVE = inputdata["Printing"]["printExaConstitDefault"];
+        // If so, what size RVE should be printed? Defaults to 0.5 by 0.5 by 0.5 mm
+        if (PrintDefaultRVE) {
+            if (inputdata["Printing"].contains("printExaConstitSize"))
+                RVESize = inputdata["Printing"]["printExaConstitSize"];
+            else
+                RVESize = 0.0005 / deltax;
+        }
+    }
+    else
+        PrintDefaultRVE = false;
+    // Which fields should be printed at the start and end of the simulation? Certain permutations are not currently
+    // supported
+    // TODO: redo to customize printing of data, allow any fields to be printed at start or end of simulation, with or
+    // without remelting
+    // Field names are: GrainID, LayerID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType,
+    // GrainMisorientation
+    std::vector<std::string> Fieldnames_key = {"GrainID",
+                                               "LayerID",
+                                               "CritTimeStep",
+                                               "UndercoolingCurrent",
+                                               "UndercoolingChange",
+                                               "CellType",
+                                               "GrainMisorientation"};
+    std::vector<bool> PrintFieldsInit = getPrintFieldValues(inputdata, "PrintFieldsInit", Fieldnames_key);
+    std::vector<bool> PrintFieldsFinal = getPrintFieldValues(inputdata, "PrintFieldsFinal", Fieldnames_key);
+    // Printing init data: if any of fields 3, 4, 5 are present, print first six fields. If any of fields 0, 1, 2 are
+    // present, print first three fields (for consistency with old input file format)
+    if ((PrintFieldsInit[3]) || (PrintFieldsInit[4]) || (PrintFieldsInit[5]))
+        PrintDebug = 2;
+    else if ((PrintFieldsInit[0]) || (PrintFieldsInit[1]) || (PrintFieldsInit[2]))
+        PrintDebug = 1;
+    else
+        PrintDebug = 0;
+    if ((PrintFieldsInit[6]) && (id == 0))
+        std::cout
+            << "Warning: Option of printing grain misorientation data currently only supported at end of simulation"
+            << std::endl;
+    // Printing final data: "UndercoolingCurrent" at the end of the simulation is the final undercooling of each cell
+    if ((PrintFieldsFinal[0]) || (PrintFieldsFinal[1]))
+        PrintFullOutput = true;
+    else
+        PrintFullOutput = false;
+    if (PrintFieldsFinal[3])
+        PrintFinalUndercoolingVals = true;
+    else
+        PrintFinalUndercoolingVals = false;
+    if (PrintFieldsFinal[6])
+        PrintMisorientation = true;
+    else
+        PrintMisorientation = false;
+    if (((PrintFieldsFinal[2]) || (PrintFieldsFinal[4]) || (PrintFieldsFinal[5])) && (id == 0))
+        std::cout << "Warning: Options of printing crit time step, undercooling change, and cell type are only "
+                     "supported after simulation initialization"
+                  << std::endl;
+    // Should intermediate output be printed?
+    if (inputdata["Printing"].contains("PrintIntermediateOutput")) {
+        // An increment of 0 will set the intermediate file printing to false
+        double TimeSeriesFrameInc_time = inputdata["Printing"]["PrintIntermediateOutput"]["Frequency"];
+        if (TimeSeriesFrameInc_time == 0) {
+            PrintTimeSeries = false;
+            PrintIdleTimeSeriesFrames = false;
+        }
+        else {
+            PrintTimeSeries = true;
+            // Increment is given in microseconds, convert to seconds
+            TimeSeriesFrameInc_time = TimeSeriesFrameInc_time * pow(10, -6);
+            TimeSeriesInc = round(TimeSeriesFrameInc_time / deltat);
+            // Should the intermediate output be printed even if the simulation was unchanged from the previous output
+            // step?
+            PrintIdleTimeSeriesFrames = inputdata["Printing"]["PrintIntermediateOutput"]["PrintIdleFrames"];
+        }
+    }
+    else {
+        PrintTimeSeries = false;
+        PrintIdleTimeSeriesFrames = false;
+    }
+
+    // Print information to console about the input file data read
+    if (id == 0) {
+        std::cout << "Material simulated is " << MaterialFileName << std::endl;
+        std::cout << "CA cell size is " << deltax * pow(10, 6) << " microns" << std::endl;
+        std::cout << "Nucleation density is " << NMax << " per m^3" << std::endl;
+        std::cout << "Mean nucleation undercooling is " << dTN << " K, standard deviation of distribution is "
+                  << dTsigma << "K" << std::endl;
+        if (PrintTimeSeries)
+            std::cout << "Intermediate output for movie frames will be printed every " << TimeSeriesInc
+                      << " time steps (or every " << TimeSeriesInc * deltat << " microseconds)" << std::endl;
+        if (RemeltingYN)
+            std::cout << "This simulation includes logic for cells melting and multiple solidification events"
+                      << std::endl;
+        if (SimulationType == "C") {
+            std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << G
+                      << " K/m and a cooling rate of " << R << " K/s" << std::endl;
+            std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
+            std::cout << "The fraction of CA cells at the bottom surface that are active is " << FractSurfaceSitesActive
+                      << std::endl;
+        }
+        else if (SimulationType == "S") {
+            std::cout << "CA Simulation using a radial, fixed thermal gradient of " << G
+                      << " K/m as a series of hemispherical spots, and a cooling rate of " << R << " K/s" << std::endl;
+            std::cout << "A total of " << NumberOfLayers << " spots per layer, with layers offset by " << LayerHeight
+                      << " CA cells will be simulated" << std::endl;
+            std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
+        }
+        else if (SimulationType == "R") {
+            std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
+            std::cout << "The time step is " << deltat << " seconds" << std::endl;
+            std::cout << "The first temperature data file to be read is " << temp_paths[0] << ", and there are "
+                      << TempFilesInSeries << " in the series" << std::endl;
+            std::cout << "A total of " << NumberOfLayers << " layers of solidification offset by " << LayerHeight
+                      << " CA cells will be simulated" << std::endl;
+        }
+    }
+}
+#endif
 
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
                          double PowderActiveFraction) {

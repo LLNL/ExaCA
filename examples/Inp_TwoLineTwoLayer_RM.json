@@ -1,0 +1,39 @@
+{
+   "SimulationType": "RM",
+   "MaterialFileName": "Inconel625.json",
+   "GrainOrientationFile": "GrainOrientationVectors.csv",
+   "RNGSeed": 0.0,
+   "Domain": {
+       "deltax": 2.5,
+       "deltat": 0.0825,
+       "numberOfLayers": 2,
+       "layerOffset": 8
+   },
+   "Nucleation": {
+      "NMax": 100,
+      "dTN": 5,
+      "dTsigma": 0.5
+   },
+   "TemperatureData": {
+       "HTdeltax": 2.5,
+       "layerwiseTempRead": false,
+       "TemperatureFiles": ["examples/Temperatures/TwoLine.txt"]
+   },
+   "Substrate": {
+      "S0": 25,
+      "powderDensity": 64000
+   },
+   "Printing": {
+      "pathToOutput": "./",
+      "outputFile": "TestProblemTwoLineTwoLayer_RM",
+      "printBinary": false,
+      "printExaConstitDefault": false,
+      "printExaConstitSize": 0,
+      "PrintFieldsInit": [],
+      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
+      "PrintIntermediateOutput": {
+          "Frequency": 0,
+          "PrintIdleFrames": false
+      }
+   }
+}

@@ -1,0 +1,39 @@
+{
+   "SimulationType": "R",
+   "MaterialFileName": "Inconel625.json",
+   "GrainOrientationFile": "GrainOrientationVectors.csv",
+   "RNGSeed": 0.0,
+   "Domain": {
+       "deltax": 1,
+       "deltat": 0.08333333,
+       "numberOfLayers": 1,
+       "layerOffset": 15
+   },
+   "Nucleation": {
+      "NMax": 10,
+      "dTN": 5,
+      "dTsigma": 0.5
+   },
+   "TemperatureData": {
+       "HTdeltax": 5,
+       "layerwiseTempRead": false,
+       "TemperatureFiles": ["examples/Temperatures/Master-Raster-150um.txt"]
+   },
+   "Substrate": {
+      "S0": 25,
+      "powderDensity": 1000000
+   },
+   "Printing": {
+       "pathToOutput": "./",
+       "outputFile": "TestProblemSimpleRaster",
+       "printBinary": false,
+       "printExaConstitDefault": false,
+       "printExaConstitSize": 0,
+       "PrintFieldsInit": [],
+       "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
+       "PrintIntermediateOutput": {
+           "Frequency": 0,
+           "PrintIdleFrames": false
+       }
+   }
+}

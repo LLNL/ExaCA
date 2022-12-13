@@ -6,10 +6,11 @@ on:
   pull_request:
     branches:
       - master
-
 jobs:
   CI:
-    continue-on-error: ${{ matrix.kokkos_ver == 'develop' }}
+    defaults:
+      run:
+        shell: bash
     env:
       # Fix for "Read -1, expected xxx errno = 1" https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
       OMPI_MCA_btl_vader_single_copy_mechanism: "none"
@@ -20,26 +21,26 @@ jobs:
         backend: ['SERIAL', 'OPENMP']
         cmake_build_type: ['Debug', 'Release']
         kokkos_ver: ['3.4.01']
-        json: ['ON']
+        input: ['json']
         include:
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
-            json: 'ON'
+            input: 'json'
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
-            json: 'ON'
+            input: 'json'
           - distro: 'ubuntu:latest'
             cxx: 'g++'
             backend: 'OPENMP'
             cmake_build_type: 'Debug'
             kokkos_ver: '3.4.01'
-            json: 'OFF'
+            input: 'txt'
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
@@ -69,6 +70,7 @@ jobs:
         uses: actions/checkout@v2.2.0
       - name: Build ExaCA
         run: |
+          [[ ${{ matrix.input }} == "json" ]] && exaca_cmake_opts+=( -DExaCA_ENABLE_JSON=ON )
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/exaca \
             -D CMAKE_PREFIX_PATH="$HOME/kokkos" \
@@ -78,7 +80,7 @@ jobs:
             -D MPIEXEC_MAX_NUMPROCS=2 \
             -D MPIEXEC_PREFLAGS="--oversubscribe" \
             -D ExaCA_ENABLE_TESTING=ON \
-            -D ExaCA_ENABLE_JSON=${{ matrix.json }}
+            ${exaca_cmake_opts[@]}
           cmake --build build --parallel 2
           cmake --install build
       - name: Format ExaCA
@@ -93,13 +95,13 @@ jobs:
       - name: Test ExaCA
         working-directory: examples
         run: |
-          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.txt
-          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.txt
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.txt
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.txt
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt_RM.txt
+          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.${{ matrix.input }}
+          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.${{ matrix.input }}
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.${{ matrix.input }}
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.${{ matrix.input }}
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt_RM.${{ matrix.input }}
       - name: Test GA
         working-directory: analysis/examples
         run: |
-          $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.txt
+          $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.${{ matrix.input }}
           $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.txt

@@ -1,0 +1,39 @@
+{
+   "SimulationType": "R",
+   "MaterialFileName": "Inconel625.json",
+   "GrainOrientationFile": "GrainOrientationVectors.csv",
+   "RNGSeed": 0.0,
+   "Domain": {
+       "deltax": 5,
+       "deltat": 0.3,
+       "numberOfLayers": 4,
+       "layerOffset": 3
+   },
+   "Nucleation": {
+      "NMax": 0,
+      "dTN": 5,
+      "dTsigma": 0.5
+   },
+   "TemperatureData": {
+       "HTdeltax": 5,
+       "layerwiseTempRead": false,
+       "TemperatureFiles": ["examples/Temperatures/1CA-FOAM-fluidflow.txt","examples/Temperatures/2CA-FOAM-fluidflow.txt"]
+   },
+   "Substrate": {
+      "S0": 25,
+      "powderDensity": 8000
+   },
+   "Printing": {
+       "pathToOutput": "./",
+       "outputFile": "TestProblemAMB",
+       "printBinary": false,
+       "printExaConstitDefault": false,
+       "printExaConstitSize": 0,
+       "PrintFieldsInit": [],
+       "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
+       "PrintIntermediateOutput": {
+           "Frequency": 0,
+           "PrintIdleFrames": false
+       }
+   }
+}
