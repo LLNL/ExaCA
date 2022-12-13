@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.12)
 
-project(ExaCA CXX)
+project(ExaCA LANGUAGES CXX VERSION 1.1.0)
 
 include(GNUInstallDirs)
 
@@ -17,6 +17,18 @@ if(ExaCA_ENABLE_JSON)
     FetchContent_MakeAvailable(json)
   endif()
 endif()
+
+find_package(Git)
+if(GIT_FOUND AND IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/.git)
+  EXECUTE_PROCESS(
+    COMMAND           ${GIT_EXECUTABLE} log --pretty=format:%H -n 1
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE   ExaCA_GIT_COMMIT_HASH
+    )
+else()
+  set(ExaCA_GIT_COMMIT_HASH "Not a git repository")
+endif()
+message(STATUS "ExaCA commit: ${ExaCA_GIT_COMMIT_HASH}")
 
 # NOTE: this order is specifically used in the unit tests.
 set(EXACA_SUPPORTED_DEVICES SERIAL PTHREAD OPENMP CUDA HIP)

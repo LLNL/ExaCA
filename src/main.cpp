@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-#include "runCA.hpp"
+#include "ExaCA.hpp"
 
 #include <Kokkos_Core.hpp>
 
@@ -25,11 +25,11 @@ int main(int argc, char *argv[]) {
         // Get individual process ID
         MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
-        if (id == 0)
+        if (id == 0) {
+            std::cout << "ExaCA version: " << version() << " \nExaCA commit:  " << gitCommitHash() << std::endl;
             Kokkos::DefaultExecutionSpace().print_configuration(std::cout);
-        if (id == 0)
             std::cout << "Number of MPI ranks = " << np << std::endl;
-
+        }
         if (argc < 2) {
             throw std::runtime_error("Error: Must provide path to input file on the command line.");
         }

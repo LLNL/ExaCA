@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "CAprint.hpp"
+#include "CAconfig.hpp"
 #include "CAfunctions.hpp"
 #include "CAparsefiles.hpp"
 
@@ -600,6 +601,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         std::cout << "Printing ExaCA log file" << std::endl;
         std::ofstream ExaCALog;
         ExaCALog.open(FName);
+        std::cout << "ExaCA version: " << version() << " \nExaCA commit:  " << gitCommitHash() << std::endl;
         ExaCALog << "log file for a simulation run with input file " << InputFile << "  run on " << np
                  << " MPI ranks, output written at cycle " << cycle << std::endl;
         ExaCALog << "This simulation took " << InitTime + RunTime + OutTime
@@ -751,3 +753,7 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
     }
     GrainplotM.close();
 }
+
+std::string version() { return ExaCA_VERSION; }
+
+std::string gitCommitHash() { return ExaCA_GIT_COMMIT_HASH; }
