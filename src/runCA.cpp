@@ -151,7 +151,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         TempInit_ReadDataNoRemelt(id, nx, MyYSlices, MyYOffset, deltax, HTtoCAratio, deltat, nz, LocalDomainSize,
                                   CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, ZMinLayer, ZMaxLayer, LayerHeight,
                                   NumberOfLayers, FinishTimeStep, irf.FreezingRange, LayerID, FirstValue, LastValue,
-                                  RawData);
+                                  RawData, ny);
     else if ((SimulationType == "S") && (!RemeltingYN))
         TempInit_SpotNoRemelt(G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, nz, LocalDomainSize,
                               CritTimeStep, UndercoolingChange, LayerHeight, NumberOfLayers, irf.FreezingRange, LayerID,

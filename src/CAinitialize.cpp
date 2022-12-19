@@ -517,9 +517,9 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         XMin = std::numeric_limits<double>::max();
         YMin = std::numeric_limits<double>::max();
         ZMin = std::numeric_limits<double>::max();
-        XMax = std::numeric_limits<double>::min();
-        YMax = std::numeric_limits<double>::min();
-        ZMax = std::numeric_limits<double>::min();
+        XMax = std::numeric_limits<double>::lowest();
+        YMax = std::numeric_limits<double>::lowest();
+        ZMax = std::numeric_limits<double>::lowest();
 
         // Read the first temperature file, first line to determine if the "new" OpenFOAM output format (with a 1 line
         // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
@@ -554,9 +554,9 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
             double XMin_ThisLayer = std::numeric_limits<double>::max();
             double YMin_ThisLayer = std::numeric_limits<double>::max();
             double ZMin_ThisLayer = std::numeric_limits<double>::max();
-            double XMax_ThisLayer = std::numeric_limits<double>::min();
-            double YMax_ThisLayer = std::numeric_limits<double>::min();
-            double ZMax_ThisLayer = std::numeric_limits<double>::min();
+            double XMax_ThisLayer = std::numeric_limits<double>::lowest();
+            double YMax_ThisLayer = std::numeric_limits<double>::lowest();
+            double ZMax_ThisLayer = std::numeric_limits<double>::lowest();
 
             // Units are assumed to be in meters, meters, seconds, seconds, and K/second
             std::vector<double> XCoordinates(1000000), YCoordinates(1000000), ZCoordinates(1000000);
@@ -760,7 +760,7 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
         // Read data from the remaining lines - values should be separated by commas
         // Space separated data is no longer accepted by ExaCA
         double ZMin_ThisLayer = std::numeric_limits<double>::max();
-        double ZMax_ThisLayer = std::numeric_limits<double>::min();
+        double ZMax_ThisLayer = std::numeric_limits<double>::lowest();
         while (!TemperatureFile.eof()) {
             std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
             std::string ReadLine;
@@ -1186,7 +1186,7 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
                                double deltat, int, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
                                double XMin, double YMin, double ZMin, double *ZMinLayer, double *ZMaxLayer,
                                int LayerHeight, int NumberOfLayers, int *FinishTimeStep, double FreezingRange,
-                               ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData) {
+                               ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData, int ny) {
 
     // These views are initialized to zeros on the host, filled with data, and then copied to the device for layer
     // "layernumber"
@@ -1201,6 +1201,9 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
     // from HT_deltax to deltax
     int LowerYBound = MyYOffset - (MyYOffset % HTtoCAratio);
     int UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + MyYSlices - 1) % HTtoCAratio);
+    // Make sure that upper Y bound doesn't extend beyond simulation domain
+    if (UpperYBound >= ny)
+        UpperYBound = ny - 1;
 
     // LayerID = -1 for cells that don't solidify as part of any layer of the multilayer problem
     Kokkos::deep_copy(LayerID_Host, -1);
@@ -1306,16 +1309,16 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
                     int HighX = LowX + HTtoCAratio;
                     double FHighX = (double)(i - LowX) / (double)(HTtoCAratio);
                     double FLowX = 1.0 - FHighX;
-                    if (HighX > nx)
-                        HighX = nx;
+                    if (HighX >= nx)
+                        HighX = LowX;
 
                     for (int j = 0; j <= UpperYBound - LowerYBound; j++) {
                         int LowY = j - (j % HTtoCAratio);
                         int HighY = LowY + HTtoCAratio;
                         double FHighY = (float)(j - LowY) / (float)(HTtoCAratio);
                         double FLowY = 1.0 - FHighY;
-                        if (HighY >= UpperYBound - LowerYBound)
-                            HighY = UpperYBound - LowerYBound;
+                        if (HighY > UpperYBound - LowerYBound)
+                            HighY = LowY;
                         double Pt1 = CritTL[LowZ][LowX][LowY];
                         double Pt2 = CritTL[LowZ][HighX][LowY];
                         double Pt12 = FLowX * Pt1 + FHighX * Pt2;
