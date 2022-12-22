@@ -1836,48 +1836,42 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
                          1; // baseplate microstructure is layer 0's initial condition
     std::mt19937_64 gen(RNGSeed);
 
-    // Based on the baseplate size and the substrate grain spacing, determine the number of baseplate grains
-    int BaseplateSize = nx * ny * BaseplateSizeZ;
-    double BaseplateVolume = BaseplateSize * pow(deltax, 3) * pow(10, 18); // in cubic microns
-    double SubstrateGrainSize = pow(SubstrateGrainSpacing, 3);             // in cubic microns
-    int NumberOfBaseplateGrains = round(BaseplateVolume / SubstrateGrainSize);
-    // Need at least 1 baseplate grain
+    // Based on the baseplate volume (convert to cubic microns to match units) and the substrate grain spacing,
+    // determine the number of baseplate grains
+    int BaseplateVolume = nx * ny * BaseplateSizeZ;
+    double BaseplateVolume_microns = BaseplateVolume * pow(deltax, 3) * pow(10, 18);
+    double SubstrateMeanGrainVolume_microns = pow(SubstrateGrainSpacing, 3);
+    int NumberOfBaseplateGrains = round(BaseplateVolume_microns / SubstrateMeanGrainVolume_microns);
+    // Need at least 1 baseplate grain, cannot have more baseplate grains than cells in the baseplate
     NumberOfBaseplateGrains = std::max(NumberOfBaseplateGrains, 1);
+    NumberOfBaseplateGrains = std::min(NumberOfBaseplateGrains, nx * ny * BaseplateSizeZ);
     // TODO: Use device RNG to generate baseplate grain locations, instead of host with copy
-    // List of potential grain IDs (starting at 1)
-    std::vector<int> BaseplateGrainIDs(NumberOfBaseplateGrains);
-    for (int i = 0; i < NumberOfBaseplateGrains; i++) {
-        BaseplateGrainIDs[i] = i + 1;
+    // List of potential grain IDs (starting at 1) - index corresponds to the associated CA cell location
+    // Assign positive values for indices 0 through NumberOfBaseplateGrains-1, assign zeros to the remaining indices
+    std::vector<int> BaseplateGrainLocations(BaseplateVolume);
+    std::vector<int> BaseplateGrainIDs(BaseplateVolume);
+    for (int i = 0; i < BaseplateVolume; i++) {
+        BaseplateGrainLocations[i] = i;
+        if (i < NumberOfBaseplateGrains)
+            BaseplateGrainIDs[i] = i + 1;
+        else
+            BaseplateGrainIDs[i] = 0;
     }
     // Shuffle list of grain IDs
     std::shuffle(BaseplateGrainIDs.begin(), BaseplateGrainIDs.end(), gen);
 
-    // List of potential grain center locations (max of one possible center per cell in the baseplate)
-    std::vector<int> PotentialBaseplateGrainLocations(BaseplateSize);
-    // Only "NumberOfBaseplateGrains" sites (out of "BaseplateSize" possible sites) are baseplate grain centers -
-    // BaseplateSiteActive = true for sites that are grain center locations
-    std::vector<bool> BaseplateSiteActive(BaseplateSize);
-    for (int n = 0; n < BaseplateSize; n++) {
-        PotentialBaseplateGrainLocations[n] = n;
-        if (n < NumberOfBaseplateGrains)
-            BaseplateSiteActive[n] = true;
-        else
-            BaseplateSiteActive[n] = false;
-    }
-    // Shuffle list governing which cells are home to grain center locations - randomly distributed through the
-    // baseplate
-    std::shuffle(BaseplateSiteActive.begin(), BaseplateSiteActive.end(), gen);
-
-    // Create views of baseplate grain IDs and locations
+    // Create views of baseplate grain IDs and locations - copying BaseplateGrainIDs and BaseplateGrainLocations values
+    // only for indices where BaseplateGrainIDs(i) != 0 (cells with BaseplateGrainIDs(i) = 0 were not assigned baseplate
+    // center locations)
     ViewI_H BaseplateGrainLocations_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainLocations_Host"),
                                          NumberOfBaseplateGrains);
     ViewI_H BaseplateGrainIDs_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainIDs_Host"),
                                    NumberOfBaseplateGrains);
     int count = 0;
-    for (int n = 0; n < BaseplateSize; n++) {
-        if (BaseplateSiteActive[n]) {
-            BaseplateGrainLocations_Host(count) = PotentialBaseplateGrainLocations[n];
-            BaseplateGrainIDs_Host(count) = BaseplateGrainIDs[count];
+    for (int i = 0; i < BaseplateVolume; i++) {
+        if (BaseplateGrainIDs[i] != 0) {
+            BaseplateGrainLocations_Host(count) = BaseplateGrainLocations[i];
+            BaseplateGrainIDs_Host(count) = BaseplateGrainIDs[i];
             count++;
         }
     }
@@ -1891,7 +1885,8 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
         std::cout << "Number of baseplate grains: " << NumberOfBaseplateGrains << std::endl;
     }
 
-    // First, assign cells that are associated with grain centers the appropriate GrainID values
+    // First, assign cells that are associated with grain centers the appropriate non-zero GrainID values (assumes
+    // GrainID values were initialized to zeros)
     Kokkos::parallel_for(
         "BaseplateInit", NumberOfBaseplateGrains, KOKKOS_LAMBDA(const int &n) {
             int BaseplateGrainLoc = BaseplateGrainLocations_Device(n);
