@@ -34,8 +34,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput, int &NSpotsX,
                        int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
-                       bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize, bool &LayerwiseTempRead,
-                       bool &PrintBinary) {
+                       bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
+                       bool &LayerwiseTempRead, bool &PrintBinary) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -246,13 +246,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         else
             BaseplateThroughPowder = getInputBool(OptionalInputsRead_ProblemSpecific[3]);
         if ((OptionalInputsRead_ProblemSpecific[4].empty()))
-            PowderDensity = 1.0; // defaults to a unique grain at each site in the powder layers
+            PowderActiveFraction = 1.0; // defaults to a unique grain at each site in the powder layers
         else {
-            PowderDensity =
+            PowderActiveFraction =
                 getInputDouble(OptionalInputsRead_ProblemSpecific[4], 12) *
                 pow(deltax, 3); // powder density is given as a density per unit volume, normalized by 10^12 m^-3 -->
-                                // convert this into a density of sites active on the CA grid (0 to 1)
-            if ((PowderDensity < 0.0) || (PowderDensity > 1.0))
+                                // convert this into a fraction of sites active on the CA grid (0 to 1)
+            if ((PowderActiveFraction < 0.0) || (PowderActiveFraction > 1.0))
                 throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
                                          "than 1/(CA cell volume)");
             if (BaseplateThroughPowder)
@@ -309,13 +309,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         else
             BaseplateThroughPowder = getInputBool(OptionalInputsRead_ProblemSpecific[2]);
         if ((OptionalInputsRead_ProblemSpecific[3].empty()))
-            PowderDensity = 1.0; // defaults to a unique grain at each site in the powder layers
+            PowderActiveFraction = 1.0; // defaults to a unique grain at each site in the powder layers
         else {
-            PowderDensity =
+            PowderActiveFraction =
                 getInputDouble(OptionalInputsRead_ProblemSpecific[3], 12) *
                 pow(deltax, 3); // powder density is given as a density per unit volume, normalized by 10^12 m^-3 -->
                                 // convert this into a density of sites active on the CA grid (0 to 1)
-            if ((PowderDensity < 0.0) || (PowderDensity > 1.0))
+            if ((PowderActiveFraction < 0.0) || (PowderActiveFraction > 1.0))
                 throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
                                          "than 1/(CA cell volume)");
             if (BaseplateThroughPowder)
@@ -472,7 +472,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 }
 
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
-                         double PowderDensity) {
+                         double PowderActiveFraction) {
 
     // Check to make sure powder grain density is compatible with the number of powder sites
     // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur when
@@ -480,7 +480,8 @@ void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bo
     if (!(BaseplateThroughPowder)) {
         long int NumCellsPowderLayers =
             (long int)(nx) * (long int)(ny) * (long int)(LayerHeight) * (long int)(NumberOfLayers - 1);
-        long int NumAssignedCellsPowderLayers = std::lround((double)(NumCellsPowderLayers)*PowderDensity);
+        long int NumAssignedCellsPowderLayers =
+            std::lround(round(static_cast<double>(NumCellsPowderLayers) * PowderActiveFraction));
         if (NumAssignedCellsPowderLayers > INT_MAX)
             throw std::runtime_error("Error: A smaller value for powder density is required to avoid potential integer "
                                      "overflow when assigning powder layer GrainID");
@@ -1916,7 +1917,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 // the edges of partially melted powder particles)
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLayer, double ZMin, double deltax,
                 int MyYSlices, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
-                int &NextLayer_FirstEpitaxialGrainID, double PowderDensity) {
+                int &NextLayer_FirstEpitaxialGrainID, double PowderActiveFraction) {
 
     // On all ranks, generate list of powder grain IDs (starting with NextLayer_FirstEpitaxialGrainID, and shuffle them
     // so that their locations aren't sequential and depend on the RNGSeed (different for each layer)
@@ -1925,7 +1926,7 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLa
 
     // TODO: This should be performed on the device, rather than the host
     int PowderLayerCells = nx * ny * LayerHeight;
-    int PowderLayerAssignedCells = round((double)(PowderLayerCells)*PowderDensity);
+    int PowderLayerAssignedCells = round(static_cast<double>(PowderLayerCells) * PowderActiveFraction);
     std::vector<int> PowderGrainIDs(PowderLayerCells, 0);
     for (int n = 0; n < PowderLayerAssignedCells; n++) {
         PowderGrainIDs[n] = n + NextLayer_FirstEpitaxialGrainID; // assigned a nonzero GrainID
@@ -1943,15 +1944,15 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLa
     int PowderBottomZ = PowderTopZ - LayerHeight;
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        std::cout << "Initializing powder layer for Z = " << PowderBottomZ << " through " << PowderTopZ - 1 << "("
+        std::cout << "Initializing powder layer for Z = " << PowderBottomZ << " through " << PowderTopZ - 1 << " ("
                   << nx * ny * (PowderTopZ - PowderBottomZ) << " cells)" << std::endl;
 
     int PowderStart = nx * ny * PowderBottomZ;
     int PowderEnd = nx * ny * PowderTopZ;
     if (id == 0)
-        std::cout << "Powder layer GID limits are " << PowderStart << " and " << PowderEnd << " : "
-                  << " Grain IDs of " << NextLayer_FirstEpitaxialGrainID << " through "
-                  << NextLayer_FirstEpitaxialGrainID + PowderLayerCells - 1 << " will be assigned" << std::endl;
+        std::cout << "Powder layer has " << PowderLayerAssignedCells
+                  << " cells assigned new grain ID values, ranging from " << NextLayer_FirstEpitaxialGrainID
+                  << " through " << NextLayer_FirstEpitaxialGrainID + PowderLayerAssignedCells - 1 << std::endl;
     Kokkos::parallel_for(
         "PowderGrainInit", Kokkos::RangePolicy<>(PowderStart, PowderEnd), KOKKOS_LAMBDA(const int &n) {
             int GlobalZ = n / (nx * ny);

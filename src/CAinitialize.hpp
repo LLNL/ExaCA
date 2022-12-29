@@ -23,8 +23,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput, int &NSpotsX,
                        int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
-                       bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize, bool &LayerwiseTempRead,
-                       bool &PrintBinary);
+                       bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
+                       bool &LayerwiseTempRead, bool &PrintBinary);
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
                          double PowderDensity);
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
@@ -102,7 +102,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
                                     int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder);
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLayer, double ZMin, double deltax,
                 int MyYSlices, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
-                int &NextLayer_FirstEpitaxialGrainID, double PowderDensity);
+                int &NextLayer_FirstEpitaxialGrainID, double PowderActiveFraction);
 void CellTypeInit_Remelt(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI CritTimeStep, int id,
                          int ZBound_Low);
 void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlices, int MyYOffset, int ZBound_Low,
