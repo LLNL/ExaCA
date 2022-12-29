@@ -135,12 +135,13 @@ void testBaseplateInit_FromGrainSpacing() {
     double SubstrateGrainSpacing =
         3.0; // This grain spacing ensures that there will be 1 grain per number of MPI ranks present
     double RNGSeed = 0.0;
-    int NextLayer_FirstEpitaxialGrainID;
+    int NextLayer_FirstEpitaxialGrainID, FirstPowderGrainID;
     // Initialize GrainIDs to 0 on device
     ViewI GrainID("GrainID_Device", LocalDomainSize);
 
     BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyYSlices, MyYOffset, id,
-                                   deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false);
+                                   deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false,
+                                   FirstPowderGrainID);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
@@ -154,9 +155,10 @@ void testBaseplateInit_FromGrainSpacing() {
     for (int i = BaseplateSize; i < LocalDomainSize; i++) {
         EXPECT_EQ(GrainID_H(i), 0);
     }
-    // Next unused GrainID should be the number of grains present in the baseplate plus 2 (since GrainID = 0 is not used
+    // Next unused GrainID should be the number of grains present in the baseplate plus 1 (since GrainID = 0 is not used
     // for any baseplate grains)
-    EXPECT_EQ(NextLayer_FirstEpitaxialGrainID, np + 2);
+    EXPECT_EQ(NextLayer_FirstEpitaxialGrainID, np + 1);
+    EXPECT_EQ(FirstPowderGrainID, NextLayer_FirstEpitaxialGrainID);
 }
 
 void testPowderInit() {

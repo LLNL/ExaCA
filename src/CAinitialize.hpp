@@ -96,10 +96,12 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int np, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, int BufSizeX,
                                      bool AtNorthBoundary, bool AtSouthBoundary);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int pid,
-                            ViewI &GrainID, int nzActive, bool BaseplateThroughPowder);
+                            ViewI &GrainID, int nzActive, bool BaseplateThroughPowder,
+                            int &NextLayer_FirstEpitaxialGrainID, int &FirstPowderGrainID);
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, double *ZMinLayer, double *ZMaxLayer,
                                     int MyYSlices, int MyYOffset, int id, double deltax, ViewI GrainID, double RNGSeed,
-                                    int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder);
+                                    int &NextLayer_FirstEpitaxialGrainID, int nz, bool BaseplateThroughPowder,
+                                    int &FirstPowderGrainID);
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLayer, double ZMin, double deltax,
                 int MyYSlices, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
                 int &NextLayer_FirstEpitaxialGrainID, double PowderDensity);

@@ -38,7 +38,7 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                            std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
                            std::vector<bool> BimodalAnalysis, bool NewOrientationFormatYN, double deltax,
                            ViewF_H GrainUnitVector, ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues,
-                           std::vector<std::string> CSLabels);
+                           std::vector<std::string> CSLabels, int FirstPowderGrainID);
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
                              int ZMin, int ZMax, ViewI3D_H LayerID, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
                              int NumberOfOrientations);

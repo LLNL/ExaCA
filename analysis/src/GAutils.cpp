@@ -60,7 +60,7 @@ int FindTopOrBottom(ViewI3D_H LayerID, int XLow, int XHigh, int YLow, int YHigh,
 }
 
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
-                  bool UseXYZBounds, std::vector<double> &XYZBounds) {
+                  bool UseXYZBounds, std::vector<double> &XYZBounds, int &FirstPowderGrainID) {
 
     std::ifstream InputDataStream;
     InputDataStream.open(LogFile);
@@ -124,8 +124,10 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
     }
 
     // Get number of layers
-    if (SimulationType == "C")
+    if (SimulationType == "C") {
         NumberOfLayers = 1;
+        FirstPowderGrainID = std::numeric_limits<int>::max(); // no powder layer, no grain IDs associated with it
+    }
     else {
         // Keep reading to determine if this is a multilayer simulation of not
         bool FindingNumLayers = true;
@@ -138,8 +140,20 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
                 FindingNumLayers = false;
             }
         }
+        // If the first grain ID value of the powder layer is listed, use this in the analysis. Otherwise, set it to the
+        // max value and ignore it
+        getline(InputDataStream, line);
+        std::size_t FirstPowderGrainIDFound = line.find("Powder");
+        if (FirstPowderGrainIDFound != std::string::npos) {
+            std::size_t PowderColon = line.find(":");
+            std::string PowderGIDString = line.substr(PowderColon + 1, std::string::npos);
+            FirstPowderGrainID = stoi(PowderGIDString, nullptr, 10);
+        }
+        else
+            FirstPowderGrainID = std::numeric_limits<int>::max();
     }
     std::cout << "Number of layers in microstructure data: " << NumberOfLayers << std::endl;
+    std::cout << "Powder layer grain IDs start at " << FirstPowderGrainID << std::endl;
     InputDataStream.close();
 }
 

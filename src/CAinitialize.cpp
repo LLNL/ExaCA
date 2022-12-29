@@ -1761,7 +1761,8 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
 
 // Initializes Grain ID values where the substrate comes from a file
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int id,
-                            ViewI &GrainID_Device, int nzActive, bool BaseplateThroughPowder) {
+                            ViewI &GrainID_Device, int nzActive, bool BaseplateThroughPowder,
+                            int &NextLayer_FirstEpitaxialGrainID, int &FirstPowderGrainID) {
 
     // Assign GrainID values to cells that are part of the substrate - read values from file and initialize using
     // temporary host view
@@ -1800,6 +1801,8 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int M
 
     // Assign GrainID values to all cells - cells that will be part of the melt pool footprint may still need their
     // initial GrainID
+    // First powder layer grain ID is 1 more than the largest grain ID that appears in the file
+    int LocalFirstPowderGrainID = 0;
     for (int k = 0; k < nzS; k++) {
         if (k == BaseplateSizeZ)
             break;
@@ -1811,11 +1814,17 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int M
                     int CAGridLocation;
                     CAGridLocation = k * nx * MyYSlices + i * MyYSlices + (j - MyYOffset);
                     GrainID_Host(CAGridLocation) = stoi(GIDVal, nullptr, 10);
+                    if (GrainID_Host(CAGridLocation) >= FirstPowderGrainID)
+                        LocalFirstPowderGrainID = GrainID_Host(CAGridLocation) + 1;
                 }
             }
         }
     }
     Substrate.close();
+    MPI_Allreduce(&LocalFirstPowderGrainID, &FirstPowderGrainID, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    NextLayer_FirstEpitaxialGrainID =
+        FirstPowderGrainID; // avoid reusing baseplate GrainID values (which spanned 1 through FirstPowderGrainID-1) in
+                            // next layer's powder grain structure
     // Copy GrainIDs read from file to device
     GrainID_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_Host);
     if (id == 0)
@@ -1825,7 +1834,8 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int M
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, double *ZMinLayer, double *ZMaxLayer,
                                     int MyYSlices, int MyYOffset, int id, double deltax, ViewI GrainID, double RNGSeed,
-                                    int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder) {
+                                    int &NextLayer_FirstEpitaxialGrainID, int nz, bool BaseplateThroughPowder,
+                                    int &FirstPowderGrainID) {
 
     // Seed random number generator such that each rank generates the same baseplate grain center locations
     // Calls to Xdist(gen), Ydist(gen), Zdist(gen) return random locations for grain seeds
@@ -1907,7 +1917,9 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
         });
 
     NextLayer_FirstEpitaxialGrainID =
-        NumberOfBaseplateGrains + 2; // avoid reusing GrainID in next layer's powder grain structure
+        NumberOfBaseplateGrains + 1; // avoid reusing baseplate GrainID values (which spanned 1 through
+                                     // NumberOfBaseplateGrains) in next layer's powder grain structure
+    FirstPowderGrainID = NextLayer_FirstEpitaxialGrainID;
     if (id == 0)
         std::cout << "Baseplate grain structure initialized" << std::endl;
 }

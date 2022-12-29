@@ -549,7 +549,7 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                            std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
                            std::vector<bool> BimodalAnalysis, bool NewOrientationFormatYN, double deltax,
                            ViewF_H GrainUnitVector, ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues,
-                           std::vector<std::string> CSLabels) {
+                           std::vector<std::string> CSLabels, int FirstPowderGrainID) {
 
     // Open file of cross-section quantities of interest
     std::ofstream QoIs;
@@ -600,6 +600,7 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                 GrainplotIPF << std::fixed << std::setprecision(6);
             }
             int NucleatedGrainCells = 0;
+            int PowderGrainCells = 0;
             int UnmeltedCells = 0;
             int CrossSectionSize = (Index1High - Index1Low) * (Index2High - Index2Low);
             std::vector<int> CrossSectionGrainIDs(CrossSectionSize);
@@ -628,6 +629,8 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                     // Count number of cells in this cross-section have GrainID < 0 (grains formed via nucleation)
                     if (GrainID(ZLoc, XLoc, YLoc) < 0)
                         NucleatedGrainCells++;
+                    else if (GrainID(ZLoc, XLoc, YLoc) >= FirstPowderGrainID)
+                        PowderGrainCells++;
                     // Add this GrainID to the vector of GrainIDs for this cross-section only if it is not equal to 0
                     if (GrainID(ZLoc, XLoc, YLoc) == 0)
                         UnmeltedCells++;
@@ -660,6 +663,7 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
             }
             double AreaFractNucleatedGrains = DivideCast<double>(NucleatedGrainCells, CrossSectionSize);
             double AreaFractUnmelted = DivideCast<double>(UnmeltedCells, CrossSectionSize);
+            double AreaFractPowderGrains = DivideCast<double>(PowderGrainCells, CrossSectionSize);
             std::cout << "The fraction of the cross-section that went unmelted (not assigned a GrainID) is "
                       << AreaFractUnmelted << std::endl;
             // Resize cross-section to exclude unmelted cells
@@ -667,6 +671,15 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
             CrossSectionGrainIDs.resize(CrossSectionSize);
             QoIs << "The fraction of grains in this cross-section formed via nucleation events is "
                  << AreaFractNucleatedGrains << std::endl;
+            std::cout << "The fraction of grains in this cross-section formed via nucleation events is "
+                      << AreaFractNucleatedGrains << std::endl;
+            // Only print this information if a valid lower limit to powder layer grain IDs was given
+            if (FirstPowderGrainID != std::numeric_limits<int>::max()) {
+                QoIs << "The fraction of grains in this cross-section formed from the powder is "
+                     << AreaFractPowderGrains << std::endl;
+                std::cout << "The fraction of grains in this cross-section formed from the powder is "
+                          << AreaFractPowderGrains << std::endl;
+            }
             if (PrintSectionIPF[n])
                 GrainplotIPF.close();
             if (PrintSectionPF[n]) {

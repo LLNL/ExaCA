@@ -588,7 +588,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
                    double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
                    double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
-                   double XMax, double YMin, double YMax, double ZMin, double ZMax) {
+                   double XMax, double YMin, double YMax, double ZMin, double ZMax, int FirstPowderGrainID,
+                   double PowderDensity) {
 
     int *YSlices = new int[np];
     int *YOffset = new int[np];
@@ -626,15 +627,11 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
             ExaCALog << "The thermal gradient was " << G << " K/m, and the cooling rate " << R << " K/s" << std::endl;
             ExaCALog << "The fraction of surface sites active was " << FractSurfaceSitesActive << std::endl;
         }
-        else if (SimulationType == "S") {
-            ExaCALog << "A total of " << NSpotsX << " in X and " << NSpotsY << " in Y were considered" << std::endl;
-            ExaCALog << "The spots were offset by " << SpotOffset << " microns, and had radii of " << SpotRadius
-                     << " microns" << std::endl;
-            ExaCALog << "This pattern was repeated for " << NumberOfLayers << " layers" << std::endl;
-        }
         else {
             ExaCALog << NumberOfLayers << " layers were simulated, with an offset of " << LayerHeight << " cells"
                      << std::endl;
+            ExaCALog << "Powder layer (if used) grain IDs start at: " << FirstPowderGrainID << std::endl;
+            ExaCALog << "Density of active sites in the powder layer was: " << PowderDensity << std::endl;
             if (RemeltingYN)
                 ExaCALog << "Remelting was included" << std::endl;
             else
@@ -643,13 +640,22 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                 ExaCALog << "The substrate file was " << SubstrateFileName << std::endl;
             else
                 ExaCALog << "The mean substrate grain size was " << SubstrateGrainSpacing << " microns" << std::endl;
-            if (SimulationType == "R") {
-                ExaCALog << "The " << TempFilesInSeries << " temperature file(s) repeated in the " << NumberOfLayers
-                         << " layer simulation were: " << std::endl;
-                for (int i = 0; i < TempFilesInSeries; i++) {
-                    std::cout << temp_paths[i] << std::endl;
-                }
+            if (SimulationType == "S") {
+                ExaCALog << "A total of " << NSpotsX << " in X and " << NSpotsY << " in Y were considered" << std::endl;
+                ExaCALog << "The spots were offset by " << SpotOffset << " microns, and had radii of " << SpotRadius
+                         << " microns" << std::endl;
+            }
+            else {
                 ExaCALog << "The temperature data resolution was " << HT_deltax << " microns" << std::endl;
+                ExaCALog << "The " << TempFilesInSeries << " temperature file(s) repeated in the " << NumberOfLayers
+                         << " layer simulation were: ";
+                for (int i = 0; i < TempFilesInSeries; i++) {
+                    ExaCALog << temp_paths[i];
+                    if (i < TempFilesInSeries - 1)
+                        ExaCALog << ",";
+                    else
+                        ExaCALog << std::endl;
+                }
             }
         }
         ExaCALog << "The decomposition scheme used was a 1D decomposition along the Y direction" << std::endl;

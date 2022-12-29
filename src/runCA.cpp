@@ -195,7 +195,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Initialize the grain structure and cell types - for either a constrained solidification problem, using a
     // substrate from a file, or generating a substrate using the existing CA algorithm
-    int NextLayer_FirstEpitaxialGrainID;
+    int NextLayer_FirstEpitaxialGrainID, FirstPowderGrainID;
     if (SimulationType == "C") {
         SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
                                         NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID,
@@ -205,11 +205,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     else {
         if (UseSubstrateFile)
             SubstrateInit_FromFile(SubstrateFileName, nz, nx, MyYSlices, MyYOffset, id, GrainID, nzActive,
-                                   BaseplateThroughPowder);
+                                   BaseplateThroughPowder, NextLayer_FirstEpitaxialGrainID, FirstPowderGrainID);
         else
             BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyYSlices, MyYOffset,
                                            id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz,
-                                           BaseplateThroughPowder);
+                                           BaseplateThroughPowder, FirstPowderGrainID);
         // Separate routine for active cell data structure init for problems other than constrained solidification
         if (RemeltingYN)
             CellTypeInit_Remelt(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
@@ -514,5 +514,5 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
                   InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
                   CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin,
-                  ZMax);
+                  ZMax, FirstPowderGrainID, PowderDensity);
 }

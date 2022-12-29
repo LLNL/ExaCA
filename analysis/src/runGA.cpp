@@ -47,9 +47,9 @@ int main(int argc, char *argv[]) {
 
         // Given the input file name, parse the paraview file for the cell size, x, y, and z dimensions, number of
         // layers
-        int nx, ny, nz, NumberOfLayers;
+        int nx, ny, nz, NumberOfLayers, FirstPowderGrainID;
         std::vector<double> XYZBounds(6);
-        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, false, XYZBounds);
+        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, false, XYZBounds, FirstPowderGrainID);
 
         // Allocate memory blocks for GrainID and LayerID data
         ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
         PrintCrossSectionData(NumberOfCrossSections, OutputFileName, CrossSectionPlane, CrossSectionLocation, nx, ny,
                               nz, NumberOfOrientations, GrainID, PrintSectionPF, PrintSectionIPF, BimodalAnalysis,
                               NewOrientationFormatYN, deltax, GrainUnitVector_Host, GrainEulerAngles_Host,
-                              GrainRGBValues_Host, CSLabels);
+                              GrainRGBValues_Host, CSLabels, FirstPowderGrainID);
 
         // Part 3: Representative volume grain statistics
         // Print data to std::out and if analysis option 0 is toggled, to the file

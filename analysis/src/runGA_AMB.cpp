@@ -41,9 +41,9 @@ int main(int argc, char *argv[]) {
     {
         // Given the input file name, parse the paraview file for the cell size, x, y, and z dimensions, number of
         // layers, X, Y, Z lower and upper bounds
-        int nx, ny, nz, NumberOfLayers;
+        int nx, ny, nz, NumberOfLayers, FirstPowderGrainID;
         std::vector<double> XYZBounds(6);
-        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds);
+        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds, FirstPowderGrainID);
 
         // Allocate memory blocks for GrainID and LayerID data
         ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
@@ -84,7 +84,8 @@ int main(int argc, char *argv[]) {
         std::vector<std::string> CSLabels = {CSNameXY, CSNameYZ};
         PrintCrossSectionData(NumberOfCrossSections, BaseFileName, CrossSectionPlane, CrossSectionLocation, nx, ny, nz,
                               NumberOfOrientations, GrainID, PrintSectionPF, PrintSectionIPF, BimodalAnalysis, true,
-                              deltax, GrainUnitVector_Host, GrainEulerAngles_Host, GrainRGBValues_Host, CSLabels);
+                              deltax, GrainUnitVector_Host, GrainEulerAngles_Host, GrainRGBValues_Host, CSLabels,
+                              FirstPowderGrainID);
     }
     // Finalize kokkos and end program
     Kokkos::finalize();
