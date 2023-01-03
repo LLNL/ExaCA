@@ -25,7 +25,8 @@ int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, in
 // These are used in reading/parsing ExaCA microstructure data
 bool checkLogFormat(std::string LogFile);
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
-                  std::vector<double> &XYZBounds);
+                  std::vector<double> &XYZBounds, std::string &RotationFilename, std::string &EulerAnglesFilename,
+                  std::string &RGBFilename, bool OrientationFilesInInput);
 void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
                       bool UseXYZBounds, std::vector<double> &XYZBounds);
 void ReadASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest);
@@ -33,7 +34,7 @@ void ReadBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz, Vie
                      std::string FieldName);
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
                     std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
-                    std::string &RGBFilename);
+                    std::string &RGBFilename, bool &OrientationFilesInInput);
 void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID);
 void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, int &NumberOfOrientations,
                        bool *AnalysisTypes, std::vector<int> &XLow_RVE, std::vector<int> &XHigh_RVE,
@@ -45,8 +46,8 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        std::vector<bool> &BimodalAnalysis, std::vector<std::string> &CSLabels);
 std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector);
 
-void CheckInputFiles(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
-                     std::string &RotationFilename, std::string &RGBFilename, std::string &EulerAnglesFilename);
+void CheckInputFiles(std::string LogFile, std::string MicrostructureFile, std::string &RotationFilename,
+                     std::string &RGBFilename, std::string &EulerAnglesFilename);
 std::vector<int> FindUniqueGrains(std::vector<int> GrainIDVector);
 template <typename ReturnType, typename FirstType, typename SecondType>
 ReturnType DivideCast(FirstType Int1, SecondType Int2) {

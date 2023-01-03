@@ -78,6 +78,14 @@ bool parseInputFromList(std::string line, std::vector<std::string> InputKeys, st
     return FoundInput;
 }
 
+// Given a string, return the value following the colon with the whitespace removed
+std::string parseInputAfterColon(std::string line) {
+    std::size_t colon = line.find(":");
+    std::string lineaftercolon = line.substr(colon + 1, std::string::npos);
+    lineaftercolon = removeWhitespace(lineaftercolon);
+    return lineaftercolon;
+}
+
 // Get a line from a file, verify the required input was included with the correct format, and parse the input
 std::string parseInput(std::ifstream &stream, std::string key) {
 

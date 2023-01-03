@@ -588,7 +588,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
                    double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
                    double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
-                   double XMax, double YMin, double YMax, double ZMin, double ZMax) {
+                   double XMax, double YMin, double YMax, double ZMin, double ZMax, std::string GrainOrientationFile) {
 
     int *YSlices = new int[np];
     int *YOffset = new int[np];
@@ -610,6 +610,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         ExaCALog << "Init/run/output timing breakdown (in seconds): " << InitTime << "/" << RunTime << "/" << OutTime
                  << std::endl;
         ExaCALog << "Simulation was type: " << SimulationType << std::endl;
+        ExaCALog << "Grain orientation file: " << GrainOrientationFile << std::endl;
         ExaCALog << "Domain size in x: " << nx << std::endl;
         ExaCALog << "Domain size in y: " << ny << std::endl;
         ExaCALog << "Domain size in z: " << nz << std::endl;

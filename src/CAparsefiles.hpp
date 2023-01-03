@@ -21,6 +21,7 @@ void skipLines(std::ifstream &stream, std::string seperator);
 std::string removeWhitespace(std::string line, int pos = -1);
 bool parseInputFromList(std::string line, std::vector<std::string> InputKeys, std::vector<std::string> &ParsedInputs,
                         int NumInputs = 1);
+std::string parseInputAfterColon(std::string line);
 std::string parseInput(std::ifstream &stream, std::string key);
 bool getInputBool(std::string val_input);
 int getInputInt(std::string val_input);
