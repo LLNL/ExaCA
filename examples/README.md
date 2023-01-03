@@ -49,10 +49,6 @@ The below lines are required regardless of problem type. They can be in any orde
 |                        | S for spot melt array problem (fixed thermal gradient/constant cooling rate for each hemispherical spot)
 |                        | R for use of temperature data provided in the appropriate format (see README file in examples/Temperatures)
 |                        | M should be appended to problem type if multiple melting and solidifcation events are desired (i.e, SM or RM)
-| Decomposition strategy | 1 for a 1D domain decomposition along the Y direction
-|                        | 2 for a decomposition along the Y direction, with a single partiton along the X direction
-|                        | 3 for a decomposition with roughly equal partitions along the X and Y directions
-|                        | If there is an odd number of processors, decomposition pattern defaults to 1
 | Material               | Name of material file in examples/Materials used (see README file in examples/Materials)
 | Cell size              | CA cell size, in microns
 | Heterogeneous nucleation density     | Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
