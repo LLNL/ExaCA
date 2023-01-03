@@ -29,7 +29,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead,
         PrintBinary;
     float SubstrateGrainSpacing;
-    double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderDensity;
+    double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction;
     std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     std::vector<std::string> temp_paths;
 
@@ -40,7 +40,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
                       PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                       PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
-                      BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempRead, PrintBinary);
+                      BaseplateThroughPowder, PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary);
     // Read material data.
     InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax);
 
@@ -86,7 +86,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
     if ((SimulationType == "R") || (SimulationType == "S"))
-        checkPowderOverflow(nx, ny, LayerHeight, NumberOfLayers, BaseplateThroughPowder, PowderDensity);
+        checkPowderOverflow(nx, ny, LayerHeight, NumberOfLayers, BaseplateThroughPowder, PowderActiveFraction);
 
     // Decompose the domain into subdomains on each MPI rank: Calculate MyYSlices and MyYOffset for each rank, where
     // each subdomain contains "MyYSlices" in Y, offset from the full domain origin by "MyYOffset" cells in Y
@@ -424,7 +424,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // file, and the powder layers have already been initialized
             if ((!(UseSubstrateFile)) && (!(BaseplateThroughPowder)))
                 PowderInit(layernumber + 1, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyYSlices, MyYOffset, id,
-                           GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, PowderDensity);
+                           GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, PowderActiveFraction);
 
             // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
             if (RemeltingYN)
