@@ -678,6 +678,10 @@ void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &Ne
                          int &NeighborRank_South, int &nx, int &ny, int &nz, long int &LocalDomainSize,
                          bool &AtNorthBoundary, bool &AtSouthBoundary) {
 
+    // Compare total MPI ranks to total Y cells.
+    if (np > ny)
+        throw std::runtime_error("Error: Cannot run with more MPI ranks than cells in Y (decomposition direction).");
+
     // Determine which subdomains are at which locations on the grid relative to the others
     InitialDecomposition(id, np, NeighborRank_North, NeighborRank_South, AtNorthBoundary, AtSouthBoundary);
     // Determine, for each MPI process id, the local grid size in x and y (and the offsets in x and y relative to the
