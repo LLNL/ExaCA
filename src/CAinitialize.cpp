@@ -34,8 +34,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput, int &NSpotsX,
                        int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
-                       bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize, bool &LayerwiseTempRead,
-                       bool &PrintBinary) {
+                       bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
+                       bool &LayerwiseTempRead, bool &PrintBinary) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -246,13 +246,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         else
             BaseplateThroughPowder = getInputBool(OptionalInputsRead_ProblemSpecific[3]);
         if ((OptionalInputsRead_ProblemSpecific[4].empty()))
-            PowderDensity = 1.0; // defaults to a unique grain at each site in the powder layers
+            PowderActiveFraction = 1.0; // defaults to a unique grain at each site in the powder layers
         else {
-            PowderDensity =
+            PowderActiveFraction =
                 getInputDouble(OptionalInputsRead_ProblemSpecific[4], 12) *
                 pow(deltax, 3); // powder density is given as a density per unit volume, normalized by 10^12 m^-3 -->
-                                // convert this into a density of sites active on the CA grid (0 to 1)
-            if ((PowderDensity < 0.0) || (PowderDensity > 1.0))
+                                // convert this into a fraction of sites active on the CA grid (0 to 1)
+            if ((PowderActiveFraction < 0.0) || (PowderActiveFraction > 1.0))
                 throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
                                          "than 1/(CA cell volume)");
             if (BaseplateThroughPowder)
@@ -309,13 +309,13 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         else
             BaseplateThroughPowder = getInputBool(OptionalInputsRead_ProblemSpecific[2]);
         if ((OptionalInputsRead_ProblemSpecific[3].empty()))
-            PowderDensity = 1.0; // defaults to a unique grain at each site in the powder layers
+            PowderActiveFraction = 1.0; // defaults to a unique grain at each site in the powder layers
         else {
-            PowderDensity =
+            PowderActiveFraction =
                 getInputDouble(OptionalInputsRead_ProblemSpecific[3], 12) *
                 pow(deltax, 3); // powder density is given as a density per unit volume, normalized by 10^12 m^-3 -->
                                 // convert this into a density of sites active on the CA grid (0 to 1)
-            if ((PowderDensity < 0.0) || (PowderDensity > 1.0))
+            if ((PowderActiveFraction < 0.0) || (PowderActiveFraction > 1.0))
                 throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
                                          "than 1/(CA cell volume)");
             if (BaseplateThroughPowder)
@@ -472,7 +472,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 }
 
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
-                         double PowderDensity) {
+                         double PowderActiveFraction) {
 
     // Check to make sure powder grain density is compatible with the number of powder sites
     // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur when
@@ -480,7 +480,8 @@ void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bo
     if (!(BaseplateThroughPowder)) {
         long int NumCellsPowderLayers =
             (long int)(nx) * (long int)(ny) * (long int)(LayerHeight) * (long int)(NumberOfLayers - 1);
-        long int NumAssignedCellsPowderLayers = std::lround((double)(NumCellsPowderLayers)*PowderDensity);
+        long int NumAssignedCellsPowderLayers =
+            std::lround(round(static_cast<double>(NumCellsPowderLayers) * PowderActiveFraction));
         if (NumAssignedCellsPowderLayers > INT_MAX)
             throw std::runtime_error("Error: A smaller value for powder density is required to avoid potential integer "
                                      "overflow when assigning powder layer GrainID");
@@ -500,6 +501,17 @@ void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ) {
     NeighborZ = {0, 0, 0, 1, -1, 1, 1, -1, -1, 1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, -1};
 }
 
+// Check if the temperature data is in ASCII or binary format
+bool checkTemperatureFileFormat(std::string tempfile_thislayer) {
+    bool BinaryInputData;
+    std::size_t found = tempfile_thislayer.find(".catemp");
+    if (found == std::string::npos)
+        BinaryInputData = false;
+    else
+        BinaryInputData = true;
+    return BinaryInputData;
+}
+
 // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading temperature
 // data files and parsing the coordinates
 void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
@@ -517,9 +529,9 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         XMin = std::numeric_limits<double>::max();
         YMin = std::numeric_limits<double>::max();
         ZMin = std::numeric_limits<double>::max();
-        XMax = std::numeric_limits<double>::min();
-        YMax = std::numeric_limits<double>::min();
-        ZMax = std::numeric_limits<double>::min();
+        XMax = std::numeric_limits<double>::lowest();
+        YMax = std::numeric_limits<double>::lowest();
+        ZMax = std::numeric_limits<double>::lowest();
 
         // Read the first temperature file, first line to determine if the "new" OpenFOAM output format (with a 1 line
         // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
@@ -541,77 +553,35 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         for (int LayerReadCount = 1; LayerReadCount <= LayersToRead; LayerReadCount++) {
 
             std::string tempfile_thislayer = temp_paths[LayerReadCount - 1];
-            std::ifstream TemperatureFile;
-            TemperatureFile.open(tempfile_thislayer);
-
-            // Read the header line data
-            // Make sure the first line contains all required column names: x, y, z, tm, tl, cr
-            // Check 2 mixes of lower and uppercase letters/similar possible column names just in case
-            std::string HeaderLine;
-            getline(TemperatureFile, HeaderLine);
-            checkForHeaderValues(HeaderLine);
-
-            double XMin_ThisLayer = std::numeric_limits<double>::max();
-            double YMin_ThisLayer = std::numeric_limits<double>::max();
-            double ZMin_ThisLayer = std::numeric_limits<double>::max();
-            double XMax_ThisLayer = std::numeric_limits<double>::min();
-            double YMax_ThisLayer = std::numeric_limits<double>::min();
-            double ZMax_ThisLayer = std::numeric_limits<double>::min();
-
-            // Units are assumed to be in meters, meters, seconds, seconds, and K/second
-            std::vector<double> XCoordinates(1000000), YCoordinates(1000000), ZCoordinates(1000000);
-            long unsigned int XYZPointCounter = 0;
-            while (!TemperatureFile.eof()) {
-                std::vector<std::string> ParsedLine(3); // Get x, y, z - ignore tm, tl, cr
-                std::string ReadLine;
-                if (!getline(TemperatureFile, ReadLine))
-                    break;
-                splitString(ReadLine, ParsedLine, 6);
-                // Only get x, y, and z values from ParsedLine
-                XCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[0]);
-                YCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[1]);
-                ZCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[2]);
-                XYZPointCounter++;
-                if (XYZPointCounter == XCoordinates.size()) {
-                    XCoordinates.resize(XYZPointCounter + 1000000);
-                    YCoordinates.resize(XYZPointCounter + 1000000);
-                    ZCoordinates.resize(XYZPointCounter + 1000000);
-                }
-            }
-            XCoordinates.resize(XYZPointCounter);
-            YCoordinates.resize(XYZPointCounter);
-            ZCoordinates.resize(XYZPointCounter);
-            TemperatureFile.close();
-            // Min/max x, y, and z coordinates from this layer's data
-            XMin_ThisLayer = *min_element(XCoordinates.begin(), XCoordinates.end());
-            YMin_ThisLayer = *min_element(YCoordinates.begin(), YCoordinates.end());
-            ZMin_ThisLayer = *min_element(ZCoordinates.begin(), ZCoordinates.end());
-            XMax_ThisLayer = *max_element(XCoordinates.begin(), XCoordinates.end());
-            YMax_ThisLayer = *max_element(YCoordinates.begin(), YCoordinates.end());
-            ZMax_ThisLayer = *max_element(ZCoordinates.begin(), ZCoordinates.end());
+            // Get min and max x coordinates in this file, which can be a binary or ASCII input file
+            // binary file type uses extension .catemp, all other file types assumed to be comma-separated ASCII input
+            bool BinaryInputData = checkTemperatureFileFormat(tempfile_thislayer);
+            // { Xmin, Xmax, Ymin, Ymax, Zmin, Zmax }
+            std::array<double, 6> XYZMinMax_ThisLayer =
+                parseTemperatureCoordinateMinMax(tempfile_thislayer, BinaryInputData);
 
             // Based on the input file's layer offset, adjust ZMin/ZMax from the temperature data coordinate
             // system to the multilayer CA coordinate system Check to see in the XYZ bounds for this layer are
             // also limiting for the entire multilayer CA coordinate system
-            ZMin_ThisLayer += deltax * LayerHeight * (LayerReadCount - 1);
-            ZMax_ThisLayer += deltax * LayerHeight * (LayerReadCount - 1);
-            if (XMin_ThisLayer < XMin)
-                XMin = XMin_ThisLayer;
-            if (XMax_ThisLayer > XMax)
-                XMax = XMax_ThisLayer;
-            if (YMin_ThisLayer < YMin)
-                YMin = YMin_ThisLayer;
-            if (YMax_ThisLayer > YMax)
-                YMax = YMax_ThisLayer;
-            if (ZMin_ThisLayer < ZMin)
-                ZMin = ZMin_ThisLayer;
-            if (ZMax_ThisLayer > ZMax)
-                ZMax = ZMax_ThisLayer;
-            ZMinLayer[LayerReadCount - 1] = ZMin_ThisLayer;
-            ZMaxLayer[LayerReadCount - 1] = ZMax_ThisLayer;
+            XYZMinMax_ThisLayer[4] += deltax * LayerHeight * (LayerReadCount - 1);
+            XYZMinMax_ThisLayer[5] += deltax * LayerHeight * (LayerReadCount - 1);
+            if (XYZMinMax_ThisLayer[0] < XMin)
+                XMin = XYZMinMax_ThisLayer[0];
+            if (XYZMinMax_ThisLayer[1] > XMax)
+                XMax = XYZMinMax_ThisLayer[1];
+            if (XYZMinMax_ThisLayer[2] < YMin)
+                YMin = XYZMinMax_ThisLayer[2];
+            if (XYZMinMax_ThisLayer[3] > YMax)
+                YMax = XYZMinMax_ThisLayer[3];
+            if (XYZMinMax_ThisLayer[4] < ZMin)
+                ZMin = XYZMinMax_ThisLayer[4];
+            if (XYZMinMax_ThisLayer[5] > ZMax)
+                ZMax = XYZMinMax_ThisLayer[5];
+            ZMinLayer[LayerReadCount - 1] = XYZMinMax_ThisLayer[4];
+            ZMaxLayer[LayerReadCount - 1] = XYZMinMax_ThisLayer[5];
             if (id == 0)
-                std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << ZMin_ThisLayer << " " << ZMax_ThisLayer
-                          << std::endl;
+                std::cout << "Layer = " << LayerReadCount << " Z Bounds are " << XYZMinMax_ThisLayer[4] << " "
+                          << XYZMinMax_ThisLayer[5] << std::endl;
         }
         // Extend domain in Z (build) direction if the number of layers are simulated is greater than the number
         // of temperature files read
@@ -677,6 +647,10 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
 void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &NeighborRank_North,
                          int &NeighborRank_South, int &nx, int &ny, int &nz, long int &LocalDomainSize,
                          bool &AtNorthBoundary, bool &AtSouthBoundary) {
+
+    // Compare total MPI ranks to total Y cells.
+    if (np > ny)
+        throw std::runtime_error("Error: Cannot run with more MPI ranks than cells in Y (decomposition direction).");
 
     // Determine which subdomains are at which locations on the grid relative to the others
     InitialDecomposition(id, np, NeighborRank_North, NeighborRank_South, AtNorthBoundary, AtSouthBoundary);
@@ -749,59 +723,13 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
         }
         else
             tempfile_thislayer = temp_paths[LayerReadCount];
-        std::ifstream TemperatureFile;
-        TemperatureFile.open(tempfile_thislayer);
+
         FirstValue[LayerReadCount] = NumberOfTemperatureDataPoints;
-
-        std::string DummyLine;
-        // ignore header line
-        getline(TemperatureFile, DummyLine);
-
-        // Read data from the remaining lines - values should be separated by commas
-        // Space separated data is no longer accepted by ExaCA
-        double ZMin_ThisLayer = std::numeric_limits<double>::max();
-        double ZMax_ThisLayer = std::numeric_limits<double>::min();
-        while (!TemperatureFile.eof()) {
-            std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
-            std::string ReadLine;
-            if (!getline(TemperatureFile, ReadLine))
-                break;
-            splitString(ReadLine, ParsedLine, 6);
-            // Only get y values from ParsedLine, to check if this point is stored on this rank
-            double YTemperaturePoint = getInputDouble(ParsedLine[1]);
-            // Check the CA grid positions of the data point to see which rank(s) should store it
-            int YInt = round((YTemperaturePoint - YMin) / deltax);
-            if ((YInt >= LowerYBound) && (YInt <= UpperYBound)) {
-                // This data point is inside the bounds of interest for this MPI rank: Store the previously
-                // parsed/converted y coordinate, get and convert the corresponding x, z, tm, tl, and cr vals, and
-                // store inside of RawData
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[0]);
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = YTemperaturePoint;
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[2]);
-                double Z = RawData[NumberOfTemperatureDataPoints];
-                if (Z < ZMin_ThisLayer)
-                    ZMin_ThisLayer = Z;
-                else if (Z > ZMax_ThisLayer)
-                    ZMax_ThisLayer = Z;
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[3]);
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[4]);
-                NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[5]);
-                NumberOfTemperatureDataPoints++;
-                // Increment view for number of times this cell coordinate has appeared in the file
-                // Since ZMinLayer is not the raw "smallest Z value" from the temperature file, but rather is the
-                // "CA-adjusted" smallest Z value with each layer being offset by deltax * LayerHeight meters, this same
-                // adjustment must be made to the raw Z value read from the file here
-                if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
-                    int OldSize = RawData.size();
-                    RawData.resize(OldSize + 1000000);
-                }
-            }
-        }
+        // Read and parse temperature file for either binary or ASCII, storing the appropriate values on each MPI rank
+        // within RawData and incrementing NumberOfTemperatureDataPoints appropriately
+        bool BinaryInputData = checkTemperatureFileFormat(tempfile_thislayer);
+        parseTemperatureData(tempfile_thislayer, YMin, deltax, LowerYBound, UpperYBound, RawData,
+                             NumberOfTemperatureDataPoints, BinaryInputData);
         LastValue[LayerReadCount] = NumberOfTemperatureDataPoints;
     } // End loop over all files read for all layers
     RawData.resize(NumberOfTemperatureDataPoints);
@@ -1186,7 +1114,7 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
                                double deltat, int, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
                                double XMin, double YMin, double ZMin, double *ZMinLayer, double *ZMaxLayer,
                                int LayerHeight, int NumberOfLayers, int *FinishTimeStep, double FreezingRange,
-                               ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData) {
+                               ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData, int ny) {
 
     // These views are initialized to zeros on the host, filled with data, and then copied to the device for layer
     // "layernumber"
@@ -1201,6 +1129,9 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
     // from HT_deltax to deltax
     int LowerYBound = MyYOffset - (MyYOffset % HTtoCAratio);
     int UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + MyYSlices - 1) % HTtoCAratio);
+    // Make sure that upper Y bound doesn't extend beyond simulation domain
+    if (UpperYBound >= ny)
+        UpperYBound = ny - 1;
 
     // LayerID = -1 for cells that don't solidify as part of any layer of the multilayer problem
     Kokkos::deep_copy(LayerID_Host, -1);
@@ -1306,16 +1237,16 @@ void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, 
                     int HighX = LowX + HTtoCAratio;
                     double FHighX = (double)(i - LowX) / (double)(HTtoCAratio);
                     double FLowX = 1.0 - FHighX;
-                    if (HighX > nx)
-                        HighX = nx;
+                    if (HighX >= nx)
+                        HighX = LowX;
 
                     for (int j = 0; j <= UpperYBound - LowerYBound; j++) {
                         int LowY = j - (j % HTtoCAratio);
                         int HighY = LowY + HTtoCAratio;
                         double FHighY = (float)(j - LowY) / (float)(HTtoCAratio);
                         double FLowY = 1.0 - FHighY;
-                        if (HighY >= UpperYBound - LowerYBound)
-                            HighY = UpperYBound - LowerYBound;
+                        if (HighY > UpperYBound - LowerYBound)
+                            HighY = LowY;
                         double Pt1 = CritTL[LowZ][LowX][LowY];
                         double Pt2 = CritTL[LowZ][HighX][LowY];
                         double Pt12 = FLowX * Pt1 + FHighX * Pt2;
@@ -1824,10 +1755,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
                                     int MyYSlices, int MyYOffset, int id, double deltax, ViewI GrainID, double RNGSeed,
                                     int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder) {
 
-    // Seed random number generator such that each rank generates the same baseplate grain center locations
-    // Calls to Xdist(gen), Ydist(gen), Zdist(gen) return random locations for grain seeds
-    // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
-    // -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5
+    // Number of cells to assign GrainID
     int BaseplateSizeZ; // in CA cells
     if (BaseplateThroughPowder)
         BaseplateSizeZ = nz; // baseplate microstructure used as entire domain's initial condition
@@ -1835,72 +1763,106 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
         BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) +
                          1; // baseplate microstructure is layer 0's initial condition
     std::mt19937_64 gen(RNGSeed);
-    std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
-    std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
-    std::uniform_real_distribution<double> Zdist(-0.49999, BaseplateSizeZ - 0.5);
 
-    // Based on the baseplate size (domain of first layer) and the substrate grain spacing, determine the number of
-    // baseplate grains
-    double BaseplateSize = nx * ny * BaseplateSizeZ * pow(deltax, 3) * pow(10, 18); // in cubic microns
-    double SubstrateGrainSize = pow(SubstrateGrainSpacing, 3);                      // in cubic microns
-    int NumberOfBaseplateGrains = round(BaseplateSize / SubstrateGrainSize);
-    // Need at least 1 baseplate grain
+    // Based on the baseplate volume (convert to cubic microns to match units) and the substrate grain spacing,
+    // determine the number of baseplate grains
+    int BaseplateVolume = nx * ny * BaseplateSizeZ;
+    double BaseplateVolume_microns = BaseplateVolume * pow(deltax, 3) * pow(10, 18);
+    double SubstrateMeanGrainVolume_microns = pow(SubstrateGrainSpacing, 3);
+    int NumberOfBaseplateGrains = round(BaseplateVolume_microns / SubstrateMeanGrainVolume_microns);
+    // Need at least 1 baseplate grain, cannot have more baseplate grains than cells in the baseplate
     NumberOfBaseplateGrains = std::max(NumberOfBaseplateGrains, 1);
-    ViewI_H NumBaseplateGrains_Host(Kokkos::ViewAllocateWithoutInitializing("NBaseplate_Host"), 1);
-    NumBaseplateGrains_Host(0) = NumberOfBaseplateGrains;
+    NumberOfBaseplateGrains = std::min(NumberOfBaseplateGrains, nx * ny * BaseplateSizeZ);
     // TODO: Use device RNG to generate baseplate grain locations, instead of host with copy
-    // Store grain centers as float coordinates, not integer cell locations, for more precise substrate generation
-    ViewF_H BaseplateGrainX_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX_Host"),
-                                 nx * ny * BaseplateSizeZ);
-    ViewF_H BaseplateGrainY_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY_Host"),
-                                 nx * ny * BaseplateSizeZ);
-    ViewF_H BaseplateGrainZ_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ_Host"),
-                                 nx * ny * BaseplateSizeZ);
-
-    // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain
-    // centers
-    if (id == 0)
-        std::cout << "Baseplate spanning domain coordinates Z = 0 through " << BaseplateSizeZ - 1 << std::endl;
-    for (int n = 0; n < NumberOfBaseplateGrains; n++) {
-        BaseplateGrainX_Host(n) = Xdist(gen);
-        BaseplateGrainY_Host(n) = Ydist(gen);
-        BaseplateGrainZ_Host(n) = Zdist(gen);
+    // List of potential grain IDs (starting at 1) - index corresponds to the associated CA cell location
+    // Assign positive values for indices 0 through NumberOfBaseplateGrains-1, assign zeros to the remaining indices
+    std::vector<int> BaseplateGrainLocations(BaseplateVolume);
+    std::vector<int> BaseplateGrainIDs(BaseplateVolume);
+    for (int i = 0; i < BaseplateVolume; i++) {
+        BaseplateGrainLocations[i] = i;
+        if (i < NumberOfBaseplateGrains)
+            BaseplateGrainIDs[i] = i + 1;
+        else
+            BaseplateGrainIDs[i] = 0;
     }
-    if (id == 0)
-        std::cout << "Number of baseplate grains: " << NumBaseplateGrains_Host(0) << std::endl;
-    ViewI NumBaseplateGrains_Device =
-        Kokkos::create_mirror_view_and_copy(device_memory_space(), NumBaseplateGrains_Host);
-    ViewF BaseplateGrainX_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainX_Host);
-    ViewF BaseplateGrainY_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainY_Host);
-    ViewF BaseplateGrainZ_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainZ_Host);
+    // Shuffle list of grain IDs
+    std::shuffle(BaseplateGrainIDs.begin(), BaseplateGrainIDs.end(), gen);
 
-    //  Initialize GrainIDs on device for baseplate
+    // Create views of baseplate grain IDs and locations - copying BaseplateGrainIDs and BaseplateGrainLocations values
+    // only for indices where BaseplateGrainIDs(i) != 0 (cells with BaseplateGrainIDs(i) = 0 were not assigned baseplate
+    // center locations)
+    ViewI_H BaseplateGrainLocations_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainLocations_Host"),
+                                         NumberOfBaseplateGrains);
+    ViewI_H BaseplateGrainIDs_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainIDs_Host"),
+                                   NumberOfBaseplateGrains);
+    int count = 0;
+    for (int i = 0; i < BaseplateVolume; i++) {
+        if (BaseplateGrainIDs[i] != 0) {
+            BaseplateGrainLocations_Host(count) = BaseplateGrainLocations[i];
+            BaseplateGrainIDs_Host(count) = BaseplateGrainIDs[i];
+            count++;
+        }
+    }
+
+    // Copy baseplate views to the device
+    ViewI BaseplateGrainIDs_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainIDs_Host);
+    ViewI BaseplateGrainLocations_Device =
+        Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainLocations_Host);
+    if (id == 0) {
+        std::cout << "Baseplate spanning domain coordinates Z = 0 through " << BaseplateSizeZ - 1 << std::endl;
+        std::cout << "Number of baseplate grains: " << NumberOfBaseplateGrains << std::endl;
+    }
+
+    // First, assign cells that are associated with grain centers the appropriate non-zero GrainID values (assumes
+    // GrainID values were initialized to zeros)
+    Kokkos::parallel_for(
+        "BaseplateInit", NumberOfBaseplateGrains, KOKKOS_LAMBDA(const int &n) {
+            int BaseplateGrainLoc = BaseplateGrainLocations_Device(n);
+            // x, y, z associated with baseplate grain "n", at 1D coordinate "BaseplateGrainLoc"
+            int z_n = BaseplateGrainLoc / (nx * ny);
+            int Rem = BaseplateGrainLoc % (nx * ny);
+            int x_n = Rem / ny;
+            int y_n = Rem % ny;
+            if ((y_n >= MyYOffset) && (y_n < MyYOffset + MyYSlices)) {
+                // This grain is associated with a cell on this MPI rank
+                int CAGridLocation = z_n * nx * MyYSlices + x_n * MyYSlices + (y_n - MyYOffset);
+                GrainID(CAGridLocation) = BaseplateGrainIDs_Device(n);
+            }
+        });
+    Kokkos::fence();
+    // For cells that are not associated with grain centers, assign them the GrainID of the nearest grain center
     Kokkos::parallel_for(
         "BaseplateGen",
         Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
             {0, 0, 0}, {BaseplateSizeZ, nx, MyYSlices}),
         KOKKOS_LAMBDA(const int k, const int i, const int j) {
-            int GlobalY = j + MyYOffset;
             int CAGridLocation = k * nx * MyYSlices + i * MyYSlices + j;
-            // All cells are given GrainID values, even if they're part of the melt pool footprint, as they may need the
-            // values later if at the interface This cell is part of the substrate - determine which grain center the
-            // cell is closest to, in order to assign it a grain ID If closest to grain "n", assign grain ID "n+1"
-            // (grain ID = 0 is not used)
-            float MinDistanceToThisGrain = (float)(nx * ny * BaseplateSizeZ);
-            int ClosestGrainIndex = -1;
-            for (int n = 0; n < NumBaseplateGrains_Device(0); n++) {
-                float DistanceToThisGrainX = (float)(std::abs(BaseplateGrainX_Device(n) - i));
-                float DistanceToThisGrainY = (float)(std::abs(BaseplateGrainY_Device(n) - GlobalY));
-                float DistanceToThisGrainZ = (float)(std::abs(BaseplateGrainZ_Device(n) - k));
-                float DistanceToThisGrain =
-                    sqrtf(DistanceToThisGrainX * DistanceToThisGrainX + DistanceToThisGrainY * DistanceToThisGrainY +
-                          DistanceToThisGrainZ * DistanceToThisGrainZ);
-                if (DistanceToThisGrain < MinDistanceToThisGrain) {
-                    ClosestGrainIndex = n;
-                    MinDistanceToThisGrain = DistanceToThisGrain;
+            if (GrainID(CAGridLocation) == 0) {
+                // This cell needs to be assigned a GrainID value
+                // Check each possible baseplate grain center to find the closest one
+                float MinDistanceToThisGrain = nx * ny * BaseplateSizeZ;
+                int MinDistanceToThisGrain_GrainID = 0;
+                for (int n = 0; n < NumberOfBaseplateGrains; n++) {
+                    // Baseplate grain center at x_n, y_n, z_n - how far is the cell at i, j+MyYOffset, k?
+                    int z_n = BaseplateGrainLocations_Device(n) / (nx * ny);
+                    int Rem = BaseplateGrainLocations_Device(n) % (nx * ny);
+                    int x_n = Rem / ny;
+                    int y_n = Rem % ny;
+                    float DistanceToThisGrainX = i - x_n;
+                    float DistanceToThisGrainY = (j + MyYOffset) - y_n;
+                    float DistanceToThisGrainZ = k - z_n;
+                    float DistanceToThisGrain = sqrtf(DistanceToThisGrainX * DistanceToThisGrainX +
+                                                      DistanceToThisGrainY * DistanceToThisGrainY +
+                                                      DistanceToThisGrainZ * DistanceToThisGrainZ);
+                    if (DistanceToThisGrain < MinDistanceToThisGrain) {
+                        // This is the closest grain center to cell at "CAGridLocation" - update values
+                        MinDistanceToThisGrain = DistanceToThisGrain;
+                        MinDistanceToThisGrain_GrainID = BaseplateGrainIDs_Device(n);
+                    }
                 }
+                // GrainID associated with the closest baseplate grain center
+                GrainID(CAGridLocation) = MinDistanceToThisGrain_GrainID;
             }
-            GrainID(CAGridLocation) = ClosestGrainIndex + 1;
         });
 
     NextLayer_FirstEpitaxialGrainID =
@@ -1913,7 +1875,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 // the edges of partially melted powder particles)
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLayer, double ZMin, double deltax,
                 int MyYSlices, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
-                int &NextLayer_FirstEpitaxialGrainID, double PowderDensity) {
+                int &NextLayer_FirstEpitaxialGrainID, double PowderActiveFraction) {
 
     // On all ranks, generate list of powder grain IDs (starting with NextLayer_FirstEpitaxialGrainID, and shuffle them
     // so that their locations aren't sequential and depend on the RNGSeed (different for each layer)
@@ -1922,7 +1884,7 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLa
 
     // TODO: This should be performed on the device, rather than the host
     int PowderLayerCells = nx * ny * LayerHeight;
-    int PowderLayerAssignedCells = round((double)(PowderLayerCells)*PowderDensity);
+    int PowderLayerAssignedCells = round(static_cast<double>(PowderLayerCells) * PowderActiveFraction);
     std::vector<int> PowderGrainIDs(PowderLayerCells, 0);
     for (int n = 0; n < PowderLayerAssignedCells; n++) {
         PowderGrainIDs[n] = n + NextLayer_FirstEpitaxialGrainID; // assigned a nonzero GrainID
@@ -1940,15 +1902,15 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLa
     int PowderBottomZ = PowderTopZ - LayerHeight;
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        std::cout << "Initializing powder layer for Z = " << PowderBottomZ << " through " << PowderTopZ - 1 << "("
+        std::cout << "Initializing powder layer for Z = " << PowderBottomZ << " through " << PowderTopZ - 1 << " ("
                   << nx * ny * (PowderTopZ - PowderBottomZ) << " cells)" << std::endl;
 
     int PowderStart = nx * ny * PowderBottomZ;
     int PowderEnd = nx * ny * PowderTopZ;
     if (id == 0)
-        std::cout << "Powder layer GID limits are " << PowderStart << " and " << PowderEnd << " : "
-                  << " Grain IDs of " << NextLayer_FirstEpitaxialGrainID << " through "
-                  << NextLayer_FirstEpitaxialGrainID + PowderLayerCells - 1 << " will be assigned" << std::endl;
+        std::cout << "Powder layer has " << PowderLayerAssignedCells
+                  << " cells assigned new grain ID values, ranging from " << NextLayer_FirstEpitaxialGrainID
+                  << " through " << NextLayer_FirstEpitaxialGrainID + PowderLayerAssignedCells - 1 << std::endl;
     Kokkos::parallel_for(
         "PowderGrainInit", Kokkos::RangePolicy<>(PowderStart, PowderEnd), KOKKOS_LAMBDA(const int &n) {
             int GlobalZ = n / (nx * ny);

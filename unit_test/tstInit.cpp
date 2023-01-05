@@ -110,7 +110,6 @@ void testInputReadFromFile() {
                           PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                           PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
                           BaseplateThroughPowder, PowderDensity, RVESize, LayerwiseTempInit, PrintBinary);
-
         InterfacialResponseFunction irf(0, MaterialFileName, deltat, deltax);
 
         // Check the results
@@ -169,7 +168,7 @@ void testInputReadFromFile() {
             EXPECT_DOUBLE_EQ(RNGSeed, 0.0);
             EXPECT_FALSE(PrintBinary);
         }
-        else if ((FileName == "Inp_TemperatureTest_Old.txt") || (FileName == "Inp_TemperatureTest_Old.txt")) {
+        else if (FileName == "Inp_TemperatureTest.txt") {
             EXPECT_DOUBLE_EQ(deltat, 1.5 * pow(10, -6));
             EXPECT_EQ(TempFilesInSeries, 2);
             EXPECT_EQ(NumberOfLayers, 2);
@@ -177,10 +176,7 @@ void testInputReadFromFile() {
             EXPECT_TRUE(UseSubstrateFile);
             EXPECT_FALSE(BaseplateThroughPowder);
             EXPECT_DOUBLE_EQ(PowderDensity, 0.001);
-            if (FileName == "Inp_TemperatureTest_Old.txt")
-                EXPECT_DOUBLE_EQ(HT_deltax, 12.0 * pow(10, -6));
-            else
-                EXPECT_DOUBLE_EQ(HT_deltax, deltax);
+            EXPECT_DOUBLE_EQ(HT_deltax, deltax);
             EXPECT_TRUE(OutputFile == "Test");
             EXPECT_TRUE(temp_paths[0] == ".//1DummyTemperature.txt");
             EXPECT_TRUE(temp_paths[1] == ".//2DummyTemperature.txt");
@@ -189,10 +185,7 @@ void testInputReadFromFile() {
             EXPECT_TRUE(PrintDefaultRVE);
             EXPECT_FALSE(PrintFullOutput);
             EXPECT_DOUBLE_EQ(RNGSeed, 2.0);
-            if (FileName == "Inp_TemperatureTest_Old.txt")
-                EXPECT_FALSE(PrintBinary);
-            else
-                EXPECT_TRUE(PrintBinary);
+            EXPECT_TRUE(PrintBinary);
         }
     }
 }
@@ -416,7 +409,76 @@ void testcalcLocalActiveDomainSize() {
 //---------------------------------------------------------------------------//
 // temp_init_test
 //---------------------------------------------------------------------------//
-void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead) {
+void testFindXYZBounds(bool TestBinaryInputRead) {
+
+    // Write fake OpenFOAM data - temperature data should be of type double
+    double deltax = 1 * pow(10, -6);
+    std::string TestFilename = "TestData";
+    if (TestBinaryInputRead)
+        TestFilename = TestFilename + ".catemp";
+    else
+        TestFilename = TestFilename + ".txt";
+    std::ofstream TestData;
+    if (TestBinaryInputRead)
+        TestData.open(TestFilename, std::ios::out | std::ios::binary);
+    else {
+        TestData.open(TestFilename);
+        TestData << "x, y, z, tm, tl, cr" << std::endl;
+    }
+    // only x,y,z data should be read, tm, tl, cr should not affect result
+    for (int k = 0; k < 3; k++) {
+        for (int j = 0; j < 3; j++) {
+            for (int i = 0; i < 4; i++) {
+                if (TestBinaryInputRead) {
+                    WriteData(TestData, static_cast<double>(i * deltax), TestBinaryInputRead);
+                    WriteData(TestData, static_cast<double>(j * deltax), TestBinaryInputRead);
+                    WriteData(TestData, static_cast<double>(k * deltax), TestBinaryInputRead);
+                    WriteData(TestData, static_cast<double>(-1.0), TestBinaryInputRead);
+                    WriteData(TestData, static_cast<double>(-1.0), TestBinaryInputRead);
+                    WriteData(TestData, static_cast<double>(-1.0), TestBinaryInputRead);
+                }
+                else
+                    TestData << i * deltax << "," << j * deltax << "," << k * deltax << "," << static_cast<double>(-1.0)
+                             << "," << static_cast<double>(-1.0) << "," << static_cast<double>(-1.0) << std::endl;
+            }
+        }
+    }
+    TestData.close();
+
+    int TempFilesInSeries = 1;
+    std::vector<std::string> temp_paths(TempFilesInSeries);
+    temp_paths[0] = TestFilename;
+    int LayerHeight = 2;
+    int NumberOfLayers = 2;
+    // Values to be calculated in FindXYZBounds
+    int nx, ny, nz;
+    double XMin, XMax, YMin, YMax, ZMin, ZMax;
+    double *ZMinLayer = new double[NumberOfLayers];
+    double *ZMaxLayer = new double[NumberOfLayers];
+
+    FindXYZBounds("R", 0, deltax, nx, ny, nz, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerHeight,
+                  NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer, 0);
+
+    EXPECT_DOUBLE_EQ(XMin, 0.0);
+    EXPECT_DOUBLE_EQ(YMin, 0.0);
+    EXPECT_DOUBLE_EQ(ZMin, 0.0);
+    EXPECT_DOUBLE_EQ(XMax, 3 * deltax);
+    EXPECT_DOUBLE_EQ(YMax, 2 * deltax);
+    // ZMax is equal to the largest Z coordinate in the file, offset by LayerHeight cells in the build direction due
+    // to the second layer
+    EXPECT_DOUBLE_EQ(ZMax, 4 * deltax);
+    // Bounds for each individual layer - 2nd layer offset by LayerHeight cells from the first
+    EXPECT_DOUBLE_EQ(ZMinLayer[0], 0.0);
+    EXPECT_DOUBLE_EQ(ZMaxLayer[0], 2 * deltax);
+    EXPECT_DOUBLE_EQ(ZMinLayer[1], 2 * deltax);
+    EXPECT_DOUBLE_EQ(ZMaxLayer[1], 4 * deltax);
+    // Size of overall domain
+    EXPECT_EQ(nx, 4);
+    EXPECT_EQ(ny, 3);
+    EXPECT_EQ(nz, 5);
+}
+
+void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool TestBinaryInputRead) {
 
     // Create test data
     double deltax = 1 * pow(10, -6);
@@ -427,26 +489,61 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead) {
     int ny = 12;
     // Write fake OpenFOAM data - only rank 0. Temperature data should be of type double
     // Write two files, one or both of which should be read
-    std::string TestTempFileName1 = "TestData1.txt";
+    std::string TestTempFileName1 = "TestData1";
+    if (TestBinaryInputRead)
+        TestTempFileName1 = TestTempFileName1 + ".catemp";
+    else
+        TestTempFileName1 = TestTempFileName1 + ".txt";
     std::ofstream TestDataFile1;
-    TestDataFile1.open(TestTempFileName1);
-    TestDataFile1 << "x, y, z, tm, tl, cr" << std::endl;
+    if (TestBinaryInputRead)
+        TestDataFile1.open(TestTempFileName1, std::ios::out | std::ios::binary);
+    else {
+        TestDataFile1.open(TestTempFileName1);
+        TestDataFile1 << "x, y, z, tm, tl, cr" << std::endl;
+    }
     for (int j = 0; j < ny; j++) {
         for (int i = 0; i < nx; i++) {
-            TestDataFile1 << i * deltax << "," << j * deltax << "," << 0.0 << "," << static_cast<double>(i * j) << ","
-                          << static_cast<double>(i * j + i) << "," << static_cast<double>(i * j + j) << std::endl;
+            if (TestBinaryInputRead) {
+                WriteData(TestDataFile1, static_cast<double>(i * deltax), TestBinaryInputRead);
+                WriteData(TestDataFile1, static_cast<double>(j * deltax), TestBinaryInputRead);
+                WriteData(TestDataFile1, static_cast<double>(0.0), TestBinaryInputRead);
+                WriteData(TestDataFile1, static_cast<double>(i * j), TestBinaryInputRead);
+                WriteData(TestDataFile1, static_cast<double>(i * j + i), TestBinaryInputRead);
+                WriteData(TestDataFile1, static_cast<double>(i * j + j), TestBinaryInputRead);
+            }
+            else
+                TestDataFile1 << i * deltax << "," << j * deltax << "," << 0.0 << "," << static_cast<double>(i * j)
+                              << "," << static_cast<double>(i * j + i) << "," << static_cast<double>(i * j + j)
+                              << std::endl;
         }
     }
     TestDataFile1.close();
-    std::string TestTempFileName2 = "TestData2.txt";
+    std::string TestTempFileName2 = "TestData2";
+    if (TestBinaryInputRead)
+        TestTempFileName2 = TestTempFileName2 + ".catemp";
+    else
+        TestTempFileName2 = TestTempFileName2 + ".txt";
     std::ofstream TestDataFile2;
-    TestDataFile2.open(TestTempFileName2);
-    TestDataFile2 << "x, y, z, tm, tl, cr" << std::endl;
+    if (TestBinaryInputRead)
+        TestDataFile2.open(TestTempFileName2, std::ios::out | std::ios::binary);
+    else {
+        TestDataFile2.open(TestTempFileName2);
+        TestDataFile2 << "x, y, z, tm, tl, cr" << std::endl;
+    }
     for (int j = 0; j < ny; j++) {
         for (int i = 0; i < nx; i++) {
-            TestDataFile2 << i * deltax << "," << j * deltax << "," << deltax << "," << static_cast<double>(i * j)
-                          << "," << static_cast<double>(i * j + i) << "," << static_cast<double>(i * j + j)
-                          << std::endl;
+            if (TestBinaryInputRead) {
+                WriteData(TestDataFile2, static_cast<double>(i * deltax), TestBinaryInputRead);
+                WriteData(TestDataFile2, static_cast<double>(j * deltax), TestBinaryInputRead);
+                WriteData(TestDataFile2, static_cast<double>(deltax), TestBinaryInputRead);
+                WriteData(TestDataFile2, static_cast<double>(i * j), TestBinaryInputRead);
+                WriteData(TestDataFile2, static_cast<double>(i * j + i), TestBinaryInputRead);
+                WriteData(TestDataFile2, static_cast<double>(i * j + j), TestBinaryInputRead);
+            }
+            else
+                TestDataFile2 << i * deltax << "," << j * deltax << "," << deltax << "," << static_cast<double>(i * j)
+                              << "," << static_cast<double>(i * j + i) << "," << static_cast<double>(i * j + j)
+                              << std::endl;
         }
     }
     TestDataFile2.close();
@@ -587,11 +684,19 @@ TEST(TEST_CATEGORY, activedomainsizecalc) {
     testcalcLocalActiveDomainSize();
 }
 TEST(TEST_CATEGORY, temperature_init_test) {
-    // reading one file of temperature data - performed in the same manner with and without remelting
-    testReadTemperatureData(1, false);
-    // reading temperature data when two files are present - reading either one (true) or both (false)
-    testReadTemperatureData(2, true);
-    testReadTemperatureData(2, false);
+    // reading temperature files to obtain xyz bounds, using binary/non-binary format
+    testFindXYZBounds(false);
+    testFindXYZBounds(true);
+    // Multiple permutations of inputs: NumberOfLayers, LayerwiseTempRead, TestBinaryInputRead
+    // reading temperature data is performed in the same manner with and without remelting
+    std::vector<int> NumberOfLayers_vals = {1, 2, 2, 2};
+    std::vector<bool> LayerwiseTempRead_vals = {false, true, false, true};
+    std::vector<bool> TestBinaryInputRead_vals = {false, false, false, true};
+    int num_vals = TestBinaryInputRead_vals.size();
+    for (int test_count = 0; test_count < num_vals; test_count++) {
+        testReadTemperatureData(NumberOfLayers_vals[test_count], LayerwiseTempRead_vals[test_count],
+                                TestBinaryInputRead_vals[test_count]);
+    }
     testgetTempCoords();
 }
 } // end namespace Test
