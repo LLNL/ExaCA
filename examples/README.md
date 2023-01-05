@@ -8,7 +8,7 @@ ExaCA currently can model three types of problems, two of which have the option 
     * Each line following the first should have six comma-separated values corresponding to x, y, z, tm, tl, cr. x, y, and z are cell coordinates, in meters, of a given location in the simulation. The spacing between locations should correpond to a Cartesian grid, with a cell size equivalent to that specified in the input file. For each time that an x,y,z coordinate went above and below the liqiuidus temperature of the alloy during a heat transport simulation, a tm (time at which the point went above the liquidus), tl (time at which the point went below the liquidus), and cr (instantaneous cooling rate at the liquidus) should be recorded. 
     * If an x,y,z coordinate melted and solidified multiple times, it should appear in the file multiple times on separate lines. The order of the lines do not matter, except that the header line must be before any data.
     * The top surface (the largest Z coordinate in a file) is assumed to be flat. Additionally, if multiple temperature files are being used (for example, a scan pattern consisting of 10 layers of repeating even and odd file data), the Z coordinate corresponding to this flat top surface should be the same for all files.
-* Problem types SM and RM modify problem types S and R to include multiple melting and solidification events per cell. For problem types S and R all cells that will eventually undergo melting are initialized as liquid, and only the final time that a given cell goes below the liquidus temperature is considered. To obtain the most accurate results, all melting and solidification events should be considered; however, for some problem geometries, the microstructure resulting from only considering the final solidification event in each cell is a reasonable approximation (and faster))
+* Problem types SM and RM modify problem types S and R to include multiple melting and solidification events per cell. For problem types S and R all cells that will eventually undergo melting are initialized as liquid, and only the final time that a given cell goes below the liquidus temperature is considered. To obtain the most accurate results, all melting and solidification events should be considered; however, for some problem geometries, the microstructure resulting from only considering the final solidification event in each cell is a reasonable approximation (and faster)
 
 All problem types rely on two files in addition to the main input file. First,
 a file containing the interfacial response function data governing
@@ -115,13 +115,13 @@ Some additional inputs are optional while others are required
 | Time step                                                   | Y            | CA time step, in microseconds
 | Path to and name of temperature field assembly instructions | Y            | Additional file containing information on the temperature data
 | default RVE output                                          | N            | Whether or not to print representative volume element (RVE) data for ExaConstit, for a 0.5 cubic mm region in the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure
+| Default RVE size, in CA cells                               | N            | Length of the RVE, defaulting to the equivalent of 0.5 by 0.5 by 0.5 mm if not given
 | Extend baseplate through layers                             | N            | Value should be Y or N: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (default value is N)
 | Density of powder surface sites active                      | See note (b) | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3)
 
 (a) One of these inputs must be provided, but not both
 (b) This is optional, but if this is given, Extend baseplate through layers must be set to N
 
-The input "Extra set of wall cells", used in previous versions of ExaCA to create a set of wall cells "padding" the temperature data at the domain's X and Y boundaries, is deprecated and no longer has an effect.
 Additional information regarding the temperature field is provided inside the auxiliary file specified on the "Path to and name of temperature field assembly instructions" line. A temperature field construction file contains the following additional specifications:
 
 |Input              | Required Y/N | Details |
