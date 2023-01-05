@@ -1751,10 +1751,7 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
                                     int MyYSlices, int MyYOffset, int id, double deltax, ViewI GrainID, double RNGSeed,
                                     int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder) {
 
-    // Seed random number generator such that each rank generates the same baseplate grain center locations
-    // Calls to Xdist(gen), Ydist(gen), Zdist(gen) return random locations for grain seeds
-    // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
-    // -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5
+    // Number of cells to assign GrainID
     int BaseplateSizeZ; // in CA cells
     if (BaseplateThroughPowder)
         BaseplateSizeZ = nz; // baseplate microstructure used as entire domain's initial condition
@@ -1762,72 +1759,106 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
         BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) +
                          1; // baseplate microstructure is layer 0's initial condition
     std::mt19937_64 gen(RNGSeed);
-    std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
-    std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
-    std::uniform_real_distribution<double> Zdist(-0.49999, BaseplateSizeZ - 0.5);
 
-    // Based on the baseplate size (domain of first layer) and the substrate grain spacing, determine the number of
-    // baseplate grains
-    double BaseplateSize = nx * ny * BaseplateSizeZ * pow(deltax, 3) * pow(10, 18); // in cubic microns
-    double SubstrateGrainSize = pow(SubstrateGrainSpacing, 3);                      // in cubic microns
-    int NumberOfBaseplateGrains = round(BaseplateSize / SubstrateGrainSize);
-    // Need at least 1 baseplate grain
+    // Based on the baseplate volume (convert to cubic microns to match units) and the substrate grain spacing,
+    // determine the number of baseplate grains
+    int BaseplateVolume = nx * ny * BaseplateSizeZ;
+    double BaseplateVolume_microns = BaseplateVolume * pow(deltax, 3) * pow(10, 18);
+    double SubstrateMeanGrainVolume_microns = pow(SubstrateGrainSpacing, 3);
+    int NumberOfBaseplateGrains = round(BaseplateVolume_microns / SubstrateMeanGrainVolume_microns);
+    // Need at least 1 baseplate grain, cannot have more baseplate grains than cells in the baseplate
     NumberOfBaseplateGrains = std::max(NumberOfBaseplateGrains, 1);
-    ViewI_H NumBaseplateGrains_Host(Kokkos::ViewAllocateWithoutInitializing("NBaseplate_Host"), 1);
-    NumBaseplateGrains_Host(0) = NumberOfBaseplateGrains;
+    NumberOfBaseplateGrains = std::min(NumberOfBaseplateGrains, nx * ny * BaseplateSizeZ);
     // TODO: Use device RNG to generate baseplate grain locations, instead of host with copy
-    // Store grain centers as float coordinates, not integer cell locations, for more precise substrate generation
-    ViewF_H BaseplateGrainX_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainX_Host"),
-                                 nx * ny * BaseplateSizeZ);
-    ViewF_H BaseplateGrainY_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainY_Host"),
-                                 nx * ny * BaseplateSizeZ);
-    ViewF_H BaseplateGrainZ_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainZ_Host"),
-                                 nx * ny * BaseplateSizeZ);
-
-    // For the entire baseplate (all x and y coordinate, but only layer 0 z coordinates), identify baseplate grain
-    // centers
-    if (id == 0)
-        std::cout << "Baseplate spanning domain coordinates Z = 0 through " << BaseplateSizeZ - 1 << std::endl;
-    for (int n = 0; n < NumberOfBaseplateGrains; n++) {
-        BaseplateGrainX_Host(n) = Xdist(gen);
-        BaseplateGrainY_Host(n) = Ydist(gen);
-        BaseplateGrainZ_Host(n) = Zdist(gen);
+    // List of potential grain IDs (starting at 1) - index corresponds to the associated CA cell location
+    // Assign positive values for indices 0 through NumberOfBaseplateGrains-1, assign zeros to the remaining indices
+    std::vector<int> BaseplateGrainLocations(BaseplateVolume);
+    std::vector<int> BaseplateGrainIDs(BaseplateVolume);
+    for (int i = 0; i < BaseplateVolume; i++) {
+        BaseplateGrainLocations[i] = i;
+        if (i < NumberOfBaseplateGrains)
+            BaseplateGrainIDs[i] = i + 1;
+        else
+            BaseplateGrainIDs[i] = 0;
     }
-    if (id == 0)
-        std::cout << "Number of baseplate grains: " << NumBaseplateGrains_Host(0) << std::endl;
-    ViewI NumBaseplateGrains_Device =
-        Kokkos::create_mirror_view_and_copy(device_memory_space(), NumBaseplateGrains_Host);
-    ViewF BaseplateGrainX_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainX_Host);
-    ViewF BaseplateGrainY_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainY_Host);
-    ViewF BaseplateGrainZ_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainZ_Host);
+    // Shuffle list of grain IDs
+    std::shuffle(BaseplateGrainIDs.begin(), BaseplateGrainIDs.end(), gen);
 
-    //  Initialize GrainIDs on device for baseplate
+    // Create views of baseplate grain IDs and locations - copying BaseplateGrainIDs and BaseplateGrainLocations values
+    // only for indices where BaseplateGrainIDs(i) != 0 (cells with BaseplateGrainIDs(i) = 0 were not assigned baseplate
+    // center locations)
+    ViewI_H BaseplateGrainLocations_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainLocations_Host"),
+                                         NumberOfBaseplateGrains);
+    ViewI_H BaseplateGrainIDs_Host(Kokkos::ViewAllocateWithoutInitializing("BaseplateGrainIDs_Host"),
+                                   NumberOfBaseplateGrains);
+    int count = 0;
+    for (int i = 0; i < BaseplateVolume; i++) {
+        if (BaseplateGrainIDs[i] != 0) {
+            BaseplateGrainLocations_Host(count) = BaseplateGrainLocations[i];
+            BaseplateGrainIDs_Host(count) = BaseplateGrainIDs[i];
+            count++;
+        }
+    }
+
+    // Copy baseplate views to the device
+    ViewI BaseplateGrainIDs_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainIDs_Host);
+    ViewI BaseplateGrainLocations_Device =
+        Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainLocations_Host);
+    if (id == 0) {
+        std::cout << "Baseplate spanning domain coordinates Z = 0 through " << BaseplateSizeZ - 1 << std::endl;
+        std::cout << "Number of baseplate grains: " << NumberOfBaseplateGrains << std::endl;
+    }
+
+    // First, assign cells that are associated with grain centers the appropriate non-zero GrainID values (assumes
+    // GrainID values were initialized to zeros)
+    Kokkos::parallel_for(
+        "BaseplateInit", NumberOfBaseplateGrains, KOKKOS_LAMBDA(const int &n) {
+            int BaseplateGrainLoc = BaseplateGrainLocations_Device(n);
+            // x, y, z associated with baseplate grain "n", at 1D coordinate "BaseplateGrainLoc"
+            int z_n = BaseplateGrainLoc / (nx * ny);
+            int Rem = BaseplateGrainLoc % (nx * ny);
+            int x_n = Rem / ny;
+            int y_n = Rem % ny;
+            if ((y_n >= MyYOffset) && (y_n < MyYOffset + MyYSlices)) {
+                // This grain is associated with a cell on this MPI rank
+                int CAGridLocation = z_n * nx * MyYSlices + x_n * MyYSlices + (y_n - MyYOffset);
+                GrainID(CAGridLocation) = BaseplateGrainIDs_Device(n);
+            }
+        });
+    Kokkos::fence();
+    // For cells that are not associated with grain centers, assign them the GrainID of the nearest grain center
     Kokkos::parallel_for(
         "BaseplateGen",
         Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
             {0, 0, 0}, {BaseplateSizeZ, nx, MyYSlices}),
         KOKKOS_LAMBDA(const int k, const int i, const int j) {
-            int GlobalY = j + MyYOffset;
             int CAGridLocation = k * nx * MyYSlices + i * MyYSlices + j;
-            // All cells are given GrainID values, even if they're part of the melt pool footprint, as they may need the
-            // values later if at the interface This cell is part of the substrate - determine which grain center the
-            // cell is closest to, in order to assign it a grain ID If closest to grain "n", assign grain ID "n+1"
-            // (grain ID = 0 is not used)
-            float MinDistanceToThisGrain = (float)(nx * ny * BaseplateSizeZ);
-            int ClosestGrainIndex = -1;
-            for (int n = 0; n < NumBaseplateGrains_Device(0); n++) {
-                float DistanceToThisGrainX = (float)(std::abs(BaseplateGrainX_Device(n) - i));
-                float DistanceToThisGrainY = (float)(std::abs(BaseplateGrainY_Device(n) - GlobalY));
-                float DistanceToThisGrainZ = (float)(std::abs(BaseplateGrainZ_Device(n) - k));
-                float DistanceToThisGrain =
-                    sqrtf(DistanceToThisGrainX * DistanceToThisGrainX + DistanceToThisGrainY * DistanceToThisGrainY +
-                          DistanceToThisGrainZ * DistanceToThisGrainZ);
-                if (DistanceToThisGrain < MinDistanceToThisGrain) {
-                    ClosestGrainIndex = n;
-                    MinDistanceToThisGrain = DistanceToThisGrain;
+            if (GrainID(CAGridLocation) == 0) {
+                // This cell needs to be assigned a GrainID value
+                // Check each possible baseplate grain center to find the closest one
+                float MinDistanceToThisGrain = nx * ny * BaseplateSizeZ;
+                int MinDistanceToThisGrain_GrainID = 0;
+                for (int n = 0; n < NumberOfBaseplateGrains; n++) {
+                    // Baseplate grain center at x_n, y_n, z_n - how far is the cell at i, j+MyYOffset, k?
+                    int z_n = BaseplateGrainLocations_Device(n) / (nx * ny);
+                    int Rem = BaseplateGrainLocations_Device(n) % (nx * ny);
+                    int x_n = Rem / ny;
+                    int y_n = Rem % ny;
+                    float DistanceToThisGrainX = i - x_n;
+                    float DistanceToThisGrainY = (j + MyYOffset) - y_n;
+                    float DistanceToThisGrainZ = k - z_n;
+                    float DistanceToThisGrain = sqrtf(DistanceToThisGrainX * DistanceToThisGrainX +
+                                                      DistanceToThisGrainY * DistanceToThisGrainY +
+                                                      DistanceToThisGrainZ * DistanceToThisGrainZ);
+                    if (DistanceToThisGrain < MinDistanceToThisGrain) {
+                        // This is the closest grain center to cell at "CAGridLocation" - update values
+                        MinDistanceToThisGrain = DistanceToThisGrain;
+                        MinDistanceToThisGrain_GrainID = BaseplateGrainIDs_Device(n);
+                    }
                 }
+                // GrainID associated with the closest baseplate grain center
+                GrainID(CAGridLocation) = MinDistanceToThisGrain_GrainID;
             }
-            GrainID(CAGridLocation) = ClosestGrainIndex + 1;
         });
 
     NextLayer_FirstEpitaxialGrainID =
