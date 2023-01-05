@@ -9,7 +9,7 @@ ExaCA currently can model three types of problems, two of which have the option 
     * If an x,y,z coordinate melted and solidified multiple times, it should appear in the file multiple times on separate lines. The order of the lines do not matter, except that the header line must be before any data.
     * The top surface (the largest Z coordinate in a file) is assumed to be flat. Additionally, if multiple temperature files are being used (for example, a scan pattern consisting of 10 layers of repeating even and odd file data), the Z coordinate corresponding to this flat top surface should be the same for all files.
     * Alternatively, if a time-temperature history file has the extension `.catemp`, it will be parsed as a binary string. The binary form for these files does not contain commas, newlines, nor a header, but consists of sequential x,y,z,tm,tl,cr,x,y,z,tm,tl,cr... data as double precision values (little endian). This is often a significantly smaller file size than the standard format, and will be faster to read during initialization.
-* Problem types SM and RM modify problem types S and R to include multiple melting and solidification events per cell. For problem types S and R all cells that will eventually undergo melting are initialized as liquid, and only the final time that a given cell goes below the liquidus temperature is considered. To obtain the most accurate results, all melting and solidification events should be considered; however, for some problem geometries, the microstructure resulting from only considering the final solidification event in each cell is a reasonable approximation (and faster))
+    * Problem types SM and RM modify problem types S and R to include multiple melting and solidification events per cell. For problem types S and R all cells that will eventually undergo melting are initialized as liquid, and only the final time that a given cell goes below the liquidus temperature is considered. To obtain the most accurate results, all melting and solidification events should be considered; however, for some problem geometries, the microstructure resulting from only considering the final solidification event in each cell is a reasonable approximation (and faster)
 
 All problem types rely on two files in addition to the main input file. First,
 a file containing the interfacial response function data governing
@@ -18,18 +18,25 @@ solidification rate as a function of undercooling is required. An example is
 of the same form is desired, a new Materials file can be created using the
 Inconel625 file as a template and passed to the main input file. Second, a file
 of grain orientations is required. An example is
-`examples/Substrate/GrainOrientationVectors_Robert.csv`: the first line is the
+`examples/Substrate/GrainOrientationVectors.csv`: the first line is the
 number of orientations (10000), and each additional line is a list of unit
 vectors corresponding to a cubic grain's <001> directions in the form 'x1, y1,
 z1, x2, y2, z2, x3, y3, z3', where the coordinate system used is taken as the
 ExaCA reference frame. The distribution of orientations is approximately even.
 Like the material file, the orientation file could be swapped out with one
 consisting of more (or fewer) orientations, following
-`GrainOrientationVectors_Robert.csv` as a template. Both of these material and
+`GrainOrientationVectors.csv` as a template. Both of these material and
 orientation file examples are installed with the executable, making it possible
 to simplfy use the file name in the input file. Custom files must either be
 added to the ExaCA CMake build, use an absolute file path, or a path relative
-to the ExaCA source.
+to the ExaCA source. It should also be noted that if using a custom file of 
+grain orientation vectors in an ExaCA simulations, corresponding files that 
+list the orientations in bunge Euler angle form (analogous to 
+`examples/Substrate/GrainOrientationEulerAnglesBungeZXZ.csv`) and as RGB values 
+corresponding to the orientations' inverse pole figure-mapped RGB values 
+(analogous to `examples/Substrate/GrainOrientationRGB_IPF-Z.csv`) will be 
+necessary to run the analysis executable; see `analysis/README.md` for more 
+details.
 
 Problems of type R or RM rely on a third file for temperature input, with the path
 and name of this file given in the master input file. Examples of these
@@ -50,10 +57,6 @@ The below lines are required regardless of problem type. They can be in any orde
 |                        | S for spot melt array problem (fixed thermal gradient/constant cooling rate for each hemispherical spot)
 |                        | R for use of temperature data provided in the appropriate format (see README file in examples/Temperatures)
 |                        | M should be appended to problem type if multiple melting and solidifcation events are desired (i.e, SM or RM)
-| Decomposition strategy | 1 for a 1D domain decomposition along the Y direction
-|                        | 2 for a decomposition along the Y direction, with a single partiton along the X direction
-|                        | 3 for a decomposition with roughly equal partitions along the X and Y directions
-|                        | If there is an odd number of processors, decomposition pattern defaults to 1
 | Material               | Name of material file in examples/Materials used (see README file in examples/Materials)
 | Cell size              | CA cell size, in microns
 | Heterogeneous nucleation density     | Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
@@ -113,13 +116,13 @@ Some additional inputs are optional while others are required
 | Time step                                                   | Y            | CA time step, in microseconds
 | Path to and name of temperature field assembly instructions | Y            | Additional file containing information on the temperature data
 | default RVE output                                          | N            | Whether or not to print representative volume element (RVE) data for ExaConstit, for a 0.5 cubic mm region in the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure
+| Default RVE size, in CA cells                               | N            | Length of the RVE, defaulting to the equivalent of 0.5 by 0.5 by 0.5 mm if not given
 | Extend baseplate through layers                             | N            | Value should be Y or N: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (default value is N)
 | Density of powder surface sites active                      | See note (b) | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3)
 
 (a) One of these inputs must be provided, but not both
 (b) This is optional, but if this is given, Extend baseplate through layers must be set to N
 
-The input "Extra set of wall cells", used in previous versions of ExaCA to create a set of wall cells "padding" the temperature data at the domain's X and Y boundaries, is deprecated and no longer has an effect.
 Additional information regarding the temperature field is provided inside the auxiliary file specified on the "Path to and name of temperature field assembly instructions" line. A temperature field construction file contains the following additional specifications:
 
 |Input              | Required Y/N | Details |
