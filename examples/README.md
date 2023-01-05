@@ -17,18 +17,25 @@ solidification rate as a function of undercooling is required. An example is
 of the same form is desired, a new Materials file can be created using the
 Inconel625 file as a template and passed to the main input file. Second, a file
 of grain orientations is required. An example is
-`examples/Substrate/GrainOrientationVectors_Robert.csv`: the first line is the
+`examples/Substrate/GrainOrientationVectors.csv`: the first line is the
 number of orientations (10000), and each additional line is a list of unit
 vectors corresponding to a cubic grain's <001> directions in the form 'x1, y1,
 z1, x2, y2, z2, x3, y3, z3', where the coordinate system used is taken as the
 ExaCA reference frame. The distribution of orientations is approximately even.
 Like the material file, the orientation file could be swapped out with one
 consisting of more (or fewer) orientations, following
-`GrainOrientationVectors_Robert.csv` as a template. Both of these material and
+`GrainOrientationVectors.csv` as a template. Both of these material and
 orientation file examples are installed with the executable, making it possible
 to simplfy use the file name in the input file. Custom files must either be
 added to the ExaCA CMake build, use an absolute file path, or a path relative
-to the ExaCA source.
+to the ExaCA source. It should also be noted that if using a custom file of 
+grain orientation vectors in an ExaCA simulations, corresponding files that 
+list the orientations in bunge Euler angle form (analogous to 
+`examples/Substrate/GrainOrientationEulerAnglesBungeZXZ.csv`) and as RGB values 
+corresponding to the orientations' inverse pole figure-mapped RGB values 
+(analogous to `examples/Substrate/GrainOrientationRGB_IPF-Z.csv`) will be 
+necessary to run the analysis executable; see `analysis/README.md` for more 
+details.
 
 Problems of type R or RM rely on a third file for temperature input, with the path
 and name of this file given in the master input file. Examples of these
