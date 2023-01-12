@@ -4,30 +4,29 @@
    "GrainOrientationFile": "GrainOrientationVectors.csv",
    "RNGSeed": 0.0,
    "Domain": {
-       "deltax": 1,
-       "deltat": 0.0666667,
-       "nx": 50,
-       "ny": 50,
-       "nz": 50
+       "Deltax": 1,
+       "Deltat": 0.0666667,
+       "Nx": 50,
+       "Ny": 50,
+       "Nz": 50
    },
    "Nucleation": {
-      "NMax": 0,
-      "dTN": 5,
-      "dTsigma": 0.5
+       "Density": 0,
+       "MeanUndercooling": 5,
+       "StDevUndercooling": 0.5
    },
    "TemperatureData": {
       "G": 500000,
       "R": 300000
    },
    "Substrate": {
-      "fActive": 0.005
+      "FActive": 0.005
    },
    "Printing": {
-      "pathToOutput": "./",
-      "outputFile": "TestProblemSmallDirS",
-      "printBinary": false,
-      "printExaConstitDefault": false,
-      "printExaConstitSize": 0,
+      "PathToOutput": "./",
+      "OutputFile": "TestProblemSmallDirS",
+      "PrintBinary": false,
+      "PrintExaConstitSize": 0,
       "PrintFieldsInit": [],
       "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
       "PrintIntermediateOutput": {

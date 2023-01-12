@@ -35,8 +35,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Check form of input data
     bool JsonInputFormat = checkInputFileFormat(InputFile, id);
-    // If json is not enabled, default to reading the old input file format
-    // If json is enabled, read whichever file format was specified
     if (JsonInputFormat) {
 #ifdef ExaCA_ENABLE_JSON
         InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,

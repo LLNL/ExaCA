@@ -4,30 +4,29 @@
    "GrainOrientationFile": "GrainOrientationVectors.csv",
    "RNGSeed": 0.0,
    "Domain": {
-       "deltax": 2.5,
-       "deltat": 0.3,
-       "numberOfLayers": 20,
-       "layerOffset": 6
+       "Deltax": 2.5,
+       "Deltat": 0.3,
+       "NumberOfLayers": 20,
+       "LayerOffset": 6
    },
    "Nucleation": {
-      "NMax": 10,
-      "dTN": 5,
-      "dTsigma": 0.5
+      "Density": 10,
+      "MeanUndercooling": 5,
+      "StDevUndercooling": 0.5
    },
    "TemperatureData": {
-       "HTdeltax": 5,
-       "layerwiseTempRead": false,
+       "HeatTransferDeltaX": 5,
+       "LayerwiseTempRead": false,
        "TemperatureFiles": ["examples/Temperatures/1leg.txt","examples/Temperatures/2leg.txt"]
    },
    "Substrate": {
-      "S0": 25
+      "MeanSize": 25
    },
    "Printing": {
-      "pathToOutput": "./",
-      "outputFile": "ExaCA_workflowoutput",
-      "printBinary": false,
-      "printExaConstitDefault": true,
-      "printExaConstitSize": 100,
+      "PathToOutput": "./",
+      "OutputFile": "ExaCA_workflowoutput",
+      "PrintBinary": false,
+      "PrintExaConstitSize": 100,
       "PrintFieldsInit": [],
       "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
       "PrintIntermediateOutput": {

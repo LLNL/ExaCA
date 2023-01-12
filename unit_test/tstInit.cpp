@@ -91,32 +91,32 @@ void WriteTestDataR_json(std::string InputFilename, bool PrintDebugFiles) {
     TestDataFile << "   \"GrainOrientationFile\": \"GrainOrientationVectors.csv\"," << std::endl;
     TestDataFile << "   \"RNGSeed\": 2.0," << std::endl;
     TestDataFile << "   \"Domain\": {" << std::endl;
-    TestDataFile << "      \"deltax\": 1," << std::endl;
-    TestDataFile << "      \"deltat\": 1.5," << std::endl;
-    TestDataFile << "      \"numberOfLayers\": 2," << std::endl;
-    TestDataFile << "      \"layerOffset\": 1" << std::endl;
+    TestDataFile << "      \"Deltax\": 1," << std::endl;
+    TestDataFile << "      \"Deltat\": 1.5," << std::endl;
+    TestDataFile << "      \"NumberOfLayers\": 2," << std::endl;
+    TestDataFile << "      \"LayerOffset\": 1" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"Nucleation\": {" << std::endl;
-    TestDataFile << "      \"NMax\": 10," << std::endl;
-    TestDataFile << "      \"dTN\": 5," << std::endl;
-    TestDataFile << "      \"dTsigma\": 0.5" << std::endl;
+    TestDataFile << "      \"Density\": 10," << std::endl;
+    TestDataFile << "      \"MeanUndercooling\": 5," << std::endl;
+    TestDataFile << "      \"StDevUndercooling\": 0.5" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"TemperatureData\": {" << std::endl;
     TestDataFile << "      \"TemperatureFiles\": [\".//1DummyTemperature.txt\",\".//2DummyTemperature.txt\"]"
                  << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"Substrate\": {" << std::endl;
-    TestDataFile << "      \"substrateFilename\": \"DummySubstrate.txt\"," << std::endl;
-    TestDataFile << "      \"powderDensity\": 1000" << std::endl;
+    TestDataFile << "      \"SubstrateFilename\": \"DummySubstrate.txt\"," << std::endl;
+    TestDataFile << "      \"PowderDensity\": 1000" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"Printing\": {" << std::endl;
-    TestDataFile << "      \"pathToOutput\": \"ExaCA\"," << std::endl;
-    TestDataFile << "      \"outputFile\": \"Test\"," << std::endl;
-    TestDataFile << "      \"printBinary\": true," << std::endl;
+    TestDataFile << "      \"PathToOutput\": \"ExaCA\"," << std::endl;
+    TestDataFile << "      \"OutputFile\": \"Test\"," << std::endl;
+    TestDataFile << "      \"PrintBinary\": true," << std::endl;
     // Print data for debugging: print all valid init/final fields, intermediate input
     // Print data for production: print GrainID, LayerID, GrainMisorientation, and ExaConstit RVE
     if (PrintDebugFiles) {
-        TestDataFile << "      \"printExaConstitDefault\": false," << std::endl;
+        TestDataFile << "      \"PrintExaConstitSize\": 0," << std::endl;
         TestDataFile
             << "      \"PrintFieldsInit\": "
                "[\"UndercoolingCurrent\",\"UndercoolingChange\",\"GrainID\",\"LayerID\",\"CellType\",\"CritTimeStep\"],"
@@ -130,7 +130,7 @@ void WriteTestDataR_json(std::string InputFilename, bool PrintDebugFiles) {
         TestDataFile << "       }" << std::endl;
     }
     else {
-        TestDataFile << "      \"printExaConstitDefault\": true," << std::endl;
+        TestDataFile << "      \"PrintExaConstitSize\": 500," << std::endl;
         TestDataFile << "      \"PrintFieldsInit\": []," << std::endl;
         TestDataFile << "      \"PrintFieldsFinal\": [\"GrainMisorientation\",\"GrainID\",\"LayerID\"]" << std::endl;
     }
@@ -147,16 +147,12 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
     // Since no temperature files exist in the repo, and there is no ability to write temperature files to a different
     // directory ( would need examples/Temperatures) using the C++11 standard, dummy input files are written and parsed
     // to test an example problem that uses temperature data from a file.
-    std::vector<std::string> InputFilenames(3);
-    if (JsonInputFormat) {
-        InputFilenames[0] = "Inp_DirSolidification.json";
-        InputFilenames[1] = "Inp_SpotMelt.json";
-        InputFilenames[2] = "Inp_TemperatureTest.json";
-    }
-    else {
-        InputFilenames[0] = "Inp_DirSolidification.txt";
-        InputFilenames[1] = "Inp_SpotMelt.txt";
-        InputFilenames[2] = "Inp_TemperatureTest.txt";
+    std::vector<std::string> InputFilenames = {"Inp_DirSolidification", "Inp_SpotMelt", "Inp_TemperatureTest"};
+    for (int n = 0; n < 3; n++) {
+        if (JsonInputFormat)
+            InputFilenames[n] += ".json";
+        else
+            InputFilenames[n] += ".txt";
     }
     std::vector<std::string> TemperatureFNames = {"1DummyTemperature.txt", "2DummyTemperature.txt"};
 
@@ -284,7 +280,7 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
             EXPECT_FALSE(PrintBinary);
             EXPECT_EQ(PrintDebug, 0);
         }
-        else {
+        else if (FileName == InputFilenames[2]) {
             EXPECT_DOUBLE_EQ(deltat, 1.5 * pow(10, -6));
             EXPECT_EQ(TempFilesInSeries, 2);
             EXPECT_EQ(NumberOfLayers, 2);
@@ -418,7 +414,7 @@ void testInterfacialResponse_Old() {
     EXPECT_DOUBLE_EQ(ComputedV, ExpectedV);
 }
 
-void testInterfacialResponse_New() {
+void testInterfacialResponse() {
 
     // Test that the interfacial response can be read for the new file format
     std::vector<std::string> material_file_names = {"Inconel625.json", "Inconel625_Quadratic.json", "SS316.json"};
@@ -813,7 +809,7 @@ TEST(TEST_CATEGORY, fileread_test) {
     // FIXME: remove test in future release
     testInterfacialResponse_Old();
 #ifdef ExaCA_ENABLE_JSON
-    testInterfacialResponse_New();
+    testInterfacialResponse();
 #endif
 }
 TEST(TEST_CATEGORY, activedomainsizecalc) {

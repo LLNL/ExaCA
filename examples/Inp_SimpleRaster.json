@@ -4,31 +4,30 @@
    "GrainOrientationFile": "GrainOrientationVectors.csv",
    "RNGSeed": 0.0,
    "Domain": {
-       "deltax": 1,
-       "deltat": 0.08333333,
-       "numberOfLayers": 1,
-       "layerOffset": 15
+       "Deltax": 1,
+       "Deltat": 0.08333333,
+       "NumberOfLayers": 1,
+       "LayerOffset": 15
    },
    "Nucleation": {
-      "NMax": 10,
-      "dTN": 5,
-      "dTsigma": 0.5
+      "Density": 10,
+      "MeanUndercooling": 5,
+      "StDevUndercooling": 0.5
    },
    "TemperatureData": {
-       "HTdeltax": 5,
-       "layerwiseTempRead": false,
+       "HeatTransferDeltaX": 5,
+       "LayerwiseTempRead": false,
        "TemperatureFiles": ["examples/Temperatures/Master-Raster-150um.txt"]
    },
    "Substrate": {
-      "S0": 25,
-      "powderDensity": 1000000
+      "MeanSize": 25,
+      "PowderDensity": 1000000
    },
    "Printing": {
-       "pathToOutput": "./",
-       "outputFile": "TestProblemSimpleRaster",
-       "printBinary": false,
-       "printExaConstitDefault": false,
-       "printExaConstitSize": 0,
+       "PathToOutput": "./",
+       "OutputFile": "TestProblemSimpleRaster",
+       "PrintBinary": false,
+       "PrintExaConstitSize": 0,
        "PrintFieldsInit": [],
        "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
        "PrintIntermediateOutput": {

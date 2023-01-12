@@ -4,31 +4,30 @@
    "GrainOrientationFile": "GrainOrientationVectors.csv",
    "RNGSeed": 0.0,
    "Domain": {
-       "deltax": 2.5,
-       "deltat": 0.0825,
-       "numberOfLayers": 2,
-       "layerOffset": 8
+       "Deltax": 2.5,
+       "Deltat": 0.0825,
+       "NumberOfLayers": 2,
+       "LayerOffset": 8
    },
    "Nucleation": {
-      "NMax": 100,
-      "dTN": 5,
-      "dTsigma": 0.5
+      "Density": 100,
+      "MeanUndercooling": 5,
+      "StDevUndercooling": 0.5
    },
    "TemperatureData": {
-       "HTdeltax": 2.5,
-       "layerwiseTempRead": false,
+       "HeatTransferDeltaX": 2.5,
+       "LayerwiseTempRead": false,
        "TemperatureFiles": ["examples/Temperatures/TwoLine.txt"]
    },
    "Substrate": {
-      "S0": 25,
-      "powderDensity": 64000
+      "MeanSize": 25,
+      "PowderDensity": 64000
    },
    "Printing": {
-      "pathToOutput": "./",
-      "outputFile": "TestProblemTwoLineTwoLayer_RM",
-      "printBinary": false,
-      "printExaConstitDefault": false,
-      "printExaConstitSize": 0,
+      "PathToOutput": "./",
+      "OutputFile": "TestProblemTwoLineTwoLayer_RM",
+      "PrintBinary": false,
+      "PrintExaConstitSize": 0,
       "PrintFieldsInit": [],
       "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
       "PrintIntermediateOutput": {

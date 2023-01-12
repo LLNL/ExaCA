@@ -527,31 +527,31 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Domain inputs:
     // Cell size - given in meters, stored in micrometers
-    deltax = inputdata["Domain"]["deltax"];
+    deltax = inputdata["Domain"]["Deltax"];
     deltax = deltax * pow(10, -6);
     // Time step - given in seconds, stored in microseconds
-    deltat = inputdata["Domain"]["deltat"];
+    deltat = inputdata["Domain"]["Deltat"];
     deltat = deltat * pow(10, -6);
     if (SimulationType == "C") {
         // Domain size, in cells
-        nx = inputdata["Domain"]["nx"];
-        ny = inputdata["Domain"]["ny"];
-        nz = inputdata["Domain"]["nz"];
+        nx = inputdata["Domain"]["Nx"];
+        ny = inputdata["Domain"]["Ny"];
+        nz = inputdata["Domain"]["Nz"];
         NumberOfLayers = 1;
         LayerHeight = nz;
     }
     else {
         // Number of layers, layer height are needed for problem types S and R
-        NumberOfLayers = inputdata["Domain"]["numberOfLayers"];
-        LayerHeight = inputdata["Domain"]["layerOffset"];
+        NumberOfLayers = inputdata["Domain"]["NumberOfLayers"];
+        LayerHeight = inputdata["Domain"]["LayerOffset"];
         // Type S needs spot information, which is then used to compute the domain bounds
         if (SimulationType == "S") {
-            NSpotsX = inputdata["Domain"]["nSpotsX"];
-            NSpotsY = inputdata["Domain"]["nSpotsY"];
+            NSpotsX = inputdata["Domain"]["NSpotsX"];
+            NSpotsY = inputdata["Domain"]["NSpotsY"];
             // Radius and offset are given in micrometers, convert to cells
-            SpotRadius = inputdata["Domain"]["rSpots"];
+            SpotRadius = inputdata["Domain"]["RSpots"];
             SpotRadius = SpotRadius * pow(10, -6) / deltax;
-            SpotOffset = inputdata["Domain"]["spotOffset"];
+            SpotOffset = inputdata["Domain"]["SpotOffset"];
             SpotOffset = SpotOffset * pow(10, -6) / deltax;
             // Calculate nx, ny, and nz based on spot array pattern and number of layers
             nz = SpotRadius + 1 + (NumberOfLayers - 1) * LayerHeight;
@@ -562,17 +562,17 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Nucleation inputs:
     // Nucleation density (normalized by 10^12 m^-3), mean nucleation undercooling/st dev undercooling(K)
-    NMax = inputdata["Nucleation"]["NMax"];
+    NMax = inputdata["Nucleation"]["Density"];
     NMax = NMax * pow(10, 12);
-    dTN = inputdata["Nucleation"]["dTN"];
-    dTsigma = inputdata["Nucleation"]["dTsigma"];
+    dTN = inputdata["Nucleation"]["MeanUndercooling"];
+    dTsigma = inputdata["Nucleation"]["StDevUndercooling"];
 
     // Temperature inputs:
     if (SimulationType == "R") {
         // Temperature data resolution - default to using CA cell size if the assumed temperature data resolution if not
         // given
-        if (inputdata["TemperatureData"].contains("HTdeltax")) {
-            HT_deltax = inputdata["TemperatureData"]["HTdeltax"];
+        if (inputdata["TemperatureData"].contains("HeatTransferDeltaX")) {
+            HT_deltax = inputdata["TemperatureData"]["HeatTransferDeltaX"];
             // Value is given in micrometers, convert to meters
             HT_deltax = HT_deltax * pow(10, -6);
         }
@@ -582,8 +582,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             throw std::runtime_error("Error: For simulations with external temperature data and remelting logic, CA "
                                      "cell size and input temperature data resolution must be equivalent");
         // Read all temperature files at once (default), or one at a time?
-        if (inputdata["TemperatureData"].contains("layerwiseTempRead")) {
-            LayerwiseTempRead = inputdata["TemperatureData"]["layerwiseTempRead"];
+        if (inputdata["TemperatureData"].contains("LayerwiseTempRead")) {
+            LayerwiseTempRead = inputdata["TemperatureData"]["LayerwiseTempRead"];
             if ((!(RemeltingYN)) && (LayerwiseTempRead)) {
                 if (id == 0)
                     std::cout << "Warning: ability to read temperature files one at a time during initialization of "
@@ -612,30 +612,30 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Substrate inputs:
     if (SimulationType == "C") {
         // Fraction of sites at bottom surface active
-        FractSurfaceSitesActive = inputdata["Substrate"]["fActive"];
+        FractSurfaceSitesActive = inputdata["Substrate"]["FActive"];
     }
     else {
         // Substrate data - should data come from an initial size or a file?
-        if ((inputdata["Substrate"].contains("substrateFilename")) && (inputdata["Substrate"].contains("S0")))
+        if ((inputdata["Substrate"].contains("SubstrateFilename")) && (inputdata["Substrate"].contains("MeanSize")))
             throw std::runtime_error("Error: only one of substrate grain size and substrate structure filename should "
                                      "be provided in the input file");
-        else if (inputdata["Substrate"].contains("substrateFilename")) {
-            SubstrateFileName = inputdata["Substrate"]["substrateFilename"];
+        else if (inputdata["Substrate"].contains("SubstrateFilename")) {
+            SubstrateFileName = inputdata["Substrate"]["SubstrateFilename"];
             UseSubstrateFile = true;
         }
-        else if (inputdata["Substrate"].contains("S0")) {
-            SubstrateGrainSpacing = inputdata["Substrate"]["S0"];
+        else if (inputdata["Substrate"].contains("MeanSize")) {
+            SubstrateGrainSpacing = inputdata["Substrate"]["MeanSize"];
             UseSubstrateFile = false;
         }
         // Should the baseplate microstructure be extended through the powder layers? Default is false
-        if (inputdata["Substrate"].contains("extendSubstrateThroughPower"))
-            BaseplateThroughPowder = inputdata["Substrate"]["extendSubstrateThroughPower"];
+        if (inputdata["Substrate"].contains("ExtendSubstrateThroughPower"))
+            BaseplateThroughPowder = inputdata["Substrate"]["ExtendSubstrateThroughPower"];
         else
             BaseplateThroughPowder = false;
-        if (inputdata["Substrate"].contains("powderDensity")) {
+        if (inputdata["Substrate"].contains("PowderDensity")) {
             // powder density is given as a density per unit volume, normalized by 10^12 m^-3 --> convert this into a
             // density of sites active on the CA grid (0 to 1)
-            PowderActiveFraction = inputdata["Substrate"]["powderDensity"];
+            PowderActiveFraction = inputdata["Substrate"]["PowderDensity"];
             PowderActiveFraction = PowderActiveFraction * pow(10, 12) * pow(deltax, 3);
             if ((PowderActiveFraction < 0.0) || (PowderActiveFraction > 1.0))
                 throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
@@ -650,24 +650,21 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Printing inputs:
     // Path to output data
-    PathToOutput = inputdata["Printing"]["pathToOutput"];
+    PathToOutput = inputdata["Printing"]["PathToOutput"];
     // Name of output data
-    OutputFile = inputdata["Printing"]["outputFile"];
+    OutputFile = inputdata["Printing"]["OutputFile"];
     // Should ASCII or binary be used to print vtk data? Defaults to ASCII if not given
-    if (inputdata["Printing"].contains("printBinary"))
-        PrintBinary = inputdata["Printing"]["printBinary"];
+    if (inputdata["Printing"].contains("PrintBinary"))
+        PrintBinary = inputdata["Printing"]["PrintBinary"];
     else
         PrintBinary = false;
-    // Should default ExaConstit output be printed after the simulation?
-    if (inputdata["Printing"].contains("printExaConstitDefault")) {
-        PrintDefaultRVE = inputdata["Printing"]["printExaConstitDefault"];
-        // If so, what size RVE should be printed? Defaults to 0.5 by 0.5 by 0.5 mm
-        if (PrintDefaultRVE) {
-            if (inputdata["Printing"].contains("printExaConstitSize"))
-                RVESize = inputdata["Printing"]["printExaConstitSize"];
-            else
-                RVESize = 0.0005 / deltax;
-        }
+    // Should default ExaConstit output be printed after the simulation? If so, what size RVE?
+    if (inputdata["Printing"].contains("PrintExaConstitSize")) {
+        RVESize = inputdata["Printing"]["PrintExaConstitSize"];
+        if (RVESize == 0)
+            PrintDefaultRVE = false;
+        else
+            PrintDefaultRVE = true;
     }
     else
         PrintDefaultRVE = false;

@@ -4,31 +4,30 @@
    "GrainOrientationFile": "GrainOrientationVectors.csv",
    "RNGSeed": 0.0,
    "Domain": {
-       "deltax": 5,
-       "deltat": 0.3,
-       "numberOfLayers": 4,
-       "layerOffset": 3
+       "Deltax": 5,
+       "Deltat": 0.3,
+       "NumberOfLayers": 4,
+       "LayerOffset": 3
    },
    "Nucleation": {
-      "NMax": 0,
-      "dTN": 5,
-      "dTsigma": 0.5
+      "Density": 0,
+      "MeanUndercooling": 5,
+      "StDevUndercooling": 0.5
    },
    "TemperatureData": {
-       "HTdeltax": 5,
-       "layerwiseTempRead": false,
+       "HeatTransferDeltaX": 5,
+       "LayerwiseTempRead": false,
        "TemperatureFiles": ["examples/Temperatures/1CA-FOAM-fluidflow.txt","examples/Temperatures/2CA-FOAM-fluidflow.txt"]
    },
    "Substrate": {
-      "S0": 25,
-      "powderDensity": 8000
+      "MeanSize": 25,
+      "PowderDensity": 8000
    },
    "Printing": {
-       "pathToOutput": "./",
-       "outputFile": "TestProblemAMB",
-       "printBinary": false,
-       "printExaConstitDefault": false,
-       "printExaConstitSize": 0,
+       "PathToOutput": "./",
+       "OutputFile": "TestProblemAMB",
+       "PrintBinary": false,
+       "PrintExaConstitSize": 0,
        "PrintFieldsInit": [],
        "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
        "PrintIntermediateOutput": {
