@@ -645,10 +645,10 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
             else if (SimulationType == "R") {
                 ExaCALog << "The " << TempFilesInSeries << " temperature file(s) repeated in the " << NumberOfLayers
                          << " layer simulation were: " << std::endl;
-                for (int i = 0; i < TempFilesInSeries-1; i++) {
+                for (int i = 0; i < TempFilesInSeries - 1; i++) {
                     ExaCALog << temp_paths[i] << ", ";
                 }
-                ExaCALog << temp_paths[TempFilesInSeries-1] << std::endl;
+                ExaCALog << temp_paths[TempFilesInSeries - 1] << std::endl;
                 ExaCALog << "The temperature data resolution was " << HT_deltax << " microns" << std::endl;
             }
         }
