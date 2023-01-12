@@ -601,7 +601,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         std::cout << "Printing ExaCA log file" << std::endl;
         std::ofstream ExaCALog;
         ExaCALog.open(FName);
-        std::cout << "ExaCA version: " << version() << " \nExaCA commit:  " << gitCommitHash() << std::endl;
+        ExaCALog << "ExaCA version: " << version() << " \nExaCA commit:  " << gitCommitHash() << std::endl;
         ExaCALog << "log file for a simulation run with input file " << InputFile << "  run on " << np
                  << " MPI ranks, output written at cycle " << cycle << std::endl;
         ExaCALog << "This simulation took " << InitTime + RunTime + OutTime
@@ -626,12 +626,6 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
             ExaCALog << "The thermal gradient was " << G << " K/m, and the cooling rate " << R << " K/s" << std::endl;
             ExaCALog << "The fraction of surface sites active was " << FractSurfaceSitesActive << std::endl;
         }
-        else if (SimulationType == "S") {
-            ExaCALog << "A total of " << NSpotsX << " in X and " << NSpotsY << " in Y were considered" << std::endl;
-            ExaCALog << "The spots were offset by " << SpotOffset << " microns, and had radii of " << SpotRadius
-                     << " microns" << std::endl;
-            ExaCALog << "This pattern was repeated for " << NumberOfLayers << " layers" << std::endl;
-        }
         else {
             ExaCALog << NumberOfLayers << " layers were simulated, with an offset of " << LayerHeight << " cells"
                      << std::endl;
@@ -643,12 +637,18 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                 ExaCALog << "The substrate file was " << SubstrateFileName << std::endl;
             else
                 ExaCALog << "The mean substrate grain size was " << SubstrateGrainSpacing << " microns" << std::endl;
-            if (SimulationType == "R") {
+            if (SimulationType == "S") {
+                ExaCALog << "A total of " << NSpotsX << " in X and " << NSpotsY << " in Y were considered" << std::endl;
+                ExaCALog << "The spots were offset by " << SpotOffset << " microns, and had radii of " << SpotRadius
+                         << " microns" << std::endl;
+            }
+            else if (SimulationType == "R") {
                 ExaCALog << "The " << TempFilesInSeries << " temperature file(s) repeated in the " << NumberOfLayers
                          << " layer simulation were: " << std::endl;
-                for (int i = 0; i < TempFilesInSeries; i++) {
-                    std::cout << temp_paths[i] << std::endl;
+                for (int i = 0; i < TempFilesInSeries-1; i++) {
+                    ExaCALog << temp_paths[i] << ", ";
                 }
+                ExaCALog << temp_paths[TempFilesInSeries-1] << std::endl;
                 ExaCALog << "The temperature data resolution was " << HT_deltax << " microns" << std::endl;
             }
         }
