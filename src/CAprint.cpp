@@ -601,58 +601,62 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         std::cout << "Printing ExaCA log file" << std::endl;
         std::ofstream ExaCALog;
         ExaCALog.open(FName);
-        ExaCALog << "ExaCA version: " << version() << " \nExaCA commit:  " << gitCommitHash() << std::endl;
-        ExaCALog << "log file for a simulation run with input file " << InputFile << "  run on " << np
-                 << " MPI ranks, output written at cycle " << cycle << std::endl;
-        ExaCALog << "This simulation took " << InitTime + RunTime + OutTime
-                 << " seconds to run, with the init/run/output breakdown as " << InitTime << "/" << RunTime << "/"
-                 << OutTime << std::endl;
-        ExaCALog << "This simulation was type: " << SimulationType << std::endl;
+        ExaCALog << "ExaCA version: " << version() << std::endl;
+        ExaCALog << "ExaCA commit: " << gitCommitHash() << std::endl;
+        ExaCALog << "Input file used was: " << InputFile << std::endl;
+        ExaCALog << "Number of MPI ranks used was: " << np << std::endl;
+        ExaCALog << "Output was written at cycle: " << cycle << std::endl;
+        ExaCALog << "Simulation runtime (in seconds) was: " << InitTime + RunTime + OutTime << std::endl;
+        ExaCALog << "Init/run/output timing breakdown (in seconds): " << InitTime << "/" << RunTime << "/" << OutTime
+                 << std::endl;
+        ExaCALog << "Simulation was type: " << SimulationType << std::endl;
         ExaCALog << "Domain size in x: " << nx << std::endl;
         ExaCALog << "Domain size in y: " << ny << std::endl;
         ExaCALog << "Domain size in z: " << nz << std::endl;
-        ExaCALog << "Cell size: " << deltax << " microns" << std::endl;
-        ExaCALog << "Time step: " << deltat << " microseconds" << std::endl;
+        ExaCALog << "Cell size (in microns): " << deltax << std::endl;
+        ExaCALog << "Time step (in microseconds): " << deltat << std::endl;
         ExaCALog << "Lower bound of domain in x: " << XMin << std::endl;
         ExaCALog << "Lower bound of domain in y: " << YMin << std::endl;
         ExaCALog << "Lower bound of domain in z: " << ZMin << std::endl;
         ExaCALog << "Upper bound of domain in x: " << XMax << std::endl;
         ExaCALog << "Upper bound of domain in y: " << YMax << std::endl;
         ExaCALog << "Upper bound of domain in z: " << ZMax << std::endl;
-        ExaCALog << "Nucleation density was " << NMax << " m^-3 , mean nucleation undercooling was " << dTN
-                 << " K, and standard deviation of nucleation undercooling was " << dTsigma << " K" << std::endl;
+        ExaCALog << "Nucleation density (per m^3) was: " << NMax << std::endl;
+        ExaCALog << "Mean nucleation undercooling (in K, relative to liquidus temperature) was: " << dTN << std::endl;
+        ExaCALog << "Standard deviation of nucleation undercooling (in K) was: " << dTsigma << std::endl;
         ExaCALog << irf.print() << std::endl;
         if (SimulationType == "C") {
-            ExaCALog << "The thermal gradient was " << G << " K/m, and the cooling rate " << R << " K/s" << std::endl;
-            ExaCALog << "The fraction of surface sites active was " << FractSurfaceSitesActive << std::endl;
+            ExaCALog << "Thermal gradient (K/m): " << G << std::endl;
+            ExaCALog << "Cooling rate (K/s): " << R << std::endl;
+            ExaCALog << "Fraction of surface sites active: " << FractSurfaceSitesActive << std::endl;
         }
         else {
-            ExaCALog << NumberOfLayers << " layers were simulated, with an offset of " << LayerHeight << " cells"
-                     << std::endl;
+            ExaCALog << "Number of layers simulated: " << NumberOfLayers << std::endl;
+            ExaCALog << "Layers offset (in cells) was: " << LayerHeight << std::endl;
             if (RemeltingYN)
-                ExaCALog << "Remelting was included" << std::endl;
+                ExaCALog << "Remelting: included" << std::endl;
             else
-                ExaCALog << "Remelting was not included" << std::endl;
+                ExaCALog << "Remelting: not included" << std::endl;
             if (SubstrateFile)
-                ExaCALog << "The substrate file was " << SubstrateFileName << std::endl;
+                ExaCALog << "The substrate file was: " << SubstrateFileName << std::endl;
             else
-                ExaCALog << "The mean substrate grain size was " << SubstrateGrainSpacing << " microns" << std::endl;
+                ExaCALog << "The mean substrate grain size (in microns) was: " << SubstrateGrainSpacing << std::endl;
             if (SimulationType == "S") {
-                ExaCALog << "A total of " << NSpotsX << " in X and " << NSpotsY << " in Y were considered" << std::endl;
-                ExaCALog << "The spots were offset by " << SpotOffset << " microns, and had radii of " << SpotRadius
-                         << " microns" << std::endl;
+                ExaCALog << "Spots in X: " << NSpotsX << std::endl;
+                ExaCALog << "Spots in Y: " << NSpotsY << std::endl;
+                ExaCALog << "Offset between spots (in microns): " << SpotOffset << std::endl;
+                ExaCALog << "Radii of spots (in microns): " << SpotRadius << std::endl;
             }
             else if (SimulationType == "R") {
-                ExaCALog << "The " << TempFilesInSeries << " temperature file(s) repeated in the " << NumberOfLayers
-                         << " layer simulation were: " << std::endl;
+                ExaCALog << "The temperature file(s) repeated in the simulation were: ";
                 for (int i = 0; i < TempFilesInSeries - 1; i++) {
                     ExaCALog << temp_paths[i] << ", ";
                 }
                 ExaCALog << temp_paths[TempFilesInSeries - 1] << std::endl;
-                ExaCALog << "The temperature data resolution was " << HT_deltax << " microns" << std::endl;
+                ExaCALog << "The temperature data resolution (in microns) was: " << HT_deltax << std::endl;
             }
         }
-        ExaCALog << "The decomposition scheme used was a 1D decomposition along the Y direction" << std::endl;
+        ExaCALog << "***" << std::endl;
         for (int i = 0; i < np; i++) {
             ExaCALog << "Rank " << i << " contained " << YSlices[i] << " cells in y; subdomain was offset by "
                      << YOffset[i] << " in y" << std::endl;

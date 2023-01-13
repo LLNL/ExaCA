@@ -59,8 +59,74 @@ int FindTopOrBottom(ViewI3D_H LayerID, int XLow, int XHigh, int YLow, int YHigh,
     return TopBottomZ;
 }
 
+// Check the format of the log file: new version has all lines with colon separator
+bool checkLogFormat(std::string LogFile) {
+    bool NewLogFormatYN;
+    std::ifstream InputDataStream;
+    InputDataStream.open(LogFile);
+    if (!(InputDataStream))
+        throw std::runtime_error("Error: Cannot find ExaCA log file");
+    std::string testline;
+    // If the version is listed on the first line, this is the new log file format
+    getline(InputDataStream, testline);
+    std::size_t found_version = testline.find("ExaCA version");
+    if (found_version == std::string::npos)
+        NewLogFormatYN = false;
+    else
+        NewLogFormatYN = true;
+    return NewLogFormatYN;
+}
+
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
-                  bool UseXYZBounds, std::vector<double> &XYZBounds) {
+                  std::vector<double> &XYZBounds) {
+
+    std::vector<std::string> LogInputs = {
+        "Lower bound of domain in x", // Input 0
+        "Lower bound of domain in y", // Input 1
+        "Lower bound of domain in z", // Input 2
+        "Upper bound of domain in x", // Input 3
+        "Upper bound of domain in y", // Input 4
+        "Upper bound of domain in z", // Input 5
+        "Cell size",                  // Input 6
+        "Domain size in x",           // Input 7
+        "Domain size in y",           // Input 8
+        "Domain size in z",           // Input 9
+        "Simulation was type",        // Input 10
+        "Number of layers simulated"  // Input 11
+    };
+    int NumLogInputs = LogInputs.size();
+    std::vector<std::string> LogInputsRead(NumLogInputs);
+
+    std::ifstream InputDataStream;
+    InputDataStream.open(LogFile);
+    std::string line;
+    while (std::getline(InputDataStream, line)) {
+        // Line with *** denotes end of relevant portion of log file
+        if (line.find("***") == std::string::npos) {
+            // Check against inputs of interest
+            bool FoundYN = parseInputFromList(line, LogInputs, LogInputsRead, NumLogInputs);
+            if (FoundYN)
+                std::cout << line << std::endl;
+        }
+        else
+            break;
+    }
+    for (int n = 0; n < 6; n++) {
+        XYZBounds[n] = getInputDouble(LogInputsRead[n]);
+    }
+    deltax = getInputDouble(LogInputsRead[6], -6);
+    nx = getInputInt(LogInputsRead[7]);
+    ny = getInputInt(LogInputsRead[8]);
+    nz = getInputInt(LogInputsRead[9]);
+    std::string SimulationType = LogInputsRead[10];
+    if (SimulationType == "C")
+        NumberOfLayers = 1;
+    else
+        NumberOfLayers = getInputInt(LogInputsRead[11]);
+}
+
+void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
+                      bool UseXYZBounds, std::vector<double> &XYZBounds) {
 
     std::ifstream InputDataStream;
     InputDataStream.open(LogFile);

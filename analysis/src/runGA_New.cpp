@@ -3,9 +3,9 @@
 //
 // SPDX-License-Identifier: MIT
 
-#include "runGA.hpp"
 #include "GAprint.hpp"
 #include "GAutils.hpp"
+#include "runGA.hpp"
 
 #include "ExaCA.hpp"
 
@@ -48,12 +48,8 @@ int main(int argc, char *argv[]) {
         // Given the input file name, parse the paraview file for the cell size, x, y, and z dimensions, number of
         // layers
         int nx, ny, nz, NumberOfLayers;
-        std::vector<double> XYZBounds(6);
-        bool NewLogFormatYN = checkLogFormat(LogFile);
-        if (NewLogFormatYN)
-            ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds);
-        else
-            ParseLogFile_Old(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds);
+        std::vector<double> XYZBounds_Global(6);
+        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds_Global);
 
         // Allocate memory blocks for GrainID and LayerID data
         ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
@@ -62,56 +58,38 @@ int main(int argc, char *argv[]) {
         // Fill arrays with data from paraview file
         InitializeData(MicrostructureFile, nx, ny, nz, GrainID, LayerID);
 
-        // Read analysis file ("ExaCA/examples/Outputs.txt") to determine which analysis should be done
-        // There are three parts to this analysis:
-        // Part 1: Determine the number of, and bounds of, specified RVEs for ExaConstits
-        int NumberOfRVEs = 0;
-        std::vector<int> XLow_RVE, XHigh_RVE, YLow_RVE, YHigh_RVE, ZLow_RVE,
-            ZHigh_RVE; // Contains data on each individual RVE bounds
-
-        // Part 2: Determine the number of, and planes for, cross-sections
-        int NumberOfCrossSections = 0;
-        std::vector<std::string>
-            CrossSectionPlane;             // Contains type of cross-section/location of each cross-section as a string
-        std::vector<std::string> CSLabels; // Labels for each cross-section when printed to files
-        std::vector<int> CrossSectionLocation; // Contains location of each cross-section as an integer
-        std::vector<bool> PrintSectionPF, PrintSectionIPF,
-            BimodalAnalysis; // Whether or not to print pole figure or IPF-colormap data
-                             // for each individual cross section, whether or not to separate grain areas into two
-                             // distributions or not
-        // Part 3: Analysis options on a representative region in x, y, and z (can be different than the x, y, and z for
-        // ExaConstit)
-        bool AnalysisTypes[8] = {0};            // which analysis modes other than the defaults should be considered?
-        int XMin, XMax, YMin, YMax, ZMin, ZMax; // bounds of analysis region
-
-        // Analysis also requires reading orientation files of specified names
-        int NumberOfOrientations;
-        ParseAnalysisFile(AnalysisFile, RotationFilename, NumberOfOrientations, AnalysisTypes, XLow_RVE, XHigh_RVE,
-                          YLow_RVE, YHigh_RVE, ZLow_RVE, ZHigh_RVE, NumberOfRVEs, CrossSectionPlane,
-                          CrossSectionLocation, NumberOfCrossSections, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz,
-                          LayerID, NumberOfLayers, PrintSectionPF, PrintSectionIPF, BimodalAnalysis,
-                          NewOrientationFormatYN, CSLabels);
-
         // Allocate memory for grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
         // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
+        int NumberOfOrientations = 10000;
         ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NumberOfOrientations);
         ViewF GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"), 3 * NumberOfOrientations);
         ViewF GrainRGBValues(Kokkos::ViewAllocateWithoutInitializing("GrainRGBValues"), 3 * NumberOfOrientations);
 
-        // Initialize, then copy back to host. GrainEulerAngles only used with new input file format
+        // Initialize, then copy back to host
         OrientationInit(0, NumberOfOrientations, GrainUnitVector, RotationFilename, 9);
         ViewF_H GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
-        if (NewOrientationFormatYN) {
-            OrientationInit(0, NumberOfOrientations, GrainEulerAngles, EulerAnglesFilename, 3);
-        }
+        OrientationInit(0, NumberOfOrientations, GrainEulerAngles, EulerAnglesFilename, 3);
         ViewF_H GrainEulerAngles_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainEulerAngles);
         OrientationInit(0, NumberOfOrientations, GrainRGBValues, RGBFilename, 3);
         ViewF_H GrainRGBValues_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainRGBValues);
 
+        parseAnalysisFile();
+        for (int n = 0; n < NumAnalysisVolumes; n++) {
+
+            // print misorientation x, y, or z: need list of unique grain IDs and grain sizes (volumes)
+            printMisorientationData();
+            // print volume data: need list of unique grain IDs and grain sizes (volumes)
+            printVolumeData();
+            // print aspect ratio/weighted aspect ratio data: need list of unique grain IDs and grain extents in x, y, z
+            printAspectRatioData();
+            // print grain height: need list of unique grain IDs and grain extents in z
+            printHeightData();
+            // print grain width: need list of unique grain IDs and grain extents in x and y
+            printWidthData();
+        }
         // Analysis routines
         // Part 1: ExaConstit-specific RVE(s)
-        PrintExaConstitRVEData(NumberOfRVEs, OutputFileName, nx, ny, nz, deltax, GrainID, XLow_RVE, XHigh_RVE, YLow_RVE,
-                               YHigh_RVE, ZLow_RVE, ZHigh_RVE); // if > 0 RVEs, print file(s) "n_ExaConstit.csv"
+        // if > 0 RVEs, print file(s) "n_ExaConstit.csv"
 
         // Part 2: Cross-sections for area statistics, pole figures, inverse pole figure coloring maps of microstructure
         PrintCrossSectionData(NumberOfCrossSections, OutputFileName, CrossSectionPlane, CrossSectionLocation, nx, ny,
