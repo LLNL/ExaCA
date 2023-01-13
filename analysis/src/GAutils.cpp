@@ -114,7 +114,7 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
     for (int n = 0; n < 6; n++) {
         XYZBounds[n] = getInputDouble(LogInputsRead[n]);
     }
-    deltax = getInputDouble(LogInputsRead[6], -6);
+    deltax = getInputDouble(LogInputsRead[6]);
     nx = getInputInt(LogInputsRead[7]);
     ny = getInputInt(LogInputsRead[8]);
     nz = getInputInt(LogInputsRead[9]);
