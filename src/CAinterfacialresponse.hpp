@@ -38,6 +38,7 @@ struct InterfacialResponseFunction {
         power = 2,
     };
     int function = cubic;
+    std::string functionform = "cubic";
 
     // Constructor - old (colon-delimited list) or new (json) format for interfacial response data
     // FIXME: remove old format in future release
@@ -103,19 +104,20 @@ struct InterfacialResponseFunction {
         A = data["coefficients"]["A"];
         B = data["coefficients"]["B"];
         C = data["coefficients"]["C"];
-        if (data["function"] == "cubic") {
+        functionform = data["function"];
+        if (functionform == "cubic") {
             D = data["coefficients"]["D"];
             function = cubic;
         }
-        else if ((data["function"] == "quadratic") || (data["function"] == "power")) {
+        else if ((functionform == "quadratic") || (functionform == "power")) {
             // D should not have been given, this functional form only takes 3 input fitting parameters
             if (data["coefficients"]["D"] != nullptr) {
                 std::string error = "Error: functional form of this type takes only A, B, and C as inputs";
                 throw std::runtime_error(error);
             }
-            if (data["function"] == "quadratic")
+            if (functionform == "quadratic")
                 function = quadratic;
-            else if (data["function"] == "power")
+            else if (functionform == "power")
                 function = power;
         }
         else
@@ -148,8 +150,13 @@ struct InterfacialResponseFunction {
 
     std::string print() {
         std::stringstream out;
-        out << "Interfacial response cubic function parameters used were " << (A) << ", " << (B) << ", " << (C) << ", "
-            << (D) << ", and the alloy freezing range was " << (FreezingRange);
+        out << "Interfacial response function form: " << functionform << std::endl;
+        out << "Interfacial response function parameter A: " << (A) << std::endl;
+        out << "Interfacial response function parameter B: " << (B) << std::endl;
+        out << "Interfacial response function parameter C: " << (C) << std::endl;
+        if (function == cubic)
+            out << "Interfacial response function parameter D: " << (D) << std::endl;
+        out << "The alloy freezing range was: " << (FreezingRange);
         return out.str();
     }
 };

@@ -23,8 +23,11 @@ std::string parseCoordinatePair(std::string line, int val);
 int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow);
 
 // These are used in reading/parsing ExaCA microstructure data
+bool checkLogFormat(std::string LogFile);
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
-                  bool UseXYZBounds, std::vector<double> &XYZBounds);
+                  std::vector<double> &XYZBounds);
+void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
+                      bool UseXYZBounds, std::vector<double> &XYZBounds);
 void ReadASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest);
 void ReadBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest,
                      std::string FieldName);

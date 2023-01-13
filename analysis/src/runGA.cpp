@@ -49,7 +49,11 @@ int main(int argc, char *argv[]) {
         // layers
         int nx, ny, nz, NumberOfLayers;
         std::vector<double> XYZBounds(6);
-        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, false, XYZBounds);
+        bool NewLogFormatYN = checkLogFormat(LogFile);
+        if (NewLogFormatYN)
+            ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds);
+        else
+            ParseLogFile_Old(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds);
 
         // Allocate memory blocks for GrainID and LayerID data
         ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
