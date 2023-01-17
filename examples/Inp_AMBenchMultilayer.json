@@ -2,17 +2,17 @@
    "SimulationType": "R",
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
-   "RNGSeed": 0.0,
+   "RandomSeed": 0,
    "Domain": {
-       "Deltax": 5,
-       "Deltat": 0.3,
+       "CellSize": 5,
+       "TimeStep": 0.3,
        "NumberOfLayers": 4,
        "LayerOffset": 3
    },
    "Nucleation": {
       "Density": 0,
-      "MeanUndercooling": 5,
-      "StDevUndercooling": 0.5
+      "Mean": 5,
+      "StDev": 0.5
    },
    "TemperatureData": {
        "HeatTransferDeltaX": 5,

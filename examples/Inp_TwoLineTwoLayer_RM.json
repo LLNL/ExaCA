@@ -2,20 +2,20 @@
    "SimulationType": "RM",
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
-   "RNGSeed": 0.0,
+   "RandomSeed": 0,
    "Domain": {
-       "Deltax": 2.5,
-       "Deltat": 0.0825,
+       "CellSize": 2.5,
+       "TimeStep": 0.0825,
        "NumberOfLayers": 2,
        "LayerOffset": 8
    },
    "Nucleation": {
       "Density": 100,
-      "MeanUndercooling": 5,
-      "StDevUndercooling": 0.5
+      "Mean": 5,
+      "StDev": 0.5
    },
    "TemperatureData": {
-       "HeatTransferDeltaX": 2.5,
+       "HeatTransferCellSize": 2.5,
        "LayerwiseTempRead": false,
        "TemperatureFiles": ["examples/Temperatures/TwoLine.txt"]
    },

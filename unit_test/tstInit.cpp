@@ -89,17 +89,17 @@ void WriteTestDataR_json(std::string InputFilename, bool PrintDebugFiles) {
     TestDataFile << "   \"SimulationType\": \"R\"," << std::endl;
     TestDataFile << "   \"MaterialFileName\": \"Inconel625.json\"," << std::endl;
     TestDataFile << "   \"GrainOrientationFile\": \"GrainOrientationVectors.csv\"," << std::endl;
-    TestDataFile << "   \"RNGSeed\": 2.0," << std::endl;
+    TestDataFile << "   \"RandomSeed\": 2," << std::endl;
     TestDataFile << "   \"Domain\": {" << std::endl;
-    TestDataFile << "      \"Deltax\": 1," << std::endl;
-    TestDataFile << "      \"Deltat\": 1.5," << std::endl;
+    TestDataFile << "      \"CellSize\": 1," << std::endl;
+    TestDataFile << "      \"TimeStep\": 1.5," << std::endl;
     TestDataFile << "      \"NumberOfLayers\": 2," << std::endl;
     TestDataFile << "      \"LayerOffset\": 1" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"Nucleation\": {" << std::endl;
     TestDataFile << "      \"Density\": 10," << std::endl;
-    TestDataFile << "      \"MeanUndercooling\": 5," << std::endl;
-    TestDataFile << "      \"StDevUndercooling\": 0.5" << std::endl;
+    TestDataFile << "      \"Mean\": 5," << std::endl;
+    TestDataFile << "      \"StDev\": 0.5" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"TemperatureData\": {" << std::endl;
     TestDataFile << "      \"TemperatureFiles\": [\".//1DummyTemperature.txt\",\".//2DummyTemperature.txt\"]"

@@ -2,10 +2,10 @@
    "SimulationType": "SM",
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
-   "RNGSeed": 0.0,
+   "RandomSeed": 0,
    "Domain": {
-       "Deltax": 1,
-       "Deltat": 0.066666666,
+       "CellSize": 1,
+       "TimeStep": 0.066666666,
        "NSpotsX": 3,
        "NSpotsY": 2,
        "RSpots": 75,
@@ -15,8 +15,8 @@
    },
    "Nucleation": {
        "Density": 10,
-       "MeanUndercooling": 5,
-       "StDevUndercooling": 0.5
+       "Mean": 5,
+       "StDev": 0.5
    },
    "TemperatureData": {
       "G": 500000,

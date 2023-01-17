@@ -520,17 +520,17 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, id);
     checkFileNotEmpty(GrainOrientationFile);
     // Seed for random number generator (defaults to 0 if not given)
-    if (inputdata.contains("RNGSeed"))
-        RNGSeed = inputdata["RNGSeed"];
+    if (inputdata.contains("RandomSeed"))
+        RNGSeed = inputdata["RandomSeed"];
     else
-        RNGSeed = 0.0;
+        RNGSeed = 0;
 
     // Domain inputs:
     // Cell size - given in meters, stored in micrometers
-    deltax = inputdata["Domain"]["Deltax"];
+    deltax = inputdata["Domain"]["CellSize"];
     deltax = deltax * pow(10, -6);
     // Time step - given in seconds, stored in microseconds
-    deltat = inputdata["Domain"]["Deltat"];
+    deltat = inputdata["Domain"]["TimeStep"];
     deltat = deltat * pow(10, -6);
     if (SimulationType == "C") {
         // Domain size, in cells
@@ -564,15 +564,15 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Nucleation density (normalized by 10^12 m^-3), mean nucleation undercooling/st dev undercooling(K)
     NMax = inputdata["Nucleation"]["Density"];
     NMax = NMax * pow(10, 12);
-    dTN = inputdata["Nucleation"]["MeanUndercooling"];
-    dTsigma = inputdata["Nucleation"]["StDevUndercooling"];
+    dTN = inputdata["Nucleation"]["Mean"];
+    dTsigma = inputdata["Nucleation"]["StDev"];
 
     // Temperature inputs:
     if (SimulationType == "R") {
         // Temperature data resolution - default to using CA cell size if the assumed temperature data resolution if not
         // given
-        if (inputdata["TemperatureData"].contains("HeatTransferDeltaX")) {
-            HT_deltax = inputdata["TemperatureData"]["HeatTransferDeltaX"];
+        if (inputdata["TemperatureData"].contains("HeatTransferCellSize")) {
+            HT_deltax = inputdata["TemperatureData"]["HeatTransferCellSize"];
             // Value is given in micrometers, convert to meters
             HT_deltax = HT_deltax * pow(10, -6);
         }
@@ -612,7 +612,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Substrate inputs:
     if (SimulationType == "C") {
         // Fraction of sites at bottom surface active
-        FractSurfaceSitesActive = inputdata["Substrate"]["FActive"];
+        FractSurfaceSitesActive = inputdata["Substrate"]["FractionSurfaceSitesActive"];
     }
     else {
         // Substrate data - should data come from an initial size or a file?
