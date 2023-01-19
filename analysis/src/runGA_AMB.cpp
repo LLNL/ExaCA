@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: MIT
 
-#include "runGA_AMB.hpp"
 #include "CAinitialize.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"

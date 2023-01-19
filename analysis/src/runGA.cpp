@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: MIT
 
-#include "runGA.hpp"
 #include "GAprint.hpp"
 #include "GAutils.hpp"
 
