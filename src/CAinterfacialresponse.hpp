@@ -40,65 +40,66 @@ struct InterfacialResponseFunction {
     int function = cubic;
     std::string functionform = "cubic";
 
-    // Constructor - old (colon-delimited list) or new (json) format for interfacial response data
-    // FIXME: remove old format in future release
-    InterfacialResponseFunction(int id, std::string MaterialFile, const double deltat, const double deltax) {
-        std::ifstream MaterialData;
-        MaterialData.open(MaterialFile);
-        std::string firstline;
-        getline(MaterialData, firstline);
-        if (firstline.find('{') != std::string::npos) {
+    // Constructor
+    // FIXME: Remove option to parse using old (non-json) file format in a future release
+    InterfacialResponseFunction(int id, std::string MaterialFile, const double deltat, const double deltax,
+                                const bool JsonInputFormat) {
+        if (JsonInputFormat) {
 #ifdef ExaCA_ENABLE_JSON
-            // New json input format for material data detected
-            MaterialData.close();
-            parseMaterialJson(MaterialFile);
+            parseMaterial(id, MaterialFile);
 #else
-            throw std::runtime_error("Cannot use JSON input file without ExaCA_ENABLE_JSON=ON");
+            throw std::runtime_error("Error: attempted to parse json input file without ExaCA_ENABLE_JSON=ON");
 #endif
         }
-        else {
-            // Old input file format for material data (cubic function)
-            if (id == 0)
-                std::cout << "Warning: Old (non-json) input file format detected for the material data file, "
-                             "compatability with this is now deprecated and will be removed in a future release"
-                          << std::endl;
-            skipLines(MaterialData, "*****");
-            std::string val;
-            // Interfacial response function A, B, C, D, and the solidification range
-            // for the alloy The order of these is important: "Alloy freezing range"
-            // should be before "A", as a search for "A" in either string will return
-            // true
-            std::vector<std::string> MaterialInputs = {
-                "Alloy freezing range", // Required input 0
-                "A",                    // Required input 1
-                "B",                    // Required input 2
-                "C",                    // Required input 3
-                "D",                    // Required input 4
-            };
-            int NumMaterialInputs = MaterialInputs.size();
-            std::vector<std::string> MaterialInputsRead(NumMaterialInputs);
-            while (std::getline(MaterialData, val)) {
-                // Check if this is one of the expected inputs - otherwise throw an error
-                bool FoundInput = parseInputFromList(val, MaterialInputs, MaterialInputsRead, NumMaterialInputs);
-                if (!(FoundInput)) {
-                    std::string error = "Error: Unexpected line " + val + " present in material file " + MaterialFile +
-                                        " : file should only contain A, B, C, D, and Alloy freezing range";
-                    throw std::runtime_error(error);
-                }
-            }
-            MaterialData.close();
-            FreezingRange = getInputDouble(MaterialInputsRead[0]);
-            A = getInputDouble(MaterialInputsRead[1]);
-            B = getInputDouble(MaterialInputsRead[2]);
-            C = getInputDouble(MaterialInputsRead[3]);
-            D = getInputDouble(MaterialInputsRead[4]);
-        }
+        else
+            parseMaterialOld(id, MaterialFile);
         normalize(deltat, deltax);
+    }
+
+    // Old input file format for material data (cubic function)
+    void parseMaterialOld(int id, std::string MaterialFile) {
+        if (id == 0)
+            std::cout << "Warning: Old (non-json) input file format detected for the material data file, "
+                         "compatability with this is now deprecated and will be removed in a future release"
+                      << std::endl;
+        std::ifstream MaterialData(MaterialFile);
+        skipLines(MaterialData, "*****");
+        std::string val;
+        // Interfacial response function A, B, C, D, and the solidification range
+        // for the alloy The order of these is important: "Alloy freezing range"
+        // should be before "A", as a search for "A" in either string will return
+        // true
+        std::vector<std::string> MaterialInputs = {
+            "Alloy freezing range", // Required input 0
+            "A",                    // Required input 1
+            "B",                    // Required input 2
+            "C",                    // Required input 3
+            "D",                    // Required input 4
+        };
+        int NumMaterialInputs = MaterialInputs.size();
+        std::vector<std::string> MaterialInputsRead(NumMaterialInputs);
+        while (std::getline(MaterialData, val)) {
+            // Check if this is one of the expected inputs - otherwise throw an error
+            bool FoundInput = parseInputFromList(val, MaterialInputs, MaterialInputsRead, NumMaterialInputs);
+            if (!(FoundInput)) {
+                std::string error = "Error: Unexpected line " + val + " present in material file " + MaterialFile +
+                                    " : file should only contain A, B, C, D, and Alloy freezing range";
+                throw std::runtime_error(error);
+            }
+        }
+        MaterialData.close();
+        FreezingRange = getInputDouble(MaterialInputsRead[0]);
+        A = getInputDouble(MaterialInputsRead[1]);
+        B = getInputDouble(MaterialInputsRead[2]);
+        C = getInputDouble(MaterialInputsRead[3]);
+        D = getInputDouble(MaterialInputsRead[4]);
     }
 
 #ifdef ExaCA_ENABLE_JSON
     // Used for reading material file in new json format
-    void parseMaterialJson(std::string MaterialFile) {
+    void parseMaterial(int id, std::string MaterialFile) {
+        if (id == 0)
+            std::cout << "Parsing material file using json input format" << std::endl;
         std::ifstream MaterialData(MaterialFile);
         nlohmann::json data = nlohmann::json::parse(MaterialData);
         A = data["coefficients"]["A"];

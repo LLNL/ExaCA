@@ -1,0 +1,41 @@
+{
+   "SimulationType": "SM",
+   "MaterialFileName": "Inconel625.json",
+   "GrainOrientationFile": "GrainOrientationVectors.csv",
+   "RandomSeed": 0.0,
+   "Domain": {
+       "CellSize": 1,
+       "TimeStep": 0.066666666,
+       "NSpotsX": 3,
+       "NSpotsY": 2,
+       "RSpots": 75,
+       "SpotOffset": 100,
+       "NumberOfLayers": 2,
+       "LayerOffset": 20
+   },
+   "Nucleation": {
+       "Density": 10,
+       "MeanUndercooling": 5,
+       "StDev": 0.5
+   },
+   "TemperatureData": {
+      "G": 500000,
+      "R": 300000
+   },
+   "Substrate": {
+      "MeanSize": 25,
+      "PowderDensity": 1000000
+   },
+   "Printing": {
+      "PathToOutput": "./",
+      "OutputFile": "TestProblemSpot_RM",
+      "PrintBinary": false,
+      "printExaConstitSize": 0,
+      "PrintFieldsInit": [],
+      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
+      "PrintIntermediateOutput": {
+          "Frequency": 2500,
+          "PrintIdleFrames": true
+      }
+   }
+}

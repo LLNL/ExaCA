@@ -38,14 +38,97 @@ corresponding to the orientations' inverse pole figure-mapped RGB values
 necessary to run the analysis executable; see `analysis/README.md` for more 
 details.
 
-Problems of type R or RM rely on a third file for temperature input, with the path
-and name of this file given in the master input file. Examples of these
-temperature field assembly files are given in
-`examples/Temperatures/T_SimpleRaster.txt` and
-`examples/Temperatures/T_AMBenchMultilayer.txt`. These files should always use
-an absolute file path or path relative to the ExaCA source.
+If the main input file is a .txt file, problems of type R or RM will rely on a 
+third file for temperature input, with the path and name of this file given in 
+the master input file. Examples of these temperature field assembly files are 
+given in `examples/Temperatures/T_SimpleRaster.txt` and 
+`examples/Temperatures/T_AMBenchMultilayer.txt`. These files should always use 
+an absolute file path or path relative to the ExaCA source. If the main input 
+file is a .json file, this additional temperature input file is not required, 
+as the relevant information is stored within the main input file.
 
 # ExaCA input files
+The .json files in the examples subdirectory are provided on the command line to let ExaCA know which problem is being simulated. The .txt files can also be used (see the next section for information on the format of these files), but compatibility with files of this older format will be removed in a future release. The json files contain different input sections, with certain inputs only used for certain problem types. Note that some of these inputs have been renamed or redefined from the old format, these changes are noted where appropriate. Each top level section is required for all problem types. For optional inputs, the default value used is noted.
+
+## Top level inputs
+|Input                   | Equivalent from old input file format | Details |
+|------------------------|---------------------------------------|---------|
+| SimulationType         | Problem Type                          |         |
+|                        |                                       | C for directional solidification (thermal gradient in build direction, fixed cooling rate)
+|                        |                                       | S for spot melt array problem (fixed thermal gradient/constant cooling rate for each hemispherical spot)
+|                        |                                       | R for use of temperature data provided in the appropriate format (see README file in examples/Temperatures)
+|                        |                                       | M should be appended to problem type if multiple melting and solidifcation events are desired (i.e, SM or RM)
+| MaterialFileName       |Material                               | Name of material file in examples/Materials used (see README file in examples/Materials)
+| GrainOrientationFile   | File of grain orientations            | File listing rotation matrix components used in assigning orientations to grains (see README file in examples/Substrate)
+| RandomSeed                | Random seed for grains and nuclei generation | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
+| Domain                 | N/A | Section for parameters that describe the simulation domain for the given problem type (see below for second level inputs)
+| Nucleation             | N/A | Section for parameters that describe nucleation (see below for second level inputs)
+| TemperatureData        | N/A | Section for parameters/files governing the temperature field for the given problem type (see below for second level inputs)
+| Substrate              | N/A | Section for parameters/files governing the edge boundary conditions (see below for second level inputs)
+| Printing               | N/A | Section for parameters/file names for output data (see below for second level inputs)
+
+## Domain inputs
+| Input        | Equivalent from      | Relevant problem | Details |
+|              | old input file format| type(s)          |         |    
+|--------------| ---------------------|------------------| --------|
+|CellSize      | deltax               | All              | CA cell size, in microns
+|TimeStep      | deltat               | All              | CA time step, in microseconds (note previously for problem type C, this was derived from deltax, G, and R)
+|Nx            | Domain size in x     | C                | Domain size in x, in cells
+|Ny            | Domain size in y     | C                | Domain size in y, in cells
+|Nz            | Domain size in z     | C                | Domain size in z, in cells
+|NumberOfLayers| Number of layers     | S, R             | Number of layers for which the temperature pattern will be repeated
+|LayerOffset   | Offset between layers| S, R             | If numberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
+|NSpotsX       | Number of spots in x | S                | Number of spots in the x direction
+|NSpotsY       | Number of spots in y | S                | Number of spots in the y direction
+|RSpots        | Radii of spots       | S                | Spot radii, in microns
+|SpotOffset    | Offset between spot centers | S         | Offset of spot centers along the x and y axes, in microns     
+
+## Nucleation inputs
+| Input        | Equivalent from      | Relevant problem | Details |
+|              | old input file format| type(s)          |         |    
+|--------------| ---------------------|------------------| --------|
+|Density           | Heterogeneous nucleation density             | All| Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
+|MeanUndercooling  | Mean nucleation undercooling                 | All| Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
+|StDevUndercooling | Standard deviation of nucleation undercooling| All| Standard deviation of nucleation undercooling (Gaussian distribution), in K
+
+## Temperature inputs
+| Input        | Equivalent from      | Relevant problem | Details |
+|              | old input file format| type(s)          |         |    
+|--------------| ---------------------|------------------| --------|
+|G             | Thermal gradient             | C, S | Thermal gradient in the build (+Z) directions, in K/m
+|R             | Cooling rate                 | C, S | Cooling rate (uniform across the domain), in K/s
+|HeatTransferCellSize | Heat transport data mesh size| R    | By default, equal to deltax, and cannot be used if remelting is considered. deltax must divide evenly into HTdeltax
+|LayerwiseTempRead| Discard temperature data and reread temperature files after each layer | R | If set to Y, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to N, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. This option is only applicable to simulations with remelting; simulations without remelting (and simulations where this input is not given) default to N. Setting this to Y is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
+|TemperatureFiles | N/A | R | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than numberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, layerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
+
+## Substrate inputs
+| Input        | Equivalent from      | Relevant problem | Details |
+|              | old input file format| type(s)          |         |    
+|--------------| ---------------------|------------------| --------|
+|FractionSurfaceSitesActive | Fraction surface sites active| C        | What fraction of cells at the bottom surface of the domain are the source of a grain?
+|MeanSize      | Substrate grain spacing      | S, R     | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
+|SubstrateFilename | Substrate filename       | S, R     | Path to and filename for substrate data (see note (a))
+|PowderDensity | Density of powder surface sites active | S, R | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (b))
+|ExtendSubstrateThroughPower| Extend baseplate through layers | S, R | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (b))
+
+(a) One of these inputs must be provided, but not both
+(b) This is optional, but if this is given, "extendSubstrateThroughPower" must be set to false
+
+## Printing inputs
+| Input        | Equivalent from      | Relevant problem | Details |
+|              | old input file format| type(s)          |         |    
+|--------------| ---------------------|------------------| --------|
+| PathToOutput | Path to output       | All              | File path location for the output files
+| OutputFile   | Output file base name| All              | All output files will begin with the string specified on this line
+| PrintBinary  | Print vtk data as binary |All           | Whether or not ExaCA vtk output data should be printed as big endian binary data, or as ASCII characters (defaults to false)
+| PrintExaConstitSize | Size of the default RVE, in CA cells | R | Length of the cubic representative volume element (RVE) data for ExaConstit, taken from the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure. If not given (or given a value of 0), the RVE will not be printed 
+| PrintFieldsInit     | N/A | All, except with remelting | Which fields to print following initialization, in the form ["Field1","Field2",...]. Currently supported options are GrainID, LayerID, CellType, CritTimeStep, UndercoolingChange, UndercoolingCurrent
+| PrintFieldsFinal    | N/A | All | Which fields to print at the end of the run, in the form ["Field1","Field2",...]. Currently supported options are GrainID, LayerID, GrainMisorientation, UndercoolingCurrent
+| PrintIntermediateOutput | Print intermediate output frames | All | If this section is given, intermediate code output will be printed, where liquid CA cells are assigned the value -1, and non-liquid cells are assigned a value 0-62 depending on their associated grain's misorientation relative to the build (+Z) direction. This is an optional section that otherwise defaults to false, with second level inputs "Frequency" and "PrintIdleFrames"
+| PrintIntermediateOutput:Frequency | Increment to separate frames | All | The number of microseconds defining the ExaCA output intermediate data increment. A value of 0 will mean that no intermediate output is printed
+| PrintIntermediateOutput:PrintIdleFrames | Intermediate output even if system is unchanged from previous state | All | Whether or not ExaCA should print intermediate output regardless of whether the simulation has changed from the last frame
+
+# ExaCA input files: Old format
 The .txt files in the examples subdirectory are provided on the command line to let ExaCA know which problem is being simulated. Any lines prior to the first string of asterisks are ignored, as are any lines starting with an asterisk.
 
 ## All problems

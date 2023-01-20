@@ -33,16 +33,29 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     std::vector<std::string> temp_paths;
 
-    // Read input data
-    InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,
-                      TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
-                      MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                      FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
-                      PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
-                      PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
-                      BaseplateThroughPowder, PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary);
-    // Read material data.
-    InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax);
+    // Check form of input data
+    bool JsonInputFormat = checkInputFileFormat(InputFile, id);
+    if (JsonInputFormat) {
+#ifdef ExaCA_ENABLE_JSON
+        InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,
+                          TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
+                          MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
+                          nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+                          PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
+                          PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
+                          BaseplateThroughPowder, PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary);
+#endif
+    }
+    else
+        InputReadFromFile_Old(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile,
+                              GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
+                              NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName, SubstrateGrainSpacing,
+                              UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
+                              PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
+                              SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
+                              PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderActiveFraction, RVESize,
+                              LayerwiseTempRead, PrintBinary);
+    InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax, JsonInputFormat);
 
     // Variables characterizing local processor grids relative to global domain
     // 1D decomposition in Y: Each MPI rank has a subset consisting of of MyYSlices cells, out of ny cells in Y

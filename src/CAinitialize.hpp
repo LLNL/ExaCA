@@ -10,9 +10,25 @@
 
 #include <Kokkos_Core.hpp>
 
+#ifdef ExaCA_ENABLE_JSON
+#include <nlohmann/json.hpp>
+#endif
+
 #include <string>
 #include <vector>
 
+void InputReadFromFile_Old(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
+                           double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
+                           int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
+                           bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
+                           std::string &MaterialFileName, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
+                           bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
+                           double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
+                           bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput,
+                           int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries,
+                           int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
+                           bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize, bool &LayerwiseTempRead,
+                           bool &PrintBinary);
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
                        double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
                        int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
