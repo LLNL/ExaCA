@@ -2,7 +2,7 @@
    "SimulationType": "RM",
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
-   "RandomSeed": 0,
+   "RandomSeed": 0.0,
    "Domain": {
        "CellSize": 2.5,
        "TimeStep": 0.0825,
@@ -11,7 +11,7 @@
    },
    "Nucleation": {
       "Density": 100,
-      "Mean": 5,
+      "MeanUndercooling": 5,
       "StDev": 0.5
    },
    "TemperatureData": {

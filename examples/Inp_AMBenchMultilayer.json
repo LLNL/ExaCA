@@ -2,7 +2,7 @@
    "SimulationType": "R",
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
-   "RandomSeed": 0,
+   "RandomSeed": 0.0,
    "Domain": {
        "CellSize": 5,
        "TimeStep": 0.3,
@@ -11,11 +11,11 @@
    },
    "Nucleation": {
       "Density": 0,
-      "Mean": 5,
+      "MeanUndercooling": 5,
       "StDev": 0.5
    },
    "TemperatureData": {
-       "HeatTransferDeltaX": 5,
+       "HeatTransferCellSize": 5,
        "LayerwiseTempRead": false,
        "TemperatureFiles": ["examples/Temperatures/1CA-FOAM-fluidflow.txt","examples/Temperatures/2CA-FOAM-fluidflow.txt"]
    },

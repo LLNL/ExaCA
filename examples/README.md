@@ -60,7 +60,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |                        |                                       | M should be appended to problem type if multiple melting and solidifcation events are desired (i.e, SM or RM)
 | MaterialFileName       |Material                               | Name of material file in examples/Materials used (see README file in examples/Materials)
 | GrainOrientationFile   | File of grain orientations            | File listing rotation matrix components used in assigning orientations to grains (see README file in examples/Substrate)
-| RNGSeed                | Random seed for grains and nuclei generation | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
+| RandomSeed                | Random seed for grains and nuclei generation | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
 | Domain                 | N/A | Section for parameters that describe the simulation domain for the given problem type (see below for second level inputs)
 | Nucleation             | N/A | Section for parameters that describe nucleation (see below for second level inputs)
 | TemperatureData        | N/A | Section for parameters/files governing the temperature field for the given problem type (see below for second level inputs)
@@ -71,8 +71,8 @@ The .json files in the examples subdirectory are provided on the command line to
 | Input        | Equivalent from      | Relevant problem | Details |
 |              | old input file format| type(s)          |         |    
 |--------------| ---------------------|------------------| --------|
-|Deltax        | deltax               | All              | CA cell size, in microns
-|Deltat        | deltat               | All              | CA time step, in microseconds (note previously for problem type C, this was derived from deltax, G, and R)
+|CellSize      | deltax               | All              | CA cell size, in microns
+|TimeStep      | deltat               | All              | CA time step, in microseconds (note previously for problem type C, this was derived from deltax, G, and R)
 |Nx            | Domain size in x     | C                | Domain size in x, in cells
 |Ny            | Domain size in y     | C                | Domain size in y, in cells
 |Nz            | Domain size in z     | C                | Domain size in z, in cells
@@ -97,7 +97,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |--------------| ---------------------|------------------| --------|
 |G             | Thermal gradient             | C, S | Thermal gradient in the build (+Z) directions, in K/m
 |R             | Cooling rate                 | C, S | Cooling rate (uniform across the domain), in K/s
-|HeatTransferDeltaX | Heat transport data mesh size| R    | By default, equal to deltax, and cannot be used if remelting is considered. deltax must divide evenly into HTdeltax
+|HeatTransferCellSize | Heat transport data mesh size| R    | By default, equal to deltax, and cannot be used if remelting is considered. deltax must divide evenly into HTdeltax
 |LayerwiseTempRead| Discard temperature data and reread temperature files after each layer | R | If set to Y, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to N, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. This option is only applicable to simulations with remelting; simulations without remelting (and simulations where this input is not given) default to N. Setting this to Y is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
 |TemperatureFiles | N/A | R | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than numberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, layerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
 
@@ -105,7 +105,7 @@ The .json files in the examples subdirectory are provided on the command line to
 | Input        | Equivalent from      | Relevant problem | Details |
 |              | old input file format| type(s)          |         |    
 |--------------| ---------------------|------------------| --------|
-|fActive       | Fraction surface sites active| C        | What fraction of cells at the bottom surface of the domain are the source of a grain?
+|FractionSurfaceSitesActive | Fraction surface sites active| C        | What fraction of cells at the bottom surface of the domain are the source of a grain?
 |MeanSize      | Substrate grain spacing      | S, R     | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
 |SubstrateFilename | Substrate filename       | S, R     | Path to and filename for substrate data (see note (a))
 |PowderDensity | Density of powder surface sites active | S, R | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (b))

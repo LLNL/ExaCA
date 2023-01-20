@@ -523,7 +523,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     if (inputdata.contains("RandomSeed"))
         RNGSeed = inputdata["RandomSeed"];
     else
-        RNGSeed = 0;
+        RNGSeed = 0.0;
 
     // Domain inputs:
     // Cell size - given in meters, stored in micrometers
@@ -564,7 +564,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Nucleation density (normalized by 10^12 m^-3), mean nucleation undercooling/st dev undercooling(K)
     NMax = inputdata["Nucleation"]["Density"];
     NMax = NMax * pow(10, 12);
-    dTN = inputdata["Nucleation"]["Mean"];
+    dTN = inputdata["Nucleation"]["MeanUndercooling"];
     dTsigma = inputdata["Nucleation"]["StDev"];
 
     // Temperature inputs:

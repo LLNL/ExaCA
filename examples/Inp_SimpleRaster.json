@@ -11,7 +11,7 @@
    },
    "Nucleation": {
       "Density": 10,
-      "Mean": 5,
+      "MeanUndercooling": 5,
       "StDev": 0.5
    },
    "TemperatureData": {

@@ -98,7 +98,7 @@ void WriteTestDataR_json(std::string InputFilename, bool PrintDebugFiles) {
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"Nucleation\": {" << std::endl;
     TestDataFile << "      \"Density\": 10," << std::endl;
-    TestDataFile << "      \"Mean\": 5," << std::endl;
+    TestDataFile << "      \"MeanUndercooling\": 5," << std::endl;
     TestDataFile << "      \"StDev\": 0.5" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"TemperatureData\": {" << std::endl;
