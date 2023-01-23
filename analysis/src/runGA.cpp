@@ -22,7 +22,6 @@
 int main(int argc, char *argv[]) {
 
     // Read command line input to obtain name of analysis file
-    bool NewOrientationFormatYN;
     std::string AnalysisFile, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename, OutputFileName,
         RGBFilename;
     double deltax;
@@ -35,7 +34,7 @@ int main(int argc, char *argv[]) {
         // If the file of orientations is given in both rotation matrix and Euler angle form, it is assumed that the new
         // output format is used for cross-section orientation data Otherwise, the old format is used
         ParseFilenames(AnalysisFile, LogFile, MicrostructureFile, RotationFilename, OutputFileName, EulerAnglesFilename,
-                       NewOrientationFormatYN, RGBFilename);
+                       RGBFilename);
     }
     std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile
               << " and the options specified in " << AnalysisFile << std::endl;
@@ -88,8 +87,7 @@ int main(int argc, char *argv[]) {
         ParseAnalysisFile(AnalysisFile, RotationFilename, NumberOfOrientations, AnalysisTypes, XLow_RVE, XHigh_RVE,
                           YLow_RVE, YHigh_RVE, ZLow_RVE, ZHigh_RVE, NumberOfRVEs, CrossSectionPlane,
                           CrossSectionLocation, NumberOfCrossSections, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz,
-                          LayerID, NumberOfLayers, PrintSectionPF, PrintSectionIPF, BimodalAnalysis,
-                          NewOrientationFormatYN, CSLabels);
+                          LayerID, NumberOfLayers, PrintSectionPF, PrintSectionIPF, BimodalAnalysis, CSLabels);
 
         // Allocate memory for grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
         // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
@@ -97,12 +95,10 @@ int main(int argc, char *argv[]) {
         ViewF GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"), 3 * NumberOfOrientations);
         ViewF GrainRGBValues(Kokkos::ViewAllocateWithoutInitializing("GrainRGBValues"), 3 * NumberOfOrientations);
 
-        // Initialize, then copy back to host. GrainEulerAngles only used with new input file format
+        // Initialize, then copy back to host
         OrientationInit(0, NumberOfOrientations, GrainUnitVector, RotationFilename, 9);
         ViewF_H GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
-        if (NewOrientationFormatYN) {
-            OrientationInit(0, NumberOfOrientations, GrainEulerAngles, EulerAnglesFilename, 3);
-        }
+        OrientationInit(0, NumberOfOrientations, GrainEulerAngles, EulerAnglesFilename, 3);
         ViewF_H GrainEulerAngles_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainEulerAngles);
         OrientationInit(0, NumberOfOrientations, GrainRGBValues, RGBFilename, 3);
         ViewF_H GrainRGBValues_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainRGBValues);
@@ -115,8 +111,7 @@ int main(int argc, char *argv[]) {
         // Part 2: Cross-sections for area statistics, pole figures, inverse pole figure coloring maps of microstructure
         PrintCrossSectionData(NumberOfCrossSections, OutputFileName, CrossSectionPlane, CrossSectionLocation, nx, ny,
                               nz, NumberOfOrientations, GrainID, PrintSectionPF, PrintSectionIPF, BimodalAnalysis,
-                              NewOrientationFormatYN, deltax, GrainUnitVector_Host, GrainEulerAngles_Host,
-                              GrainRGBValues_Host, CSLabels);
+                              deltax, GrainUnitVector_Host, GrainEulerAngles_Host, GrainRGBValues_Host, CSLabels);
 
         // Part 3: Representative volume grain statistics
         // Print data to std::out and if analysis option 0 is toggled, to the file
@@ -135,7 +130,7 @@ int main(int argc, char *argv[]) {
         // If analysis option 7 is toggled, print orientation data to files "[OutputFileName]_pyEBSDOrientations.csv"
         // and "[OutputFileName]_MTEXOrientations.csv"
         PrintPoleFigureData(AnalysisTypes, OutputFileName, NumberOfOrientations, XMin, XMax, YMin, YMax, ZMin, ZMax,
-                            GrainID, LayerID, NewOrientationFormatYN, GrainEulerAngles_Host);
+                            GrainID, LayerID, GrainEulerAngles_Host);
     }
     // Finalize kokkos and end program
     Kokkos::finalize();

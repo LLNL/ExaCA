@@ -36,9 +36,8 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                            std::vector<std::string> CrossSectionPlane, std::vector<int> CrossSectionLocation, int nx,
                            int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
                            std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
-                           std::vector<bool> BimodalAnalysis, bool NewOrientationFormatYN, double deltax,
-                           ViewF_H GrainUnitVector, ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues,
-                           std::vector<std::string> CSLabels);
+                           std::vector<bool> BimodalAnalysis, double deltax, ViewF_H GrainUnitVector,
+                           ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues, std::vector<std::string> CSLabels);
 void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
                              int ZMin, int ZMax, ViewI3D_H LayerID, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
                              int NumberOfOrientations);
@@ -48,9 +47,8 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
                         int YMax, int ZMin, int ZMax, ViewI3D_H GrainID);
 void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin, int XMax,
                          int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H LayerID,
-                         bool NewOrientationFormatYN, ViewF_H GrainEulerAngles);
+                         ViewF_H GrainEulerAngles);
 void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles,
                                ViewI_H GOHistogram);
-void WritePoleFigureDataToFile_OldFormat(std::string Filename, int NumberOfOrientations, ViewI_H GOHistogram);
 
 #endif

@@ -285,7 +285,7 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
 //*****************************************************************************/
 void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin, int XMax,
                          int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H LayerID,
-                         bool NewOrientationFormatYN, ViewF_H GrainEulerAngles) {
+                         ViewF_H GrainEulerAngles) {
 
     if (AnalysisTypes[7]) {
 
@@ -302,18 +302,11 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
                 }
             }
         }
-        if (NewOrientationFormatYN) {
-            // Write pole figure data for this region using the new format
-            std::string FNameM = BaseFileName + "_PFVolumeX" + std::to_string(XMin) + "-" + std::to_string(XMax) + "Y" +
-                                 std::to_string(YMin) + "-" + std::to_string(YMax) + "Z" + std::to_string(ZMin) + "-" +
-                                 std::to_string(ZMax) + ".txt";
-            WritePoleFigureDataToFile(FNameM, NumberOfOrientations, GrainEulerAngles, GOHistogram);
-        }
-        else {
-            // Write pole figure data for this region using the old format
-            std::string FNameM = BaseFileName + "_MTEXOrientations.csv";
-            WritePoleFigureDataToFile_OldFormat(FNameM, NumberOfOrientations, GOHistogram);
-        }
+        // Write pole figure data for this region
+        std::string FNameM = BaseFileName + "_PFVolumeX" + std::to_string(XMin) + "-" + std::to_string(XMax) + "Y" +
+                             std::to_string(YMin) + "-" + std::to_string(YMax) + "Z" + std::to_string(ZMin) + "-" +
+                             std::to_string(ZMax) + ".txt";
+        WritePoleFigureDataToFile(FNameM, NumberOfOrientations, GrainEulerAngles, GOHistogram);
     }
 }
 
@@ -547,9 +540,8 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                            std::vector<std::string> CrossSectionPlane, std::vector<int> CrossSectionLocation, int nx,
                            int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
                            std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
-                           std::vector<bool> BimodalAnalysis, bool NewOrientationFormatYN, double deltax,
-                           ViewF_H GrainUnitVector, ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues,
-                           std::vector<std::string> CSLabels) {
+                           std::vector<bool> BimodalAnalysis, double deltax, ViewF_H GrainUnitVector,
+                           ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues, std::vector<std::string> CSLabels) {
 
     // Open file of cross-section quantities of interest
     std::ofstream QoIs;
@@ -639,22 +631,15 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                     if (PrintSectionPF[n])
                         GOHistogram(GOVal)++;
                     if (PrintSectionIPF[n]) {
-                        if (NewOrientationFormatYN) {
-                            // The grain structure is phase "1" - any unindexed points (which are possible from regions
-                            // that didn't undergo melting) are assigned phase "0"
-                            if (GOVal == -1)
-                                GrainplotIPF << "0 0 0 0 " << Index1 * deltax * pow(10, 6) << " "
-                                             << Index2 * deltax * pow(10, 6) << std::endl;
-                            else
-                                GrainplotIPF << GrainEulerAngles(3 * GOVal) << " " << GrainEulerAngles(3 * GOVal + 1)
-                                             << " " << GrainEulerAngles(3 * GOVal + 2) << " 1 "
-                                             << Index1 * deltax * pow(10, 6) << " " << Index2 * deltax * pow(10, 6)
-                                             << std::endl;
-                        }
-                        else {
-                            GrainplotIPF << Index1 * deltax * pow(10, 6) << "," << Index2 * deltax * pow(10, 6) << ","
-                                         << GOVal << std::endl;
-                        }
+                        // The grain structure is phase "1" - any unindexed points (which are possible from regions
+                        // that didn't undergo melting) are assigned phase "0"
+                        if (GOVal == -1)
+                            GrainplotIPF << "0 0 0 0 " << Index1 * deltax * pow(10, 6) << " "
+                                         << Index2 * deltax * pow(10, 6) << std::endl;
+                        else
+                            GrainplotIPF << GrainEulerAngles(3 * GOVal) << " " << GrainEulerAngles(3 * GOVal + 1) << " "
+                                         << GrainEulerAngles(3 * GOVal + 2) << " 1 " << Index1 * deltax * pow(10, 6)
+                                         << " " << Index2 * deltax * pow(10, 6) << std::endl;
                     }
                 }
             }
@@ -716,19 +701,6 @@ void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, V
                     << GrainEulerAngles(3 * i + 2) << " " << (float)(GOHistogram(i)) << std::endl;
     }
     GrainplotPF.close();
-}
-
-//*****************************************************************************/
-void WritePoleFigureDataToFile_OldFormat(std::string Filename, int NumberOfOrientations, ViewI_H GOHistogram) {
-
-    // Using old format, write histogram data (used by a second post-processing script to construct pole figures) to
-    // "Filename"
-    std::ofstream MTEXPlot;
-    MTEXPlot.open(Filename);
-    for (int i = 0; i < NumberOfOrientations; i++) {
-        MTEXPlot << GOHistogram[i] << std::endl;
-    }
-    MTEXPlot.close();
 }
 
 //*****************************************************************************/

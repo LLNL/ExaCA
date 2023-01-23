@@ -33,7 +33,7 @@ void ReadBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz, Vie
                      std::string FieldName);
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
                     std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
-                    bool &NewOrientationFormatYN, std::string &RGBFilename);
+                    std::string &RGBFilename);
 void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID);
 void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, int &NumberOfOrientations,
                        bool *AnalysisTypes, std::vector<int> &XLow_RVE, std::vector<int> &XHigh_RVE,
@@ -42,8 +42,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        std::vector<int> &CrossSectionLocation, int &NumberOfCrossSections, int &XMin, int &XMax,
                        int &YMin, int &YMax, int &ZMin, int &ZMax, int nx, int ny, int nz, ViewI3D_H LayerID,
                        int NumberOfLayers, std::vector<bool> &PrintSectionPF, std::vector<bool> &PrintSectionIPF,
-                       std::vector<bool> &BimodalAnalysis, bool NewOrientationFormatYN,
-                       std::vector<std::string> &CSLabels);
+                       std::vector<bool> &BimodalAnalysis, std::vector<std::string> &CSLabels);
 std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector);
 
 void CheckInputFiles(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
