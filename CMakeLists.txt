@@ -34,7 +34,6 @@ message(STATUS "ExaCA commit: ${ExaCA_GIT_COMMIT_HASH}")
 set(EXACA_SUPPORTED_DEVICES SERIAL PTHREAD OPENMP CUDA HIP)
 
 add_subdirectory(src)
-add_subdirectory(analysis)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ExaCAconfig.cmakein
   ${CMAKE_CURRENT_BINARY_DIR}/ExaCAconfig.cmake @ONLY)
@@ -62,8 +61,21 @@ if(ExaCA_ENABLE_TESTING)
     message(FATAL_ERROR "bug in GTest find module workaround")
   endif()
   enable_testing()
+
+  set(TEST_HARNESS_DIR ${CMAKE_SOURCE_DIR}/unit_test)
+  set(EXACA_TEST_DEVICES)
+  foreach(_device ${EXACA_SUPPORTED_DEVICES})
+    if(Kokkos_ENABLE_${_device})
+      # FIXME: enable multiple test backends when source is templated.
+      #list(APPEND EXACA_TEST_DEVICES ${_device})
+      set(EXACA_TEST_DEVICES ${_device})
+    endif()
+  endforeach()
+
   add_subdirectory(unit_test)
 endif()
+
+add_subdirectory(analysis)
 
 # clang-format
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
