@@ -86,8 +86,8 @@ int main(int argc, char *argv[]) {
             "YZ cross-section located through simulation center (X = " + std::to_string(XLocCrossSection) + "):";
         std::vector<std::string> CSLabels = {CSNameXY, CSNameYZ};
         PrintCrossSectionData(NumberOfCrossSections, BaseFileName, CrossSectionPlane, CrossSectionLocation, nx, ny, nz,
-                              NumberOfOrientations, GrainID, PrintSectionPF, PrintSectionIPF, BimodalAnalysis, true,
-                              deltax, GrainUnitVector_Host, GrainEulerAngles_Host, GrainRGBValues_Host, CSLabels);
+                              NumberOfOrientations, GrainID, PrintSectionPF, PrintSectionIPF, BimodalAnalysis, deltax,
+                              GrainUnitVector_Host, GrainEulerAngles_Host, GrainRGBValues_Host, CSLabels);
     }
     // Finalize kokkos and end program
     Kokkos::finalize();

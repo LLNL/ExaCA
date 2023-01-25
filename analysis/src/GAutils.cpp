@@ -253,7 +253,7 @@ void ReadIgnoreField(std::ifstream &InputDataStream, int nx, int ny, int nz) {
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
                     std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
-                    bool &NewOrientationFormatYN, std::string &RGBFilename) {
+                    std::string &RGBFilename) {
 
     // The analysis file should be in the analysis subdirectory of ExaCA
     std::cout << "Looking for analysis file: " << AnalysisFile << std::endl;
@@ -294,18 +294,15 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     RotationFilename = FilesRead[2];
     OutputFileName = FilesRead[3];
 
-    // If the file of bunge convention euler angles was given, initialize this and set NewOrientationFormatYN to true;
-    // otherwise, set NewOrientationFormatYN to false
+    // If the file of bunge convention euler angles was given, initialize this, otherwise use the default file
     if (FilesRead[4].empty()) {
-        NewOrientationFormatYN = false;
-        std::cout << "Warning: the name of the file of Euler angles was not provided in the analysis input file, but "
-                     "will be required in a future release"
+        EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ.csv";
+        std::cout << "Warning: the Euler angles was not provided in the analysis input file; the default Euler angles "
+                     "file GrainOrientationEulerAnglesBungeZXZ.csv will be used"
                   << std::endl;
     }
-    else {
-        NewOrientationFormatYN = true;
+    else
         EulerAnglesFilename = FilesRead[4];
-    }
     Analysis.close();
     // Path to file of grain orientations based on install/source location
     RotationFilename = checkFileInstalled(RotationFilename, 0);
@@ -313,11 +310,8 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     checkFileNotEmpty(LogFile);
     checkFileNotEmpty(MicrostructureFile);
     checkFileNotEmpty(RotationFilename);
-    // Same checks for EulerAnglesFilename, if given
-    if (NewOrientationFormatYN) {
-        EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
-        checkFileNotEmpty(EulerAnglesFilename);
-    }
+    EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
+    checkFileNotEmpty(EulerAnglesFilename);
     // RGB file - default value or value from file
     if (FilesRead[5].empty()) {
         std::cout << "Warning: the name of the file of RGB colors for each orientation corresponding to the IPF-Z "
@@ -423,8 +417,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        std::vector<int> &CrossSectionLocation, int &NumberOfCrossSections, int &XMin, int &XMax,
                        int &YMin, int &YMax, int &ZMin, int &ZMax, int nx, int ny, int nz, ViewI3D_H LayerID,
                        int NumberOfLayers, std::vector<bool> &PrintSectionPF, std::vector<bool> &PrintSectionIPF,
-                       std::vector<bool> &BimodalAnalysis, bool NewOrientationFormatYN,
-                       std::vector<std::string> &CSLabels) {
+                       std::vector<bool> &BimodalAnalysis, std::vector<std::string> &CSLabels) {
 
     int FullDomainCenterX = nx / 2;
     int FullDomainCenterY = ny / 2;
@@ -555,17 +548,26 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
 
         // Check for "old" format ([section type, coordinate out of plane]
         // vs "new" format (section type, coordinate out of plane, print pole figure data Y/N, print IPF-colored
-        // cross-section data Y/N)
+        // cross-section data Y/N). This is no longer linked to whether the euler angles file was provided in the
+        // analysis file, since the default euler angles file is now used if not otherwise given
+        bool NewAnalysisInputFormatYN;
+        std::size_t found1 = CSline.find("]");
+        std::size_t found2 = CSline.find("[");
+        // New format has no brackets, old format has 2 comma separated values with brackets
+        if ((found1 == std::string::npos) && (found2 == std::string::npos))
+            NewAnalysisInputFormatYN = true;
+        else
+            NewAnalysisInputFormatYN = false;
         // For the "new" format, there are either 4 or 5 comma-separated components on this line, depending on whether
         // the option of analyzing small and large area grains separately is given. If it is not given, a single
         // distribution of grain areas in the cross-section will be analyzed
         int NumComponents;
-        if (NewOrientationFormatYN)
+        if (NewAnalysisInputFormatYN)
             NumComponents = std::count(CSline.begin(), CSline.end(), ',') + 1;
         else
             NumComponents = 2;
         std::vector<std::string> CS(NumComponents);
-        if (NewOrientationFormatYN) {
+        if (NewAnalysisInputFormatYN) {
             // Should be 4 or 5 inputs on this line - break it into its components
             splitString(CSline, CS, NumComponents);
             // Remove whitespace from parsed cross-section data
