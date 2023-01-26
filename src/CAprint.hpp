@@ -69,6 +69,7 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
                                  bool PrintBinary);
 std::string version();
 std::string gitCommitHash();
+std::string kokkosVersion();
 
 // Write data of type PrintType as ascii or binary, with option to convert between big and small endian binary
 template <typename PrintType>

@@ -12,6 +12,8 @@
 #define ExaCA_VERSION "@PROJECT_VERSION@"
 #define ExaCA_GIT_COMMIT_HASH "@ExaCA_GIT_COMMIT_HASH@"
 
+#define ExaCA_Kokkos_VERSION_STRING "@Kokkos_VERSION@"
+
 #cmakedefine ExaCA_ENABLE_JSON
 
 #endif
