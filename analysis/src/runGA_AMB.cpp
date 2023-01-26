@@ -31,7 +31,8 @@ int main(int argc, char *argv[]) {
     }
     else {
         BaseFileName = argv[1];
-        CheckInputFiles(BaseFileName, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename, RGBFilename);
+        LogFile = BaseFileName + ".log";
+        MicrostructureFile = BaseFileName + ".vtk";
     }
     std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile << std::endl;
 
@@ -44,9 +45,13 @@ int main(int argc, char *argv[]) {
         std::vector<double> XYZBounds(6);
         bool NewLogFormatYN = checkLogFormat(LogFile);
         if (NewLogFormatYN)
-            ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds);
-        else
+            ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, RotationFilename, EulerAnglesFilename,
+                         RGBFilename, false);
+        else {
             ParseLogFile_Old(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds);
+            // Use default file names as they were not in the log file, and there is no analysis input file
+            CheckInputFiles(LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename, RGBFilename);
+        }
 
         // Allocate memory blocks for GrainID and LayerID data
         ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
@@ -57,10 +62,11 @@ int main(int argc, char *argv[]) {
 
         // Allocate memory for grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
         // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
-        int NumberOfOrientations = 10000;
-        ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NumberOfOrientations);
-        ViewF GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"), 3 * NumberOfOrientations);
-        ViewF GrainRGBValues(Kokkos::ViewAllocateWithoutInitializing("GrainRGBValues"), 3 * NumberOfOrientations);
+        // No initialize size yet, will be resized in OrientationInit when NumberOfOrientations is known
+        int NumberOfOrientations;
+        ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 0);
+        ViewF GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"), 0);
+        ViewF GrainRGBValues(Kokkos::ViewAllocateWithoutInitializing("GrainRGBValues"), 0);
 
         // Initialize, then copy back to host
         OrientationInit(0, NumberOfOrientations, GrainUnitVector, RotationFilename, 9);

@@ -78,7 +78,8 @@ bool checkLogFormat(std::string LogFile) {
 }
 
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
-                  std::vector<double> &XYZBounds) {
+                  std::vector<double> &XYZBounds, std::string &RotationFilename, std::string &EulerAnglesFilename,
+                  std::string &RGBFilename, bool OrientationFilesInInput) {
 
     std::vector<std::string> LogInputs = {
         "Lower bound of domain in x", // Input 0
@@ -92,7 +93,8 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
         "Domain size in y",           // Input 8
         "Domain size in z",           // Input 9
         "Simulation was type",        // Input 10
-        "Number of layers simulated"  // Input 11
+        "Number of layers simulated", // Input 11
+        "Grain orientation file"      // Input 12
     };
     int NumLogInputs = LogInputs.size();
     std::vector<std::string> LogInputsRead(NumLogInputs);
@@ -123,6 +125,43 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
         NumberOfLayers = 1;
     else
         NumberOfLayers = getInputInt(LogInputsRead[11]);
+    // Was orientation file name specified in the log file? Otherwise get from the analysis file
+    if (LogInputsRead[12].empty()) {
+        if (OrientationFilesInInput)
+            std::cout << "Warning: specification of orientation file names will be required in the log file in a "
+                         "future release, will no longer be accepted in the analysis input file"
+                      << std::endl;
+        else
+            throw std::runtime_error(
+                "Error: Orientation file names were not given in the log file nor the analysis input file");
+    }
+    else {
+        OrientationFilesInInput = true;
+        RotationFilename = LogInputsRead[12];
+        if (OrientationFilesInInput)
+            std::cout << "Note: using orientation file names from log file, not those specified in analysis input file"
+                      << std::endl;
+        if (RotationFilename.find("GrainOrientationVectors.csv") != std::string::npos) {
+            // Default files for euler angles and RGB mapping
+            EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ.csv";
+            RGBFilename = "GrainOrientationRGB_IPF-Z.csv";
+        }
+        else {
+            // Custom files for euler angles and RGB mapping based on rotation filename
+            std::size_t startpos = RotationFilename.find_first_of("_");
+            std::size_t endpos = RotationFilename.find_last_of(".");
+            std::string customname = RotationFilename.substr(startpos + 1, endpos - startpos - 1);
+            EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ_" + customname + ".csv";
+            RGBFilename = "GrainOrientationRGB_IPF-Z_" + customname + ".csv";
+        }
+        // Full path to install location was already given for the rotations file, need to check install location for
+        // other files
+        EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
+        RGBFilename = checkFileInstalled(RGBFilename, 0);
+        checkFileNotEmpty(RotationFilename);
+        checkFileNotEmpty(EulerAnglesFilename);
+        checkFileNotEmpty(RGBFilename);
+    }
 }
 
 void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
@@ -253,7 +292,7 @@ void ReadIgnoreField(std::ifstream &InputDataStream, int nx, int ny, int nz) {
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
                     std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
-                    std::string &RGBFilename) {
+                    std::string &RGBFilename, bool &OrientationFilesInInput) {
 
     // The analysis file should be in the analysis subdirectory of ExaCA
     std::cout << "Looking for analysis file: " << AnalysisFile << std::endl;
@@ -263,77 +302,89 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis, "*****");
 
-    std::vector<std::string> NamesOfFiles = {
-        "name of log (.log) file",
-        "name of microstructure (.vtk) file",
-        "file of grain orientations (rotation matrix form)",
-        "name of data files of output resulting from this analysis",
-        "file of grain orientations (Bunge Euler angle form ZXZ)",
+    std::vector<std::string> NamesOfFilesRequired = {"name of log (.log) file", "name of microstructure (.vtk) file",
+                                                     "name of data files of output resulting from this analysis"};
+    std::vector<std::string> NamesOfFilesOptional = {
+        "file of grain orientations (rotation matrix form)", "file of grain orientations (Bunge Euler angle form ZXZ)",
         "file corresponding to grain orientation IPF-Z colors as fractional RGB values"};
-    std::vector<std::string> FilesRead(6);
+    // If orientation file names are given here, store these values but override if given in the log file with a warning
+    int NumRequiredInputs = NamesOfFilesRequired.size();
+    int NumOptionalInputs = NamesOfFilesOptional.size();
+    std::vector<std::string> RequiredFilesRead(NumRequiredInputs);
+    std::vector<std::string> OptionalFilesRead(NumOptionalInputs);
 
     for (int i = 0; i < 6; i++) {
         std::string line;
         std::getline(Analysis, line);
         if (line == "**********")
             break;
-        bool LineFound = parseInputFromList(line, NamesOfFiles, FilesRead, 5);
-        if (!(LineFound))
-            std::cout << "Warning: the line " << line
-                      << " did not match any analysis file options expected by ExaCA and will be ignored" << std::endl;
+        bool LineFound = parseInputFromList(line, NamesOfFilesRequired, RequiredFilesRead, NumRequiredInputs);
+        if (!(LineFound)) {
+            LineFound = parseInputFromList(line, NamesOfFilesOptional, OptionalFilesRead, NumOptionalInputs);
+            if (!(LineFound)) {
+                std::cout << "Warning: the line " << line
+                          << " did not match any analysis file options expected by ExaCA and will be ignored"
+                          << std::endl;
+            }
+        }
     }
+    Analysis.close();
+
     // Check that all required arguments were present
-    for (int i = 0; i < 4; i++) {
-        if (FilesRead[i].empty()) {
-            std::string error = "Error: Required input " + NamesOfFiles[i] + " not found in analysis file";
+    for (int i = 0; i < NumRequiredInputs; i++) {
+        if (RequiredFilesRead[i].empty()) {
+            std::string error = "Error: Required input " + NamesOfFilesRequired[i] + " not found in analysis file";
             throw std::runtime_error(error);
         }
     }
-    LogFile = FilesRead[0];
-    MicrostructureFile = FilesRead[1];
-    RotationFilename = FilesRead[2];
-    OutputFileName = FilesRead[3];
-
-    // If the file of bunge convention euler angles was given, initialize this, otherwise use the default file
-    if (FilesRead[4].empty()) {
-        EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ.csv";
-        std::cout << "Warning: the Euler angles was not provided in the analysis input file; the default Euler angles "
-                     "file GrainOrientationEulerAnglesBungeZXZ.csv will be used"
-                  << std::endl;
-    }
-    else
-        EulerAnglesFilename = FilesRead[4];
-    Analysis.close();
-    // Path to file of grain orientations based on install/source location
-    RotationFilename = checkFileInstalled(RotationFilename, 0);
-    // Check that files are not empty
+    // Required input files
+    LogFile = RequiredFilesRead[0];
+    MicrostructureFile = RequiredFilesRead[1];
+    OutputFileName = RequiredFilesRead[2];
+    // Check that required input files are not empty
     checkFileNotEmpty(LogFile);
     checkFileNotEmpty(MicrostructureFile);
-    checkFileNotEmpty(RotationFilename);
-    EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
-    checkFileNotEmpty(EulerAnglesFilename);
-    // RGB file - default value or value from file
-    if (FilesRead[5].empty()) {
-        std::cout << "Warning: the name of the file of RGB colors for each orientation corresponding to the IPF-Z "
-                     "color was not required, but will be required in a future release. The default file "
-                     "GrainOrientationRGB_IPF-Z.csv will be used to map colors to orientations"
-                  << std::endl;
-        RGBFilename = "GrainOrientationRGB_IPF-Z.csv";
+
+    // Check for optional inputs - if not included, get these from the log file
+    if ((OptionalFilesRead[0].empty()) && (OptionalFilesRead[1].empty()) && (OptionalFilesRead[2].empty()))
+        OrientationFilesInInput = false;
+    else {
+        OrientationFilesInInput = true;
+        RotationFilename = OptionalFilesRead[0];
+        if (OptionalFilesRead[1].empty()) {
+            // File not given, use default file
+            EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ.csv";
+            std::cout << "Defaulting to use of GrainOrientationEulerAnglesBungeZXZ.csv for euler angles" << std::endl;
+        }
+        else {
+            // File is given, allow printing of pole figure data using updated format
+            EulerAnglesFilename = OptionalFilesRead[1];
+        }
+        if (OptionalFilesRead[2].empty()) {
+            // File not given, use default file
+            RGBFilename = "GrainOrientationRGB_IPF-Z.csv";
+            std::cout << "The default file GrainOrientationRGB_IPF-Z.csv will be used to map colors to orientations"
+                      << std::endl;
+        }
+        else {
+            // File is given, use this value
+            RGBFilename = OptionalFilesRead[2];
+        }
+        RotationFilename = checkFileInstalled(RotationFilename, 0);
+        checkFileNotEmpty(RotationFilename);
+        EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
+        checkFileNotEmpty(EulerAnglesFilename);
+        RGBFilename = checkFileInstalled(RGBFilename, 0);
+        checkFileNotEmpty(RGBFilename);
     }
-    else
-        RGBFilename = FilesRead[5];
-    // Check that file exists and was successfully installed
-    RGBFilename = checkFileInstalled(RGBFilename, 0);
 }
 
 // Ensure that the appropriate files exist - orientation files should be installed, other files should start with the
 // BaseFileName value given from the command line
-void CheckInputFiles(std::string BaseFileName, std::string &LogFile, std::string &MicrostructureFile,
-                     std::string &RotationFilename, std::string &EulerAnglesFilename, std::string &RGBFilename) {
+void CheckInputFiles(std::string LogFile, std::string MicrostructureFile, std::string &RotationFilename,
+                     std::string &EulerAnglesFilename, std::string &RGBFilename) {
 
     // Names of files
-    LogFile = BaseFileName + ".log";
-    MicrostructureFile = BaseFileName + ".vtk";
     RotationFilename = "GrainOrientationVectors.csv";
     RotationFilename = checkFileInstalled(RotationFilename, 0);
     EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ.csv";

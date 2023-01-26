@@ -14,12 +14,15 @@ This is where the required inputs for analysis are given; these inputs are:
 
 * Path to/name of log (.log) file associated with the microstructure of interest
 * Path to/name of microstructure (.vtk) file
-* Path to file of grain orientations (rotation matrix form)
 * Path to/base (without file extension) name of data files of output resulting from this analysis
+
+Three deprecated inputs may also be given here, though these will be ignored in a future release; these inputs are:
+* Path to file of grain orientations (rotation matrix form)
 * Path to file of grain orientations (Bunge Euler angle form ZXZ)
 * Path to file corresponding to grain orientation IPF-Z colors as fractional RGB values
 
-Nothing other than values for these 6 inputs (separated by a colon from the rest of the line) should be given here. If "Path to file of grain orientations (Bunge Euler angle form ZXZ)" is not given, the deprecated form of printing ExaCA cross-section data is assumed - this will be removed in a future release, at which point the lack of including a value for this input will result in a runtime error. If "Path to file corresponding to grain orientation IPF-Z colors as fractional RGB values" is not given, the default file (examples/Substrate/GrainOrientationRGB_IPF-Z.csv) will be used to map orientations to RGB values - the lack of inclusion of this input in future releases will also result in a runtime error.
+Values for these inputs should be separated by a colon from the rest of the line. The paths to the 3 grain orientation files will only be be used if they cannot be extracted from the log file. The grain orientation files "examples/Substrate/GrainOrientationVectors.csv", "examples/Substrate/GrainOrientationEulerAnglesBungeZXZ.csv", and "examples/Substrate/GrainOrientationRGB_IPF-Z.csv" are used by the example problems. If a custom file of grain orientation vectors was used by ExaCA to simulate a microstructure (i.e., "path/to/file/GrainOrientationVectors_customname.csv"), this requires that the corresponding 2 orientation files are also provided ("path/to/file/GrainOrientationEulerAnglesBungeZXZ_customname.csv" and "path/to/file/GrainOrientationRGB_IPF-Z_customname.csv") and that they are properly formatted (see `examples/README.md` for more details).
+ If the orientation file data is not given in the log file, and "Path to file of grain orientations (Bunge Euler angle form ZXZ)" is not given in the analysis inputs file, the deprecated form of printing ExaCA cross-section data is assumed. If "Path to file corresponding to grain orientation IPF-Z colors as fractional RGB values" is not given, the default file (examples/Substrate/GrainOrientationRGB_IPF-Z.csv) will be used to map orientations to RGB values. In the future these paths will be required and missing input will result in a runtime error.
 
 ## Section 1: ExaConstit representative volume element (RVE) printing
 

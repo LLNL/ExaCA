@@ -22,6 +22,7 @@
 int main(int argc, char *argv[]) {
 
     // Read command line input to obtain name of analysis file
+    bool OrientationFilesInInput;
     std::string AnalysisFile, LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename, OutputFileName,
         RGBFilename;
     double deltax;
@@ -34,7 +35,7 @@ int main(int argc, char *argv[]) {
         // If the file of orientations is given in both rotation matrix and Euler angle form, it is assumed that the new
         // output format is used for cross-section orientation data Otherwise, the old format is used
         ParseFilenames(AnalysisFile, LogFile, MicrostructureFile, RotationFilename, OutputFileName, EulerAnglesFilename,
-                       RGBFilename);
+                       RGBFilename, OrientationFilesInInput);
     }
     std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile
               << " and the options specified in " << AnalysisFile << std::endl;
@@ -49,7 +50,8 @@ int main(int argc, char *argv[]) {
         std::vector<double> XYZBounds(6);
         bool NewLogFormatYN = checkLogFormat(LogFile);
         if (NewLogFormatYN)
-            ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds);
+            ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, RotationFilename, EulerAnglesFilename,
+                         RGBFilename, OrientationFilesInInput);
         else
             ParseLogFile_Old(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds);
 
