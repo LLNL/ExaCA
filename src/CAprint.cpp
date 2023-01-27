@@ -603,6 +603,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         ExaCALog.open(FName);
         ExaCALog << "ExaCA version: " << version() << std::endl;
         ExaCALog << "ExaCA commit: " << gitCommitHash() << std::endl;
+        ExaCALog << "Kokkos version: " << kokkosVersion() << std::endl;
         ExaCALog << "Input file used was: " << InputFile << std::endl;
         ExaCALog << "Number of MPI ranks used was: " << np << std::endl;
         ExaCALog << "Output was written at cycle: " << cycle << std::endl;
@@ -762,3 +763,5 @@ void PrintIntermediateExaCAState(int IntermediateFileCounter, int layernumber, s
 std::string version() { return ExaCA_VERSION; }
 
 std::string gitCommitHash() { return ExaCA_GIT_COMMIT_HASH; }
+
+std::string kokkosVersion() { return ExaCA_Kokkos_VERSION_STRING; }

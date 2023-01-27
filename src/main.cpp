@@ -26,7 +26,8 @@ int main(int argc, char *argv[]) {
         MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
         if (id == 0) {
-            std::cout << "ExaCA version: " << version() << " \nExaCA commit:  " << gitCommitHash() << std::endl;
+            std::cout << "ExaCA version: " << version() << " \nExaCA commit:  " << gitCommitHash()
+                      << "\nKokkos version: " << kokkosVersion() << std::endl;
             Kokkos::DefaultExecutionSpace().print_configuration(std::cout);
             std::cout << "Number of MPI ranks = " << np << std::endl;
         }
