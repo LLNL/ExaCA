@@ -59,27 +59,99 @@ int FindTopOrBottom(ViewI3D_H LayerID, int XLow, int XHigh, int YLow, int YHigh,
     return TopBottomZ;
 }
 
-// Check the format of the log file: new version has all lines with colon separator
-bool checkLogFormat(std::string LogFile) {
-    bool NewLogFormatYN;
+// Check the format of the log file:
+// 0: text file without colon-separated format
+// 1: text file with colon separator on all lines
+// 2: json format
+int checkLogFormat(std::string LogFile) {
+    int LogFormat;
     std::ifstream InputDataStream;
     InputDataStream.open(LogFile);
     if (!(InputDataStream))
         throw std::runtime_error("Error: Cannot find ExaCA log file");
-    std::string testline;
-    // If the version is listed on the first line, this is the new log file format
-    getline(InputDataStream, testline);
-    std::size_t found_version = testline.find("ExaCA version");
-    if (found_version == std::string::npos)
-        NewLogFormatYN = false;
-    else
-        NewLogFormatYN = true;
-    return NewLogFormatYN;
+    std::size_t found_json = LogFile.find(".json");
+    if (found_json != std::string::npos) {
+        LogFormat = 2;
+#ifndef ExaCA_ENABLE_JSON
+        throw std::runtime_error("Cannot use JSON input file without ExaCA_ENABLE_JSON=ON");
+#endif
+    }
+    else {
+        std::string testline;
+        // If the version is listed on the first line, this is the newer of the non-json log file formats
+        getline(InputDataStream, testline);
+        std::size_t found_version = testline.find("ExaCA version");
+        if (found_version == std::string::npos)
+            LogFormat = 0;
+        else
+            LogFormat = 1;
+        std::cout << "Warning: old (non-json) form of log file detected; compatibility with analyzing these data sets "
+                     "will be removed in a future release"
+                  << std::endl;
+    }
+    return LogFormat;
 }
 
+// Parse log file using json format
+#ifdef ExaCA_ENABLE_JSON
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
                   std::vector<double> &XYZBounds, std::string &RotationFilename, std::string &EulerAnglesFilename,
                   std::string &RGBFilename, bool OrientationFilesInInput) {
+
+    std::ifstream InputDataStream;
+    InputDataStream.open(LogFile);
+    nlohmann::json logdata = nlohmann::json::parse(InputDataStream);
+
+    // X, Y, Z bounds of domain (in microns)
+    XYZBounds[0] = logdata["Domain"]["XBounds"][0];
+    XYZBounds[1] = logdata["Domain"]["XBounds"][1];
+    XYZBounds[2] = logdata["Domain"]["YBounds"][0];
+    XYZBounds[3] = logdata["Domain"]["YBounds"][1];
+    XYZBounds[4] = logdata["Domain"]["ZBounds"][0];
+    XYZBounds[5] = logdata["Domain"]["ZBounds"][1];
+    // Cell size (in microns)
+    deltax = logdata["Domain"]["CellSize"];
+    // Number of cells per domain direction
+    nx = logdata["Domain"]["Nx"];
+    ny = logdata["Domain"]["Ny"];
+    nz = logdata["Domain"]["Nz"];
+    std::string SimulationType = logdata["SimulationType"];
+    if (SimulationType == "C")
+        NumberOfLayers = 1;
+    else
+        NumberOfLayers = logdata["Domain"]["NumberOfLayers"];
+    if (OrientationFilesInInput)
+        std::cout << "Note: orientation filename specified in log file will be used, overriding value from analysis "
+                     "input file"
+                  << std::endl;
+    RotationFilename = logdata["GrainOrientationFile"];
+    if (RotationFilename.find("GrainOrientationVectors.csv") != std::string::npos) {
+        // Default files for euler angles and RGB mapping
+        EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ.csv";
+        RGBFilename = "GrainOrientationRGB_IPF-Z.csv";
+    }
+    else {
+        // Custom files for euler angles and RGB mapping based on rotation filename
+        std::size_t startpos = RotationFilename.find_first_of("_");
+        std::size_t endpos = RotationFilename.find_last_of(".");
+        std::string customname = RotationFilename.substr(startpos + 1, endpos - startpos - 1);
+        EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ_" + customname + ".csv";
+        RGBFilename = "GrainOrientationRGB_IPF-Z_" + customname + ".csv";
+    }
+    // Full path to install location was already given for the rotations file, need to check install location for
+    // other files
+    EulerAnglesFilename = checkFileInstalled(EulerAnglesFilename, 0);
+    RGBFilename = checkFileInstalled(RGBFilename, 0);
+    checkFileNotEmpty(RotationFilename);
+    checkFileNotEmpty(EulerAnglesFilename);
+    checkFileNotEmpty(RGBFilename);
+    InputDataStream.close();
+}
+#endif
+
+void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
+                      std::vector<double> &XYZBounds, std::string &RotationFilename, std::string &EulerAnglesFilename,
+                      std::string &RGBFilename, bool OrientationFilesInInput) {
 
     std::vector<std::string> LogInputs = {
         "Lower bound of domain in x", // Input 0
@@ -164,9 +236,12 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
     }
 }
 
-void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
-                      bool UseXYZBounds, std::vector<double> &XYZBounds) {
+void ParseLogFile_OldNoColon(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
+                             bool UseXYZBounds, std::vector<double> &XYZBounds) {
 
+    std::cout << "Warning: old (non-json) form of log file detected; compatibility with analyzing these data sets will "
+                 "be removed in a future release"
+              << std::endl;
     std::ifstream InputDataStream;
     InputDataStream.open(LogFile);
     if (!(InputDataStream))
@@ -341,6 +416,14 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     LogFile = RequiredFilesRead[0];
     MicrostructureFile = RequiredFilesRead[1];
     OutputFileName = RequiredFilesRead[2];
+    std::size_t extension_pos = LogFile.find_last_of(".");
+    // Ensure that form of log file (.log or .json) matches the compilation option used to generate it
+    std::string LogFileNamePrefix = LogFile.substr(0, extension_pos);
+#ifndef ExaCA_ENABLE_JSON
+    LogFile = LogFileNamePrefix + ".log";
+#else
+    LogFile = LogFileNamePrefix + ".json";
+#endif
     // Check that required input files are not empty
     checkFileNotEmpty(LogFile);
     checkFileNotEmpty(MicrostructureFile);

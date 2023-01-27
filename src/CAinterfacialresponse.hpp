@@ -95,6 +95,19 @@ struct InterfacialResponseFunction {
         D = getInputDouble(MaterialInputsRead[4]);
     }
 
+    // Old output format for interfacial response data
+    std::string print_old() {
+        std::stringstream out;
+        out << "Interfacial response function form: " << functionform << std::endl;
+        out << "Interfacial response function parameter A: " << (A) << std::endl;
+        out << "Interfacial response function parameter B: " << (B) << std::endl;
+        out << "Interfacial response function parameter C: " << (C) << std::endl;
+        if (function == cubic)
+            out << "Interfacial response function parameter D: " << (D) << std::endl;
+        out << "The alloy freezing range was: " << (FreezingRange);
+        return out.str();
+    }
+
 #ifdef ExaCA_ENABLE_JSON
     // Used for reading material file in new json format
     void parseMaterial(int id, std::string MaterialFile) {
@@ -149,15 +162,19 @@ struct InterfacialResponseFunction {
         return max(0.0, V);
     }
 
+    // json format for interfacial response function printing
     std::string print() {
         std::stringstream out;
-        out << "Interfacial response function form: " << functionform << std::endl;
-        out << "Interfacial response function parameter A: " << (A) << std::endl;
-        out << "Interfacial response function parameter B: " << (B) << std::endl;
-        out << "Interfacial response function parameter C: " << (C) << std::endl;
+        out << "   \"InterfacialResponse\": {" << std::endl;
+        out << "       \"Function\": "
+            << "\"" << functionform << "\"," << std::endl;
+        out << "       \"A\": " << (A) << "," << std::endl;
+        out << "       \"B\": " << (B) << "," << std::endl;
+        out << "       \"C\": " << (C) << "," << std::endl;
         if (function == cubic)
-            out << "Interfacial response function parameter D: " << (D) << std::endl;
-        out << "The alloy freezing range was: " << (FreezingRange);
+            out << "       \"D\": " << (D) << "," << std::endl;
+        out << "       \"FreezingRange\": " << (FreezingRange) << std::endl;
+        out << "   },";
         return out.str();
     }
 };

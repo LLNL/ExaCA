@@ -576,7 +576,7 @@ void PrintExaConstitDefaultRVE(std::string BaseFileName, std::string PathToOutpu
 }
 
 //*****************************************************************************/
-// Print a log file for this ExaCA run, containing information about the run parameters used
+// Print a log file for this ExaCA run in json file format, containing information about the run parameters used
 // from the input file as well as the decomposition scheme
 void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int MyYSlices, int MyYOffset,
                    InterfacialResponseFunction irf, double deltax, double NMax, double dTN, double dTsigma,
@@ -589,6 +589,149 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
                    double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
                    double XMax, double YMin, double YMax, double ZMin, double ZMax, std::string GrainOrientationFile) {
+
+    int *YSlices = new int[np];
+    int *YOffset = new int[np];
+    MPI_Gather(&MyYSlices, 1, MPI_INT, YSlices, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(&MyYOffset, 1, MPI_INT, YOffset, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (id == 0) {
+        std::string FName = PathToOutput + BaseFileName + ".json";
+        std::cout << "Printing ExaCA log file" << std::endl;
+        std::ofstream ExaCALog;
+        ExaCALog.open(FName);
+        ExaCALog << "{" << std::endl;
+        ExaCALog << "   \"ExaCAVersion\": \"" << version() << "\", " << std::endl;
+        ExaCALog << "   \"ExaCACommitHash\": \"" << gitCommitHash() << "\", " << std::endl;
+        ExaCALog << "   \"KokkosVersion\": \"" << kokkosVersion() << "\", " << std::endl;
+        ExaCALog << "   \"InputFile\": \"" << InputFile << "\", " << std::endl;
+        ExaCALog << "   \"TimeStepOfOutput\": " << cycle << "," << std::endl;
+        ExaCALog << "   \"SimulationType\": \"" << SimulationType << "\"," << std::endl;
+        ExaCALog << "   \"GrainOrientationFile\": \"" << GrainOrientationFile << "\"," << std::endl;
+        ExaCALog << "   \"Domain\": {" << std::endl;
+        ExaCALog << "      \"Nx\": " << nx << "," << std::endl;
+        ExaCALog << "      \"Ny\": " << ny << "," << std::endl;
+        ExaCALog << "      \"Nz\": " << nz << "," << std::endl;
+        ExaCALog << "      \"CellSize\": " << deltax << "," << std::endl;
+        ExaCALog << "      \"TimeStep\": " << deltat << "," << std::endl;
+        ExaCALog << "      \"XBounds\": [" << XMin << "," << XMax << "]," << std::endl;
+        ExaCALog << "      \"YBounds\": [" << YMin << "," << YMax << "]," << std::endl;
+        ExaCALog << "      \"ZBounds\": [" << ZMin << "," << ZMax << "]";
+        if (SimulationType != "C") {
+            ExaCALog << "," << std::endl;
+            ExaCALog << "      \"NumberOfLayers\": " << NumberOfLayers << "," << std::endl;
+            ExaCALog << "      \"LayerOffset\": " << LayerHeight << "," << std::endl;
+            ExaCALog << "      \"Remelting\": " << RemeltingYN;
+            if (SimulationType == "S") {
+                ExaCALog << "," << std::endl;
+                ExaCALog << "      \"NSpotsX\": " << NSpotsX << "," << std::endl;
+                ExaCALog << "      \"NSpotsY\": " << NSpotsY << "," << std::endl;
+                ExaCALog << "      \"RSpots\": " << SpotRadius << "," << std::endl;
+                ExaCALog << "      \"SpotOffset\": " << SpotOffset << std::endl;
+            }
+            else
+                ExaCALog << std::endl;
+        }
+        else
+            ExaCALog << std::endl;
+        ExaCALog << "   }," << std::endl;
+        ExaCALog << "   \"Nucleation\": {" << std::endl;
+        ExaCALog << "      \"Density\": " << NMax << "," << std::endl;
+        ExaCALog << "      \"MeanUndercooling\": " << dTN << "," << std::endl;
+        ExaCALog << "      \"StDevUndercooling\": " << dTsigma << std::endl;
+        ExaCALog << "   }," << std::endl;
+        ExaCALog << "   \"TemperatureData\": {" << std::endl;
+        if (SimulationType == "R") {
+            ExaCALog << "       \"TemperatureFiles\": [";
+            for (int i = 0; i < TempFilesInSeries - 1; i++) {
+                ExaCALog << "\"" << temp_paths[i] << "\", ";
+            }
+            ExaCALog << "\"" << temp_paths[TempFilesInSeries - 1] << "\"]," << std::endl;
+            ExaCALog << "       \"HeatTransferCellSize\": " << HT_deltax << std::endl;
+        }
+        else {
+            ExaCALog << "      \"G\": " << G << "," << std::endl;
+            ExaCALog << "      \"R\": " << R << std::endl;
+        }
+        ExaCALog << "   }," << std::endl;
+        ExaCALog << "   \"Substrate\": {" << std::endl;
+        if (SimulationType == "C")
+            ExaCALog << "       \"FractionSurfaceSitesActive\": " << FractSurfaceSitesActive << std::endl;
+        else {
+            if (SubstrateFile)
+                ExaCALog << "       \"SubstrateFilename\": " << SubstrateFileName << std::endl;
+            else
+                ExaCALog << "       \"MeanSize\": " << SubstrateGrainSpacing << std::endl;
+        }
+        ExaCALog << "   }," << std::endl;
+        ExaCALog << irf.print() << std::endl;
+        ExaCALog << "   \"NumberMPIRanks\": " << np << "," << std::endl;
+        ExaCALog << "   \"Decomposition\": {" << std::endl;
+        ExaCALog << "       \"SubdomainYSize\": [";
+        for (int i = 0; i < np - 1; i++)
+            ExaCALog << YSlices[i] << ",";
+        ExaCALog << YSlices[np - 1] << "]," << std::endl;
+        ExaCALog << "       \"SubdomainYOffset\": [";
+        for (int i = 0; i < np - 1; i++)
+            ExaCALog << YOffset[i] << ",";
+        ExaCALog << YOffset[np - 1] << "]" << std::endl;
+        ExaCALog << "   }," << std::endl;
+        ExaCALog << "   \"Timing\": {" << std::endl;
+        ExaCALog << "       \"Runtime\": " << InitTime + RunTime + OutTime << "," << std::endl;
+        ExaCALog << "       \"InitRunOutputBreakdown\": [" << InitTime << "," << RunTime << "," << OutTime << "],"
+                 << std::endl;
+        ExaCALog << "       \"MaxMinInitTime\": [" << InitMaxTime << "," << InitMinTime << "]," << std::endl;
+        ExaCALog << "       \"MaxMinNucleationTime\": [" << NuclMaxTime << "," << NuclMinTime << "]," << std::endl;
+        ExaCALog << "       \"MaxMinSteeringVectorCreationTime\": [" << CreateSVMaxTime << "," << CreateSVMinTime
+                 << "]," << std::endl;
+        ExaCALog << "       \"MaxMinCellCaptureTime\": [" << CaptureMaxTime << "," << CaptureMinTime << "],"
+                 << std::endl;
+        ExaCALog << "       \"MaxMinGhostExchangeTime\": [" << GhostMaxTime << "," << GhostMinTime << "]," << std::endl;
+        ExaCALog << "       \"MaxMinOutputTime\": [" << OutMaxTime << "," << OutMinTime << "]" << std::endl;
+        ExaCALog << "   }" << std::endl;
+        ExaCALog << "}" << std::endl;
+        ExaCALog.close();
+        // Also print this log information to the console
+        std::cout << "===================================================================================" << std::endl;
+        std::cout << "Having run with = " << np << " processors" << std::endl;
+        std::cout << "Output written at cycle = " << cycle << std::endl;
+        std::cout << "Total time = " << InitTime + RunTime + OutTime << std::endl;
+        std::cout << "Time spent initializing data = " << InitTime << " s" << std::endl;
+        std::cout << "Time spent performing CA calculations = " << RunTime << " s" << std::endl;
+        std::cout << "Time spent collecting and printing output data = " << OutTime << " s\n" << std::endl;
+
+        std::cout << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime << " s"
+                  << std::endl;
+        std::cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s"
+                  << std::endl;
+        std::cout << "Max/min rank time in CA steering vector creation = " << CreateSVMaxTime << " / "
+                  << CreateSVMinTime << " s" << std::endl;
+        std::cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s"
+                  << std::endl;
+        std::cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s"
+                  << std::endl;
+        std::cout << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s\n"
+                  << std::endl;
+
+        std::cout << "===================================================================================" << std::endl;
+    }
+}
+
+//*****************************************************************************/
+// Print a log file for this ExaCA run, containing information about the run parameters used
+// from the input file as well as the decomposition scheme
+void PrintExaCALog_Old(int id, int np, std::string InputFile, std::string SimulationType, int MyYSlices, int MyYOffset,
+                       InterfacialResponseFunction irf, double deltax, double NMax, double dTN, double dTsigma,
+                       std::vector<std::string> temp_paths, int TempFilesInSeries, double HT_deltax, bool RemeltingYN,
+                       double deltat, int NumberOfLayers, int LayerHeight, std::string SubstrateFileName,
+                       double SubstrateGrainSpacing, bool SubstrateFile, double G, double R, int nx, int ny, int nz,
+                       double FractSurfaceSitesActive, std::string PathToOutput, int NSpotsX, int NSpotsY,
+                       int SpotOffset, int SpotRadius, std::string BaseFileName, double InitTime, double RunTime,
+                       double OutTime, int cycle, double InitMaxTime, double InitMinTime, double NuclMaxTime,
+                       double NuclMinTime, double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime,
+                       double CaptureMinTime, double GhostMaxTime, double GhostMinTime, double OutMaxTime,
+                       double OutMinTime, double XMin, double XMax, double YMin, double YMax, double ZMin, double ZMax,
+                       std::string GrainOrientationFile) {
 
     int *YSlices = new int[np];
     int *YOffset = new int[np];
@@ -626,7 +769,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         ExaCALog << "Nucleation density (per m^3) was: " << NMax << std::endl;
         ExaCALog << "Mean nucleation undercooling (in K, relative to liquidus temperature) was: " << dTN << std::endl;
         ExaCALog << "Standard deviation of nucleation undercooling (in K) was: " << dTsigma << std::endl;
-        ExaCALog << irf.print() << std::endl;
+        ExaCALog << irf.print_old() << std::endl;
         if (SimulationType == "C") {
             ExaCALog << "Thermal gradient (K/m): " << G << std::endl;
             ExaCALog << "Cooling rate (K/s): " << R << std::endl;

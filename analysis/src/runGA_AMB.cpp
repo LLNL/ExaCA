@@ -31,7 +31,11 @@ int main(int argc, char *argv[]) {
     }
     else {
         BaseFileName = argv[1];
+#ifndef ExaCA_ENABLE_JSON
         LogFile = BaseFileName + ".log";
+#else
+        LogFile = BaseFileName + ".json";
+#endif
         MicrostructureFile = BaseFileName + ".vtk";
     }
     std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile << std::endl;
@@ -43,14 +47,21 @@ int main(int argc, char *argv[]) {
         // layers, X, Y, Z lower and upper bounds
         int nx, ny, nz, NumberOfLayers;
         std::vector<double> XYZBounds(6);
-        bool NewLogFormatYN = checkLogFormat(LogFile);
-        if (NewLogFormatYN)
-            ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, RotationFilename, EulerAnglesFilename,
-                         RGBFilename, false);
-        else {
-            ParseLogFile_Old(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds);
+        int LogFormat = checkLogFormat(LogFile);
+        if (LogFormat == 0) {
+            ParseLogFile_OldNoColon(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds);
             // Use default file names as they were not in the log file, and there is no analysis input file
             CheckInputFiles(LogFile, MicrostructureFile, RotationFilename, EulerAnglesFilename, RGBFilename);
+        }
+        else if (LogFormat == 1) {
+            ParseLogFile_Old(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, RotationFilename,
+                             EulerAnglesFilename, RGBFilename, false);
+        }
+        else {
+#ifdef ExaCA_ENABLE_JSON
+            ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, RotationFilename, EulerAnglesFilename,
+                         RGBFilename, false);
+#endif
         }
 
         // Allocate memory blocks for GrainID and LayerID data

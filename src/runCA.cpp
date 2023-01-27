@@ -521,6 +521,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Allreduce(&OutTime, &OutMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
+    // If json is enabled, print the log file to the json format - otherwise, use the old print function
+#ifdef ExaCA_ENABLE_JSON
     PrintExaCALog(id, np, InputFile, SimulationType, MyYSlices, MyYOffset, irf, deltax, NMax, dTN, dTsigma, temp_paths,
                   TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
                   SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
@@ -528,4 +530,17 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
                   CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin,
                   ZMax, GrainOrientationFile);
+#else
+    if (id == 0)
+        std::cout << "Warning: log file printed using non-json format - ExaCA_ENABLE_JSON=ON will be required in a "
+                     "future release"
+                  << std::endl;
+    PrintExaCALog_Old(id, np, InputFile, SimulationType, MyYSlices, MyYOffset, irf, deltax, NMax, dTN, dTsigma,
+                      temp_paths, TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
+                      SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
+                      FractSurfaceSitesActive, PathToOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile,
+                      InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
+                      CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
+                      OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainOrientationFile);
+#endif
 }
