@@ -1,6 +1,6 @@
 Used in post-processing script to analyze select ExaCA outputs
 *****
-Path to/name of log (.log) file associated with the microstructure of interest: ExaCA_workflowoutput.log
+Path to/name of log file associated with the microstructure of interest: ExaCA_workflowoutput.json
 Path to/name of microstructure (.vtk) file: ExaCA_workflowoutput.vtk
 Path to file of grain orientations (rotation matrix form): GrainOrientationVectors_Robert.csv
 Path to/base (without file extension) name of data files of output resulting from this analysis: ExaCA_workflowoutput

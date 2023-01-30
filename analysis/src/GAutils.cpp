@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "GAutils.hpp"
+#include "CAparsefiles.hpp"
 
 #include <cmath>
 #include <fstream>
@@ -69,13 +70,9 @@ int checkLogFormat(std::string LogFile) {
     InputDataStream.open(LogFile);
     if (!(InputDataStream))
         throw std::runtime_error("Error: Cannot find ExaCA log file");
-    std::size_t found_json = LogFile.find(".json");
-    if (found_json != std::string::npos) {
+    bool JsonInputFormat = checkInputFileFormat(LogFile, 0);
+    if (JsonInputFormat)
         LogFormat = 2;
-#ifndef ExaCA_ENABLE_JSON
-        throw std::runtime_error("Cannot use JSON input file without ExaCA_ENABLE_JSON=ON");
-#endif
-    }
     else {
         std::string testline;
         // If the version is listed on the first line, this is the newer of the non-json log file formats
@@ -85,9 +82,6 @@ int checkLogFormat(std::string LogFile) {
             LogFormat = 0;
         else
             LogFormat = 1;
-        std::cout << "Warning: old (non-json) form of log file detected; compatibility with analyzing these data sets "
-                     "will be removed in a future release"
-                  << std::endl;
     }
     return LogFormat;
 }
@@ -239,9 +233,6 @@ void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &de
 void ParseLogFile_OldNoColon(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
                              bool UseXYZBounds, std::vector<double> &XYZBounds) {
 
-    std::cout << "Warning: old (non-json) form of log file detected; compatibility with analyzing these data sets will "
-                 "be removed in a future release"
-              << std::endl;
     std::ifstream InputDataStream;
     InputDataStream.open(LogFile);
     if (!(InputDataStream))
@@ -364,6 +355,25 @@ void ReadIgnoreField(std::ifstream &InputDataStream, int nx, int ny, int nz) {
         getline(InputDataStream, line);
 }
 
+// Check if log file format is consistent with compilation option, swap form if necessary
+std::string CheckLogFilename(std::string LogFile) {
+    std::string LogFileUpdate;
+    bool LogFormatConsistent = checkFileExists(LogFile, 0, false);
+    if (LogFormatConsistent)
+        LogFileUpdate = LogFile;
+    else {
+        // Use the other possible version of the log file
+        std::size_t extension_pos = LogFile.find_last_of(".");
+        std::string LogFileNamePrefix = LogFile.substr(0, extension_pos);
+        std::string LogFileExt = LogFile.substr(extension_pos, std::string::npos);
+        if (LogFileExt == ".json")
+            LogFileUpdate = LogFileNamePrefix + ".log";
+        else if (LogFileExt == ".log")
+            LogFileUpdate = LogFileNamePrefix + ".json";
+    }
+    return LogFileUpdate;
+}
+
 // Read the analysis file to determine the file names/paths for the microstructure and the orientations
 void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string &MicrostructureFile,
                     std::string &RotationFilename, std::string &OutputFileName, std::string &EulerAnglesFilename,
@@ -377,7 +387,7 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
         throw std::runtime_error("Error: Cannot find ExaCA analysis file");
     skipLines(Analysis, "*****");
 
-    std::vector<std::string> NamesOfFilesRequired = {"name of log (.log) file", "name of microstructure (.vtk) file",
+    std::vector<std::string> NamesOfFilesRequired = {"name of log", "name of microstructure (.vtk) file",
                                                      "name of data files of output resulting from this analysis"};
     std::vector<std::string> NamesOfFilesOptional = {
         "file of grain orientations (rotation matrix form)", "file of grain orientations (Bunge Euler angle form ZXZ)",
@@ -414,16 +424,11 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
     }
     // Required input files
     LogFile = RequiredFilesRead[0];
+    // Log file was assumed to be in a consistent form (Json or non-json) from compiling this version of ExaCA - check
+    // if this is true
+    LogFile = CheckLogFilename(LogFile);
     MicrostructureFile = RequiredFilesRead[1];
     OutputFileName = RequiredFilesRead[2];
-    std::size_t extension_pos = LogFile.find_last_of(".");
-    // Ensure that form of log file (.log or .json) matches the compilation option used to generate it
-    std::string LogFileNamePrefix = LogFile.substr(0, extension_pos);
-#ifndef ExaCA_ENABLE_JSON
-    LogFile = LogFileNamePrefix + ".log";
-#else
-    LogFile = LogFileNamePrefix + ".json";
-#endif
     // Check that required input files are not empty
     checkFileNotEmpty(LogFile);
     checkFileNotEmpty(MicrostructureFile);
@@ -464,7 +469,7 @@ void ParseFilenames(std::string AnalysisFile, std::string &LogFile, std::string 
 
 // Ensure that the appropriate files exist - orientation files should be installed, other files should start with the
 // BaseFileName value given from the command line
-void CheckInputFiles(std::string LogFile, std::string MicrostructureFile, std::string &RotationFilename,
+void CheckInputFiles(std::string &LogFile, std::string MicrostructureFile, std::string &RotationFilename,
                      std::string &EulerAnglesFilename, std::string &RGBFilename) {
 
     // Names of files
@@ -476,6 +481,9 @@ void CheckInputFiles(std::string LogFile, std::string MicrostructureFile, std::s
     RGBFilename = checkFileInstalled(RGBFilename, 0);
 
     // Check that files are not empty
+    // Log file was assumed to be in a consistent form (Json or non-json) from compiling this version of ExaCA - check
+    // if this is true
+    LogFile = CheckLogFilename(LogFile);
     checkFileNotEmpty(LogFile);
     checkFileNotEmpty(MicrostructureFile);
     checkFileNotEmpty(RotationFilename);

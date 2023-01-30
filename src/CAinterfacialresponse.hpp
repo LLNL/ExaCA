@@ -96,7 +96,7 @@ struct InterfacialResponseFunction {
     }
 
     // Old output format for interfacial response data
-    std::string print_old() {
+    std::string print_Old() {
         std::stringstream out;
         out << "Interfacial response function form: " << functionform << std::endl;
         out << "Interfacial response function parameter A: " << (A) << std::endl;

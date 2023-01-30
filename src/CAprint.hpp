@@ -65,6 +65,10 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
                    double XMax, double YMin, double YMax, double ZMin, double ZMax, std::string GrainOrientationFile);
 #endif
+void PrintExaCATiming(int np, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
+                      double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
+                      double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
+                      double GhostMinTime, double OutMaxTime, double OutMinTime);
 void PrintCAFields(int nx, int ny, int nz, ViewI3D_H GrainID_WholeDomain, ViewI3D_H LayerID_WholeDomain,
                    ViewI3D_H CritTimeStep_WholeDomain, ViewI3D_H CellType_WholeDomain,
                    ViewF3D_H UndercoolingChange_WholeDomain, ViewF3D_H UndercoolingCurrent_WholeDomain,

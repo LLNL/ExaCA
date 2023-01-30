@@ -542,5 +542,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
                       CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
                       OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainOrientationFile);
+    if (id == 0) {
+        PrintExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
+                         CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
+                         OutMaxTime, OutMinTime);
+    }
 #endif
 }

@@ -55,7 +55,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        std::vector<bool> &BimodalAnalysis, std::vector<std::string> &CSLabels);
 std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector);
 
-void CheckInputFiles(std::string LogFile, std::string MicrostructureFile, std::string &RotationFilename,
+void CheckInputFiles(std::string &LogFile, std::string MicrostructureFile, std::string &RotationFilename,
                      std::string &RGBFilename, std::string &EulerAnglesFilename);
 std::vector<int> FindUniqueGrains(std::vector<int> GrainIDVector);
 template <typename ReturnType, typename FirstType, typename SecondType>
