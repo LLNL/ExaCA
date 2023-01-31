@@ -12,7 +12,7 @@ The analysis files, such as `examples/AnalyzeDirS.txt`, have multiple distinct s
 
 This is where the required inputs for analysis are given; these inputs are:
 
-* Path to/name of log (.log) file associated with the microstructure of interest
+* Path to/name of log file associated with the microstructure of interest (no file extension should be given; .json assumed, use of .log is deprecated)
 * Path to/name of microstructure (.vtk) file
 * Path to/base (without file extension) name of data files of output resulting from this analysis
 
