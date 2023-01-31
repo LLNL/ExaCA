@@ -31,10 +31,15 @@ int main(int argc, char *argv[]) {
     }
     else {
         BaseFileName = argv[1];
-#ifndef ExaCA_ENABLE_JSON
-        LogFile = BaseFileName + ".log";
-#else
+#ifdef ExaCA_ENABLE_JSON
+        // If json is enabled, first check if log is in json format
         LogFile = BaseFileName + ".json";
+        bool Json_found = checkFileExists(LogFile, 0, false);
+        // If json is enabled and the .json file does not exist, try the .log file
+        if (!(Json_found))
+            LogFile = BaseFileName + ".log";
+#else
+        LogFile = BaseFileName + ".log";
 #endif
         MicrostructureFile = BaseFileName + ".vtk";
     }
