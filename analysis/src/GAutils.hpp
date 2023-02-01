@@ -53,6 +53,10 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        int &YMin, int &YMax, int &ZMin, int &ZMax, int nx, int ny, int nz, ViewI3D_H LayerID,
                        int NumberOfLayers, std::vector<bool> &PrintSectionPF, std::vector<bool> &PrintSectionIPF,
                        std::vector<bool> &BimodalAnalysis, std::vector<std::string> &CSLabels);
+ViewI_H createOrientationHistogram(int NumberOfOrientations, ViewI3D_H GrainID, ViewI3D_H LayerID, int XMin, int XMax,
+                                   int YMin, int YMax, int ZMin, int ZMax);
+ViewI_H createOrientationHistogram(int NumberOfOrientations, std::vector<int> GrainIDVector,
+                                   int RepresentativeRegionSize_Cells);
 std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector);
 
 void CheckInputFiles(std::string &LogFile, std::string MicrostructureFile, std::string &RotationFilename,
