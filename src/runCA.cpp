@@ -532,7 +532,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   ZMax, GrainOrientationFile);
 #else
     if (id == 0)
-        std::cout << "Warning: JSON will be required in a future release" << std::endl;
+        std::cout << "Warning: Log data will be printed as a .log file; JSON will be required in a future release to "
+                     "print in the preferred format"
+                  << std::endl;
     PrintExaCALog_Old(id, np, InputFile, SimulationType, MyYSlices, MyYOffset, irf, deltax, NMax, dTN, dTsigma,
                       temp_paths, TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
                       SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
