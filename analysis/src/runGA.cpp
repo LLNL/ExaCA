@@ -48,12 +48,18 @@ int main(int argc, char *argv[]) {
         // layers
         int nx, ny, nz, NumberOfLayers;
         std::vector<double> XYZBounds(6);
-        bool NewLogFormatYN = checkLogFormat(LogFile);
-        if (NewLogFormatYN)
+        int LogFormat = checkLogFormat(LogFile);
+        if (LogFormat == 0)
+            ParseLogFile_OldNoColon(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds);
+        else if (LogFormat == 1)
+            ParseLogFile_Old(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, RotationFilename,
+                             EulerAnglesFilename, RGBFilename, OrientationFilesInInput);
+        else {
+#ifdef ExaCA_ENABLE_JSON
             ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, RotationFilename, EulerAnglesFilename,
                          RGBFilename, OrientationFilesInInput);
-        else
-            ParseLogFile_Old(LogFile, nx, ny, nz, deltax, NumberOfLayers, true, XYZBounds);
+#endif
+        }
 
         // Allocate memory blocks for GrainID and LayerID data
         ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);

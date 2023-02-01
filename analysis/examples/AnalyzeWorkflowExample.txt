@@ -1,11 +1,8 @@
 Used in post-processing script to analyze select ExaCA outputs
 *****
-Path to/name of log (.log) file associated with the microstructure of interest: ExaCA_workflowoutput.log
+Path to/name of log file associated with the microstructure of interest: ExaCA_workflowoutput
 Path to/name of microstructure (.vtk) file: ExaCA_workflowoutput.vtk
-Path to file of grain orientations (rotation matrix form): GrainOrientationVectors_Robert.csv
 Path to/base (without file extension) name of data files of output resulting from this analysis: ExaCA_workflowoutput
-Path to file of grain orientations (Bunge Euler angle form ZXZ): GrainOrientationEulerAnglesBungeZXZ.csv
-Path to file corresponding to grain orientation IPF-Z colors as fractional RGB values: GrainOrientationRGB_IPF-Z.csv
 **********
 SECTION 1: ExaConstit representative volume elements: lines have the format [size, center x, center y, center z]
 Multiple RVEs can be printed as long as they are formatted as above and on separate lines

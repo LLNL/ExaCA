@@ -10,6 +10,10 @@
 
 #include <Kokkos_Core.hpp>
 
+#ifdef ExaCA_ENABLE_JSON
+#include <nlohmann/json.hpp>
+#endif
+
 #include <cmath>
 #include <cstddef>
 #include <fstream>
@@ -23,12 +27,17 @@ std::string parseCoordinatePair(std::string line, int val);
 int FindTopOrBottom(int ***LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow);
 
 // These are used in reading/parsing ExaCA microstructure data
-bool checkLogFormat(std::string LogFile);
+int checkLogFormat(std::string LogFile);
+#ifdef ExaCA_ENABLE_JSON
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
                   std::vector<double> &XYZBounds, std::string &RotationFilename, std::string &EulerAnglesFilename,
                   std::string &RGBFilename, bool OrientationFilesInInput);
+#endif
 void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
-                      bool UseXYZBounds, std::vector<double> &XYZBounds);
+                      std::vector<double> &XYZBounds, std::string &RotationFilename, std::string &EulerAnglesFilename,
+                      std::string &RGBFilename, bool OrientationFilesInInput);
+void ParseLogFile_OldNoColon(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
+                             bool UseXYZBounds, std::vector<double> &XYZBounds);
 void ReadASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest);
 void ReadBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest,
                      std::string FieldName);
@@ -46,7 +55,7 @@ void ParseAnalysisFile(std::string AnalysisFile, std::string RotationFilename, i
                        std::vector<bool> &BimodalAnalysis, std::vector<std::string> &CSLabels);
 std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector);
 
-void CheckInputFiles(std::string LogFile, std::string MicrostructureFile, std::string &RotationFilename,
+void CheckInputFiles(std::string &LogFile, std::string MicrostructureFile, std::string &RotationFilename,
                      std::string &RGBFilename, std::string &EulerAnglesFilename);
 std::vector<int> FindUniqueGrains(std::vector<int> GrainIDVector);
 template <typename ReturnType, typename FirstType, typename SecondType>
