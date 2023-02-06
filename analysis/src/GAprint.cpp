@@ -296,7 +296,7 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
         std::string FNameM = BaseFileName + "_PFVolumeX" + std::to_string(XMin) + "-" + std::to_string(XMax) + "Y" +
                              std::to_string(YMin) + "-" + std::to_string(YMax) + "Z" + std::to_string(ZMin) + "-" +
                              std::to_string(ZMax) + ".txt";
-        WritePoleFigureDataToFile(FNameM, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+        WritePoleFigure(FNameM, NumberOfOrientations, GrainEulerAngles, GOHistogram);
     }
 }
 
@@ -621,15 +621,15 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
         // Collect grain euler angles for the given plane to write to a file to be read by MTEX/plotted as inverse pole
         // figure-colored cross-sections
         if (PrintSectionIPF[n])
-            WriteIPFColoredCrossSectionDataToFile(BaseFileName, ThisCrossSectionPlane, Plane, Index1Low, Index1High,
-                                                  Index2Low, Index2High, CrossSectionOutOfPlaneLocation, GrainID,
-                                                  GrainEulerAngles, deltax, NumberOfOrientations);
+            WriteIPFColoredCrossSection(BaseFileName, ThisCrossSectionPlane, Plane, Index1Low, Index1High, Index2Low,
+                                        Index2High, CrossSectionOutOfPlaneLocation, GrainID, GrainEulerAngles, deltax,
+                                        NumberOfOrientations);
         // Collect grain orientation frequency data and write to a file to be read by MTEX/plotted as pole figures
         if (PrintSectionPF[n]) {
             ViewI_H GOHistogram =
                 createOrientationHistogram(NumberOfOrientations, CrossSectionGrainIDs, CrossSectionSize);
             std::string FNamePF = BaseFileName + "-" + ThisCrossSectionPlane + "_PFCrossSection.txt";
-            WritePoleFigureDataToFile(FNamePF, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+            WritePoleFigure(FNamePF, NumberOfOrientations, GrainEulerAngles, GOHistogram);
         }
         // Make list of unique grains and corresponding grain areas
         std::vector<int> UniqueGrainIDs = FindUniqueGrains(CrossSectionGrainIDs);
@@ -657,8 +657,7 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
 }
 
 //*****************************************************************************/
-void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles,
-                               ViewI_H GOHistogram) {
+void WritePoleFigure(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles, ViewI_H GOHistogram) {
 
     // Using new format, write pole figure data to "Filename"
     std::ofstream GrainplotPF;
@@ -679,10 +678,10 @@ void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, V
 // For the region bounded by [Index1Low,Index1High] and [Index2Low,Index2High], at out of plane location given by
 // CrossSectionOutOfPlaneLocation, print data to be read by MTEX to plot the cross-section using the inverse pole figure
 // colormap. Identities of the in plane and out of plane indices depend on the value for "Plane"
-void WriteIPFColoredCrossSectionDataToFile(std::string BaseFileName, std::string CrossSectionLabel, std::string Plane,
-                                           int Index1Low, int Index1High, int Index2Low, int Index2High,
-                                           int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID,
-                                           ViewF_H GrainEulerAngles, double deltax, int NumberOfOrientations) {
+void WriteIPFColoredCrossSection(std::string BaseFileName, std::string CrossSectionLabel, std::string Plane,
+                                 int Index1Low, int Index1High, int Index2Low, int Index2High,
+                                 int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
+                                 double deltax, int NumberOfOrientations) {
 
     std::string FNameIPF = BaseFileName + "-" + CrossSectionLabel + "_IPFCrossSection.txt";
     std::ofstream GrainplotIPF;

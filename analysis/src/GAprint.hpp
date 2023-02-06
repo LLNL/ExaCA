@@ -48,11 +48,10 @@ void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double de
 void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin, int XMax,
                          int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H LayerID,
                          ViewF_H GrainEulerAngles);
-void WriteIPFColoredCrossSectionDataToFile(std::string BaseFileName, std::string ThisCrossSectionPlane,
-                                           std::string Plane, int Index1Low, int Index1High, int Index2Low,
-                                           int Index2High, int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID,
-                                           ViewF_H GrainEulerAngles, double deltax, int NumberOfOrientations);
-void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles,
-                               ViewI_H GOHistogram);
+void WriteIPFColoredCrossSection(std::string BaseFileName, std::string ThisCrossSectionPlane, std::string Plane,
+                                 int Index1Low, int Index1High, int Index2Low, int Index2High,
+                                 int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
+                                 double deltax, int NumberOfOrientations);
+void WritePoleFigure(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles, ViewI_H GOHistogram);
 
 #endif
