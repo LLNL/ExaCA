@@ -702,11 +702,14 @@ void WriteIPFColoredCrossSection(std::string BaseFileName, std::string CrossSect
                 YLoc = Index1;
                 ZLoc = Index2;
             }
-            else {
+            else if (Plane == "XZ") {
                 XLoc = Index1;
                 YLoc = Index3;
                 ZLoc = Index2;
             }
+            else
+                throw std::runtime_error(
+                    "Error: Unknown plane input for WriteIPFColoredCrossSection: should be XY, YZ, or XZ");
             // What orientation does this grain id correspond to? Should be between 0 and NumberOfOrientations-1
             int GOVal = (abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % NumberOfOrientations;
             // The grain structure is phase "1" - any unindexed points with GOVal = -1 (which are possible from regions
