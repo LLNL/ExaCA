@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "GAutils.hpp"
+#include "CAfunctions.hpp"
 #include "CAparsefiles.hpp"
 
 #include <cmath>
@@ -884,4 +885,37 @@ std::vector<int> FindUniqueGrains(const std::vector<int> GrainIDVector) {
     it = std::unique(UniqueGrainIDVector.begin(), UniqueGrainIDVector.end());
     UniqueGrainIDVector.resize(std::distance(UniqueGrainIDVector.begin(), it));
     return UniqueGrainIDVector;
+}
+
+// Create a histogram of orientations for texture determination, using the GrainID values in the volume bounded by
+// [XMin,XMax], [YMin,YMax], [ZMin,ZMax] and excluding and cells that did not undergo melting (GrainID = -1)
+ViewI_H createOrientationHistogram(int NumberOfOrientations, ViewI3D_H GrainID, ViewI3D_H LayerID, int XMin, int XMax,
+                                   int YMin, int YMax, int ZMin, int ZMax) {
+
+    // Init histogram values to zero
+    ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
+    for (int k = ZMin; k <= ZMax; k++) {
+        for (int j = YMin; j <= YMax; j++) {
+            for (int i = XMin; i <= XMax; i++) {
+                if (LayerID(k, i, j) != -1) {
+                    int GOVal = getGrainOrientation(GrainID(k, i, j), NumberOfOrientations);
+                    GOHistogram(GOVal)++;
+                }
+            }
+        }
+    }
+    return GOHistogram;
+}
+
+// Create a histogram of orientations for texture determination, using the GrainID values in the vector
+ViewI_H createOrientationHistogram(int NumberOfOrientations, std::vector<int> GrainIDVector,
+                                   int RepresentativeRegionSize_Cells) {
+
+    // Init histogram values to zero
+    ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
+    for (int n = 0; n < RepresentativeRegionSize_Cells; n++) {
+        int GOVal = getGrainOrientation(GrainIDVector[n], NumberOfOrientations);
+        GOHistogram(GOVal)++;
+    }
+    return GOHistogram;
 }

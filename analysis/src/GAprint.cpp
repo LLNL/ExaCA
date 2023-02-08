@@ -290,23 +290,13 @@ void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int Numb
     if (AnalysisTypes[7]) {
 
         // Histogram of orientations for texture determination
-        ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
-        // frequency data on grain ids
-        for (int k = ZMin; k <= ZMax; k++) {
-            for (int j = YMin; j <= YMax; j++) {
-                for (int i = XMin; i <= XMax; i++) {
-                    if (LayerID(k, i, j) != -1) {
-                        int GOVal = (abs(GrainID(k, i, j)) - 1) % NumberOfOrientations;
-                        GOHistogram(GOVal)++;
-                    }
-                }
-            }
-        }
+        ViewI_H GOHistogram =
+            createOrientationHistogram(NumberOfOrientations, GrainID, LayerID, XMin, XMax, YMin, YMax, ZMin, ZMax);
         // Write pole figure data for this region
         std::string FNameM = BaseFileName + "_PFVolumeX" + std::to_string(XMin) + "-" + std::to_string(XMax) + "Y" +
                              std::to_string(YMin) + "-" + std::to_string(YMax) + "Z" + std::to_string(ZMin) + "-" +
                              std::to_string(ZMax) + ".txt";
-        WritePoleFigureDataToFile(FNameM, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+        WritePoleFigure(FNameM, NumberOfOrientations, GrainEulerAngles, GOHistogram);
     }
 }
 
@@ -536,6 +526,8 @@ void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, 
 }
 
 // Analysis of data for the speified cross-section(s)
+// FIXME: This subroutine should be removed in the future, as the specific analysis modes on a given volume or
+// cross-section are called directly from main
 void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                            std::vector<std::string> CrossSectionPlane, std::vector<int> CrossSectionLocation, int nx,
                            int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
@@ -578,115 +570,94 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
         }
         else
             throw std::runtime_error("Error: cross-section for analysis must be XZ, YZ, or XY");
+        int CrossSectionOutOfPlaneLocation = CrossSectionLocation[n];
 
-        // Should pole figure data be printed for this cross-section?
-        // Should inverse pole figure-mapping data be printed for this cross-section?
-        if ((PrintSectionPF[n]) || (PrintSectionIPF[n])) {
-            std::cout << "Printing cross-section data for cross-section " << ThisCrossSectionPlane << std::endl;
-            std::string FNameIPF = BaseFileName + "-" + ThisCrossSectionPlane + "_IPFCrossSection.txt";
-
-            std::ofstream GrainplotIPF;
-            ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
-            if (PrintSectionIPF[n]) {
-                GrainplotIPF.open(FNameIPF);
-                GrainplotIPF << std::fixed << std::setprecision(6);
-            }
-            int NucleatedGrainCells = 0;
-            int UnmeltedCells = 0;
-            int CrossSectionSize = (Index1High - Index1Low) * (Index2High - Index2Low);
-            std::vector<int> CrossSectionGrainIDs(CrossSectionSize);
-            int Counter = 0;
-            for (int Index1 = Index1Low; Index1 < Index1High; Index1++) {
-                for (int Index2 = Index2Low; Index2 < Index2High; Index2++) {
-                    int Index3 = CrossSectionLocation[n];
-                    // How do Index1, Index2, Index3 correspond to GrainID(Z loc, X loc, Yloc)?
-                    int ZLoc, XLoc, YLoc;
-                    if (Plane == "XY") {
-                        XLoc = Index1;
-                        YLoc = Index2;
-                        ZLoc = Index3;
-                    }
-                    else if (Plane == "YZ") {
-                        XLoc = Index3;
-                        YLoc = Index1;
-                        ZLoc = Index2;
-                    }
-                    else {
-                        XLoc = Index1;
-                        YLoc = Index3;
-                        ZLoc = Index2;
-                    }
-                    int GOVal = (abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % NumberOfOrientations;
-                    // Count number of cells in this cross-section have GrainID < 0 (grains formed via nucleation)
-                    if (GrainID(ZLoc, XLoc, YLoc) < 0)
-                        NucleatedGrainCells++;
-                    // Add this GrainID to the vector of GrainIDs for this cross-section only if it is not equal to 0
-                    if (GrainID(ZLoc, XLoc, YLoc) == 0)
-                        UnmeltedCells++;
-                    else {
-                        CrossSectionGrainIDs[Counter] = GrainID(ZLoc, XLoc, YLoc);
-                        Counter++;
-                    }
-                    // If constructing pole figure data from these orientations, add this value to the frequency data
-                    if (PrintSectionPF[n])
-                        GOHistogram(GOVal)++;
-                    if (PrintSectionIPF[n]) {
-                        // The grain structure is phase "1" - any unindexed points (which are possible from regions
-                        // that didn't undergo melting) are assigned phase "0"
-                        if (GOVal == -1)
-                            GrainplotIPF << "0 0 0 0 " << Index1 * deltax * pow(10, 6) << " "
-                                         << Index2 * deltax * pow(10, 6) << std::endl;
-                        else
-                            GrainplotIPF << GrainEulerAngles(3 * GOVal) << " " << GrainEulerAngles(3 * GOVal + 1) << " "
-                                         << GrainEulerAngles(3 * GOVal + 2) << " 1 " << Index1 * deltax * pow(10, 6)
-                                         << " " << Index2 * deltax * pow(10, 6) << std::endl;
-                    }
+        std::cout << "Printing cross-section data for cross-section " << ThisCrossSectionPlane << std::endl;
+        int NucleatedGrainCells = 0;
+        int UnmeltedCells = 0;
+        int CrossSectionSize = (Index1High - Index1Low) * (Index2High - Index2Low);
+        std::vector<int> CrossSectionGrainIDs(CrossSectionSize);
+        int Counter = 0;
+        for (int Index1 = Index1Low; Index1 < Index1High; Index1++) {
+            for (int Index2 = Index2Low; Index2 < Index2High; Index2++) {
+                // How do Index1, Index2, CrossSectionOutOfPlaneLocation correspond to GrainID(Z loc, X loc, Yloc)?
+                int ZLoc, XLoc, YLoc;
+                if (Plane == "XY") {
+                    XLoc = Index1;
+                    YLoc = Index2;
+                    ZLoc = CrossSectionOutOfPlaneLocation;
+                }
+                else if (Plane == "YZ") {
+                    XLoc = CrossSectionOutOfPlaneLocation;
+                    YLoc = Index1;
+                    ZLoc = Index2;
+                }
+                else {
+                    XLoc = Index1;
+                    YLoc = CrossSectionOutOfPlaneLocation;
+                    ZLoc = Index2;
+                }
+                // Count number of cells in this cross-section have GrainID < 0 (grains formed via nucleation)
+                if (GrainID(ZLoc, XLoc, YLoc) < 0)
+                    NucleatedGrainCells++;
+                // Add this GrainID to the vector of GrainIDs for this cross-section only if it is not equal to 0
+                if (GrainID(ZLoc, XLoc, YLoc) == 0)
+                    UnmeltedCells++;
+                else {
+                    CrossSectionGrainIDs[Counter] = GrainID(ZLoc, XLoc, YLoc);
+                    Counter++;
                 }
             }
-            double AreaFractNucleatedGrains = DivideCast<double>(NucleatedGrainCells, CrossSectionSize);
-            double AreaFractUnmelted = DivideCast<double>(UnmeltedCells, CrossSectionSize);
-            std::cout << "The fraction of the cross-section that went unmelted (not assigned a GrainID) is "
-                      << AreaFractUnmelted << std::endl;
-            // Resize cross-section to exclude unmelted cells
-            CrossSectionSize = Counter;
-            CrossSectionGrainIDs.resize(CrossSectionSize);
-            QoIs << "The fraction of grains in this cross-section formed via nucleation events is "
-                 << AreaFractNucleatedGrains << std::endl;
-            if (PrintSectionIPF[n])
-                GrainplotIPF.close();
-            if (PrintSectionPF[n]) {
-                std::string FNamePF = BaseFileName + "-" + ThisCrossSectionPlane + "_PFCrossSection.txt";
-                WritePoleFigureDataToFile(FNamePF, NumberOfOrientations, GrainEulerAngles, GOHistogram);
-            }
-            // Make list of unique grains and corresponding grain areas
-            std::vector<int> UniqueGrainIDs = FindUniqueGrains(CrossSectionGrainIDs);
-            int NumberOfGrains = UniqueGrainIDs.size();
-            std::cout << "The number of grains in this cross-section is " << NumberOfGrains << std::endl;
-            std::vector<int> GrainAreas(NumberOfGrains, 0);
-            for (int i = 0; i < NumberOfGrains; i++) {
-                for (int j = 0; j < CrossSectionSize; j++) {
-                    if (UniqueGrainIDs[i] == CrossSectionGrainIDs[j])
-                        GrainAreas[i]++;
-                }
-            }
-
-            // Should these grains be analyzed as a single distribution of grain areas, or a bimodal distribution
-            // (bimodal distribution option also includes printing of misorientation data)
-            if (BimodalAnalysis[n])
-                AnalyzeCrossSection_Bimodal(QoIs, BaseFileName, ThisCrossSectionPlane, deltax, NumberOfGrains,
-                                            CrossSectionSize, UniqueGrainIDs, GrainAreas, NumberOfOrientations,
-                                            GrainUnitVector, GrainRGBValues);
-            else
-                AnalyzeCrossSection_Unimodal(QoIs, BaseFileName, ThisCrossSectionPlane, deltax, NumberOfGrains,
-                                             CrossSectionSize, GrainAreas);
         }
+        double AreaFractNucleatedGrains = DivideCast<double>(NucleatedGrainCells, CrossSectionSize);
+        double AreaFractUnmelted = DivideCast<double>(UnmeltedCells, CrossSectionSize);
+        std::cout << "The fraction of the cross-section that went unmelted (not assigned a GrainID) is "
+                  << AreaFractUnmelted << std::endl;
+        // Resize cross-section to exclude unmelted cells
+        CrossSectionSize = Counter;
+        CrossSectionGrainIDs.resize(CrossSectionSize);
+        QoIs << "The fraction of grains in this cross-section formed via nucleation events is "
+             << AreaFractNucleatedGrains << std::endl;
+        // Collect grain euler angles for the given plane to write to a file to be read by MTEX/plotted as inverse pole
+        // figure-colored cross-sections
+        if (PrintSectionIPF[n])
+            WriteIPFColoredCrossSection(BaseFileName, ThisCrossSectionPlane, Plane, Index1Low, Index1High, Index2Low,
+                                        Index2High, CrossSectionOutOfPlaneLocation, GrainID, GrainEulerAngles, deltax,
+                                        NumberOfOrientations);
+        // Collect grain orientation frequency data and write to a file to be read by MTEX/plotted as pole figures
+        if (PrintSectionPF[n]) {
+            ViewI_H GOHistogram =
+                createOrientationHistogram(NumberOfOrientations, CrossSectionGrainIDs, CrossSectionSize);
+            std::string FNamePF = BaseFileName + "-" + ThisCrossSectionPlane + "_PFCrossSection.txt";
+            WritePoleFigure(FNamePF, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+        }
+        // Make list of unique grains and corresponding grain areas
+        std::vector<int> UniqueGrainIDs = FindUniqueGrains(CrossSectionGrainIDs);
+        int NumberOfGrains = UniqueGrainIDs.size();
+        std::cout << "The number of grains in this cross-section is " << NumberOfGrains << std::endl;
+        std::vector<int> GrainAreas(NumberOfGrains, 0);
+        for (int i = 0; i < NumberOfGrains; i++) {
+            for (int j = 0; j < CrossSectionSize; j++) {
+                if (UniqueGrainIDs[i] == CrossSectionGrainIDs[j])
+                    GrainAreas[i]++;
+            }
+        }
+
+        // Should these grains be analyzed as a single distribution of grain areas, or a bimodal distribution
+        // (bimodal distribution option also includes printing of misorientation data)
+        if (BimodalAnalysis[n])
+            AnalyzeCrossSection_Bimodal(QoIs, BaseFileName, ThisCrossSectionPlane, deltax, NumberOfGrains,
+                                        CrossSectionSize, UniqueGrainIDs, GrainAreas, NumberOfOrientations,
+                                        GrainUnitVector, GrainRGBValues);
+        else
+            AnalyzeCrossSection_Unimodal(QoIs, BaseFileName, ThisCrossSectionPlane, deltax, NumberOfGrains,
+                                         CrossSectionSize, GrainAreas);
     }
     QoIs.close();
 }
 
 //*****************************************************************************/
-void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles,
-                               ViewI_H GOHistogram) {
+void WritePoleFigure(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles, ViewI_H GOHistogram) {
 
     // Using new format, write pole figure data to "Filename"
     std::ofstream GrainplotPF;
@@ -701,6 +672,58 @@ void WritePoleFigureDataToFile(std::string Filename, int NumberOfOrientations, V
                     << GrainEulerAngles(3 * i + 2) << " " << (float)(GOHistogram(i)) << std::endl;
     }
     GrainplotPF.close();
+}
+
+//*****************************************************************************/
+// For the region bounded by [Index1Low,Index1High] and [Index2Low,Index2High], at out of plane location given by
+// CrossSectionOutOfPlaneLocation, print data to be read by MTEX to plot the cross-section using the inverse pole figure
+// colormap. Identities of the in plane and out of plane indices depend on the value for "Plane"
+void WriteIPFColoredCrossSection(std::string BaseFileName, std::string CrossSectionLabel, std::string Plane,
+                                 int Index1Low, int Index1High, int Index2Low, int Index2High,
+                                 int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
+                                 double deltax, int NumberOfOrientations) {
+
+    std::string FNameIPF = BaseFileName + "-" + CrossSectionLabel + "_IPFCrossSection.txt";
+    std::ofstream GrainplotIPF;
+    GrainplotIPF.open(FNameIPF);
+    GrainplotIPF << std::fixed << std::setprecision(6);
+    for (int Index1 = Index1Low; Index1 < Index1High; Index1++) {
+        for (int Index2 = Index2Low; Index2 < Index2High; Index2++) {
+            int Index3 = CrossSectionOutOfPlaneLocation;
+            // How do Index1, Index2, Index3 correspond to GrainID(Z loc, X loc, Yloc)?
+            int ZLoc, XLoc, YLoc;
+            if (Plane == "XY") {
+                XLoc = Index1;
+                YLoc = Index2;
+                ZLoc = Index3;
+            }
+            else if (Plane == "YZ") {
+                XLoc = Index3;
+                YLoc = Index1;
+                ZLoc = Index2;
+            }
+            else if (Plane == "XZ") {
+                XLoc = Index1;
+                YLoc = Index3;
+                ZLoc = Index2;
+            }
+            else
+                throw std::runtime_error(
+                    "Error: Unknown plane input for WriteIPFColoredCrossSection: should be XY, YZ, or XZ");
+            // What orientation does this grain id correspond to? Should be between 0 and NumberOfOrientations-1
+            int GOVal = (abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % NumberOfOrientations;
+            // The grain structure is phase "1" - any unindexed points with GOVal = -1 (which are possible from regions
+            // that didn't undergo melting) are assigned phase "0"
+            if (GOVal == -1)
+                GrainplotIPF << "0 0 0 0 " << Index1 * deltax * pow(10, 6) << " " << Index2 * deltax * pow(10, 6)
+                             << std::endl;
+            else
+                GrainplotIPF << GrainEulerAngles(3 * GOVal) << " " << GrainEulerAngles(3 * GOVal + 1) << " "
+                             << GrainEulerAngles(3 * GOVal + 2) << " 1 " << Index1 * deltax * pow(10, 6) << " "
+                             << Index2 * deltax * pow(10, 6) << std::endl;
+        }
+    }
+    GrainplotIPF.close();
 }
 
 //*****************************************************************************/
