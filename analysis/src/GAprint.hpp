@@ -10,6 +10,7 @@
 
 #include "ExaCA.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <fstream>
