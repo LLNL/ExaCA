@@ -1015,8 +1015,8 @@ void calcGrainExtent(std::vector<float> &GrainExtent, ViewI3D_H GrainID, const s
                 }
             }
         }
-        int MinCoord = *min_element(GrainCoordinate.begin(), GrainCoordinate.end());
-        int MaxCoord = *max_element(GrainCoordinate.begin(), GrainCoordinate.end());
+        int MinCoord = *std::min_element(GrainCoordinate.begin(), GrainCoordinate.end());
+        int MaxCoord = *std::max_element(GrainCoordinate.begin(), GrainCoordinate.end());
         GrainExtent[n] = (MaxCoord - MinCoord + 1) * convertToMicrons(deltax, "length");
     }
 }

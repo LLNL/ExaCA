@@ -17,9 +17,10 @@
 #include <string>
 #include <vector>
 
-// The name of the ExaCA output analysis file (.txt, located in ExaCA/analysis), the ExaCA microstructure file (.vtk),
-// and the ExaCA log file (.log) is given on the command line - these files should all have the same name, other than
-// the file extension
+// TODO: This file will be removed in a future release, and these hardcoded analysis options will be run using
+// grain_analysis and a default analysis input file The name of the ExaCA output analysis file (.txt, located in
+// ExaCA/analysis), the ExaCA microstructure file (.vtk), and the ExaCA log file (.log) is given on the command line -
+// these files should all have the same name, other than the file extension
 int main(int argc, char *argv[]) {
 
     // Read command line input to obtain name of analysis file
@@ -94,22 +95,154 @@ int main(int argc, char *argv[]) {
 
         // Print information about 2 specific cross-sections: Z = 1 mm above the base plate, and X = midway through the
         // volume of the microstructure
-        int NumberOfCrossSections = 2;
-        std::vector<std::string> CrossSectionPlane = {"XY", "YZ"};
+        // TODO: create class "AnalysisRegion" to store this information, run analysis on each region as part of a for
+        // loop Class will contain: regionUnits (cells or microns, converting to whichever wasn't given)
+        // regionBoundsXLower (stored in cells and in microns)
+        // regionBoundsXUpper (stored in cells and in microns)
+        // regionBoundsYLower (stored in cells and in microns)
+        // regionBoundsYUpper (stored in cells and in microns)
+        // regionBoundsZLower (stored in cells and in microns)
+        // regionBoundsZUpper (stored in cells and in microns)
+        // regionSizeX, regionSizeY, regionSizeZ (stored in cells)
+        // regionSize (number of cells in the region)
+        // regionType ("length", "area", or "volume", depending on the regionBounds supplied)
+        // regionOrientation ("X", "Y", or "Z" for length, "XY", "YZ", or "XY" for area, not used for volume)
+        // regionName (string label for output files)
+        // true/false analysis options:
+        // Name                               // Region      // Print location
+        // ================================== // =========== // ====================================
+        // Grain Type Fractions               // All         // std::out/QoIs file
+        // Misorientations                    // All         // std::out/QoIs file and perGrain file
+        // Size                               // All         // std::out/QoIs file and perGrain file
+        // BuildTrans Aspect Ratio            // Volume      // std::out/QoIs file and perGrain file
+        // Extent in X, Y, or Z               // All         // std::out/QoIs file and perGrain file
+        // Area/weighted area vs build height // Volume      // separate file(s)
+        // IPF-Z coloring in X, Y, or Z       // Area        // perGrain file
+        // Pole figure data for MTEX          // Area/Volume // separate file
+        // Inverse pole figure data for MTEX  // Area        // separate file
+        // Per grain stats                    // All         // perGrain file (true if at least one perGrain option is
+        // true, false otherwise)
+
+        int NumberOfRegions = 2;
+        // First region is an XY cross-section located at ZLocCrossSection
+        // Second region is a YZ cross-section located at XLocCrossSection
         int ZLocCrossSection = std::round((0.001 - XYZBounds[2]) / deltax);
         int XLocCrossSection = std::round(nx / 2);
-        std::vector<int> CrossSectionLocation = {ZLocCrossSection, XLocCrossSection};
-        std::vector<bool> PrintSectionPF = {true, true};
-        std::vector<bool> PrintSectionIPF = {true, true};
-        std::vector<bool> BimodalAnalysis = {true, false};
-        std::string CSNameXY =
-            "XY Cross-section located approx 1 mm above the baseplate (Z = " + std::to_string(ZLocCrossSection) + "):";
-        std::string CSNameYZ =
-            "YZ cross-section located through simulation center (X = " + std::to_string(XLocCrossSection) + "):";
-        std::vector<std::string> CSLabels = {CSNameXY, CSNameYZ};
-        printCrossSectionData(NumberOfCrossSections, BaseFileName, CrossSectionPlane, CrossSectionLocation, nx, ny, nz,
-                              NumberOfOrientations, GrainID, PrintSectionPF, PrintSectionIPF, BimodalAnalysis, deltax,
-                              GrainUnitVector_Host, GrainEulerAngles_Host, GrainRGBValues_Host, CSLabels);
+        std::vector<int> regionBoundsXLower_cells = {0, XLocCrossSection};
+        std::vector<int> regionBoundsXUpper_cells = {nx - 1, XLocCrossSection};
+        std::vector<int> regionSizeX = {nx - 1, 1};
+        std::vector<int> regionBoundsYLower_cells = {0, 0};
+        std::vector<int> regionBoundsYUpper_cells = {ny - 1, ny - 1};
+        std::vector<int> regionSizeY = {ny - 1, ny - 1};
+        std::vector<int> regionBoundsZLower_cells = {ZLocCrossSection, 0};
+        std::vector<int> regionBoundsZUpper_cells = {ZLocCrossSection, nz - 1};
+        std::vector<int> regionSizeZ = {1, nz - 1};
+        std::vector<int> regionSize = {nx * ny, ny * nz};
+        std::vector<double> regionBoundsXLower_microns, regionBoundsXUpper_microns, regionBoundsYLower_microns,
+            regionBoundsYUpper_microns, regionBoundsZLower_microns, regionBoundsZUpper_microns;
+        for (int n = 0; n < 2; n++) {
+            regionBoundsXLower_microns[n] = regionBoundsXLower_cells[n] * deltax;
+            regionBoundsXUpper_microns[n] = regionBoundsXLower_microns[n] + regionSizeX[n] * deltax;
+            regionBoundsYLower_microns[n] = regionBoundsYLower_cells[n] * deltax;
+            regionBoundsYUpper_microns[n] = regionBoundsYLower_microns[n] + regionSizeX[n] * deltax;
+            regionBoundsZLower_microns[n] = regionBoundsZLower_cells[n] * deltax;
+            regionBoundsZUpper_microns[n] = regionBoundsZLower_microns[n] + regionSizeX[n] * deltax;
+        }
+        std::vector<std::string> regionType = {"plane", "plane"};
+        std::vector<std::string> regionOrientation = {"XY", "YZ"};
+        std::vector<std::string> regionName = {"XY", "YZ"};
+        std::vector<bool> printGrainTypeFractionsYN = {true, true};
+        std::vector<bool> printSizeYN = {true, false};
+        std::vector<bool> printIPFZColorYN = {true, false};
+        std::vector<bool> printPerGrainStatsYN = {true, false};
+        std::vector<bool> printPoleFigureYN = {true, true};
+        std::vector<bool> printInversePoleFigureYN = {true, true};
+
+        std::ofstream QoIs;
+        std::string QoIs_fname = BaseFileName + "_QoIs.csv";
+        QoIs.open(QoIs_fname);
+
+        for (int n = 0; n < NumberOfRegions; n++) {
+            printAnalysisHeader(QoIs, regionBoundsXLower_cells[n], regionBoundsXUpper_cells[n],
+                                regionBoundsYLower_cells[n], regionBoundsYUpper_cells[n], regionBoundsZLower_cells[n],
+                                regionBoundsZUpper_cells[n], regionBoundsXLower_microns[n],
+                                regionBoundsXUpper_microns[n], regionBoundsYLower_microns[n],
+                                regionBoundsYUpper_microns[n], regionBoundsZLower_microns[n],
+                                regionBoundsZUpper_microns[n], regionName[n], regionOrientation[n]);
+            if (printGrainTypeFractionsYN[n])
+                printGrainTypeFractions(QoIs, regionBoundsXLower_cells[n], regionBoundsXUpper_cells[n],
+                                        regionBoundsYLower_cells[n], regionBoundsYUpper_cells[n],
+                                        regionBoundsZLower_cells[n], regionBoundsZUpper_cells[n], GrainID, LayerID,
+                                        regionSize[n]);
+
+            // TODO: Each of these vectors should also belong to the object of the AnalysisRegion class
+            // List of grain IDs in this region
+            std::vector<int> GrainIDVector = getRepresentativeRegionGrainIDs(
+                GrainID, regionBoundsXLower_cells[n], regionBoundsXUpper_cells[n], regionBoundsYLower_cells[n],
+                regionBoundsYUpper_cells[n], regionBoundsZLower_cells[n], regionBoundsZUpper_cells[n], regionSize[n]);
+            // Get the number of grains in the representative region and a list of the unique grain IDs
+            int NumberOfGrains;
+            std::vector<int> UniqueGrainIDVector = getUniqueGrains(GrainIDVector, NumberOfGrains);
+            // Get the size (in units of length, area, or volume) associated with each unique grain ID value
+            std::vector<float> GrainSizeVector =
+                getGrainSizes(GrainIDVector, UniqueGrainIDVector, NumberOfGrains, deltax, "area");
+            // Get the IPF-Z (R,G,B) values corresponding to the IPF mapping of this grain from MTEX
+            std::vector<float> GrainRed =
+                getIPFZColor(0, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
+            std::vector<float> GrainGreen =
+                getIPFZColor(1, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
+            std::vector<float> GrainBlue =
+                getIPFZColor(2, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
+
+            if (printPerGrainStatsYN[n]) {
+                // TODO: Combine this and writePerGrainStats
+                std::string stats_fname = BaseFileName + "_grains.csv";
+                std::ofstream GrainStats;
+                GrainStats.open(stats_fname);
+                GrainStats << "GrainID,area,IPFZ_r,IPFZ_g,IPFZ_b" << std::endl;
+                for (int i = 0; i < NumberOfGrains; i++) {
+                    GrainStats << UniqueGrainIDVector[i] << "," << GrainSizeVector[i] << "," << GrainRed[i] << ","
+                               << GrainGreen[i] << "," << GrainBlue[i] << std::endl;
+                }
+            }
+
+            if (printPoleFigureYN[n]) {
+                ViewI_H GOHistogram = getOrientationHistogram(NumberOfOrientations, GrainID, LayerID,
+                                                              regionBoundsXLower_cells[n], regionBoundsXUpper_cells[n],
+                                                              regionBoundsYLower_cells[n], regionBoundsYUpper_cells[n],
+                                                              regionBoundsZLower_cells[n], regionBoundsZUpper_cells[n]);
+                writePoleFigure(BaseFileName, regionName[n], NumberOfOrientations, GrainEulerAngles, GOHistogram);
+            }
+            if (printInversePoleFigureYN[n]) {
+                int Index1Low, Index1High, Index2Low, Index2High, CrossSectionOutOfPlaneLocation;
+                if (regionOrientation[n] == "XY") {
+                    Index1Low = regionBoundsXLower_cells[n];
+                    Index1High = regionBoundsXUpper_cells[n];
+                    Index2Low = regionBoundsYLower_cells[n];
+                    Index2High = regionBoundsYUpper_cells[n];
+                    CrossSectionOutOfPlaneLocation = regionBoundsZLower_cells[n];
+                }
+                else if (regionOrientation[n] == "XZ") {
+                    Index1Low = regionBoundsXLower_cells[n];
+                    Index1High = regionBoundsXUpper_cells[n];
+                    Index2Low = regionBoundsZLower_cells[n];
+                    Index2High = regionBoundsZUpper_cells[n];
+                    CrossSectionOutOfPlaneLocation = regionBoundsYLower_cells[n];
+                }
+                else if (regionOrientation[n] == "YZ") {
+                    Index1Low = regionBoundsYLower_cells[n];
+                    Index1High = regionBoundsYUpper_cells[n];
+                    Index2Low = regionBoundsZLower_cells[n];
+                    Index2High = regionBoundsZUpper_cells[n];
+                    CrossSectionOutOfPlaneLocation = regionBoundsXLower_cells[n];
+                }
+                else
+                    throw std::runtime_error("Invalid region type");
+                writeIPFColoredCrossSection(BaseFileName, regionName[n], regionOrientation[n], Index1Low, Index1High,
+                                            Index2Low, Index2High, CrossSectionOutOfPlaneLocation, GrainID,
+                                            GrainEulerAngles, deltax, NumberOfOrientations);
+            }
+        }
     }
     // Finalize kokkos and end program
     Kokkos::finalize();
