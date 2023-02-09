@@ -7,20 +7,97 @@
 #include "GAutils.hpp"
 
 //*****************************************************************************/
-void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax,
-                             int ZMin, int ZMax, ViewI3D_H LayerID, ViewF_H GrainUnitVector, ViewI3D_H GrainID,
-                             int NumberOfOrientations) {
+// "print" routines print average quantities to the screen (and to the file stream specified by QoIs)
+// "write" routines write data to specific files
+// Print routines endining in "Old" print quantities that will no longer be computer/printed to files in a future
+// release
+//*****************************************************************************/
+// Write header of unique grain ID values to stats file, and print information about the representative region to the
+// console/QoIs file
+void printAnalysisHeader(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,
+                         const int ZLow, const int ZHigh, std::vector<double> XYZBounds) {
 
-    // Frequency of misorientations in the selected region
-    std::ofstream MisorientationPlot;
-    std::string FNameM = BaseFileName + "_MisorientationFrequency.csv";
-    if (AnalysisTypes[0]) {
-        MisorientationPlot.open(FNameM);
-        std::cout << "Printing file " << FNameM
-                  << " of grain misorientations relative to the +Z direction, for all cells in selected volume (not "
-                     "including substrate)"
-                  << std::endl;
+    // TODO: Remove redundant code by making a print routine that prints a string to both std::cout and the QoIs file,
+    // since the same information is printed to both
+    std::cout << "The representative volume specified is bounded by X = [" << XYZBounds[0] << "," << XYZBounds[1]
+              << "], Y = [" << XYZBounds[2] << "," << XYZBounds[3] << "], and Z = [" << XYZBounds[4] << ","
+              << XYZBounds[5] << "] m" << std::endl;
+    std::cout << "The representative volume specified is bounded by cells spanning X = [" << XLow << "," << XHigh
+              << "], Y = [ " << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "] m" << std::endl;
+    QoIs << "The representative volume specified is bounded by X = [" << XYZBounds[0] << "," << XYZBounds[1]
+         << "], Y = [ " << XYZBounds[2] << "," << XYZBounds[3] << "], and Z = [" << XYZBounds[4] << "," << XYZBounds[5]
+         << "] m" << std::endl;
+    QoIs << "The representative volume specified is bounded by cells spanning X = [" << XLow << "," << XHigh
+         << "], Y = [ " << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "] m" << std::endl;
+}
+
+// Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
+// grains to the console/QoIs file
+void printGrainTypeFractions(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,
+                             const int ZLow, const int ZHigh, ViewI3D_H GrainID, ViewI3D_H LayerID,
+                             int RepresentativeRegionSize) {
+
+    int NumberOfUnmeltedCells = 0;
+    int NumberOfNucleatedGrainCells = 0;
+    for (int k = ZLow; k <= ZHigh; k++) {
+        for (int i = XLow; i <= XHigh; i++) {
+            for (int j = YLow; j <= YHigh; j++) {
+                if (LayerID(k, i, j) == -1)
+                    NumberOfUnmeltedCells++;
+                if (GrainID(k, i, j) < 0)
+                    NumberOfNucleatedGrainCells++;
+            }
+        }
     }
+    std::cout << "-- The representative region consists of " << RepresentativeRegionSize << " cells" << std::endl;
+    QoIs << "-- The representative region consists of " << RepresentativeRegionSize << " cells" << std::endl;
+    std::cout << "-- The number of cells in the region that did not undergo melting is " << NumberOfUnmeltedCells
+              << std::endl;
+    QoIs << "-- The number of cells in the region that did not undergo melting is " << NumberOfUnmeltedCells
+         << std::endl;
+    float VolFractNucGrains = DivideCast<float>(NumberOfNucleatedGrainCells, RepresentativeRegionSize);
+    std::cout << "-- The volume fraction consisting of nucleated grains is " << VolFractNucGrains << std::endl;
+    QoIs << "-- The volume fraction consisting of nucleated grains is " << VolFractNucGrains << std::endl;
+}
+
+// Print average misorientation for the region relative to each direction
+void printMeanMisorientations(std::ofstream &QoIs, int NumberOfGrains, std::vector<float> GrainMisorientationXVector,
+                              std::vector<float> GrainMisorientationYVector,
+                              std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
+                              double RepresentativeRegionSize_Microns) {
+
+    std::vector<std::string> MisorientationDirectionLabels = {"misorientationX", "misorientationY", "misorientationZ"};
+    std::vector<std::string> MisorientationDirectionLabelsShort = {"+X", "+Y", "+Z"};
+    float GrainMisorientation_sum_x = 0.0;
+    float GrainMisorientation_sum_y = 0.0;
+    float GrainMisorientation_sum_z = 0.0;
+    for (int n = 0; n < NumberOfGrains; n++) {
+        GrainMisorientation_sum_x += GrainMisorientationXVector[n] * GrainSizeVector[n];
+        GrainMisorientation_sum_y += GrainMisorientationYVector[n] * GrainSizeVector[n];
+        GrainMisorientation_sum_z += GrainMisorientationZVector[n] * GrainSizeVector[n];
+    }
+    float AvgMisorientationX = DivideCast<float>(GrainMisorientation_sum_x, RepresentativeRegionSize_Microns);
+    float AvgMisorientationY = DivideCast<float>(GrainMisorientation_sum_y, RepresentativeRegionSize_Microns);
+    float AvgMisorientationZ = DivideCast<float>(GrainMisorientation_sum_z, RepresentativeRegionSize_Microns);
+    std::cout << "-- Average misorientation (weighted by size) for grains relative to the X direction (in degrees): "
+              << AvgMisorientationX << std::endl;
+    QoIs << "-- Average misorientation (weighted by size) relative to the X direction (in degrees): "
+         << AvgMisorientationX << std::endl;
+    std::cout << "-- Average misorientation (weighted by size) for grains relative to the Y direction (in degrees): "
+              << AvgMisorientationY << std::endl;
+    QoIs << "-- Average misorientation (weighted by size) relative to the Y direction (in degrees): "
+         << AvgMisorientationY << std::endl;
+    std::cout << "-- Average misorientation (weighted by size) for grains relative to the Z direction (in degrees): "
+              << AvgMisorientationZ << std::endl;
+    QoIs << "-- Average misorientation (weighted by size) relative to the Z direction (in degrees): "
+         << AvgMisorientationZ << std::endl;
+}
+
+// Print mean misorientation of portion of the volume that underwent melting, and the mean misorientation at the volume
+// top to the screen
+void printMisorientationDataOld(int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H LayerID,
+                                ViewF_H GrainUnitVector, ViewI3D_H GrainID, int NumberOfOrientations) {
+
     int NumberOfMeltedCells = 0;
     long double MisorientationSum = 0.0;
     int NumberOfMeltedCellsTop = 0;
@@ -33,8 +110,6 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
                 if (LayerID(k, i, j) != -1) {
                     int MyOrientation = getGrainOrientation(GrainID(k, i, j), NumberOfOrientations);
                     float MyMisorientation = GrainMisorientation(MyOrientation);
-                    if (AnalysisTypes[0])
-                        MisorientationPlot << MyMisorientation << std::endl;
                     MisorientationSum += MyMisorientation;
                     if (k == ZMax) {
                         MisorientationSumTop += MyMisorientation;
@@ -45,261 +120,243 @@ void PrintMisorientationData(bool *AnalysisTypes, std::string BaseFileName, int 
             }
         }
     }
-    if (AnalysisTypes[0])
-        MisorientationPlot.close();
-    std::cout << "Within the representative region consisting of "
-              << (XMax - XMin + 1) * (YMax - YMin + 1) * (ZMax - ZMin + 1) << " cells, " << NumberOfMeltedCells
-              << " underwent melting and:" << std::endl;
-    std::cout << "-- The mean misorientation relative to the +Z direction is "
-              << MisorientationSum / ((double)(NumberOfMeltedCells)) << " degrees" << std::endl;
-    std::cout << "-- The mean misorientation relative to the +Z direction at the representative region top (Z = "
-              << ZMax << ") is " << MisorientationSumTop / ((double)(NumberOfMeltedCellsTop)) << " degrees"
-              << std::endl;
+    std::cout << "[Note: this will no longer be printed in a future release] The mean misorientation relative to the "
+                 "+Z direction, excluding regions that didn't undergo "
+                 "melting, is "
+              << DivideCast<float>(MisorientationSum, NumberOfMeltedCells) << " degrees" << std::endl;
+    std::cout << "[Note: this will no longer be printed in a future release] The mean misorientation relative to the "
+                 "+Z direction at the representative region top (Z = "
+              << ZMax << "), excluding regions that didn't undergo melting, is "
+              << MisorientationSumTop / ((double)(NumberOfMeltedCellsTop)) << " degrees" << std::endl;
 }
 
-//*****************************************************************************/
+// Print the average grain size and the number of grains in the region
+void printMeanSize(std::ofstream &QoIs, int NumberOfGrains, double RepresentativeRegionSize_Microns,
+                   std::string RegionType) {
 
-void PrintSizeData(bool *AnalysisTypes, std::string BaseFileName, int XMin, int XMax, int YMin, int YMax, int ZMin,
-                   int ZMax, int nx, int ny, int nz, ViewI3D_H, ViewI3D_H GrainID, double deltax) {
+    std::string Units;
+    if (RegionType == "length")
+        Units = "microns";
+    else if (RegionType == "area")
+        Units = "square microns";
+    else if (RegionType == "volume")
+        Units = "cubic microns";
+    else
+        throw std::runtime_error("Error: unknown region type in printMeanSize");
+    double AvgSizePerGrain = DivideCast<double>(RepresentativeRegionSize_Microns, NumberOfGrains);
+    std::cout << "-- There are " << NumberOfGrains << " grains in this " << RegionType << " , and the mean grain "
+              << RegionType << " is " << AvgSizePerGrain << " " << Units << std::endl;
+    QoIs << "-- There are " << NumberOfGrains << " grains in this " << RegionType << " , and the mean grain "
+         << RegionType << " is " << AvgSizePerGrain << " " << Units << std::endl;
+}
 
-    // Get vector of unique GrainIDs
-    int Counter = 0;
-    int NucleatedGrainCells = 0;
-    int DomainVol = (ZMax - ZMin + 1) * (YMax - YMin + 1) * (XMax - XMin + 1);
-    std::vector<int> AllGrainIDs(DomainVol);
-    for (int k = ZMin; k <= ZMax; k++) {
-        for (int i = XMin; i <= XMax; i++) {
-            for (int j = YMin; j <= YMax; j++) {
-                AllGrainIDs[Counter] = GrainID(k, i, j);
-                Counter++;
-                if (GrainID(k, i, j) < 0)
-                    NucleatedGrainCells++;
-            }
-        }
-    }
-    std::vector<int> UniqueGrainIDs = FindUniqueGrains(AllGrainIDs);
-    int NumberOfGrains = UniqueGrainIDs.size();
-    double AvgVolPerGrain = DivideCast<double>(DomainVol, NumberOfGrains);
-    double AvgVolPerGrain_Norm = AvgVolPerGrain * deltax * deltax * pow(10, 12);
-    std::cout << "-- There are " << NumberOfGrains << " grains in this volume, and the mean grain volume is "
-              << AvgVolPerGrain_Norm << " cubic microns" << std::endl;
-    double VolFractNucGrains = DivideCast<double>(NucleatedGrainCells, DomainVol);
-    std::cout << "-- The volume fraction consisting of nucleated grains is " << VolFractNucGrains << std::endl;
+// Print average aspect ratio in the build to the average of the transverse directions
+void printMeanBuildTransAspectRatio(std::ofstream &QoIs, std::vector<float> GrainExtentX,
+                                    std::vector<float> GrainExtentY, std::vector<float> GrainExtentZ,
+                                    std::vector<float> GrainSizeVector, double RepresentativeRegionSize_Microns,
+                                    int NumberOfGrains) {
 
-    float *AspectRatio = new float[NumberOfGrains];
-    int *VolGrain = new int[NumberOfGrains];
-    float *GrainHeight = new float[NumberOfGrains];
+    std::vector<float> GrainAspectRatios(NumberOfGrains);
     float ARSum = 0.0;
     float VolWtARSum = 0.0;
-    float GrainHeightSum = 0.0;
-    float GrainWidthSum = 0.0;
     for (int n = 0; n < NumberOfGrains; n++) {
-        AspectRatio[n] = 0;
-        VolGrain[n] = 0;
-        int TempTopX = 0;
-        int TempTopY = 0;
-        int TempTopZ = 0;
-        int TempBottomX = nx - 1;
-        int TempBottomY = ny - 1;
-        int TempBottomZ = nz - 1;
-        int ThisGrainID = UniqueGrainIDs[n];
-        for (int k = ZMin; k <= ZMax; k++) {
-            for (int i = XMin; i <= XMax; i++) {
-                for (int j = YMin; j <= YMax; j++) {
-                    // Only take data from cells in the representative area that underwent melting
-                    if (GrainID(k, i, j) == ThisGrainID) {
-                        VolGrain[n]++;
-                        if (i > TempTopX)
-                            TempTopX = i;
-                        if (i < TempBottomX)
-                            TempBottomX = i;
-                        if (j > TempTopY)
-                            TempTopY = j;
-                        if (j < TempBottomY)
-                            TempBottomY = j;
-                        if (k > TempTopZ)
-                            TempTopZ = k;
-                        if (k < TempBottomZ)
-                            TempBottomZ = k;
-                    }
-                }
-            }
-        }
-        GrainHeight[n] = TempTopZ - TempBottomZ + 1;
-        float GrainWidthX = TempTopX - TempBottomX + 1;
-        float GrainWidthY = TempTopY - TempBottomY + 1;
-        GrainHeightSum += GrainHeight[n];
-        GrainWidthSum += 0.5 * (GrainWidthX + GrainWidthY);
-        float AR_XZ = (float)(TempTopZ - TempBottomZ + 1) / (float)(TempTopX - TempBottomX + 1);
-        float AR_YZ = (float)(TempTopZ - TempBottomZ + 1) / (float)(TempTopY - TempBottomY + 1);
-        AspectRatio[n] = 0.5 * (AR_XZ + AR_YZ);
-        ARSum += AspectRatio[n];
-        VolWtARSum += AspectRatio[n] * (float)(VolGrain[n]);
+        float AR_XZ = GrainExtentZ[n] / GrainExtentX[n];
+        float AR_YZ = GrainExtentZ[n] / GrainExtentY[n];
+        GrainAspectRatios[n] = 0.5 * (AR_XZ + AR_YZ);
+        ARSum += GrainAspectRatios[n];
+        VolWtARSum += GrainAspectRatios[n] * GrainSizeVector[n];
     }
-    std::cout << "-- The mean grain aspect ratio (Z direction to transverse) is " << ARSum / (float)(NumberOfGrains)
-              << std::endl;
+    std::cout << "-- The mean grain aspect ratio (Z direction to transverse) is "
+              << DivideCast<float>(ARSum, NumberOfGrains) << std::endl;
+    QoIs << "-- The mean grain aspect ratio (Z direction to transverse) is " << DivideCast<float>(ARSum, NumberOfGrains)
+         << std::endl;
     std::cout << "-- The mean volume-weighted grain aspect ratio (Z direction to transverse) is "
-              << VolWtARSum / ((float)(DomainVol)) << std::endl;
-    std::cout << "-- The mean grain height is " << GrainHeightSum / (float)(NumberOfGrains) << " microns" << std::endl;
-    std::cout << "-- The mean grain width is " << GrainWidthSum / (float)(NumberOfGrains) << " microns" << std::endl;
-
-    if (AnalysisTypes[1]) {
-        std::ofstream VolumePlot;
-        std::string FNameV = BaseFileName + "_VolumeFrequency.csv";
-        VolumePlot.open(FNameV);
-        std::cout << "Printing file " << FNameV << " of grain volumes (in cubic microns) in selected volume"
-                  << std::endl;
-        for (int n = 0; n < NumberOfGrains; n++) {
-            VolumePlot << VolGrain[n] * deltax * deltax * pow(10, 12) << std::endl;
-        }
-        VolumePlot.close();
-    }
-    if (AnalysisTypes[2]) {
-        std::ofstream ARPlot;
-        std::string FNameAR = BaseFileName + "_AspectRatioFrequency.csv";
-        ARPlot.open(FNameAR);
-        std::cout << "Printing file " << FNameAR << " of grain aspect ratios in selected volume" << std::endl;
-        for (int n = 0; n < NumberOfGrains; n++) {
-            ARPlot << AspectRatio[n] << std::endl;
-        }
-        ARPlot.close();
-    }
-    if (AnalysisTypes[5]) {
-        std::ofstream GrainHeightPlot;
-        std::string FNameGH = BaseFileName + "_GrainHeightDistribution.csv";
-        std::cout << "Printing file " << FNameGH << " of mean height distribution (in microns) for the selected volume"
-                  << std::endl;
-        GrainHeightPlot.open(FNameGH);
-        for (int n = 0; n < NumberOfGrains; n++) {
-            GrainHeightPlot << GrainHeight[n] << std::endl;
-        }
-        GrainHeightPlot.close();
-    }
+              << DivideCast<float>(VolWtARSum, RepresentativeRegionSize_Microns) << std::endl;
+    QoIs << "-- The mean volume-weighted grain aspect ratio (Z direction to transverse) is "
+         << DivideCast<float>(VolWtARSum, RepresentativeRegionSize_Microns) << std::endl;
 }
 
-//*****************************************************************************/
-void PrintGrainAreaData(bool *AnalysisTypes, std::string BaseFileName, double deltax, int XMin, int XMax, int YMin,
-                        int YMax, int ZMin, int ZMax, ViewI3D_H GrainID) {
+// Print average grain extent in the specified direction
+void printMeanExtent(std::ofstream &QoIs, std::vector<float> GrainExtent, std::string Direction, int NumberOfGrains) {
+
+    float GrainExtentSum = 0.0;
+    for (int n = 0; n < NumberOfGrains; n++)
+        GrainExtentSum += GrainExtent[n];
+    float AvgGrainExtent = DivideCast<float>(GrainExtentSum, NumberOfGrains);
+    std::cout << "-- The mean grain extent in the " << Direction << " direction is " << AvgGrainExtent << " microns"
+              << std::endl;
+    QoIs << "-- The mean grain extent in the " << Direction << " direction is " << AvgGrainExtent << " microns"
+         << std::endl;
+}
+
+// Print mean grain width (average of extents in x and y), and print the grain width distribution at the top of the
+// representative region
+void printSizeOld(std::string BaseFileName, int NumberOfGrains, std::vector<float> GrainExtentX,
+                  std::vector<float> GrainExtentY, const int XMin, const int XMax, const int YMin, const int YMax,
+                  const int ZMax, double deltax, ViewI3D_H GrainID) {
+
+    float GrainExtentSumXY = 0.0;
+    for (int n = 0; n < NumberOfGrains; n++) {
+        GrainExtentSumXY += GrainExtentX[n];
+        GrainExtentSumXY += GrainExtentY[n];
+    }
+    float AvgGrainExtentXY = DivideCast<float>(GrainExtentSumXY, 2 * NumberOfGrains);
+    std::cout << "[Note: this will no longer be printed in a future release] The mean grain width is "
+              << AvgGrainExtentXY << " microns" << std::endl;
+    std::cout << "Note: option to print grain width distribution at the top of the representative volume as frequency "
+                 "files will be removed in a future release"
+              << std::endl;
+    std::string FNameX = BaseFileName + "_GrainWidthDistributionX.csv";
+    std::string FNameY = BaseFileName + "_GrainWidthDistributionY.csv";
+    std::ofstream GrainplotX;
+    std::ofstream GrainplotY;
+    std::cout << "Printing files " << FNameX << " and " << FNameY
+              << " of grain width distributions in x and y (in microns) at Z = " << ZMax << std::endl;
+    GrainplotX.open(FNameX);
+    GrainplotY.open(FNameY);
+    // Get list of unique grain IDs within [XMin, XMax], [YMin, YMax] at Z = ZMax
+    int RepresentativeAreaSize = (XMax - XMin + 1) * (YMax - YMin + 1);
+    std::vector<int> GrainIDVector_Area =
+        getRepresentativeRegionGrainIDs(GrainID, XMin, XMax, YMin, YMax, ZMax, ZMax, RepresentativeAreaSize);
+    // Get the number of grains in the representative area and a list of the unique grain IDs
+    int NumberOfGrains_Area;
+    std::vector<int> UniqueGrainIDVector_Area = getUniqueGrains(GrainIDVector_Area, NumberOfGrains_Area);
+    std::cout << "[Note: this will no longer be printed in a future release] Number of grains at the representative "
+                 "region top (Z = "
+              << ZMax << "): " << NumberOfGrains_Area << std::endl;
+
+    // Get the number of cells associated with each unique grain ID value in this area
+    std::vector<float> GrainSizeVector_Area =
+        getGrainSizes(GrainIDVector_Area, UniqueGrainIDVector_Area, NumberOfGrains_Area, deltax, "area");
+    std::vector<float> GrainExtentX_Area(NumberOfGrains_Area);
+    std::vector<float> GrainExtentY_Area(NumberOfGrains_Area);
+    calcGrainExtent(GrainExtentX_Area, GrainID, UniqueGrainIDVector_Area, GrainSizeVector_Area, NumberOfGrains_Area,
+                    XMin, XMax, YMin, YMax, ZMax, ZMax, "X", deltax, "area");
+    calcGrainExtent(GrainExtentY_Area, GrainID, UniqueGrainIDVector_Area, GrainSizeVector_Area, NumberOfGrains_Area,
+                    XMin, XMax, YMin, YMax, ZMax, ZMax, "Y", deltax, "area");
+
+    // Print grain widths in x and y for this area
+    for (int n = 0; n < NumberOfGrains_Area; n++) {
+        GrainplotX << GrainExtentX_Area[n] << std::endl;
+        GrainplotY << GrainExtentY_Area[n] << std::endl;
+    }
+    GrainplotX.close();
+    GrainplotY.close();
+}
+
+// Write unweighted and/or weighted grain areas as a function of build height to file(s)
+void writeAreaSeries(bool PrintWeightedAreas, bool PrintUnweightedAreas, std::string BaseFileName, double deltax,
+                     int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID,
+                     double ZMin_Coordinate) {
 
     std::string FName1 = BaseFileName + "_GrainAreas.csv";
     std::string FName2 = BaseFileName + "_WeightedGrainAreas.csv";
     std::ofstream Grainplot1, Grainplot2;
-    if (AnalysisTypes[3]) {
+    if (PrintUnweightedAreas) {
         std::cout << "Printing file " << FName1 << " of grain area values (in square microns) for all Z coordinates"
                   << std::endl;
         Grainplot1.open(FName1);
+        Grainplot1 << "Zcoordinate(µm),MeanArea(µm2)" << std::endl;
     }
-    if (AnalysisTypes[4]) {
+    if (PrintWeightedAreas) {
         std::cout << "Printing file " << FName2
                   << " of weighted grain area values (in square microns) for every 5th Z coordinate" << std::endl;
         Grainplot2.open(FName2);
+        Grainplot2 << "Zcoordinate(µm),WeightedMeanArea(µm2)" << std::endl;
     }
-
-    if (!(AnalysisTypes[2]) && (!(AnalysisTypes[3])))
-        ZMin = ZMax; // only print grain area/weighted grain area to screen at this one Z coordinate
 
     int LayerArea = (XMax - XMin + 1) * (YMax - YMin + 1);
     for (int k = ZMin; k <= ZMax; k++) {
-        std::vector<int> GIDAllVals_ThisLayer(LayerArea);
-        int Counter = 0;
-        for (int i = XMin; i <= XMax; i++) {
-            for (int j = YMin; j <= YMax; j++) {
-                GIDAllVals_ThisLayer[Counter] = GrainID(k, i, j);
-                Counter++;
-            }
-        }
-        // List of unique grain ID values from the list of all values
-        std::vector<int> GIDVals_ThisLayer = FindUniqueGrains(GIDAllVals_ThisLayer);
-        int GrainsThisLayer = GIDVals_ThisLayer.size();
-        double MeanGrainAreaThisLayer = DivideCast<double>(LayerArea, GrainsThisLayer);
-        if (k == ZMax) {
-            std::cout << "Number of grains at the representative region top (Z = " << ZMax << "): " << GrainsThisLayer
-                      << std::endl;
-            if (AnalysisTypes[6]) {
-                std::string FName3 = BaseFileName + "_GrainWidthDistributionX.csv";
-                std::string FName4 = BaseFileName + "_GrainWidthDistributionY.csv";
-                std::ofstream Grainplot3;
-                std::ofstream Grainplot4;
-                std::cout << "Printing files " << FName3 << " and " << FName4
-                          << " of grain width distributions in x and y (in microns) at Z = " << ZMax << std::endl;
-                Grainplot3.open(FName3);
-                Grainplot4.open(FName4);
-                for (int n = 0; n < GrainsThisLayer; n++) {
-                    int ThisGrainID = GIDVals_ThisLayer[n];
-                    int TempTopX = XMin;
-                    int TempTopY = YMin;
-                    int TempBottomX = XMax;
-                    int TempBottomY = YMax;
-                    for (int i = XMin; i <= XMax; i++) {
-                        for (int j = YMin; j <= YMax; j++) {
-                            if (GrainID(k, i, j) == ThisGrainID) {
-                                if (i > TempTopX)
-                                    TempTopX = i;
-                                if (i < TempBottomX)
-                                    TempBottomX = i;
-                                if (j > TempTopY)
-                                    TempTopY = j;
-                                if (j < TempBottomY)
-                                    TempBottomY = j;
-                            }
-                        }
-                    }
-                    float GrainExtentX = TempTopX - TempBottomX + 1;
-                    float GrainExtentY = TempTopY - TempBottomY + 1;
-                    Grainplot3 << GrainExtentX * deltax / pow(10, -6) << std::endl;
-                    Grainplot4 << GrainExtentY * deltax / pow(10, -6) << std::endl;
-                }
-                Grainplot3.close();
-                Grainplot4.close();
-            }
-        }
-        if (((AnalysisTypes[3]) && (k % 5 == 0)) || (k == ZMax)) {
-            long int AreaXArea = 0;
-            for (int l = 0; l < GrainsThisLayer; l++) {
-                long int MyGrainArea = 0;
-                for (int ll = 0; ll < LayerArea; ll++) {
-                    if (GIDVals_ThisLayer[l] == GIDAllVals_ThisLayer[ll])
-                        MyGrainArea++;
-                }
-                AreaXArea += MyGrainArea * MyGrainArea;
-            }
+        // All GrainID values in the representative area at Z = k
+        std::vector<int> GrainIDVector_Area =
+            getRepresentativeRegionGrainIDs(GrainID, XMin, XMax, YMin, YMax, k, k, LayerArea);
+        // Get the number of grains in the representative area and a list of the unique grain IDs
+        int NumberOfGrains_Area;
+        std::vector<int> UniqueGrainIDVector_Area = getUniqueGrains(GrainIDVector_Area, NumberOfGrains_Area);
+        double MeanGrainAreaThisLayer = DivideCast<double>(LayerArea, NumberOfGrains_Area);
+        if (PrintUnweightedAreas)
+            Grainplot1 << ZMin_Coordinate + convertToMicrons(deltax, "length") << ","
+                       << MeanGrainAreaThisLayer * convertToMicrons(deltax, "area") << std::endl;
+        if ((PrintWeightedAreas) && (k % 5 == 0)) {
+            std::vector<float> GrainSizeVector_Area =
+                getGrainSizes(GrainIDVector_Area, UniqueGrainIDVector_Area, NumberOfGrains_Area, deltax, "area");
+            float AreaXArea = 0.0;
+            for (int n = 0; n < NumberOfGrains_Area; n++)
+                AreaXArea += GrainSizeVector_Area[n] * GrainSizeVector_Area[n];
             double WeightedArea = DivideCast<double>(AreaXArea, LayerArea);
-            if (AnalysisTypes[3])
-                Grainplot2 << WeightedArea * deltax * deltax / pow(10, -12) << std::endl;
+            Grainplot2 << ZMin_Coordinate + convertToMicrons(deltax, "length") << "," << WeightedArea << std::endl;
             if (k == ZMax)
-                std::cout << "-- The mean weighted grain area at the representative region top (Z = " << ZMax << ") is "
-                          << WeightedArea * deltax * deltax / pow(10, -12) << " square microns" << std::endl;
+                std::cout << "[Note: this will no longer be printed in a future release] The mean weighted grain area "
+                             "at the representative region top (Z coordinate = "
+                          << ZMax << ") is " << WeightedArea << " square microns" << std::endl;
         }
-        if (AnalysisTypes[4])
-            Grainplot1 << MeanGrainAreaThisLayer * deltax * deltax / pow(10, -12) << std::endl;
         if (k == ZMax)
-            std::cout << "-- The mean grain area at the representative region top (Z = " << ZMax << ") is "
-                      << MeanGrainAreaThisLayer * deltax * deltax / pow(10, -12) << " square microns" << std::endl;
+            std::cout << "[Note: this will no longer be printed in a future release] The mean grain area at the "
+                         "representative region top (Z coordinate = "
+                      << ZMax << ") is " << MeanGrainAreaThisLayer << " square microns" << std::endl;
     }
-    if (AnalysisTypes[3])
+    if (PrintUnweightedAreas)
         Grainplot1.close();
-    if (AnalysisTypes[4])
+    if (PrintWeightedAreas)
         Grainplot2.close();
 }
 
-//*****************************************************************************/
-void PrintPoleFigureData(bool *AnalysisTypes, std::string BaseFileName, int NumberOfOrientations, int XMin, int XMax,
-                         int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID, ViewI3D_H LayerID,
-                         ViewF_H GrainEulerAngles) {
+// Write a csv file of stats for each grain
+void writePerGrainStats(std::string OutputFileName, std::string RegionType, std::vector<int> UniqueGrainIDVector,
+                        std::vector<float> GrainMisorientationXVector, std::vector<float> GrainMisorientationYVector,
+                        std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
+                        std::vector<float> GrainExtentX, std::vector<float> GrainExtentY,
+                        std::vector<float> GrainExtentZ, std::vector<float> BuildTransAspectRatio, bool *AnalysisTypes,
+                        int NumberOfGrains, bool PrintIPFRGB, std::vector<float> GrainRed,
+                        std::vector<float> GrainGreen, std::vector<float> GrainBlue) {
 
-    if (AnalysisTypes[7]) {
+    // Which quantities should be printed?
+    bool PrintMisorientation = AnalysisTypes[0];
+    bool PrintSize = AnalysisTypes[1];
+    bool PrintBuildTransAspectRatio = AnalysisTypes[2];
+    bool PrintExtentBuild = AnalysisTypes[5];
+    bool PrintExtentTrans = AnalysisTypes[6];
+    std::string stats_fname = OutputFileName + "_grains.csv";
+    std::ofstream GrainStats;
+    GrainStats.open(stats_fname);
+    GrainStats << "GrainID";
+    // Which quantities should be printed for each grain?
+    if (PrintMisorientation)
+        GrainStats << ",misorientationX,misorientationY,misorientationZ";
+    if (PrintSize)
+        GrainStats << "," << RegionType;
+    if (PrintExtentTrans)
+        GrainStats << ",extentX,extentY";
+    if (PrintExtentBuild)
+        GrainStats << ",extentZ";
+    if (PrintBuildTransAspectRatio)
+        GrainStats << ",buildtransAR";
+    if (PrintIPFRGB)
+        GrainStats << ",IPFZ_r,IPFZ_g,IPFZ_b";
+    GrainStats << std::endl;
 
-        // Histogram of orientations for texture determination
-        ViewI_H GOHistogram =
-            createOrientationHistogram(NumberOfOrientations, GrainID, LayerID, XMin, XMax, YMin, YMax, ZMin, ZMax);
-        // Write pole figure data for this region
-        std::string FNameM = BaseFileName + "_PFVolumeX" + std::to_string(XMin) + "-" + std::to_string(XMax) + "Y" +
-                             std::to_string(YMin) + "-" + std::to_string(YMax) + "Z" + std::to_string(ZMin) + "-" +
-                             std::to_string(ZMax) + ".txt";
-        WritePoleFigure(FNameM, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+    // Print the specified quantities to the csv file
+    for (int n = 0; n < NumberOfGrains; n++) {
+        GrainStats << UniqueGrainIDVector[n];
+        if (PrintMisorientation)
+            GrainStats << "," << GrainMisorientationXVector[n] << "," << GrainMisorientationYVector[n] << ","
+                       << GrainMisorientationZVector[n];
+        if (PrintSize)
+            GrainStats << "," << GrainSizeVector[n];
+        if (PrintExtentTrans)
+            GrainStats << "," << GrainExtentX[n] << "," << GrainExtentY[n];
+        if (PrintExtentBuild)
+            GrainStats << "," << GrainExtentZ[n];
+        if (PrintBuildTransAspectRatio)
+            GrainStats << "," << BuildTransAspectRatio[n];
+        if (PrintIPFRGB)
+            GrainStats << "," << GrainRed[n] << "," << GrainGreen[n] << "," << GrainBlue[n];
+        GrainStats << std::endl;
     }
+    GrainStats << UniqueGrainIDVector[NumberOfGrains - 1] << std::endl;
+    GrainStats.close();
 }
-
+//*****************************************************************************/
 // Helper function for unimodal analysis of the grains in the specified cross-section
 void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
                                   double deltax, int NumberOfGrains, int CrossSectionSize, std::vector<int> GrainAreas,
@@ -528,7 +585,7 @@ void AnalyzeCrossSection_Bimodal(std::ofstream &QoIs, std::string BaseFileName, 
 // Analysis of data for the speified cross-section(s)
 // FIXME: This subroutine should be removed in the future, as the specific analysis modes on a given volume or
 // cross-section are called directly from main
-void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
+void printCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                            std::vector<std::string> CrossSectionPlane, std::vector<int> CrossSectionLocation, int nx,
                            int ny, int nz, int NumberOfOrientations, ViewI3D_H GrainID,
                            std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
@@ -621,19 +678,17 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
         // Collect grain euler angles for the given plane to write to a file to be read by MTEX/plotted as inverse pole
         // figure-colored cross-sections
         if (PrintSectionIPF[n])
-            WriteIPFColoredCrossSection(BaseFileName, ThisCrossSectionPlane, Plane, Index1Low, Index1High, Index2Low,
+            writeIPFColoredCrossSection(BaseFileName, ThisCrossSectionPlane, Plane, Index1Low, Index1High, Index2Low,
                                         Index2High, CrossSectionOutOfPlaneLocation, GrainID, GrainEulerAngles, deltax,
                                         NumberOfOrientations);
         // Collect grain orientation frequency data and write to a file to be read by MTEX/plotted as pole figures
         if (PrintSectionPF[n]) {
-            ViewI_H GOHistogram =
-                createOrientationHistogram(NumberOfOrientations, CrossSectionGrainIDs, CrossSectionSize);
-            std::string FNamePF = BaseFileName + "-" + ThisCrossSectionPlane + "_PFCrossSection.txt";
-            WritePoleFigure(FNamePF, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+            ViewI_H GOHistogram = getOrientationHistogram(NumberOfOrientations, CrossSectionGrainIDs, CrossSectionSize);
+            writePoleFigure(BaseFileName, ThisCrossSectionPlane, NumberOfOrientations, GrainEulerAngles, GOHistogram);
         }
         // Make list of unique grains and corresponding grain areas
-        std::vector<int> UniqueGrainIDs = FindUniqueGrains(CrossSectionGrainIDs);
-        int NumberOfGrains = UniqueGrainIDs.size();
+        int NumberOfGrains;
+        std::vector<int> UniqueGrainIDs = getUniqueGrains(CrossSectionGrainIDs, NumberOfGrains);
         std::cout << "The number of grains in this cross-section is " << NumberOfGrains << std::endl;
         std::vector<int> GrainAreas(NumberOfGrains, 0);
         for (int i = 0; i < NumberOfGrains; i++) {
@@ -657,9 +712,11 @@ void PrintCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
 }
 
 //*****************************************************************************/
-void WritePoleFigure(std::string Filename, int NumberOfOrientations, ViewF_H GrainEulerAngles, ViewI_H GOHistogram) {
+void writePoleFigure(std::string BaseFileName, std::string RegionLabel, int NumberOfOrientations,
+                     ViewF_H GrainEulerAngles, ViewI_H GOHistogram) {
 
     // Using new format, write pole figure data to "Filename"
+    std::string Filename = BaseFileName + "_" + RegionLabel + "_PoleFigureData.txt";
     std::ofstream GrainplotPF;
     GrainplotPF.open(Filename);
     GrainplotPF << "% MTEX ODF" << std::endl;
@@ -678,12 +735,12 @@ void WritePoleFigure(std::string Filename, int NumberOfOrientations, ViewF_H Gra
 // For the region bounded by [Index1Low,Index1High] and [Index2Low,Index2High], at out of plane location given by
 // CrossSectionOutOfPlaneLocation, print data to be read by MTEX to plot the cross-section using the inverse pole figure
 // colormap. Identities of the in plane and out of plane indices depend on the value for "Plane"
-void WriteIPFColoredCrossSection(std::string BaseFileName, std::string CrossSectionLabel, std::string Plane,
+void writeIPFColoredCrossSection(std::string BaseFileName, std::string CrossSectionLabel, std::string Plane,
                                  int Index1Low, int Index1High, int Index2Low, int Index2High,
                                  int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
                                  double deltax, int NumberOfOrientations) {
 
-    std::string FNameIPF = BaseFileName + "-" + CrossSectionLabel + "_IPFCrossSection.txt";
+    std::string FNameIPF = BaseFileName + "_" + CrossSectionLabel + "_IPFCrossSectionData.txt";
     std::ofstream GrainplotIPF;
     GrainplotIPF.open(FNameIPF);
     GrainplotIPF << std::fixed << std::setprecision(6);
@@ -727,9 +784,9 @@ void WriteIPFColoredCrossSection(std::string BaseFileName, std::string CrossSect
 }
 
 //*****************************************************************************/
-void PrintExaConstitRVEData(int NumberOfRVEs, std::string BaseFileName, int, int, int, double deltax, ViewI3D_H GrainID,
-                            std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE, std::vector<int> YLow_RVE,
-                            std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE, std::vector<int> ZHigh_RVE) {
+void writeExaConstitRVE(int NumberOfRVEs, std::string BaseFileName, int, int, int, double deltax, ViewI3D_H GrainID,
+                        std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE, std::vector<int> YLow_RVE,
+                        std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE, std::vector<int> ZHigh_RVE) {
 
     // Loop over each RVE specified in the file "AnalysisOutputs.txt"
     for (int n = 0; n < NumberOfRVEs; n++) {

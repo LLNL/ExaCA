@@ -113,32 +113,119 @@ int main(int argc, char *argv[]) {
 
         // Analysis routines
         // Part 1: ExaConstit-specific RVE(s)
-        PrintExaConstitRVEData(NumberOfRVEs, OutputFileName, nx, ny, nz, deltax, GrainID, XLow_RVE, XHigh_RVE, YLow_RVE,
-                               YHigh_RVE, ZLow_RVE, ZHigh_RVE); // if > 0 RVEs, print file(s) "n_ExaConstit.csv"
+        writeExaConstitRVE(NumberOfRVEs, OutputFileName, nx, ny, nz, deltax, GrainID, XLow_RVE, XHigh_RVE, YLow_RVE,
+                           YHigh_RVE, ZLow_RVE, ZHigh_RVE); // if > 0 RVEs, print file(s) "n_ExaConstit.csv"
 
         // Part 2: Cross-sections for area statistics, pole figures, inverse pole figure coloring maps of microstructure
-        PrintCrossSectionData(NumberOfCrossSections, OutputFileName, CrossSectionPlane, CrossSectionLocation, nx, ny,
+        printCrossSectionData(NumberOfCrossSections, OutputFileName, CrossSectionPlane, CrossSectionLocation, nx, ny,
                               nz, NumberOfOrientations, GrainID, PrintSectionPF, PrintSectionIPF, BimodalAnalysis,
                               deltax, GrainUnitVector_Host, GrainEulerAngles_Host, GrainRGBValues_Host, CSLabels);
 
         // Part 3: Representative volume grain statistics
-        // Print data to std::out and if analysis option 0 is toggled, to the file
-        // "[OutputFileName]_MisorientationFrequency.csv"
-        PrintMisorientationData(AnalysisTypes, OutputFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerID,
-                                GrainUnitVector_Host, GrainID, NumberOfOrientations);
-        // Print data to std::out and if analysis options 1, 2, or 5 are toggled, print data to files
-        // "[OutputFileName]_VolumeFrequency.csv", "[OutputFileName]_AspectRatioFrequency.csv", and
-        // [OutputFileName]_GrainHeightDistribution.csv", respectively
-        PrintSizeData(AnalysisTypes, OutputFileName, XMin, XMax, YMin, YMax, ZMin, ZMax, nx, ny, nz, LayerID, GrainID,
-                      deltax);
-        // Print data to std::out and if analysis options 3, 4, or 6 are toggled, print data to files
-        // "[OutputFileName]_GrainAreas.csv", "[OutputFileName]_WeightedGrainAreas.csv", and
-        // "[OutputFileName]_GrainWidthDistribution.csv", respectively
-        PrintGrainAreaData(AnalysisTypes, OutputFileName, deltax, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainID);
-        // If analysis option 7 is toggled, print orientation data to files "[OutputFileName]_pyEBSDOrientations.csv"
-        // and "[OutputFileName]_MTEXOrientations.csv"
-        PrintPoleFigureData(AnalysisTypes, OutputFileName, NumberOfOrientations, XMin, XMax, YMin, YMax, ZMin, ZMax,
-                            GrainID, LayerID, GrainEulerAngles_Host);
+        // List of grain ID values in the representative region
+        int RepresentativeRegionSize_Cells = (XMax - XMin + 1) * (YMax - YMin + 1) * (ZMax - ZMin + 1);
+        double RepresentativeRegionSize_Microns = RepresentativeRegionSize_Cells * convertToMicrons(deltax, "volume");
+
+        std::vector<int> GrainIDVector = getRepresentativeRegionGrainIDs(GrainID, XMin, XMax, YMin, YMax, ZMin, ZMax,
+                                                                         RepresentativeRegionSize_Cells);
+        // Get the number of grains in the representative region and a list of the unique grain IDs
+        int NumberOfGrains;
+        std::vector<int> UniqueGrainIDVector = getUniqueGrains(GrainIDVector, NumberOfGrains);
+        // Get the size (in units of length, area, or volume) associated with each unique grain ID value
+        std::vector<float> GrainSizeVector =
+            getGrainSizes(GrainIDVector, UniqueGrainIDVector, NumberOfGrains, deltax, "volume");
+
+        // Output file stream for quantities of interest
+        std::ofstream QoIs;
+        std::string QoIs_fname = OutputFileName + "_QoIs.csv";
+        QoIs.open(QoIs_fname);
+        // Header data for QoIs file
+        printAnalysisHeader(QoIs, XMin, XMax, YMin, YMax, ZMin, ZMax, XYZBounds);
+        // Fraction of region consisting of nucleated grains, unmelted material
+        printGrainTypeFractions(QoIs, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainID, LayerID,
+                                RepresentativeRegionSize_Cells);
+
+        // Calculate misorientation data
+        std::vector<float> GrainMisorientationXVector =
+            getGrainMisorientation("X", GrainUnitVector, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
+        std::vector<float> GrainMisorientationYVector =
+            getGrainMisorientation("Y", GrainUnitVector, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
+        std::vector<float> GrainMisorientationZVector =
+            getGrainMisorientation("Z", GrainUnitVector, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
+        // Print mean misorientation data to stats file
+        printMeanMisorientations(QoIs, NumberOfGrains, GrainMisorientationXVector, GrainMisorientationYVector,
+                                 GrainMisorientationZVector, GrainSizeVector, RepresentativeRegionSize_Microns);
+        // Also print older misorientation stats data (to be removed in a future release)
+        printMisorientationDataOld(XMin, XMax, YMin, YMax, ZMin, ZMax, LayerID, GrainUnitVector_Host, GrainID,
+                                   NumberOfOrientations);
+        // Print mean size data
+        printMeanSize(QoIs, NumberOfGrains, RepresentativeRegionSize_Microns, "volume");
+
+        // Need grain extents in x and y if analysis options 2 or 6 are toggled
+        // Need grain extents in z if analysis options 2 or 5 are toggled
+        // Need aspect ratios if analysis option 2 is toggled (after obtaining grain extents)
+        // Extents are calculated in microns
+        std::vector<float> GrainExtentX(NumberOfGrains);
+        std::vector<float> GrainExtentY(NumberOfGrains);
+        std::vector<float> GrainExtentZ(NumberOfGrains);
+        std::vector<float> BuildTransAspectRatio(NumberOfGrains);
+        if ((AnalysisTypes[2]) || (AnalysisTypes[6])) {
+            calcGrainExtent(GrainExtentX, GrainID, UniqueGrainIDVector, GrainSizeVector, NumberOfGrains, XMin, XMax,
+                            YMin, YMax, ZMin, ZMax, "X", deltax, "volume");
+            calcGrainExtent(GrainExtentY, GrainID, UniqueGrainIDVector, GrainSizeVector, NumberOfGrains, XMin, XMax,
+                            YMin, YMax, ZMin, ZMax, "Y", deltax, "volume");
+            printMeanExtent(QoIs, GrainExtentX, "X", NumberOfGrains);
+            printMeanExtent(QoIs, GrainExtentY, "Y", NumberOfGrains);
+        }
+        if ((AnalysisTypes[2]) || (AnalysisTypes[5])) {
+            calcGrainExtent(GrainExtentZ, GrainID, UniqueGrainIDVector, GrainSizeVector, NumberOfGrains, XMin, XMax,
+                            YMin, YMax, ZMin, ZMax, "Z", deltax, "volume");
+            printMeanExtent(QoIs, GrainExtentZ, "Z", NumberOfGrains);
+        }
+        if (AnalysisTypes[2]) {
+            calcBuildTransAspectRatio(BuildTransAspectRatio, GrainExtentX, GrainExtentY, GrainExtentZ, NumberOfGrains);
+            printMeanBuildTransAspectRatio(QoIs, GrainExtentX, GrainExtentY, GrainExtentZ, GrainSizeVector,
+                                           RepresentativeRegionSize_Microns, NumberOfGrains);
+        }
+
+        // If analysis option 6 is toggled, also print grain width data (x and y direction, and old grain width options)
+        if (AnalysisTypes[6]) {
+            printSizeOld(OutputFileName, NumberOfGrains, GrainExtentX, GrainExtentY, XMin, XMax, YMin, YMax, ZMax,
+                         deltax, GrainID);
+        }
+
+        // Write grain area data as a function of Z location in the representative volume if option 3 (weighted mean
+        // grain area) or option 4 (unweighted mean grain area) are toggled, writing to files
+        // "[OutputFileName]_WeightedGrainAreas.csv" and "[OutputFileName]_GrainAreas.csv", respectively
+        if ((AnalysisTypes[3]) || (AnalysisTypes[4]))
+            writeAreaSeries(AnalysisTypes[3], AnalysisTypes[4], OutputFileName, deltax, XMin, XMax, YMin, YMax, ZMin,
+                            ZMax, GrainID, XYZBounds[4]);
+        QoIs.close();
+
+        // Determine IPF-Z color of each grain relative to each direction: 0 (red), 1 (green), 2 (blue)
+        bool PrintIPFRGB = false; // not yet used outside of grain_analysis_amb
+        std::vector<float> GrainRed =
+            getIPFZColor(0, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
+        std::vector<float> GrainGreen =
+            getIPFZColor(1, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
+        std::vector<float> GrainBlue =
+            getIPFZColor(1, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
+
+        // Write per-grain stats for the analysis types specified to the file "[OutputFileName]_grains.csv"
+        writePerGrainStats(OutputFileName, "volume", UniqueGrainIDVector, GrainMisorientationXVector,
+                           GrainMisorientationYVector, GrainMisorientationZVector, GrainSizeVector, GrainExtentX,
+                           GrainExtentY, GrainExtentZ, BuildTransAspectRatio, AnalysisTypes, NumberOfGrains,
+                           PrintIPFRGB, GrainRed, GrainGreen, GrainBlue);
+        // If analysis option 7 is toggled, print orientation data to file
+        // "[OutputFileName]_RegionLabel_PoleFigureData.txt"
+        if (AnalysisTypes[7]) {
+            ViewI_H GOHistogram =
+                getOrientationHistogram(NumberOfOrientations, GrainID, LayerID, XMin, XMax, YMin, YMax, ZMin, ZMax);
+            std::string RegionLabel = "VolumeX" + std::to_string(XMin) + "-" + std::to_string(XMax) + "Y" +
+                                      std::to_string(YMin) + "-" + std::to_string(YMax) + "Z" + std::to_string(ZMin) +
+                                      "-" + std::to_string(ZMax);
+            writePoleFigure(OutputFileName, RegionLabel, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+        }
     }
     // Finalize kokkos and end program
     Kokkos::finalize();
