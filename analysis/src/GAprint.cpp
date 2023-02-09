@@ -14,12 +14,11 @@
 //*****************************************************************************/
 // Write header of unique grain ID values to stats file, and print information about the representative region to the
 // console/QoIs file
-void printAnalysisHeader(std::string OutputFileName, std::ofstream &QoIs, const int XLow, const int XHigh,
-                         const int YLow, const int YHigh, const int ZLow, const int ZHigh,
-                         std::vector<double> XYZBounds) {
+void printAnalysisHeader(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,
+                         const int ZLow, const int ZHigh, std::vector<double> XYZBounds) {
 
-    std::string QoIs_fname = OutputFileName + "_QoIs.csv";
-    QoIs.open(QoIs_fname);
+    // TODO: Remove redundant code by making a print routine that prints a string to both std::cout and the QoIs file,
+    // since the same information is printed to both
     std::cout << "The representative volume specified is bounded by X = [" << XYZBounds[0] << "," << XYZBounds[1]
               << "], Y = [" << XYZBounds[2] << "," << XYZBounds[3] << "], and Z = [" << XYZBounds[4] << ","
               << XYZBounds[5] << "] m" << std::endl;

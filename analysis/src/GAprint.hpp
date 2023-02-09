@@ -39,9 +39,8 @@ void printCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                            std::vector<bool> PrintSectionPF, std::vector<bool> PrintSectionIPF,
                            std::vector<bool> BimodalAnalysis, double deltax, ViewF_H GrainUnitVector,
                            ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues, std::vector<std::string> CSLabels);
-void printAnalysisHeader(std::string OutputFileName, std::ofstream &QoIs, const int XLow, const int XHigh,
-                         const int YLow, const int YHigh, const int ZLow, const int ZHigh,
-                         std::vector<double> XYZBounds);
+void printAnalysisHeader(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,
+                         const int ZLow, const int ZHigh, std::vector<double> XYZBounds);
 //****
 // Functions for printing data for a region of various type
 void printGrainTypeFractions(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,

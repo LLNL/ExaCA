@@ -137,8 +137,10 @@ int main(int argc, char *argv[]) {
 
         // Output file stream for quantities of interest
         std::ofstream QoIs;
+        std::string QoIs_fname = OutputFileName + "_QoIs.csv";
+        QoIs.open(QoIs_fname);
         // Header data for QoIs file
-        printAnalysisHeader(OutputFileName, QoIs, XMin, XMax, YMin, YMax, ZMin, ZMax, XYZBounds);
+        printAnalysisHeader(QoIs, XMin, XMax, YMin, YMax, ZMin, ZMax, XYZBounds);
         // Fraction of region consisting of nucleated grains, unmelted material
         printGrainTypeFractions(QoIs, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainID, LayerID,
                                 RepresentativeRegionSize_Cells);
