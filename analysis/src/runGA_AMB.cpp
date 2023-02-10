@@ -122,6 +122,7 @@ int main(int argc, char *argv[]) {
         // Inverse pole figure data for MTEX  // Area        // separate file
         // Per grain stats                    // All         // perGrain file (true if at least one perGrain option is
         // true, false otherwise)
+        // ExaConstit RVE                     // Volume      // separate file
 
         int NumberOfRegions = 2;
         // First region is an XY cross-section located at ZLocCrossSection
@@ -159,7 +160,7 @@ int main(int argc, char *argv[]) {
         std::vector<bool> printInversePoleFigureYN = {true, true};
 
         std::ofstream QoIs;
-        std::string QoIs_fname = BaseFileName + "_QoIs.csv";
+        std::string QoIs_fname = BaseFileName + "_QoIs.txt";
         QoIs.open(QoIs_fname);
 
         for (int n = 0; n < NumberOfRegions; n++) {
@@ -211,7 +212,7 @@ int main(int argc, char *argv[]) {
                                                               regionBoundsXLower_cells[n], regionBoundsXUpper_cells[n],
                                                               regionBoundsYLower_cells[n], regionBoundsYUpper_cells[n],
                                                               regionBoundsZLower_cells[n], regionBoundsZUpper_cells[n]);
-                writePoleFigure(BaseFileName, regionName[n], NumberOfOrientations, GrainEulerAngles, GOHistogram);
+                writePoleFigure(BaseFileName, regionName[n], NumberOfOrientations, GrainEulerAngles_Host, GOHistogram);
             }
             if (printInversePoleFigureYN[n]) {
                 int Index1Low, Index1High, Index2Low, Index2High, CrossSectionOutOfPlaneLocation;
@@ -240,7 +241,7 @@ int main(int argc, char *argv[]) {
                     throw std::runtime_error("Invalid region type");
                 writeIPFColoredCrossSection(BaseFileName, regionName[n], regionOrientation[n], Index1Low, Index1High,
                                             Index2Low, Index2High, CrossSectionOutOfPlaneLocation, GrainID,
-                                            GrainEulerAngles, deltax, NumberOfOrientations);
+                                            GrainEulerAngles_Host, deltax, NumberOfOrientations);
             }
         }
     }
