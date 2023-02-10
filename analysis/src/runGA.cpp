@@ -146,12 +146,12 @@ int main(int argc, char *argv[]) {
                                 RepresentativeRegionSize_Cells);
 
         // Calculate misorientation data
-        std::vector<float> GrainMisorientationXVector =
-            getGrainMisorientation("X", GrainUnitVector, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
-        std::vector<float> GrainMisorientationYVector =
-            getGrainMisorientation("Y", GrainUnitVector, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
-        std::vector<float> GrainMisorientationZVector =
-            getGrainMisorientation("Z", GrainUnitVector, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
+        std::vector<float> GrainMisorientationXVector = getGrainMisorientation(
+            "X", GrainUnitVector_Host, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
+        std::vector<float> GrainMisorientationYVector = getGrainMisorientation(
+            "Y", GrainUnitVector_Host, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
+        std::vector<float> GrainMisorientationZVector = getGrainMisorientation(
+            "Z", GrainUnitVector_Host, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
         // Print mean misorientation data to stats file
         printMeanMisorientations(QoIs, NumberOfGrains, GrainMisorientationXVector, GrainMisorientationYVector,
                                  GrainMisorientationZVector, GrainSizeVector, RepresentativeRegionSize_Microns);
@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
             std::string RegionLabel = "VolumeX" + std::to_string(XMin) + "-" + std::to_string(XMax) + "Y" +
                                       std::to_string(YMin) + "-" + std::to_string(YMax) + "Z" + std::to_string(ZMin) +
                                       "-" + std::to_string(ZMax);
-            writePoleFigure(OutputFileName, RegionLabel, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+            writePoleFigure(OutputFileName, RegionLabel, NumberOfOrientations, GrainEulerAngles_Host, GOHistogram);
         }
     }
     // Finalize kokkos and end program
