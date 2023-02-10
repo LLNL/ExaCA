@@ -353,7 +353,6 @@ void writePerGrainStats(std::string OutputFileName, std::string RegionType, std:
             GrainStats << "," << GrainRed[n] << "," << GrainGreen[n] << "," << GrainBlue[n];
         GrainStats << std::endl;
     }
-    GrainStats << UniqueGrainIDVector[NumberOfGrains - 1] << std::endl;
     GrainStats.close();
 }
 //*****************************************************************************/
