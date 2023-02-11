@@ -28,7 +28,7 @@ void printAnalysisHeader(std::ofstream &QoIs, const int XLow, const int XHigh, c
          << "], Y = [ " << XYZBounds[2] << "," << XYZBounds[3] << "], and Z = [" << XYZBounds[4] << "," << XYZBounds[5]
          << "] m" << std::endl;
     QoIs << "The representative volume specified is bounded by cells spanning X = [" << XLow << "," << XHigh
-         << "], Y = [ " << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "] m" << std::endl;
+         << "], Y = [" << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "] m" << std::endl;
 }
 
 // Print information about a representative area to the console/QoIs file
@@ -50,7 +50,7 @@ void printAnalysisHeader(std::ofstream &QoIs, const int XLow_cells, const int XH
         QoIs << "The representative area is located at Z = " << ZLow_microns << " microns" << std::endl;
         QoIs << "(in CA units, Z = " << ZLow_cells << ")" << std::endl;
         QoIs << "The representative area is bounded by the region spanning X = [" << XLow_microns << ","
-             << XHigh_microns << "], Y = [ " << YLow_microns << "," << YHigh_microns << "] microns" << std::endl;
+             << XHigh_microns << "], Y = [" << YLow_microns << "," << YHigh_microns << "] microns" << std::endl;
         QoIs << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Y = [ " << YLow_cells << ","
              << YHigh_cells << "])" << std::endl;
     }

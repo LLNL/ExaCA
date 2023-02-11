@@ -139,8 +139,8 @@ int main(int argc, char *argv[]) {
         std::vector<int> regionBoundsZUpper_cells = {ZLocCrossSection, nz - 1};
         std::vector<int> regionSizeZ = {1, nz - 1};
         std::vector<int> regionSize = {nx * ny, ny * nz};
-        std::vector<double> regionBoundsXLower_microns, regionBoundsXUpper_microns, regionBoundsYLower_microns,
-            regionBoundsYUpper_microns, regionBoundsZLower_microns, regionBoundsZUpper_microns;
+        std::vector<double> regionBoundsXLower_microns(2), regionBoundsXUpper_microns(2), regionBoundsYLower_microns(2),
+            regionBoundsYUpper_microns(2), regionBoundsZLower_microns(2), regionBoundsZUpper_microns(2);
         for (int n = 0; n < 2; n++) {
             regionBoundsXLower_microns[n] = regionBoundsXLower_cells[n] * deltax;
             regionBoundsXUpper_microns[n] = regionBoundsXLower_microns[n] + regionSizeX[n] * deltax;

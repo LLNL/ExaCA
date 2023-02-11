@@ -99,10 +99,10 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
 
     // X, Y, Z bounds of domain (in microns)
     XYZBounds[0] = logdata["Domain"]["XBounds"][0];
-    XYZBounds[1] = logdata["Domain"]["XBounds"][1];
-    XYZBounds[2] = logdata["Domain"]["YBounds"][0];
-    XYZBounds[3] = logdata["Domain"]["YBounds"][1];
-    XYZBounds[4] = logdata["Domain"]["ZBounds"][0];
+    XYZBounds[1] = logdata["Domain"]["YBounds"][0];
+    XYZBounds[2] = logdata["Domain"]["ZBounds"][0];
+    XYZBounds[3] = logdata["Domain"]["XBounds"][1];
+    XYZBounds[4] = logdata["Domain"]["YBounds"][1];
     XYZBounds[5] = logdata["Domain"]["ZBounds"][1];
     // Cell size (in microns)
     deltax = logdata["Domain"]["CellSize"];
@@ -127,9 +127,12 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
     }
     else {
         // Custom files for euler angles and RGB mapping based on rotation filename
-        std::size_t startpos = RotationFilename.find_first_of("_");
+        std::size_t baseorientation_startpos = RotationFilename.find_last_of("/");
         std::size_t endpos = RotationFilename.find_last_of(".");
-        std::string customname = RotationFilename.substr(startpos + 1, endpos - startpos - 1);
+        std::string baseorientationname =
+            RotationFilename.substr(baseorientation_startpos + 1, endpos - baseorientation_startpos - 1);
+        std::size_t customname_startpos = baseorientationname.find_last_of("_");
+        std::string customname = baseorientationname.substr(customname_startpos + 1, endpos - customname_startpos - 1);
         EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ_" + customname + ".csv";
         RGBFilename = "GrainOrientationRGB_IPF-Z_" + customname + ".csv";
     }
@@ -215,9 +218,13 @@ void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &de
         }
         else {
             // Custom files for euler angles and RGB mapping based on rotation filename
-            std::size_t startpos = RotationFilename.find_first_of("_");
+            std::size_t baseorientation_startpos = RotationFilename.find_last_of("/");
             std::size_t endpos = RotationFilename.find_last_of(".");
-            std::string customname = RotationFilename.substr(startpos + 1, endpos - startpos - 1);
+            std::string baseorientationname =
+                RotationFilename.substr(baseorientation_startpos + 1, endpos - baseorientation_startpos - 1);
+            std::size_t customname_startpos = baseorientationname.find_last_of("_");
+            std::string customname =
+                baseorientationname.substr(customname_startpos + 1, endpos - customname_startpos - 1);
             EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ_" + customname + ".csv";
             RGBFilename = "GrainOrientationRGB_IPF-Z_" + customname + ".csv";
         }
