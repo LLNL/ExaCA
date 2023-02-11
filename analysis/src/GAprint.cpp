@@ -28,7 +28,62 @@ void printAnalysisHeader(std::ofstream &QoIs, const int XLow, const int XHigh, c
          << "], Y = [ " << XYZBounds[2] << "," << XYZBounds[3] << "], and Z = [" << XYZBounds[4] << "," << XYZBounds[5]
          << "] m" << std::endl;
     QoIs << "The representative volume specified is bounded by cells spanning X = [" << XLow << "," << XHigh
-         << "], Y = [ " << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "] m" << std::endl;
+         << "], Y = [" << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "] m" << std::endl;
+}
+
+// Print information about a representative area to the console/QoIs file
+void printAnalysisHeader(std::ofstream &QoIs, const int XLow_cells, const int XHigh_cells, const int YLow_cells,
+                         const int YHigh_cells, const int ZLow_cells, const int ZHigh_cells, const double XLow_microns,
+                         const double XHigh_microns, const double YLow_microns, const double YHigh_microns,
+                         const double ZLow_microns, const double ZHigh_microns, const std::string regionName,
+                         const std::string regionOrientation) {
+
+    std::cout << "Stats for " << regionName << " plane:" << std::endl;
+    QoIs << "Stats for " << regionName << " plane:" << std::endl;
+    if (regionOrientation == "XY") {
+        std::cout << "The representative area is located at Z = " << ZLow_microns << " microns" << std::endl;
+        std::cout << "(in CA units, Z = " << ZLow_cells << ")" << std::endl;
+        std::cout << "The representative area is bounded by the region spanning X = [" << XLow_microns << ","
+                  << XHigh_microns << "], Y = [ " << YLow_microns << "," << YHigh_microns << "] microns" << std::endl;
+        std::cout << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Y = [ " << YLow_cells << ","
+                  << YHigh_cells << "])" << std::endl;
+        QoIs << "The representative area is located at Z = " << ZLow_microns << " microns" << std::endl;
+        QoIs << "(in CA units, Z = " << ZLow_cells << ")" << std::endl;
+        QoIs << "The representative area is bounded by the region spanning X = [" << XLow_microns << ","
+             << XHigh_microns << "], Y = [" << YLow_microns << "," << YHigh_microns << "] microns" << std::endl;
+        QoIs << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Y = [ " << YLow_cells << ","
+             << YHigh_cells << "])" << std::endl;
+    }
+    else if (regionOrientation == "XZ") {
+        std::cout << "The representative area is located at Y = " << YLow_microns << " microns" << std::endl;
+        std::cout << "(in CA units, Y = " << YLow_cells << ")" << std::endl;
+        std::cout << "The representative area is bounded by the region spanning X = [" << XLow_microns << ","
+                  << XHigh_microns << "], Z = [ " << ZLow_microns << "," << ZHigh_microns << "] microns" << std::endl;
+        std::cout << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Z = [ " << ZLow_cells << ","
+                  << ZHigh_cells << "])" << std::endl;
+        QoIs << "The representative area is located at Y = " << YLow_microns << " microns" << std::endl;
+        QoIs << "(in CA units, Y = " << YLow_cells << ")" << std::endl;
+        QoIs << "The representative area is bounded by the region spanning X = [" << XLow_microns << ","
+             << XHigh_microns << "], Z = [ " << ZLow_microns << "," << ZHigh_microns << "] microns" << std::endl;
+        QoIs << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Z = [ " << ZLow_cells << ","
+             << ZHigh_cells << "])" << std::endl;
+    }
+    else if (regionOrientation == "YZ") {
+        std::cout << "The representative area is located at X = " << XLow_microns << " microns" << std::endl;
+        std::cout << "(in CA units, X = " << XLow_cells << ")" << std::endl;
+        std::cout << "The representative area is bounded by the region spanning Y = [" << YLow_microns << ","
+                  << YHigh_microns << "], Z = [ " << ZLow_microns << "," << ZHigh_microns << "] microns" << std::endl;
+        std::cout << "(in CA units Y = [" << YLow_cells << "," << YHigh_cells << "], Z = [ " << ZLow_cells << ","
+                  << ZHigh_cells << "])" << std::endl;
+        QoIs << "The representative area is located at X = " << XLow_microns << " microns" << std::endl;
+        QoIs << "(in CA units, X = " << XLow_cells << ")" << std::endl;
+        QoIs << "The representative area is bounded by the region spanning Y = [" << YLow_microns << ","
+             << YHigh_microns << "], Z = [ " << ZLow_microns << "," << ZHigh_microns << "] microns" << std::endl;
+        QoIs << "(in CA units Y = [" << YLow_cells << "," << YHigh_cells << "], Z = [ " << ZLow_cells << ","
+             << ZHigh_cells << "])" << std::endl;
+    }
+    else
+        throw std::runtime_error("Error: invalid region type");
 }
 
 // Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
