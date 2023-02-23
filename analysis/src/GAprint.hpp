@@ -9,6 +9,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "ExaCA.hpp"
+#include "GArepresentativeregion.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -21,10 +22,12 @@
 #include <string>
 #include <vector>
 
-void writeExaConstitRVE(int NumberOfRVEs, std::string BaseFileName, int nx, int ny, int nz, double deltax,
-                        ViewI3D_H GrainID, std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE,
-                        std::vector<int> YLow_RVE, std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE,
-                        std::vector<int> ZHigh_RVE);
+void writeExaConstitRVE_Old(int NumberOfRVEs, std::string BaseFileName, int nx, int ny, int nz, double deltax,
+                            ViewI3D_H GrainID, std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE,
+                            std::vector<int> YLow_RVE, std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE,
+                            std::vector<int> ZHigh_RVE);
+void writeExaConstitRVE(std::string BaseFileNameThisRegion, double deltax, ViewI3D_H GrainID,
+                        RepresentativeRegion representativeRegion);
 void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
                                   double deltax, int NumberOfGrains, int CrossSectionSize, std::vector<int> GrainAreas,
                                   float MinGrainSize_microns);
@@ -41,13 +44,15 @@ void printCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
                            ViewF_H GrainEulerAngles, ViewF_H GrainRGBValues, std::vector<std::string> CSLabels);
 // TODO: Combine in future release, with printAnalysisHeader calling separate length, area, or volume based print
 // functions
-void printAnalysisHeader(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,
-                         const int ZLow, const int ZHigh, std::vector<double> XYZBounds);
-void printAnalysisHeader(std::ofstream &QoIs, const int XLow_cells, const int XHigh_cells, const int YLow_cells,
-                         const int YHigh_cells, const int ZLow_cells, const int ZHigh_cells, const double XLow_microns,
-                         const double XHigh_microns, const double YLow_microns, const double YHigh_microns,
-                         const double ZLow_microns, const double ZHigh_microns, const std::string regionName,
-                         const std::string regionOrientation);
+void printAnalysisHeader_Volume_Old(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow,
+                                    const int YHigh, const int ZLow, const int ZHigh, std::vector<double> XYZBounds,
+                                    std::string regionName = "default");
+void printAnalysisHeader_Volume(std::ofstream &QoIs, RepresentativeRegion representativeRegion);
+void printAnalysisHeader_Area(std::ofstream &QoIs, const int XLow_cells, const int XHigh_cells, const int YLow_cells,
+                              const int YHigh_cells, const int ZLow_cells, const int ZHigh_cells,
+                              const double XLow_microns, const double XHigh_microns, const double YLow_microns,
+                              const double YHigh_microns, const double ZLow_microns, const double ZHigh_microns,
+                              const std::string regionName, const std::string regionOrientation);
 //****
 // Functions for printing data for a region of various type
 void printGrainTypeFractions(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,
@@ -77,18 +82,30 @@ void writeAreaSeries(bool PrintWeightedAreas, bool PrintUnweightedAreas, std::st
                      int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID,
                      double ZMin_Coordinate);
 //****
-void writePerGrainStats(std::string OutputFileName, std::string RegionType, std::vector<int> UniqueGrainIDVector,
+void writePerGrainStats_Old(std::string OutputFileName, std::string RegionType, std::vector<int> UniqueGrainIDVector,
+                            std::vector<float> GrainMisorientationXVector,
+                            std::vector<float> GrainMisorientationYVector,
+                            std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
+                            std::vector<float> GrainExtentX, std::vector<float> GrainExtentY,
+                            std::vector<float> GrainExtentZ, std::vector<float> BuildTransAspectRatio,
+                            bool *AnalysisTypes, int NumberOfGrains, bool PrintIPFRGB, std::vector<float> GrainRed,
+                            std::vector<float> GrainGreen, std::vector<float> GrainBlue);
+void writePerGrainStats(std::string OutputFileName, std::vector<int> UniqueGrainIDVector,
                         std::vector<float> GrainMisorientationXVector, std::vector<float> GrainMisorientationYVector,
                         std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
                         std::vector<float> GrainExtentX, std::vector<float> GrainExtentY,
-                        std::vector<float> GrainExtentZ, std::vector<float> BuildTransAspectRatio, bool *AnalysisTypes,
-                        int NumberOfGrains, bool PrintIPFRGB, std::vector<float> GrainRed,
-                        std::vector<float> GrainGreen, std::vector<float> GrainBlue);
-void writeIPFColoredCrossSection(std::string BaseFileName, std::string ThisCrossSectionPlane, std::string Plane,
-                                 int Index1Low, int Index1High, int Index2Low, int Index2High,
-                                 int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
-                                 double deltax, int NumberOfOrientations);
-void writePoleFigure(std::string BaseFileName, std::string RegionLabel, int NumberOfOrientations,
-                     ViewF_H GrainEulerAngles, ViewI_H GOHistogram);
+                        std::vector<float> GrainExtentZ, std::vector<float> BuildTransAspectRatio, int NumberOfGrains,
+                        std::vector<float> GrainRed, std::vector<float> GrainGreen, std::vector<float> GrainBlue,
+                        RepresentativeRegion representativeRegion);
+void writeIPFColoredCrossSection_Old(std::string BaseFileName, std::string ThisCrossSectionPlane, std::string Plane,
+                                     int Index1Low, int Index1High, int Index2Low, int Index2High,
+                                     int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
+                                     double deltax, int NumberOfOrientations);
+void writeIPFColoredCrossSection(std::string BaseFileNameThisRegion, RepresentativeRegion representativeRegion,
+                                 ViewI3D_H GrainID, ViewF_H GrainEulerAngles, double deltax, int NumberOfOrientations);
+void writePoleFigure_Old(std::string BaseFileName, std::string RegionLabel, int NumberOfOrientations,
+                         ViewF_H GrainEulerAngles, ViewI_H GOHistogram);
+void writePoleFigure(std::string BaseFileNameThisRegion, int NumberOfOrientations, ViewF_H GrainEulerAngles,
+                     ViewI_H GOHistogram);
 
 #endif

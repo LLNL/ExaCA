@@ -1,16 +1,9 @@
 set(EXAGA_HEADERS
     GAprint.hpp
     GAutils.hpp
+    GArepresentativeregion.hpp
 )
 set(EXAGA_SOURCES
-    GAprint.cpp
-    GAutils.cpp
-)
-set(EXAGA_AMB_HEADERS
-    GAprint.hpp
-    GAutils.hpp
-)
-set(EXAGA_AMB_SOURCES
     GAprint.cpp
     GAutils.cpp
 )
@@ -35,7 +28,3 @@ add_library(ExaCA::ExaGA ALIAS ExaGA)
 add_executable(grain_analysis runGA.cpp)
 target_link_libraries(grain_analysis ExaGA)
 install(TARGETS grain_analysis DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-add_executable(grain_analysis_amb runGA_AMB.cpp)
-target_link_libraries(grain_analysis_amb ExaGA)
-install(TARGETS grain_analysis_amb DESTINATION ${CMAKE_INSTALL_BINDIR})

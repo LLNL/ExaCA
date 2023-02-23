@@ -1,0 +1,29 @@
+Used in post-processing script to analyze select ExaCA outputs
+*****
+Path to/name of log (.log) file associated with the microstructure of interest: AMMT_20Layer.log
+Path to/name of microstructure (.vtk) file: AMMT_20Layer.vtk
+Path to file of grain orientations (rotation matrix form): GrainOrientationVectors.csv
+Path to/base (without file extension) name of data files of output resulting from this analysis: AMMT_20Layer
+Path to file of grain orientations (Bunge Euler angle form ZXZ): GrainOrientationEulerAnglesBungeZXZ.csv
+Path to file corresponding to grain orientation IPF-Z colors as fractional RGB values: GrainOrientationRGB_IPF-Z.csv
+**********
+SECTION 1: ExaConstit representative volume elements: lines have the format [size, center x, center y, center z]
+*****
+**********
+SECTION 2: Data for plotting microstructure using MTEX. Each line should consist of 4 comma-separated values
+*****
+XY, 142, Y, Y
+**********
+SECTION 3: Y/N Options for data analysis of representative regions
+*****
+X Bounds (in cells): [0, 400]
+Y Bounds (in cells): [0, 400]
+Z Bounds (in cells): [0, 174]
+Print misorientation data (Y or N): N
+Print grain volume distribution (Y or N): Y
+Print mean aspect ratio distribution (Y or N): Y
+Print mean grain area as a function of build height (Y or N): Y
+Print mean weighted grain area as a function of build height (Y or N): N 
+Print mean grain height distribution (Y or N): N
+Print grain width distribution at a specific build height near the top surface (Y or N): N
+Print volume for pole figure analysis in MTEX: N

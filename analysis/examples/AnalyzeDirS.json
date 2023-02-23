@@ -1,0 +1,26 @@
+[
+    {
+        "regionName": "RepresentativeVolume",
+        "units": "cells",
+        "xBounds": [15, 184],
+        "yBounds": [15, 184],
+        "zBounds": [1, 199],
+        "printExaConstit": false,
+        "printPoleFigureData": true,
+        "printStats": ["GrainTypeFractions","Misorientation","Size", "BuildTransAspectRatio","Extent"],
+        "printPerGrainStats": ["Misorientation","Size","ZExtent"],
+        "printLayerwiseData": ["MeanGrainArea","MeanWeightedGrainArea"],
+    },
+    {
+        "regionName": "XYCross",
+        "printPoleFigure": true,
+        "printInversePoleFigureMap": true
+    },
+    {
+        "regionName": "XZCross",
+        "units": "cells",
+        "yBound": 100,
+        "printPoleFigureData": false,
+        "printInversePoleFigureData": true
+    }
+]
