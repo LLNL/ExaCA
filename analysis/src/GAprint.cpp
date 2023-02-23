@@ -34,6 +34,7 @@ void printAnalysisHeader_Volume_Old(std::ofstream &QoIs, const int XLow, const i
          << "], Y = [" << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "] m" << std::endl;
 }
 
+#ifdef ExaCA_ENABLE_JSON
 void printAnalysisHeader_Volume(std::ofstream &QoIs, RepresentativeRegion representativeRegion) {
 
     std::cout << "Stats for " << representativeRegion.regionName << " volume:" << std::endl;
@@ -57,6 +58,7 @@ void printAnalysisHeader_Volume(std::ofstream &QoIs, RepresentativeRegion repres
          << representativeRegion.yBounds_Cells[0] << "," << representativeRegion.yBounds_Cells[1] << "], and Z = ["
          << representativeRegion.zBounds_Cells[0] << "," << representativeRegion.zBounds_Cells[1] << "]" << std::endl;
 }
+#endif
 
 // Print information about a representative area to the console/QoIs file
 void printAnalysisHeader_Area(std::ofstream &QoIs, const int XLow_cells, const int XHigh_cells, const int YLow_cells,
@@ -451,6 +453,7 @@ void writePerGrainStats_Old(std::string OutputFileName, std::string RegionType, 
 }
 
 // Write a csv file of stats for each grain
+#ifdef ExaCA_ENABLE_JSON
 void writePerGrainStats(std::string OutputFileName, std::vector<int> UniqueGrainIDVector,
                         std::vector<float> GrainMisorientationXVector, std::vector<float> GrainMisorientationYVector,
                         std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
@@ -503,6 +506,7 @@ void writePerGrainStats(std::string OutputFileName, std::vector<int> UniqueGrain
     }
     GrainStats.close();
 }
+#endif
 //*****************************************************************************/
 // Helper function for unimodal analysis of the grains in the specified cross-section
 void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
@@ -953,6 +957,7 @@ void writeIPFColoredCrossSection_Old(std::string BaseFileName, std::string Cross
 
 // Print data to be read by MTEX to plot the cross-section using the inverse pole figure colormap
 // Details about the plane from the representativeRegion structure
+#ifdef ExaCA_ENABLE_JSON
 void writeIPFColoredCrossSection(std::string BaseFileNameThisRegion, RepresentativeRegion representativeRegion,
                                  ViewI3D_H GrainID, ViewF_H GrainEulerAngles, double deltax, int NumberOfOrientations) {
 
@@ -1023,7 +1028,7 @@ void writeIPFColoredCrossSection(std::string BaseFileNameThisRegion, Representat
     }
     GrainplotIPF.close();
 }
-
+#endif
 //*****************************************************************************/
 void writeExaConstitRVE_Old(int NumberOfRVEs, std::string BaseFileName, int, int, int, double deltax, ViewI3D_H GrainID,
                             std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE, std::vector<int> YLow_RVE,
@@ -1062,6 +1067,7 @@ void writeExaConstitRVE_Old(int NumberOfRVEs, std::string BaseFileName, int, int
 }
 
 // Write data for the specified RVE for ExaConstit
+#ifdef ExaCA_ENABLE_JSON
 void writeExaConstitRVE(std::string BaseFileNameThisRegion, double deltax, ViewI3D_H GrainID,
                         RepresentativeRegion representativeRegion) {
 
@@ -1090,3 +1096,4 @@ void writeExaConstitRVE(std::string BaseFileNameThisRegion, double deltax, ViewI
     }
     Grainplot.close();
 }
+#endif
