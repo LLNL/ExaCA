@@ -193,7 +193,7 @@ Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output
 ```
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
 ```
-Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file.
+Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file. More information about running the analysis executable is located in `analysis/README.md`
 
 ## Citing ExaCA
 
