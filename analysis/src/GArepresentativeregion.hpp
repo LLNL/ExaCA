@@ -14,18 +14,15 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
-#ifdef ExaCA_ENABLE_JSON
-#include <nlohmann/json.hpp>
-#endif
 #include <string>
 #include <vector>
 
 #ifdef ExaCA_ENABLE_JSON
+#include <nlohmann/json.hpp>
 // Structure that holds the details of a representative region of the larger microstructure, along which the specific
 // analyses to be performed
 struct RepresentativeRegion {
 
-    std::string regionName;
     std::string regionType;
     std::string regionOrientation;
     std::vector<double> xBounds_Meters = std::vector<double>(2);
@@ -45,9 +42,11 @@ struct RepresentativeRegion {
         "Misorientation",        // all regions
         "Size",                  // all regions
         "BuildTransAspectRatio", // volumes only
-        "Extent"                 // all regions
+        "XExtent",               // all regions
+        "YExtent",               // all regions
+        "ZExtent",               // all regions
     };
-    std::vector<bool> AnalysisOptions_StatsYN = std::vector<bool>(5, false);
+    std::vector<bool> AnalysisOptions_StatsYN = std::vector<bool>(7, false);
     std::vector<std::string> AnalysisOptions_PerGrainStats_key = {
         "Misorientation",        // all regions
         "Size",                  // all regions - volume, area, or length
@@ -55,7 +54,7 @@ struct RepresentativeRegion {
         "YExtent",               // all regions
         "ZExtent",               // all regions
         "BuildTransAspectRatio", // volumes only
-        "IPFZ-RGB\""             // all regions
+        "IPFZ-RGB"               // all regions
     };
     std::vector<bool> AnalysisOptions_PerGrainStatsYN = std::vector<bool>(5, false);
     std::vector<std::string> AnalysisOptions_LayerwiseStats_key = {
@@ -69,25 +68,21 @@ struct RepresentativeRegion {
     bool PrintExaConstitYN, PrintPoleFigureYN, PrintInversePoleFigureMapYN;
 
     // Constructor
-    RepresentativeRegion(int regioncount, nlohmann::json AnalysisData, int nx, int ny, int nz, double deltax,
+    RepresentativeRegion(nlohmann::json RegionData, int nx, int ny, int nz, double deltax,
                          std::vector<double> XYZBounds) {
 
-        regionName = AnalysisData[regioncount]["regionName"];
-
         // Are the bounds given in cells, or in microns? Store both representations
-        std::string Units = AnalysisData[regioncount]["units"];
-
+        std::string Units = RegionData["units"];
         // Obtain the bounds of the region in x, y, and z, in both cells and microns
-        ConvertBounds(regioncount, AnalysisData, Units, deltax, XYZBounds, nx, ny, nz);
+        ConvertBounds(RegionData, Units, deltax, XYZBounds, nx, ny, nz);
         // Deduce region type/orientation from the bounds given
         GetRegionTypeOrientation();
         GetRegionSize(deltax);
 
         // Check which overall stats and per grain stats should be printed for this region
-        ReadAnalysisOptionsFromList(regioncount, AnalysisData, "printStats", AnalysisOptions_Stats_key,
-                                    AnalysisOptions_StatsYN);
+        ReadAnalysisOptionsFromList(RegionData, "printStats", AnalysisOptions_Stats_key, AnalysisOptions_StatsYN);
         // PrintPerGrainStatsYN = true if any one of the options are toggled
-        ReadAnalysisOptionsFromList(regioncount, AnalysisData, "printPerGrainStats", AnalysisOptions_PerGrainStats_key,
+        ReadAnalysisOptionsFromList(RegionData, "printPerGrainStats", AnalysisOptions_PerGrainStats_key,
                                     AnalysisOptions_PerGrainStatsYN);
         int NumAnalysisOptions_PerGrainStats = AnalysisOptions_PerGrainStatsYN.size();
         for (int n = 0; n < NumAnalysisOptions_PerGrainStats; n++) {
@@ -98,18 +93,18 @@ struct RepresentativeRegion {
 
         // Layerwise stats are for volumes only
         if (regionType == "volume")
-            ReadAnalysisOptionsFromList(regioncount, AnalysisData, "printLayerwiseData",
-                                        AnalysisOptions_LayerwiseStats_key, AnalysisOptions_LayerwiseStatsYN);
+            ReadAnalysisOptionsFromList(RegionData, "printLayerwiseData", AnalysisOptions_LayerwiseStats_key,
+                                        AnalysisOptions_LayerwiseStatsYN);
         // Check other Y/N options (false by default or if not an allowed option for the region type)
-        ReadSeparateFileAnalysisOptions(regioncount, AnalysisData);
+        ReadSeparateFileAnalysisOptions(RegionData);
     }
 
-    void ReadSeparateFileAnalysisOptions(int regioncount, nlohmann::json AnalysisData) {
+    void ReadSeparateFileAnalysisOptions(nlohmann::json RegionData) {
 
         // ExaConstit print/area series prints for volumes only
         if (regionType == "volume") {
-            if (AnalysisData[regioncount].contains("printExaConstit")) {
-                PrintExaConstitYN = AnalysisData[regioncount]["printExaConstit"];
+            if (RegionData.contains("printExaConstit")) {
+                PrintExaConstitYN = RegionData["printExaConstit"];
             }
             else
                 PrintExaConstitYN = false;
@@ -119,8 +114,8 @@ struct RepresentativeRegion {
 
         // Pole figure data print for volumes and areas only
         if ((regionType == "volume") || (regionType == "area")) {
-            if (AnalysisData[regioncount].contains("printPoleFigure")) {
-                PrintPoleFigureYN = AnalysisData[regioncount]["printPoleFigure"];
+            if (RegionData.contains("printPoleFigure")) {
+                PrintPoleFigureYN = RegionData["printPoleFigure"];
             }
             else
                 PrintPoleFigureYN = false;
@@ -130,8 +125,8 @@ struct RepresentativeRegion {
 
         // IPF map data for areas only
         if (regionType == "area") {
-            if (AnalysisData[regioncount].contains("printInversePoleFigureMap")) {
-                PrintInversePoleFigureMapYN = AnalysisData[regioncount]["printInversePoleFigureMap"];
+            if (RegionData.contains("printInversePoleFigureMap")) {
+                PrintInversePoleFigureMapYN = RegionData["printInversePoleFigureMap"];
             }
             else
                 PrintInversePoleFigureMapYN = false;
@@ -176,15 +171,15 @@ struct RepresentativeRegion {
         }
     }
 
-    void ReadAnalysisOptionsFromList(int regioncount, nlohmann::json AnalysisData, std::string AnalysisType,
+    void ReadAnalysisOptionsFromList(nlohmann::json RegionData, std::string AnalysisType,
                                      std::vector<std::string> AnalysisKey, std::vector<bool> &AnalysisYN) {
-        int NumOptionsRead = AnalysisData[regioncount][AnalysisType].size();
+        int NumOptionsRead = RegionData[AnalysisType].size();
         int NumOptionsTotal = AnalysisYN.size();
         for (int i = 0; i < NumOptionsRead; i++) {
-            std::string ValueRead = AnalysisData[regioncount][AnalysisType][i];
+            std::string ValueRead = RegionData[AnalysisType][i];
             for (int j = 0; j < NumOptionsTotal; j++) {
                 std::string ValueKey = AnalysisKey[j];
-                if (AnalysisData[regioncount][AnalysisType][i] == AnalysisKey[j]) {
+                if (ValueRead == AnalysisKey[j]) {
                     AnalysisYN[j] = true;
                 }
             }
@@ -193,8 +188,8 @@ struct RepresentativeRegion {
 
     // Get the lower and upper bounds for x, y, or z, in microns, converting from whichever format (cells or microns)
     // was present in the analysis input file
-    void ConvertBounds(int regioncount, nlohmann::json AnalysisData, std::string Units, double deltax,
-                       std::vector<double> XYZBounds, int nx, int ny, int nz) {
+    void ConvertBounds(nlohmann::json RegionData, std::string Units, double deltax, std::vector<double> XYZBounds,
+                       int nx, int ny, int nz) {
 
         std::vector<std::string> BoundDirections = {"x", "y", "z"};
         for (int dir = 0; dir < 3; dir++) {
@@ -207,13 +202,12 @@ struct RepresentativeRegion {
             std::vector<double> Bounds_Read(2);
             std::string onebound = boundtype + "Bound";
             std::string twobounds = boundtype + "Bounds";
-            if ((AnalysisData[regioncount].contains(onebound)) && (AnalysisData[regioncount].contains(twobounds))) {
+            if ((RegionData.contains(onebound)) && (RegionData.contains(twobounds))) {
                 std::string error =
                     "Error: region for analysis cannot have values for both " + onebound + " and " + twobounds;
                 throw std::runtime_error(error);
             }
-            else if ((!AnalysisData[regioncount].contains(onebound)) &&
-                     (!AnalysisData[regioncount].contains(twobounds))) {
+            else if ((!RegionData.contains(onebound)) && (!RegionData.contains(twobounds))) {
                 Bounds_Read[0] = 0;
                 if (Units == "Meters") {
                     if (dir == 0)
@@ -234,13 +228,13 @@ struct RepresentativeRegion {
                 else
                     throw std::runtime_error("Error: Invalid units in ConvertBounds, should be Meters or Cells");
             }
-            if (AnalysisData[regioncount].contains(onebound)) {
-                Bounds_Read[0] = AnalysisData[regioncount][onebound];
+            if (RegionData.contains(onebound)) {
+                Bounds_Read[0] = RegionData[onebound];
                 Bounds_Read[1] = Bounds_Read[0];
             }
-            else if (AnalysisData[regioncount].contains(twobounds)) {
-                Bounds_Read[0] = AnalysisData[regioncount][twobounds][0];
-                Bounds_Read[1] = AnalysisData[regioncount][twobounds][1];
+            else if (RegionData.contains(twobounds)) {
+                Bounds_Read[0] = RegionData[twobounds][0];
+                Bounds_Read[1] = RegionData[twobounds][1];
             }
             // Obtain bounds in both cell units and coordinates
             std::vector<int> Bounds_Cells(2);

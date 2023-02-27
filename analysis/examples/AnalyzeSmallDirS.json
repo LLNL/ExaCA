@@ -1,28 +1,27 @@
-[
-    {
-        "regionName": "RepresentativeVolume",
-        "units": "Cells",
-        "xBounds": [5, 45],
-        "yBounds": [5, 45],
-        "zBounds": [1, 49],
-        "printExaConstit": false,
-        "printPoleFigure": true,
-        "printStats": ["GrainTypeFractions","Misorientation","Size", "BuildTransAspectRatio","Extent"],
-        "printPerGrainStats": ["Misorientation","Size","ZExtent"],
-        "printLayerwiseData": ["MeanGrainArea","MeanWeightedGrainArea"]
-    },
-    {
-        "regionName": "XYCross",
-        "units": "Cells",
-        "zBound": 45,
-        "printPoleFigure": true,
-        "printInversePoleFigureMap": true
-    },
-    {
-        "regionName": "XZCross",
-        "units": "Cells",
-        "yBound": 10,
-        "printPoleFigure": false,
-        "printInversePoleFigureMap": true
+{
+    "Regions": {
+        "RepresentativeVolume": {
+            "units": "Cells",
+            "xBounds": [5, 45],
+            "yBounds": [5, 45],
+            "zBounds": [1, 49],
+            "printExaConstit": false,
+            "printPoleFigure": true,
+            "printStats": ["GrainTypeFractions","Misorientation","Size", "BuildTransAspectRatio","Extent"],
+            "printPerGrainStats": ["Misorientation","Size","ZExtent"],
+            "printLayerwiseData": ["MeanGrainArea","MeanWeightedGrainArea"]
+        },
+        "XYCross": {
+            "units": "Cells",
+            "zBound": 45,
+            "printPoleFigure": true,
+            "printInversePoleFigureMap": true
+        },
+        "XZCross": {
+            "units": "Cells",
+            "yBound": 10,
+            "printPoleFigure": false,
+            "printInversePoleFigureMap": true
+        }
     }
-]
+}

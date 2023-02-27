@@ -193,7 +193,11 @@ Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output
 ```
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
 ```
-Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file.
+Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file. Alternatively, if JSON is enabled, running the test problem `Inp_DirSolidification.json` yields the output files `TestProblemDirS.vtk` (containing LayerID, GrainID, and Melted data) and `TestProblemDirS.json` (containing information regarding the simulation parameters used, simulation dimensions, and some timing data), and the analysis executable can be run with:
+
+./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.json TestProblemDirS
+
+Note that in this case, a second command line argument is necessary, providing the path to/base name of the microstructure data
 
 ## Citing ExaCA
 

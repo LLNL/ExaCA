@@ -96,7 +96,7 @@ void writePoleFigure_Old(std::string BaseFileName, std::string RegionLabel, int 
 void writePoleFigure(std::string BaseFileNameThisRegion, int NumberOfOrientations, ViewF_H GrainEulerAngles,
                      ViewI_H GOHistogram);
 #ifdef ExaCA_ENABLE_JSON
-void printAnalysisHeader_Volume(std::ofstream &QoIs, RepresentativeRegion representativeRegion);
+void printAnalysisHeader_Volume(std::ofstream &QoIs, std::string RegionName, RepresentativeRegion representativeRegion);
 void writeIPFColoredCrossSection(std::string BaseFileNameThisRegion, RepresentativeRegion representativeRegion,
                                  ViewI3D_H GrainID, ViewF_H GrainEulerAngles, double deltax, int NumberOfOrientations);
 void writePerGrainStats(std::string OutputFileName, std::vector<int> UniqueGrainIDVector,

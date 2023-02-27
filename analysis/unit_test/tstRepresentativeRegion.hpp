@@ -26,29 +26,29 @@ void testConstructRepresentativeRegion_Volume() {
     // Write out example data
     std::ofstream TestData;
     TestData.open("TestVolume.json");
-    TestData << "[" << std::endl;
     TestData << "{" << std::endl;
-    TestData << "   \"regionName\": \"RepresentativeVolume\"," << std::endl;
-    TestData << "   \"units\": \"Cells\"," << std::endl;
-    TestData << "   \"xBounds\": [0, 4]," << std::endl;
-    TestData << "   \"yBounds\": [1, 10]," << std::endl;
-    TestData << "   \"zBounds\": [0, 9]," << std::endl;
-    TestData << "   \"printExaConstit\": false," << std::endl;
-    TestData << "   \"printPoleFigure\": true," << std::endl;
-    TestData << "   \"printStats\": [\"GrainTypeFractions\", \"Misorientation\", \"Size\", \"BuildTransAspectRatio\", "
-                "\"Extent\"],"
+    TestData << "   \"Regions\": {" << std::endl;
+    TestData << "       \"RepresentativeVolume\": {" << std::endl;
+    TestData << "          \"units\": \"Cells\"," << std::endl;
+    TestData << "          \"xBounds\": [0, 4]," << std::endl;
+    TestData << "          \"yBounds\": [1, 10]," << std::endl;
+    TestData << "          \"zBounds\": [0, 9]," << std::endl;
+    TestData << "          \"printExaConstit\": false," << std::endl;
+    TestData << "          \"printPoleFigure\": true," << std::endl;
+    TestData << "          \"printStats\": [\"GrainTypeFractions\", \"Misorientation\", \"Size\", "
+                "\"BuildTransAspectRatio\", \"XExtent\", \"YExtent\", \"ZExtent\"],"
              << std::endl;
-    TestData << "   \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]," << std::endl;
-    TestData << "   \"printLayerwiseData\": [\"MeanGrainArea\", \"MeanWeightedGrainArea\"]" << std::endl;
+    TestData << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]," << std::endl;
+    TestData << "          \"printLayerwiseData\": [\"MeanGrainArea\", \"MeanWeightedGrainArea\"]" << std::endl;
+    TestData << "      }" << std::endl;
+    TestData << "   }" << std::endl;
     TestData << "}" << std::endl;
-    TestData << "]" << std::endl;
-
     TestData.close();
 
     // Read in test data
     std::ifstream AnalysisDataStream("TestVolume.json");
     nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
-
+    nlohmann::json RegionData = AnalysisData["Regions"]["RepresentativeVolume"];
     // Domain bounds
     const int nx = 20;
     const int ny = 30;
@@ -63,10 +63,9 @@ void testConstructRepresentativeRegion_Volume() {
     std::vector<double> XYZBounds = {XMin, YMin, ZMin, XMax, YMax, ZMax};
 
     // Construct region
-    RepresentativeRegion representativeRegion(0, AnalysisData, nx, ny, nz, deltax, XYZBounds);
+    RepresentativeRegion representativeRegion(RegionData, nx, ny, nz, deltax, XYZBounds);
 
     // Check results
-    EXPECT_TRUE(representativeRegion.regionName == "RepresentativeVolume");
     EXPECT_TRUE(representativeRegion.regionType == "volume");
     EXPECT_TRUE(representativeRegion.regionOrientation == "XYZ");
     EXPECT_DOUBLE_EQ(representativeRegion.xBounds_Meters[0], XMin);
@@ -115,22 +114,24 @@ void testConstructRepresentativeRegion_Area() {
     // Write out example data
     std::ofstream TestData;
     TestData.open("TestArea.json");
-    TestData << "[" << std::endl;
     TestData << "{" << std::endl;
-    TestData << "   \"regionName\": \"RepresentativeArea\"," << std::endl;
-    TestData << "   \"units\": \"Meters\"," << std::endl;
-    TestData << "   \"zBound\": 0.000005," << std::endl;
-    TestData << "   \"printPoleFigure\": true," << std::endl;
-    TestData << "   \"printInversePoleFigureMap\": true," << std::endl;
-    TestData << "   \"printStats\": [\"GrainTypeFractions\"]," << std::endl;
-    TestData << "   \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]" << std::endl;
+    TestData << "   \"Regions\": {" << std::endl;
+    TestData << "       \"RepresentativeArea\": {" << std::endl;
+    TestData << "          \"units\": \"Meters\"," << std::endl;
+    TestData << "          \"zBound\": 0.000005," << std::endl;
+    TestData << "          \"printPoleFigure\": true," << std::endl;
+    TestData << "          \"printInversePoleFigureMap\": true," << std::endl;
+    TestData << "          \"printStats\": [\"GrainTypeFractions\"]," << std::endl;
+    TestData << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]" << std::endl;
+    TestData << "      }" << std::endl;
+    TestData << "   }" << std::endl;
     TestData << "}" << std::endl;
-    TestData << "]" << std::endl;
     TestData.close();
 
     // Read in test data
     std::ifstream AnalysisDataStream("TestArea.json");
     nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
+    nlohmann::json RegionData = AnalysisData["Regions"]["RepresentativeArea"];
 
     // Domain bounds
     const int nx = 10;
@@ -146,10 +147,9 @@ void testConstructRepresentativeRegion_Area() {
     std::vector<double> XYZBounds = {XMin, YMin, ZMin, XMax, YMax, ZMax};
 
     // Construct region
-    RepresentativeRegion representativeRegion(0, AnalysisData, nx, ny, nz, deltax, XYZBounds);
+    RepresentativeRegion representativeRegion(RegionData, nx, ny, nz, deltax, XYZBounds);
 
     // Check results
-    EXPECT_TRUE(representativeRegion.regionName == "RepresentativeArea");
     EXPECT_TRUE(representativeRegion.regionType == "area");
     EXPECT_TRUE(representativeRegion.regionOrientation == "XY");
     EXPECT_DOUBLE_EQ(representativeRegion.xBounds_Meters[0], XMin);

@@ -35,10 +35,11 @@ void printAnalysisHeader_Volume_Old(std::ofstream &QoIs, const int XLow, const i
 }
 
 #ifdef ExaCA_ENABLE_JSON
-void printAnalysisHeader_Volume(std::ofstream &QoIs, RepresentativeRegion representativeRegion) {
+void printAnalysisHeader_Volume(std::ofstream &QoIs, std::string RegionName,
+                                RepresentativeRegion representativeRegion) {
 
-    std::cout << "Stats for " << representativeRegion.regionName << " volume:" << std::endl;
-    QoIs << "Stats for " << representativeRegion.regionName << " volume:" << std::endl;
+    std::cout << "Stats for " << RegionName << " volume:" << std::endl;
+    QoIs << "Stats for " << RegionName << " volume:" << std::endl;
     std::cout << "The representative volume specified is bounded by X = [" << representativeRegion.xBounds_Meters[0]
               << "," << representativeRegion.xBounds_Meters[1] << "], Y = [" << representativeRegion.yBounds_Meters[0]
               << "," << representativeRegion.yBounds_Meters[1] << "], and Z = ["
@@ -355,6 +356,7 @@ void writeAreaSeries(bool PrintWeightedAreas, bool PrintUnweightedAreas, std::st
     if (PrintWeightedAreas) {
         std::cout << "Printing file " << FName2
                   << " of weighted grain area values (in square microns) for every 5th Z coordinate" << std::endl;
+        std::cout << "Note: Option to print weighted grain area data will be removed in a future release" << std::endl;
         Grainplot2.open(FName2);
         Grainplot2 << "Zcoordinate(µm),WeightedMeanArea(µm2)" << std::endl;
     }
