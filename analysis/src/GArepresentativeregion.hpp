@@ -80,7 +80,7 @@ struct RepresentativeRegion {
         GetRegionSize(deltax);
 
         // Check which overall stats and per grain stats should be printed for this region
-        ReadAnalysisOptionsFromList(RegionData, "printStats", AnalysisOptions_Stats_key, AnalysisOptions_StatsYN);
+        ReadAnalysisOptionsFromList(RegionData, "printAvgStats", AnalysisOptions_Stats_key, AnalysisOptions_StatsYN);
         // PrintPerGrainStatsYN = true if any one of the options are toggled
         ReadAnalysisOptionsFromList(RegionData, "printPerGrainStats", AnalysisOptions_PerGrainStats_key,
                                     AnalysisOptions_PerGrainStatsYN);
@@ -93,7 +93,7 @@ struct RepresentativeRegion {
 
         // Layerwise stats are for volumes only
         if (regionType == "volume")
-            ReadAnalysisOptionsFromList(RegionData, "printLayerwiseData", AnalysisOptions_LayerwiseStats_key,
+            ReadAnalysisOptionsFromList(RegionData, "printPerLayerStats", AnalysisOptions_LayerwiseStats_key,
                                         AnalysisOptions_LayerwiseStatsYN);
         // Check other Y/N options (false by default or if not an allowed option for the region type)
         ReadSeparateFileAnalysisOptions(RegionData);

@@ -188,16 +188,19 @@ Specifying debug check options can be done to print various ExaCA data fields to
 
 ExaCA can optionally print the system state at intermediate time values as part of a series of vtk files that can be read by Paraview to make animations, if the "Print intermediate output frames" option is turned on. "Increment to separate frames" is the separation between intermediate output files in microseconds - if there is a long time period between solidification events (such as two overlapping melt pools formed via line scan with a long dwell time between them), setting "Intermediate output even if system is unchanged from previous state" to off will skip printing of those files.
 
-Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` (containing LayerID, GrainID, and Melted data) and `TestProblemDirS.log` (containing information regarding the simulation parameters used, simulation dimensions, and some timing data). To analyze this data, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with one command line argument pointing to the analysis input file. Within the `analysis/examples` directory, there are example analysis input files:
+Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` (containing LayerID, GrainID, and Melted data) and `TestProblemDirS.json` (containing information regarding the simulation parameters used, simulation dimensions, and some timing data). To analyze this data, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with two command line arguments: the first being the path to/name of the analysis input file, and the second being the path to and filename (excluding extensions) of the .vtk and .json files associated with the data set of interest.
+
+```
+./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.json TestProblemDirS
+```
+Within the `analysis/examples` directory, there are example analysis input files. Note that the microstructure data files `TestProblemDirS.vtk` and `TestProblemDirS.json` must both be in the location given on the command line. 
+
+Alternatively, if JSON is not enabled, running the test problem `Inp_DirSolidification.json` yields the output file `TestProblemDirS.log` rather than `TestProblemDirS.json`. To analyze the data without using JSON formatting, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with one command line argument pointing to the analysis input file (example analysis input files not in JSON format are also available in `analysis/examples`)
 
 ```
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
 ```
-Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file. Alternatively, if JSON is enabled, running the test problem `Inp_DirSolidification.json` yields the output files `TestProblemDirS.vtk` (containing LayerID, GrainID, and Melted data) and `TestProblemDirS.json` (containing information regarding the simulation parameters used, simulation dimensions, and some timing data), and the analysis executable can be run with:
-
-./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.json TestProblemDirS
-
-Note that in this case, a second command line argument is necessary, providing the path to/base name of the microstructure data
+Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file, and not provided on the command line as with JSON formatting of log and analysis files.
 
 ## Citing ExaCA
 

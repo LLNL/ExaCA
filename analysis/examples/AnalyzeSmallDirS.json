@@ -7,9 +7,9 @@
             "zBounds": [1, 49],
             "printExaConstit": false,
             "printPoleFigure": true,
-            "printStats": ["GrainTypeFractions","Misorientation","Size", "BuildTransAspectRatio","Extent"],
+            "printAvgStats": ["GrainTypeFractions","Misorientation","Size", "BuildTransAspectRatio","Extent"],
             "printPerGrainStats": ["Misorientation","Size","ZExtent"],
-            "printLayerwiseData": ["MeanGrainArea","MeanWeightedGrainArea"]
+            "printPerLayerStats": ["MeanGrainArea","MeanWeightedGrainArea"]
         },
         "XYCross": {
             "units": "Cells",
