@@ -102,13 +102,13 @@ jobs:
           mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt_RM.${{ matrix.input }}
       - name: Test GA
         working-directory: analysis/examples
-        if: ${{ matrix.input == "txt" }}
+        if: ${{ matrix.input == 'txt' }}
         run: |
            $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.txt
            $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.txt
       - name: Test GAJSON
         working-directory: analysis/examples
-        if: ${{ matrix.input == "json" }}
+        if: ${{ matrix.input == 'json' }}
         run: |
            $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.json
            $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.json TestProblemSmallDirS
