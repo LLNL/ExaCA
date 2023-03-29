@@ -109,6 +109,6 @@ jobs:
       - name: Test GAJSON
 	 working-directory: analysis/examples
          if: ${{ matrix.input == "json" }}
-         run: |
+         run: |
             $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.json
             $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.json TestProblemSmallDirS
