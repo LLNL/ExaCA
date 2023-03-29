@@ -57,36 +57,37 @@ for filenumber in range(1, 70):
     S0ThisMember = S0Mean + S0Dev * points[filenumber-1,2]
     
     # Write to example file number "filenumber"
-    filename = "examples/Inp_TasmanianTest_" + str(filenumber) + ".json"
+    filename = 'examples/Inp_TasmanianTest_' + str(filenumber) + '.json'
     with open(filename, "w") as f:
-        OutputData = ["{ \n",
-        "   \"SimulationType\": \"RM\",\n",
-        "   \"MaterialFileName\": \"Inconel625.json\",\n",
-        "   \"GrainOrientationFile\": \"GrainOrientationVectors.csv\",\n",
-        "   \"RandomSeed\": 0.0, \n",
-        "   \"Domain\": { \n",
-        "      \"CellSize\": 2.5, \n",
-        "      \"TimeStep\": 0.125, \n",
-        "      \"NumberOfLayers\": 56, \n",
-        "      \"LayerOffset\": 8 \n",
-        "   }, \n",
-        "   \"Nucleation\": { \n",
-        "      \"Density\": " + str(N0ThisMember) + ",\n",
-        "      \"MeanUndercooling\": " + str(dTNThisMember) + ",\n",
-        "      \"StDev\": 0.5 \n"
-        "   }, \n",
-        "   \"TemperatureData\": { \n",
-        "      \"TemperatureFiles\": " + TemperatureFiles + "\n"
-        "   }, \n",
-        "   \"Substrate\": { \n",
-        "      \"MeanSize\": " + str(S0ThisMember) + ",\n",
-        "      \"PowderDensity\": 0 \n"
-        "   }, \n",
-        "   \"Printing\": { \n",
-        "      \"PathToOutput\": \"./\" ,\n",
-        "      \"OutputFile\": \"TasmanianTest_" + str(filenumber) + "\"" ",\n",
-        "      \"PrintBinary\": true,\n",
-        "      \"PrintFieldsInit\": [],\n",
-        "      \"PrintFieldsFinal\": [\"GrainID\", \"LayerID\", \"GrainMisorientation\"] \n",
-        "   } \n"]
+        OutputData = ['{ \n',
+        '   "SimulationType": "RM",\n',
+        '   "MaterialFileName": "Inconel625.json",\n',
+        '   "GrainOrientationFile": "GrainOrientationVectors.csv",\n',
+        '   "RandomSeed": 0.0, \n',
+        '   "Domain": { \n',
+        '      "CellSize": 2.5, \n',
+        '      "TimeStep": 0.125, \n',
+        '      "NumberOfLayers": 56, \n',
+        '      "LayerOffset": 8 \n',
+        '   }, \n',
+        '   "Nucleation": { \n',
+        '      "Density": ' + str(N0ThisMember) + ',\n',
+        '      "MeanUndercooling": ' + str(dTNThisMember) + ',\n',
+        '      "StDev": 0.5 \n'
+        '   }, \n',
+        '   "TemperatureData": { \n',
+        '      "TemperatureFiles\": ' + TemperatureFiles + '\n'
+        '   }, \n',
+        '   "Substrate": { \n',
+        '      "MeanSize": ' + str(S0ThisMember) + ',\n',
+        '      "PowderDensity": 0 \n'
+        '   }, \n',
+        '   "Printing": { \n',
+        '      "PathToOutput": ./\n',
+        '      "OutputFile": "TasmanianTest_' + str(filenumber) + '",\n',
+        '      "PrintBinary": true,\n',
+        '      "PrintFieldsInit": [],\n',
+        '      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"] \n',
+        '   } \n',
+        '}']
         f.writelines(OutputData)
