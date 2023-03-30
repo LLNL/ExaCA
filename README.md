@@ -193,7 +193,9 @@ Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output
 ```
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
 ```
-Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file. More information about running the analysis executable is located in `analysis/README.md`
+Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file. More information about running the analysis executable and the grain structure stats collected during the run is located in `analysis/README.md`
+
+The analysis executable, in addition to outputting grain statistics, can also output files that can be further post-processing in Matlab using the MTEX toolbox to generate pole figures, inverse pole figures, and inverse pole figure-colored cross-sections. More details on this are provided in `analysis/README.md`
 
 ## Citing ExaCA
 
