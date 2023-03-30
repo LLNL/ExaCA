@@ -1,3 +1,8 @@
+% Copyright 2021-2023 Lawrence Livermore National Security, LLC, and other ExaCA Project Developers.
+% See the `utilities/MTEX` LICENSE file for details.
+%
+% SPDX-License-Identifier: MIT
+
 function [] = PlotPoleFigure(MTEXFile, ColormapFile, ColormapUpperLimit)
 
     % Script created by Matt Rolchigo (ORNL) and Adam Creuziger (NIST)
