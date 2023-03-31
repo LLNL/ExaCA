@@ -71,17 +71,19 @@ void testSubstrateInit_ConstrainedGrowth() {
     ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
     ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
 
-    // Buffer sizes
-    int BufSizeX = nx;
-    int BufSizeZ = nzActive;
+    // Buffer size estimate
+    int BufSize = nx * nzActive;
 
     // Send/recv buffers for ghost node data should be initialized with zeros
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 6);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 6);
+    Buffer2D BufferSouthSend("BufferSouthSend", BufSize, 8);
+    Buffer2D BufferNorthSend("BufferNorthSend", BufSize, 8);
+    // Init to 0
+    ViewI SendSizeNorth("SendSizeNorth", 1);
+    ViewI SendSizeSouth("SendSizeSouth", 1);
     SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
                                     NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID, DiagonalLength,
                                     DOCenter, CritDiagonalLength, RNGSeed, np, BufferNorthSend, BufferSouthSend,
-                                    BufSizeX, AtNorthBoundary, AtSouthBoundary);
+                                    SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, BufSize);
 
     // Copy CellType, GrainID views to host to check values
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
@@ -307,17 +309,28 @@ void testCellTypeInit_NoRemelt() {
     ViewI CellType(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalDomainSize);
 
     // Buffers for ghost node data (fixed size)
-    int BufSizeX = nx;
+    int BufSize = nx * nzActive;
 
-    // Send buffers for ghost node data should be initialized with zeros
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * nzActive, 6);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * nzActive, 6);
+    // Send buffers for ghost node data should be initialized with -1s
+    Buffer2D BufferSouthSend("BufferSouthSend", BufSize, 8);
+    Buffer2D BufferNorthSend("BufferNorthSend", BufSize, 8);
+    Kokkos::parallel_for(
+        "BufferReset", BufSize, KOKKOS_LAMBDA(const int &i) {
+            BufferNorthSend(i, 0) = -1.0;
+            BufferSouthSend(i, 0) = -1.0;
+        });
+    // Init sizes to zero
+    ViewI SendSizeSouth("SendSizeSouth", 1);
+    ViewI SendSizeNorth("SendSizeNorth", 1);
+    ViewI RecvSizeSouth("RecvSizeSouth", 1);
+    ViewI RecvSizeNorth("RecvSizeNorth", 1);
 
     // Initialize cell types and active cell data structures
     CellTypeInit_NoRemelt(layernumber, id, np, nx, MyYSlices, MyYOffset, ZBound_Low, nz, LocalActiveDomainSize,
                           LocalDomainSize, CellType, CritTimeStep, NeighborX, NeighborY, NeighborZ, NGrainOrientations,
                           GrainUnitVector, DiagonalLength, GrainID, CritDiagonalLength, DOCenter, LayerID,
-                          BufferNorthSend, BufferSouthSend, BufSizeX, AtNorthBoundary, AtSouthBoundary);
+                          BufferNorthSend, BufferSouthSend, AtNorthBoundary, AtSouthBoundary, SendSizeNorth,
+                          SendSizeSouth, BufSize);
 
     // Copy views back to host to check the results
     ViewF_H DiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DiagonalLength);
@@ -374,46 +387,46 @@ void testCellTypeInit_NoRemelt() {
 
     auto BufferSouthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthSend);
     auto BufferNorthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
-    // Further check that active cell data was properly loaded into send buffers, and that locations in the send buffers
-    // not corresponding to active cells were left alone (should still be 0s)
-    for (int k = ZBound_Low; k <= ZBound_High; k++) {
-        for (int i = 0; i < nx; i++) {
-            int GNPosition = (k - ZBound_Low) * BufSizeX + i; // Position of cell in buffer
-            // Check the south buffer - Data being sent to the "south" (BufferSouthSend) is from active cells at Y = 1
-            int D3D1ConvPositionGlobal_South = k * nx * MyYSlices + i * MyYSlices + 1; // Position of cell on grid
-            if ((CellType_Host(D3D1ConvPositionGlobal_South) == Active) && (!(AtSouthBoundary))) {
-                int MyGrainOrientation = static_cast<int>(BufferSouthSend_H(GNPosition, 0));
-                int MyGrainNumber = static_cast<int>(BufferSouthSend_H(GNPosition, 1));
-                int ExpectedGrainID = getGrainID(NGrainOrientations, MyGrainOrientation, MyGrainNumber);
-                EXPECT_EQ(ExpectedGrainID, 1);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 2), i + 0.5);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 3), 1 + MyYOffset + 0.5);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 4), k + 0.5);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 5), 0.01);
-            }
-            else {
-                for (int l = 0; l < 6; l++) {
-                    EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, l), 0.0);
-                }
-            }
-            // Check the north buffer - Data being sent to the "north" (BufferNorthSend) is from active cells at Y = 2
-            int D3D1ConvPositionGlobal_North = k * nx * MyYSlices + i * MyYSlices + 2;
-            if ((CellType_Host(D3D1ConvPositionGlobal_North) == Active) && (!(AtNorthBoundary))) {
-                int MyGrainOrientation = static_cast<int>(BufferNorthSend_H(GNPosition, 0));
-                int MyGrainNumber = static_cast<int>(BufferNorthSend_H(GNPosition, 1));
-                int ExpectedGrainID = getGrainID(NGrainOrientations, MyGrainOrientation, MyGrainNumber);
-                EXPECT_EQ(ExpectedGrainID, 1);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 2), i + 0.5);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 3), 2 + MyYOffset + 0.5);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 4), k + 0.5);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 5), 0.01);
-            }
-            else {
-                for (int l = 0; l < 6; l++) {
-                    EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, l), 0.0);
-                }
-            }
+
+    // Get the number of cells' worth of data that should've been exchanged from each neighbor
+    auto SendSizeSouth_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeSouth);
+    auto SendSizeNorth_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeNorth);
+
+    std::cout << "Rank " << id << "/" << np << " has " << SendSizeSouth_H(0) << " in south and " << SendSizeNorth_H(0)
+              << " in north" << std::endl;
+    for (int BufPosition = 0; BufPosition < SendSizeSouth_H(0); BufPosition++) {
+        for (int n = 0; n < 8; n++) {
+            std::cout << "Rank " << id << "/" << np << " has " << BufferSouthSend_H(BufPosition, n) << " for cell "
+                      << BufPosition << " and position " << n << std::endl;
         }
+    }
+    // Further check that active cell data was properly loaded into send buffers, and that locations in the send buffers
+    // not corresponding to active cells were left alone (should still be -1s)
+    for (int BufPosition = 0; BufPosition < SendSizeSouth_H(0); BufPosition++) {
+        int RankX = static_cast<int>(BufferSouthSend_H(BufPosition, 0));
+        int RankZ = static_cast<int>(BufferSouthSend_H(BufPosition, 1));
+        EXPECT_EQ(static_cast<int>(BufferSouthSend_H(BufPosition, 2)), 1); // Grain orientation should be 1
+        EXPECT_EQ(static_cast<int>(BufferSouthSend_H(BufPosition, 3)), 1); // Grain number should be 1
+        EXPECT_FLOAT_EQ(BufferSouthSend_H(BufPosition, 4), RankX + 0.5);
+        EXPECT_FLOAT_EQ(BufferSouthSend_H(BufPosition, 5), 1 + MyYOffset + 0.5);
+        EXPECT_FLOAT_EQ(BufferSouthSend_H(BufPosition, 6), RankZ + ZBound_Low + 0.5);
+        EXPECT_FLOAT_EQ(BufferSouthSend_H(BufPosition, 7), 0.01);
+    }
+    for (int BufPosition = SendSizeSouth_H(0); BufPosition < BufSize; BufPosition++) {
+        EXPECT_EQ(static_cast<int>(BufferSouthSend_H(BufPosition, 0)), -1); // Should still be -1 from init
+    }
+    for (int BufPosition = 0; BufPosition < SendSizeNorth_H(0); BufPosition++) {
+        int RankX = static_cast<int>(BufferNorthSend_H(BufPosition, 0));
+        int RankZ = static_cast<int>(BufferNorthSend_H(BufPosition, 1));
+        EXPECT_EQ(static_cast<int>(BufferNorthSend_H(BufPosition, 2)), 1); // Grain orientation should be 1
+        EXPECT_EQ(static_cast<int>(BufferNorthSend_H(BufPosition, 3)), 1); // Grain number should be 1
+        EXPECT_FLOAT_EQ(BufferNorthSend_H(BufPosition, 4), RankX + 0.5);
+        EXPECT_FLOAT_EQ(BufferNorthSend_H(BufPosition, 5), 2 + MyYOffset + 0.5);
+        EXPECT_FLOAT_EQ(BufferNorthSend_H(BufPosition, 6), RankZ + ZBound_Low + 0.5);
+        EXPECT_FLOAT_EQ(BufferNorthSend_H(BufPosition, 7), 0.01);
+    }
+    for (int BufPosition = SendSizeNorth_H(0); BufPosition < BufSize; BufPosition++) {
+        EXPECT_EQ(static_cast<int>(BufferNorthSend_H(BufPosition, 0)), -1); // Should still be -1 from init
     }
 }
 

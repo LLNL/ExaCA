@@ -155,15 +155,23 @@ void testGhostNodes1D() {
     ViewF CritDiagonalLength = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritDiagonalLength_Host);
     ViewF DOCenter = Kokkos::create_mirror_view_and_copy(device_memory_space(), DOCenter_Host);
 
-    // Buffer sizes
-    int BufSizeX = MyXSlices;
-    int BufSizeZ = nzActive;
+    // Buffer size large enough to hold all data
+    int BufSize = MyXSlices * nzActive;
 
-    // Send/recv buffers for ghost node data should be initialized with zeros
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 6);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 6);
-    Buffer2D BufferSouthRecv("BufferSouthRecv", BufSizeX * BufSizeZ, 6);
-    Buffer2D BufferNorthRecv("BufferNorthRecv", BufSizeX * BufSizeZ, 6);
+    // Send/recv buffers for ghost node data should be initialized with -1s in the first index as placeholders for empty
+    // positions in the buffer
+    Buffer2D BufferSouthSend("BufferSouthSend", BufSize, 8);
+    Buffer2D BufferNorthSend("BufferNorthSend", BufSize, 8);
+    Kokkos::parallel_for(
+        "BufferReset", BufSize, KOKKOS_LAMBDA(const int &i) {
+            BufferNorthSend(i, 0) = -1.0;
+            BufferSouthSend(i, 0) = -1.0;
+        });
+    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
+    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, 8);
+    // Init to zero
+    ViewI SendSizeSouth("SendSizeSouth", 1);
+    ViewI SendSizeNorth("SendSizeNorth", 1);
 
     // Fill send buffers
     Kokkos::parallel_for(
@@ -181,17 +189,16 @@ void testGhostNodes1D() {
                 float GhostDOCY = DOCenter(3 * D3D1ConvPosition + 1);
                 float GhostDOCZ = DOCenter(3 * D3D1ConvPosition + 2);
                 float GhostDL = DiagonalLength(D3D1ConvPosition);
-                loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX, RankY,
-                               RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
-                               NGrainOrientations);
+                loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
+                               MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                               BufferNorthSend, NGrainOrientations);
             }
         });
 
-    // Perform halo exchange in 1D
-    GhostNodes1D(0, 0, NeighborRank_North, NeighborRank_South, MyXSlices, MyYSlices, MyYOffset, NeighborX, NeighborY,
+    GhostNodes1D(0, id, NeighborRank_North, NeighborRank_South, MyXSlices, MyYSlices, MyYOffset, NeighborX, NeighborY,
                  NeighborZ, CellType, DOCenter, GrainID, GrainUnitVector, DiagonalLength, CritDiagonalLength,
-                 NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSizeX,
-                 BufSizeZ, ZBound_Low);
+                 NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize,
+                 ZBound_Low, SendSizeNorth, SendSizeSouth);
 
     // Copy CellType, GrainID, DiagonalLength, DOCenter, CritDiagonalLength views to host to check values
     CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
@@ -241,8 +248,238 @@ void testGhostNodes1D() {
     }
 }
 
+void testResizeRefillBuffers() {
+    using memory_space = TEST_MEMSPACE;
+    using view_type_float = Kokkos::View<float *, memory_space>;
+    using view_type_int = Kokkos::View<int *, memory_space>;
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    // MPI rank locations relative to the global grid
+    bool AtNorthBoundary, AtSouthBoundary;
+    if (id == 0)
+        AtSouthBoundary = true;
+    else
+        AtSouthBoundary = false;
+    if (id == np - 1)
+        AtNorthBoundary = true;
+    else
+        AtNorthBoundary = false;
+
+    // 3 by 4 by 10 domain, only the top half of it is part of the current layer
+    // Each rank has a portion of the domain subdivided in the Y direction
+    int nx = 3;
+    int MyYSlices = 4;
+    int nz = 10;
+    int ZBound_Low = 5;
+    int nzActive = 5;
+    int LocalActiveDomainSize = nx * MyYSlices * nzActive;
+    int LocalDomainSize = nx * MyYSlices * nz;
+    int NGrainOrientations = 10000;
+
+    // Allocate device views: entire domain on each rank
+    // Default to wall cells (CellType(index) = 0) with GrainID of 0
+    view_type_int GrainID("GrainID", LocalDomainSize);
+    view_type_int CellType("CellType", LocalDomainSize);
+    // Allocate device views: only the active layer on each rank
+    view_type_float DiagonalLength("DiagonalLength", LocalActiveDomainSize);
+    view_type_float DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
+
+    // Create send/receive buffers with a buffer size too small to hold all of the active cell data
+    int BufSize = 1;
+    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, 8);
+    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, 8);
+    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
+    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, 8);
+    // Init counts to 0 on device
+    view_type_int SendSizeSouth("SendSizeSouth", 1);
+    view_type_int SendSizeNorth("SendSizeNorth", 1);
+    // Allocate counts on host (no init needed, will be copied from device)
+    ViewI_H SendSizeSouth_Host(Kokkos::ViewAllocateWithoutInitializing("SendSizeSouth_Host"), 1);
+    ViewI_H SendSizeNorth_Host(Kokkos::ViewAllocateWithoutInitializing("SendSizeNorth_Host"), 1);
+
+    // Start with 2 cells in the current layer active (one in each buffer), GrainID equal to the X coordinate, Diagonal
+    // length equal to the Y coordinate, octahedron center at (x + 0.5, y + 0.5, z + 0.5)
+    Kokkos::parallel_for(
+        "InitDomainActiveCellsNorth", 1, KOKKOS_LAMBDA(const int &) {
+            int RankX = 1;
+            int RankY = MyYSlices - 2;
+            int RankZ = 0;
+            int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = (RankZ + ZBound_Low) * nx * MyYSlices + RankX * MyYSlices + RankY;
+            CellType(GlobalD3D1ConvPosition) = Active;
+            GrainID(GlobalD3D1ConvPosition) = RankX;
+            int GhostGID = RankX;
+            DOCenter(3 * D3D1ConvPosition) = RankX + 0.5;
+            float GhostDOCX = RankX + 0.5;
+            DOCenter(3 * D3D1ConvPosition + 1) = RankY + 0.5;
+            float GhostDOCY = RankY + 0.5;
+            DOCenter(3 * D3D1ConvPosition + 2) = RankZ + 0.5;
+            float GhostDOCZ = RankZ + 0.5;
+            DiagonalLength(D3D1ConvPosition) = static_cast<float>(RankY);
+            float GhostDL = static_cast<float>(RankY);
+            // Load into appropriate buffers
+            bool DataFitsInBuffer =
+                loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
+                               MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                               BufferNorthSend, NGrainOrientations, BufSize);
+            if (!(DataFitsInBuffer))
+                throw std::runtime_error("Error: North send buffer overflowed too soon in testResizeRefillBuffers");
+        });
+    Kokkos::parallel_for(
+        "InitDomainActiveCellsSouth", 1, KOKKOS_LAMBDA(const int &) {
+            int RankX = 1;
+            int RankY = 1;
+            int RankZ = 0;
+            int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = (RankZ + ZBound_Low) * nx * MyYSlices + RankX * MyYSlices + RankY;
+            CellType(GlobalD3D1ConvPosition) = Active;
+            GrainID(GlobalD3D1ConvPosition) = RankX;
+            int GhostGID = RankX;
+            DOCenter(3 * D3D1ConvPosition) = RankX + 0.5;
+            float GhostDOCX = RankX + 0.5;
+            DOCenter(3 * D3D1ConvPosition + 1) = RankY + 0.5;
+            float GhostDOCY = RankY + 0.5;
+            DOCenter(3 * D3D1ConvPosition + 2) = RankZ + 0.5;
+            float GhostDOCZ = RankZ + 0.5;
+            DiagonalLength(D3D1ConvPosition) = static_cast<float>(RankY);
+            float GhostDL = static_cast<float>(RankY);
+            // Load into appropriate buffers
+            bool DataFitsInBuffer =
+                loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
+                               MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                               BufferNorthSend, NGrainOrientations, BufSize);
+            if (!(DataFitsInBuffer))
+                throw std::runtime_error("Error: South send buffer overflowed too soon in testResizeRefillBuffers");
+        });
+
+    // Each rank will have "id % 4" cells of additional data to send to the south, and 1 cell of additional data to send
+    // to the north. These cells will be marked as having failed to be loaded into the buffers, as the buffer sizes are
+    // only 1
+    int FailedBufferCellsSouth = id % 4;
+    int FailedBufferCellsNorth = 1;
+    Kokkos::parallel_for(
+        "InitDomainFailedNorth", FailedBufferCellsNorth, KOKKOS_LAMBDA(const int &k) {
+            int RankX = 2;
+            int RankY = MyYSlices - 2;
+            int RankZ = k;
+            int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = (RankZ + ZBound_Low) * nx * MyYSlices + RankX * MyYSlices + RankY;
+            GrainID(GlobalD3D1ConvPosition) = RankX;
+            int GhostGID = RankX;
+            DOCenter(3 * D3D1ConvPosition) = RankX + 0.5;
+            float GhostDOCX = RankX + 0.5;
+            DOCenter(3 * D3D1ConvPosition + 1) = RankY + 0.5;
+            float GhostDOCY = RankY + 0.5;
+            DOCenter(3 * D3D1ConvPosition + 2) = RankZ + 0.5;
+            float GhostDOCZ = RankZ + 0.5;
+            DiagonalLength(D3D1ConvPosition) = static_cast<float>(RankY);
+            float GhostDL = static_cast<float>(RankY);
+            // Attempt to load into appropriate buffers
+            bool DataFitsInBuffer =
+                loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
+                               MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                               BufferNorthSend, NGrainOrientations, BufSize);
+            if (!(DataFitsInBuffer)) {
+                // This cell's data did not fit in the buffer with current size BufSize - mark with temporary type
+                CellType(GlobalD3D1ConvPosition) = ActiveFailedBufferLoad;
+            }
+        });
+
+    Kokkos::parallel_for(
+        "InitDomainFailedSouth", FailedBufferCellsSouth, KOKKOS_LAMBDA(const int &k) {
+            int RankX = 2;
+            int RankY = 1;
+            int RankZ = k;
+            int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+            int GlobalD3D1ConvPosition = (RankZ + ZBound_Low) * nx * MyYSlices + RankX * MyYSlices + RankY;
+            GrainID(GlobalD3D1ConvPosition) = RankX;
+            int GhostGID = RankX;
+            DOCenter(3 * D3D1ConvPosition) = RankX + 0.5;
+            float GhostDOCX = RankX + 0.5;
+            DOCenter(3 * D3D1ConvPosition + 1) = RankY + 0.5;
+            float GhostDOCY = RankY + 0.5;
+            DOCenter(3 * D3D1ConvPosition + 2) = RankZ + 0.5;
+            float GhostDOCZ = RankZ + 0.5;
+            DiagonalLength(D3D1ConvPosition) = static_cast<float>(RankY);
+            float GhostDL = static_cast<float>(RankY);
+            // Attempt to load into appropriate buffers
+            bool DataFitsInBuffer =
+                loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
+                               MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                               BufferNorthSend, NGrainOrientations, BufSize);
+            if (!(DataFitsInBuffer)) {
+                // This cell's data did not fit in the buffer with current size BufSize - mark with temporary type
+                CellType(GlobalD3D1ConvPosition) = ActiveFailedBufferLoad;
+            }
+        });
+
+    // Attempt to resize buffers and load the remaining data
+    int OldBufSize = BufSize;
+    BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
+                            SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
+    if (OldBufSize != BufSize)
+        RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend, SendSizeNorth,
+                      SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter, DiagonalLength,
+                      NGrainOrientations);
+    // If there was 1 rank, buffer size should still be 1, as no data was loaded
+    // Otherwise, 20 cells should have been added to the buffer in addition to the required capacity increase during the
+    // resize
+    if (np == 1)
+        EXPECT_EQ(BufSize, 1);
+    else {
+        int CapacityInc = std::min(3, np - 1) + 20;
+        EXPECT_EQ(BufSize, 1 + CapacityInc);
+    }
+
+    // Check that the correct information was retained in the original buffer positions
+    // Check that the new information was correctly entered into the buffers
+    Buffer2D_H BufferNorthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
+    Buffer2D_H BufferSouthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthSend);
+    // Check buffers other than Rank 0's south and Rank np-1's north
+    if (!(AtSouthBoundary)) {
+        // Data previously stored in buffer
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(0, 0), 1.0); // RankX
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(0, 1), 0.0); // RankZ
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(0, 2), 1.0); // grain orientation
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(0, 3), 1.0); // grain number
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(0, 4), 1.5); // oct center X
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(0, 5), 1.5); // oct center Y
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(0, 6), 0.5); // oct center Z
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(0, 7), 1.0); // diagonal length
+        // Data that should've been added to expanded buffer
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(1, 0), 2.0); // RankX
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(1, 1), 0.0); // RankZ
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(1, 2), 2.0); // grain orientation
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(1, 3), 1.0); // grain number
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(1, 4), 2.5); // oct center X
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(1, 5), 1.5); // oct center Y
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(1, 6), 0.5); // oct center Z
+        EXPECT_FLOAT_EQ(BufferSouthSend_Host(1, 7), 1.0); // diagonal length
+    }
+    if (!(AtNorthBoundary)) {
+        // Data previously stored in buffer
+        EXPECT_FLOAT_EQ(BufferNorthSend_Host(0, 0), 1.0);                                 // RankX
+        EXPECT_FLOAT_EQ(BufferNorthSend_Host(0, 1), 0.0);                                 // RankZ
+        EXPECT_FLOAT_EQ(BufferNorthSend_Host(0, 2), 1.0);                                 // grain orientation
+        EXPECT_FLOAT_EQ(BufferNorthSend_Host(0, 3), 1.0);                                 // grain number
+        EXPECT_FLOAT_EQ(BufferNorthSend_Host(0, 4), 1.5);                                 // oct center X
+        EXPECT_FLOAT_EQ(BufferNorthSend_Host(0, 5), static_cast<float>(MyYSlices - 1.5)); // oct center Y
+        EXPECT_FLOAT_EQ(BufferNorthSend_Host(0, 6), 0.5);                                 // oct center Z
+        EXPECT_FLOAT_EQ(BufferNorthSend_Host(0, 7), static_cast<float>(MyYSlices - 2));   // diagonal length
+    }
+}
+
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-TEST(TEST_CATEGORY, communication) { testGhostNodes1D(); }
+TEST(TEST_CATEGORY, communication) {
+    testGhostNodes1D();
+    testResizeRefillBuffers();
+}
+
 } // end namespace Test
