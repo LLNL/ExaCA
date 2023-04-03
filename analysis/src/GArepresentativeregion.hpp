@@ -76,8 +76,8 @@ struct RepresentativeRegion {
         // Obtain the bounds of the region in x, y, and z, in both cells and microns
         ConvertBounds(RegionData, Units, deltax, XYZBounds, nx, ny, nz);
         // Deduce region type/orientation from the bounds given
-        GetRegionTypeOrientation();
-        GetRegionSize(deltax);
+        setRegionTypeOrientation();
+        setRegionSize(deltax);
 
         // Check which overall stats and per grain stats should be printed for this region
         ReadAnalysisOptionsFromList(RegionData, "printStats", AnalysisOptions_Stats_key, AnalysisOptions_StatsYN);
@@ -135,7 +135,7 @@ struct RepresentativeRegion {
             PrintInversePoleFigureMapYN = false;
     }
 
-    void GetRegionTypeOrientation() {
+    void setRegionTypeOrientation() {
         bool FlatX = (xBounds_Cells[0] == xBounds_Cells[1]);
         bool FlatY = (yBounds_Cells[0] == yBounds_Cells[1]);
         bool FlatZ = (zBounds_Cells[0] == zBounds_Cells[1]);
@@ -274,7 +274,7 @@ struct RepresentativeRegion {
     }
 
     // Get the size of the region in cells, and in meters/microns (either 1D, 2D, or 3D units depending on region type)
-    void GetRegionSize(double deltax) {
+    void setRegionSize(double deltax) {
         regionSize_Cells = (xBounds_Cells[1] - xBounds_Cells[0] + 1) * (yBounds_Cells[1] - yBounds_Cells[0] + 1) *
                            (zBounds_Cells[1] - zBounds_Cells[0] + 1);
         if (regionType == "length") {
