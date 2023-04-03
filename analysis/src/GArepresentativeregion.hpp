@@ -25,6 +25,7 @@ struct RepresentativeRegion {
 
     std::string regionType;
     std::string regionOrientation;
+    std::string units_micro;
     std::vector<double> xBounds_Meters = std::vector<double>(2);
     std::vector<double> yBounds_Meters = std::vector<double>(2);
     std::vector<double> zBounds_Meters = std::vector<double>(2);
@@ -75,9 +76,10 @@ struct RepresentativeRegion {
         std::string Units = RegionData["units"];
         // Obtain the bounds of the region in x, y, and z, in both cells and microns
         ConvertBounds(RegionData, Units, deltax, XYZBounds, nx, ny, nz);
-        // Deduce region type/orientation from the bounds given
+        // Deduce region type/orientation/size units from the bounds given
         setRegionTypeOrientation();
         setRegionSize(deltax);
+        setRegionUnits();
 
         // Check which overall stats and per grain stats should be printed for this region
         ReadAnalysisOptionsFromList(RegionData, "printStats", AnalysisOptions_Stats_key, AnalysisOptions_StatsYN);
@@ -293,6 +295,20 @@ struct RepresentativeRegion {
             throw std::runtime_error("Error: Invalid region type in GetRegionSize during region construction");
     }
 
+    // Set the appropriate units for the region based on the dimensions (in microns)
+    void setRegionUnits() {
+        regionSize_Cells = (xBounds_Cells[1] - xBounds_Cells[0] + 1) * (yBounds_Cells[1] - yBounds_Cells[0] + 1) *
+                           (zBounds_Cells[1] - zBounds_Cells[0] + 1);
+        if (regionType == "length")
+            units_micro = "microns";
+        else if (regionType == "area")
+            units_micro = "square microns";
+        else if (regionType == "volume")
+            units_micro = "cubic microns";
+        else
+            throw std::runtime_error("Error: Invalid region type in setRegionSize during region construction");
+    }
+
     // Get the list of Grain IDs associated with the representative region
     std::vector<int> getGrainIDVector(ViewI3D_H GrainID) {
 
@@ -336,6 +352,203 @@ struct RepresentativeRegion {
             GrainSizeVector[n] = conv * GrainSizeCells;
         }
         return GrainSizeVector;
+    }
+
+    // TODO: Consolidate volume/area header print routines from GAprint when non-JSON option is removed
+    // Print header for grain statistics file for a representative volume
+    void printAnalysisHeader_Volume(std::ofstream &QoIs, std::string RegionName) {
+
+        std::cout << "Stats for " << RegionName << " volume:" << std::endl;
+        QoIs << "Stats for " << RegionName << " volume:" << std::endl;
+        std::cout << "The representative volume specified is bounded by X = [" << xBounds_Meters[0] << ","
+                  << xBounds_Meters[1] << "], Y = [" << yBounds_Meters[0] << "," << yBounds_Meters[1] << "], and Z = ["
+                  << zBounds_Meters[0] << "," << zBounds_Meters[1] << "] m" << std::endl;
+        std::cout << "The representative volume specified is bounded by cells spanning X = [" << xBounds_Cells[0] << ","
+                  << xBounds_Cells[1] << "], Y = [" << yBounds_Cells[0] << "," << yBounds_Cells[1] << "], and Z = ["
+                  << zBounds_Cells[0] << "," << zBounds_Cells[1] << "]" << std::endl;
+        QoIs << "The representative volume specified is bounded by X = [" << xBounds_Meters[0] << ","
+             << xBounds_Meters[1] << "], Y = [" << yBounds_Meters[0] << "," << yBounds_Meters[1] << "], and Z = ["
+             << zBounds_Meters[0] << "," << zBounds_Meters[1] << "] m" << std::endl;
+        QoIs << "The representative volume specified is bounded by cells spanning X = [" << xBounds_Cells[0] << ","
+             << xBounds_Cells[1] << "], Y = [" << yBounds_Cells[0] << "," << yBounds_Cells[1] << "], and Z = ["
+             << zBounds_Cells[0] << "," << zBounds_Cells[1] << "]" << std::endl;
+    }
+
+    // Write pole figure data for this region to a file to be read by MTEX
+    void writePoleFigure(std::string BaseFileNameThisRegion, int NumberOfOrientations, ViewF_H GrainEulerAngles,
+                         ViewI_H GOHistogram) {
+
+        // Using new format, write pole figure data to "Filename"
+        std::string Filename = BaseFileNameThisRegion + "_PoleFigureData.txt";
+        std::ofstream GrainplotPF;
+        GrainplotPF.open(Filename);
+        GrainplotPF << "% MTEX ODF" << std::endl;
+        GrainplotPF << "% crystal symmetry: \"m-3m\"" << std::endl;
+        GrainplotPF << "% specimen symmetry: \"43\"" << std::endl;
+        GrainplotPF << "% phi1    Phi     phi2    value" << std::endl;
+        GrainplotPF << std::fixed << std::setprecision(6);
+        for (int i = 0; i < NumberOfOrientations; i++) {
+            GrainplotPF << GrainEulerAngles(3 * i) << " " << GrainEulerAngles(3 * i + 1) << " "
+                        << GrainEulerAngles(3 * i + 2) << " " << (float)(GOHistogram(i)) << std::endl;
+        }
+        GrainplotPF.close();
+    }
+
+    // Print data to be read by MTEX to plot the cross-section using the inverse pole figure colormap
+    void writeIPFColoredCrossSection(std::string BaseFileNameThisRegion, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
+                                     double deltax, int NumberOfOrientations) {
+
+        // What portion of the area is to be printed?
+        int Index1Low, Index1High, Index2Low, Index2High, CrossSectionOutOfPlaneLocation;
+        if (regionOrientation == "XY") {
+            Index1Low = xBounds_Cells[0];
+            Index1High = xBounds_Cells[1];
+            Index2Low = yBounds_Cells[0];
+            Index2High = yBounds_Cells[1];
+            CrossSectionOutOfPlaneLocation = zBounds_Cells[0];
+        }
+        else if (regionOrientation == "XZ") {
+            Index1Low = xBounds_Cells[0];
+            Index1High = xBounds_Cells[1];
+            Index2Low = zBounds_Cells[0];
+            Index2High = zBounds_Cells[1];
+            CrossSectionOutOfPlaneLocation = yBounds_Cells[0];
+        }
+        else if (regionOrientation == "YZ") {
+            Index1Low = yBounds_Cells[0];
+            Index1High = yBounds_Cells[1];
+            Index2Low = zBounds_Cells[0];
+            Index2High = zBounds_Cells[1];
+            CrossSectionOutOfPlaneLocation = xBounds_Cells[0];
+        }
+        else
+            throw std::runtime_error(
+                "Error: Invalid plane type in writeIPFColoredCrossSection: should be XY, XZ, or YZ");
+
+        std::string FNameIPF = BaseFileNameThisRegion + "_IPFCrossSectionData.txt";
+        std::ofstream GrainplotIPF;
+        GrainplotIPF.open(FNameIPF);
+        GrainplotIPF << std::fixed << std::setprecision(6);
+        for (int Index1 = Index1Low; Index1 < Index1High; Index1++) {
+            for (int Index2 = Index2Low; Index2 < Index2High; Index2++) {
+                // How do Index1, Index2, and out of plane location correspond to GrainID(Z loc, X loc, Yloc)?
+                int ZLoc, XLoc, YLoc;
+                if (regionOrientation == "XY") {
+                    XLoc = Index1;
+                    YLoc = Index2;
+                    ZLoc = CrossSectionOutOfPlaneLocation;
+                }
+                else if (regionOrientation == "YZ") {
+                    XLoc = CrossSectionOutOfPlaneLocation;
+                    YLoc = Index1;
+                    ZLoc = Index2;
+                }
+                else if (regionOrientation == "XZ") {
+                    XLoc = Index1;
+                    YLoc = CrossSectionOutOfPlaneLocation;
+                    ZLoc = Index2;
+                }
+                else
+                    throw std::runtime_error("Error: Unknown regionOrientation input for WriteIPFColoredCrossSection: "
+                                             "should be XY, YZ, or XZ");
+                // What orientation does this grain id correspond to? Should be between 0 and NumberOfOrientations-1
+                int GOVal = (abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % NumberOfOrientations;
+                // The grain structure is phase "1" - any unindexed points with GOVal = -1 (which are possible from
+                // regions that didn't undergo melting) are assigned phase "0"
+                if (GOVal == -1)
+                    GrainplotIPF << "0 0 0 0 " << Index1 * deltax * pow(10, 6) << " " << Index2 * deltax * pow(10, 6)
+                                 << std::endl;
+                else
+                    GrainplotIPF << GrainEulerAngles(3 * GOVal) << " " << GrainEulerAngles(3 * GOVal + 1) << " "
+                                 << GrainEulerAngles(3 * GOVal + 2) << " 1 " << Index1 * deltax * pow(10, 6) << " "
+                                 << Index2 * deltax * pow(10, 6) << std::endl;
+            }
+        }
+        GrainplotIPF.close();
+    }
+
+    // Write data for the specified RVE for ExaConstit
+    void writeExaConstitRVE(std::string BaseFileNameThisRegion, double deltax, ViewI3D_H GrainID) {
+
+        int XLow = xBounds_Cells[0];
+        int XHigh = xBounds_Cells[1];
+        int YLow = yBounds_Cells[0];
+        int YHigh = yBounds_Cells[1];
+        int ZLow = zBounds_Cells[0];
+        int ZHigh = zBounds_Cells[1];
+        std::string FName = BaseFileNameThisRegion + "_ExaConstit.csv";
+        std::ofstream Grainplot;
+        Grainplot.open(FName);
+        Grainplot << "Coordinates are in CA units, 1 cell = " << deltax << " m. Data is cell-centered. Origin at "
+                  << XLow << "," << YLow << "," << ZLow << " , domain size is " << XHigh - XLow + 1 << " by "
+                  << YHigh - YLow + 1 << " by " << ZHigh - ZLow + 1 << " cells" << std::endl;
+        Grainplot << "X coord, Y coord, Z coord, Grain ID" << std::endl;
+        int NucleatedGrainCells = 0;
+        for (int k = ZLow; k <= ZHigh; k++) {
+            for (int j = YLow; j <= YHigh; j++) {
+                for (int i = XLow; i <= XHigh; i++) {
+                    Grainplot << i << "," << j << "," << k << "," << GrainID(k, i, j) << std::endl;
+                    if (GrainID(k, i, j) < 0)
+                        NucleatedGrainCells++;
+                }
+            }
+        }
+        Grainplot.close();
+    }
+
+    // Write a csv file of stats for each grain
+    void writePerGrainStats(std::string OutputFileName, std::vector<int> UniqueGrainIDVector,
+                            std::vector<float> GrainMisorientationXVector,
+                            std::vector<float> GrainMisorientationYVector,
+                            std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
+                            std::vector<float> GrainExtentX, std::vector<float> GrainExtentY,
+                            std::vector<float> GrainExtentZ, std::vector<float> BuildTransAspectRatio,
+                            int NumberOfGrains, std::vector<float> GrainRed, std::vector<float> GrainGreen,
+                            std::vector<float> GrainBlue) {
+
+        // Which quantities should be printed?
+        std::string stats_fname = OutputFileName + "_grains.csv";
+        std::ofstream GrainStats;
+        GrainStats.open(stats_fname);
+        GrainStats << "GrainID";
+        // Which quantities should be printed for each grain?
+        if (AnalysisOptions_PerGrainStatsYN[0])
+            GrainStats << ",misorientationX,misorientationY,misorientationZ";
+        if (AnalysisOptions_PerGrainStatsYN[1])
+            GrainStats << "," << regionType;
+        if (AnalysisOptions_PerGrainStatsYN[2])
+            GrainStats << ",extentX";
+        if (AnalysisOptions_PerGrainStatsYN[3])
+            GrainStats << ",extentY";
+        if (AnalysisOptions_PerGrainStatsYN[4])
+            GrainStats << ",extentZ";
+        if (AnalysisOptions_PerGrainStatsYN[5])
+            GrainStats << ",buildtransAR";
+        if (AnalysisOptions_PerGrainStatsYN[6])
+            GrainStats << ",IPFZ_r,IPFZ_g,IPFZ_b";
+        GrainStats << std::endl;
+
+        // Print the specified quantities to the csv file
+        for (int n = 0; n < NumberOfGrains; n++) {
+            GrainStats << UniqueGrainIDVector[n];
+            if (AnalysisOptions_PerGrainStatsYN[0])
+                GrainStats << "," << GrainMisorientationXVector[n] << "," << GrainMisorientationYVector[n] << ","
+                           << GrainMisorientationZVector[n];
+            if (AnalysisOptions_PerGrainStatsYN[1])
+                GrainStats << "," << GrainSizeVector[n];
+            if (AnalysisOptions_PerGrainStatsYN[2])
+                GrainStats << "," << GrainExtentX[n];
+            if (AnalysisOptions_PerGrainStatsYN[3])
+                GrainStats << "," << GrainExtentY[n];
+            if (AnalysisOptions_PerGrainStatsYN[4])
+                GrainStats << "," << GrainExtentZ[n];
+            if (AnalysisOptions_PerGrainStatsYN[5])
+                GrainStats << "," << BuildTransAspectRatio[n];
+            if (AnalysisOptions_PerGrainStatsYN[6])
+                GrainStats << "," << GrainRed[n] << "," << GrainGreen[n] << "," << GrainBlue[n];
+            GrainStats << std::endl;
+        }
+        GrainStats.close();
     }
 };
 

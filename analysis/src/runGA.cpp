@@ -146,7 +146,7 @@ void AnalysisOld(std::string AnalysisFile) {
     printMisorientationDataOld(XMin, XMax, YMin, YMax, ZMin, ZMax, LayerID, GrainUnitVector_Host, GrainID,
                                NumberOfOrientations);
     // Print mean size data
-    printMeanSize(QoIs, NumberOfGrains, RepresentativeRegionSize_Microns, "volume");
+    printMeanSize(QoIs, NumberOfGrains, RepresentativeRegionSize_Microns, "volume", "cubic microns");
 
     // Need grain extents in x and y if analysis options 2 or 6 are toggled
     // Need grain extents in z if analysis options 2 or 5 are toggled
@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
                         representativeRegion.zBounds_Meters[0], representativeRegion.zBounds_Meters[1], RegionName,
                         representativeRegion.regionOrientation);
                 else if (representativeRegion.regionType == "volume")
-                    printAnalysisHeader_Volume(QoIs, RegionName, representativeRegion);
+                    representativeRegion.printAnalysisHeader_Volume(QoIs, RegionName);
 
                 // TODO: After removing non-JSON input option, pass entire object to printGrainTypeFractions routine
                 // Fraction of region consisting of nucleated grains, unmelted material
@@ -354,7 +354,7 @@ int main(int argc, char *argv[]) {
                 // Print mean size data if specified
                 if (representativeRegion.AnalysisOptions_StatsYN[2])
                     printMeanSize(QoIs, NumberOfGrains, representativeRegion.regionSize_Microns,
-                                  representativeRegion.regionType);
+                                  representativeRegion.regionType, representativeRegion.units_micro);
 
                 // If XExtent, YExtent, ZExtent, or BuildTransAspectRatio/Extent are toggled for general stats printing
                 // or per grain printing, calculate grain extents for the necessary direction(s) (otherwise don't, since
@@ -441,14 +441,15 @@ int main(int argc, char *argv[]) {
                 // Write per-grain stats for the analysis types specified to the file
                 // "[BaseFileNameThisRegion]_grains.csv"
                 if (representativeRegion.PrintPerGrainStatsYN)
-                    writePerGrainStats(BaseFileNameThisRegion, UniqueGrainIDVector, GrainMisorientationXVector,
-                                       GrainMisorientationYVector, GrainMisorientationZVector, GrainSizeVector_Microns,
-                                       GrainExtentX, GrainExtentY, GrainExtentZ, BuildTransAspectRatio, NumberOfGrains,
-                                       GrainRed, GrainGreen, GrainBlue, representativeRegion);
+                    representativeRegion.writePerGrainStats(
+                        BaseFileNameThisRegion, UniqueGrainIDVector, GrainMisorientationXVector,
+                        GrainMisorientationYVector, GrainMisorientationZVector, GrainSizeVector_Microns, GrainExtentX,
+                        GrainExtentY, GrainExtentZ, BuildTransAspectRatio, NumberOfGrains, GrainRed, GrainGreen,
+                        GrainBlue);
 
                 // ExaConstit print a file named "[BaseFileNameThisRegion]_ExaConstit.csv"
                 if (representativeRegion.PrintExaConstitYN) {
-                    writeExaConstitRVE(BaseFileNameThisRegion, deltax, GrainID, representativeRegion);
+                    representativeRegion.writeExaConstitRVE(BaseFileNameThisRegion, deltax, GrainID);
                 }
 
                 // Pole figure print a file named "[BaseFileNameThisRegion]_PoleFigureData.txt"
@@ -458,16 +459,20 @@ int main(int argc, char *argv[]) {
                         representativeRegion.xBounds_Cells[1], representativeRegion.yBounds_Cells[0],
                         representativeRegion.yBounds_Cells[1], representativeRegion.zBounds_Cells[0],
                         representativeRegion.zBounds_Cells[1]);
-                    writePoleFigure(BaseFileNameThisRegion, NumberOfOrientations, GrainEulerAngles_Host, GOHistogram);
+                    representativeRegion.writePoleFigure(BaseFileNameThisRegion, NumberOfOrientations,
+                                                         GrainEulerAngles_Host, GOHistogram);
                 }
 
                 // IPF map for area print a file named "[BaseFileNameThisRegion]_IPFCrossSectionData.txt"
                 if (representativeRegion.PrintInversePoleFigureMapYN) {
-                    writeIPFColoredCrossSection(BaseFileNameThisRegion, representativeRegion, GrainID, GrainEulerAngles,
-                                                deltax, NumberOfOrientations);
+                    representativeRegion.writeIPFColoredCrossSection(BaseFileNameThisRegion, GrainID, GrainEulerAngles,
+                                                                     deltax, NumberOfOrientations);
                 }
                 std::cout << "Finished analysis for region " << RegionName << std::endl;
             } // end loop over all representative regions in analysis file
+#else
+            throw std::runtime_error(
+                "Error: JSON must be enabled to parse and analyze data with a JSON format log file");
 #endif
         } // end if statement for analysis type (new or old)
     }     // end scope for kokkos

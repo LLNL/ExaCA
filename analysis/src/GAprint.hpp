@@ -62,7 +62,7 @@ void printMeanMisorientations(std::ofstream &QoIs, int NumberOfGrains, std::vect
 void printMisorientationDataOld(int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H LayerID,
                                 ViewF_H GrainUnitVector, ViewI3D_H GrainID, int NumberOfOrientations);
 void printMeanSize(std::ofstream &QoIs, int NumberOfGrains, double RepresentativeRegionSize_Microns,
-                   std::string RegionType);
+                   std::string RegionType, std::string Units);
 void printMeanExtent(std::ofstream &QoIs, std::vector<float> GrainExtent, std::string Direction, int NumberOfGrains);
 //****
 // Functions for printing data for a volume
@@ -93,21 +93,5 @@ void writeIPFColoredCrossSection_Old(std::string BaseFileName, std::string ThisC
                                      double deltax, int NumberOfOrientations);
 void writePoleFigure_Old(std::string BaseFileName, std::string RegionLabel, int NumberOfOrientations,
                          ViewF_H GrainEulerAngles, ViewI_H GOHistogram);
-void writePoleFigure(std::string BaseFileNameThisRegion, int NumberOfOrientations, ViewF_H GrainEulerAngles,
-                     ViewI_H GOHistogram);
-#ifdef ExaCA_ENABLE_JSON
-void printAnalysisHeader_Volume(std::ofstream &QoIs, std::string RegionName, RepresentativeRegion representativeRegion);
-void writeIPFColoredCrossSection(std::string BaseFileNameThisRegion, RepresentativeRegion representativeRegion,
-                                 ViewI3D_H GrainID, ViewF_H GrainEulerAngles, double deltax, int NumberOfOrientations);
-void writePerGrainStats(std::string OutputFileName, std::vector<int> UniqueGrainIDVector,
-                        std::vector<float> GrainMisorientationXVector, std::vector<float> GrainMisorientationYVector,
-                        std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
-                        std::vector<float> GrainExtentX, std::vector<float> GrainExtentY,
-                        std::vector<float> GrainExtentZ, std::vector<float> BuildTransAspectRatio, int NumberOfGrains,
-                        std::vector<float> GrainRed, std::vector<float> GrainGreen, std::vector<float> GrainBlue,
-                        RepresentativeRegion representativeRegion);
-void writeExaConstitRVE(std::string BaseFileNameThisRegion, double deltax, ViewI3D_H GrainID,
-                        RepresentativeRegion representativeRegion);
-#endif
 
 #endif
