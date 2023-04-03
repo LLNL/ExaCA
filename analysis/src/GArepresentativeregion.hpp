@@ -198,7 +198,7 @@ struct RepresentativeRegion {
             // Get the minimium coordinate along the specified axis
             double CoordinateMinVal = XYZBounds[dir];
 
-            // Next, check if just one bound is given, or two bounds
+            // Check if just one bound is given, or two bounds
             // If no bounds are given, defaults to the size of the domain along that direction
             std::string boundtype = BoundDirections[dir];
             std::vector<double> Bounds_Read(2);
@@ -209,9 +209,14 @@ struct RepresentativeRegion {
                     "Error: region for analysis cannot have values for both " + onebound + " and " + twobounds;
                 throw std::runtime_error(error);
             }
-            else if ((!RegionData.contains(onebound)) && (!RegionData.contains(twobounds))) {
-                Bounds_Read[0] = 0;
-                if (Units == "Meters") {
+
+            // Check that the units provided are Meters or Cells, throwing an error otherwise
+            // Initialize bounds in both Meters and Cells
+            std::vector<int> Bounds_Cells(2);
+            std::vector<double> Bounds_Meters(2);
+            if (Units == "Meters") {
+                if ((!RegionData.contains(onebound)) && (!RegionData.contains(twobounds))) {
+                    Bounds_Read[0] = 0;
                     if (dir == 0)
                         Bounds_Read[1] = XYZBounds[3];
                     else if (dir == 1)
@@ -219,7 +224,23 @@ struct RepresentativeRegion {
                     else if (dir == 2)
                         Bounds_Read[1] = XYZBounds[5];
                 }
-                else if (Units == "Cells") {
+                else if (RegionData.contains(onebound)) {
+                    Bounds_Read[0] = RegionData[onebound];
+                    Bounds_Read[1] = Bounds_Read[0];
+                }
+                else if (RegionData.contains(twobounds)) {
+                    Bounds_Read[0] = RegionData[twobounds][0];
+                    Bounds_Read[1] = RegionData[twobounds][1];
+                }
+                // Bounds provided were in meters, convert to cells
+                Bounds_Meters[0] = Bounds_Read[0];
+                Bounds_Meters[1] = Bounds_Read[1];
+                Bounds_Cells[0] = std::round((Bounds_Read[0] - CoordinateMinVal) / deltax);
+                Bounds_Cells[1] = std::round((Bounds_Read[1] - CoordinateMinVal) / deltax);
+            }
+            else if (Units == "Cells") {
+                if ((!RegionData.contains(onebound)) && (!RegionData.contains(twobounds))) {
+                    Bounds_Read[0] = 0;
                     if (dir == 0)
                         Bounds_Read[1] = nx - 1;
                     else if (dir == 1)
@@ -227,37 +248,24 @@ struct RepresentativeRegion {
                     else if (dir == 2)
                         Bounds_Read[1] = nz - 1;
                 }
-                else
-                    throw std::runtime_error("Error: Invalid units in ConvertBounds, should be Meters or Cells");
-            }
-            if (RegionData.contains(onebound)) {
-                Bounds_Read[0] = RegionData[onebound];
-                Bounds_Read[1] = Bounds_Read[0];
-            }
-            else if (RegionData.contains(twobounds)) {
-                Bounds_Read[0] = RegionData[twobounds][0];
-                Bounds_Read[1] = RegionData[twobounds][1];
-            }
-            // Obtain bounds in both cell units and coordinates
-            std::vector<int> Bounds_Cells(2);
-            std::vector<double> Bounds_Meters(2);
-            if (Units == "Cells") {
+                else if (RegionData.contains(onebound)) {
+                    Bounds_Read[0] = RegionData[onebound];
+                    Bounds_Read[1] = Bounds_Read[0];
+                }
+                else if (RegionData.contains(twobounds)) {
+                    Bounds_Read[0] = RegionData[twobounds][0];
+                    Bounds_Read[1] = RegionData[twobounds][1];
+                }
                 // Bounds provided were in cells, convert to microns
                 Bounds_Cells[0] = static_cast<int>(Bounds_Read[0]);
                 Bounds_Cells[1] = static_cast<int>(Bounds_Read[1]);
                 Bounds_Meters[0] = CoordinateMinVal + deltax * Bounds_Read[0];
                 Bounds_Meters[1] = CoordinateMinVal + deltax * Bounds_Read[1];
             }
-            else if (Units == "Meters") {
-                // Bounds provided were in microns, convert to cells
-                Bounds_Meters[0] = Bounds_Read[0];
-                Bounds_Meters[1] = Bounds_Read[1];
-                Bounds_Cells[0] = std::round((Bounds_Read[0] - CoordinateMinVal) / deltax);
-                Bounds_Cells[1] = std::round((Bounds_Read[1] - CoordinateMinVal) / deltax);
-            }
             else
-                throw std::runtime_error(
-                    "Error: Units for a given region in the analysis input file should be Cells or Meters");
+                throw std::runtime_error("Error: Invalid units in ConvertBounds, should be Meters or Cells");
+
+            // Store bounds for the given direction
             for (int i = 0; i < 2; i++) {
                 if (dir == 0) {
                     xBounds_Meters[i] = Bounds_Meters[i];
