@@ -1975,14 +1975,15 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                 // If this new active cell is in the halo region, load the send buffers
                 if (np > 1) {
 
-                    float GhostGID = GrainID(D3D1ConvPosition);
+                    int GhostGID = GrainID(D3D1ConvPosition);
                     float GhostDOCX = GlobalX + 0.5;
                     float GhostDOCY = GlobalY + 0.5;
                     float GhostDOCZ = GlobalZ + 0.5;
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                                   LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
+                                   NGrainOrientations);
                 } // End if statement for serial/parallel code
             }
         });
@@ -2330,14 +2331,15 @@ void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlice
                 // If this new active cell is in the halo region, load the send buffers
                 if (np > 1) {
 
-                    double GhostGID = static_cast<double>(MyGrainID);
-                    double GhostDOCX = static_cast<double>(GlobalX + 0.5);
-                    double GhostDOCY = static_cast<double>(GlobalY + 0.5);
-                    double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
-                    double GhostDL = 0.01;
+                    int GhostGID = MyGrainID;
+                    float GhostDOCX = GlobalX + 0.5;
+                    float GhostDOCY = GlobalY + 0.5;
+                    float GhostDOCZ = GlobalZ + 0.5;
+                    float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
+                                   NGrainOrientations);
 
                 } // End if statement for serial/parallel code
             }
@@ -2635,10 +2637,10 @@ void ZeroResetViews(int LocalActiveDomainSize, int BufSizeX, int BufSizeZ, ViewF
     Kokkos::realloc(DiagonalLength, LocalActiveDomainSize);
     Kokkos::realloc(DOCenter, 3 * LocalActiveDomainSize);
     Kokkos::realloc(CritDiagonalLength, 26 * LocalActiveDomainSize);
-    Kokkos::realloc(BufferNorthSend, BufSizeX * BufSizeZ, 5);
-    Kokkos::realloc(BufferSouthSend, BufSizeX * BufSizeZ, 5);
-    Kokkos::realloc(BufferNorthRecv, BufSizeX * BufSizeZ, 5);
-    Kokkos::realloc(BufferSouthRecv, BufSizeX * BufSizeZ, 5);
+    Kokkos::realloc(BufferNorthSend, BufSizeX * BufSizeZ, 6);
+    Kokkos::realloc(BufferSouthSend, BufSizeX * BufSizeZ, 6);
+    Kokkos::realloc(BufferNorthRecv, BufSizeX * BufSizeZ, 6);
+    Kokkos::realloc(BufferSouthRecv, BufSizeX * BufSizeZ, 6);
 
     // Reset active cell data structures on device
     Kokkos::deep_copy(DiagonalLength, 0);

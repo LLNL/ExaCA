@@ -5,6 +5,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "CAfunctions.hpp"
 #include "CAinitialize.hpp"
 #include "CAtypes.hpp"
 #include "CAupdate.hpp"
@@ -161,8 +162,8 @@ void testFillSteeringVector_Remelt() {
     int BufSizeZ = nzActive;
 
     // Send/recv buffers for ghost node data - initialize with values of 1.0
-    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX * BufSizeZ, 6);
+    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX * BufSizeZ, 6);
     Kokkos::deep_copy(BufferSouthSend, 1.0);
     Kokkos::deep_copy(BufferNorthSend, 1.0);
 
@@ -221,7 +222,7 @@ void testFillSteeringVector_Remelt() {
         FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, nx, MyYSlices, NeighborX, NeighborY, NeighborZ,
                                   CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID, ZBound_Low,
                                   nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep, BufSizeX,
-                                  AtNorthBoundary, AtSouthBoundary, BufferNorthSend, BufferSouthSend);
+                                  AtNorthBoundary, AtSouthBoundary, BufferNorthSend, BufferSouthSend, 1);
     }
 
     // Copy CellType, SteeringVector, numSteer, UndercoolingCurrent, Buffers back to host to check steering vector
@@ -283,29 +284,31 @@ void testFillSteeringVector_Remelt() {
 
     // Check that the buffer values were either appropriately set to zeros (if the cell underwent melting) or remained
     // at 1.0
+    // For the GrainID of -1 or 1, the "grain orientation" should be 1 and the "grain number" should be 1 (unchanged
+    // from init) For the GrainID of 0, the "grain orientation"/"grain number" should be 0
     for (int i = 0; i < nx * BufSizeZ; i++) {
         int RankZ = i / nx;
         int GlobalZ = RankZ + ZBound_Low;
         int RankX = i % nx;
         int NorthCellCoordinate = GlobalZ * nx * MyYSlices + RankX * MyYSlices + (MyYSlices - 1);
         if ((CellType_Host(NorthCellCoordinate) == TempSolid) || (CellType_Host(NorthCellCoordinate) == Solid)) {
-            for (int j = 0; j < 5; j++) {
+            for (int j = 0; j < 6; j++) {
                 EXPECT_EQ(BufferNorthSend_Host(i, j), 1.0);
             }
         }
         else {
-            for (int j = 0; j < 5; j++) {
+            for (int j = 0; j < 6; j++) {
                 EXPECT_EQ(BufferNorthSend_Host(i, j), 0.0);
             }
         }
         int SouthCellCoordinate = GlobalZ * nx * MyYSlices + RankX * MyYSlices + (MyYSlices - 1);
         if ((CellType_Host(SouthCellCoordinate) == TempSolid) || (CellType_Host(SouthCellCoordinate) == Solid)) {
-            for (int j = 0; j < 5; j++) {
+            for (int j = 0; j < 6; j++) {
                 EXPECT_EQ(BufferNorthSend_Host(i, j), 1.0);
             }
         }
         else {
-            for (int j = 0; j < 5; j++) {
+            for (int j = 0; j < 6; j++) {
                 EXPECT_EQ(BufferNorthSend_Host(i, j), 0.0);
             }
         }
@@ -422,6 +425,43 @@ void testcreateNewOctahedron() {
     }
 }
 
+void testConvertGrainIDForBuffer() {
+    using memory_space = TEST_MEMSPACE;
+    using view_type = Kokkos::View<int *, memory_space>;
+
+    // Create a list of integer grain ID values
+    std::vector<int> GrainIDV(11);
+    GrainIDV[0] = 1;
+    GrainIDV[1] = 2;
+    GrainIDV[2] = 3;
+    GrainIDV[3] = 10000;
+    GrainIDV[4] = 10001;
+    GrainIDV[5] = 19999;
+    for (int n = 6; n < 11; n++) {
+        GrainIDV[n] = -GrainIDV[n - 6];
+    }
+    view_type GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), 11);
+    auto GrainID_Host = Kokkos::create_mirror_view(Kokkos::HostSpace(), GrainID);
+    for (int n = 0; n < 11; n++) {
+        GrainID_Host(n) = GrainIDV[n];
+    }
+    GrainID = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID_Host);
+
+    int NGrainOrientations = 10000;
+
+    // Check that these were converted to their components and back correctly
+    view_type GrainID_Converted(Kokkos::ViewAllocateWithoutInitializing("GrainID_Converted"), 11);
+
+    Kokkos::parallel_for(
+        "TestInitGrainIDs", 11, KOKKOS_LAMBDA(const int &n) {
+            int MyGrainOrientation = getGrainOrientation(GrainID(n), NGrainOrientations, false);
+            int MyGrainNumber = getGrainNumber(GrainID(n), NGrainOrientations);
+            GrainID_Converted[n] = getGrainID(NGrainOrientations, MyGrainOrientation, MyGrainNumber);
+        });
+    auto GrainID_Converted_Host = Kokkos::create_mirror_view(Kokkos::HostSpace(), GrainID_Converted);
+    for (int n = 0; n < 11; n++)
+        EXPECT_EQ(GrainIDV[n], GrainID_Converted_Host(n));
+}
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
@@ -430,6 +470,7 @@ TEST(TEST_CATEGORY, cell_update_tests) {
     testFillSteeringVector_Remelt();
     testcalcCritDiagonalLength();
     testcreateNewOctahedron();
+    testConvertGrainIDForBuffer();
 }
 
 } // end namespace Test

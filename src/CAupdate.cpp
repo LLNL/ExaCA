@@ -123,7 +123,7 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
                                ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
                                ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
                                int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Buffer2D BufferNorthSend,
-                               Buffer2D BufferSouthSend) {
+                               Buffer2D BufferSouthSend, int NGrainOrientations) {
 
     Kokkos::parallel_for(
         "FillSV_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
@@ -146,7 +146,7 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
                 UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
                 // Remove solid cell data from the buffer
                 loadghostnodes(0, 0, 0, 0, 0, BufSizeX, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary,
-                               AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                               AtSouthBoundary, BufferSouthSend, BufferNorthSend, NGrainOrientations);
             }
             else if ((isNotSolid) && (pastCritTime)) {
                 // Update cell undercooling
@@ -426,16 +426,17 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
 
                                 if (np > 1) {
 
-                                    double GhostGID = static_cast<double>(h);
-                                    double GhostDOCX = cx;
-                                    double GhostDOCY = cy;
-                                    double GhostDOCZ = cz;
-                                    double GhostDL = NewODiagL;
+                                    int GhostGID = h;
+                                    float GhostDOCX = cx;
+                                    float GhostDOCY = cy;
+                                    float GhostDOCZ = cz;
+                                    float GhostDL = NewODiagL;
                                     // Collect data for the ghost nodes, if necessary
                                     // Data loaded into the ghost nodes is for the cell that was just captured
                                     loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
                                                    MyYSlices, MyNeighborX, MyNeighborY, MyNeighborZ, AtNorthBoundary,
-                                                   AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                                                   AtSouthBoundary, BufferSouthSend, BufferNorthSend,
+                                                   NGrainOrientations);
                                 } // End if statement for serial/parallel code
                                 // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
                                 // Diagonal Length values have been assigned to it Avoids the race condition in which
@@ -499,14 +500,15 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                                        MyOrientation, GrainUnitVector, CritDiagonalLength);
                 if (np > 1) {
 
-                    double GhostGID = static_cast<double>(MyGrainID);
-                    double GhostDOCX = static_cast<double>(GlobalX + 0.5);
-                    double GhostDOCY = static_cast<double>(GlobalY + 0.5);
-                    double GhostDOCZ = static_cast<double>(GlobalZ + 0.5);
-                    double GhostDL = 0.01;
+                    int GhostGID = MyGrainID;
+                    float GhostDOCX = GlobalX + 0.5;
+                    float GhostDOCY = GlobalY + 0.5;
+                    float GhostDOCZ = GlobalZ + 0.5;
+                    float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
+                                   NGrainOrientations);
                 } // End if statement for serial/parallel code
                 // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
                 CellType(GlobalD3D1ConvPosition) = Active;
