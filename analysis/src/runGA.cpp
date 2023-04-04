@@ -354,7 +354,7 @@ int main(int argc, char *argv[]) {
                 // Print mean size data if specified
                 if (representativeRegion.AnalysisOptions_StatsYN[2])
                     printMeanSize(QoIs, NumberOfGrains, representativeRegion.regionSize_Microns,
-                                  representativeRegion.regionType, representativeRegion.units_micro);
+                                  representativeRegion.regionType, representativeRegion.units_dimension);
 
                 // If XExtent, YExtent, ZExtent, or BuildTransAspectRatio/Extent are toggled for general stats printing
                 // or per grain printing, calculate grain extents for the necessary direction(s) (otherwise don't, since
