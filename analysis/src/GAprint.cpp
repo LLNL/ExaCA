@@ -14,72 +14,75 @@
 //*****************************************************************************/
 // Write header of unique grain ID values to stats file, and print information about the representative region to the
 // console/QoIs file
-void printAnalysisHeader(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,
-                         const int ZLow, const int ZHigh, std::vector<double> XYZBounds) {
+void printAnalysisHeader_Volume_Old(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow,
+                                    const int YHigh, const int ZLow, const int ZHigh, std::vector<double> XYZBounds,
+                                    std::string regionName) {
 
     // TODO: Remove redundant code by making a print routine that prints a string to both std::cout and the QoIs file,
     // since the same information is printed to both
+    std::cout << "Stats for " << regionName << " volume:" << std::endl;
+    QoIs << "Stats for " << regionName << " volume:" << std::endl;
     std::cout << "The representative volume specified is bounded by X = [" << XYZBounds[0] << "," << XYZBounds[1]
               << "], Y = [" << XYZBounds[2] << "," << XYZBounds[3] << "], and Z = [" << XYZBounds[4] << ","
               << XYZBounds[5] << "] m" << std::endl;
     std::cout << "The representative volume specified is bounded by cells spanning X = [" << XLow << "," << XHigh
-              << "], Y = [ " << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "] m" << std::endl;
+              << "], Y = [" << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "]" << std::endl;
     QoIs << "The representative volume specified is bounded by X = [" << XYZBounds[0] << "," << XYZBounds[1]
-         << "], Y = [ " << XYZBounds[2] << "," << XYZBounds[3] << "], and Z = [" << XYZBounds[4] << "," << XYZBounds[5]
+         << "], Y = [" << XYZBounds[2] << "," << XYZBounds[3] << "], and Z = [" << XYZBounds[4] << "," << XYZBounds[5]
          << "] m" << std::endl;
     QoIs << "The representative volume specified is bounded by cells spanning X = [" << XLow << "," << XHigh
          << "], Y = [" << YLow << "," << YHigh << "], and Z = [" << ZLow << "," << ZHigh << "] m" << std::endl;
 }
 
 // Print information about a representative area to the console/QoIs file
-void printAnalysisHeader(std::ofstream &QoIs, const int XLow_cells, const int XHigh_cells, const int YLow_cells,
-                         const int YHigh_cells, const int ZLow_cells, const int ZHigh_cells, const double XLow_microns,
-                         const double XHigh_microns, const double YLow_microns, const double YHigh_microns,
-                         const double ZLow_microns, const double ZHigh_microns, const std::string regionName,
-                         const std::string regionOrientation) {
+void printAnalysisHeader_Area(std::ofstream &QoIs, const int XLow_cells, const int XHigh_cells, const int YLow_cells,
+                              const int YHigh_cells, const int ZLow_cells, const int ZHigh_cells,
+                              const double XLow_Meters, const double XHigh_Meters, const double YLow_Meters,
+                              const double YHigh_Meters, const double ZLow_Meters, const double ZHigh_Meters,
+                              const std::string regionName, const std::string regionOrientation) {
 
     std::cout << "Stats for " << regionName << " plane:" << std::endl;
     QoIs << "Stats for " << regionName << " plane:" << std::endl;
     if (regionOrientation == "XY") {
-        std::cout << "The representative area is located at Z = " << ZLow_microns << " microns" << std::endl;
+        std::cout << "The representative area is located at Z = " << ZLow_Meters << " m" << std::endl;
         std::cout << "(in CA units, Z = " << ZLow_cells << ")" << std::endl;
-        std::cout << "The representative area is bounded by the region spanning X = [" << XLow_microns << ","
-                  << XHigh_microns << "], Y = [ " << YLow_microns << "," << YHigh_microns << "] microns" << std::endl;
-        std::cout << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Y = [ " << YLow_cells << ","
+        std::cout << "The representative area is bounded by the region spanning X = [" << XLow_Meters << ","
+                  << XHigh_Meters << "], Y = [ " << YLow_Meters << "," << YHigh_Meters << "] m" << std::endl;
+        std::cout << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Y = [" << YLow_cells << ","
                   << YHigh_cells << "])" << std::endl;
-        QoIs << "The representative area is located at Z = " << ZLow_microns << " microns" << std::endl;
+        QoIs << "The representative area is located at Z = " << ZLow_Meters << " m" << std::endl;
         QoIs << "(in CA units, Z = " << ZLow_cells << ")" << std::endl;
-        QoIs << "The representative area is bounded by the region spanning X = [" << XLow_microns << ","
-             << XHigh_microns << "], Y = [" << YLow_microns << "," << YHigh_microns << "] microns" << std::endl;
-        QoIs << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Y = [ " << YLow_cells << ","
+        QoIs << "The representative area is bounded by the region spanning X = [" << XLow_Meters << "," << XHigh_Meters
+             << "], Y = [" << YLow_Meters << "," << YHigh_Meters << "] m" << std::endl;
+        QoIs << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Y = [" << YLow_cells << ","
              << YHigh_cells << "])" << std::endl;
     }
     else if (regionOrientation == "XZ") {
-        std::cout << "The representative area is located at Y = " << YLow_microns << " microns" << std::endl;
+        std::cout << "The representative area is located at Y = " << YLow_Meters << " m" << std::endl;
         std::cout << "(in CA units, Y = " << YLow_cells << ")" << std::endl;
-        std::cout << "The representative area is bounded by the region spanning X = [" << XLow_microns << ","
-                  << XHigh_microns << "], Z = [ " << ZLow_microns << "," << ZHigh_microns << "] microns" << std::endl;
-        std::cout << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Z = [ " << ZLow_cells << ","
+        std::cout << "The representative area is bounded by the region spanning X = [" << XLow_Meters << ","
+                  << XHigh_Meters << "], Z = [" << ZLow_Meters << "," << ZHigh_Meters << "] m" << std::endl;
+        std::cout << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Z = [" << ZLow_cells << ","
                   << ZHigh_cells << "])" << std::endl;
-        QoIs << "The representative area is located at Y = " << YLow_microns << " microns" << std::endl;
+        QoIs << "The representative area is located at Y = " << YLow_Meters << " m" << std::endl;
         QoIs << "(in CA units, Y = " << YLow_cells << ")" << std::endl;
-        QoIs << "The representative area is bounded by the region spanning X = [" << XLow_microns << ","
-             << XHigh_microns << "], Z = [ " << ZLow_microns << "," << ZHigh_microns << "] microns" << std::endl;
-        QoIs << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Z = [ " << ZLow_cells << ","
+        QoIs << "The representative area is bounded by the region spanning X = [" << XLow_Meters << "," << XHigh_Meters
+             << "], Z = [" << ZLow_Meters << "," << ZHigh_Meters << "] m" << std::endl;
+        QoIs << "(in CA units X = [" << XLow_cells << "," << XHigh_cells << "], Z = [" << ZLow_cells << ","
              << ZHigh_cells << "])" << std::endl;
     }
     else if (regionOrientation == "YZ") {
-        std::cout << "The representative area is located at X = " << XLow_microns << " microns" << std::endl;
+        std::cout << "The representative area is located at X = " << XLow_Meters << " m" << std::endl;
         std::cout << "(in CA units, X = " << XLow_cells << ")" << std::endl;
-        std::cout << "The representative area is bounded by the region spanning Y = [" << YLow_microns << ","
-                  << YHigh_microns << "], Z = [ " << ZLow_microns << "," << ZHigh_microns << "] microns" << std::endl;
-        std::cout << "(in CA units Y = [" << YLow_cells << "," << YHigh_cells << "], Z = [ " << ZLow_cells << ","
+        std::cout << "The representative area is bounded by the region spanning Y = [" << YLow_Meters << ","
+                  << YHigh_Meters << "], Z = [" << ZLow_Meters << "," << ZHigh_Meters << "] m" << std::endl;
+        std::cout << "(in CA units Y = [" << YLow_cells << "," << YHigh_cells << "], Z = [" << ZLow_cells << ","
                   << ZHigh_cells << "])" << std::endl;
-        QoIs << "The representative area is located at X = " << XLow_microns << " microns" << std::endl;
+        QoIs << "The representative area is located at X = " << XLow_Meters << " m" << std::endl;
         QoIs << "(in CA units, X = " << XLow_cells << ")" << std::endl;
-        QoIs << "The representative area is bounded by the region spanning Y = [" << YLow_microns << ","
-             << YHigh_microns << "], Z = [ " << ZLow_microns << "," << ZHigh_microns << "] microns" << std::endl;
-        QoIs << "(in CA units Y = [" << YLow_cells << "," << YHigh_cells << "], Z = [ " << ZLow_cells << ","
+        QoIs << "The representative area is bounded by the region spanning Y = [" << YLow_Meters << "," << YHigh_Meters
+             << "], Z = [" << ZLow_Meters << "," << ZHigh_Meters << "] m" << std::endl;
+        QoIs << "(in CA units Y = [" << YLow_cells << "," << YHigh_cells << "], Z = [" << ZLow_cells << ","
              << ZHigh_cells << "])" << std::endl;
     }
     else
@@ -119,7 +122,7 @@ void printGrainTypeFractions(std::ofstream &QoIs, const int XLow, const int XHig
 void printMeanMisorientations(std::ofstream &QoIs, int NumberOfGrains, std::vector<float> GrainMisorientationXVector,
                               std::vector<float> GrainMisorientationYVector,
                               std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
-                              double RepresentativeRegionSize_Microns) {
+                              double RepresentativeRegionSize_Meters) {
 
     std::vector<std::string> MisorientationDirectionLabels = {"misorientationX", "misorientationY", "misorientationZ"};
     std::vector<std::string> MisorientationDirectionLabelsShort = {"+X", "+Y", "+Z"};
@@ -131,9 +134,9 @@ void printMeanMisorientations(std::ofstream &QoIs, int NumberOfGrains, std::vect
         GrainMisorientation_sum_y += GrainMisorientationYVector[n] * GrainSizeVector[n];
         GrainMisorientation_sum_z += GrainMisorientationZVector[n] * GrainSizeVector[n];
     }
-    float AvgMisorientationX = DivideCast<float>(GrainMisorientation_sum_x, RepresentativeRegionSize_Microns);
-    float AvgMisorientationY = DivideCast<float>(GrainMisorientation_sum_y, RepresentativeRegionSize_Microns);
-    float AvgMisorientationZ = DivideCast<float>(GrainMisorientation_sum_z, RepresentativeRegionSize_Microns);
+    float AvgMisorientationX = DivideCast<float>(GrainMisorientation_sum_x, RepresentativeRegionSize_Meters);
+    float AvgMisorientationY = DivideCast<float>(GrainMisorientation_sum_y, RepresentativeRegionSize_Meters);
+    float AvgMisorientationZ = DivideCast<float>(GrainMisorientation_sum_z, RepresentativeRegionSize_Meters);
     std::cout << "-- Average misorientation (weighted by size) for grains relative to the X direction (in degrees): "
               << AvgMisorientationX << std::endl;
     QoIs << "-- Average misorientation (weighted by size) relative to the X direction (in degrees): "
@@ -187,17 +190,8 @@ void printMisorientationDataOld(int XMin, int XMax, int YMin, int YMax, int ZMin
 
 // Print the average grain size and the number of grains in the region
 void printMeanSize(std::ofstream &QoIs, int NumberOfGrains, double RepresentativeRegionSize_Microns,
-                   std::string RegionType) {
+                   std::string RegionType, std::string Units) {
 
-    std::string Units;
-    if (RegionType == "length")
-        Units = "microns";
-    else if (RegionType == "area")
-        Units = "square microns";
-    else if (RegionType == "volume")
-        Units = "cubic microns";
-    else
-        throw std::runtime_error("Error: unknown region type in printMeanSize");
     double AvgSizePerGrain = DivideCast<double>(RepresentativeRegionSize_Microns, NumberOfGrains);
     std::cout << "-- There are " << NumberOfGrains << " grains in this " << RegionType << " , and the mean grain "
               << RegionType << " is " << AvgSizePerGrain << " " << Units << std::endl;
@@ -208,7 +202,7 @@ void printMeanSize(std::ofstream &QoIs, int NumberOfGrains, double Representativ
 // Print average aspect ratio in the build to the average of the transverse directions
 void printMeanBuildTransAspectRatio(std::ofstream &QoIs, std::vector<float> GrainExtentX,
                                     std::vector<float> GrainExtentY, std::vector<float> GrainExtentZ,
-                                    std::vector<float> GrainSizeVector, double RepresentativeRegionSize_Microns,
+                                    std::vector<float> GrainSizeVector, double RepresentativeRegionSize_Meters,
                                     int NumberOfGrains) {
 
     std::vector<float> GrainAspectRatios(NumberOfGrains);
@@ -221,6 +215,7 @@ void printMeanBuildTransAspectRatio(std::ofstream &QoIs, std::vector<float> Grai
         ARSum += GrainAspectRatios[n];
         VolWtARSum += GrainAspectRatios[n] * GrainSizeVector[n];
     }
+    double RepresentativeRegionSize_Microns = RepresentativeRegionSize_Meters * pow(10, 18);
     std::cout << "-- The mean grain aspect ratio (Z direction to transverse) is "
               << DivideCast<float>(ARSum, NumberOfGrains) << std::endl;
     QoIs << "-- The mean grain aspect ratio (Z direction to transverse) is " << DivideCast<float>(ARSum, NumberOfGrains)
@@ -232,11 +227,12 @@ void printMeanBuildTransAspectRatio(std::ofstream &QoIs, std::vector<float> Grai
 }
 
 // Print average grain extent in the specified direction
-void printMeanExtent(std::ofstream &QoIs, std::vector<float> GrainExtent, std::string Direction, int NumberOfGrains) {
+void printMeanExtent(std::ofstream &QoIs, std::vector<float> GrainExtent_Microns, std::string Direction,
+                     int NumberOfGrains) {
 
     float GrainExtentSum = 0.0;
     for (int n = 0; n < NumberOfGrains; n++)
-        GrainExtentSum += GrainExtent[n];
+        GrainExtentSum += GrainExtent_Microns[n];
     float AvgGrainExtent = DivideCast<float>(GrainExtentSum, NumberOfGrains);
     std::cout << "-- The mean grain extent in the " << Direction << " direction is " << AvgGrainExtent << " microns"
               << std::endl;
@@ -246,14 +242,14 @@ void printMeanExtent(std::ofstream &QoIs, std::vector<float> GrainExtent, std::s
 
 // Print mean grain width (average of extents in x and y), and print the grain width distribution at the top of the
 // representative region
-void printSizeOld(std::string BaseFileName, int NumberOfGrains, std::vector<float> GrainExtentX,
-                  std::vector<float> GrainExtentY, const int XMin, const int XMax, const int YMin, const int YMax,
-                  const int ZMax, double deltax, ViewI3D_H GrainID) {
+void printSizeOld(std::string BaseFileName, int NumberOfGrains, std::vector<float> GrainExtentX_Microns,
+                  std::vector<float> GrainExtentY_Microns, const int XMin, const int XMax, const int YMin,
+                  const int YMax, const int ZMax, double deltax, ViewI3D_H GrainID) {
 
     float GrainExtentSumXY = 0.0;
     for (int n = 0; n < NumberOfGrains; n++) {
-        GrainExtentSumXY += GrainExtentX[n];
-        GrainExtentSumXY += GrainExtentY[n];
+        GrainExtentSumXY += GrainExtentX_Microns[n];
+        GrainExtentSumXY += GrainExtentY_Microns[n];
     }
     float AvgGrainExtentXY = DivideCast<float>(GrainExtentSumXY, 2 * NumberOfGrains);
     std::cout << "[Note: this will no longer be printed in a future release] The mean grain width is "
@@ -302,7 +298,7 @@ void printSizeOld(std::string BaseFileName, int NumberOfGrains, std::vector<floa
 // Write unweighted and/or weighted grain areas as a function of build height to file(s)
 void writeAreaSeries(bool PrintWeightedAreas, bool PrintUnweightedAreas, std::string BaseFileName, double deltax,
                      int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax, ViewI3D_H GrainID,
-                     double ZMin_Coordinate) {
+                     double ZMin_Meters) {
 
     std::string FName1 = BaseFileName + "_GrainAreas.csv";
     std::string FName2 = BaseFileName + "_WeightedGrainAreas.csv";
@@ -316,6 +312,7 @@ void writeAreaSeries(bool PrintWeightedAreas, bool PrintUnweightedAreas, std::st
     if (PrintWeightedAreas) {
         std::cout << "Printing file " << FName2
                   << " of weighted grain area values (in square microns) for every 5th Z coordinate" << std::endl;
+        std::cout << "Note: Option to print weighted grain area data will be removed in a future release" << std::endl;
         Grainplot2.open(FName2);
         Grainplot2 << "Zcoordinate(µm),WeightedMeanArea(µm2)" << std::endl;
     }
@@ -330,7 +327,7 @@ void writeAreaSeries(bool PrintWeightedAreas, bool PrintUnweightedAreas, std::st
         std::vector<int> UniqueGrainIDVector_Area = getUniqueGrains(GrainIDVector_Area, NumberOfGrains_Area);
         double MeanGrainAreaThisLayer = DivideCast<double>(LayerArea, NumberOfGrains_Area);
         if (PrintUnweightedAreas)
-            Grainplot1 << ZMin_Coordinate + convertToMicrons(deltax, "length") << ","
+            Grainplot1 << ZMin_Meters * pow(10, 6) + convertToMicrons(deltax, "length") << ","
                        << MeanGrainAreaThisLayer * convertToMicrons(deltax, "area") << std::endl;
         if ((PrintWeightedAreas) && (k % 5 == 0)) {
             std::vector<float> GrainSizeVector_Area =
@@ -339,7 +336,8 @@ void writeAreaSeries(bool PrintWeightedAreas, bool PrintUnweightedAreas, std::st
             for (int n = 0; n < NumberOfGrains_Area; n++)
                 AreaXArea += GrainSizeVector_Area[n] * GrainSizeVector_Area[n];
             double WeightedArea = DivideCast<double>(AreaXArea, LayerArea);
-            Grainplot2 << ZMin_Coordinate + convertToMicrons(deltax, "length") << "," << WeightedArea << std::endl;
+            Grainplot2 << ZMin_Meters * pow(10, 6) + convertToMicrons(deltax, "length") << "," << WeightedArea
+                       << std::endl;
             if (k == ZMax)
                 std::cout << "[Note: this will no longer be printed in a future release] The mean weighted grain area "
                              "at the representative region top (Z coordinate = "
@@ -357,13 +355,14 @@ void writeAreaSeries(bool PrintWeightedAreas, bool PrintUnweightedAreas, std::st
 }
 
 // Write a csv file of stats for each grain
-void writePerGrainStats(std::string OutputFileName, std::string RegionType, std::vector<int> UniqueGrainIDVector,
-                        std::vector<float> GrainMisorientationXVector, std::vector<float> GrainMisorientationYVector,
-                        std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
-                        std::vector<float> GrainExtentX, std::vector<float> GrainExtentY,
-                        std::vector<float> GrainExtentZ, std::vector<float> BuildTransAspectRatio, bool *AnalysisTypes,
-                        int NumberOfGrains, bool PrintIPFRGB, std::vector<float> GrainRed,
-                        std::vector<float> GrainGreen, std::vector<float> GrainBlue) {
+void writePerGrainStats_Old(std::string OutputFileName, std::string RegionType, std::vector<int> UniqueGrainIDVector,
+                            std::vector<float> GrainMisorientationXVector,
+                            std::vector<float> GrainMisorientationYVector,
+                            std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
+                            std::vector<float> GrainExtentX, std::vector<float> GrainExtentY,
+                            std::vector<float> GrainExtentZ, std::vector<float> BuildTransAspectRatio,
+                            bool *AnalysisTypes, int NumberOfGrains, bool PrintIPFRGB, std::vector<float> GrainRed,
+                            std::vector<float> GrainGreen, std::vector<float> GrainBlue) {
 
     // Which quantities should be printed?
     bool PrintMisorientation = AnalysisTypes[0];
@@ -410,6 +409,7 @@ void writePerGrainStats(std::string OutputFileName, std::string RegionType, std:
     }
     GrainStats.close();
 }
+
 //*****************************************************************************/
 // Helper function for unimodal analysis of the grains in the specified cross-section
 void AnalyzeCrossSection_Unimodal(std::ofstream &QoIs, std::string BaseFileName, std::string ThisCrossSectionPlane,
@@ -732,13 +732,14 @@ void printCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
         // Collect grain euler angles for the given plane to write to a file to be read by MTEX/plotted as inverse pole
         // figure-colored cross-sections
         if (PrintSectionIPF[n])
-            writeIPFColoredCrossSection(BaseFileName, ThisCrossSectionPlane, Plane, Index1Low, Index1High, Index2Low,
-                                        Index2High, CrossSectionOutOfPlaneLocation, GrainID, GrainEulerAngles, deltax,
-                                        NumberOfOrientations);
+            writeIPFColoredCrossSection_Old(BaseFileName, ThisCrossSectionPlane, Plane, Index1Low, Index1High,
+                                            Index2Low, Index2High, CrossSectionOutOfPlaneLocation, GrainID,
+                                            GrainEulerAngles, deltax, NumberOfOrientations);
         // Collect grain orientation frequency data and write to a file to be read by MTEX/plotted as pole figures
         if (PrintSectionPF[n]) {
             ViewI_H GOHistogram = getOrientationHistogram(NumberOfOrientations, CrossSectionGrainIDs, CrossSectionSize);
-            writePoleFigure(BaseFileName, ThisCrossSectionPlane, NumberOfOrientations, GrainEulerAngles, GOHistogram);
+            writePoleFigure_Old(BaseFileName, ThisCrossSectionPlane, NumberOfOrientations, GrainEulerAngles,
+                                GOHistogram);
         }
         // Make list of unique grains and corresponding grain areas
         int NumberOfGrains;
@@ -766,8 +767,8 @@ void printCrossSectionData(int NumberOfCrossSections, std::string BaseFileName,
 }
 
 //*****************************************************************************/
-void writePoleFigure(std::string BaseFileName, std::string RegionLabel, int NumberOfOrientations,
-                     ViewF_H GrainEulerAngles, ViewI_H GOHistogram) {
+void writePoleFigure_Old(std::string BaseFileName, std::string RegionLabel, int NumberOfOrientations,
+                         ViewF_H GrainEulerAngles, ViewI_H GOHistogram) {
 
     // Using new format, write pole figure data to "Filename"
     std::string Filename = BaseFileName + "_" + RegionLabel + "_PoleFigureData.txt";
@@ -784,15 +785,14 @@ void writePoleFigure(std::string BaseFileName, std::string RegionLabel, int Numb
     }
     GrainplotPF.close();
 }
-
 //*****************************************************************************/
 // For the region bounded by [Index1Low,Index1High] and [Index2Low,Index2High], at out of plane location given by
 // CrossSectionOutOfPlaneLocation, print data to be read by MTEX to plot the cross-section using the inverse pole figure
 // colormap. Identities of the in plane and out of plane indices depend on the value for "Plane"
-void writeIPFColoredCrossSection(std::string BaseFileName, std::string CrossSectionLabel, std::string Plane,
-                                 int Index1Low, int Index1High, int Index2Low, int Index2High,
-                                 int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
-                                 double deltax, int NumberOfOrientations) {
+void writeIPFColoredCrossSection_Old(std::string BaseFileName, std::string CrossSectionLabel, std::string Plane,
+                                     int Index1Low, int Index1High, int Index2Low, int Index2High,
+                                     int CrossSectionOutOfPlaneLocation, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
+                                     double deltax, int NumberOfOrientations) {
 
     std::string FNameIPF = BaseFileName + "_" + CrossSectionLabel + "_IPFCrossSectionData.txt";
     std::ofstream GrainplotIPF;
@@ -836,11 +836,10 @@ void writeIPFColoredCrossSection(std::string BaseFileName, std::string CrossSect
     }
     GrainplotIPF.close();
 }
-
 //*****************************************************************************/
-void writeExaConstitRVE(int NumberOfRVEs, std::string BaseFileName, int, int, int, double deltax, ViewI3D_H GrainID,
-                        std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE, std::vector<int> YLow_RVE,
-                        std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE, std::vector<int> ZHigh_RVE) {
+void writeExaConstitRVE_Old(int NumberOfRVEs, std::string BaseFileName, int, int, int, double deltax, ViewI3D_H GrainID,
+                            std::vector<int> XLow_RVE, std::vector<int> XHigh_RVE, std::vector<int> YLow_RVE,
+                            std::vector<int> YHigh_RVE, std::vector<int> ZLow_RVE, std::vector<int> ZHigh_RVE) {
 
     // Loop over each RVE specified in the file "AnalysisOutputs.txt"
     for (int n = 0; n < NumberOfRVEs; n++) {
