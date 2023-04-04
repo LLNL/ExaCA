@@ -284,9 +284,7 @@ void testCellTypeInit_NoRemelt() {
     ViewI LayerID = Kokkos::create_mirror_view_and_copy(memory_space(), LayerID_Host);
 
     // Initialize an orientation for the grain being tested
-    // Changed number of orientations to avoid overlap with testFillSteeringVector_Remelt (which used NGrainOrientations
-    // = 1), but leaving the other orientation uninitialized as the grain has an ID of 1
-    int NGrainOrientations = 2;
+    int NGrainOrientations = 1;
     ViewF_H GrainUnitVector_Host(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector_Host"),
                                  9 * NGrainOrientations);
     GrainUnitVector_Host(0) = 0.848294;  // x1
