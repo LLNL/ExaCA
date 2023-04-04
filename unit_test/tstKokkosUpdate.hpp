@@ -430,19 +430,23 @@ void testConvertGrainIDForBuffer() {
     using view_type = Kokkos::View<int *, memory_space>;
 
     // Create a list of integer grain ID values
-    std::vector<int> GrainIDV(11);
+    // Test positive and negative values
+    int NGrainIDValues = 7;
+    int TotalNGrainIDValues = 2 * NGrainIDValues;
+    std::vector<int> GrainIDV(TotalNGrainIDValues);
     GrainIDV[0] = 1;
     GrainIDV[1] = 2;
     GrainIDV[2] = 3;
     GrainIDV[3] = 10000;
     GrainIDV[4] = 10001;
     GrainIDV[5] = 19999;
-    for (int n = 6; n < 11; n++) {
-        GrainIDV[n] = -GrainIDV[n - 6];
+    GrainIDV[6] = 30132129;
+    for (int n = NGrainIDValues; n < TotalNGrainIDValues; n++) {
+        GrainIDV[n] = -GrainIDV[n - NGrainIDValues];
     }
-    view_type GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), 11);
+    view_type GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), TotalNGrainIDValues);
     auto GrainID_Host = Kokkos::create_mirror_view(Kokkos::HostSpace(), GrainID);
-    for (int n = 0; n < 11; n++) {
+    for (int n = 0; n < TotalNGrainIDValues; n++) {
         GrainID_Host(n) = GrainIDV[n];
     }
     GrainID = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID_Host);
@@ -450,16 +454,16 @@ void testConvertGrainIDForBuffer() {
     int NGrainOrientations = 10000;
 
     // Check that these were converted to their components and back correctly
-    view_type GrainID_Converted(Kokkos::ViewAllocateWithoutInitializing("GrainID_Converted"), 11);
+    view_type GrainID_Converted(Kokkos::ViewAllocateWithoutInitializing("GrainID_Converted"), TotalNGrainIDValues);
 
     Kokkos::parallel_for(
-        "TestInitGrainIDs", 11, KOKKOS_LAMBDA(const int &n) {
+        "TestInitGrainIDs", TotalNGrainIDValues, KOKKOS_LAMBDA(const int &n) {
             int MyGrainOrientation = getGrainOrientation(GrainID(n), NGrainOrientations, false);
             int MyGrainNumber = getGrainNumber(GrainID(n), NGrainOrientations);
             GrainID_Converted[n] = getGrainID(NGrainOrientations, MyGrainOrientation, MyGrainNumber);
         });
     auto GrainID_Converted_Host = Kokkos::create_mirror_view(Kokkos::HostSpace(), GrainID_Converted);
-    for (int n = 0; n < 11; n++)
+    for (int n = 0; n < TotalNGrainIDValues; n++)
         EXPECT_EQ(GrainIDV[n], GrainID_Converted_Host(n));
 }
 //---------------------------------------------------------------------------//
