@@ -25,7 +25,8 @@ struct RepresentativeRegion {
 
     std::string regionType;
     std::string regionOrientation;
-    std::string units_micro;
+    std::string units;
+    std::string units_dimension;
     std::vector<double> xBounds_Meters = std::vector<double>(2);
     std::vector<double> yBounds_Meters = std::vector<double>(2);
     std::vector<double> zBounds_Meters = std::vector<double>(2);
@@ -73,13 +74,13 @@ struct RepresentativeRegion {
                          std::vector<double> XYZBounds) {
 
         // Are the bounds given in cells, or in microns? Store both representations
-        std::string Units = RegionData["units"];
+        setUnits(RegionData);
         // Obtain the bounds of the region in x, y, and z, in both cells and microns
-        ConvertBounds(RegionData, Units, deltax, XYZBounds, nx, ny, nz);
+        ConvertBounds(RegionData, deltax, XYZBounds, nx, ny, nz);
         // Deduce region type/orientation/size units from the bounds given
         setRegionTypeOrientation();
         setRegionSize(deltax);
-        setRegionUnits();
+        setUnitDimension();
 
         // Check which overall stats and per grain stats should be printed for this region
         ReadAnalysisOptionsFromList(RegionData, "printStats", AnalysisOptions_Stats_key, AnalysisOptions_StatsYN);
@@ -188,10 +189,17 @@ struct RepresentativeRegion {
         }
     }
 
+    void setUnits(nlohmann::json RegionData) {
+        // Check that the units provided are Meters or Cells, throwing an error otherwise
+        units = RegionData["units"];
+        if (units != "Meters" && units != "Cells")
+            throw std::runtime_error("Error: Invalid units, should be Meters or Cells");
+    }
+
     // Get the lower and upper bounds for x, y, or z, in microns, converting from whichever format (cells or microns)
     // was present in the analysis input file
-    void ConvertBounds(nlohmann::json RegionData, std::string Units, double deltax, std::vector<double> XYZBounds,
-                       int nx, int ny, int nz) {
+    void ConvertBounds(nlohmann::json RegionData, double deltax, std::vector<double> XYZBounds, int nx, int ny,
+                       int nz) {
 
         std::vector<std::string> BoundDirections = {"x", "y", "z"};
         for (int dir = 0; dir < 3; dir++) {
@@ -210,11 +218,10 @@ struct RepresentativeRegion {
                 throw std::runtime_error(error);
             }
 
-            // Check that the units provided are Meters or Cells, throwing an error otherwise
             // Initialize bounds in both Meters and Cells
             std::vector<int> Bounds_Cells(2);
             std::vector<double> Bounds_Meters(2);
-            if (Units == "Meters") {
+            if (units == "Meters") {
                 if ((!RegionData.contains(onebound)) && (!RegionData.contains(twobounds))) {
                     Bounds_Read[0] = 0;
                     if (dir == 0)
@@ -238,7 +245,7 @@ struct RepresentativeRegion {
                 Bounds_Cells[0] = std::round((Bounds_Read[0] - CoordinateMinVal) / deltax);
                 Bounds_Cells[1] = std::round((Bounds_Read[1] - CoordinateMinVal) / deltax);
             }
-            else if (Units == "Cells") {
+            else if (units == "Cells") {
                 if ((!RegionData.contains(onebound)) && (!RegionData.contains(twobounds))) {
                     Bounds_Read[0] = 0;
                     if (dir == 0)
@@ -262,8 +269,6 @@ struct RepresentativeRegion {
                 Bounds_Meters[0] = CoordinateMinVal + deltax * Bounds_Read[0];
                 Bounds_Meters[1] = CoordinateMinVal + deltax * Bounds_Read[1];
             }
-            else
-                throw std::runtime_error("Error: Invalid units in ConvertBounds, should be Meters or Cells");
 
             // Store bounds for the given direction
             for (int i = 0; i < 2; i++) {
@@ -304,15 +309,15 @@ struct RepresentativeRegion {
     }
 
     // Set the appropriate units for the region based on the dimensions (in microns)
-    void setRegionUnits() {
+    void setUnitDimension() {
         regionSize_Cells = (xBounds_Cells[1] - xBounds_Cells[0] + 1) * (yBounds_Cells[1] - yBounds_Cells[0] + 1) *
                            (zBounds_Cells[1] - zBounds_Cells[0] + 1);
         if (regionType == "length")
-            units_micro = "microns";
+            units_dimension = "microns";
         else if (regionType == "area")
-            units_micro = "square microns";
+            units_dimension = "square microns";
         else if (regionType == "volume")
-            units_micro = "cubic microns";
+            units_dimension = "cubic microns";
         else
             throw std::runtime_error("Error: Invalid region type in setRegionSize during region construction");
     }
