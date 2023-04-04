@@ -21,22 +21,22 @@ KOKKOS_INLINE_FUNCTION void loadghostnodes(const int GhostGID, const float Ghost
     if ((RankY == 1) && (!(AtSouthBoundary))) {
         int GNPosition = RankZ * BufSizeX + RankX;
         int MyGrainOrientation = getGrainOrientation(GhostGID, NGrainOrientations, false);
-        BufferSouthSend(GNPosition, 0) = MyGrainOrientation;
-        BufferSouthSend(GNPosition, 1) = GhostDOCX;
-        BufferSouthSend(GNPosition, 2) = GhostDOCY;
-        BufferSouthSend(GNPosition, 3) = GhostDOCZ;
-        BufferSouthSend(GNPosition, 4) = GhostDL;
-        BufferSouthSend(GNPosition, 5) = getGrainNumber(GhostGID, NGrainOrientations);
+        BufferSouthSend(GNPosition, 0) = static_cast<float>(MyGrainOrientation);
+        BufferSouthSend(GNPosition, 1) = getGrainNumber(GhostGID, NGrainOrientations);
+        BufferSouthSend(GNPosition, 2) = GhostDOCX;
+        BufferSouthSend(GNPosition, 3) = GhostDOCY;
+        BufferSouthSend(GNPosition, 4) = GhostDOCZ;
+        BufferSouthSend(GNPosition, 5) = GhostDL;
     }
     else if ((RankY == MyYSlices - 2) && (!(AtNorthBoundary))) {
         int GNPosition = RankZ * BufSizeX + RankX;
         int MyGrainOrientation = getGrainOrientation(GhostGID, NGrainOrientations, false);
-        BufferNorthSend(GNPosition, 0) = MyGrainOrientation;
-        BufferNorthSend(GNPosition, 1) = GhostDOCX;
-        BufferNorthSend(GNPosition, 2) = GhostDOCY;
-        BufferNorthSend(GNPosition, 3) = GhostDOCZ;
-        BufferNorthSend(GNPosition, 4) = GhostDL;
-        BufferNorthSend(GNPosition, 5) = getGrainNumber(GhostGID, NGrainOrientations);
+        BufferNorthSend(GNPosition, 0) = static_cast<float>(MyGrainOrientation);
+        BufferNorthSend(GNPosition, 1) = getGrainNumber(GhostGID, NGrainOrientations);
+        BufferNorthSend(GNPosition, 2) = GhostDOCX;
+        BufferNorthSend(GNPosition, 3) = GhostDOCY;
+        BufferNorthSend(GNPosition, 4) = GhostDOCZ;
+        BufferNorthSend(GNPosition, 5) = GhostDL;
     }
 }
 void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int MyYSlices, int MyYOffset,

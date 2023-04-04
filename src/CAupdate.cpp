@@ -425,7 +425,8 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                                                        CritDiagonalLength);
 
                                 if (np > 1) {
-
+                                    // TODO: Test loading ghost nodes in a separate kernel, potentially adopting this
+                                    // change if the slowdown is minor
                                     int GhostGID = h;
                                     float GhostDOCX = cx;
                                     float GhostDOCY = cy;
@@ -499,7 +500,8 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                 calcCritDiagonalLength(D3D1ConvPosition, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
                                        MyOrientation, GrainUnitVector, CritDiagonalLength);
                 if (np > 1) {
-
+                    // TODO: Test loading ghost nodes in a separate kernel, potentially adopting this change if the
+                    // slowdown is minor
                     int GhostGID = MyGrainID;
                     float GhostDOCX = GlobalX + 0.5;
                     float GhostDOCY = GlobalY + 0.5;

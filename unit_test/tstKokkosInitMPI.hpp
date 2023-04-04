@@ -382,14 +382,14 @@ void testCellTypeInit_NoRemelt() {
             // Check the south buffer - Data being sent to the "south" (BufferSouthSend) is from active cells at Y = 1
             int D3D1ConvPositionGlobal_South = k * nx * MyYSlices + i * MyYSlices + 1; // Position of cell on grid
             if ((CellType_Host(D3D1ConvPositionGlobal_South) == Active) && (!(AtSouthBoundary))) {
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 1), i + 0.5);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 2), 1 + MyYOffset + 0.5);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 3), k + 0.5);
-                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 4), 0.01);
                 int MyGrainOrientation = static_cast<int>(BufferSouthSend_H(GNPosition, 0));
-                int MyGrainNumber = static_cast<int>(BufferSouthSend_H(GNPosition, 5));
+                int MyGrainNumber = static_cast<int>(BufferSouthSend_H(GNPosition, 1));
                 int ExpectedGrainID = getGrainID(NGrainOrientations, MyGrainOrientation, MyGrainNumber);
                 EXPECT_EQ(ExpectedGrainID, 1);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 2), i + 0.5);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 3), 1 + MyYOffset + 0.5);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 4), k + 0.5);
+                EXPECT_FLOAT_EQ(BufferSouthSend_H(GNPosition, 5), 0.01);
             }
             else {
                 for (int l = 0; l < 6; l++) {
@@ -399,14 +399,14 @@ void testCellTypeInit_NoRemelt() {
             // Check the north buffer - Data being sent to the "north" (BufferNorthSend) is from active cells at Y = 2
             int D3D1ConvPositionGlobal_North = k * nx * MyYSlices + i * MyYSlices + 2;
             if ((CellType_Host(D3D1ConvPositionGlobal_North) == Active) && (!(AtNorthBoundary))) {
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 1), i + 0.5);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 2), 2 + MyYOffset + 0.5);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 3), k + 0.5);
-                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 4), 0.01);
                 int MyGrainOrientation = static_cast<int>(BufferNorthSend_H(GNPosition, 0));
-                int MyGrainNumber = static_cast<int>(BufferNorthSend_H(GNPosition, 5));
+                int MyGrainNumber = static_cast<int>(BufferNorthSend_H(GNPosition, 1));
                 int ExpectedGrainID = getGrainID(NGrainOrientations, MyGrainOrientation, MyGrainNumber);
                 EXPECT_EQ(ExpectedGrainID, 1);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 2), i + 0.5);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 3), 2 + MyYOffset + 0.5);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 4), k + 0.5);
+                EXPECT_FLOAT_EQ(BufferNorthSend_H(GNPosition, 5), 0.01);
             }
             else {
                 for (int l = 0; l < 6; l++) {
