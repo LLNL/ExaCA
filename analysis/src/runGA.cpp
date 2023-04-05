@@ -465,7 +465,7 @@ int main(int argc, char *argv[]) {
 
                 // IPF map for area print a file named "[BaseFileNameThisRegion]_IPFCrossSectionData.txt"
                 if (representativeRegion.PrintInversePoleFigureMapYN) {
-                    representativeRegion.writeIPFColoredCrossSection(BaseFileNameThisRegion, GrainID, GrainEulerAngles,
+                    representativeRegion.writeIPFColoredCrossSection(BaseFileNameThisRegion, GrainID, GrainEulerAngles_Host,
                                                                      deltax, NumberOfOrientations);
                 }
                 std::cout << "Finished analysis for region " << RegionName << std::endl;
