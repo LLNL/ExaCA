@@ -140,7 +140,7 @@ cd build
 cmake \
     -D CMAKE_BUILD_TYPE="Release" \
     -D CMAKE_CXX_COMPILER=hipcc \
-    -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL" \
+    -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL_DIR" \
     -D CMAKE_INSTALL_PREFIX=install \
     .. ;
 make install
