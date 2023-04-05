@@ -84,7 +84,6 @@ cd build
 # Check the GPU architecture flag matches the hardware
 cmake \
   -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_CXX_COMPILER=../bin/nvcc_wrapper \
   -D CMAKE_INSTALL_PREFIX=install \
   -D Kokkos_ENABLE_CUDA=ON \
   -D Kokkos_ENABLE_CUDA_LAMBDA=ON \
@@ -95,24 +94,7 @@ cd ../..
 ```
 Note the two flags needed for the `Kokkos::Cuda` backend. The Kokkos architecture flag must match the hardware you run on and will improve performance. By default, the host will use `Kokkos::Serial`; other parallel host backends can also be used, e.g. by adding `-D Kokkos_ENABLE_OPENMP`.
 
-Build ExaCA, this time with the Kokkos compiler wrapper:
-```
-# Change this path to Kokkos installation
-export KOKKOS_INSTALL_DIR=./kokkos/build/install
-
-# Change this path to ExaCA source
-cd ./ExaCA
-mkdir build
-cd build
-export EXACA_INSTALL_DIR=`pwd`/install
-cmake \
-  -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_CXX_COMPILER=$KOKKOS_INSTALL_DIR/bin/nvcc_wrapper \
-  -D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR \
-  -D CMAKE_INSTALL_PREFIX=install \
-  ..;
-make install
-```
+Building ExaCA with Kokkos CUDA is identical to the OpenMP example above (Kokkos automatically uses `nvcc` internally as needed).
 
 ### Build HIP
 Again, first build Kokkos, this time with the `hipcc` compiler:
@@ -129,7 +111,7 @@ cmake \
     .. ;
 make install
 ```
-And build ExaCA with the same compiler:
+And build ExaCA, where the only difference from above is the `hipcc` compiler:
 ```
 # Change this path to Kokkos installation
 export KOKKOS_INSTALL_DIR=./kokkos/build/install
@@ -140,7 +122,7 @@ cd build
 cmake \
     -D CMAKE_BUILD_TYPE="Release" \
     -D CMAKE_CXX_COMPILER=hipcc \
-    -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL" \
+    -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL_DIR" \
     -D CMAKE_INSTALL_PREFIX=install \
     .. ;
 make install
