@@ -11,12 +11,19 @@
 %
 %
 % Mtex color maps
+% Colormap developed by Adam Creuziger (NIST)
+% Creates color map with a consistent range for comparison between data sets
+% and publications. Developed to distinguish between values less than 1
+% (grayscale) and values greater than 1 (color), as a value=1 is equal
+% to random (uniform) texture intensity.
+% Color range for colormap8.m extends the colormap4.m and are identical in the
+% range of 0 to 4.
 
 % Needed to produce test ODF
 %clc
 %clear
 %close all
-%% set colomap with grayscale less than 1, colors to 4 MUD
+%% set colomap with grayscale 0 to 1, colors to 1 to 8 MUD
 mtexColorMap([0 0 0; .1 .1 .1 ;.2 .2 .2;.3 .3 .3;     .4 .4 .4 ;     .5 .5 .5;     .6 .6 .6;     .7 .7 .7;     .8 .8 .8;     .9 .9 .9;     0 0 1 ;...
     0 .1 .9;     0 .2 .8;     0 .3 .7;     0 .4 .6;     0 .5 .5;     0 .6 .4;     0 .7 .3;     0 .8 .2;     0 .9 .1;     0 1 0  ;...
     .1 1 0;     .2 1 0;     .3 1 0;     .4 1 0;     .5 1 0;     .6 1 0;     .7 1 0;     .8 1 0;     .9 1 0;     1 1 0      ;...
