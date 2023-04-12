@@ -201,10 +201,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     int BufSizeZ = nzActive;
 
     // Send/recv buffers for ghost node data should be initialized with zeros
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferSouthRecv("BufferSouthRecv", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthRecv("BufferNorthRecv", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 6);
+    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 6);
+    Buffer2D BufferSouthRecv("BufferSouthRecv", BufSizeX * BufSizeZ, 6);
+    Buffer2D BufferNorthRecv("BufferNorthRecv", BufSizeX * BufSizeZ, 6);
 
     // Initialize the grain structure and cell types - for either a constrained solidification problem, using a
     // substrate from a file, or generating a substrate using the existing CA algorithm
@@ -328,7 +328,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, nx, MyYSlices, NeighborX, NeighborY, NeighborZ,
                                           CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID,
                                           ZBound_Low, nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep,
-                                          BufSizeX, AtNorthBoundary, AtSouthBoundary, BufferNorthSend, BufferSouthSend);
+                                          BufSizeX, AtNorthBoundary, AtSouthBoundary, BufferNorthSend, BufferSouthSend,
+                                          NGrainOrientations);
             else
                 FillSteeringVector_NoRemelt(cycle, LocalActiveDomainSize, nx, MyYSlices, CritTimeStep,
                                             UndercoolingCurrent, UndercoolingChange, CellType, ZBound_Low, layernumber,

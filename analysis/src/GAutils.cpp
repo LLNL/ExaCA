@@ -979,19 +979,19 @@ ViewI_H getOrientationHistogram(int NumberOfOrientations, std::vector<int> Grain
 
 // Given an input vector of integer Grain ID values "GrainIDVector", and an input vector of the
 // unique Grain ID values "UniqueGrainIDVector" (of size "NumberOfGrains"), return a third vector "GrainSizeVector"
-// listing the size of each of the "NumberOfGrains" grains (scaled by the cell size deltax and depending on whether the
-// region is 1D, 2D, or 3D)
+// listing the size of each of the "NumberOfGrains" grains (as either microns, square microns, or cubic microns
+// depending on the dimensionality of the region type)
 std::vector<float> getGrainSizes(const std::vector<int> GrainIDVector, const std::vector<int> UniqueGrainIDVector,
                                  const int NumberOfGrains, double deltax, std::string RegionType) {
 
-    std::vector<float> GrainSizeVector(NumberOfGrains);
+    std::vector<float> GrainSizeVector_Microns(NumberOfGrains);
     double conv = convertToMicrons(deltax, RegionType);
     for (int n = 0; n < NumberOfGrains; n++) {
         int GrainSizeCells = std::count(GrainIDVector.begin(), GrainIDVector.end(), UniqueGrainIDVector[n]);
         // convert to either microns, square microns, or cubic microns
-        GrainSizeVector[n] = conv * GrainSizeCells;
+        GrainSizeVector_Microns[n] = conv * GrainSizeCells;
     }
-    return GrainSizeVector;
+    return GrainSizeVector_Microns;
 }
 
 // Given the 3D grain structure "GrainID", determine the extent in the direction specified of each of the

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Takes two command line inputs: the first is the base temperature file name, and
-# the second is the number of temperature files in the series
+# Command line inputs are the list of temperature files associated with the ensemble of simulations
 # See top level README for more details regarding these inputs
 # Generate input files for ExaCA using a level 3 tasmanian sparse grid and 3 ExaCA
 # input variables: heterogenous nucleation density, mean substrate grain size,
@@ -33,17 +32,20 @@ S0Max = 25
 S0Mean = 0.5 * (S0Min + S0Max)
 S0Dev = S0Mean - S0Min
 
-# Check number of command line arguments given: should be 2
-if len(sys.argv) == 3:
-    BaseTemperatureFilename = str(sys.argv[1])
-    TempFilesInSeries = str(sys.argv[2])
-else:
-    print('Error: exactly 2 command line arguments are required')
+# Check number of command line arguments given: should be at least 2
+NumCommandLineArgs = len(sys.argv);
+if (NumCommandLineArgs == 1):
+    print('Error: At least one temperature data file associated with these simulations is required')
     sys.exit(1)
 
-# Temperature filename without extension
-StartExt = BaseTemperatureFilename.rfind('.')
-BaseTemperatureFilenameNoExt = BaseTemperatureFilename[:StartExt]
+# Get list of temperature files from the command line
+TemperatureFiles = "["
+for tfile in range(1, NumCommandLineArgs):
+    TemperatureFiles += "\"" + str(sys.argv[tfile]) + "\"";
+    if (tfile == NumCommandLineArgs-1):
+        TemperatureFiles += "]";
+    else:
+        TemperatureFiles += ",";
 
 # Write ExaCA input files to the examples subdirectory
 for filenumber in range(1, 70):
@@ -55,32 +57,37 @@ for filenumber in range(1, 70):
     S0ThisMember = S0Mean + S0Dev * points[filenumber-1,2]
     
     # Write to example file number "filenumber"
-    filename = "examples/Inp_" + BaseTemperatureFilenameNoExt + "EnsembleMember" + str(filenumber) + ".txt"
+    filename = 'examples/Inp_TasmanianTest_' + str(filenumber) + '.json'
     with open(filename, "w") as f:
-        OutputData = ["ExaCA input file written in python for an ensemble of CA calculations \n",
-        "***** \n",
-        "Problem type: R \n",
-        "Decomposition strategy: 1 \n",
-        "Material:Inconel625 \n",
-        "Cell size: 2.5 \n",
-        "Heterogeneous nucleation density: " + str(N0ThisMember) + "\n",
-        "Mean nucleation undercooling: " + str(dTNThisMember) + "\n",
-        "Standard deviation of nucleation undercooling: 0.5 \n",
-        "Path to output:./ \n",
-        "Output file base name: " + BaseTemperatureFilenameNoExt + "_ExaCAEnsMem_" + str(filenumber) + "\n",
-        "File of grain orientations:GrainOrientationVectors_Robert.csv \n",
-        "Heat transport data mesh size: 2.5 \n",
-        "Time step: 0.125 \n",
-        "Substrate grain spacing: " + str(S0ThisMember) + "\n",
-        "Path to temperature file(s): examples/Temperatures \n",
-        "Temperature filename(s): " + BaseTemperatureFilename + "\n",
-        "Number of temperature files: " + TempFilesInSeries + "\n",
-        "Number of layers: 56 \n",
-        "Offset between layers: 8 \n",
-        "***Output data printing options: (Y or N) which data should be printed*** \n",
-        "Print file of grain misorientation values: Y \n",
-        "Print file of all ExaCA data: Y \n",
-        "Print default RVE output: Y \n",
-        "Debug check (reduced): N \n",
-        "Debug check (extensive): N \n"]
+        OutputData = ['{ \n',
+        '   "SimulationType": "RM",\n',
+        '   "MaterialFileName": "Inconel625.json",\n',
+        '   "GrainOrientationFile": "GrainOrientationVectors.csv",\n',
+        '   "RandomSeed": 0.0, \n',
+        '   "Domain": { \n',
+        '      "CellSize": 2.5, \n',
+        '      "TimeStep": 0.125, \n',
+        '      "NumberOfLayers": 56, \n',
+        '      "LayerOffset": 8 \n',
+        '   }, \n',
+        '   "Nucleation": { \n',
+        '      "Density": ' + str(N0ThisMember) + ',\n',
+        '      "MeanUndercooling": ' + str(dTNThisMember) + ',\n',
+        '      "StDev": 0.5 \n'
+        '   }, \n',
+        '   "TemperatureData": { \n',
+        '      "TemperatureFiles\": ' + TemperatureFiles + '\n'
+        '   }, \n',
+        '   "Substrate": { \n',
+        '      "MeanSize": ' + str(S0ThisMember) + ',\n',
+        '      "PowderDensity": 0 \n'
+        '   }, \n',
+        '   "Printing": { \n',
+        '      "PathToOutput": ./\n',
+        '      "OutputFile": "TasmanianTest_' + str(filenumber) + '",\n',
+        '      "PrintBinary": true,\n',
+        '      "PrintFieldsInit": [],\n',
+        '      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"] \n',
+        '   } \n',
+        '}']
         f.writelines(OutputData)

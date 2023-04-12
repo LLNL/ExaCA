@@ -84,7 +84,6 @@ cd build
 # Check the GPU architecture flag matches the hardware
 cmake \
   -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_CXX_COMPILER=../bin/nvcc_wrapper \
   -D CMAKE_INSTALL_PREFIX=install \
   -D Kokkos_ENABLE_CUDA=ON \
   -D Kokkos_ENABLE_CUDA_LAMBDA=ON \
@@ -95,24 +94,7 @@ cd ../..
 ```
 Note the two flags needed for the `Kokkos::Cuda` backend. The Kokkos architecture flag must match the hardware you run on and will improve performance. By default, the host will use `Kokkos::Serial`; other parallel host backends can also be used, e.g. by adding `-D Kokkos_ENABLE_OPENMP`.
 
-Build ExaCA, this time with the Kokkos compiler wrapper:
-```
-# Change this path to Kokkos installation
-export KOKKOS_INSTALL_DIR=./kokkos/build/install
-
-# Change this path to ExaCA source
-cd ./ExaCA
-mkdir build
-cd build
-export EXACA_INSTALL_DIR=`pwd`/install
-cmake \
-  -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_CXX_COMPILER=$KOKKOS_INSTALL_DIR/bin/nvcc_wrapper \
-  -D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR \
-  -D CMAKE_INSTALL_PREFIX=install \
-  ..;
-make install
-```
+Building ExaCA with Kokkos CUDA is identical to the OpenMP example above (Kokkos automatically uses `nvcc` internally as needed).
 
 ### Build HIP
 Again, first build Kokkos, this time with the `hipcc` compiler:
@@ -129,7 +111,7 @@ cmake \
     .. ;
 make install
 ```
-And build ExaCA with the same compiler:
+And build ExaCA, where the only difference from above is the `hipcc` compiler:
 ```
 # Change this path to Kokkos installation
 export KOKKOS_INSTALL_DIR=./kokkos/build/install
@@ -140,7 +122,7 @@ cd build
 cmake \
     -D CMAKE_BUILD_TYPE="Release" \
     -D CMAKE_CXX_COMPILER=hipcc \
-    -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL" \
+    -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL_DIR" \
     -D CMAKE_INSTALL_PREFIX=install \
     .. ;
 make install
@@ -174,9 +156,9 @@ mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
 ## Automated input file generation using Tasmanian (https://tasmanian.ornl.gov/)
 Within the `utilities` directory, an example python script for the generation of an ensemble of input files is available. By running the example script `TasmanianTest.py`, 69 ExaCA input files are generated with a range of heterogenous nucleation density, mean nucleation undercooling, and mean substrate grain size values, based on the ranges in python code (N0Min-N0Max, dTNMin-dTNMax, and S0Min-S0Max), respectively. Running the python script from the ExaCA source directory, via the command
 ```
-python utilities/TasmanianTest.py TemperatureData 2
+python utilities/TasmanianTest.py PathToTemperatureFile1 PathToTemperatureFile2 ...
 ```
-the script will generate an ensemble of input files in the `examples` directory, with "Temperature filename(s): TemperatureData" and "Number of temperature files: 2" based on the command line inputs to the python script. The output file name for ExaCA simulations run using the input file `examples/Inp_TemperatureDataEnsembleMember($N)`, generated as one of N = 1 to 69 input files that resulted from running the example python script, will be `TemperatureData_ExaCAEnsMem_($N)`. Other CA inputs, such as the path to temperature data, or the time step) must be adjusted manually inside of the python script. Separate instances of ExaCA can be run with each ensemble member to probe microstructure dependency on nucleation and substrate.
+the script will generate an ensemble of input files in the `examples` directory, for a series of simulations that will use the thermal history or histories described in `PathToTemperatureFile1(s)` being repeated for a certain number of layers (56 in this example). If a simulation repeating multiple thermal histories is desired (for example, and even layer and an odd layer scan pattern), both paths to/file names of the thermal history data should be given on the command line. Running this code will generate N = 1 to 69 input files named `examples/Inp_TasmanianTest_[N].json`. Other CA inputs, such as the time step or cell size, must be adjusted manually inside of the python script. Separate instances of ExaCA can be run with each ensemble member to probe microstructure dependency on nucleation and substrate.
 
 ## Output and post-processing analysis
 
@@ -188,12 +170,19 @@ Specifying debug check options can be done to print various ExaCA data fields to
 
 ExaCA can optionally print the system state at intermediate time values as part of a series of vtk files that can be read by Paraview to make animations, if the "Print intermediate output frames" option is turned on. "Increment to separate frames" is the separation between intermediate output files in microseconds - if there is a long time period between solidification events (such as two overlapping melt pools formed via line scan with a long dwell time between them), setting "Intermediate output even if system is unchanged from previous state" to off will skip printing of those files.
 
-Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` (containing LayerID, GrainID, and Melted data) and `TestProblemDirS.log` (containing information regarding the simulation parameters used, simulation dimensions, and some timing data). To analyze this data, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with one command line argument pointing to the analysis input file. Within the `analysis/examples` directory, there are example analysis input files:
+Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` (containing LayerID, GrainID, and Melted data) and `TestProblemDirS.json` (containing information regarding the simulation parameters used, simulation dimensions, and some timing data). To analyze this data, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with two command line arguments: the first being the path to/name of the analysis input file, and the second being the path to and filename (excluding extensions) of the .vtk and .json files associated with the data set of interest.
+
+```
+./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.json TestProblemDirS
+```
+Within the `analysis/examples` directory, there are example analysis input files. Note that the microstructure data files `TestProblemDirS.vtk` and `TestProblemDirS.json` must both be in the location given on the command line. 
+
+Alternatively, if JSON is not enabled, running the test problem `Inp_DirSolidification.json` yields the output file `TestProblemDirS.log` rather than `TestProblemDirS.json`. To analyze the data without using JSON formatting, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with one command line argument pointing to the analysis input file (example analysis input files not in JSON format are also available in `analysis/examples`)
 
 ```
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
 ```
-Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file. More information about running the analysis executable and the grain structure stats collected during the run is located in `analysis/README.md`
+Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file, and not provided on the command line as with JSON formatting of log and analysis files. More information about running the analysis executable and the grain structure stats collected during the run is located in `analysis/README.md`
 
 The analysis executable, in addition to outputting grain statistics, can also output files that can be further post-processing in Matlab using the MTEX toolbox to generate pole figures, inverse pole figures, and inverse pole figure-colored cross-sections. More details on this are provided in `analysis/README.md`
 

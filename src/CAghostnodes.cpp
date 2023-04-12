@@ -23,15 +23,15 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthSend.data(), 6 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthSend.data(), 6 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &SendRequests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthRecv.data(), 6 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
               &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), 5 * BufSizeX * BufSizeZ, MPI_DOUBLE, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthRecv.data(), 6 * BufSizeX * BufSizeZ, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
               &RecvRequests[1]);
 
     // unpack in any order
@@ -61,13 +61,15 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = 0;
                         CellLocation = RankZ * nx * MyYSlices + MyYSlices * RankX + RankY;
                         int GlobalCellLocation = CellLocation + ZBound_Low * nx * MyYSlices;
-                        if ((BufferSouthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
+                        if ((BufferSouthRecv(BufPosition, 5) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
-                            NewGrainID = (int)(BufferSouthRecv(BufPosition, 0));
-                            DOCenterX = BufferSouthRecv(BufPosition, 1);
-                            DOCenterY = BufferSouthRecv(BufPosition, 2);
-                            DOCenterZ = BufferSouthRecv(BufPosition, 3);
-                            NewDiagonalLength = BufferSouthRecv(BufPosition, 4);
+                            int MyGrainOrientation = static_cast<int>(BufferSouthRecv(BufPosition, 0));
+                            int MyGrainNumber = static_cast<int>(BufferSouthRecv(BufPosition, 1));
+                            NewGrainID = getGrainID(NGrainOrientations, MyGrainOrientation, MyGrainNumber);
+                            DOCenterX = BufferSouthRecv(BufPosition, 2);
+                            DOCenterY = BufferSouthRecv(BufPosition, 3);
+                            DOCenterZ = BufferSouthRecv(BufPosition, 4);
+                            NewDiagonalLength = BufferSouthRecv(BufPosition, 5);
                         }
                     }
                     else if ((unpack_index == 1) && (NeighborRank_North != MPI_PROC_NULL)) {
@@ -75,13 +77,15 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankY = MyYSlices - 1;
                         CellLocation = RankZ * nx * MyYSlices + MyYSlices * RankX + RankY;
                         int GlobalCellLocation = CellLocation + ZBound_Low * nx * MyYSlices;
-                        if ((BufferNorthRecv(BufPosition, 4) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
+                        if ((BufferNorthRecv(BufPosition, 5) > 0) && (CellType(GlobalCellLocation) == Liquid)) {
                             Place = true;
-                            NewGrainID = (int)(BufferNorthRecv(BufPosition, 0));
-                            DOCenterX = BufferNorthRecv(BufPosition, 1);
-                            DOCenterY = BufferNorthRecv(BufPosition, 2);
-                            DOCenterZ = BufferNorthRecv(BufPosition, 3);
-                            NewDiagonalLength = BufferNorthRecv(BufPosition, 4);
+                            int MyGrainOrientation = static_cast<int>(BufferNorthRecv(BufPosition, 0));
+                            int MyGrainNumber = static_cast<int>(BufferNorthRecv(BufPosition, 1));
+                            NewGrainID = getGrainID(NGrainOrientations, MyGrainOrientation, MyGrainNumber);
+                            DOCenterX = BufferNorthRecv(BufPosition, 2);
+                            DOCenterY = BufferNorthRecv(BufPosition, 3);
+                            DOCenterZ = BufferNorthRecv(BufPosition, 4);
+                            NewDiagonalLength = BufferNorthRecv(BufPosition, 5);
                         }
                     }
                     if (Place) {
