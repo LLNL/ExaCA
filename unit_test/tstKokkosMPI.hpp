@@ -160,10 +160,10 @@ void testGhostNodes1D() {
     int BufSizeZ = nzActive;
 
     // Send/recv buffers for ghost node data should be initialized with zeros
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferSouthRecv("BufferSouthRecv", BufSizeX * BufSizeZ, 5);
-    Buffer2D BufferNorthRecv("BufferNorthRecv", BufSizeX * BufSizeZ, 5);
+    Buffer2D BufferSouthSend("BufferSouthSend", BufSizeX * BufSizeZ, 6);
+    Buffer2D BufferNorthSend("BufferNorthSend", BufSizeX * BufSizeZ, 6);
+    Buffer2D BufferSouthRecv("BufferSouthRecv", BufSizeX * BufSizeZ, 6);
+    Buffer2D BufferNorthRecv("BufferNorthRecv", BufSizeX * BufSizeZ, 6);
 
     // Fill send buffers
     Kokkos::parallel_for(
@@ -176,13 +176,14 @@ void testGhostNodes1D() {
             int GlobalZ = RankZ + ZBound_Low;
             int GlobalD3D1ConvPosition = GlobalZ * MyXSlices * MyYSlices + RankX * MyYSlices + RankY;
             if (CellType(GlobalD3D1ConvPosition) == Active) {
-                double GhostGID = static_cast<double>(GrainID(GlobalD3D1ConvPosition));
-                double GhostDOCX = static_cast<double>(DOCenter(3 * D3D1ConvPosition));
-                double GhostDOCY = static_cast<double>(DOCenter(3 * D3D1ConvPosition + 1));
-                double GhostDOCZ = static_cast<double>(DOCenter(3 * D3D1ConvPosition + 2));
-                double GhostDL = static_cast<double>(DiagonalLength(D3D1ConvPosition));
+                int GhostGID = GrainID(GlobalD3D1ConvPosition);
+                float GhostDOCX = DOCenter(3 * D3D1ConvPosition);
+                float GhostDOCY = DOCenter(3 * D3D1ConvPosition + 1);
+                float GhostDOCZ = DOCenter(3 * D3D1ConvPosition + 2);
+                float GhostDL = DiagonalLength(D3D1ConvPosition);
                 loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, RankX, RankY,
-                               RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend);
+                               RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
+                               NGrainOrientations);
             }
         });
 

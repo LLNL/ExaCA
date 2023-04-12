@@ -24,7 +24,7 @@ typedef Kokkos::View<float *> ViewF;
 typedef Kokkos::View<int *> ViewI;
 typedef Kokkos::View<int **> ViewI2D;
 typedef Kokkos::View<int *, Kokkos::MemoryTraits<Kokkos::Atomic>> View_a;
-typedef Kokkos::View<double **> Buffer2D;
+typedef Kokkos::View<float **> Buffer2D;
 typedef Kokkos::View<float *> TestView;
 typedef Kokkos::View<float ***> ViewF3D;
 
@@ -38,7 +38,7 @@ typedef Kokkos::View<float ***, layout, Kokkos::HostSpace> ViewF3D_H;
 typedef Kokkos::View<int *, layout, Kokkos::HostSpace> ViewI_H;
 typedef Kokkos::View<int **, layout, Kokkos::HostSpace> ViewI2D_H;
 typedef Kokkos::View<int ***, layout, Kokkos::HostSpace> ViewI3D_H;
-typedef Kokkos::View<double **, layout, Kokkos::HostSpace> Buffer2D_H;
+typedef Kokkos::View<float **, layout, Kokkos::HostSpace> Buffer2D_H;
 
 typedef Kokkos::Array<int, 26> NList;
 
