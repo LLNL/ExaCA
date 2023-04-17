@@ -182,7 +182,9 @@ Alternatively, if JSON is not enabled, running the test problem `Inp_DirSolidifi
 ```
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
 ```
-Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file, and not provided on the command line as with JSON formatting of log and analysis files.
+Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file, and not provided on the command line as with JSON formatting of log and analysis files. More information about running the analysis executable and the grain structure stats collected during the run is located in `analysis/README.md`
+
+The analysis executable, in addition to outputting grain statistics, can also output files that can be further post-processing in Matlab using the MTEX toolbox to generate pole figures, inverse pole figures, and inverse pole figure-colored cross-sections. More details on this are provided in `analysis/README.md`
 
 ## Citing ExaCA
 
