@@ -118,7 +118,7 @@ void testConstructRepresentativeRegion_Area() {
     TestData << "   \"Regions\": {" << std::endl;
     TestData << "       \"RepresentativeArea\": {" << std::endl;
     TestData << "          \"units\": \"Meters\"," << std::endl;
-    TestData << "          \"zBound\": 0.000005," << std::endl;
+    TestData << "          \"zBounds\": [0.000005,0.000005]," << std::endl;
     TestData << "          \"printPoleFigure\": true," << std::endl;
     TestData << "          \"printInversePoleFigureMap\": true," << std::endl;
     TestData << "          \"printStats\": [\"GrainTypeFractions\"]," << std::endl;
