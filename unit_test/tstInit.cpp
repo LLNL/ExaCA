@@ -449,13 +449,19 @@ void testInterfacialResponse() {
             BTest = 3.12;
             CTest = 0;
             FreezingRangeTest = 26.5;
-            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, (deltat / deltax) * BTest) + CTest);
+            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, BTest) + CTest);
         }
         else {
             throw std::runtime_error("File not set up for testing.");
         }
+        // For all IRFs, A and C should be normalized by deltat/deltax (i.e., 2)
+        // For the power law IRF (SS316), B is dimensionless and should not be normalized unlike the other IRFs where
+        // all coefficients are normalized
         EXPECT_DOUBLE_EQ(irf.A, ATest * 2);
-        EXPECT_DOUBLE_EQ(irf.B, BTest * 2);
+        if (file_name == "SS316.json")
+            EXPECT_DOUBLE_EQ(irf.B, BTest);
+        else
+            EXPECT_DOUBLE_EQ(irf.B, BTest * 2);
         EXPECT_DOUBLE_EQ(irf.C, CTest * 2);
         if (file_name == "Inconel625.json") {
             EXPECT_DOUBLE_EQ(irf.D, DTest * 2);

@@ -142,10 +142,24 @@ struct InterfacialResponseFunction {
 #endif
 
     void normalize(const double deltat, const double deltax) {
-        A *= deltat / deltax;
-        B *= deltat / deltax;
-        C *= deltat / deltax;
-        D *= deltat / deltax;
+        if (function == cubic) {
+            // Normalize all 4 coefficients: V = A*x^3 + B*x^2 + C*x + D
+            A *= deltat / deltax;
+            B *= deltat / deltax;
+            C *= deltat / deltax;
+            D *= deltat / deltax;
+        }
+        else if (function == quadratic) {
+            // Normalize the 3 relevant coefficients: V = A*x^2 + B*x + C
+            A *= deltat / deltax;
+            B *= deltat / deltax;
+            C *= deltat / deltax;
+        }
+        else if (function == power) {
+            // Normalize only the leading and last coefficient: V = A*x^B + C
+            A *= deltat / deltax;
+            C *= deltat / deltax;
+        }
     }
 
     // Compute velocity from local undercooling.
