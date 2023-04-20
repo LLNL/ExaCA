@@ -9,17 +9,17 @@
             "printPoleFigureData": true,
             "printAvgStats": ["GrainTypeFractions","Misorientation","Size", "BuildTransAspectRatio","Extent"],
             "printPerGrainStats": ["Misorientation","Size","ZExtent"],
-            "printPerLayerStats": ["MeanGrainArea","MeanWeightedGrainArea"],
+            "printPerLayerStats": ["MeanGrainArea","MeanWeightedGrainArea"]
         },
         "XYCross": {
             "units": "cells",
-            "zBound": 199,
+            "zBounds": [199,199],
             "printPoleFigure": true,
             "printInversePoleFigureMap": true
         },
         "XZCross": {
             "units": "cells",
-            "yBound": 100,
+            "yBounds": [100,100],
             "printPoleFigureData": false,
             "printInversePoleFigureData": true
         }

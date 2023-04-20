@@ -13,14 +13,14 @@
         },
         "XYCross": {
             "units": "Cells",
-            "zBound": 45,
+            "zBounds": [45,45],
             "printPoleFigure": true,
             "printInversePoleFigureMap": true
         },
         "XZCross": {
             "units": "Cells",
-            "yBound": 10,
-            "printPoleFigure": false,
+            "yBounds": [10,10],
+            "printPoleFigureData": false,
             "printInversePoleFigureMap": true
         }
     }
