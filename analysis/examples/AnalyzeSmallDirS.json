@@ -20,7 +20,7 @@
         "XZCross": {
             "units": "Cells",
             "yBounds": [10,10],
-            "printPoleFigure": false,
+            "printPoleFigureData": false,
             "printInversePoleFigureMap": true
         }
     }

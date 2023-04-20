@@ -117,8 +117,8 @@ struct RepresentativeRegion {
 
         // Pole figure data print for volumes and areas only
         if ((regionType == "volume") || (regionType == "area")) {
-            if (RegionData.contains("printPoleFigure")) {
-                PrintPoleFigureYN = RegionData["printPoleFigure"];
+            if (RegionData.contains("printPoleFigureData")) {
+                PrintPoleFigureYN = RegionData["printPoleFigureData"];
             }
             else
                 PrintPoleFigureYN = false;
@@ -128,8 +128,8 @@ struct RepresentativeRegion {
 
         // IPF map data for areas only
         if (regionType == "area") {
-            if (RegionData.contains("printInversePoleFigureMap")) {
-                PrintInversePoleFigureMapYN = RegionData["printInversePoleFigureMap"];
+            if (RegionData.contains("printInversePoleFigureData")) {
+                PrintInversePoleFigureMapYN = RegionData["printInversePoleFigureData"];
             }
             else
                 PrintInversePoleFigureMapYN = false;

@@ -34,7 +34,7 @@ void testConstructRepresentativeRegion_Volume() {
     TestData << "          \"yBounds\": [1, 10]," << std::endl;
     TestData << "          \"zBounds\": [0, 9]," << std::endl;
     TestData << "          \"printExaConstit\": false," << std::endl;
-    TestData << "          \"printPoleFigure\": true," << std::endl;
+    TestData << "          \"printPoleFigureData\": true," << std::endl;
     TestData << "          \"printStats\": [\"GrainTypeFractions\", \"Misorientation\", \"Size\", "
                 "\"BuildTransAspectRatio\", \"XExtent\", \"YExtent\", \"ZExtent\"],"
              << std::endl;
@@ -119,8 +119,8 @@ void testConstructRepresentativeRegion_Area() {
     TestData << "       \"RepresentativeArea\": {" << std::endl;
     TestData << "          \"units\": \"Meters\"," << std::endl;
     TestData << "          \"zBounds\": [0.000005,0.000005]," << std::endl;
-    TestData << "          \"printPoleFigure\": true," << std::endl;
-    TestData << "          \"printInversePoleFigureMap\": true," << std::endl;
+    TestData << "          \"printPoleFigureData\": true," << std::endl;
+    TestData << "          \"printInversePoleFigureData\": true," << std::endl;
     TestData << "          \"printStats\": [\"GrainTypeFractions\"]," << std::endl;
     TestData << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]" << std::endl;
     TestData << "      }" << std::endl;
