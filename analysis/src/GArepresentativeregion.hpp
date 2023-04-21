@@ -58,7 +58,7 @@ struct RepresentativeRegion {
         "BuildTransAspectRatio", // volumes only
         "IPFZ-RGB"               // all regions
     };
-    std::vector<bool> AnalysisOptions_PerGrainStatsYN = std::vector<bool>(5, false);
+    std::vector<bool> AnalysisOptions_PerGrainStatsYN = std::vector<bool>(7, false);
     std::vector<std::string> AnalysisOptions_LayerwiseStats_key = {
         "MeanGrainArea",        // volume only
         "MeanWeightedGrainArea" // volume only
