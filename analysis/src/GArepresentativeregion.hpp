@@ -476,13 +476,10 @@ struct RepresentativeRegion {
                   << XLow << "," << YLow << "," << ZLow << " , domain size is " << XHigh - XLow + 1 << " by "
                   << YHigh - YLow + 1 << " by " << ZHigh - ZLow + 1 << " cells" << std::endl;
         Grainplot << "X coord, Y coord, Z coord, Grain ID" << std::endl;
-        int NucleatedGrainCells = 0;
         for (int k = ZLow; k <= ZHigh; k++) {
             for (int j = YLow; j <= YHigh; j++) {
                 for (int i = XLow; i <= XHigh; i++) {
                     Grainplot << i << "," << j << "," << k << "," << GrainID(k, i, j) << std::endl;
-                    if (GrainID(k, i, j) < 0)
-                        NucleatedGrainCells++;
                 }
             }
         }
