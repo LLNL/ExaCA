@@ -33,7 +33,7 @@ void ResetSendBuffers(int BufSize, Buffer2D BufferNorthSend, Buffer2D BufferSout
 // if necessary, returning the new buffer size
 int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                   Buffer2D &BufferSouthRecv, ViewI SendSizeNorth, ViewI SendSizeSouth, ViewI_H SendSizeNorth_Host,
-                  ViewI_H SendSizeSouth_Host, int OldBufSize) {
+                  ViewI_H SendSizeSouth_Host, int OldBufSize, int MaxBufSize) {
 
     int NewBufSize;
     SendSizeNorth_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeNorth);
@@ -43,11 +43,12 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
     MPI_Allreduce(&max_count_local, &max_count_global, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     if (max_count_global > OldBufSize) {
         // Increase buffer size to fit all data
-        // Either 20 cells or 10% of previous size as additional padding (whichever is larger)
+        // Add 10% of max size as additional padding, up to MaxBufSize
         int needed_buffer_capacity = max_count_global - OldBufSize;
-        int padded_capacity_percent = round(0.1 * needed_buffer_capacity);
-        int padded_capacity = std::max(20, padded_capacity_percent);
+        int padded_capacity = floor(0.1 * MaxBufSize);
         NewBufSize = OldBufSize + needed_buffer_capacity + padded_capacity;
+        if (NewBufSize > MaxBufSize)
+            NewBufSize = MaxBufSize;
         Kokkos::resize(BufferNorthSend, NewBufSize, 8);
         Kokkos::resize(BufferSouthSend, NewBufSize, 8);
         Kokkos::resize(BufferNorthRecv, NewBufSize, 8);
@@ -68,7 +69,8 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
 // ActiveFailedBufferLoad
 void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI CellType, Buffer2D BufferNorthSend,
                    Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth, bool AtNorthBoundary,
-                   bool AtSouthBoundary, ViewI GrainID, ViewF DOCenter, ViewF DiagonalLength, int NGrainOrientations) {
+                   bool AtSouthBoundary, ViewI GrainID, ViewF DOCenter, ViewF DiagonalLength, int NGrainOrientations,
+                   int BufSize) {
 
     Kokkos::parallel_for(
         "FillSendBuffersOverflow", nx, KOKKOS_LAMBDA(const int &i) {
@@ -84,10 +86,15 @@ void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI Ce
                     float GhostDL = DiagonalLength(ActiveLayerCoordinateSouth);
                     // Collect data for the ghost nodes, if necessary
                     // Data loaded into the ghost nodes is for the cell that was just captured
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                                   MyYSlices, i, 1, k, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                   BufferNorthSend, NGrainOrientations);
+                    bool DataFitsInBuffer =
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
+                                       MyYSlices, i, 1, k, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                                       BufferNorthSend, NGrainOrientations, BufSize);
                     CellType(GlobalCellCoordinateSouth) = Active;
+                    // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
+                    if (!(DataFitsInBuffer))
+                        printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
+                               "results at MPI processor boundaries may be inaccurate\n");
                 }
                 if (CellType(GlobalCellCoordinateNorth) == ActiveFailedBufferLoad) {
                     int ActiveLayerCoordinateNorth = k * nx * MyYSlices + i * MyYSlices + MyYSlices - 2;
@@ -98,10 +105,15 @@ void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI Ce
                     float GhostDL = DiagonalLength(ActiveLayerCoordinateNorth);
                     // Collect data for the ghost nodes, if necessary
                     // Data loaded into the ghost nodes is for the cell that was just captured
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                                   MyYSlices, i, MyYSlices - 2, k, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                   BufferNorthSend, NGrainOrientations);
+                    bool DataFitsInBuffer =
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
+                                       MyYSlices, i, MyYSlices - 2, k, AtNorthBoundary, AtSouthBoundary,
+                                       BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
                     CellType(GlobalCellCoordinateNorth) = Active;
+                    // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
+                    if (!(DataFitsInBuffer))
+                        printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
+                               "results at MPI processor boundaries may be inaccurate\n");
                 }
             }
         });

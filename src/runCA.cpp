@@ -197,7 +197,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
 
     // Buffers for ghost node data (fixed size)
-    int BufSize = 25; // initial estimate
+    int BufSize = 25;               // initial estimate
+    int MaxBufSize = nx * nzActive; // largest possible number of cells with data stored in buffer
     Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, 8);
     Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, 8);
     Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
@@ -223,14 +224,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
         int OldBufSize = BufSize;
         BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
+                                SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
         if (OldBufSize != BufSize) {
             if (id == 0)
                 std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
                           << BufSize << std::endl;
             RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend,
                           SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter,
-                          DiagonalLength, NGrainOrientations);
+                          DiagonalLength, NGrainOrientations, BufSize);
         }
     }
     else {
@@ -255,14 +256,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
             int OldBufSize = BufSize;
             BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
+                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
             if (OldBufSize != BufSize) {
                 if (id == 0)
                     std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
                               << BufSize << std::endl;
                 RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend,
                               SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter,
-                              DiagonalLength, NGrainOrientations);
+                              DiagonalLength, NGrainOrientations, BufSize);
             }
         }
     }
@@ -365,9 +366,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                             UndercoolingCurrent, UndercoolingChange, CellType, ZBound_Low, layernumber,
                                             LayerID, SteeringVector, numSteer, numSteer_Host);
             CreateSVTime += MPI_Wtime() - StartCreateSVTime;
-            //            if ((cycle > 21885) && (id == 1))
-            //                std::cout << "Cycle " << cycle << " Rank 1 south buffer size is " << SendSizeSouth(0) <<
-            //                std::endl;
+
             StartCaptureTime = MPI_Wtime();
             CellCapture(id, np, cycle, LocalActiveDomainSize, LocalDomainSize, nx, MyYSlices, irf, MyYOffset, NeighborX,
                         NeighborY, NeighborZ, CritTimeStep, UndercoolingCurrent, UndercoolingChange, GrainUnitVector,
@@ -381,19 +380,16 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
             int OldBufSize = BufSize;
             BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
+                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
             if (OldBufSize != BufSize) {
                 if (id == 0)
                     std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
                               << BufSize << std::endl;
                 RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend,
                               SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter,
-                              DiagonalLength, NGrainOrientations);
+                              DiagonalLength, NGrainOrientations, BufSize);
             }
             CaptureTime += MPI_Wtime() - StartCaptureTime;
-            //            if ((cycle > 21885) && (id == 1))
-            //                std::cout << "Cycle " << cycle << " Rank 1 south buffer size is " << SendSizeSouth(0) <<
-            //                std::endl;
 
             if (np > 1) {
                 // Update ghost nodes
@@ -404,9 +400,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                              BufferSouthRecv, BufSize, ZBound_Low, SendSizeNorth, SendSizeSouth);
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
-            //            if ((cycle > 21885) && (id == 1))
-            //                std::cout << "Cycle " << cycle << " Rank 1 south buffer size is " << SendSizeSouth(0) <<
-            //                std::endl;
 
             if (cycle % 1000 == 0) {
 
@@ -445,6 +438,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 calcZBound_High(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin, deltax, nz, ZMaxLayer);
             nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber + 1);
             LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
+            // Update largest possible number of cells with data stored in buffer as nzActive may have changed
+            MaxBufSize = nx * nzActive;
             if (RemeltingYN) {
                 // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
                 // If the next layer's temperature data isn't already stored, it should be read
@@ -500,14 +495,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 int OldBufSize = BufSize;
                 BufSize =
                     ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                  SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
+                                  SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
                 if (OldBufSize != BufSize) {
                     if (id == 0)
                         std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
                                   << BufSize << std::endl;
                     RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend,
                                   SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter,
-                                  DiagonalLength, NGrainOrientations);
+                                  DiagonalLength, NGrainOrientations, BufSize);
                 }
             }
 

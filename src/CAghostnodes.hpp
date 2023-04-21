@@ -12,40 +12,6 @@
 #include <Kokkos_Core.hpp>
 
 // Load data (GrainID, DOCenter, DiagonalLength) into ghost nodes if the given RankY is associated with a 1D halo region
-// Does not check for buffer overflow (buffer resize was already executed to fit data)
-KOKKOS_INLINE_FUNCTION void loadghostnodes(const int GhostGID, const float GhostDOCX, const float GhostDOCY,
-                                           const float GhostDOCZ, const float GhostDL, ViewI SendSizeNorth,
-                                           ViewI SendSizeSouth, const int MyYSlices, const int RankX, const int RankY,
-                                           const int RankZ, const bool AtNorthBoundary, const bool AtSouthBoundary,
-                                           Buffer2D BufferSouthSend, Buffer2D BufferNorthSend, int NGrainOrientations) {
-
-    if ((RankY == 1) && (!(AtSouthBoundary))) {
-        int GNPositionSouth = Kokkos::atomic_fetch_add(&SendSizeSouth(0), 1);
-        BufferSouthSend(GNPositionSouth, 0) = static_cast<float>(RankX);
-        BufferSouthSend(GNPositionSouth, 1) = static_cast<float>(RankZ);
-        BufferSouthSend(GNPositionSouth, 2) =
-            static_cast<float>(getGrainOrientation(GhostGID, NGrainOrientations, false));
-        BufferSouthSend(GNPositionSouth, 3) = static_cast<float>(getGrainNumber(GhostGID, NGrainOrientations));
-        BufferSouthSend(GNPositionSouth, 4) = GhostDOCX;
-        BufferSouthSend(GNPositionSouth, 5) = GhostDOCY;
-        BufferSouthSend(GNPositionSouth, 6) = GhostDOCZ;
-        BufferSouthSend(GNPositionSouth, 7) = GhostDL;
-    }
-    else if ((RankY == MyYSlices - 2) && (!(AtNorthBoundary))) {
-        int GNPositionNorth = Kokkos::atomic_fetch_add(&SendSizeNorth(0), 1);
-        BufferNorthSend(GNPositionNorth, 0) = static_cast<float>(RankX);
-        BufferNorthSend(GNPositionNorth, 1) = static_cast<float>(RankZ);
-        BufferNorthSend(GNPositionNorth, 2) =
-            static_cast<float>(getGrainOrientation(GhostGID, NGrainOrientations, false));
-        BufferNorthSend(GNPositionNorth, 3) = static_cast<float>(getGrainNumber(GhostGID, NGrainOrientations));
-        BufferNorthSend(GNPositionNorth, 4) = GhostDOCX;
-        BufferNorthSend(GNPositionNorth, 5) = GhostDOCY;
-        BufferNorthSend(GNPositionNorth, 6) = GhostDOCZ;
-        BufferNorthSend(GNPositionNorth, 7) = GhostDL;
-    }
-}
-
-// Load data (GrainID, DOCenter, DiagonalLength) into ghost nodes if the given RankY is associated with a 1D halo region
 // Uses check to ensure that the buffer position does not reach the buffer size - if it does, return false (otherwise
 // return true) but keep incrementing the send size counters for use resizing the buffers in the future
 KOKKOS_INLINE_FUNCTION bool loadghostnodes(const int GhostGID, const float GhostDOCX, const float GhostDOCY,
@@ -93,10 +59,11 @@ void ResetSendBuffers(int BufSize, Buffer2D BufferNorthSend, Buffer2D BufferSout
                       ViewI SendSizeSouth);
 int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                   Buffer2D &BufferSouthRecv, ViewI SendSizeNorth, ViewI SendSizeSouth, ViewI_H SendSizeNorth_Host,
-                  ViewI_H SendSizeSouth_Host, int OldBufSize);
+                  ViewI_H SendSizeSouth_Host, int OldBufSize, int MaxBufSize);
 void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI CellType, Buffer2D BufferNorthSend,
                    Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth, bool AtNorthBoundary,
-                   bool AtSouthBoundary, ViewI GrainID, ViewF DOCenter, ViewF DiagonalLength, int NGrainOrientations);
+                   bool AtSouthBoundary, ViewI GrainID, ViewF DOCenter, ViewF DiagonalLength, int NGrainOrientations,
+                   int BufSize);
 void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int MyYSlices, int MyYOffset,
                   NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID,
                   ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations,

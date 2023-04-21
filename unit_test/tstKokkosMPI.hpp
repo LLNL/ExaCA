@@ -191,7 +191,7 @@ void testGhostNodes1D() {
                 float GhostDL = DiagonalLength(D3D1ConvPosition);
                 loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
                                MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                               BufferNorthSend, NGrainOrientations);
+                               BufferNorthSend, NGrainOrientations, BufSize);
             }
         });
 
@@ -291,6 +291,7 @@ void testResizeRefillBuffers() {
 
     // Create send/receive buffers with a buffer size too small to hold all of the active cell data
     int BufSize = 1;
+    int MaxBufSize = nx * nzActive;
     Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, 8);
     Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, 8);
     Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
@@ -421,18 +422,18 @@ void testResizeRefillBuffers() {
     // Attempt to resize buffers and load the remaining data
     int OldBufSize = BufSize;
     BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                            SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
+                            SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
     if (OldBufSize != BufSize)
         RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend, SendSizeNorth,
                       SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter, DiagonalLength,
-                      NGrainOrientations);
+                      NGrainOrientations, BufSize);
     // If there was 1 rank, buffer size should still be 1, as no data was loaded
-    // Otherwise, 20 cells should have been added to the buffer in addition to the required capacity increase during the
-    // resize
+    // Otherwise, 1 cell (10% of the max size nx*nzActive = 15, rounded down) should have been added to the buffer in
+    // addition to the required capacity increase during the resize
     if (np == 1)
         EXPECT_EQ(BufSize, 1);
     else {
-        int CapacityInc = std::min(3, np - 1) + 20;
+        int CapacityInc = std::min(3, np - 1) + 1;
         EXPECT_EQ(BufSize, 1 + CapacityInc);
     }
 
