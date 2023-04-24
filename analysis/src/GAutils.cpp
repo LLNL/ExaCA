@@ -129,12 +129,13 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
         // Custom files for euler angles and RGB mapping based on rotation filename
         std::size_t baseorientation_startpos = RotationFilename.find_last_of("/");
         std::size_t endpos = RotationFilename.find_last_of(".");
+        std::string pathtoorientations = RotationFilename.substr(0, baseorientation_startpos + 1);
         std::string baseorientationname =
             RotationFilename.substr(baseorientation_startpos + 1, endpos - baseorientation_startpos - 1);
         std::size_t customname_startpos = baseorientationname.find_last_of("_");
         std::string customname = baseorientationname.substr(customname_startpos + 1, endpos - customname_startpos - 1);
-        EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ_" + customname + ".csv";
-        RGBFilename = "GrainOrientationRGB_IPF-Z_" + customname + ".csv";
+        EulerAnglesFilename = pathtoorientations + "GrainOrientationEulerAnglesBungeZXZ_" + customname + ".csv";
+        RGBFilename = pathtoorientations + "GrainOrientationRGB_IPF-Z_" + customname + ".csv";
     }
     // Full path to install location was already given for the rotations file, need to check install location for
     // other files
@@ -220,13 +221,14 @@ void ParseLogFile_Old(std::string LogFile, int &nx, int &ny, int &nz, double &de
             // Custom files for euler angles and RGB mapping based on rotation filename
             std::size_t baseorientation_startpos = RotationFilename.find_last_of("/");
             std::size_t endpos = RotationFilename.find_last_of(".");
+            std::string pathtoorientations = RotationFilename.substr(0, baseorientation_startpos + 1);
             std::string baseorientationname =
                 RotationFilename.substr(baseorientation_startpos + 1, endpos - baseorientation_startpos - 1);
             std::size_t customname_startpos = baseorientationname.find_last_of("_");
             std::string customname =
                 baseorientationname.substr(customname_startpos + 1, endpos - customname_startpos - 1);
-            EulerAnglesFilename = "GrainOrientationEulerAnglesBungeZXZ_" + customname + ".csv";
-            RGBFilename = "GrainOrientationRGB_IPF-Z_" + customname + ".csv";
+            EulerAnglesFilename = pathtoorientations + "GrainOrientationEulerAnglesBungeZXZ_" + customname + ".csv";
+            RGBFilename = pathtoorientations + "GrainOrientationRGB_IPF-Z_" + customname + ".csv";
         }
         // Full path to install location was already given for the rotations file, need to check install location for
         // other files
