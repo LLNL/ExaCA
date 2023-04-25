@@ -14,8 +14,8 @@
         "XYCross": {
             "units": "cells",
             "zBounds": [199,199],
-            "printPoleFigure": true,
-            "printInversePoleFigureMap": true
+            "printPoleFigureData": true,
+            "printInversePoleFigureData": true
         },
         "XZCross": {
             "units": "cells",
