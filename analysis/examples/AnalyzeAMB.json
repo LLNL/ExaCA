@@ -5,8 +5,8 @@
             "zBounds": [0.001,0.001],
             "printStats": ["GrainTypeFractions"],
             "printPerGrainStats": ["Size","IPFZ-RGB"],
-            "printPoleFigure": true,
-            "printInversePoleFigureMap": true
+            "printPoleFigureData": true,
+            "printInversePoleFigureData": true
         },
         "XZ500microns": {
             "units": "Meters",
