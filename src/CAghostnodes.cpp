@@ -33,7 +33,7 @@ void ResetSendBuffers(int BufSize, Buffer2D BufferNorthSend, Buffer2D BufferSout
 // if necessary, returning the new buffer size
 int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                   Buffer2D &BufferSouthRecv, ViewI SendSizeNorth, ViewI SendSizeSouth, ViewI_H SendSizeNorth_Host,
-                  ViewI_H SendSizeSouth_Host, int OldBufSize, int MaxBufSize) {
+                  ViewI_H SendSizeSouth_Host, int OldBufSize, int MaxBufSize, int numcells_buffer_padding) {
 
     int NewBufSize;
     SendSizeNorth_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeNorth);
@@ -43,10 +43,9 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
     MPI_Allreduce(&max_count_local, &max_count_global, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     if (max_count_global > OldBufSize) {
         // Increase buffer size to fit all data
-        // Add 10% of max size as additional padding, up to MaxBufSize
+        // Add numcells_buffer_padding (defaults to 25) cells as additional padding, up to MaxBufSize
         int needed_buffer_capacity = max_count_global - OldBufSize;
-        int padded_capacity = floor(0.1 * MaxBufSize);
-        NewBufSize = OldBufSize + needed_buffer_capacity + padded_capacity;
+        NewBufSize = OldBufSize + needed_buffer_capacity + numcells_buffer_padding;
         if (NewBufSize > MaxBufSize)
             NewBufSize = MaxBufSize;
         Kokkos::resize(BufferNorthSend, NewBufSize, 8);
@@ -62,6 +61,16 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
     }
     else
         NewBufSize = OldBufSize;
+    return NewBufSize;
+}
+
+// Reset the buffer sizes to a set value (defaulting to 25, which was the initial size) preserving the existing values
+int ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
+                        Buffer2D &BufferSouthRecv, int NewBufSize) {
+    Kokkos::resize(BufferNorthSend, NewBufSize, 8);
+    Kokkos::resize(BufferSouthSend, NewBufSize, 8);
+    Kokkos::resize(BufferNorthRecv, NewBufSize, 8);
+    Kokkos::resize(BufferSouthRecv, NewBufSize, 8);
     return NewBufSize;
 }
 

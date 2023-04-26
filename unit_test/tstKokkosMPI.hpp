@@ -274,9 +274,9 @@ void testResizeRefillBuffers() {
     // Each rank has a portion of the domain subdivided in the Y direction
     int nx = 3;
     int MyYSlices = 4;
-    int nz = 10;
+    int nz = 20;
     int ZBound_Low = 5;
-    int nzActive = 5;
+    int nzActive = 10;
     int LocalActiveDomainSize = nx * MyYSlices * nzActive;
     int LocalDomainSize = nx * MyYSlices * nz;
     int NGrainOrientations = 10000;
@@ -428,12 +428,12 @@ void testResizeRefillBuffers() {
                       SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter, DiagonalLength,
                       NGrainOrientations, BufSize);
     // If there was 1 rank, buffer size should still be 1, as no data was loaded
-    // Otherwise, 1 cell (10% of the max size nx*nzActive = 15, rounded down) should have been added to the buffer in
+    // Otherwise, 25 cells should have been added to the buffer in
     // addition to the required capacity increase during the resize
     if (np == 1)
         EXPECT_EQ(BufSize, 1);
     else {
-        int CapacityInc = std::min(3, np - 1) + 1;
+        int CapacityInc = std::min(3, np - 1) + 25;
         EXPECT_EQ(BufSize, 1 + CapacityInc);
     }
 
@@ -475,12 +475,54 @@ void testResizeRefillBuffers() {
     }
 }
 
+void testResetBufferCapacity() {
+
+    // Init buffers to large size
+    int BufSize = 50;
+    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, 8);
+    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, 8);
+    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
+    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, 8);
+
+    // Fill buffers with test data
+    Kokkos::parallel_for(
+        "InitBuffers", BufSize, KOKKOS_LAMBDA(const int &i) {
+            for (int j = 0; j < 8; j++) {
+                BufferSouthSend(i, j) = i + j;
+                BufferNorthSend(i, j) = i + j;
+                BufferSouthRecv(i, j) = i;
+                BufferNorthRecv(i, j) = i;
+            }
+        });
+
+    // Reduce size back to the default of 25
+    BufSize = ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv);
+    EXPECT_EQ(BufSize, 25);
+
+    // Copy buffers back to host
+    Buffer2D_H BufferNorthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
+    Buffer2D_H BufferSouthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthSend);
+    Buffer2D_H BufferNorthRecv_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthRecv);
+    Buffer2D_H BufferSouthRecv_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthRecv);
+
+    // Check that original values in first 25 x 8 positions were preserved
+    for (int i = 0; i < 25; i++) {
+        for (int j = 0; j < 8; j++) {
+            EXPECT_EQ(BufferSouthSend_Host(i, j), i + j);
+            EXPECT_EQ(BufferNorthSend_Host(i, j), i + j);
+            EXPECT_EQ(BufferSouthRecv_Host(i, j), i);
+            EXPECT_EQ(BufferNorthRecv_Host(i, j), i);
+        }
+    }
+}
+
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, communication) {
     testGhostNodes1D();
     testResizeRefillBuffers();
+    testResetBufferCapacity();
 }
 
 } // end namespace Test

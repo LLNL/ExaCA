@@ -322,8 +322,6 @@ void testCellTypeInit_NoRemelt() {
     // Init sizes to zero
     ViewI SendSizeSouth("SendSizeSouth", 1);
     ViewI SendSizeNorth("SendSizeNorth", 1);
-    ViewI RecvSizeSouth("RecvSizeSouth", 1);
-    ViewI RecvSizeNorth("RecvSizeNorth", 1);
 
     // Initialize cell types and active cell data structures
     CellTypeInit_NoRemelt(layernumber, id, np, nx, MyYSlices, MyYOffset, ZBound_Low, nz, LocalActiveDomainSize,
@@ -348,6 +346,8 @@ void testCellTypeInit_NoRemelt() {
         1.7009791, 2.1710088, 1.9409314, 1.9225541, 2.2444904, 2.6762404, 2.7775438, 2.6560757, 2.1579263,
         1.5170407, 1.5170407, 2.0631709, 2.4170833, 2.4170833, 2.0631709, 1.4566354, 1.4566354, 1.7009791,
         1.9409314, 2.1710088, 2.2444904, 1.9225541, 2.6560757, 2.1579263, 2.6762404, 2.7775438};
+    int ActiveCellCount_North = 0;
+    int ActiveCellCount_South = 0;
     for (int k = 0; k < nz; k++) {
         for (int i = 0; i < nx; i++) {
             for (int j = 0; j < MyYSlices; j++) {
@@ -357,6 +357,10 @@ void testCellTypeInit_NoRemelt() {
                 }
                 else if (i + k <= 7) {
                     EXPECT_EQ(CellType_Host(D3D1ConvPositionGlobal), Active);
+                    if ((!(AtSouthBoundary)) && (j == 1) && (k >= ZBound_Low) && (k <= ZBound_High))
+                        ActiveCellCount_South++;
+                    if ((!(AtNorthBoundary)) && (j == MyYSlices - 2) && (k >= ZBound_Low) && (k <= ZBound_High))
+                        ActiveCellCount_North++;
                     // Check that active cell data structures were initialized properly for cells in the active portion
                     // of the domain
                     if ((k >= ZBound_Low) && (k <= ZBound_High)) {
@@ -391,15 +395,11 @@ void testCellTypeInit_NoRemelt() {
     // Get the number of cells' worth of data that should've been exchanged from each neighbor
     auto SendSizeSouth_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeSouth);
     auto SendSizeNorth_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeNorth);
+    // Should match the number of active cells that were created at the edge of each rank's subdomain, and within the
+    // current active layer of the problem
+    EXPECT_EQ(ActiveCellCount_South, SendSizeSouth_H(0));
+    EXPECT_EQ(ActiveCellCount_North, SendSizeNorth_H(0));
 
-    std::cout << "Rank " << id << "/" << np << " has " << SendSizeSouth_H(0) << " in south and " << SendSizeNorth_H(0)
-              << " in north" << std::endl;
-    for (int BufPosition = 0; BufPosition < SendSizeSouth_H(0); BufPosition++) {
-        for (int n = 0; n < 8; n++) {
-            std::cout << "Rank " << id << "/" << np << " has " << BufferSouthSend_H(BufPosition, n) << " for cell "
-                      << BufPosition << " and position " << n << std::endl;
-        }
-    }
     // Further check that active cell data was properly loaded into send buffers, and that locations in the send buffers
     // not corresponding to active cells were left alone (should still be -1s)
     for (int BufPosition = 0; BufPosition < SendSizeSouth_H(0); BufPosition++) {

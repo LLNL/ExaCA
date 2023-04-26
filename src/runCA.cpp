@@ -301,6 +301,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                      NeighborZ, CellType, DOCenter, GrainID, GrainUnitVector, DiagonalLength, CritDiagonalLength,
                      NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize,
                      ZBound_Low, SendSizeNorth, SendSizeSouth);
+        // If not using remelting, the initial number of active cells to communicate is usually much larger than the
+        // number on any given time step - reset the buffer sizes to the initial value of 25
+        BufSize = ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize);
     }
 
     // If specified, print initial values in some views for debugging purposes
@@ -522,6 +525,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                              NeighborY, NeighborZ, CellType, DOCenter, GrainID, GrainUnitVector, DiagonalLength,
                              CritDiagonalLength, NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv,
                              BufferSouthRecv, BufSize, ZBound_Low, SendSizeNorth, SendSizeSouth);
+                // If not using remelting, the initial number of active cells to communicate is usually much larger than
+                // the number on any given time step - reset the buffer sizes to the initial value of 25
+                ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv);
             }
             if (id == 0)
                 std::cout << "New layer ghost nodes initialized" << std::endl;
