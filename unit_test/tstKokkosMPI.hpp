@@ -291,7 +291,6 @@ void testResizeRefillBuffers() {
 
     // Create send/receive buffers with a buffer size too small to hold all of the active cell data
     int BufSize = 1;
-    int MaxBufSize = nx * nzActive;
     Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, 8);
     Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, 8);
     Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
@@ -422,7 +421,7 @@ void testResizeRefillBuffers() {
     // Attempt to resize buffers and load the remaining data
     int OldBufSize = BufSize;
     BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                            SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
+                            SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
     if (OldBufSize != BufSize)
         RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend, SendSizeNorth,
                       SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter, DiagonalLength,
@@ -496,8 +495,8 @@ void testResetBufferCapacity() {
         });
 
     // Reduce size back to the default of 25
-    BufSize = ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv);
-    EXPECT_EQ(BufSize, 25);
+    BufSize = 25;
+    ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize);
 
     // Copy buffers back to host
     Buffer2D_H BufferNorthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);

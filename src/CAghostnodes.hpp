@@ -59,9 +59,9 @@ void ResetSendBuffers(int BufSize, Buffer2D BufferNorthSend, Buffer2D BufferSout
                       ViewI SendSizeSouth);
 int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                   Buffer2D &BufferSouthRecv, ViewI SendSizeNorth, ViewI SendSizeSouth, ViewI_H SendSizeNorth_Host,
-                  ViewI_H SendSizeSouth_Host, int OldBufSize, int MaxBufSize, int numcells_buffer_padding = 25);
-int ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
-                        Buffer2D &BufferSouthRecv, int NewBufSize = 25);
+                  ViewI_H SendSizeSouth_Host, int OldBufSize, int NumCellsBufferPadding = 25);
+void ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
+                         Buffer2D &BufferSouthRecv, int NewBufSize);
 void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI CellType, Buffer2D BufferNorthSend,
                    Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth, bool AtNorthBoundary,
                    bool AtSouthBoundary, ViewI GrainID, ViewF DOCenter, ViewF DiagonalLength, int NGrainOrientations,

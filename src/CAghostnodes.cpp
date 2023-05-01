@@ -33,7 +33,7 @@ void ResetSendBuffers(int BufSize, Buffer2D BufferNorthSend, Buffer2D BufferSout
 // if necessary, returning the new buffer size
 int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                   Buffer2D &BufferSouthRecv, ViewI SendSizeNorth, ViewI SendSizeSouth, ViewI_H SendSizeNorth_Host,
-                  ViewI_H SendSizeSouth_Host, int OldBufSize, int MaxBufSize, int numcells_buffer_padding) {
+                  ViewI_H SendSizeSouth_Host, int OldBufSize, int NumCellsBufferPadding) {
 
     int NewBufSize;
     SendSizeNorth_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeNorth);
@@ -43,11 +43,8 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
     MPI_Allreduce(&max_count_local, &max_count_global, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     if (max_count_global > OldBufSize) {
         // Increase buffer size to fit all data
-        // Add numcells_buffer_padding (defaults to 25) cells as additional padding, up to MaxBufSize
-        int needed_buffer_capacity = max_count_global - OldBufSize;
-        NewBufSize = OldBufSize + needed_buffer_capacity + numcells_buffer_padding;
-        if (NewBufSize > MaxBufSize)
-            NewBufSize = MaxBufSize;
+        // Add numcells_buffer_padding (defaults to 25) cells as additional padding
+        NewBufSize = max_count_global + NumCellsBufferPadding;
         Kokkos::resize(BufferNorthSend, NewBufSize, 8);
         Kokkos::resize(BufferSouthSend, NewBufSize, 8);
         Kokkos::resize(BufferNorthRecv, NewBufSize, 8);
@@ -65,13 +62,12 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
 }
 
 // Reset the buffer sizes to a set value (defaulting to 25, which was the initial size) preserving the existing values
-int ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
-                        Buffer2D &BufferSouthRecv, int NewBufSize) {
+void ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
+                         Buffer2D &BufferSouthRecv, int NewBufSize) {
     Kokkos::resize(BufferNorthSend, NewBufSize, 8);
     Kokkos::resize(BufferSouthSend, NewBufSize, 8);
     Kokkos::resize(BufferNorthRecv, NewBufSize, 8);
     Kokkos::resize(BufferSouthRecv, NewBufSize, 8);
-    return NewBufSize;
 }
 
 // Refill the buffers as necessary starting from the old count size, using the data from cells marked with type

@@ -197,8 +197,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
 
     // Buffers for ghost node data (fixed size)
-    int BufSize = 25;               // initial estimate
-    int MaxBufSize = nx * nzActive; // largest possible number of cells with data stored in buffer
+    int BufSizeInitialEstimate = 25;
+    int BufSize = BufSizeInitialEstimate; // set to initial estimate
     Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, 8);
     Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, 8);
     Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
@@ -224,7 +224,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
         int OldBufSize = BufSize;
         BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
+                                SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
         if (OldBufSize != BufSize) {
             if (id == 0)
                 std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
@@ -256,7 +256,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
             int OldBufSize = BufSize;
             BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
+                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
             if (OldBufSize != BufSize) {
                 if (id == 0)
                     std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
@@ -303,7 +303,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                      ZBound_Low, SendSizeNorth, SendSizeSouth);
         // If not using remelting, the initial number of active cells to communicate is usually much larger than the
         // number on any given time step - reset the buffer sizes to the initial value of 25
-        BufSize = ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize);
+        BufSize = BufSizeInitialEstimate;
+        ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize);
     }
 
     // If specified, print initial values in some views for debugging purposes
@@ -383,7 +384,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
             int OldBufSize = BufSize;
             BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
+                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
             if (OldBufSize != BufSize) {
                 if (id == 0)
                     std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
@@ -441,8 +442,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 calcZBound_High(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin, deltax, nz, ZMaxLayer);
             nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber + 1);
             LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
-            // Update largest possible number of cells with data stored in buffer as nzActive may have changed
-            MaxBufSize = nx * nzActive;
             if (RemeltingYN) {
                 // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
                 // If the next layer's temperature data isn't already stored, it should be read
@@ -498,7 +497,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 int OldBufSize = BufSize;
                 BufSize =
                     ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                  SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, MaxBufSize);
+                                  SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
                 if (OldBufSize != BufSize) {
                     if (id == 0)
                         std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
@@ -527,7 +526,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                              BufferSouthRecv, BufSize, ZBound_Low, SendSizeNorth, SendSizeSouth);
                 // If not using remelting, the initial number of active cells to communicate is usually much larger than
                 // the number on any given time step - reset the buffer sizes to the initial value of 25
-                ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv);
+                BufSize = BufSizeInitialEstimate;
+                ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv,
+                                    BufSizeInitialEstimate);
             }
             if (id == 0)
                 std::cout << "New layer ghost nodes initialized" << std::endl;
