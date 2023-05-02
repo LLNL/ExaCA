@@ -38,7 +38,7 @@ void InputReadFromFile_Old(int id, std::string InputFile, std::string &Simulatio
                            int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries,
                            int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
                            bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
-                           bool &LayerwiseTempRead, bool &PrintBinary) {
+                           bool &LayerwiseTempRead, bool &PrintBinary, bool &PowderFirstLayer) {
 
     // Required inputs that should be present in the input file, regardless of problem type
     std::vector<std::string> RequiredInputs_General = {
@@ -262,6 +262,7 @@ void InputReadFromFile_Old(int id, std::string InputFile, std::string &Simulatio
                 throw std::runtime_error("Error: if the option to extend the baseplate through through all powder "
                                          "layers is turned on, a powder density cannot be given");
         }
+        PowderFirstLayer = false; // only set with JSON input file format
         if (id == 0) {
             std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
             std::cout << "The time step is " << deltat << " seconds" << std::endl;
@@ -325,6 +326,7 @@ void InputReadFromFile_Old(int id, std::string InputFile, std::string &Simulatio
                 throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers it "
                                          "toggled, a powder density cannot be given");
         }
+        PowderFirstLayer = false; // only set with JSON input file format
         if (id == 0) {
             std::cout << "CA Simulation using a radial, fixed thermal gradient of " << G
                       << " K/m as a series of hemispherical spots, and a cooling rate of " << R << " K/s" << std::endl;
@@ -487,7 +489,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
                        bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
-                       bool &LayerwiseTempRead, bool &PrintBinary) {
+                       bool &LayerwiseTempRead, bool &PrintBinary, bool &PowderFirstLayer) {
 
     std::ifstream InputData(InputFile);
     nlohmann::json inputdata = nlohmann::json::parse(InputData);
@@ -640,12 +642,24 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             if ((PowderActiveFraction < 0.0) || (PowderActiveFraction > 1.0))
                 throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
                                          "than 1/(CA cell volume)");
-            if (BaseplateThroughPowder)
-                throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers it "
-                                         "toggled, a powder density cannot be given");
         }
         else
             PowderActiveFraction = 1.0; // defaults to a unique grain at each site in the powder layers
+        // Should a powder layer be initialized at the top of the baseplate for the first layer? (Defaults to false,
+        // where the baseplate spans all of layer 0, and only starting with layer 1 is a powder layer present)
+        std::cout << "THE OPTION SHOULD BE " << inputdata["Substrate"].contains("PowderFirstLayer") << std::endl;
+        if (inputdata["Substrate"].contains("PowderFirstLayer")) {
+            PowderFirstLayer = inputdata["Substrate"]["PowderFirstLayer"];
+            std::cout << "found, is " << PowderFirstLayer << std::endl;
+        }
+        else {
+            PowderFirstLayer = false;
+            std::cout << "not found" << std::endl;
+        }
+        if ((BaseplateThroughPowder) && ((PowderFirstLayer) || (inputdata["Substrate"].contains("PowderDensity"))))
+            throw std::runtime_error(
+                "Error: if the option to extend the baseplate through the powder layers is toggled, options regarding "
+                "the powder layer (PowderFirstLayer/PowderDensity cannot be given");
     }
 
     // Printing inputs:
@@ -1999,7 +2013,8 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
 
 // Initializes Grain ID values where the substrate comes from a file
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int id,
-                            ViewI &GrainID_Device, int nzActive, bool BaseplateThroughPowder) {
+                            ViewI &GrainID_Device, int nzActive, bool BaseplateThroughPowder, bool PowderFirstLayer,
+                            int LayerHeight) {
 
     // Assign GrainID values to cells that are part of the substrate - read values from file and initialize using
     // temporary host view
@@ -2012,8 +2027,18 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int M
     int BaseplateSizeZ; // in CA cells
     if (BaseplateThroughPowder)
         BaseplateSizeZ = nz; // baseplate microstructure used as entire domain's initial condition
-    else
-        BaseplateSizeZ = nzActive; // baseplate microstructure is layer 0's initial condition
+    else {
+        if (PowderFirstLayer) {
+            BaseplateSizeZ =
+                nzActive - LayerHeight; // baseplate microstructure with powder is layer 0's initial condition
+            if ((id == 0) && (BaseplateSizeZ < 1))
+                std::cout << "Warning: Substrate data from the file be used, as the powder layer extends further in "
+                             "the Z direction than the first layer's temperature data"
+                          << std::endl;
+        }
+        else
+            BaseplateSizeZ = nzActive; // baseplate microstructure is layer 0's initial condition
+    }
     std::string s;
     getline(Substrate, s);
     std::size_t found = s.find("=");
@@ -2063,15 +2088,26 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int M
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, double *ZMinLayer, double *ZMaxLayer,
                                     int MyYSlices, int MyYOffset, int id, double deltax, ViewI GrainID, double RNGSeed,
-                                    int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder) {
+                                    int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder,
+                                    bool PowderFirstLayer, int LayerHeight) {
 
     // Number of cells to assign GrainID
     int BaseplateSizeZ; // in CA cells
     if (BaseplateThroughPowder)
         BaseplateSizeZ = nz; // baseplate microstructure used as entire domain's initial condition
-    else
-        BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) +
-                         1; // baseplate microstructure is layer 0's initial condition
+    else {
+        // baseplate microstructure is layer 0's initial condition - extending to the top of the layer, or with
+        // inclusion of a powder layer
+        if (PowderFirstLayer) {
+            BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1 - LayerHeight;
+            if ((id == 0) && (BaseplateSizeZ < 1))
+                std::cout << "Warning: no baseplate microstructure will be used, as the powder layer extends further "
+                             "in the Z direction than the first layer's temperature data"
+                          << std::endl;
+        }
+        else
+            BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1;
+    }
     std::mt19937_64 gen(RNGSeed);
 
     // Based on the baseplate volume (convert to cubic microns to match units) and the substrate grain spacing,

@@ -107,7 +107,8 @@ void WriteTestDataR_json(std::string InputFilename, bool PrintDebugFiles) {
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"Substrate\": {" << std::endl;
     TestDataFile << "      \"SubstrateFilename\": \"DummySubstrate.txt\"," << std::endl;
-    TestDataFile << "      \"PowderDensity\": 1000" << std::endl;
+    TestDataFile << "      \"PowderDensity\": 1000," << std::endl;
+    TestDataFile << "      \"PowderFirstLayer\": true" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"Printing\": {" << std::endl;
     TestDataFile << "      \"PathToOutput\": \"ExaCA\"," << std::endl;
@@ -186,7 +187,7 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
             PowderActiveFraction;
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
             UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false, BaseplateThroughPowder,
-                                                         LayerwiseTempRead, PrintBinary;
+                                                         LayerwiseTempRead, PrintBinary, PowderFirstLayer;
         std::string SimulationType, OutputFile, GrainOrientationFile, temppath, tempfile, SubstrateFileName,
             PathToOutput, MaterialFileName;
         std::vector<std::string> temp_paths;
@@ -200,7 +201,7 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
                               PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
                               SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
                               PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderActiveFraction, RVESize,
-                              LayerwiseTempRead, PrintBinary);
+                              LayerwiseTempRead, PrintBinary, PowderFirstLayer);
 #else
             throw std::runtime_error("Error: attempted to parse json input file without ExaCA_ENABLE_JSON=ON");
 #endif
@@ -213,7 +214,7 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
                 FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals,
                 PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
                 PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderActiveFraction,
-                RVESize, LayerwiseTempRead, PrintBinary);
+                RVESize, LayerwiseTempRead, PrintBinary, PowderFirstLayer);
 
         InterfacialResponseFunction irf(0, MaterialFileName, deltat, deltax, JsonInputFormat);
 
@@ -271,6 +272,8 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
             EXPECT_EQ(LayerHeight, 20);
             EXPECT_FALSE(UseSubstrateFile);
             EXPECT_FALSE(BaseplateThroughPowder);
+            // Option defaults to false
+            EXPECT_FALSE(PowderFirstLayer);
             EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 25.0);
             EXPECT_TRUE(OutputFile == "TestProblemSpot");
             EXPECT_FALSE(PrintFinalUndercoolingVals);
@@ -288,6 +291,11 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
             EXPECT_TRUE(UseSubstrateFile);
             EXPECT_FALSE(LayerwiseTempRead);
             EXPECT_DOUBLE_EQ(PowderActiveFraction, 0.001);
+            // Option defaults to false, is set to true with JSON input file
+            if (JsonInputFormat)
+                EXPECT_TRUE(PowderFirstLayer);
+            else
+                EXPECT_FALSE(PowderFirstLayer);
             EXPECT_DOUBLE_EQ(HT_deltax, deltax);
             EXPECT_TRUE(OutputFile == "Test");
             EXPECT_TRUE(temp_paths[0] == ".//1DummyTemperature.txt");

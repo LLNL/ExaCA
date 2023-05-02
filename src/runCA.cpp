@@ -27,7 +27,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     int PrintDebug, TimeSeriesInc;
     bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, RemeltingYN, UseSubstrateFile,
         PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead,
-        PrintBinary;
+        PrintBinary, PowderFirstLayer;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction;
     std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
@@ -43,7 +43,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                           nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
                           PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                           PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
-                          BaseplateThroughPowder, PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary);
+                          BaseplateThroughPowder, PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary,
+                          PowderFirstLayer);
 #endif
     }
     else
@@ -54,7 +55,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                               PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
                               SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
                               PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderActiveFraction, RVESize,
-                              LayerwiseTempRead, PrintBinary);
+                              LayerwiseTempRead, PrintBinary, PowderFirstLayer);
     InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax, JsonInputFormat);
 
     // Variables characterizing local processor grids relative to global domain
@@ -235,13 +236,18 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         }
     }
     else {
+        // Generate the baseplate microstructure, or read it from a file
         if (UseSubstrateFile)
             SubstrateInit_FromFile(SubstrateFileName, nz, nx, MyYSlices, MyYOffset, id, GrainID, nzActive,
-                                   BaseplateThroughPowder);
+                                   BaseplateThroughPowder, PowderFirstLayer, LayerHeight);
         else
             BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyYSlices, MyYOffset,
                                            id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz,
-                                           BaseplateThroughPowder);
+                                           BaseplateThroughPowder, PowderFirstLayer, LayerHeight);
+        // Optionally generate powder grain structure for top of layer 0
+        if (PowderFirstLayer)
+            PowderInit(0, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyYSlices, MyYOffset, id, GrainID, RNGSeed,
+                       NextLayer_FirstEpitaxialGrainID, PowderActiveFraction);
         // Separate routine for active cell data structure init for problems other than constrained solidification
         if (RemeltingYN)
             CellTypeInit_Remelt(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);

@@ -28,7 +28,7 @@ void InputReadFromFile_Old(int id, std::string InputFile, std::string &Simulatio
                            int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries,
                            int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
                            bool &BaseplateThroughPowder, double &PowderDensity, int &RVESize, bool &LayerwiseTempRead,
-                           bool &PrintBinary);
+                           bool &PrintBinary, bool &PowderFirstLayer);
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
                        double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
                        int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
@@ -40,7 +40,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
                        bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
-                       bool &LayerwiseTempRead, bool &PrintBinary);
+                       bool &LayerwiseTempRead, bool &PrintBinary, bool &PowderFirstLayer);
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
                          double PowderDensity);
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
@@ -112,10 +112,12 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int np, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth,
                                      ViewI SendSizeSouth, bool AtNorthBoundary, bool AtSouthBoundary, int BufSize);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int pid,
-                            ViewI &GrainID, int nzActive, bool BaseplateThroughPowder);
+                            ViewI &GrainID, int nzActive, bool BaseplateThroughPowder, bool PowderFirstLayer,
+                            int LayerHeight);
 void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, double *ZMinLayer, double *ZMaxLayer,
                                     int MyYSlices, int MyYOffset, int id, double deltax, ViewI GrainID, double RNGSeed,
-                                    int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder);
+                                    int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder,
+                                    bool PowderFirstLayer, int LayerHeight);
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLayer, double ZMin, double deltax,
                 int MyYSlices, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
                 int &NextLayer_FirstEpitaxialGrainID, double PowderActiveFraction);
