@@ -153,20 +153,6 @@ void testFillSteeringVector_Remelt() {
     int LocalActiveDomainSize = nx * MyYSlices * nzActive;
     int LocalDomainSize = nx * MyYSlices * nz;
 
-    // MPI rank locations relative to the global grid
-    bool AtNorthBoundary = false;
-    bool AtSouthBoundary = false;
-
-    // Buffers for ghost node data (fixed size)
-    int BufSizeX = nx;
-    int BufSizeZ = nzActive;
-
-    // Send/recv buffers for ghost node data - initialize with values of 1.0
-    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSizeX * BufSizeZ, 6);
-    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSizeX * BufSizeZ, 6);
-    Kokkos::deep_copy(BufferSouthSend, 1.0);
-    Kokkos::deep_copy(BufferNorthSend, 1.0);
-
     // Initialize neighbor lists
     NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
@@ -221,8 +207,7 @@ void testFillSteeringVector_Remelt() {
         // Update cell types, local undercooling each time step, and fill the steering vector
         FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, nx, MyYSlices, NeighborX, NeighborY, NeighborZ,
                                   CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID, ZBound_Low,
-                                  nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep, BufSizeX,
-                                  AtNorthBoundary, AtSouthBoundary, BufferNorthSend, BufferSouthSend, 1);
+                                  nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep);
     }
 
     // Copy CellType, SteeringVector, numSteer, UndercoolingCurrent, Buffers back to host to check steering vector
@@ -231,8 +216,6 @@ void testFillSteeringVector_Remelt() {
     ViewI_H SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SteeringVector);
     numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), numSteer);
     UndercoolingCurrent_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), UndercoolingCurrent);
-    Buffer2D_H BufferSouthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthSend);
-    Buffer2D_H BufferNorthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
 
     // Check the modified CellType and UndercoolingCurrent values on the host:
     // Check that the cells corresponding to outside of the "active" portion of the domain have unchanged values
@@ -280,38 +263,6 @@ void testFillSteeringVector_Remelt() {
         int UpperBoundCellLocation = 2 * nx * MyYSlices;
         EXPECT_GT(SteeringVector_Host(i), LowerBoundCellLocation);
         EXPECT_LT(SteeringVector_Host(i), UpperBoundCellLocation);
-    }
-
-    // Check that the buffer values were either appropriately set to zeros (if the cell underwent melting) or remained
-    // at 1.0
-    // For the GrainID of -1 or 1, the "grain orientation" should be 1 and the "grain number" should be 1 (unchanged
-    // from init) For the GrainID of 0, the "grain orientation"/"grain number" should be 0
-    for (int i = 0; i < nx * BufSizeZ; i++) {
-        int RankZ = i / nx;
-        int GlobalZ = RankZ + ZBound_Low;
-        int RankX = i % nx;
-        int NorthCellCoordinate = GlobalZ * nx * MyYSlices + RankX * MyYSlices + (MyYSlices - 1);
-        if ((CellType_Host(NorthCellCoordinate) == TempSolid) || (CellType_Host(NorthCellCoordinate) == Solid)) {
-            for (int j = 0; j < 6; j++) {
-                EXPECT_EQ(BufferNorthSend_Host(i, j), 1.0);
-            }
-        }
-        else {
-            for (int j = 0; j < 6; j++) {
-                EXPECT_EQ(BufferNorthSend_Host(i, j), 0.0);
-            }
-        }
-        int SouthCellCoordinate = GlobalZ * nx * MyYSlices + RankX * MyYSlices + (MyYSlices - 1);
-        if ((CellType_Host(SouthCellCoordinate) == TempSolid) || (CellType_Host(SouthCellCoordinate) == Solid)) {
-            for (int j = 0; j < 6; j++) {
-                EXPECT_EQ(BufferNorthSend_Host(i, j), 1.0);
-            }
-        }
-        else {
-            for (int j = 0; j < 6; j++) {
-                EXPECT_EQ(BufferNorthSend_Host(i, j), 0.0);
-            }
-        }
     }
 }
 

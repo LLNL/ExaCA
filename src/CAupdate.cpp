@@ -121,9 +121,7 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, i
 void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, NList NeighborX,
                                NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                                ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
-                               ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
-                               int BufSizeX, bool AtNorthBoundary, bool AtSouthBoundary, Buffer2D BufferNorthSend,
-                               Buffer2D BufferSouthSend, int NGrainOrientations) {
+                               ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep) {
 
     Kokkos::parallel_for(
         "FillSV_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
@@ -144,9 +142,6 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
                 CellType(GlobalD3D1ConvPosition) = Liquid;
                 // Reset current undercooling to zero
                 UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
-                // Remove solid cell data from the buffer
-                loadghostnodes(0, 0, 0, 0, 0, BufSizeX, MyYSlices, RankX, RankY, RankZ, AtNorthBoundary,
-                               AtSouthBoundary, BufferSouthSend, BufferNorthSend, NGrainOrientations);
             }
             else if ((isNotSolid) && (pastCritTime)) {
                 // Update cell undercooling
@@ -192,10 +187,10 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                  NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                  ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
                  ViewI CellType, ViewF DOCenter, ViewI GrainID, int NGrainOrientations, Buffer2D BufferNorthSend,
-                 Buffer2D BufferSouthSend, int BufSizeX, int ZBound_Low, int nzActive, int, ViewI SteeringVector,
-                 ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary, bool AtSouthBoundary,
-                 ViewI SolidificationEventCounter, ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory,
-                 ViewI NumberOfSolidificationEvents, bool RemeltingYN) {
+                 Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth, int ZBound_Low, int nzActive, int,
+                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
+                 bool AtSouthBoundary, ViewI SolidificationEventCounter, ViewI MeltTimeStep,
+                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, bool RemeltingYN, int &BufSize) {
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
@@ -434,17 +429,30 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                                     float GhostDL = NewODiagL;
                                     // Collect data for the ghost nodes, if necessary
                                     // Data loaded into the ghost nodes is for the cell that was just captured
-                                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX,
-                                                   MyYSlices, MyNeighborX, MyNeighborY, MyNeighborZ, AtNorthBoundary,
-                                                   AtSouthBoundary, BufferSouthSend, BufferNorthSend,
-                                                   NGrainOrientations);
+                                    bool DataFitsInBuffer =
+                                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL,
+                                                       SendSizeNorth, SendSizeSouth, MyYSlices, MyNeighborX,
+                                                       MyNeighborY, MyNeighborZ, AtNorthBoundary, AtSouthBoundary,
+                                                       BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
+                                    if (!(DataFitsInBuffer)) {
+                                        // This cell's data did not fit in the buffer with current size BufSize - mark
+                                        // with temporary type
+                                        CellType(GlobalNeighborD3D1ConvPosition) = ActiveFailedBufferLoad;
+                                    }
+                                    else {
+                                        // Cell activation is now finished - cell type can be changed from
+                                        // TemporaryUpdate to Active
+                                        CellType(GlobalNeighborD3D1ConvPosition) = Active;
+                                    }
                                 } // End if statement for serial/parallel code
-                                // Only update the new cell's type once Critical Diagonal Length, Triangle Index, and
-                                // Diagonal Length values have been assigned to it Avoids the race condition in which
-                                // the new cell is activated, and another thread acts on the new active cell before the
-                                // cell's new critical diagonal length/triangle index/diagonal length values are
-                                // assigned
-                                CellType(GlobalNeighborD3D1ConvPosition) = Active;
+                                else {
+                                    // Only update the new cell's type once Critical Diagonal Length, Triangle Index,
+                                    // and Diagonal Length values have been assigned to it Avoids the race condition in
+                                    // which the new cell is activated, and another thread acts on the new active cell
+                                    // before the cell's new critical diagonal length/triangle index/diagonal length
+                                    // values are assigned
+                                    CellType(GlobalNeighborD3D1ConvPosition) = Active;
+                                }
                             } // End if statement within locked capture loop
                         }     // End if statement for outer capture loop
                     }         // End if statement over neighbors on the active grid
@@ -508,12 +516,24 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                     float GhostDOCZ = GlobalZ + 0.5;
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, BufSizeX, MyYSlices, GlobalX,
-                                   RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
-                                   NGrainOrientations);
+                    bool DataFitsInBuffer =
+                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
+                                       MyYSlices, GlobalX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                       BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
+                    if (!(DataFitsInBuffer)) {
+                        // This cell's data did not fit in the buffer with current size BufSize - mark with temporary
+                        // type
+                        CellType(GlobalD3D1ConvPosition) = ActiveFailedBufferLoad;
+                    }
+                    else {
+                        // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
+                        CellType(GlobalD3D1ConvPosition) = Active;
+                    }
                 } // End if statement for serial/parallel code
-                // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
-                CellType(GlobalD3D1ConvPosition) = Active;
+                else {
+                    // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
+                    CellType(GlobalD3D1ConvPosition) = Active;
+                } // End if statement for serial/parallel code
             }
         });
     Kokkos::fence();
