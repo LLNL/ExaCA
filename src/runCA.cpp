@@ -238,11 +238,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     else {
         // Generate the baseplate microstructure, or read it from a file
         if (UseSubstrateFile)
-            SubstrateInit_FromFile(SubstrateFileName, nz, nx, MyYSlices, MyYOffset, id, GrainID, nzActive,
-                                   BaseplateThroughPowder, PowderFirstLayer, LayerHeight);
+            SubstrateInit_FromFile(SubstrateFileName, nz, nx, MyYSlices, MyYOffset, id, GrainID, ZMin, ZMaxLayer,
+                                   BaseplateThroughPowder, PowderFirstLayer, LayerHeight, deltax);
         else
-            BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyYSlices, MyYOffset,
-                                           id, deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz,
+            BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMin, ZMaxLayer, MyYSlices, MyYOffset, id,
+                                           deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz,
                                            BaseplateThroughPowder, PowderFirstLayer, LayerHeight);
         // Optionally generate powder grain structure for top of layer 0
         if (PowderFirstLayer)

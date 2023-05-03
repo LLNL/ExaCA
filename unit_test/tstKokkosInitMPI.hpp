@@ -122,6 +122,7 @@ void testBaseplateInit_FromGrainSpacing(bool PowderFirstLayer) {
     double ZMinLayer[1];
     double ZMaxLayer[1];
     ZMinLayer[0] = 0;
+    double ZMin = ZMinLayer[0];
     ZMaxLayer[0] = 2 * pow(10, -6);
     int nx = 3;
     // Each rank is assigned a different portion of the domain in Y
@@ -132,9 +133,9 @@ void testBaseplateInit_FromGrainSpacing(bool PowderFirstLayer) {
     int BaseplateSize;
     int LayerHeight = 2;
     if (PowderFirstLayer)
-        BaseplateSize = nx * MyYSlices * (round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1 - LayerHeight);
+        BaseplateSize = nx * MyYSlices * (round((ZMaxLayer[0] - ZMin) / deltax) + 1 - LayerHeight);
     else
-        BaseplateSize = nx * MyYSlices * (round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1);
+        BaseplateSize = nx * MyYSlices * (round((ZMaxLayer[0] - ZMin) / deltax) + 1);
     int LocalDomainSize = nx * MyYSlices * nz;
     // There are 36 * np total cells in this domain (nx * ny * nz)
     // Each rank has 36 cells - the bottom 27 cells are assigned baseplate Grain ID values, unless the powder layer of
@@ -152,9 +153,9 @@ void testBaseplateInit_FromGrainSpacing(bool PowderFirstLayer) {
     // Initialize GrainIDs to 0 on device
     ViewI GrainID("GrainID_Device", LocalDomainSize);
 
-    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyYSlices, MyYOffset, id,
-                                   deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false,
-                                   PowderFirstLayer, LayerHeight);
+    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMin, ZMaxLayer, MyYSlices, MyYOffset, id, deltax,
+                                   GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false, PowderFirstLayer,
+                                   LayerHeight);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);

@@ -2006,10 +2006,32 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
         std::cout << "Number of substrate active cells across all ranks: " << SubstrateActCells << std::endl;
 }
 
+// Determine the height of the baseplate, in CA cells
+// The baseplate always starts at the simulation bottom (Z coordinate corresponding to ZMin), regardless of whether the
+// first layer melts the cells at the bottom or not If BaseplateThroughPowder is true, the baseplate microstructure
+// extends through the entire simulation domain in Z If BaseplateThroughPowder is false and PowderFirstLayer is true,
+// the baseplate extends to the Z coordinate that is LayerHeight cells short of the top of the first layer (the final
+// LayerHeight cells of the first layer will be initialized using the powder options specified)) If
+// BaseplateThroughPowder is false and PowderFirstLayer is false, the baseplate extends to the top of the first layer
+int getBaseplateSizeZ(int nz, double *ZMaxLayer, double ZMin, double deltax, int LayerHeight,
+                      bool BaseplateThroughPowder, bool PowderFirstLayer) {
+    int BaseplateSizeZ;
+    if (BaseplateThroughPowder)
+        BaseplateSizeZ = nz;
+    else {
+        if (PowderFirstLayer)
+            BaseplateSizeZ = round((ZMaxLayer[0] - ZMin) / deltax) + 1 - LayerHeight;
+
+        else
+            BaseplateSizeZ = round((ZMaxLayer[0] - ZMin) / deltax) + 1;
+    }
+    return BaseplateSizeZ;
+}
+
 // Initializes Grain ID values where the substrate comes from a file
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int id,
-                            ViewI &GrainID_Device, int nzActive, bool BaseplateThroughPowder, bool PowderFirstLayer,
-                            int LayerHeight) {
+                            ViewI &GrainID_Device, double ZMin, double *ZMaxLayer, bool BaseplateThroughPowder,
+                            bool PowderFirstLayer, int LayerHeight, double deltax) {
 
     // Assign GrainID values to cells that are part of the substrate - read values from file and initialize using
     // temporary host view
@@ -2019,21 +2041,12 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int M
     int Substrate_LowY = MyYOffset;
     int Substrate_HighY = MyYOffset + MyYSlices;
     int nxS, nyS, nzS;
-    int BaseplateSizeZ; // in CA cells
-    if (BaseplateThroughPowder)
-        BaseplateSizeZ = nz; // baseplate microstructure used as entire domain's initial condition
-    else {
-        if (PowderFirstLayer) {
-            BaseplateSizeZ =
-                nzActive - LayerHeight; // baseplate microstructure with powder is layer 0's initial condition
-            if ((id == 0) && (BaseplateSizeZ < 1))
-                std::cout << "Warning: Substrate data from the file be used, as the powder layer extends further in "
-                             "the Z direction than the first layer's temperature data"
-                          << std::endl;
-        }
-        else
-            BaseplateSizeZ = nzActive; // baseplate microstructure is layer 0's initial condition
-    }
+    int BaseplateSizeZ = getBaseplateSizeZ(nz, ZMaxLayer, ZMin, deltax, LayerHeight, BaseplateThroughPowder,
+                                           PowderFirstLayer); // in CA cells
+    if ((id == 0) && (BaseplateSizeZ < 1))
+        std::cout << "Warning: No substrate data from the file be used, as the powder layer extends further in the Z "
+                     "direction than the first layer's temperature data"
+                  << std::endl;
     std::string s;
     getline(Substrate, s);
     std::size_t found = s.find("=");
@@ -2081,28 +2094,18 @@ void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int M
 }
 
 // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi Tessellation
-void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, double *ZMinLayer, double *ZMaxLayer,
+void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny, double ZMin, double *ZMaxLayer,
                                     int MyYSlices, int MyYOffset, int id, double deltax, ViewI GrainID, double RNGSeed,
                                     int &NextLayer_FirstEpitaxialGrainID, int nz, double BaseplateThroughPowder,
                                     bool PowderFirstLayer, int LayerHeight) {
 
     // Number of cells to assign GrainID
-    int BaseplateSizeZ; // in CA cells
-    if (BaseplateThroughPowder)
-        BaseplateSizeZ = nz; // baseplate microstructure used as entire domain's initial condition
-    else {
-        // baseplate microstructure is layer 0's initial condition - extending to the top of the layer, or with
-        // inclusion of a powder layer
-        if (PowderFirstLayer) {
-            BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1 - LayerHeight;
-            if ((id == 0) && (BaseplateSizeZ < 1))
-                std::cout << "Warning: no baseplate microstructure will be used, as the powder layer extends further "
-                             "in the Z direction than the first layer's temperature data"
-                          << std::endl;
-        }
-        else
-            BaseplateSizeZ = round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1;
-    }
+    int BaseplateSizeZ = getBaseplateSizeZ(nz, ZMaxLayer, ZMin, deltax, LayerHeight, BaseplateThroughPowder,
+                                           PowderFirstLayer); // in CA cells
+    if ((id == 0) && (BaseplateSizeZ < 1))
+        std::cout << "Warning: no baseplate microstructure will be used, as the powder layer extends further in the Z "
+                     "direction than the first layer's temperature data"
+                  << std::endl;
     std::mt19937_64 gen(RNGSeed);
 
     // Based on the baseplate volume (convert to cubic microns to match units) and the substrate grain spacing,
