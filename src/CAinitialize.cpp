@@ -647,15 +647,10 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             PowderActiveFraction = 1.0; // defaults to a unique grain at each site in the powder layers
         // Should a powder layer be initialized at the top of the baseplate for the first layer? (Defaults to false,
         // where the baseplate spans all of layer 0, and only starting with layer 1 is a powder layer present)
-        std::cout << "THE OPTION SHOULD BE " << inputdata["Substrate"].contains("PowderFirstLayer") << std::endl;
-        if (inputdata["Substrate"].contains("PowderFirstLayer")) {
+        if (inputdata["Substrate"].contains("PowderFirstLayer"))
             PowderFirstLayer = inputdata["Substrate"]["PowderFirstLayer"];
-            std::cout << "found, is " << PowderFirstLayer << std::endl;
-        }
-        else {
+        else
             PowderFirstLayer = false;
-            std::cout << "not found" << std::endl;
-        }
         if ((BaseplateThroughPowder) && ((PowderFirstLayer) || (inputdata["Substrate"].contains("PowderDensity"))))
             throw std::runtime_error(
                 "Error: if the option to extend the baseplate through the powder layers is toggled, options regarding "
