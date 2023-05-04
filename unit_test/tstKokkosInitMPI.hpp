@@ -109,7 +109,7 @@ void testSubstrateInit_ConstrainedGrowth() {
     }
 }
 
-void testBaseplateInit_FromGrainSpacing() {
+void testBaseplateInit_FromGrainSpacing(bool PowderFirstLayer) {
 
     int id, np;
     // Get number of processes
@@ -118,9 +118,11 @@ void testBaseplateInit_FromGrainSpacing() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     // Create test data
     int nz = 4;
+    int nzActive = 3;
     double ZMinLayer[1];
     double ZMaxLayer[1];
     ZMinLayer[0] = 0;
+    double ZMin = ZMinLayer[0];
     ZMaxLayer[0] = 2 * pow(10, -6);
     int nx = 3;
     // Each rank is assigned a different portion of the domain in Y
@@ -128,27 +130,44 @@ void testBaseplateInit_FromGrainSpacing() {
     int MyYSlices = 3;
     int MyYOffset = 3 * id;
     double deltax = 1 * pow(10, -6);
-    int BaseplateSize = nx * MyYSlices * (round((ZMaxLayer[0] - ZMinLayer[0]) / deltax) + 1);
+    int BaseplateSize;
+    int LayerHeight = 2;
+    if (PowderFirstLayer)
+        BaseplateSize = nx * MyYSlices * (round((ZMaxLayer[0] - ZMin) / deltax) + 1 - LayerHeight);
+    else
+        BaseplateSize = nx * MyYSlices * (round((ZMaxLayer[0] - ZMin) / deltax) + 1);
     int LocalDomainSize = nx * MyYSlices * nz;
     // There are 36 * np total cells in this domain (nx * ny * nz)
-    // Each rank has 36 cells - the bottom 27 cells are assigned baseplate Grain ID values
-    // The top cells (Z = 4) are outside the "active" portion of the domain and are not assigned Grain IDs with the rest
-    // of the baseplate
-    double SubstrateGrainSpacing =
-        3.0; // This grain spacing ensures that there will be 1 grain per number of MPI ranks present
+    // Each rank has 36 cells - the bottom 27 cells are assigned baseplate Grain ID values, unless the powder layer of
+    // height 2 is used, in which case only the bottom 9 cells should be assigned baseplate Grain ID values The top
+    // cells (Z = 3) are outside the "active" portion of the domain and are not assigned Grain IDs with the rest of the
+    // baseplate This grain spacing ensures that there will be 1 grain per number of MPI ranks present (larger when
+    // powder layer is present as the baseplate will only have a third as many cells)
+    double SubstrateGrainSpacing;
+    if (PowderFirstLayer)
+        SubstrateGrainSpacing = 2.08;
+    else
+        SubstrateGrainSpacing = 3.0;
     double RNGSeed = 0.0;
     int NextLayer_FirstEpitaxialGrainID;
     // Initialize GrainIDs to 0 on device
     ViewI GrainID("GrainID_Device", LocalDomainSize);
 
-    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMinLayer, ZMaxLayer, MyYSlices, MyYOffset, id,
-                                   deltax, GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false);
+    BaseplateInit_FromGrainSpacing(SubstrateGrainSpacing, nx, ny, ZMin, ZMaxLayer, MyYSlices, MyYOffset, id, deltax,
+                                   GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, nz, false, PowderFirstLayer,
+                                   LayerHeight);
 
     // Copy results back to host to check
     ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Check the results for baseplate grains - cells should have GrainIDs between 1 and np (inclusive) if they are part
     // of the active domain, or 0 (unassigned) if not part of the active domain
+    // In the case where there is powder on the first layer, the baseplate size is "LayerHeight" fewer cells in the Z
+    // direction
+    if (PowderFirstLayer)
+        EXPECT_EQ(BaseplateSize, nx * MyYSlices * (nzActive - LayerHeight));
+    else
+        EXPECT_EQ(BaseplateSize, nx * MyYSlices * nzActive);
     for (int i = 0; i < BaseplateSize; i++) {
         EXPECT_GT(GrainID_H(i), 0);
         EXPECT_LT(GrainID_H(i), np + 1);
@@ -694,7 +713,9 @@ void testNucleiInit(bool RemeltingYN) {
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, grain_init_tests) {
     testSubstrateInit_ConstrainedGrowth();
-    testBaseplateInit_FromGrainSpacing();
+    // w/ and w/o space left for powder layer
+    testBaseplateInit_FromGrainSpacing(true);
+    testBaseplateInit_FromGrainSpacing(false);
     testPowderInit();
 }
 TEST(TEST_CATEGORY, cell_init_test) {
