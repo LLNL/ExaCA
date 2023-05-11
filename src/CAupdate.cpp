@@ -750,9 +750,10 @@ void IntermediateOutputAndCheck_Remelt(
     }
     MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
-        JumpTimeStep(cycle, GlobalActiveCells, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize, MyYSlices,
-                     ZBound_Low, true, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyYOffset, GrainID,
-                     CritTimeStep, GrainUnitVector, UndercoolingChange, UndercoolingCurrent, OutputFile,
-                     NGrainOrientations, PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin,
-                     NumberOfLayers, XSwitch, TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc, PrintBinary);
+        JumpTimeStep(cycle, GlobalActiveCells + GlobalSuperheatedCells + GlobalUndercooledCells, LocalTempSolidCells,
+                     MeltTimeStep, LocalActiveDomainSize, MyYSlices, ZBound_Low, true, CellType, LayerID, id,
+                     layernumber, np, nx, ny, nz, MyYOffset, GrainID, CritTimeStep, GrainUnitVector, UndercoolingChange,
+                     UndercoolingCurrent, OutputFile, NGrainOrientations, PathToOutput, IntermediateFileCounter,
+                     nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers, XSwitch, TemperatureDataType,
+                     PrintIdleMovieFrames, MovieFrameInc, PrintBinary);
 }
