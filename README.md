@@ -13,7 +13,7 @@ ExaCA-Kokkos uses Kokkos and MPI for parallelism.
 |[CMake](https://cmake.org/download/)       | 3.11+    | Yes      | Build system
 |[Kokkos](https://github.com/kokkos/kokkos) | 3.2+    | Yes      | Provides portable on-node parallelism.
 |MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Message Passing Interface
-|[nlohmann_json](https://github.com/nlohmann/json) | 3.10+| No       | Input parsing (Note: this will become a required dependency in a future release)
+|[nlohmann_json](https://github.com/nlohmann/json) | 3.10+| Yes       | Input parsing
 |[GoogleTest](https://github.com/google/googletest) | 1.10+   | No       | Unit test framework
 |CUDA       | 9+      | No       | Programming model for NVIDIA GPUs
 |HIP        | 3.5+    | No       | Programming model for AMD GPUs
@@ -67,11 +67,6 @@ cmake \
 make install
 cd ../..
 ```
-
-One additional CMake option can be set to enable JSON input parsing:
-`ExaCA_ENABLE_JSON`. The library will be automatically downloaded if requested,
-but not found. Note that this option will be removed in a future release when
-plain text input files are removed (and JSON is required).
 
 ### Build CUDA
 
@@ -137,21 +132,21 @@ framework). Tests are automatically generated for the enabled Kokkos backend.
 ## Run
 
 ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - A separate README file located in the `examples/` directory goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
- * `Inp_DirSolidification.txt`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
- * `Inp_SmallDirSolidification.txt`: a smaller and simpler version of the previous
- * `Inp_SpotMelt.txt`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate, where cells are only allowed to undergo solidification one time (i.e., overlap regions only solidify when they've cooled below the liquidus for the final time in the simulation)
- * `Inp_SmallSpotMelt.txt`: a smaller and simpler version of the previous
- * `Inp_SpotMelt_RM.txt`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate, where cells in the overlap region are allowed to melt and solidify as many times as needed
- * `Inp_SmallSpotMelt_RM.txt`: a smaller and simpler version of the previous
+ * `Inp_DirSolidification.json`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
+ * `Inp_SmallDirSolidification.json`: a smaller and simpler version of the previous
+ * `Inp_SpotMelt.json`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate, where cells are only allowed to undergo solidification one time (i.e., overlap regions only solidify when they've cooled below the liquidus for the final time in the simulation)
+ * `Inp_SmallSpotMelt.json`: a smaller and simpler version of the previous
+ * `Inp_SpotMelt_RM.json`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate, where cells in the overlap region are allowed to melt and solidify as many times as needed
+ * `Inp_SmallSpotMelt_RM.json`: a smaller and simpler version of the previous
 
 Example problems only possible with external data (available via https://github.com/LLNL/ExaCA-Data):
- * `Inp_AMBenchMultilayer.txt`: simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
- * `Inp_SimpleRaster.txt`: simulates a single layer consisting of four overlapping melt pools
- * `Inp_TwoLineTwoLayer.txt`: simulates two layers consisting of segments of two overlapping melt pools
+ * `Inp_AMBenchMultilayer.json`: simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
+ * `Inp_SimpleRaster.json`: simulates a single layer consisting of four overlapping melt pools
+ * `Inp_TwoLineTwoLayer.json`: simulates two layers consisting of segments of two overlapping melt pools
 
 Run by calling the created executable with an ExaCA input file:
 ```
-mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.txt
+mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.json
 ```
 ## Automated input file generation using Tasmanian (https://tasmanian.ornl.gov/)
 Within the `utilities` directory, an example python script for the generation of an ensemble of input files is available. By running the example script `TasmanianTest.py`, 69 ExaCA input files are generated with a range of heterogenous nucleation density, mean nucleation undercooling, and mean substrate grain size values, based on the ranges in python code (N0Min-N0Max, dTNMin-dTNMax, and S0Min-S0Max), respectively. Running the python script from the ExaCA source directory, via the command
@@ -176,13 +171,6 @@ Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.json TestProblemDirS
 ```
 Within the `analysis/examples` directory, there are example analysis input files. Note that the microstructure data files `TestProblemDirS.vtk` and `TestProblemDirS.json` must both be in the location given on the command line. 
-
-Alternatively, if JSON is not enabled, running the test problem `Inp_DirSolidification.json` yields the output file `TestProblemDirS.log` rather than `TestProblemDirS.json`. To analyze the data without using JSON formatting, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with one command line argument pointing to the analysis input file (example analysis input files not in JSON format are also available in `analysis/examples`)
-
-```
-./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt
-```
-Note that the path to the files needed for analysis, e.g. `TestProblemDirS.vtk` and `TestProblemDirS.log`, are configurable inputs within the analysis input file, and not provided on the command line as with JSON formatting of log and analysis files. More information about running the analysis executable and the grain structure stats collected during the run is located in `analysis/README.md`
 
 The analysis executable, in addition to outputting grain statistics, can also output files that can be further post-processing in Matlab using the MTEX toolbox to generate pole figures, inverse pole figures, and inverse pole figure-colored cross-sections. More details on this are provided in `analysis/README.md`
 

@@ -33,30 +33,15 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     std::vector<std::string> temp_paths;
 
-    // Check form of input data
-    bool JsonInputFormat = checkInputFileFormat(InputFile, id);
-    if (JsonInputFormat) {
-#ifdef ExaCA_ENABLE_JSON
-        InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,
-                          TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
-                          MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
-                          nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
-                          PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
-                          PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
-                          BaseplateThroughPowder, PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary,
-                          PowderFirstLayer);
-#endif
-    }
-    else
-        InputReadFromFile_Old(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile,
-                              GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
-                              NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName, SubstrateGrainSpacing,
-                              UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
-                              PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
-                              SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
-                              PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderActiveFraction, RVESize,
-                              LayerwiseTempRead, PrintBinary, PowderFirstLayer);
-    InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax, JsonInputFormat);
+    // Read input file
+    InputReadFromFile(
+        id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, TempFilesInSeries,
+        temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName,
+        SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
+        PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
+        PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder,
+        PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary, PowderFirstLayer);
+    InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax);
 
     // Variables characterizing local processor grids relative to global domain
     // 1D decomposition in Y: Each MPI rank has a subset consisting of of MyYSlices cells, out of ny cells in Y
@@ -591,8 +576,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Allreduce(&OutTime, &OutMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
-    // If json is enabled, print the log file to the json format - otherwise, use the old print function
-#ifdef ExaCA_ENABLE_JSON
+    // Print the log file with JSON format, timing information to the console
     PrintExaCALog(id, np, InputFile, SimulationType, MyYSlices, MyYOffset, irf, deltax, NMax, dTN, dTsigma, temp_paths,
                   TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
                   SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
@@ -600,22 +584,4 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
                   CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin,
                   ZMax, GrainOrientationFile);
-#else
-    if (id == 0)
-        std::cout << "Warning: Log data will be printed as a .log file; JSON will be required in a future release to "
-                     "print in the preferred format"
-                  << std::endl;
-    PrintExaCALog_Old(id, np, InputFile, SimulationType, MyYSlices, MyYOffset, irf, deltax, NMax, dTN, dTsigma,
-                      temp_paths, TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
-                      SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                      FractSurfaceSitesActive, PathToOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile,
-                      InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
-                      CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
-                      OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin, ZMax, GrainOrientationFile);
-    if (id == 0) {
-        PrintExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
-                         CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
-                         OutMaxTime, OutMinTime);
-    }
-#endif
 }

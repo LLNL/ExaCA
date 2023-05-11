@@ -10,9 +10,7 @@
 
 #include "mpi.h"
 
-#ifdef ExaCA_ENABLE_JSON
 #include <nlohmann/json.hpp>
-#endif
 
 #include <algorithm>
 #include <cmath>
@@ -31,67 +29,6 @@ std::string removeWhitespace(std::string line, int pos) {
     std::regex r("\\s+");
     val = std::regex_replace(val, r, "");
     return val;
-}
-
-// Skip initial lines in input files.
-void skipLines(std::ifstream &stream, std::string seperator) {
-    std::string line;
-    while (getline(stream, line)) {
-        // remove any whitespace from line
-        std::string linechars = removeWhitespace(line);
-        if (linechars == seperator)
-            break;
-    }
-}
-
-// From a line read from the input file, check against NumInputs possible matches to see if there is a match with a key
-// from InputKeys Store the appropriate portion of the line read from the file in ParsedInputs Return whether a match
-// was found for the input or not
-bool parseInputFromList(std::string line, std::vector<std::string> InputKeys, std::vector<std::string> &ParsedInputs,
-                        int NumInputs) {
-
-    // Only attempt to parse the line if it isn't empty - ignore empty lines
-    if (line.empty())
-        return false;
-
-    // First, check that there is a colon separating the parameter name from the value
-    std::size_t colon = line.find(":");
-    if (colon == std::string::npos) {
-        // No colon on this line - throw error
-        std::string error = "Unable to parse line " + line + " ; no colon separating variable name from value";
-        throw std::runtime_error(error);
-    }
-    std::string BeforeColon = line.substr(0, colon);
-    // Check line against the "NumInputs" number of possible matches from the vector "InputKeys"
-    // Break when first match is found
-    bool FoundInput = false;
-    for (int inputnumber = 0; inputnumber < NumInputs; inputnumber++) {
-        if (BeforeColon.find(InputKeys[inputnumber]) != std::string::npos) {
-            // This is required input number "inputnumber"
-            FoundInput = true;
-            // Take the potion of the line following the colon and store in the appropriate position in "ParsedInputs"
-            std::string AfterColon = line.substr(colon + 1, std::string::npos);
-            ParsedInputs[inputnumber] = removeWhitespace(AfterColon);
-            break;
-        }
-    }
-    return FoundInput;
-}
-
-// Get a line from a file, verify the required input was included with the correct format, and parse the input
-std::string parseInput(std::ifstream &stream, std::string key) {
-
-    std::string line;
-    std::getline(stream, line);
-    std::vector<std::string> ParsedInputs(1);
-    std::vector<std::string> InputKeys = {key};
-    bool FoundInput = parseInputFromList(line, InputKeys, ParsedInputs);
-    if (!(FoundInput)) {
-        // Keyword not found
-        std::string error = "Required input not present: \"" + key + "\" not found in the input file";
-        throw std::runtime_error(error);
-    }
-    return ParsedInputs[0];
 }
 
 // Check if a string is Y (true) or N (false)
@@ -222,33 +159,6 @@ void checkFileNotEmpty(std::string testfilename) {
     testfilestream.close();
 }
 
-// Check that the input file exists and whether it uses the old input file format or the new json input file format
-// (which starts with a left bracket)
-bool checkInputFileFormat(std::string InputFile, int id) {
-    bool JsonInputFormat;
-    checkFileExists(InputFile, id);
-
-    // Assume files with .json suffix are json formatted
-    if (InputFile.find(".json") == std::string::npos)
-        JsonInputFormat = false;
-    else
-        JsonInputFormat = true;
-#ifndef ExaCA_ENABLE_JSON
-    if (JsonInputFormat)
-        throw std::runtime_error("Cannot use JSON input file without ExaCA_ENABLE_JSON=ON");
-#endif
-    if (id == 0) {
-        if (JsonInputFormat)
-            std::cout << "Using json input file format" << std::endl;
-        else
-            std::cout << "Warning: Old input file format detected, this is now deprecated and will be replaced with "
-                         "the json format in a future release. See the README for details"
-                      << std::endl;
-    }
-    return JsonInputFormat;
-}
-
-#ifdef ExaCA_ENABLE_JSON
 // Check the field names from the given input (Fieldtype = PrintFieldsInit or PrintFieldsFinal) against the possible
 // fieldnames listed in Fieldnames_key. Fill the vector PrintFields_given with true or false values depending on whether
 // the corresponding field name from Fieldnames_key appeared in the input or not
@@ -265,109 +175,6 @@ std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fiel
         }
     }
     return PrintFields_given;
-}
-#endif
-
-void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &TempFilesInSeries, int &NumberOfLayers,
-                           int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths,
-                           bool &RemeltingYN, bool &LayerwiseTempRead) {
-
-    std::ifstream TemperatureData;
-    // Check that file exists and contains data
-    checkFileExists(TFieldInstructions, id);
-    checkFileNotEmpty(TFieldInstructions);
-    // Open and read temperature instuctions file
-    TemperatureData.open(TFieldInstructions);
-    std::string val;
-    // These required inputs should be present in the temperature file
-    std::vector<std::string> RequiredTemperatureInputs = {
-        "Number of layers",
-        "Offset between layers",
-    };
-    // These may or may not be in the temperature file
-    std::vector<std::string> OptionalTemperatureInputs = {
-        "Discard temperature data and reread temperature files after each layer",
-        "Heat transport data mesh size",
-    };
-    int NumRequiredTemperatureInputs = RequiredTemperatureInputs.size();
-    int NumOptionalTemperatureInputs = OptionalTemperatureInputs.size();
-    std::vector<std::string> RequiredTemperatureInputsRead(NumRequiredTemperatureInputs);
-    std::vector<std::string> OptionalTemperatureInputsRead(NumOptionalTemperatureInputs);
-    // Read first portion of the file to get Number of layers, Offset between layers, Heat transport data mesh size (if
-    // given)
-    bool ReadingArgs = true;
-    while (ReadingArgs) {
-        std::getline(TemperatureData, val);
-        // Line with ***** indicates separation first and second portions of file
-        std::string FirstChar = val.substr(0, 1);
-        if (FirstChar.compare("*") == 0) {
-            ReadingArgs = false;
-        }
-        else {
-            bool FoundArg = parseInputFromList(val, RequiredTemperatureInputs, RequiredTemperatureInputsRead,
-                                               NumRequiredTemperatureInputs);
-            if (!(FoundArg)) {
-                FoundArg = parseInputFromList(val, OptionalTemperatureInputs, OptionalTemperatureInputsRead,
-                                              NumOptionalTemperatureInputs);
-                if (!(FoundArg))
-                    std::cout << "Ignoring unknown line " << val << " in temperature instructions file "
-                              << TFieldInstructions << std::endl;
-            }
-        }
-        if (!(TemperatureData.is_open()))
-            throw std::runtime_error("Error: Required separator not found in temperature instructions file");
-    }
-    NumberOfLayers = getInputInt(RequiredTemperatureInputsRead[0]);
-    LayerHeight = getInputInt(RequiredTemperatureInputsRead[1]);
-    // If this input was not given, default to reading/storing all temperature data during initialization
-    if (OptionalTemperatureInputsRead[0].empty())
-        LayerwiseTempRead = false;
-    else
-        LayerwiseTempRead = getInputBool(OptionalTemperatureInputsRead[0]);
-    // If this input was not given, default to using CA cell size as the assumed temperature data resolution
-    if (OptionalTemperatureInputsRead[1].empty())
-        HT_deltax = deltax;
-    else
-        HT_deltax = getInputDouble(OptionalTemperatureInputsRead[1], -6);
-
-    if ((!(RemeltingYN)) && (LayerwiseTempRead)) {
-        if (id == 0)
-            std::cout << "Warning: ability to read temperature files one at a time during initialization of "
-                         "new layers is only supported for simulations with remelting"
-                      << std::endl;
-        LayerwiseTempRead = false;
-    }
-    // Read second part of file to get the paths/names of the temperature data files used
-    TempFilesInSeries = 0;
-    while (TemperatureData.is_open()) {
-        std::string temppath;
-        std::getline(TemperatureData, temppath);
-        // Ignore any blank lines at the end of the file
-        if (!(temppath.empty())) {
-            temp_paths.push_back(temppath);
-            TempFilesInSeries++;
-        }
-        else
-            break;
-    }
-    TemperatureData.close();
-    if (TempFilesInSeries == 0)
-        throw std::runtime_error("Error: No temperature files listed in the temperature instructions file");
-}
-
-// Parse a line that looks like [x,y], returning either val = 0 (x) or val = 1 (y)
-std::string parseCoordinatePair(std::string line, int val) {
-    size_t linestart = line.find("[");
-    size_t linebreak = line.find(",");
-    size_t lineend = line.find("]");
-    std::string SplitStr;
-    if (val == 0)
-        SplitStr = line.substr(linestart + 1, linebreak - linestart - 1);
-    else if (val == 1)
-        SplitStr = line.substr(linebreak + 1, lineend - linebreak - 1);
-    std::regex r("\\s+");
-    SplitStr = std::regex_replace(SplitStr, r, "");
-    return SplitStr;
 }
 
 // Read x, y, z coordinates in tempfile_thislayer (temperature file in either an ASCII or binary format) and return the

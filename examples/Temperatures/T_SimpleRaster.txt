@@ -1,5 +1,0 @@
-Number of layers: 1
-Offset between layers: 15
-Heat transport data mesh size: 5
-*****
-examples/Temperatures/Master-Raster-150um.txt

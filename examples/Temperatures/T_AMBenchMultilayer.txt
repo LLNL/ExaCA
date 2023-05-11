@@ -1,6 +1,0 @@
-Number of layers: 4
-Offset between layers: 3
-Heat transport data mesh size: 5
-*****
-examples/Temperatures/1CA-FOAM-fluidflow.txt
-examples/Temperatures/2CA-FOAM-fluidflow.txt

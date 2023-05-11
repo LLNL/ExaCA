@@ -23,64 +23,7 @@ namespace Test {
 //---------------------------------------------------------------------------//
 // file_read_tests
 //---------------------------------------------------------------------------//
-void WriteTestDataR_Old(std::string InputFilename, bool PrintDebugFiles) {
-
-    std::ofstream TestDataFile;
-    TestDataFile.open(InputFilename);
-    // Write required inputs to all files
-    TestDataFile << "Test problem data set" << std::endl;
-    TestDataFile << "*****" << std::endl;
-    TestDataFile << "Problem type: R" << std::endl;
-    TestDataFile << "Decomposition strategy: 1" << std::endl;
-    TestDataFile << "Material: Inconel625" << std::endl;
-    TestDataFile << "Cell size: 1" << std::endl;
-    TestDataFile << "Heterogeneous nucleation density: 10" << std::endl;
-    TestDataFile << "Mean nucleation undercooling: 5" << std::endl;
-    TestDataFile << "Standard deviation of nucleation undercooling: 0.5" << std::endl;
-    TestDataFile << "Path to output: ExaCA" << std::endl;
-    TestDataFile << "Output file base name: Test" << std::endl;
-    TestDataFile << "File of grain orientations: GrainOrientationVectors.csv" << std::endl;
-    // Print data for debugging: print all valid init/final fields, intermediate input
-    // Print data for production: print GrainID, LayerID, GrainMisorientation, and ExaConstit RVE
-    if (PrintDebugFiles) {
-        TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
-        TestDataFile << "Print file of final undercooling values: Y" << std::endl;
-        TestDataFile << "Print default RVE output: N" << std::endl;
-        TestDataFile << "Debug check (extensive): Y" << std::endl;
-        TestDataFile << "Print file of all ExaCA data: Y" << std::endl;
-        TestDataFile << "Print intermediate output frames: Y" << std::endl;
-        TestDataFile << "Increment to separate frames: 300" << std::endl;
-        TestDataFile << "Intermediate output even if system is unchanged from previous state: Y" << std::endl;
-    }
-    else {
-        TestDataFile << "Print file of grain misorientation values: Y" << std::endl;
-        TestDataFile << "Print file of final undercooling values: N" << std::endl;
-        TestDataFile << "Print default RVE output: Y" << std::endl;
-        TestDataFile << "Debug check (extensive): N" << std::endl;
-        TestDataFile << "Print file of all ExaCA data: Y" << std::endl;
-        TestDataFile << "Print intermediate output frames: N" << std::endl;
-    }
-    TestDataFile << "Time step: 1.5" << std::endl;
-    TestDataFile << "Density of powder surface sites active: 1000" << std::endl;
-    TestDataFile << "Print vtk data as binary: Y" << std::endl;
-    // New temperature input lines
-    TestDataFile << "Path to and name of temperature field assembly instructions: TInstructions.txt" << std::endl;
-    // Write test temperature instructions file - don't give HT_deltax, let value default to deltax
-    std::ofstream TestTField;
-    TestTField.open("TInstructions.txt");
-    TestTField << "Number of layers: 2" << std::endl;
-    TestTField << "Offset between layers: 1" << std::endl;
-    TestTField << "*****" << std::endl;
-    TestTField << ".//1DummyTemperature.txt" << std::endl;
-    TestTField << ".//2DummyTemperature.txt" << std::endl;
-    TestTField.close();
-    TestDataFile << "Extra set of wall cells in lateral domain directions: N" << std::endl;
-    TestDataFile << "Random seed for grains and nuclei generation: 2.0" << std::endl;
-    TestDataFile << "Substrate filename: DummySubstrate.txt" << std::endl;
-    TestDataFile.close();
-}
-
-void WriteTestDataR_json(std::string InputFilename, bool PrintDebugFiles) {
+void WriteTestData(std::string InputFilename, bool PrintDebugFiles) {
 
     std::ofstream TestDataFile;
     TestDataFile.open(InputFilename);
@@ -140,7 +83,7 @@ void WriteTestDataR_json(std::string InputFilename, bool PrintDebugFiles) {
     TestDataFile.close();
 }
 
-void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
+void testInputReadFromFile(bool PrintDebugFiles) {
 
     int id = 0;
     // Three input files - one of each type
@@ -150,18 +93,12 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
     // to test an example problem that uses temperature data from a file.
     std::vector<std::string> InputFilenames = {"Inp_DirSolidification", "Inp_SpotMelt", "Inp_TemperatureTest"};
     for (int n = 0; n < 3; n++) {
-        if (JsonInputFormat)
-            InputFilenames[n] += ".json";
-        else
-            InputFilenames[n] += ".txt";
+        InputFilenames[n] += ".json";
     }
     std::vector<std::string> TemperatureFNames = {"1DummyTemperature.txt", "2DummyTemperature.txt"};
 
     // Write dummy input files for using read temperature data (InputFilenames[2] and [3])
-    if (JsonInputFormat)
-        WriteTestDataR_json(InputFilenames[2], PrintDebugFiles);
-    else
-        WriteTestDataR_Old(InputFilenames[2], PrintDebugFiles);
+    WriteTestData(InputFilenames[2], PrintDebugFiles);
 
     // Create test temperature files "1DummyTemperature.txt", "2DummyTemperature.txt"
     std::ofstream TestTemp1, TestTemp2;
@@ -192,31 +129,15 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
             PathToOutput, MaterialFileName;
         std::vector<std::string> temp_paths;
         std::cout << "Reading " << FileName << std::endl;
-        if (JsonInputFormat) {
-#ifdef ExaCA_ENABLE_JSON
-            InputReadFromFile(id, FileName, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile,
-                              GrainOrientationFile, TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat,
-                              NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName, SubstrateGrainSpacing,
-                              UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
-                              PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY,
-                              SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames,
-                              PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderActiveFraction, RVESize,
-                              LayerwiseTempRead, PrintBinary, PowderFirstLayer);
-#else
-            throw std::runtime_error("Error: attempted to parse json input file without ExaCA_ENABLE_JSON=ON");
-#endif
-        }
-        else
-            InputReadFromFile_Old(
-                id, FileName, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,
-                TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
-                MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation, PrintFinalUndercoolingVals,
-                PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius, PrintTimeSeries, TimeSeriesInc,
-                PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder, PowderActiveFraction,
-                RVESize, LayerwiseTempRead, PrintBinary, PowderFirstLayer);
-
-        InterfacialResponseFunction irf(0, MaterialFileName, deltat, deltax, JsonInputFormat);
+        InputReadFromFile(id, FileName, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,
+                          TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
+                          MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
+                          nz, FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+                          PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
+                          PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
+                          BaseplateThroughPowder, PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary,
+                          PowderFirstLayer);
+        InterfacialResponseFunction irf(0, MaterialFileName, deltat, deltax);
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
@@ -291,11 +212,7 @@ void testInputReadFromFile(bool JsonInputFormat, bool PrintDebugFiles) {
             EXPECT_TRUE(UseSubstrateFile);
             EXPECT_FALSE(LayerwiseTempRead);
             EXPECT_DOUBLE_EQ(PowderActiveFraction, 0.001);
-            // Option defaults to false, is set to true with JSON input file
-            if (JsonInputFormat)
-                EXPECT_TRUE(PowderFirstLayer);
-            else
-                EXPECT_FALSE(PowderFirstLayer);
+            EXPECT_TRUE(PowderFirstLayer);
             EXPECT_DOUBLE_EQ(HT_deltax, deltax);
             EXPECT_TRUE(OutputFile == "Test");
             EXPECT_TRUE(temp_paths[0] == ".//1DummyTemperature.txt");
@@ -382,46 +299,6 @@ void testReadWrite(bool PrintReadBinary) {
     }
 }
 
-void testInterfacialResponse_Old() {
-
-    // Test that the interfacial response can be read for the old file format
-    std::ofstream TestDataFile;
-    double ATest = -0.00000010302;
-    double BTest = 0.00010533;
-    double CTest = 0.0022196;
-    double DTest = 0;
-    double FreezingRangeTest = 210;
-    TestDataFile.open("Inconel625_Old");
-    TestDataFile << "Polynomial representation of interfacial response function, in the form V = A*(Undercooling)^3 + "
-                    "B*(Undercooling)^2 + C*Undercooling + D"
-                 << std::endl;
-    TestDataFile << "*****" << std::endl;
-    TestDataFile << "A: " << ATest << std::endl;
-    TestDataFile << "B: " << BTest << std::endl;
-    TestDataFile << "C: " << CTest << std::endl;
-    TestDataFile << "D: " << DTest << std::endl;
-    TestDataFile << "Alloy freezing range (K): " << std::to_string(FreezingRangeTest) << std::endl;
-    TestDataFile.close();
-
-    double deltax = 0.5;
-    double deltat = 1.0;
-    InterfacialResponseFunction irf(0, "Inconel625_Old", deltat, deltax, false);
-
-    EXPECT_EQ(irf.function, 0);
-    // Fitting parameters should've been normalized by deltat / deltax, i.e. twice as large as the numbers in the file
-    EXPECT_DOUBLE_EQ(irf.A, ATest * 2);
-    EXPECT_DOUBLE_EQ(irf.B, BTest * 2);
-    EXPECT_DOUBLE_EQ(irf.C, CTest * 2);
-    EXPECT_DOUBLE_EQ(irf.D, DTest * 2);
-    EXPECT_DOUBLE_EQ(irf.FreezingRange, FreezingRangeTest);
-
-    // Check that the update function works
-    double LocU = 11.0;
-    double ExpectedV = irf.A * pow(LocU, 3.0) + irf.B * pow(LocU, 2.0) + irf.C * LocU + irf.D;
-    double ComputedV = irf.compute(LocU);
-    EXPECT_DOUBLE_EQ(ComputedV, ExpectedV);
-}
-
 void testInterfacialResponse() {
 
     // Test that the interfacial response can be read for the new file format
@@ -430,7 +307,7 @@ void testInterfacialResponse() {
     double deltat = 1.0;
     for (auto file_name : material_file_names) {
         std::cout << "Reading " << file_name << std::endl;
-        InterfacialResponseFunction irf(0, file_name, deltat, deltax, true);
+        InterfacialResponseFunction irf(0, file_name, deltat, deltax);
 
         // Check that fitting parameters were correctly initialized and normalized
         // Fitting parameters should've been normalized by deltat / deltax, i.e. twice as large as the numbers in the
@@ -808,23 +685,13 @@ void testgetTempCoords() {
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, fileread_test) {
-    // argument 1: test for reading new input file format (true) and old (false)
-    // argument 2: test for debug (true) and production (false) print options
-    // FIXME: remove test for old input parsing in future release
-    testInputReadFromFile(false, true);
-    testInputReadFromFile(false, false);
-#ifdef ExaCA_ENABLE_JSON
-    testInputReadFromFile(true, true);
-    testInputReadFromFile(true, false);
-#endif
+    // input argument: test for debug (true) and production (false) print options
+    testInputReadFromFile(true);
+    testInputReadFromFile(false);
     // test functions for reading and writing data as binary (true) and ASCII (false)
     testReadWrite(true);
     testReadWrite(false);
-    // FIXME: remove test in future release
-    testInterfacialResponse_Old();
-#ifdef ExaCA_ENABLE_JSON
     testInterfacialResponse();
-#endif
 }
 TEST(TEST_CATEGORY, activedomainsizecalc) {
     testcalcZBound_Low();

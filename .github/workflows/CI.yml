@@ -70,7 +70,6 @@ jobs:
         uses: actions/checkout@v2.2.0
       - name: Build ExaCA
         run: |
-          [[ ${{ matrix.input }} == "json" ]] && exaca_cmake_opts+=( -DExaCA_ENABLE_JSON=ON )
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/exaca \
             -D CMAKE_PREFIX_PATH="$HOME/kokkos" \
@@ -95,18 +94,12 @@ jobs:
       - name: Test ExaCA
         working-directory: examples
         run: |
-          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.${{ matrix.input }}
-          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.${{ matrix.input }}
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.${{ matrix.input }}
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.${{ matrix.input }}
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt_RM.${{ matrix.input }}
+          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.json
+          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.json
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.json
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.json
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt_RM.json
       - name: Test GA
-        working-directory: analysis/examples
-        if: ${{ matrix.input == 'txt' }}
-        run: |
-           $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.txt
-           $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.txt
-      - name: Test GAJSON
         working-directory: analysis/examples
         if: ${{ matrix.input == 'json' }}
         run: |
