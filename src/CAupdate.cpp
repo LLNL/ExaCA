@@ -138,7 +138,9 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
             bool atMeltTime = (cycle == MeltTimeStep(GlobalD3D1ConvPosition));
             bool pastCritTime = (cycle > CritTimeStep(GlobalD3D1ConvPosition));
             if ((atMeltTime) && ((cellType == TempSolid) || (cellType == Active))) {
-                // This cell should be a liquid cell
+                // FIXME: Active cells that didn't finish their previous solidification event should have that
+                // solidification event skipped instead of having both this one and the previous one complete This cell
+                // should be a liquid cell
                 CellType(GlobalD3D1ConvPosition) = Liquid;
                 // Reset current undercooling to zero
                 UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
@@ -749,11 +751,12 @@ void IntermediateOutputAndCheck_Remelt(
             XSwitch = 1;
     }
     MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    // Cells of interest are those currently undergoing a melting-solidification cycle
+    unsigned long int RemainingCellsOfInterest = GlobalActiveCells + GlobalSuperheatedCells + GlobalUndercooledCells;
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
-        JumpTimeStep(cycle, GlobalActiveCells + GlobalSuperheatedCells + GlobalUndercooledCells, LocalTempSolidCells,
-                     MeltTimeStep, LocalActiveDomainSize, MyYSlices, ZBound_Low, true, CellType, LayerID, id,
-                     layernumber, np, nx, ny, nz, MyYOffset, GrainID, CritTimeStep, GrainUnitVector, UndercoolingChange,
-                     UndercoolingCurrent, OutputFile, NGrainOrientations, PathToOutput, IntermediateFileCounter,
-                     nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers, XSwitch, TemperatureDataType,
-                     PrintIdleMovieFrames, MovieFrameInc, PrintBinary);
+        JumpTimeStep(cycle, RemainingCellsOfInterest, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize,
+                     MyYSlices, ZBound_Low, true, CellType, LayerID, id, layernumber, np, nx, ny, nz, MyYOffset,
+                     GrainID, CritTimeStep, GrainUnitVector, UndercoolingChange, UndercoolingCurrent, OutputFile,
+                     NGrainOrientations, PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin,
+                     NumberOfLayers, XSwitch, TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc, PrintBinary);
 }
