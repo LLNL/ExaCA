@@ -49,7 +49,8 @@ int calcnzActive(int ZBound_Low, int ZBound_High, int id, int layernumber);
 int calcLocalActiveDomainSize(int nx, int MyYSlices, int nzActive);
 void TempInit_DirSolidification(double G, double R, int id, int &nx, int &MyYSlices, double deltax, double deltat,
                                 int nz, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
-                                ViewI &LayerID);
+                                ViewI &LayerID, ViewI &NumberOfSolidificationEvents, ViewI &SolidificationEventCounter,
+                                ViewI &MeltTimeStep, ViewI MaxSolidificationEvents, ViewF3D &LayerTimeTempHistory);
 int calcMaxSolidificationEventsSpot(int nx, int MyYSlices, int NumberOfSpots, int NSpotsX, int SpotRadius,
                                     int SpotOffset, int MyYOffset);
 void OrientationInit(int id, int &NGrainOrientations, ViewF &ReadOrientationData, std::string GrainOrientationFile,
@@ -94,9 +95,7 @@ void TempInit_ReadDataRemelt(int layernumber, int id, int nx, int MyYSlices, int
 void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyYSlices, int nx, int ny,
                                      int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
                                      ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType, ViewI GrainID,
-                                     ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed,
-                                     int np, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth,
-                                     ViewI SendSizeSouth, bool AtNorthBoundary, bool AtSouthBoundary, int BufSize);
+                                     ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed);
 int getBaseplateSizeZ(int nz, double *ZMaxLayer, double ZMin, double deltax, int LayerHeight,
                       bool BaseplateThroughPowder, bool PowderFirstLayer);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int pid,

@@ -157,7 +157,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                               NSpotsX, NSpotsY, SpotRadius, SpotOffset);
     else if (SimulationType == "C")
         TempInit_DirSolidification(G, R, id, nx, MyYSlices, deltax, deltat, nz, LocalDomainSize, CritTimeStep,
-                                   UndercoolingChange, LayerID);
+                                   UndercoolingChange, LayerID, NumberOfSolidificationEvents,
+                                   SolidificationEventCounter, MeltTimeStep, MaxSolidificationEvents,
+                                   LayerTimeTempHistory);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of "
@@ -201,24 +203,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // substrate from a file, or generating a substrate using the existing CA algorithm
     int NextLayer_FirstEpitaxialGrainID;
     if (SimulationType == "C") {
-        SubstrateInit_ConstrainedGrowth(
-            id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY, NeighborZ, GrainUnitVector,
-            NGrainOrientations, CellType, GrainID, DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed, np,
-            BufferNorthSend, BufferSouthSend, SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, BufSize);
-        // Count the number of cells' in halo regions where the data did not fit into the send buffers
-        // Reduce across all ranks, as the same BufSize should be maintained across all ranks
-        // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
-        int OldBufSize = BufSize;
-        BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
-        if (OldBufSize != BufSize) {
-            if (id == 0)
-                std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
-                          << BufSize << std::endl;
-            RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend,
-                          SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter,
-                          DiagonalLength, NGrainOrientations, BufSize);
-        }
+        SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
+                                        NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID,
+                                        DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed);
     }
     else {
         // Generate the baseplate microstructure, or read it from a file
