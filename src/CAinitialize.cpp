@@ -105,6 +105,16 @@ void InputReadFromFile_Old(int id, std::string InputFile, std::string &Simulatio
     else {
         // Simulation does not including remelting logic
         RemeltingYN = false;
+        if (id == 0) {
+            if (SimulationType == "S")
+                std::cout << "Note: simulations of spot melt arrays without remelting will not be allowed in a future "
+                             "release, problem type will default to using remelting"
+                          << std::endl;
+            else if (SimulationType == "R")
+                std::cout << "Note: simulations using input temperature data from files without remelting will not be "
+                             "allowed in a future release, problem type will default to using remelting"
+                          << std::endl;
+        }
     }
     if (SimulationType == "C") {
         RequiredInputs_ProblemSpecific.resize(7);
@@ -511,6 +521,16 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     else {
         // Simulation does not including remelting logic
         RemeltingYN = false;
+        if (id == 0) {
+            if (SimulationType == "S")
+                std::cout << "Note: simulations of spot melt arrays without remelting will not be allowed in a future "
+                             "release, problem type will default to using remelting"
+                          << std::endl;
+            else if (SimulationType == "R")
+                std::cout << "Note: simulations using input temperature data from files without remelting will not be "
+                             "allowed in a future release, problem type will default to using remelting"
+                          << std::endl;
+        }
     }
     // Input files that should be present for all problem types
     std::string MaterialFileName_Read = inputdata["MaterialFileName"];
