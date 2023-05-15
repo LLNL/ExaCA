@@ -21,26 +21,22 @@ jobs:
         backend: ['SERIAL', 'OPENMP']
         cmake_build_type: ['Debug', 'Release']
         kokkos_ver: ['3.4.01']
-        input: ['json']
         include:
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
-            input: 'json'
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
-            input: 'json'
           - distro: 'ubuntu:latest'
             cxx: 'g++'
             backend: 'OPENMP'
             cmake_build_type: 'Debug'
             kokkos_ver: '3.4.01'
-            input: 'txt'
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
@@ -101,7 +97,6 @@ jobs:
           mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt_RM.json
       - name: Test GA
         working-directory: analysis/examples
-        if: ${{ matrix.input == 'json' }}
         run: |
            $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.json
            $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.json TestProblemSmallDirS
