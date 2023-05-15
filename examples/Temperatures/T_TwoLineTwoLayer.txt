@@ -1,5 +1,0 @@
-Number of layers: 2
-Offset between layers: 8
-Heat transport data mesh size: 2.5
-*****
-examples/Temperatures/TwoLine.txt

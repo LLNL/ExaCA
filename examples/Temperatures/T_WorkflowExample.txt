@@ -1,6 +1,0 @@
-Heat transport data mesh size: 5
-Number of layers: 20
-Offset between layers: 6
-*****
-examples/Temperatures/1leg.txt
-examples/Temperatures/2leg.txt

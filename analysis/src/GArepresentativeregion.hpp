@@ -17,7 +17,6 @@
 #include <string>
 #include <vector>
 
-#ifdef ExaCA_ENABLE_JSON
 #include <nlohmann/json.hpp>
 // Structure that holds the details of a representative region of the larger microstructure, along which the specific
 // analyses to be performed
@@ -541,7 +540,5 @@ struct RepresentativeRegion {
         GrainStats.close();
     }
 };
-
-#endif
 
 #endif

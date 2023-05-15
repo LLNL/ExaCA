@@ -8,21 +8,14 @@
 
 #include "CAtypes.hpp"
 
-#ifdef ExaCA_ENABLE_JSON
 #include <nlohmann/json.hpp>
-#endif
 
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 
-void skipLines(std::ifstream &stream, std::string seperator);
 std::string removeWhitespace(std::string line, int pos = -1);
-bool parseInputFromList(std::string line, std::vector<std::string> InputKeys, std::vector<std::string> &ParsedInputs,
-                        int NumInputs = 1);
-std::string parseInputAfterColon(std::string line);
-std::string parseInput(std::ifstream &stream, std::string key);
 bool getInputBool(std::string val_input);
 int getInputInt(std::string val_input);
 float getInputFloat(std::string val_input, int factor = 0);
@@ -30,21 +23,11 @@ double getInputDouble(std::string val_input, int factor = 0);
 void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values,
                  char separator = ',');
 void checkForHeaderValues(std::string header_line);
-void getTemperatureDataPoint(std::string s, std::vector<double> &XYZTemperaturePoint);
-void parseTInstuctionsFile(int id, const std::string TFieldInstructions, int &TempFilesInSeries, int &NumberOfLayers,
-                           int &LayerHeight, double deltax, double &HT_deltax, std::vector<std::string> &temp_paths,
-                           bool &RemeltingYN, bool &LayerwiseTempRead);
 bool checkFileExists(const std::string path, const int id, const bool error = true);
 std::string checkFileInstalled(const std::string name, const int id);
 void checkFileNotEmpty(std::string testfilename);
-bool checkInputFileFormat(std::string InputFile, int id);
-#ifdef ExaCA_ENABLE_JSON
 std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fieldtype,
                                       std::vector<std::string> Fieldnames_key);
-#endif
-void parseMaterialFile(std::string MaterialFile, double &AConst, double &BConst, double &CConst, double &DConst,
-                       double &FreezingRange);
-std::string parseCoordinatePair(std::string line, int val);
 // Swaps bits for a variable of type SwapType
 template <typename SwapType>
 void SwapEndian(SwapType &var) {

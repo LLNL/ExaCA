@@ -12,9 +12,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#ifdef ExaCA_ENABLE_JSON
 #include <nlohmann/json.hpp>
-#endif
 
 #include <fstream>
 #include <iostream>
@@ -41,74 +39,11 @@ struct InterfacialResponseFunction {
     std::string functionform = "cubic";
 
     // Constructor
-    // FIXME: Remove option to parse using old (non-json) file format in a future release
-    InterfacialResponseFunction(int id, std::string MaterialFile, const double deltat, const double deltax,
-                                const bool JsonInputFormat) {
-        if (JsonInputFormat) {
-#ifdef ExaCA_ENABLE_JSON
-            parseMaterial(id, MaterialFile);
-#else
-            throw std::runtime_error("Error: attempted to parse json input file without ExaCA_ENABLE_JSON=ON");
-#endif
-        }
-        else
-            parseMaterialOld(id, MaterialFile);
+    InterfacialResponseFunction(int id, std::string MaterialFile, const double deltat, const double deltax) {
+        parseMaterial(id, MaterialFile);
         normalize(deltat, deltax);
     }
 
-    // Old input file format for material data (cubic function)
-    void parseMaterialOld(int id, std::string MaterialFile) {
-        if (id == 0)
-            std::cout << "Warning: Old (non-json) input file format detected for the material data file, "
-                         "compatability with this is now deprecated and will be removed in a future release"
-                      << std::endl;
-        std::ifstream MaterialData(MaterialFile);
-        skipLines(MaterialData, "*****");
-        std::string val;
-        // Interfacial response function A, B, C, D, and the solidification range
-        // for the alloy The order of these is important: "Alloy freezing range"
-        // should be before "A", as a search for "A" in either string will return
-        // true
-        std::vector<std::string> MaterialInputs = {
-            "Alloy freezing range", // Required input 0
-            "A",                    // Required input 1
-            "B",                    // Required input 2
-            "C",                    // Required input 3
-            "D",                    // Required input 4
-        };
-        int NumMaterialInputs = MaterialInputs.size();
-        std::vector<std::string> MaterialInputsRead(NumMaterialInputs);
-        while (std::getline(MaterialData, val)) {
-            // Check if this is one of the expected inputs - otherwise throw an error
-            bool FoundInput = parseInputFromList(val, MaterialInputs, MaterialInputsRead, NumMaterialInputs);
-            if (!(FoundInput)) {
-                std::string error = "Error: Unexpected line " + val + " present in material file " + MaterialFile +
-                                    " : file should only contain A, B, C, D, and Alloy freezing range";
-                throw std::runtime_error(error);
-            }
-        }
-        MaterialData.close();
-        FreezingRange = getInputDouble(MaterialInputsRead[0]);
-        A = getInputDouble(MaterialInputsRead[1]);
-        B = getInputDouble(MaterialInputsRead[2]);
-        C = getInputDouble(MaterialInputsRead[3]);
-        D = getInputDouble(MaterialInputsRead[4]);
-    }
-
-    // Old output format for interfacial response data
-    std::string print_Old() {
-        std::stringstream out;
-        out << "Interfacial response function form: " << functionform << std::endl;
-        out << "Interfacial response function parameter A: " << (A) << std::endl;
-        out << "Interfacial response function parameter B: " << (B) << std::endl;
-        out << "Interfacial response function parameter C: " << (C) << std::endl;
-        if (function == cubic)
-            out << "Interfacial response function parameter D: " << (D) << std::endl;
-        out << "The alloy freezing range was: " << (FreezingRange);
-        return out.str();
-    }
-
-#ifdef ExaCA_ENABLE_JSON
     // Used for reading material file in new json format
     void parseMaterial(int id, std::string MaterialFile) {
         if (id == 0)
@@ -139,7 +74,6 @@ struct InterfacialResponseFunction {
                                      "supported options are quadratic, cubic, and exponential");
         FreezingRange = data["freezing_range"];
     }
-#endif
 
     void normalize(const double deltat, const double deltax) {
         if (function == cubic) {

@@ -21,26 +21,22 @@ jobs:
         backend: ['SERIAL', 'OPENMP']
         cmake_build_type: ['Debug', 'Release']
         kokkos_ver: ['3.4.01']
-        input: ['json']
         include:
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
-            input: 'json'
           - distro: 'fedora:intel'
             cxx: 'icpc'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
-            input: 'json'
           - distro: 'ubuntu:latest'
             cxx: 'g++'
             backend: 'OPENMP'
             cmake_build_type: 'Debug'
             kokkos_ver: '3.4.01'
-            input: 'txt'
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
@@ -70,7 +66,6 @@ jobs:
         uses: actions/checkout@v2.2.0
       - name: Build ExaCA
         run: |
-          [[ ${{ matrix.input }} == "json" ]] && exaca_cmake_opts+=( -DExaCA_ENABLE_JSON=ON )
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/exaca \
             -D CMAKE_PREFIX_PATH="$HOME/kokkos" \
@@ -89,20 +84,13 @@ jobs:
       - name: Test ExaCA
         working-directory: examples
         run: |
-          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.${{ matrix.input }}
-          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.${{ matrix.input }}
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.${{ matrix.input }}
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.${{ matrix.input }}
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt_RM.${{ matrix.input }}
+          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.json
+          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.json
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.json
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.json
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt_RM.json
       - name: Test GA
         working-directory: analysis/examples
-        if: ${{ matrix.input == 'txt' }}
-        run: |
-           $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.txt
-           $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.txt
-      - name: Test GAJSON
-        working-directory: analysis/examples
-        if: ${{ matrix.input == 'json' }}
         run: |
            $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.json
            $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.json TestProblemSmallDirS
