@@ -30,9 +30,8 @@ add_library(ExaCA STATIC ${EXACA_SOURCES} ${EXACA_HEADERS})
 target_link_libraries(ExaCA PUBLIC
     MPI::MPI_CXX
     Kokkos::kokkos
+    nlohmann_json::nlohmann_json
 )
-
-target_link_libraries(ExaCA PUBLIC nlohmann_json::nlohmann_json)
 
 target_include_directories(ExaCA PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
