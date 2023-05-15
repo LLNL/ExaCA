@@ -83,12 +83,6 @@ jobs:
             ${exaca_cmake_opts[@]}
           cmake --build build --parallel 2
           cmake --install build
-      - name: Format ExaCA
-        if: ${{ matrix.distro == 'ubuntu:latest' }}
-        working-directory: build
-        run: |
-          make format
-          git diff --exit-code
       - name: Unit test ExaCA
         run: |
           CTEST_OUTPUT_ON_FAILURE=1 cmake --build build --target test
