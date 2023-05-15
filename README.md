@@ -204,7 +204,7 @@ If you use ExaCA in your work, please cite the following paper:
 ```
 
 If you would like to cite the software itself, cite the current release or
-version used from [Zenodo](https://zenodo.org/record/7126168#.Yzs_TCHMJOU).
+version used from [Zenodo](https://doi.org/10.5281/zenodo.6908176).
 
 ## Contributing
 
