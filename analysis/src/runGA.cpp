@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "CAparsefiles.hpp"
-#include "GAprint.hpp"
+#include "GArepresentativeregion.hpp"
 #include "GAutils.hpp"
 
 #include "ExaCA.hpp"
@@ -81,13 +81,11 @@ int main(int argc, char *argv[]) {
             std::string BaseFileNameThisRegion = BaseFileName + "_" + RegionName;
             // List of grain ID values in the representative region
             std::vector<int> GrainIDVector = representativeRegion.getGrainIDVector(GrainID);
-            // List of unique grain IDs associated with the region
-            std::vector<int> UniqueGrainIDVector = representativeRegion.getUniqueGrainIDVector(GrainIDVector);
-            int NumberOfGrains = UniqueGrainIDVector.size();
+            // List of unique grain IDs associated with the region and the number of grains
+            int NumberOfGrains;
+            std::vector<int> UniqueGrainIDVector = representativeRegion.getUniqueGrains(GrainIDVector, NumberOfGrains);
 
             // Get the size (in units of length, area, or volume) associated with each unique grain ID value
-            // TODO: Once Json is required, move all options calculating aspects of the representative region into
-            // the struct and out of GAutils, deleting the redundant GAutils subroutines
             std::vector<float> GrainSizeVector_Microns =
                 representativeRegion.getGrainSizeVector(GrainIDVector, UniqueGrainIDVector, NumberOfGrains, deltax);
 
@@ -95,120 +93,102 @@ int main(int argc, char *argv[]) {
             std::ofstream QoIs;
             std::string QoIs_fname = BaseFileNameThisRegion + "_QoIs.txt";
             QoIs.open(QoIs_fname);
-            // Header data for QoIs file (probably just pass the whole class to the subroutines in a future release
-            // once Json is required)
-            // TODO: After removing non-JSON input option, pass entire object to printAnaylsisHeader routines
-            if (representativeRegion.regionType == "area")
-                printAnalysisHeader_Area(QoIs, representativeRegion.xBounds_Cells[0],
-                                         representativeRegion.xBounds_Cells[1], representativeRegion.yBounds_Cells[0],
-                                         representativeRegion.yBounds_Cells[1], representativeRegion.zBounds_Cells[0],
-                                         representativeRegion.zBounds_Cells[1], representativeRegion.xBounds_Meters[0],
-                                         representativeRegion.xBounds_Meters[1], representativeRegion.yBounds_Meters[0],
-                                         representativeRegion.yBounds_Meters[1], representativeRegion.zBounds_Meters[0],
-                                         representativeRegion.zBounds_Meters[1], RegionName,
-                                         representativeRegion.regionOrientation);
-            else if (representativeRegion.regionType == "volume")
-                representativeRegion.printAnalysisHeader_Volume(QoIs, RegionName);
+            // Header data for QoIs file
+            representativeRegion.printAnalysisHeader(QoIs, RegionName);
 
-            // TODO: After removing non-JSON input option, pass entire object to printGrainTypeFractions routine
             // Fraction of region consisting of nucleated grains, unmelted material
-            if (representativeRegion.AnalysisOptions_StatsYN[0]) {
-                printGrainTypeFractions(QoIs, representativeRegion.xBounds_Cells[0],
-                                        representativeRegion.xBounds_Cells[1], representativeRegion.yBounds_Cells[0],
-                                        representativeRegion.yBounds_Cells[1], representativeRegion.zBounds_Cells[0],
-                                        representativeRegion.zBounds_Cells[1], GrainID, LayerID,
-                                        representativeRegion.regionSize_Cells);
-            }
+            if (representativeRegion.AnalysisOptions_StatsYN[0])
+                representativeRegion.printGrainTypeFractions(QoIs, GrainID, LayerID);
 
             // Calculate and if specified, print misorientation data
-            std::vector<float> GrainMisorientationXVector = getGrainMisorientation(
+            std::vector<float> GrainMisorientationXVector = representativeRegion.getGrainMisorientation(
                 "X", GrainUnitVector_Host, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
-            std::vector<float> GrainMisorientationYVector = getGrainMisorientation(
+            std::vector<float> GrainMisorientationYVector = representativeRegion.getGrainMisorientation(
                 "Y", GrainUnitVector_Host, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
-            std::vector<float> GrainMisorientationZVector = getGrainMisorientation(
+            std::vector<float> GrainMisorientationZVector = representativeRegion.getGrainMisorientation(
                 "Z", GrainUnitVector_Host, UniqueGrainIDVector, NumberOfOrientations, NumberOfGrains);
-            if (representativeRegion.AnalysisOptions_StatsYN[1]) {
-                printMeanMisorientations(QoIs, NumberOfGrains, GrainMisorientationXVector, GrainMisorientationYVector,
-                                         GrainMisorientationZVector, GrainSizeVector_Microns,
-                                         representativeRegion.regionSize_Meters);
-            }
+            if (representativeRegion.AnalysisOptions_StatsYN[1])
+                representativeRegion.printMeanMisorientations(QoIs, NumberOfGrains, GrainMisorientationXVector,
+                                                              GrainMisorientationYVector, GrainMisorientationZVector,
+                                                              GrainSizeVector_Microns);
 
             // Print mean size data if specified
             if (representativeRegion.AnalysisOptions_StatsYN[2])
-                printMeanSize(QoIs, NumberOfGrains, representativeRegion.regionSize_Microns,
-                              representativeRegion.regionType, representativeRegion.units_dimension);
+                representativeRegion.printMeanSize(QoIs, NumberOfGrains);
 
             // If XExtent, YExtent, ZExtent, or BuildTransAspectRatio/Extent are toggled for general stats printing
             // or per grain printing, calculate grain extents for the necessary direction(s) (otherwise don't, since
             // it can be slow for large volumes) Extents are calculated in microns
-            // TODO: After removing non-JSON input option, pass entire object to calcGrainExtent routine
+            // If representativeRegion.AnalysisOptions_StatsYN[3] or
+            // representativeRegion.AnalysisOptions_PerGrainStatsYN[5] is toggled, grain extents are needed If
+            // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[4] or
+            // representativeRegion.AnalysisOptions_PerGrainStatsYN[2] is toggled, X extents are needed If
+            // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[5] or
+            // representativeRegion.AnalysisOptions_PerGrainStatsYN[3] is toggled, Y extents are needed If
+            // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[6] or
+            // representativeRegion.AnalysisOptions_PerGrainStatsYN[4] is toggled, Z extents are needed
+            bool calcExtentX = false;
+            bool calcExtentY = false;
+            bool calcExtentZ = false;
             std::vector<float> GrainExtentX(NumberOfGrains);
             std::vector<float> GrainExtentY(NumberOfGrains);
             std::vector<float> GrainExtentZ(NumberOfGrains);
             std::vector<float> BuildTransAspectRatio(NumberOfGrains);
             if ((representativeRegion.AnalysisOptions_StatsYN[3]) ||
-                (representativeRegion.AnalysisOptions_StatsYN[4]) ||
-                (representativeRegion.AnalysisOptions_PerGrainStatsYN[2]) ||
-                (representativeRegion.AnalysisOptions_PerGrainStatsYN[5]))
-                calcGrainExtent(GrainExtentX, GrainID, UniqueGrainIDVector, GrainSizeVector_Microns, NumberOfGrains,
-                                representativeRegion.xBounds_Cells[0], representativeRegion.xBounds_Cells[1],
-                                representativeRegion.yBounds_Cells[0], representativeRegion.yBounds_Cells[1],
-                                representativeRegion.zBounds_Cells[0], representativeRegion.zBounds_Cells[1], "X",
-                                deltax, representativeRegion.regionType);
-            if ((representativeRegion.AnalysisOptions_StatsYN[3]) ||
-                (representativeRegion.AnalysisOptions_StatsYN[5]) ||
-                (representativeRegion.AnalysisOptions_PerGrainStatsYN[3]) ||
-                (representativeRegion.AnalysisOptions_PerGrainStatsYN[5]))
-                calcGrainExtent(GrainExtentY, GrainID, UniqueGrainIDVector, GrainSizeVector_Microns, NumberOfGrains,
-                                representativeRegion.xBounds_Cells[0], representativeRegion.xBounds_Cells[1],
-                                representativeRegion.yBounds_Cells[0], representativeRegion.yBounds_Cells[1],
-                                representativeRegion.zBounds_Cells[0], representativeRegion.zBounds_Cells[1], "Y",
-                                deltax, representativeRegion.regionType);
-            if ((representativeRegion.AnalysisOptions_StatsYN[3]) ||
-                (representativeRegion.AnalysisOptions_StatsYN[6]) ||
-                (representativeRegion.AnalysisOptions_PerGrainStatsYN[4]) ||
-                (representativeRegion.AnalysisOptions_PerGrainStatsYN[5]))
-                calcGrainExtent(GrainExtentZ, GrainID, UniqueGrainIDVector, GrainSizeVector_Microns, NumberOfGrains,
-                                representativeRegion.xBounds_Cells[0], representativeRegion.xBounds_Cells[1],
-                                representativeRegion.yBounds_Cells[0], representativeRegion.yBounds_Cells[1],
-                                representativeRegion.zBounds_Cells[0], representativeRegion.zBounds_Cells[1], "Z",
-                                deltax, representativeRegion.regionType);
-            if ((representativeRegion.AnalysisOptions_StatsYN[3]) ||
-                (representativeRegion.AnalysisOptions_PerGrainStatsYN[5]))
-                calcBuildTransAspectRatio(BuildTransAspectRatio, GrainExtentX, GrainExtentY, GrainExtentZ,
-                                          NumberOfGrains);
-            if (representativeRegion.AnalysisOptions_StatsYN[3])
-                printMeanBuildTransAspectRatio(QoIs, GrainExtentX, GrainExtentY, GrainExtentZ, GrainSizeVector_Microns,
-                                               representativeRegion.regionSize_Microns, NumberOfGrains);
-            if (representativeRegion.AnalysisOptions_StatsYN[4]) {
-                printMeanExtent(QoIs, GrainExtentX, "X", NumberOfGrains);
+                (representativeRegion.AnalysisOptions_StatsYN[4])) {
+                calcExtentX = true;
+                calcExtentY = true;
+                calcExtentZ = true;
             }
+            else {
+                if ((representativeRegion.AnalysisOptions_StatsYN[4]) ||
+                    (representativeRegion.AnalysisOptions_PerGrainStatsYN[2]))
+                    calcExtentX = true;
+                if ((representativeRegion.AnalysisOptions_StatsYN[5]) ||
+                    (representativeRegion.AnalysisOptions_PerGrainStatsYN[3]))
+                    calcExtentY = true;
+                if ((representativeRegion.AnalysisOptions_StatsYN[6]) ||
+                    (representativeRegion.AnalysisOptions_PerGrainStatsYN[4]))
+                    calcExtentZ = true;
+            }
+            if (calcExtentX)
+                representativeRegion.calcGrainExtent(GrainExtentX, GrainID, UniqueGrainIDVector,
+                                                     GrainSizeVector_Microns, NumberOfGrains, "X", deltax);
+            if (calcExtentY)
+                representativeRegion.calcGrainExtent(GrainExtentY, GrainID, UniqueGrainIDVector,
+                                                     GrainSizeVector_Microns, NumberOfGrains, "Y", deltax);
+            if (calcExtentZ)
+                representativeRegion.calcGrainExtent(GrainExtentZ, GrainID, UniqueGrainIDVector,
+                                                     GrainSizeVector_Microns, NumberOfGrains, "Z", deltax);
+            if ((representativeRegion.AnalysisOptions_StatsYN[3]) ||
+                (representativeRegion.AnalysisOptions_PerGrainStatsYN[5]))
+                representativeRegion.calcBuildTransAspectRatio(BuildTransAspectRatio, GrainExtentX, GrainExtentY,
+                                                               GrainExtentZ, NumberOfGrains);
+            if (representativeRegion.AnalysisOptions_StatsYN[3])
+                representativeRegion.printMeanBuildTransAspectRatio(QoIs, GrainExtentX, GrainExtentY, GrainExtentZ,
+                                                                    GrainSizeVector_Microns, NumberOfGrains);
+            if (representativeRegion.AnalysisOptions_StatsYN[4])
+                representativeRegion.printMeanExtent(QoIs, GrainExtentX, "X", NumberOfGrains);
             if (representativeRegion.AnalysisOptions_StatsYN[5])
-                printMeanExtent(QoIs, GrainExtentY, "Y", NumberOfGrains);
+                representativeRegion.printMeanExtent(QoIs, GrainExtentY, "Y", NumberOfGrains);
             if (representativeRegion.AnalysisOptions_StatsYN[6])
-                printMeanExtent(QoIs, GrainExtentZ, "Z", NumberOfGrains);
+                representativeRegion.printMeanExtent(QoIs, GrainExtentZ, "Z", NumberOfGrains);
 
             // Determine IPF-Z color of each grain relative to each direction: 0 (red), 1 (green), 2 (blue)
-            std::vector<float> GrainRed =
-                getIPFZColor(0, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
-            std::vector<float> GrainGreen =
-                getIPFZColor(1, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
-            std::vector<float> GrainBlue =
-                getIPFZColor(1, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
+            std::vector<float> GrainRed = representativeRegion.getIPFZColor(
+                0, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
+            std::vector<float> GrainGreen = representativeRegion.getIPFZColor(
+                1, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
+            std::vector<float> GrainBlue = representativeRegion.getIPFZColor(
+                1, UniqueGrainIDVector, NumberOfOrientations, GrainRGBValues_Host, NumberOfGrains);
 
             // Write grain area data as a function of Z location in the representative volume if the options are
             // toggled, writing to files
             // "[BaseFileNameThisRegion]_WeightedGrainAreas.csv" and "[BaseFileNameThisRegion]_GrainAreas.csv",
             // respectively
-            // TODO: After removing non-JSON input option, pass entire object to writeAreaSeries routine
             if ((representativeRegion.AnalysisOptions_LayerwiseStatsYN[0]) ||
                 (representativeRegion.AnalysisOptions_LayerwiseStatsYN[1]))
-                writeAreaSeries(representativeRegion.AnalysisOptions_LayerwiseStatsYN[1],
-                                representativeRegion.AnalysisOptions_LayerwiseStatsYN[0], BaseFileNameThisRegion,
-                                deltax, representativeRegion.xBounds_Cells[0], representativeRegion.xBounds_Cells[1],
-                                representativeRegion.yBounds_Cells[0], representativeRegion.yBounds_Cells[1],
-                                representativeRegion.zBounds_Cells[0], representativeRegion.zBounds_Cells[1], GrainID,
-                                representativeRegion.zBounds_Meters[0]);
+                representativeRegion.writeAreaSeries(BaseFileNameThisRegion, deltax, GrainID);
             QoIs.close();
 
             // Write per-grain stats for the analysis types specified to the file
@@ -226,11 +206,8 @@ int main(int argc, char *argv[]) {
 
             // Pole figure print a file named "[BaseFileNameThisRegion]_PoleFigureData.txt"
             if (representativeRegion.PrintPoleFigureYN) {
-                ViewI_H GOHistogram = getOrientationHistogram(
-                    NumberOfOrientations, GrainID, LayerID, representativeRegion.xBounds_Cells[0],
-                    representativeRegion.xBounds_Cells[1], representativeRegion.yBounds_Cells[0],
-                    representativeRegion.yBounds_Cells[1], representativeRegion.zBounds_Cells[0],
-                    representativeRegion.zBounds_Cells[1]);
+                ViewI_H GOHistogram =
+                    representativeRegion.getOrientationHistogram(NumberOfOrientations, GrainID, LayerID);
                 representativeRegion.writePoleFigure(BaseFileNameThisRegion, NumberOfOrientations,
                                                      GrainEulerAngles_Host, GOHistogram);
             }

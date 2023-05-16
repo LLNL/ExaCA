@@ -1,10 +1,8 @@
 set(EXAGA_HEADERS
-    GAprint.hpp
     GAutils.hpp
     GArepresentativeregion.hpp
 )
 set(EXAGA_SOURCES
-    GAprint.cpp
     GAutils.cpp
 )
 

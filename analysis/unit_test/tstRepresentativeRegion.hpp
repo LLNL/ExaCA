@@ -20,9 +20,27 @@ namespace Test {
 //---------------------------------------------------------------------------//
 // Tests of representative region structure
 //---------------------------------------------------------------------------//
-// Initialize a representative volume from json format
-void testConstructRepresentativeRegion_Volume() {
 
+void writeTestArea() {
+    // Write out example data
+    std::ofstream TestData;
+    TestData.open("TestArea.json");
+    TestData << "{" << std::endl;
+    TestData << "   \"Regions\": {" << std::endl;
+    TestData << "       \"RepresentativeArea\": {" << std::endl;
+    TestData << "          \"units\": \"Meters\"," << std::endl;
+    TestData << "          \"zBounds\": [0.000005,0.000005]," << std::endl;
+    TestData << "          \"printPoleFigureData\": true," << std::endl;
+    TestData << "          \"printInversePoleFigureData\": true," << std::endl;
+    TestData << "          \"printStats\": [\"GrainTypeFractions\"]," << std::endl;
+    TestData << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]" << std::endl;
+    TestData << "      }" << std::endl;
+    TestData << "   }" << std::endl;
+    TestData << "}" << std::endl;
+    TestData.close();
+}
+
+void writeTestVolume() {
     // Write out example data
     std::ofstream TestData;
     TestData.open("TestVolume.json");
@@ -44,6 +62,11 @@ void testConstructRepresentativeRegion_Volume() {
     TestData << "   }" << std::endl;
     TestData << "}" << std::endl;
     TestData.close();
+}
+
+void testConstructRepresentativeRegion_Volume() {
+    // Write out example data
+    writeTestVolume();
 
     // Read in test data
     std::ifstream AnalysisDataStream("TestVolume.json");
@@ -112,21 +135,7 @@ void testConstructRepresentativeRegion_Volume() {
 void testConstructRepresentativeRegion_Area() {
 
     // Write out example data
-    std::ofstream TestData;
-    TestData.open("TestArea.json");
-    TestData << "{" << std::endl;
-    TestData << "   \"Regions\": {" << std::endl;
-    TestData << "       \"RepresentativeArea\": {" << std::endl;
-    TestData << "          \"units\": \"Meters\"," << std::endl;
-    TestData << "          \"zBounds\": [0.000005,0.000005]," << std::endl;
-    TestData << "          \"printPoleFigureData\": true," << std::endl;
-    TestData << "          \"printInversePoleFigureData\": true," << std::endl;
-    TestData << "          \"printStats\": [\"GrainTypeFractions\"]," << std::endl;
-    TestData << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]" << std::endl;
-    TestData << "      }" << std::endl;
-    TestData << "   }" << std::endl;
-    TestData << "}" << std::endl;
-    TestData.close();
+    writeTestArea();
 
     // Read in test data
     std::ifstream AnalysisDataStream("TestArea.json");
@@ -190,11 +199,88 @@ void testConstructRepresentativeRegion_Area() {
     EXPECT_TRUE(representativeRegion.PrintInversePoleFigureMapYN);
 }
 
+// For a 3D domain, obtain a vector of the grain IDs that appear in a representative portion, and the associated grain
+// statistics from the representative region
+void testCollectGrainStats() {
+
+    // Write out example data
+    writeTestVolume();
+
+    const int nx = 5;  // Representative region spans 0-4 (entire domain in X)
+    const int ny = 11; // Representative region spans 1-10 (one less than domain size in Y)
+    const int nz = 12; // Representative region spans 0-9 (two less than domain size in Z)
+    const double deltax = 1.25 * pow(10, -6);
+    std::vector<double> XYZBounds = {0.0, 0.0, 0.0, nx * deltax, ny * deltax, nz * deltax};
+
+    // View for storing grain ID data
+    ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
+    // Assign grain ID using the Z coordinate
+    for (int k = 0; k < nz; k++) {
+        for (int i = 0; i < nx; i++) {
+            for (int j = 0; j < ny; j++) {
+                GrainID(k, i, j) = k;
+            }
+        }
+    }
+
+    // Representative region creation
+    std::ifstream AnalysisDataStream("TestVolume.json");
+    nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
+    nlohmann::json RegionsData = AnalysisData["Regions"]["RepresentativeVolume"];
+    RepresentativeRegion representativeRegion(RegionsData, nx, ny, nz, deltax, XYZBounds);
+
+    // Fill vector of grain IDs
+    std::vector<int> GrainIDVector = representativeRegion.getGrainIDVector(GrainID);
+    // Check results of grain ID vector (50 of each grain ID should exist)
+    EXPECT_EQ(representativeRegion.regionSize_Cells, nx * (ny - 1) * (nz - 2));
+    for (int n = 0; n < representativeRegion.regionSize_Cells; n++) {
+        EXPECT_EQ(GrainIDVector[n], n / 50);
+    }
+
+    // Obtain the unique grain IDs from the vector
+    int NumberOfGrains;
+    std::vector<int> UniqueGrainIDVector = representativeRegion.getUniqueGrains(GrainIDVector, NumberOfGrains);
+    // Check number of grains and unique grain IDs
+    EXPECT_EQ(NumberOfGrains, 10);
+    for (int n = 0; n < NumberOfGrains; n++) {
+        EXPECT_EQ(UniqueGrainIDVector[n], n);
+    }
+
+    // Obtain the grain sizes
+    std::vector<float> GrainSizeVector =
+        representativeRegion.getGrainSizeVector(GrainIDVector, UniqueGrainIDVector, NumberOfGrains, deltax);
+    // Check against expected grain sizes, in cubic microns (each grain spans 50 cells)
+    for (int n = 0; n < NumberOfGrains; n++) {
+        EXPECT_FLOAT_EQ(GrainSizeVector[n], 50 * pow(deltax, 3) * pow(10, 18));
+    }
+
+    // Obtain the grain extents
+    // Extent of each grain in X
+    std::vector<float> GrainExtentX(NumberOfGrains);
+    representativeRegion.calcGrainExtent(GrainExtentX, GrainID, UniqueGrainIDVector, GrainSizeVector, NumberOfGrains,
+                                         "X", deltax);
+    // Extent of each grain in Y
+    std::vector<float> GrainExtentY(NumberOfGrains);
+    representativeRegion.calcGrainExtent(GrainExtentY, GrainID, UniqueGrainIDVector, GrainSizeVector, NumberOfGrains,
+                                         "Y", deltax);
+    // Extent of each grain in Z
+    std::vector<float> GrainExtentZ(NumberOfGrains);
+    representativeRegion.calcGrainExtent(GrainExtentZ, GrainID, UniqueGrainIDVector, GrainSizeVector, NumberOfGrains,
+                                         "Z", deltax);
+    // Check grain extents
+    for (int n = 0; n < NumberOfGrains; n++) {
+        // Expected value should be in microns
+        EXPECT_FLOAT_EQ(GrainExtentX[n], nx * deltax * pow(10, 6));
+        EXPECT_FLOAT_EQ(GrainExtentY[n], (ny - 1) * deltax * pow(10, 6));
+        EXPECT_FLOAT_EQ(GrainExtentZ[n], deltax * pow(10, 6));
+    }
+}
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, representative_region) {
     testConstructRepresentativeRegion_Volume();
     testConstructRepresentativeRegion_Area();
+    testCollectGrainStats();
 }
 } // end namespace Test
