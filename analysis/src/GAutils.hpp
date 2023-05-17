@@ -40,6 +40,7 @@ double convertToCells(double deltax, std::string RegionType);
 std::vector<float> getGrainMisorientation(std::string Direction, ViewF_H GrainUnitVector,
                                           std::vector<int> UniqueGrainIDVector, int NumberOfOrientations,
                                           int NumberOfGrains);
+void dual_print(std::string temp, std::ostream &stream1, std::ostream &stream2);
 template <typename ReturnType, typename FirstType, typename SecondType>
 ReturnType DivideCast(FirstType Int1, SecondType Int2) {
     return static_cast<ReturnType>(Int1) / static_cast<ReturnType>(Int2);

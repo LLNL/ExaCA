@@ -269,3 +269,9 @@ double convertToCells(double deltax, std::string RegionType) {
         throw std::runtime_error("Error: unknown region type");
     return SizeToCellScaling;
 }
+
+// Print the string "temp" to both output file streams
+void dual_print(std::string temp, std::ostream &stream1, std::ostream &stream2) {
+    stream1 << temp;
+    stream2 << temp;
+}
