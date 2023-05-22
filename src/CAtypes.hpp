@@ -17,7 +17,9 @@ enum TypeNames {
     Liquid = 5,
     TempSolid = 6,
     FutureActive = 7,
-    ActiveFailedBufferLoad = 8
+    ActiveFailedBufferLoad = 8,
+    FutureLiquid = 9,
+    LiquidFailedBufferLoad = 10
 };
 
 // Use Kokkos::DefaultExecutionSpace

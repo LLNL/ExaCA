@@ -101,6 +101,16 @@ void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI Ce
                         printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
                                "results at MPI processor boundaries may be inaccurate\n");
                 }
+                else if (CellType(GlobalCellCoordinateSouth) == LiquidFailedBufferLoad) {
+                    bool DataFitsInBuffer =
+                        loadghostnodes_liquid(SendSizeNorth, SendSizeSouth, MyYSlices, i, 1, k, AtNorthBoundary,
+                                              AtSouthBoundary, BufferSouthSend, BufferNorthSend, BufSize);
+                    CellType(GlobalCellCoordinateSouth) = Liquid;
+                    // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
+                    if (!(DataFitsInBuffer))
+                        printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
+                               "results at MPI processor boundaries may be inaccurate\n");
+                }
                 if (CellType(GlobalCellCoordinateNorth) == ActiveFailedBufferLoad) {
                     int ActiveLayerCoordinateNorth = k * nx * MyYSlices + i * MyYSlices + MyYSlices - 2;
                     int GhostGID = GrainID(GlobalCellCoordinateNorth);
@@ -115,6 +125,16 @@ void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI Ce
                                        MyYSlices, i, MyYSlices - 2, k, AtNorthBoundary, AtSouthBoundary,
                                        BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
                     CellType(GlobalCellCoordinateNorth) = Active;
+                    // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
+                    if (!(DataFitsInBuffer))
+                        printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
+                               "results at MPI processor boundaries may be inaccurate\n");
+                }
+                else if (CellType(GlobalCellCoordinateNorth) == LiquidFailedBufferLoad) {
+                    bool DataFitsInBuffer = loadghostnodes_liquid(SendSizeNorth, SendSizeSouth, MyYSlices, i,
+                                                                  MyYSlices - 2, k, AtNorthBoundary, AtSouthBoundary,
+                                                                  BufferSouthSend, BufferNorthSend, BufSize);
+                    CellType(GlobalCellCoordinateNorth) = Liquid;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(DataFitsInBuffer))
                         printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
@@ -172,6 +192,9 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankZ = static_cast<int>(BufferSouthRecv(BufPosition, 1));
                         CellLocation = RankZ * nx * MyYSlices + MyYSlices * RankX + RankY;
                         int GlobalCellLocation = CellLocation + ZBound_Low * nx * MyYSlices;
+                        // Two possibilities: buffer data with non-zero diagonal length was loaded, and a liquid cell
+                        // may have to be updated to active - or zero diagonal length data was loaded, and an active
+                        // cell may have to be updated to liquid
                         if (CellType(GlobalCellLocation) == Liquid) {
                             Place = true;
                             int MyGrainOrientation = static_cast<int>(BufferSouthRecv(BufPosition, 2));
@@ -182,6 +205,9 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                             DOCenterZ = BufferSouthRecv(BufPosition, 6);
                             NewDiagonalLength = BufferSouthRecv(BufPosition, 7);
                         }
+                        else if ((CellType(GlobalCellLocation) == Active) && (BufferSouthRecv(BufPosition, 7) == 0.0)) {
+                            CellType(GlobalCellLocation) = Liquid;
+                        }
                     }
                     else if ((unpack_index == 1) && (BufferNorthRecv(BufPosition, 0) != -1.0) &&
                              (NeighborRank_North != MPI_PROC_NULL)) {
@@ -191,6 +217,9 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         RankZ = static_cast<int>(BufferNorthRecv(BufPosition, 1));
                         CellLocation = RankZ * nx * MyYSlices + MyYSlices * RankX + RankY;
                         int GlobalCellLocation = CellLocation + ZBound_Low * nx * MyYSlices;
+                        // Two possibilities: buffer data with non-zero diagonal length was loaded, and a liquid cell
+                        // may have to be updated to active - or zero diagonal length data was loaded, and an active
+                        // cell may have to be updated to liquid
                         if (CellType(GlobalCellLocation) == Liquid) {
                             Place = true;
                             int MyGrainOrientation = static_cast<int>(BufferNorthRecv(BufPosition, 2));
@@ -200,6 +229,9 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                             DOCenterY = BufferNorthRecv(BufPosition, 5);
                             DOCenterZ = BufferNorthRecv(BufPosition, 6);
                             NewDiagonalLength = BufferNorthRecv(BufPosition, 7);
+                        }
+                        else if ((CellType(GlobalCellLocation) == Active) && (BufferNorthRecv(BufPosition, 7) == 0.0)) {
+                            CellType(GlobalCellLocation) = Liquid;
                         }
                     }
                     if (Place) {

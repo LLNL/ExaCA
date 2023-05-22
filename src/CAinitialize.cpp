@@ -1112,8 +1112,10 @@ void TempInit_ReadData(int layernumber, int id, int nx, int MyYSlices, int, int 
                 }
                 else {
                     // This cell does not undergo solidification in layer "layernumber"
-                    MeltTimeStep_Host(GlobalD3D1ConvPosition) = 0;
-                    CritTimeStep_Host(GlobalD3D1ConvPosition) = 0;
+                    // Set liquidus time step values to a time step that will not be reached, as these cells do not
+                    // traverse the liquidus (don't melt, don't resolidify)
+                    MeltTimeStep_Host(GlobalD3D1ConvPosition) = -1;
+                    CritTimeStep_Host(GlobalD3D1ConvPosition) = -1;
                     UndercoolingChange_Host(GlobalD3D1ConvPosition) = 0.0;
                 }
             }
@@ -1521,15 +1523,15 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLa
 
 //*****************************************************************************/
 // Initializes cells for the current layer as either solid (don't resolidify) or tempsolid (will melt and resolidify)
-void CellTypeInit(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI CritTimeStep, int id,
-                  int ZBound_Low) {
+void CellTypeInit(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI NumberOfSolidificationEvents,
+                  int id, int ZBound_Low) {
 
     int MeltPoolCellCount;
     Kokkos::parallel_reduce(
         "CellTypeInitSolidRM", LocalActiveDomainSize,
         KOKKOS_LAMBDA(const int &D3D1ConvPosition, int &local_count) {
             int GlobalD3D1ConvPosition = D3D1ConvPosition + ZBound_Low * nx * MyYSlices;
-            if (CritTimeStep(GlobalD3D1ConvPosition) != 0) {
+            if (NumberOfSolidificationEvents(D3D1ConvPosition) > 0) {
                 CellType(GlobalD3D1ConvPosition) = TempSolid;
                 local_count++;
             }

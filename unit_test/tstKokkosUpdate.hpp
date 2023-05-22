@@ -161,53 +161,80 @@ void testFillSteeringVector_Remelt() {
     ViewI_H CellType_Host(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), LocalDomainSize);
     ViewI_H MeltTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("MeltTimeStep_Host"), LocalDomainSize);
     ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
+    ViewI_H SolidificationEventCounter_Host("SolidificationEventCounter_Host", LocalDomainSize); // init to 0
+    ViewI_H NumberOfSolidificationEvents_Host(
+        Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents_Host"), LocalDomainSize);
     ViewF_H UndercoolingChange_Host(Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_Host"),
                                     LocalDomainSize);
     ViewF_H UndercoolingCurrent_Host("UndercoolingCurrent_Host",
                                      LocalDomainSize); // initialize to 0, no initial undercooling
+    ViewF3D_H LayerTimeTempHistory_Host("LayerTimeTempHistory_Host", LocalActiveDomainSize, 1,
+                                        3); // initialize to 0, no initial undercooling
 
-    for (int i = 0; i < LocalDomainSize; i++) {
+    for (int GlobalD3D1ConvPosition = 0; GlobalD3D1ConvPosition < LocalDomainSize; GlobalD3D1ConvPosition++) {
         // Cell coordinates on this rank in X, Y, and Z (GlobalZ = relative to domain bottom)
-        int GlobalZ = i / (nx * MyYSlices);
-        int Rem = i % (nx * MyYSlices);
+        int GlobalZ = GlobalD3D1ConvPosition / (nx * MyYSlices);
+        int Rem = GlobalD3D1ConvPosition % (nx * MyYSlices);
         int RankY = Rem % MyYSlices;
-        // Let cells be assigned GrainIDs based on the rank ID
-        // Cells have grain ID 1
-        GrainID_Host(i) = 1;
+        GrainID_Host(GlobalD3D1ConvPosition) = 1;
         // Cells at Z = 0 through Z = 2 are Solid, Z = 3 and 4 are TempSolid
-        if (GlobalZ <= 2)
-            CellType_Host(i) = Solid;
-        else
-            CellType_Host(i) = TempSolid;
-        // Cells "melt" at a time step corresponding to their Y location in the overall domain (depends on MyYOffset of
-        // the rank)
-        MeltTimeStep_Host(i) = RankY + MyYOffset + 1;
-        // Cells reach liquidus during cooling 2 time steps after melting
-        CritTimeStep_Host(i) = MeltTimeStep_Host(i) + 2;
-        // Let the cooling rate of the cells from the liquidus depend on the rank ID
-        UndercoolingChange_Host(i) = 0.2;
+        if (GlobalZ <= 2) {
+            CellType_Host(GlobalD3D1ConvPosition) = Solid;
+            // Solid cells should have -1 assigned as their melt/crit time steps
+            MeltTimeStep_Host(GlobalD3D1ConvPosition) = -1;
+            CritTimeStep_Host(GlobalD3D1ConvPosition) = -1;
+        }
+        else {
+            CellType_Host(GlobalD3D1ConvPosition) = TempSolid;
+            // Cells "melt" at a time step corresponding to their Y location in the overall domain (depends on MyYOffset
+            // of the rank)
+            MeltTimeStep_Host(GlobalD3D1ConvPosition) = RankY + MyYOffset + 1;
+            // Cells reach liquidus during cooling 2 time steps after melting
+            CritTimeStep_Host(GlobalD3D1ConvPosition) = MeltTimeStep_Host(GlobalD3D1ConvPosition) + 2;
+        }
+        UndercoolingChange_Host(GlobalD3D1ConvPosition) = 0.2;
+    }
+    for (int D3D1ConvPosition = 0; D3D1ConvPosition < LocalActiveDomainSize; D3D1ConvPosition++) {
+        // Cell coordinates on this rank in X, Y, and Z (GlobalZ = relative to domain bottom)
+        int RankZ = D3D1ConvPosition / (nx * MyYSlices);
+        int Rem = D3D1ConvPosition % (nx * MyYSlices);
+        int RankX = Rem / MyYSlices;
+        int RankY = Rem % MyYSlices;
+        int GlobalZ = RankZ + ZBound_Low;
+        int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+        LayerTimeTempHistory_Host(D3D1ConvPosition, 0, 0) = MeltTimeStep_Host(GlobalD3D1ConvPosition);
+        LayerTimeTempHistory_Host(D3D1ConvPosition, 0, 1) = CritTimeStep_Host(GlobalD3D1ConvPosition);
+        LayerTimeTempHistory_Host(D3D1ConvPosition, 0, 2) = UndercoolingChange_Host(GlobalD3D1ConvPosition);
+        NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 1;
     }
 
     // Steering Vector
     ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
     ViewI_H numSteer_Host(Kokkos::ViewAllocateWithoutInitializing("SteeringVectorSize"), 1);
     numSteer_Host(0) = 0;
-
     // Copy views to device for test
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
     ViewI GrainID = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_Host);
     ViewI CellType = Kokkos::create_mirror_view_and_copy(device_memory_space(), CellType_Host);
     ViewI MeltTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), MeltTimeStep_Host);
     ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
+    ViewI SolidificationEventCounter =
+        Kokkos::create_mirror_view_and_copy(device_memory_space(), SolidificationEventCounter_Host);
+    ViewI NumberOfSolidificationEvents =
+        Kokkos::create_mirror_view_and_copy(device_memory_space(), NumberOfSolidificationEvents_Host);
     ViewF UndercoolingChange = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingChange_Host);
     ViewF UndercoolingCurrent = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingCurrent_Host);
+    ViewF3D LayerTimeTempHistory =
+        Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerTimeTempHistory_Host);
 
     int numcycles = 15;
     for (int cycle = 1; cycle <= numcycles; cycle++) {
         // Update cell types, local undercooling each time step, and fill the steering vector
+        std::cout << cycle << std::endl;
         FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, nx, MyYSlices, NeighborX, NeighborY, NeighborZ,
                                   CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID, ZBound_Low,
-                                  nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep);
+                                  nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep,
+                                  SolidificationEventCounter, NumberOfSolidificationEvents, LayerTimeTempHistory);
     }
 
     // Copy CellType, SteeringVector, numSteer, UndercoolingCurrent, Buffers back to host to check steering vector

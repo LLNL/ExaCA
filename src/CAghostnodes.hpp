@@ -55,6 +55,36 @@ KOKKOS_INLINE_FUNCTION bool loadghostnodes(const int GhostGID, const float Ghost
     }
     return DataFitsInBuffer;
 }
+
+// Load data for a liquid cell into the buffer - distinct from active cell buffer data as the diagonal length is zero
+// and other octahedron attributes are ignored
+KOKKOS_INLINE_FUNCTION bool loadghostnodes_liquid(ViewI SendSizeNorth, ViewI SendSizeSouth, const int MyYSlices,
+                                                  const int RankX, const int RankY, const int RankZ,
+                                                  const bool AtNorthBoundary, const bool AtSouthBoundary,
+                                                  Buffer2D BufferSouthSend, Buffer2D BufferNorthSend, int BufSize) {
+    bool DataFitsInBuffer = true;
+    if ((RankY == 1) && (!(AtSouthBoundary))) {
+        int GNPositionSouth = Kokkos::atomic_fetch_add(&SendSizeSouth(0), 1);
+        if (GNPositionSouth >= BufSize)
+            DataFitsInBuffer = false;
+        else {
+            BufferSouthSend(GNPositionSouth, 0) = static_cast<float>(RankX);
+            BufferSouthSend(GNPositionSouth, 1) = static_cast<float>(RankZ);
+            BufferSouthSend(GNPositionSouth, 7) = 0.0;
+        }
+    }
+    else if ((RankY == MyYSlices - 2) && (!(AtNorthBoundary))) {
+        int GNPositionNorth = Kokkos::atomic_fetch_add(&SendSizeNorth(0), 1);
+        if (GNPositionNorth >= BufSize)
+            DataFitsInBuffer = false;
+        else {
+            BufferNorthSend(GNPositionNorth, 0) = static_cast<float>(RankX);
+            BufferNorthSend(GNPositionNorth, 1) = static_cast<float>(RankZ);
+            BufferNorthSend(GNPositionNorth, 7) = 0.0;
+        }
+    }
+    return DataFitsInBuffer;
+}
 void ResetSendBuffers(int BufSize, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth,
                       ViewI SendSizeSouth);
 int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,

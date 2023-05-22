@@ -236,52 +236,43 @@ void testCellTypeInit() {
     int LocalActiveDomainSize = nx * MyYSlices * nzActive;
     int LocalDomainSize = nx * MyYSlices * nz;
 
-    // Temporary host view for initializing CritTimeStep
-    ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
-    for (int GlobalZ = 0; GlobalZ < nz; GlobalZ++) {
+    // Temporary host view for initializing NumberOfSolidificationEvents
+    ViewI_H NumberOfSolidificationEvents_Host(
+        Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents_Host"), LocalActiveDomainSize);
+    for (int RankZ = 0; RankZ < nzActive; RankZ++) {
         for (int RankX = 0; RankX < nx; RankX++) {
             for (int RankY = 0; RankY < MyYSlices; RankY++) {
-                int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
-                if (GlobalZ < ZBound_Low) {
-                    // Not in active domain, assign these a negative value
-                    CritTimeStep_Host(GlobalD3D1ConvPosition) = -1;
-                }
-                else {
-                    // Assign some of these a value of 0, and others a positive value
-                    if (RankX + RankY % 2 == 0)
-                        CritTimeStep_Host(GlobalD3D1ConvPosition) = 0;
-                    else
-                        CritTimeStep_Host(GlobalD3D1ConvPosition) = 1;
-                }
+                int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+                // Assign some of these a value of 0 (these will be solid cells), and others a positive value
+                // (these will be tempsolid cells)
+                if (RankX + RankY % 2 == 0)
+                    NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 0;
+                else
+                    NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 1;
             }
         }
     }
 
-    ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), CritTimeStep_Host);
+    ViewI NumberOfSolidificationEvents =
+        Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), NumberOfSolidificationEvents_Host);
     // Start with cell type of 0
     ViewI CellType("CellType", LocalDomainSize);
 
     // Initialize cell type values
-    CellTypeInit(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
+    CellTypeInit(nx, MyYSlices, LocalActiveDomainSize, CellType, NumberOfSolidificationEvents, id, ZBound_Low);
 
     // Copy cell types back to host to check
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
 
-    for (int GlobalZ = 0; GlobalZ < nz; GlobalZ++) {
+    for (int RankZ = ZBound_Low; RankZ < nzActive; RankZ++) {
         for (int RankX = 0; RankX < nx; RankX++) {
             for (int RankY = 0; RankY < MyYSlices; RankY++) {
-                int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
-                if (GlobalZ < ZBound_Low) {
-                    // These cells should still be 0 (Wall) - untouched by CellTypeInit_Remelt
-                    EXPECT_EQ(CellType_Host(GlobalD3D1ConvPosition), Wall);
-                }
-                else {
-                    // Cells with CritTimeStep of 0 should be solid, others TempSolid
-                    if (RankX + RankY % 2 == 0)
-                        EXPECT_EQ(CellType_Host(GlobalD3D1ConvPosition), Solid);
-                    else
-                        EXPECT_EQ(CellType_Host(GlobalD3D1ConvPosition), TempSolid);
-                }
+                int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+                // Cells with no associated solidification events should be solid, others TempSolid
+                if (RankX + RankY % 2 == 0)
+                    EXPECT_EQ(CellType_Host(D3D1ConvPosition), Solid);
+                else
+                    EXPECT_EQ(CellType_Host(D3D1ConvPosition), TempSolid);
             }
         }
     }

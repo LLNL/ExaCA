@@ -88,7 +88,9 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, i
 void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, NList NeighborX,
                                NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                                ViewF UndercoolingChange, ViewI CellType, ViewI GrainID, int ZBound_Low, int nzActive,
-                               ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep);
+                               ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
+                               ViewI SolidificationEventCounter, ViewI NumberOfSolidificationEvents,
+                               ViewF3D LayerTimeTempHistory);
 void CellCapture(int id, int np, int cycle, int LocalActiveDomainSize, int LocalDomainSize, int nx, int MyYSlices,
                  InterfacialResponseFunction irf, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
                  ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector,
@@ -96,7 +98,7 @@ void CellCapture(int id, int np, int cycle, int LocalActiveDomainSize, int Local
                  int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth,
                  ViewI SendSizeSouth, int ZBound_Low, int nzActive, int nz, ViewI SteeringVector, ViewI numSteer_G,
                  ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary, ViewI SolidificationEventCounter,
-                 ViewI MeltTimeStep, ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, int &BufSize);
+                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, int &BufSize);
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
                   ViewI MeltTimeStep, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low, ViewI CellType,
                   ViewI LayerID, int id, int layernumber, int np, int nx, int ny, int nz, int MyYOffset, ViewI GrainID,
