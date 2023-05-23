@@ -16,9 +16,10 @@
 #include <string>
 #include <vector>
 
-void RunProgram_Reduced(int id, int np, std::string InputFile) {
+float RunProgram_Reduced(int id, int np, std::string InputFile) {
     double NuclTime = 0.0, CreateSVTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
     double StartNuclTime, StartCreateSVTime, StartCaptureTime, StartGhostTime;
+    float VolFractionNucleated = 0.0; // Calculated in printing of ExaCA data
     double StartInitTime = MPI_Wtime();
 
     int nx, ny, nz, NumberOfLayers, LayerHeight, TempFilesInSeries;
@@ -308,7 +309,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         PrintExaCAData(id, -1, np, nx, ny, nz, MyYSlices, MyYOffset, GrainID, CritTimeStep, GrainUnitVector, LayerID,
                        CellType, UndercoolingChange, UndercoolingCurrent, OutputFile, NGrainOrientations, PathToOutput,
                        PrintDebug, false, false, false, false, false, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                       NumberOfLayers, PrintBinary);
+                       NumberOfLayers, PrintBinary, VolFractionNucleated);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Initialization data file(s) printed" << std::endl;
@@ -333,7 +334,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent, OutputFile,
                                NGrainOrientations, PathToOutput, 0, false, false, false, true, false,
                                IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers,
-                               PrintBinary);
+                               PrintBinary, VolFractionNucleated);
                 IntermediateFileCounter++;
             }
             cycle++;
@@ -552,7 +553,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                        GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent, OutputFile,
                        NGrainOrientations, PathToOutput, 0, PrintMisorientation, PrintFinalUndercoolingVals,
                        PrintFullOutput, false, PrintDefaultRVE, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                       NumberOfLayers, PrintBinary, RVESize);
+                       NumberOfLayers, PrintBinary, VolFractionNucleated, RVESize);
     }
     else {
         if (id == 0)
@@ -584,4 +585,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
                   CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin,
                   ZMax, GrainOrientationFile);
+
+    // Return the volume fraction of nucleated grains, which was calculated if any of the output options were toggled
+    return VolFractionNucleated;
 }

@@ -190,7 +190,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
                     bool PrintFinalUndercoolingVals, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
                     int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, double XMin, double YMin,
-                    double ZMin, int NumberOfLayers, bool PrintBinary, int RVESize) {
+                    double ZMin, int NumberOfLayers, bool PrintBinary, float &VolFractionNucleated, int RVESize) {
 
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
@@ -277,6 +277,9 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
                           PathToOutput, BaseFileName, PrintDebug, PrintFullOutput, deltax, XMin, YMin, ZMin,
                           PrintBinary);
+        // Calculate only at end of run
+        if (!PrintTimeSeries)
+            VolFractionNucleated = PrintVolFractionNucleated(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain);
     }
     else {
 
@@ -317,6 +320,9 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
             SendFloatField(UndercoolingCurrent_Host, nz, nx, MyYSlices, SendBufSize, SendBufStartY, SendBufEndY);
         }
     }
+
+    // VolFractionNucleated was calculated on rank 0 - broadcast to other ranks
+    MPI_Bcast(&VolFractionNucleated, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
 }
 
 //*****************************************************************************/
@@ -437,8 +443,6 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     GrainplotM << "SCALARS Angle_z unsigned_short 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
-    int NucleatedGrainCells = 0;
-    int MeltedCells = 0;
     // Get grain misorientations relative to the Z direction for each orientation
     ViewF_H GrainMisorientation = MisorientationCalc(NGrainOrientations, GrainUnitVector, 2);
     for (int k = 0; k < nz; k++) {
@@ -448,12 +452,9 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
                 if (LayerID_WholeDomain(k, i, j) == -1)
                     IntPrintVal = 200;
                 else {
-                    MeltedCells++;
                     int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
-                    if (GrainID_WholeDomain(k, i, j) < 0) {
+                    if (GrainID_WholeDomain(k, i, j) < 0)
                         IntPrintVal = static_cast<unsigned short>(std::round(GrainMisorientation(MyOrientation)) + 100);
-                        NucleatedGrainCells++;
-                    }
                     else
                         IntPrintVal = static_cast<unsigned short>(std::round(GrainMisorientation(MyOrientation)));
                 }
@@ -464,8 +465,6 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
             GrainplotM << std::endl;
     }
     GrainplotM.close();
-    std::cout << "Volume fraction of solidified portion of domain claimed by nucleated grains: "
-              << (float)(NucleatedGrainCells) / (float)(MeltedCells) << std::endl;
 }
 
 //*****************************************************************************/

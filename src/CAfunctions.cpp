@@ -164,3 +164,24 @@ ViewF_H MisorientationCalc(int NumberOfOrientations, ViewF_H GrainUnitVector, in
     }
     return GrainMisorientation;
 }
+
+// Returns the volume fraction of nucleated grains to the console - Called on rank 0 after collecting the whole domain's
+// LayerID and GrainID data)
+float PrintVolFractionNucleated(int nx, int ny, int nz, ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain) {
+
+    int NucleatedGrainCells = 0;
+    int MeltedCells = 0;
+    for (int k = 0; k < nz; k++) {
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
+                if (LayerID_WholeDomain(k, i, j) != -1) {
+                    MeltedCells++;
+                    if (GrainID_WholeDomain(k, i, j) < 0)
+                        NucleatedGrainCells++;
+                }
+            }
+        }
+    }
+    float VolFractionNucleated = static_cast<float>(NucleatedGrainCells) / static_cast<float>(MeltedCells);
+    return VolFractionNucleated;
+}
