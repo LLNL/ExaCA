@@ -11,7 +11,7 @@
        "Nz": 50
    },
    "Nucleation": {
-       "Density": 0,
+       "Density": 10,
        "MeanUndercooling": 5,
        "StDev": 0.5
    },
