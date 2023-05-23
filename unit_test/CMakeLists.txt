@@ -3,6 +3,8 @@ include(${TEST_HARNESS_DIR}/test_harness.cmake)
 ##--------------------------------------------------------------------------##
 ## Install example files used in tests
 ##--------------------------------------------------------------------------##
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SmallDirSolidification.json
+  ${CMAKE_CURRENT_BINARY_DIR}/Inp_SmallDirSolidification.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_DirSolidification.json
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_DirSolidification.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SpotMelt.json

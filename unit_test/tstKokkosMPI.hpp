@@ -11,6 +11,7 @@
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 #include "CAupdate.hpp"
+#include "runCA.hpp"
 
 #include <gtest/gtest.h>
 
@@ -516,6 +517,25 @@ void testResetBufferCapacity() {
 }
 
 //---------------------------------------------------------------------------//
+// full_simulations
+//---------------------------------------------------------------------------//
+void testSmallDirS() {
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    std::string InputFile = "Inp_SmallDirSolidification.json";
+
+    // Run SmallDirS problem and check volume fraction of nucleated grains with 1% tolerance of expected value (to
+    // account for the non-deterministic nature of the cell capture)
+    float VolFractionNucleated = RunProgram_Reduced(id, np, InputFile);
+    EXPECT_LT(VolFractionNucleated, 0.1265);
+    EXPECT_GT(VolFractionNucleated, 0.1165);
+}
+//---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, communication) {
@@ -523,5 +543,5 @@ TEST(TEST_CATEGORY, communication) {
     testResizeRefillBuffers();
     testResetBufferCapacity();
 }
-
+TEST(TEST_CATEGORY, full_simulations) { testSmallDirS(); }
 } // end namespace Test
