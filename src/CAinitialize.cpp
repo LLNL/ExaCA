@@ -695,10 +695,10 @@ void TempInit_DirSolidification(double G, double R, int, int &nx, int &MyYSlices
                                 ViewI &MeltTimeStep, ViewI MaxSolidificationEvents, ViewF3D &LayerTimeTempHistory) {
 
     // TODO: When all simulations use remelting, set size of these outside of this subroutine since all problems do it
-    Kokkos::resize(NumberOfSolidificationEvents, LocalDomainSize);
-    Kokkos::resize(SolidificationEventCounter, LocalDomainSize);
-    Kokkos::resize(MeltTimeStep, LocalDomainSize);
-    Kokkos::resize(LayerTimeTempHistory, LocalDomainSize, 1, 3);
+    Kokkos::realloc(NumberOfSolidificationEvents, LocalDomainSize);
+    Kokkos::realloc(SolidificationEventCounter, LocalDomainSize);
+    Kokkos::realloc(MeltTimeStep, LocalDomainSize);
+    Kokkos::realloc(LayerTimeTempHistory, LocalDomainSize, 1, 3);
 
     // Initialize temperature field in Z direction with thermal gradient G set in input file
     // Cells at the bottom surface (Z = 0) are at the liquidus at time step 0 (no wall cells at the bottom boundary)
