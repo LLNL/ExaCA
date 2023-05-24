@@ -169,28 +169,13 @@ ViewF_H MisorientationCalc(int NumberOfOrientations, ViewF_H GrainUnitVector, in
 float calcVolFractionNucleated(int id, int nx, int MyYSlices, int LocalDomainSize, ViewI LayerID, ViewI GrainID,
                                bool AtNorthBoundary, bool AtSouthBoundary) {
 
-    // For interior cells, add the number of cells that underwent melting/solidification
+    // For interior cells, add the number of cells that underwent melting/solidification and the number of cells with
+    // sub-zero grain IDs
     int MeltedCells_Local = 0;
-    Kokkos::parallel_reduce(
-        "NumSolidifiedCells", LocalDomainSize,
-        KOKKOS_LAMBDA(const int D3D1ConvPosition, int &update) {
-            int Rem = D3D1ConvPosition % (nx * MyYSlices);
-            int RankY = Rem % MyYSlices;
-            // Is this Y coordinate in the halo region? If so, do not increment counter
-            bool InHaloRegion = false;
-            if (((RankY == 0) && (!AtSouthBoundary)) || ((RankY == MyYSlices - 1) && (!AtNorthBoundary)))
-                InHaloRegion = true;
-            if ((LayerID(D3D1ConvPosition) != -1) && (!InHaloRegion))
-                update++;
-        },
-        MeltedCells_Local);
-
-    // For interior cells, add the number of cells with sub-zero grain IDs (TODO: could be combined with the above loop
-    // in a custom reduction)
     int NucleatedGrainCells_Local = 0;
     Kokkos::parallel_reduce(
         "NumSolidifiedCells", LocalDomainSize,
-        KOKKOS_LAMBDA(const int D3D1ConvPosition, int &update) {
+        KOKKOS_LAMBDA(const int D3D1ConvPosition, int &update_meltcount, int &update_nucleatecount) {
             int Rem = D3D1ConvPosition % (nx * MyYSlices);
             int RankY = Rem % MyYSlices;
             // Is this Y coordinate in the halo region? If so, do not increment counter
@@ -198,9 +183,11 @@ float calcVolFractionNucleated(int id, int nx, int MyYSlices, int LocalDomainSiz
             if (((RankY == 0) && (!AtSouthBoundary)) || ((RankY == MyYSlices - 1) && (!AtNorthBoundary)))
                 InHaloRegion = true;
             if ((GrainID(D3D1ConvPosition) < 0) && (!InHaloRegion))
-                update++;
+                update_nucleatecount++;
+            if ((LayerID(D3D1ConvPosition) != -1) && (!InHaloRegion))
+                update_meltcount++;
         },
-        NucleatedGrainCells_Local);
+        MeltedCells_Local, NucleatedGrainCells_Local);
 
     // Reduce the values by summing over all ranks
     int MeltedCells_Global, NucleatedGrainCells_Global;
