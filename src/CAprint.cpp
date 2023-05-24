@@ -190,7 +190,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
                     bool PrintFinalUndercoolingVals, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
                     int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, double XMin, double YMin,
-                    double ZMin, int NumberOfLayers, bool PrintBinary, float &VolFractionNucleated, int RVESize) {
+                    double ZMin, int NumberOfLayers, bool PrintBinary, int RVESize) {
 
     if (id == 0) {
         // Message sizes and data offsets for data recieved from other ranks- message size different for different ranks
@@ -277,9 +277,6 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                           CellType_WholeDomain, UndercoolingChange_WholeDomain, UndercoolingCurrent_WholeDomain,
                           PathToOutput, BaseFileName, PrintDebug, PrintFullOutput, deltax, XMin, YMin, ZMin,
                           PrintBinary);
-        // Calculate only at end of run
-        if (!PrintTimeSeries)
-            VolFractionNucleated = PrintVolFractionNucleated(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain);
     }
     else {
 
@@ -320,9 +317,6 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
             SendFloatField(UndercoolingCurrent_Host, nz, nx, MyYSlices, SendBufSize, SendBufStartY, SendBufEndY);
         }
     }
-
-    // VolFractionNucleated was calculated on rank 0 - broadcast to other ranks
-    MPI_Bcast(&VolFractionNucleated, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
 }
 
 //*****************************************************************************/
@@ -587,7 +581,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
                    double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
                    double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
-                   double XMax, double YMin, double YMax, double ZMin, double ZMax, std::string GrainOrientationFile) {
+                   double XMax, double YMin, double YMax, double ZMin, double ZMax, std::string GrainOrientationFile,
+                   float VolFractionNucleated) {
 
     int *YSlices = new int[np];
     int *YOffset = new int[np];
@@ -637,7 +632,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         ExaCALog << "   \"Nucleation\": {" << std::endl;
         ExaCALog << "      \"Density\": " << NMax << "," << std::endl;
         ExaCALog << "      \"MeanUndercooling\": " << dTN << "," << std::endl;
-        ExaCALog << "      \"StDevUndercooling\": " << dTsigma << std::endl;
+        ExaCALog << "      \"StDevUndercooling\": " << dTsigma << "," << std::endl;
+        ExaCALog << "      \"VolFractionNucleated\": " << VolFractionNucleated << std::endl;
         ExaCALog << "   }," << std::endl;
         ExaCALog << "   \"TemperatureData\": {" << std::endl;
         if (SimulationType == "R") {

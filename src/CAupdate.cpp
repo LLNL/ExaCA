@@ -597,12 +597,11 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
                         // Print current state of ExaCA simulation (up to and including the current layer's data)
                         // Host mirrors of CellType and GrainID are not maintained - pass device views and perform
                         // copy inside of subroutine
-                        float VolFractionNucleated = 0.0;
                         PrintExaCAData(id, layernumber, np, nx, ny, nz, MyYSlices, MyYOffset, GrainID, CritTimeStep,
                                        GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent,
                                        OutputFile, NGrainOrientations, PathToOutput, 0, false, false, false, true,
                                        false, IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                                       NumberOfLayers, PrintBinary, VolFractionNucleated);
+                                       NumberOfLayers, PrintBinary);
                         IntermediateFileCounter++;
                     }
                 }

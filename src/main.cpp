@@ -37,11 +37,7 @@ int main(int argc, char *argv[]) {
         else {
             // Run CA code using reduced temperature data format
             std::string InputFile = argv[1];
-            float VolFractionNucleated = RunProgram_Reduced(id, np, InputFile);
-            if (id == 0)
-                std::cout << "Code complete: if output data was collected, the volume fraction of nucleated grains in "
-                             "the portion of the simulation domain to undergo solidification is "
-                          << VolFractionNucleated << std::endl;
+            RunProgram_Reduced(id, np, InputFile);
         }
     }
     // Finalize Kokkos

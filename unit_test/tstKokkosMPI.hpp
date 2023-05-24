@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <Kokkos_Core.hpp>
+#include <nlohmann/json.hpp>
 
 #include "CAfunctions.hpp"
 #include "CAghostnodes.hpp"
@@ -517,6 +518,61 @@ void testResetBufferCapacity() {
 }
 
 //---------------------------------------------------------------------------//
+// domain_calculations
+//---------------------------------------------------------------------------//
+void testcalcVolFractionNucleated() {
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    // Get neighbor rank process IDs
+    bool AtNorthBoundary, AtSouthBoundary;
+    if (id == np - 1)
+        AtNorthBoundary = true;
+    else
+        AtNorthBoundary = false;
+    if (id == 0)
+        AtSouthBoundary = true;
+    else
+        AtSouthBoundary = false;
+
+    // Simulation domain
+    int nx = 3;
+    int MyYSlices = 3;
+    int nz = 3;
+    int LocalDomainSize = nx * MyYSlices * nz;
+    // Let all cells except those at Z = 0 have undergone solidification
+    // Let the cells at Z = 1 consist of positive grain IDs, and those at Z = 2 of negative grain IDs
+    ViewI_H GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID"), LocalDomainSize);
+    ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID"), LocalDomainSize);
+    for (int k = 0; k < nz; k++) {
+        for (int i = 0; i < nx; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
+                int D3D1ConvPosition = k * nx * MyYSlices + i * MyYSlices + j;
+                if (k == 0)
+                    LayerID_Host(D3D1ConvPosition) = -1;
+                else
+                    LayerID_Host(D3D1ConvPosition) = 0;
+                if (k == 2)
+                    GrainID_Host(D3D1ConvPosition) = -1;
+                else
+                    GrainID_Host(D3D1ConvPosition) = 1;
+            }
+        }
+    }
+    ViewI GrainID = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_Host);
+    ViewI LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
+
+    // Perform calculation and compare to expected value (half of the solidified portion of the domain should consist of
+    // nucleated grains, regardless of the number of MPI ranks used)
+    float VolFractionNucleated = calcVolFractionNucleated(id, nx, MyYSlices, LocalDomainSize, LayerID, GrainID,
+                                                          AtNorthBoundary, AtSouthBoundary);
+    EXPECT_FLOAT_EQ(VolFractionNucleated, 0.5);
+}
+
+//---------------------------------------------------------------------------//
 // full_simulations
 //---------------------------------------------------------------------------//
 void testSmallDirS() {
@@ -531,7 +587,12 @@ void testSmallDirS() {
 
     // Run SmallDirS problem and check volume fraction of nucleated grains with 1% tolerance of expected value (to
     // account for the non-deterministic nature of the cell capture)
-    float VolFractionNucleated = RunProgram_Reduced(id, np, InputFile);
+    RunProgram_Reduced(id, np, InputFile);
+
+    std::string LogFile = "TestProblemSmallDirS.json";
+    std::ifstream LogDataStream(LogFile);
+    nlohmann::json logdata = nlohmann::json::parse(LogDataStream);
+    float VolFractionNucleated = logdata["Nucleation"]["VolFractionNucleated"];
     EXPECT_LT(VolFractionNucleated, 0.1265);
     EXPECT_GT(VolFractionNucleated, 0.1165);
 }
@@ -543,5 +604,6 @@ TEST(TEST_CATEGORY, communication) {
     testResizeRefillBuffers();
     testResetBufferCapacity();
 }
+TEST(TEST_CATEGORY, domain_calculations) { testcalcVolFractionNucleated(); }
 TEST(TEST_CATEGORY, full_simulations) { testSmallDirS(); }
 } // end namespace Test

@@ -8,6 +8,6 @@
 
 #include <string>
 
-float RunProgram_Reduced(int id, int np, std::string InputFile);
+void RunProgram_Reduced(int id, int np, std::string InputFile);
 
 #endif

@@ -165,23 +165,53 @@ ViewF_H MisorientationCalc(int NumberOfOrientations, ViewF_H GrainUnitVector, in
     return GrainMisorientation;
 }
 
-// Returns the volume fraction of nucleated grains to the console - Called on rank 0 after collecting the whole domain's
-// LayerID and GrainID data)
-float PrintVolFractionNucleated(int nx, int ny, int nz, ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain) {
+// Stores/returns the volume fraction of nucleated grains to the console
+float calcVolFractionNucleated(int id, int nx, int MyYSlices, int LocalDomainSize, ViewI LayerID, ViewI GrainID,
+                               bool AtNorthBoundary, bool AtSouthBoundary) {
 
-    int NucleatedGrainCells = 0;
-    int MeltedCells = 0;
-    for (int k = 0; k < nz; k++) {
-        for (int j = 0; j < ny; j++) {
-            for (int i = 0; i < nx; i++) {
-                if (LayerID_WholeDomain(k, i, j) != -1) {
-                    MeltedCells++;
-                    if (GrainID_WholeDomain(k, i, j) < 0)
-                        NucleatedGrainCells++;
-                }
-            }
-        }
-    }
-    float VolFractionNucleated = static_cast<float>(NucleatedGrainCells) / static_cast<float>(MeltedCells);
+    // For interior cells, add the number of cells that underwent melting/solidification
+    int MeltedCells_Local = 0;
+    Kokkos::parallel_reduce(
+        "NumSolidifiedCells", LocalDomainSize,
+        KOKKOS_LAMBDA(const int D3D1ConvPosition, int &update) {
+            int Rem = D3D1ConvPosition % (nx * MyYSlices);
+            int RankY = Rem % MyYSlices;
+            // Is this Y coordinate in the halo region? If so, do not increment counter
+            bool InHaloRegion = false;
+            if (((RankY == 0) && (!AtSouthBoundary)) || ((RankY == MyYSlices - 1) && (!AtNorthBoundary)))
+                InHaloRegion = true;
+            if ((LayerID(D3D1ConvPosition) != -1) && (!InHaloRegion))
+                update++;
+        },
+        MeltedCells_Local);
+
+    // For interior cells, add the number of cells with sub-zero grain IDs (TODO: could be combined with the above loop
+    // in a custom reduction)
+    int NucleatedGrainCells_Local = 0;
+    Kokkos::parallel_reduce(
+        "NumSolidifiedCells", LocalDomainSize,
+        KOKKOS_LAMBDA(const int D3D1ConvPosition, int &update) {
+            int Rem = D3D1ConvPosition % (nx * MyYSlices);
+            int RankY = Rem % MyYSlices;
+            // Is this Y coordinate in the halo region? If so, do not increment counter
+            bool InHaloRegion = false;
+            if (((RankY == 0) && (!AtSouthBoundary)) || ((RankY == MyYSlices - 1) && (!AtNorthBoundary)))
+                InHaloRegion = true;
+            if ((GrainID(D3D1ConvPosition) < 0) && (!InHaloRegion))
+                update++;
+        },
+        NucleatedGrainCells_Local);
+
+    // Reduce the values by summing over all ranks
+    int MeltedCells_Global, NucleatedGrainCells_Global;
+    MPI_Allreduce(&MeltedCells_Local, &MeltedCells_Global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&NucleatedGrainCells_Local, &NucleatedGrainCells_Global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    // Calculate nucleated grain fraction
+    float VolFractionNucleated =
+        static_cast<float>(NucleatedGrainCells_Global) / static_cast<float>(MeltedCells_Global);
+    if (id == 0)
+        std::cout << "The fraction of the solidified material consisting of nucleated grains is "
+                  << VolFractionNucleated << std::endl;
     return VolFractionNucleated;
 }

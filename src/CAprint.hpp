@@ -37,7 +37,7 @@ void PrintExaCAData(int id, int layernumber, int np, int nx, int ny, int nz, int
                     int NGrainOrientations, std::string PathToOutput, int PrintDebug, bool PrintMisorientation,
                     bool PrintFinalUndercooling, bool PrintFullOutput, bool PrintTimeSeries, bool PrintDefaultRVE,
                     int IntermediateFileCounter, int ZBound_Low, int nzActive, double deltax, double XMin, double YMin,
-                    double ZMin, int NumberOfLayers, bool PrintBinary, float &VolFractionNucleated, int RVESize = 0);
+                    double ZMin, int NumberOfLayers, bool PrintBinary, int RVESize = 0);
 void PrintExaCALog(int id, int np, std::string InputFile, std::string SimulationType, int MyYSlices, int MyYOffset,
                    InterfacialResponseFunction irf, double deltax, double NMax, double dTN, double dTsigma,
                    std::vector<std::string> temp_paths, int TempFilesInSeries, double HT_deltax, bool RemeltingYN,
@@ -48,7 +48,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
                    double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
                    double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
-                   double XMax, double YMin, double YMax, double ZMin, double ZMax, std::string GrainOrientationFile);
+                   double XMax, double YMin, double YMax, double ZMin, double ZMax, std::string GrainOrientationFile,
+                   float VolFractionNucleated);
 void PrintExaCATiming(int np, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
                       double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
                       double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
