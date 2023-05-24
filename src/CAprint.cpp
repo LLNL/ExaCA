@@ -437,8 +437,6 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
     GrainplotM << "SCALARS Angle_z unsigned_short 1" << std::endl;
     GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
-    int NucleatedGrainCells = 0;
-    int MeltedCells = 0;
     // Get grain misorientations relative to the Z direction for each orientation
     ViewF_H GrainMisorientation = MisorientationCalc(NGrainOrientations, GrainUnitVector, 2);
     for (int k = 0; k < nz; k++) {
@@ -448,12 +446,9 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
                 if (LayerID_WholeDomain(k, i, j) == -1)
                     IntPrintVal = 200;
                 else {
-                    MeltedCells++;
                     int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
-                    if (GrainID_WholeDomain(k, i, j) < 0) {
+                    if (GrainID_WholeDomain(k, i, j) < 0)
                         IntPrintVal = static_cast<unsigned short>(std::round(GrainMisorientation(MyOrientation)) + 100);
-                        NucleatedGrainCells++;
-                    }
                     else
                         IntPrintVal = static_cast<unsigned short>(std::round(GrainMisorientation(MyOrientation)));
                 }
@@ -464,8 +459,6 @@ void PrintGrainMisorientations(std::string BaseFileName, std::string PathToOutpu
             GrainplotM << std::endl;
     }
     GrainplotM.close();
-    std::cout << "Volume fraction of solidified portion of domain claimed by nucleated grains: "
-              << (float)(NucleatedGrainCells) / (float)(MeltedCells) << std::endl;
 }
 
 //*****************************************************************************/
@@ -588,7 +581,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
                    double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
                    double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
                    double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
-                   double XMax, double YMin, double YMax, double ZMin, double ZMax, std::string GrainOrientationFile) {
+                   double XMax, double YMin, double YMax, double ZMin, double ZMax, std::string GrainOrientationFile,
+                   float VolFractionNucleated) {
 
     int *YSlices = new int[np];
     int *YOffset = new int[np];
@@ -638,7 +632,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string Simulation
         ExaCALog << "   \"Nucleation\": {" << std::endl;
         ExaCALog << "      \"Density\": " << NMax << "," << std::endl;
         ExaCALog << "      \"MeanUndercooling\": " << dTN << "," << std::endl;
-        ExaCALog << "      \"StDevUndercooling\": " << dTsigma << std::endl;
+        ExaCALog << "      \"StDevUndercooling\": " << dTsigma << "," << std::endl;
+        ExaCALog << "      \"VolFractionNucleated\": " << VolFractionNucleated << std::endl;
         ExaCALog << "   }," << std::endl;
         ExaCALog << "   \"TemperatureData\": {" << std::endl;
         if (SimulationType == "R") {

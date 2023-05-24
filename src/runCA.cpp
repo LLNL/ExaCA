@@ -559,6 +559,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             std::cout << "No output files to be printed, exiting program" << std::endl;
     }
 
+    // Calculate volume fraction of solidified domain consisting of nucleated grains
+    float VolFractionNucleated = calcVolFractionNucleated(id, nx, MyYSlices, LocalDomainSize, LayerID, GrainID,
+                                                          AtNorthBoundary, AtSouthBoundary);
+
     double OutTime = MPI_Wtime() - StartOutTime;
     double InitMaxTime, InitMinTime, OutMaxTime, OutMinTime = 0.0;
     double NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime,
@@ -583,5 +587,5 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
                   InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
                   CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin,
-                  ZMax, GrainOrientationFile);
+                  ZMax, GrainOrientationFile, VolFractionNucleated);
 }
