@@ -593,8 +593,7 @@ void testSmallDirS() {
     std::ifstream LogDataStream(LogFile);
     nlohmann::json logdata = nlohmann::json::parse(LogDataStream);
     float VolFractionNucleated = logdata["Nucleation"]["VolFractionNucleated"];
-    EXPECT_LT(VolFractionNucleated, 0.1265);
-    EXPECT_GT(VolFractionNucleated, 0.1165);
+    EXPECT_NEAR(VolFractionNucleated, 0.1784, 0.0010);
 }
 //---------------------------------------------------------------------------//
 // RUN TESTS

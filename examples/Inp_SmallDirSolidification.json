@@ -6,12 +6,12 @@
    "Domain": {
        "CellSize": 1,
        "TimeStep": 0.0666667,
-       "Nx": 50,
-       "Ny": 50,
-       "Nz": 50
+       "Nx": 20,
+       "Ny": 20,
+       "Nz": 20
    },
    "Nucleation": {
-       "Density": 10,
+       "Density": 250,
        "MeanUndercooling": 5,
        "StDev": 0.5
    },
@@ -20,7 +20,7 @@
       "R": 300000
    },
    "Substrate": {
-      "FractionSurfaceSitesActive": 0.005
+      "FractionSurfaceSitesActive": 0.25
    },
    "Printing": {
       "PathToOutput": "./",
