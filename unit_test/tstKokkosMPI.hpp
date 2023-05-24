@@ -589,6 +589,8 @@ void testSmallDirS() {
     // account for the non-deterministic nature of the cell capture)
     RunProgram_Reduced(id, np, InputFile);
 
+    // MPI barrier to ensure that log file has been written
+    MPI_Barrier(MPI_COMM_WORLD);
     std::string LogFile = "TestProblemSmallDirS.json";
     std::ifstream LogDataStream(LogFile);
     nlohmann::json logdata = nlohmann::json::parse(LogDataStream);
