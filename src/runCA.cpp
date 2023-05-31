@@ -338,8 +338,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Cell capture performed in two steps - first, adding cells of interest to a steering vector (different
             // subroutine called with versus without remelting), and second, iterating over the steering vector to
             // perform active cell creation and capture operations
+            // Constrained/directional solidification problem has views needed for modeling remelt events but does not
+            // have cells that undergo remelting - the steering vector operation for this problem can be constructed
+            // using FillSteeringVector_NoRemelt
             StartCreateSVTime = MPI_Wtime();
-            if (RemeltingYN)
+            if ((RemeltingYN) && (SimulationType != "C"))
                 FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, nx, MyYSlices, NeighborX, NeighborY, NeighborZ,
                                           CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID,
                                           ZBound_Low, nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep);
