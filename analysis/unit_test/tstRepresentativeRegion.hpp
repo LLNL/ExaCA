@@ -71,7 +71,6 @@ void testConstructRepresentativeRegion_Volume() {
     // Read in test data
     std::ifstream AnalysisDataStream("TestVolume.json");
     nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
-    nlohmann::json RegionData = AnalysisData["Regions"]["RepresentativeVolume"];
     // Domain bounds
     const int nx = 20;
     const int ny = 30;
@@ -88,7 +87,8 @@ void testConstructRepresentativeRegion_Volume() {
     ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
 
     // Construct region
-    RepresentativeRegion representativeRegion(RegionData, nx, ny, nz, deltax, XYZBounds, GrainID);
+    RepresentativeRegion representativeRegion(AnalysisData, "RepresentativeVolume", nx, ny, nz, deltax, XYZBounds,
+                                              GrainID);
 
     // Check results
     EXPECT_TRUE(representativeRegion.regionType == "volume");
@@ -142,7 +142,6 @@ void testConstructRepresentativeRegion_Area() {
     // Read in test data
     std::ifstream AnalysisDataStream("TestArea.json");
     nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
-    nlohmann::json RegionData = AnalysisData["Regions"]["RepresentativeArea"];
 
     // Domain bounds
     const int nx = 10;
@@ -160,7 +159,8 @@ void testConstructRepresentativeRegion_Area() {
     ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
 
     // Construct region
-    RepresentativeRegion representativeRegion(RegionData, nx, ny, nz, deltax, XYZBounds, GrainID);
+    RepresentativeRegion representativeRegion(AnalysisData, "RepresentativeArea", nx, ny, nz, deltax, XYZBounds,
+                                              GrainID);
 
     // Check results
     EXPECT_TRUE(representativeRegion.regionType == "area");
@@ -230,8 +230,8 @@ void testCollectGrainStats() {
     // Representative region creation
     std::ifstream AnalysisDataStream("TestVolume.json");
     nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
-    nlohmann::json RegionsData = AnalysisData["Regions"]["RepresentativeVolume"];
-    RepresentativeRegion representativeRegion(RegionsData, nx, ny, nz, deltax, XYZBounds, GrainID);
+    RepresentativeRegion representativeRegion(AnalysisData, "RepresentativeVolume", nx, ny, nz, deltax, XYZBounds,
+                                              GrainID);
 
     // Check results of grain ID vector (50 of each grain ID should exist)
     EXPECT_EQ(representativeRegion.regionSize_Cells, nx * (ny - 1) * (nz - 2));

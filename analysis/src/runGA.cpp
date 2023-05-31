@@ -74,10 +74,7 @@ int main(int argc, char *argv[]) {
         for (auto it = RegionsData.begin(); it != RegionsData.end(); it++) {
             // Create region
             std::string RegionName = it.key();
-            std::cout << "Parsing data for region " << RegionName << std::endl;
-            nlohmann::json RegionData = AnalysisData["Regions"][RegionName];
-            RepresentativeRegion representativeRegion(RegionData, nx, ny, nz, deltax, XYZBounds, GrainID);
-            std::cout << "Loaded analysis options for region " << RegionName << std::endl;
+            RepresentativeRegion representativeRegion(AnalysisData, RegionName, nx, ny, nz, deltax, XYZBounds, GrainID);
             std::string BaseFileNameThisRegion = BaseFileName + "_" + RegionName;
 
             // Output file stream for quantities of interest
@@ -117,48 +114,20 @@ int main(int argc, char *argv[]) {
             // representativeRegion.AnalysisOptions_PerGrainStatsYN[3] is toggled, Y extents are needed If
             // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[6] or
             // representativeRegion.AnalysisOptions_PerGrainStatsYN[4] is toggled, Z extents are needed
-            bool calcExtentX = false;
-            bool calcExtentY = false;
-            bool calcExtentZ = false;
-            std::vector<float> GrainExtentX(representativeRegion.NumberOfGrains);
-            std::vector<float> GrainExtentY(representativeRegion.NumberOfGrains);
-            std::vector<float> GrainExtentZ(representativeRegion.NumberOfGrains);
+            representativeRegion.calcNecessaryGrainExtents(GrainID, deltax);
             std::vector<float> BuildTransAspectRatio(representativeRegion.NumberOfGrains);
             if ((representativeRegion.AnalysisOptions_StatsYN[3]) ||
-                (representativeRegion.AnalysisOptions_StatsYN[4])) {
-                calcExtentX = true;
-                calcExtentY = true;
-                calcExtentZ = true;
-            }
-            else {
-                if ((representativeRegion.AnalysisOptions_StatsYN[4]) ||
-                    (representativeRegion.AnalysisOptions_PerGrainStatsYN[2]))
-                    calcExtentX = true;
-                if ((representativeRegion.AnalysisOptions_StatsYN[5]) ||
-                    (representativeRegion.AnalysisOptions_PerGrainStatsYN[3]))
-                    calcExtentY = true;
-                if ((representativeRegion.AnalysisOptions_StatsYN[6]) ||
-                    (representativeRegion.AnalysisOptions_PerGrainStatsYN[4]))
-                    calcExtentZ = true;
-            }
-            if (calcExtentX)
-                representativeRegion.calcGrainExtent(GrainExtentX, GrainID, "X", deltax);
-            if (calcExtentY)
-                representativeRegion.calcGrainExtent(GrainExtentY, GrainID, "Y", deltax);
-            if (calcExtentZ)
-                representativeRegion.calcGrainExtent(GrainExtentZ, GrainID, "Z", deltax);
-            if ((representativeRegion.AnalysisOptions_StatsYN[3]) ||
                 (representativeRegion.AnalysisOptions_PerGrainStatsYN[5]))
-                representativeRegion.calcBuildTransAspectRatio(BuildTransAspectRatio, GrainExtentX, GrainExtentY,
-                                                               GrainExtentZ);
+                representativeRegion.calcBuildTransAspectRatio(BuildTransAspectRatio);
             if (representativeRegion.AnalysisOptions_StatsYN[3])
-                representativeRegion.printMeanBuildTransAspectRatio(QoIs, GrainExtentX, GrainExtentY, GrainExtentZ);
+                representativeRegion.printMeanBuildTransAspectRatio(QoIs);
+
             if (representativeRegion.AnalysisOptions_StatsYN[4])
-                representativeRegion.printMeanExtent(QoIs, GrainExtentX, "X");
+                representativeRegion.printMeanExtent(QoIs, "X");
             if (representativeRegion.AnalysisOptions_StatsYN[5])
-                representativeRegion.printMeanExtent(QoIs, GrainExtentY, "Y");
+                representativeRegion.printMeanExtent(QoIs, "Y");
             if (representativeRegion.AnalysisOptions_StatsYN[6])
-                representativeRegion.printMeanExtent(QoIs, GrainExtentZ, "Z");
+                representativeRegion.printMeanExtent(QoIs, "Z");
 
             // Determine IPF-Z color of each grain relative to each direction: 0 (red), 1 (green), 2 (blue)
             std::vector<float> GrainRed =
@@ -182,8 +151,7 @@ int main(int argc, char *argv[]) {
             if (representativeRegion.PrintPerGrainStatsYN)
                 representativeRegion.writePerGrainStats(BaseFileNameThisRegion, GrainMisorientationXVector,
                                                         GrainMisorientationYVector, GrainMisorientationZVector,
-                                                        GrainExtentX, GrainExtentY, GrainExtentZ, BuildTransAspectRatio,
-                                                        GrainRed, GrainGreen, GrainBlue);
+                                                        BuildTransAspectRatio, GrainRed, GrainGreen, GrainBlue);
 
             // ExaConstit print a file named "[BaseFileNameThisRegion]_ExaConstit.csv"
             if (representativeRegion.PrintExaConstitYN) {

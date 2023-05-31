@@ -35,6 +35,7 @@ struct RepresentativeRegion {
     std::vector<int> yBounds_Cells = std::vector<int>(2);
     std::vector<int> zBounds_Cells = std::vector<int>(2);
     int regionSize_Cells;
+    std::vector<float> GrainExtentX, GrainExtentY, GrainExtentZ;
 
     // Analysis options for printing stats to the screen (_Stats), to the file of grainwise statistics (_PerGrainStats),
     // or to files of layerwise statistics (_LayerwiseStats)
@@ -77,9 +78,12 @@ struct RepresentativeRegion {
     std::vector<float> GrainSizeVector_Microns;
 
     // Constructor
-    RepresentativeRegion(nlohmann::json RegionData, int nx, int ny, int nz, double deltax,
+    RepresentativeRegion(nlohmann::json AnalysisData, std::string RegionName, int nx, int ny, int nz, double deltax,
                          std::vector<double> XYZBounds, ViewI3D_H GrainID) {
 
+        // Data for the specific region of interest
+        std::cout << "Parsing data for region " << RegionName << std::endl;
+        nlohmann::json RegionData = AnalysisData["Regions"][RegionName];
         // Are the bounds given in cells, or in microns? Store both representations
         setUnits(RegionData);
         // Obtain the bounds of the region in x, y, and z, in both cells and microns
@@ -114,6 +118,7 @@ struct RepresentativeRegion {
         UniqueGrainIDVector = getUniqueGrains();
         // Size (in units of length, area, or volume, depending on regionType) associated with each grain
         GrainSizeVector_Microns = getGrainSizeVector(deltax);
+        std::cout << "Loaded analysis options for region " << RegionName << std::endl;
     }
 
     void ReadSeparateFileAnalysisOptions(nlohmann::json RegionData) {
@@ -393,6 +398,45 @@ struct RepresentativeRegion {
         }
     }
 
+    void calcNecessaryGrainExtents(ViewI3D_H GrainID, double deltax) {
+        // If representativeRegion.AnalysisOptions_StatsYN[3] or
+        // representativeRegion.AnalysisOptions_PerGrainStatsYN[5] is toggled, grain extents are needed If
+        // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[4] or
+        // representativeRegion.AnalysisOptions_PerGrainStatsYN[2] is toggled, X extents are needed If
+        // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[5] or
+        // representativeRegion.AnalysisOptions_PerGrainStatsYN[3] is toggled, Y extents are needed If
+        // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[6] or
+        // representativeRegion.AnalysisOptions_PerGrainStatsYN[4] is toggled, Z extents are needed
+        bool calcExtentX = false;
+        bool calcExtentY = false;
+        bool calcExtentZ = false;
+        if ((AnalysisOptions_StatsYN[3]) || (AnalysisOptions_StatsYN[4])) {
+            calcExtentX = true;
+            calcExtentY = true;
+            calcExtentZ = true;
+        }
+        else {
+            if ((AnalysisOptions_StatsYN[4]) || (AnalysisOptions_PerGrainStatsYN[2]))
+                calcExtentX = true;
+            if ((AnalysisOptions_StatsYN[5]) || (AnalysisOptions_PerGrainStatsYN[3]))
+                calcExtentY = true;
+            if ((AnalysisOptions_StatsYN[6]) || (AnalysisOptions_PerGrainStatsYN[4]))
+                calcExtentZ = true;
+        }
+        if (calcExtentX) {
+            GrainExtentX.resize(NumberOfGrains);
+            calcGrainExtent(GrainExtentX, GrainID, "X", deltax);
+        }
+        if (calcExtentY) {
+            GrainExtentY.resize(NumberOfGrains);
+            calcGrainExtent(GrainExtentY, GrainID, "Y", deltax);
+        }
+        if (calcExtentZ) {
+            GrainExtentZ.resize(NumberOfGrains);
+            calcGrainExtent(GrainExtentZ, GrainID, "Z", deltax);
+        }
+    }
+
     // Calculate misorientation relative to the specified cardinal direction for each grain and store in the vector
     std::vector<float> getGrainMisorientation(std::string Direction, ViewF_H GrainUnitVector,
                                               int NumberOfOrientations) {
@@ -552,9 +596,16 @@ struct RepresentativeRegion {
     }
 
     // Print average grain extent in the specified direction
-    void printMeanExtent(std::ofstream &QoIs, std::vector<float> GrainExtent_Microns, std::string Direction) {
+    void printMeanExtent(std::ofstream &QoIs, std::string Direction) {
 
         float GrainExtentSum = 0.0;
+        std::vector<float> GrainExtent_Microns;
+        if (Direction == "X")
+            GrainExtent_Microns = GrainExtentX;
+        else if (Direction == "Y")
+            GrainExtent_Microns = GrainExtentY;
+        else if (Direction == "Z")
+            GrainExtent_Microns = GrainExtentZ;
         for (int n = 0; n < NumberOfGrains; n++)
             GrainExtentSum += GrainExtent_Microns[n];
         float AvgGrainExtent = DivideCast<float>(GrainExtentSum, NumberOfGrains);
@@ -564,8 +615,7 @@ struct RepresentativeRegion {
     }
 
     // Print average aspect ratio in the build to the average of the transverse directions
-    void printMeanBuildTransAspectRatio(std::ofstream &QoIs, std::vector<float> GrainExtentX,
-                                        std::vector<float> GrainExtentY, std::vector<float> GrainExtentZ) {
+    void printMeanBuildTransAspectRatio(std::ofstream &QoIs) {
 
         std::vector<float> GrainAspectRatios(NumberOfGrains);
         float ARSum = 0.0;
@@ -685,8 +735,7 @@ struct RepresentativeRegion {
 
     // From the grain extents in x, y, and z, calcualte the aspect ratio for each grain in the build to the average of
     // the transverse directions
-    void calcBuildTransAspectRatio(std::vector<float> &BuildTransAspectRatio, std::vector<float> GrainExtentX,
-                                   std::vector<float> GrainExtentY, std::vector<float> GrainExtentZ) {
+    void calcBuildTransAspectRatio(std::vector<float> &BuildTransAspectRatio) {
 
         for (int n = 0; n < NumberOfGrains; n++) {
             float AR_XZ = GrainExtentZ[n] / GrainExtentX[n];
@@ -808,10 +857,8 @@ struct RepresentativeRegion {
     // Write a csv file of stats for each grain
     void writePerGrainStats(std::string OutputFileName, std::vector<float> GrainMisorientationXVector,
                             std::vector<float> GrainMisorientationYVector,
-                            std::vector<float> GrainMisorientationZVector, std::vector<float> GrainExtentX,
-                            std::vector<float> GrainExtentY, std::vector<float> GrainExtentZ,
-                            std::vector<float> BuildTransAspectRatio, std::vector<float> GrainRed,
-                            std::vector<float> GrainGreen, std::vector<float> GrainBlue) {
+                            std::vector<float> GrainMisorientationZVector, std::vector<float> BuildTransAspectRatio,
+                            std::vector<float> GrainRed, std::vector<float> GrainGreen, std::vector<float> GrainBlue) {
 
         // Which quantities should be printed?
         std::string stats_fname = OutputFileName + "_grains.csv";
