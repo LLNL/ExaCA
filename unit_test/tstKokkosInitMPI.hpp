@@ -41,16 +41,6 @@ void testSubstrateInit_ConstrainedGrowth() {
     int MyYOffset = 4 * id;
     int LocalActiveDomainSize = nx * MyYSlices * nzActive;
     int LocalDomainSize = nx * MyYSlices * nz;
-    // MPI rank locations relative to the global grid
-    bool AtNorthBoundary, AtSouthBoundary;
-    if (id == 0)
-        AtSouthBoundary = true;
-    else
-        AtSouthBoundary = false;
-    if (id == np - 1)
-        AtNorthBoundary = true;
-    else
-        AtNorthBoundary = false;
 
     double FractSurfaceSitesActive = 0.5; // Each rank will have 2 active cells each, on average
     double RNGSeed = 0.0;
@@ -71,19 +61,9 @@ void testSubstrateInit_ConstrainedGrowth() {
     ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
     ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
 
-    // Buffer size estimate
-    int BufSize = nx * nzActive;
-
-    // Send/recv buffers for ghost node data should be initialized with zeros
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSize, 8);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSize, 8);
-    // Init to 0
-    ViewI SendSizeNorth("SendSizeNorth", 1);
-    ViewI SendSizeSouth("SendSizeSouth", 1);
     SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
                                     NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID, DiagonalLength,
-                                    DOCenter, CritDiagonalLength, RNGSeed, np, BufferNorthSend, BufferSouthSend,
-                                    SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, BufSize);
+                                    DOCenter, CritDiagonalLength, RNGSeed);
 
     // Copy CellType, GrainID views to host to check values
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);

@@ -47,6 +47,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // "S": array of overlapping hemispherical spots
     // "R": time-temperature history comes from external files
     // Check if simulation type includes remelting ("M" suffix to input problem type)
+    // DirSoldification problems now include remelting logic
     if (SimulationType == "RM") {
         SimulationType = "R";
         RemeltingYN = true;
@@ -55,6 +56,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         SimulationType = "S";
         RemeltingYN = true;
     }
+    else if (SimulationType == "C")
+        RemeltingYN = true;
     else {
         // Simulation does not including remelting logic
         RemeltingYN = false;
@@ -686,32 +689,38 @@ int calcLocalActiveDomainSize(int nx, int MyYSlices, int nzActive) {
 }
 //*****************************************************************************/
 // Initialize temperature data for a constrained solidification test problem
-void TempInit_DirSolidification(double G, double R, int, int &nx, int &MyYSlices, double deltax, double deltat, int nz,
-                                int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange, ViewI &LayerID) {
+void TempInit_DirSolidification(double G, double R, int, int &nx, int &MyYSlices, double deltax, double deltat, int,
+                                int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange, ViewI &LayerID,
+                                ViewI &NumberOfSolidificationEvents, ViewI &SolidificationEventCounter,
+                                ViewI &MeltTimeStep, ViewI MaxSolidificationEvents, ViewF3D &LayerTimeTempHistory) {
 
-    // These views are initialized on the host, filled with data, and then copied to the device for layer "layernumber"
-    // This view is initialized with zeros
-    ViewI_H LayerID_Host("LayerID_H", LocalDomainSize);
-    // These views will be filled with non-zero values
-    ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_H"), LocalDomainSize);
-    ViewF_H UndercoolingChange_Host(Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_H"), LocalDomainSize);
+    // TODO: When all simulations use remelting, set size of these outside of this subroutine since all problems do it
+    Kokkos::realloc(NumberOfSolidificationEvents, LocalDomainSize);
+    Kokkos::realloc(SolidificationEventCounter, LocalDomainSize);
+    Kokkos::realloc(MeltTimeStep, LocalDomainSize);
+    Kokkos::realloc(LayerTimeTempHistory, LocalDomainSize, 1, 3);
 
     // Initialize temperature field in Z direction with thermal gradient G set in input file
     // Cells at the bottom surface (Z = 0) are at the liquidus at time step 0 (no wall cells at the bottom boundary)
-    for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < MyYSlices; j++) {
-                int GlobalD3D1ConvPosition = k * nx * MyYSlices + i * MyYSlices + j;
-                UndercoolingChange_Host(GlobalD3D1ConvPosition) = R * deltat;
-                CritTimeStep_Host(GlobalD3D1ConvPosition) = (int)((k * G * deltax) / (R * deltat));
-            }
-        }
-    }
-
-    // Copy initialized host data back to device
-    CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
-    LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
-    UndercoolingChange = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingChange_Host);
+    Kokkos::parallel_for(
+        "TempInitDirS", LocalDomainSize, KOKKOS_LAMBDA(const int &Coordinate1D) {
+            int ZCoordinate = Coordinate1D / (nx * MyYSlices);
+            // All cells past melting time step
+            LayerTimeTempHistory(Coordinate1D, 0, 0) = -1;
+            MeltTimeStep(Coordinate1D) = -1;
+            // Cells reach liquidus at a time dependent on their Z coordinate
+            LayerTimeTempHistory(Coordinate1D, 0, 1) = static_cast<int>((ZCoordinate * G * deltax) / (R * deltat));
+            CritTimeStep(Coordinate1D) = static_cast<int>((ZCoordinate * G * deltax) / (R * deltat));
+            // Cells cool at a constant rate
+            LayerTimeTempHistory(Coordinate1D, 0, 2) = R * deltat;
+            UndercoolingChange(Coordinate1D) = R * deltat;
+            // DirS not a multilayer problem
+            LayerID(Coordinate1D) = 0;
+            // All cells solidify once
+            MaxSolidificationEvents(0) = 1;
+            SolidificationEventCounter(Coordinate1D) = 0;
+            NumberOfSolidificationEvents(Coordinate1D) = 1;
+        });
 }
 
 // Initialize temperature data for an array of overlapping spot melts (done during simulation initialization, no
@@ -1472,9 +1481,7 @@ void OrientationInit(int, int &NGrainOrientations, ViewF &GrainOrientationData, 
 void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyYSlices, int nx, int ny,
                                      int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
                                      ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType, ViewI GrainID,
-                                     ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed,
-                                     int np, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth,
-                                     ViewI SendSizeSouth, bool AtNorthBoundary, bool AtSouthBoundary, int BufSize) {
+                                     ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed) {
 
     // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
     // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between X =
@@ -1537,25 +1544,6 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                 // cell. Octahedron center and cell center overlap for octahedra created as part of a new grain
                 calcCritDiagonalLength(D3D1ConvPosition, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
                                        MyOrientation, GrainUnitVector, CritDiagonalLength);
-                // If this new active cell is in the halo region, load the send buffers
-                if (np > 1) {
-
-                    int GhostGID = GrainID(D3D1ConvPosition);
-                    float GhostDOCX = GlobalX + 0.5;
-                    float GhostDOCY = GlobalY + 0.5;
-                    float GhostDOCZ = GlobalZ + 0.5;
-                    float GhostDL = 0.01;
-                    // Collect data for the ghost nodes, if necessary
-                    bool DataFitsInBuffer =
-                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                                       MyYSlices, GlobalX, LocalY, 0, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                       BufferNorthSend, NGrainOrientations, BufSize);
-                    if (!(DataFitsInBuffer)) {
-                        // This cell's data did not fit in the buffer with current size BufSize - mark with temporary
-                        // type
-                        CellType(D3D1ConvPosition) = ActiveFailedBufferLoad;
-                    }
-                } // End if statement for serial/parallel code
             }
         });
     if (id == 0)

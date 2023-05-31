@@ -155,6 +155,7 @@ void testInputReadFromFile(bool PrintDebugFiles) {
 
         // These are different for all 3 test problems
         if (FileName == InputFilenames[0]) {
+            EXPECT_TRUE(RemeltingYN);
             EXPECT_TRUE(PrintTimeSeries);
             EXPECT_EQ(TimeSeriesInc, 5250);
             EXPECT_FALSE(PrintIdleTimeSeriesFrames);
@@ -177,6 +178,7 @@ void testInputReadFromFile(bool PrintDebugFiles) {
             EXPECT_EQ(PrintDebug, 0);
         }
         else if (FileName == InputFilenames[1]) {
+            EXPECT_FALSE(RemeltingYN);
             EXPECT_TRUE(PrintTimeSeries);
             EXPECT_EQ(TimeSeriesInc, 37500);
             EXPECT_TRUE(PrintIdleTimeSeriesFrames);
@@ -205,6 +207,7 @@ void testInputReadFromFile(bool PrintDebugFiles) {
             EXPECT_EQ(PrintDebug, 0);
         }
         else if (FileName == InputFilenames[2]) {
+            EXPECT_FALSE(RemeltingYN);
             EXPECT_DOUBLE_EQ(deltat, 1.5 * pow(10, -6));
             EXPECT_EQ(TempFilesInSeries, 2);
             EXPECT_EQ(NumberOfLayers, 2);
