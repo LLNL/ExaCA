@@ -36,7 +36,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
                        bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
-                       bool &LayerwiseTempRead, bool &PrintBinary, bool &PowderFirstLayer) {
+                       bool &LayerwiseTempRead, bool &PrintBinary, bool &PowderFirstLayer, double &InitUndercooling,
+                       int &SingleGrainOrientation) {
 
     std::ifstream InputData(InputFile);
     nlohmann::json inputdata = nlohmann::json::parse(InputData);
@@ -56,7 +57,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         SimulationType = "S";
         RemeltingYN = true;
     }
-    else if (SimulationType == "C")
+    else if ((SimulationType == "C") || (SimulationType == "SingleGrain"))
         RemeltingYN = true;
     else {
         // Simulation does not including remelting logic
@@ -94,7 +95,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Time step - given in seconds, stored in microseconds
     deltat = inputdata["Domain"]["TimeStep"];
     deltat = deltat * pow(10, -6);
-    if (SimulationType == "C") {
+    if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
         // Domain size, in cells
         nx = inputdata["Domain"]["Nx"];
         ny = inputdata["Domain"]["Ny"];
@@ -102,7 +103,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         NumberOfLayers = 1;
         LayerHeight = nz;
     }
-    else {
+    else if ((SimulationType == "S") || (SimulationType == "R")) {
         // Number of layers, layer height are needed for problem types S and R
         NumberOfLayers = inputdata["Domain"]["NumberOfLayers"];
         LayerHeight = inputdata["Domain"]["LayerOffset"];
@@ -124,10 +125,18 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Nucleation inputs:
     // Nucleation density (normalized by 10^12 m^-3), mean nucleation undercooling/st dev undercooling(K)
-    NMax = inputdata["Nucleation"]["Density"];
-    NMax = NMax * pow(10, 12);
-    dTN = inputdata["Nucleation"]["MeanUndercooling"];
-    dTsigma = inputdata["Nucleation"]["StDev"];
+    // SingleGrain problem type does not have nucleation, just a grain of a single orientation in the domain center
+    if (SimulationType != "SingleGrain") {
+        NMax = inputdata["Nucleation"]["Density"];
+        NMax = NMax * pow(10, 12);
+        dTN = inputdata["Nucleation"]["MeanUndercooling"];
+        dTsigma = inputdata["Nucleation"]["StDev"];
+    }
+    else {
+        NMax = 0.0;
+        dTN = 0.0;
+        dTsigma = 0.0;
+    }
 
     // Temperature inputs:
     if (SimulationType == "R") {
@@ -169,12 +178,20 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
         G = inputdata["TemperatureData"]["G"];
         R = inputdata["TemperatureData"]["R"];
+        if (SimulationType == "SingleGrain")
+            InitUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
+        else
+            InitUndercooling = 0.0;
     }
 
     // Substrate inputs:
     if (SimulationType == "C") {
         // Fraction of sites at bottom surface active
         FractSurfaceSitesActive = inputdata["Substrate"]["FractionSurfaceSitesActive"];
+    }
+    else if (SimulationType == "SingleGrain") {
+        // Orientation of the single grain at the domain center
+        SingleGrainOrientation = inputdata["Substrate"]["GrainOrientation"];
     }
     else {
         // Substrate data - should data come from an initial size or a file?
@@ -323,6 +340,12 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
             std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
             std::cout << "The fraction of CA cells at the bottom surface that are active is " << FractSurfaceSitesActive
                       << std::endl;
+        }
+        else if (SimulationType == "SingleGrain") {
+            std::cout
+                << "CA Simulation of a single, freely-growing grain using a unidirectional, fixed thermal gradient of "
+                << G << " K/m and a cooling rate of " << R << " K/s, with an initial undercooling of "
+                << InitUndercooling << " K at the grain center" << std::endl;
         }
         else if (SimulationType == "S") {
             std::cout << "CA Simulation using a radial, fixed thermal gradient of " << G
@@ -631,7 +654,7 @@ int calcZBound_Low(std::string SimulationType, int LayerHeight, int layernumber,
                    double deltax) {
 
     int ZBound_Low = -1; // assign dummy initial value
-    if (SimulationType == "C") {
+    if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
         // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
         ZBound_Low = 0;
     }
@@ -654,7 +677,7 @@ int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight,
                     double deltax, int nz, double *ZMaxLayer) {
 
     int ZBound_High = -1; // assign dummy initial value
-    if (SimulationType == "C") {
+    if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
         // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
         ZBound_High = nz - 1;
     }
@@ -688,11 +711,14 @@ int calcLocalActiveDomainSize(int nx, int MyYSlices, int nzActive) {
     return LocalActiveDomainSize;
 }
 //*****************************************************************************/
-// Initialize temperature data for a constrained solidification test problem
-void TempInit_DirSolidification(double G, double R, int, int &nx, int &MyYSlices, double deltax, double deltat, int,
-                                int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange, ViewI &LayerID,
-                                ViewI &NumberOfSolidificationEvents, ViewI &SolidificationEventCounter,
-                                ViewI &MeltTimeStep, ViewI MaxSolidificationEvents, ViewF3D &LayerTimeTempHistory) {
+// Initialize temperature data with a unidirectional thermal gradient and fixed cooling rate, and a set initial
+// undercooling at the Z coordinate corresponding to the domain center or domain bottom, depending on the problem type
+void TempInit_UnidirectionalGradient(double G, double R, int, int &nx, int &MyYSlices, double deltax, double deltat,
+                                     int nz, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
+                                     ViewI &LayerID, ViewI &NumberOfSolidificationEvents,
+                                     ViewI &SolidificationEventCounter, ViewI &MeltTimeStep,
+                                     ViewI MaxSolidificationEvents, ViewF3D &LayerTimeTempHistory,
+                                     double InitUndercooling, ViewF &UndercoolingCurrent, std::string SimulationType) {
 
     // TODO: When all simulations use remelting, set size of these outside of this subroutine since all problems do it
     Kokkos::realloc(NumberOfSolidificationEvents, LocalDomainSize);
@@ -700,8 +726,16 @@ void TempInit_DirSolidification(double G, double R, int, int &nx, int &MyYSlices
     Kokkos::realloc(MeltTimeStep, LocalDomainSize);
     Kokkos::realloc(LayerTimeTempHistory, LocalDomainSize, 1, 3);
 
-    // Initialize temperature field in Z direction with thermal gradient G set in input file
-    // Cells at the bottom surface (Z = 0) are at the liquidus at time step 0 (no wall cells at the bottom boundary)
+    // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
+    // (with custom InitUndercooling value) for single grain solidification
+    int LocationOfLiquidus;
+    if ((SimulationType == "C") || (G == 0)) {
+        LocationOfLiquidus = 0;
+    }
+    else {
+        int LocationOfInitUndercooling = floorf(static_cast<float>(nz) / 2.0);
+        LocationOfLiquidus = LocationOfInitUndercooling + round(InitUndercooling / (G * deltax));
+    }
     Kokkos::parallel_for(
         "TempInitDirS", LocalDomainSize, KOKKOS_LAMBDA(const int &Coordinate1D) {
             int ZCoordinate = Coordinate1D / (nx * MyYSlices);
@@ -709,8 +743,23 @@ void TempInit_DirSolidification(double G, double R, int, int &nx, int &MyYSlices
             LayerTimeTempHistory(Coordinate1D, 0, 0) = -1;
             MeltTimeStep(Coordinate1D) = -1;
             // Cells reach liquidus at a time dependent on their Z coordinate
-            LayerTimeTempHistory(Coordinate1D, 0, 1) = static_cast<int>((ZCoordinate * G * deltax) / (R * deltat));
-            CritTimeStep(Coordinate1D) = static_cast<int>((ZCoordinate * G * deltax) / (R * deltat));
+            if (G == 0) {
+                LayerTimeTempHistory(Coordinate1D, 0, 1) = -InitUndercooling / (R * deltat);
+                CritTimeStep(Coordinate1D) = -InitUndercooling / (R * deltat);
+                UndercoolingCurrent(Coordinate1D) = InitUndercooling;
+            }
+            else {
+                int DistFromLiquidus = ZCoordinate - LocationOfLiquidus;
+                LayerTimeTempHistory(Coordinate1D, 0, 1) =
+                    static_cast<int>((DistFromLiquidus * G * deltax) / (R * deltat));
+                CritTimeStep(Coordinate1D) = static_cast<int>((DistFromLiquidus * G * deltax) / (R * deltat));
+                if (DistFromLiquidus < 0) {
+                    // These cells are already undercooled/past their crit time step at the start of the simulation
+                    UndercoolingCurrent(Coordinate1D) = static_cast<int>(-R * deltat * CritTimeStep(Coordinate1D));
+                }
+                else
+                    UndercoolingCurrent(Coordinate1D) = 0.0;
+            }
             // Cells cool at a constant rate
             LayerTimeTempHistory(Coordinate1D, 0, 2) = R * deltat;
             UndercoolingChange(Coordinate1D) = R * deltat;
@@ -1548,6 +1597,50 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
         });
     if (id == 0)
         std::cout << "Number of substrate active cells across all ranks: " << SubstrateActCells << std::endl;
+}
+
+// Initializes the single active cell and associated active cell data structures for the single grain at the domain
+// center
+void SubstrateInit_SingleGrain(int id, int SingleGrainOrientation, int nx, int ny, int nz, int MyYSlices, int MyYOffset,
+                               int LocalActiveDomainSize, NList NeighborX, NList NeighborY, NList NeighborZ,
+                               ViewF GrainUnitVector, ViewI CellType, ViewI GrainID, ViewF DiagonalLength,
+                               ViewF DOCenter, ViewF CritDiagonalLength) {
+
+    // Location of the single grain
+    int GrainLocationX = floorf(static_cast<float>(nx) / 2.0);
+    int GrainLocationY = floorf(static_cast<float>(ny) / 2.0);
+    int GrainLocationZ = floorf(static_cast<float>(nz) / 2.0);
+
+    Kokkos::parallel_for(
+        "SingleGrainInit", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
+            int GlobalZ = D3D1ConvPosition / (nx * MyYSlices);
+            int Rem = D3D1ConvPosition % (nx * MyYSlices);
+            int GlobalX = Rem / MyYSlices;
+            int RankY = Rem % MyYSlices;
+            int GlobalY = RankY + MyYOffset;
+            if ((GlobalX == GrainLocationX) && (GlobalY == GrainLocationY) && (GlobalZ == GrainLocationZ)) {
+                CellType(D3D1ConvPosition) = Active;
+                GrainID(D3D1ConvPosition) = SingleGrainOrientation + 1;
+
+                // Initialize new octahedron
+                createNewOctahedron(D3D1ConvPosition, DiagonalLength, DOCenter, GlobalX, GlobalY, GlobalZ);
+
+                // The orientation for the new grain will depend on its Grain ID
+                float cx = GlobalX + 0.5;
+                float cy = GlobalY + 0.5;
+                float cz = GlobalZ + 0.5;
+                // Calculate critical values at which this active cell leads to the activation of a neighboring liquid
+                // cell. Octahedron center and cell center overlap for octahedra created as part of a new grain
+                calcCritDiagonalLength(D3D1ConvPosition, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
+                                       SingleGrainOrientation, GrainUnitVector, CritDiagonalLength);
+            }
+            else
+                CellType(D3D1ConvPosition) = Liquid;
+        });
+    if ((GrainLocationY >= MyYOffset) && (GrainLocationY < MyYOffset + MyYSlices))
+        std::cout << "Rank " << id << " initialized a grain with orientation " << SingleGrainOrientation
+                  << " initialized at X = " << GrainLocationX << ", Y = " << GrainLocationY
+                  << ", Z = " << GrainLocationZ << std::endl;
 }
 
 // Determine the height of the baseplate, in CA cells

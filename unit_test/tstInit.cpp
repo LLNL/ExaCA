@@ -118,10 +118,10 @@ void testInputReadFromFile(bool PrintDebugFiles) {
     // Read and parse each input file
     for (auto FileName : InputFilenames) {
         int TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, PrintDebug, NSpotsX, NSpotsY, SpotOffset,
-            SpotRadius, TimeSeriesInc, RVESize;
+            SpotRadius, TimeSeriesInc, RVESize, SingleGrainOrientation;
         float SubstrateGrainSpacing;
         double deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R, FractSurfaceSitesActive, RNGSeed,
-            PowderActiveFraction;
+            PowderActiveFraction, InitUndercooling;
         bool RemeltingYN, PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, PrintTimeSeries,
             UseSubstrateFile, PrintIdleTimeSeriesFrames, PrintDefaultRVE = false, BaseplateThroughPowder,
                                                          LayerwiseTempRead, PrintBinary, PowderFirstLayer;
@@ -136,7 +136,7 @@ void testInputReadFromFile(bool PrintDebugFiles) {
                           PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
                           PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
                           BaseplateThroughPowder, PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary,
-                          PowderFirstLayer);
+                          PowderFirstLayer, InitUndercooling, SingleGrainOrientation);
         InterfacialResponseFunction irf(0, MaterialFileName, deltat, deltax);
 
         // Check the results

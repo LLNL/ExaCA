@@ -123,5 +123,7 @@ void IntermediateOutputAndCheck_Remelt(
     int ZBound_Low, int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector, ViewF UndercoolingChange,
     ViewF UndercoolingCurrent, std::string PathToOutput, std::string OutputFile, bool PrintIdleMovieFrames,
     int MovieFrameInc, int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep, bool PrintBinary);
+void IntermediateOutputAndCheck_SingleGrain(int id, int cycle, int MyYSlices, int MyYOffset, int LocalActiveDomainSize,
+                                            int nx, int ny, int nz, int &XSwitch, ViewI CritTimeStep, ViewI CellType);
 
 #endif

@@ -24,23 +24,25 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     int nx, ny, nz, NumberOfLayers, LayerHeight, TempFilesInSeries;
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, RVESize;
     unsigned int NumberOfTemperatureDataPoints;
-    int PrintDebug, TimeSeriesInc;
+    int PrintDebug, TimeSeriesInc, SingleGrainOrientation;
     bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, RemeltingYN, UseSubstrateFile,
         PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead,
         PrintBinary, PowderFirstLayer;
     float SubstrateGrainSpacing;
-    double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction;
+    double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction,
+        InitUndercooling;
     std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
     std::vector<std::string> temp_paths;
 
     // Read input file
-    InputReadFromFile(
-        id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, TempFilesInSeries,
-        temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName,
-        SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
-        PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
-        PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder,
-        PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary, PowderFirstLayer);
+    InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile,
+                      TempFilesInSeries, temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight,
+                      MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
+                      FractSurfaceSitesActive, PathToOutput, PrintDebug, PrintMisorientation,
+                      PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
+                      PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed,
+                      BaseplateThroughPowder, PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary,
+                      PowderFirstLayer, InitUndercooling, SingleGrainOrientation);
     InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax);
 
     // Variables characterizing local processor grids relative to global domain
@@ -155,11 +157,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         TempInit_SpotNoRemelt(G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, nz, LocalDomainSize,
                               CritTimeStep, UndercoolingChange, LayerHeight, NumberOfLayers, irf.FreezingRange, LayerID,
                               NSpotsX, NSpotsY, SpotRadius, SpotOffset);
-    else if (SimulationType == "C")
-        TempInit_DirSolidification(G, R, id, nx, MyYSlices, deltax, deltat, nz, LocalDomainSize, CritTimeStep,
-                                   UndercoolingChange, LayerID, NumberOfSolidificationEvents,
-                                   SolidificationEventCounter, MeltTimeStep, MaxSolidificationEvents,
-                                   LayerTimeTempHistory);
+    else if ((SimulationType == "C") || (SimulationType == "SingleGrain"))
+        TempInit_UnidirectionalGradient(G, R, id, nx, MyYSlices, deltax, deltat, nz, LocalDomainSize, CritTimeStep,
+                                        UndercoolingChange, LayerID, NumberOfSolidificationEvents,
+                                        SolidificationEventCounter, MeltTimeStep, MaxSolidificationEvents,
+                                        LayerTimeTempHistory, InitUndercooling, UndercoolingCurrent, SimulationType);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization, active domain size is " << nzActive << " out of "
@@ -206,6 +208,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         SubstrateInit_ConstrainedGrowth(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
                                         NeighborZ, GrainUnitVector, NGrainOrientations, CellType, GrainID,
                                         DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed);
+    }
+    else if (SimulationType == "SingleGrain") {
+        SubstrateInit_SingleGrain(id, SingleGrainOrientation, nx, ny, nz, MyYSlices, MyYOffset, LocalActiveDomainSize,
+                                  NeighborX, NeighborY, NeighborZ, GrainUnitVector, CellType, GrainID, DiagonalLength,
+                                  DOCenter, CritDiagonalLength);
     }
     else {
         // Generate the baseplate microstructure, or read it from a file
@@ -386,7 +393,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
-            if (cycle % 1000 == 0) {
+            // Check for end of the layer or the simulation - single grain checks every time step, other problems check
+            // every 1000 time steps, either using the version of the check with or without remelting depending on the
+            // problem type
+            if ((cycle % 1000 == 0) && (SimulationType != "SingleGrain")) {
 
                 if (RemeltingYN)
                     IntermediateOutputAndCheck_Remelt(
@@ -405,6 +415,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                                UndercoolingCurrent, PathToOutput, OutputFile, PrintIdleTimeSeriesFrames,
                                                TimeSeriesInc, IntermediateFileCounter, NumberOfLayers, PrintBinary);
             }
+            else if (SimulationType == "SingleGrain")
+                IntermediateOutputAndCheck_SingleGrain(id, cycle, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny,
+                                                       nz, XSwitch, CritTimeStep, CellType);
 
         } while (XSwitch == 0);
         if (layernumber != NumberOfLayers - 1) {

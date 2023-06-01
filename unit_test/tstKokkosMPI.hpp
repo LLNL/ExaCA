@@ -518,6 +518,62 @@ void testResetBufferCapacity() {
 }
 
 //---------------------------------------------------------------------------//
+// grain_checks
+//---------------------------------------------------------------------------//
+void testIntermediateOutputAndCheck_SingleGrain() {
+
+    using memory_space = TEST_MEMSPACE;
+    using view_type_int = Kokkos::View<int *, memory_space>;
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    int nx = 5;
+    int ny = 5 * np;
+    int nz = 5;
+    int MyYSlices = 5;
+    int MyYOffset = 5 * id;
+    int LocalActiveDomainSize = nx * MyYSlices * nz;
+
+    view_type_int CellType("CellType", LocalActiveDomainSize);
+    Kokkos::deep_copy(CellType, Liquid);
+    view_type_int CritTimeStep("DiagonalLength", LocalActiveDomainSize);
+    Kokkos::deep_copy(CritTimeStep, 1);
+
+    int XSwitch = 0;
+    // This should not trigger the end of the simulation, as there are no active cells present
+    IntermediateOutputAndCheck_SingleGrain(id, 0, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny, nz, XSwitch,
+                                           CritTimeStep, CellType);
+    EXPECT_EQ(XSwitch, 0);
+
+    // Place an active cell, but in the domain interiors - also shouldn't trigger the end of the simulation
+    Kokkos::parallel_for(
+        "PlaceActiveCellInterior1", 1, KOKKOS_LAMBDA(const int &) { CellType(63) = Active; });
+    IntermediateOutputAndCheck_SingleGrain(id, 0, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny, nz, XSwitch,
+                                           CritTimeStep, CellType);
+    EXPECT_EQ(XSwitch, 0);
+    // Place active cells at processor boundaries, but not the simulation edge - also shouldn't trigger the end of the
+    // simulation
+    if (id > 0) {
+        Kokkos::parallel_for(
+            "PlaceActiveCellInterior2", 1, KOKKOS_LAMBDA(const int &) { CellType(30) = Active; });
+    }
+    IntermediateOutputAndCheck_SingleGrain(id, 0, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny, nz, XSwitch,
+                                           CritTimeStep, CellType);
+    EXPECT_EQ(XSwitch, 0);
+
+    // Place an active cell at the domain edge of one of the MPI ranks, which should trigger the end of the simulation
+    if ((np == 1) || (id == 1)) {
+        Kokkos::parallel_for(
+            "PlaceActiveCellExteriorSerial", 1, KOKKOS_LAMBDA(const int &) { CellType(25) = Active; });
+    }
+    IntermediateOutputAndCheck_SingleGrain(id, 0, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny, nz, XSwitch,
+                                           CritTimeStep, CellType);
+    EXPECT_EQ(XSwitch, 1);
+}
+//---------------------------------------------------------------------------//
 // domain_calculations
 //---------------------------------------------------------------------------//
 void testcalcVolFractionNucleated() {
@@ -605,6 +661,7 @@ TEST(TEST_CATEGORY, communication) {
     testResizeRefillBuffers();
     testResetBufferCapacity();
 }
+TEST(TEST_CATEGORY, grain_checks) { testIntermediateOutputAndCheck_SingleGrain(); }
 TEST(TEST_CATEGORY, domain_calculations) { testcalcVolFractionNucleated(); }
 TEST(TEST_CATEGORY, full_simulations) { testSmallDirS(); }
 } // end namespace Test

@@ -54,6 +54,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |Input                   | Equivalent from old input file format | Details |
 |------------------------|---------------------------------------|---------|
 | SimulationType         | Problem Type                          |         |
+|                        |                                       | `SingleGrain` for solidification of a single grain at the domain center, continuing until it reaches a domain edge
 |                        |                                       | C for directional solidification (thermal gradient in build direction, fixed cooling rate)
 |                        |                                       | S for spot melt array problem (fixed thermal gradient/constant cooling rate for each hemispherical spot)
 |                        |                                       | R for use of temperature data provided in the appropriate format (see README file in examples/Temperatures)
@@ -87,16 +88,17 @@ The .json files in the examples subdirectory are provided on the command line to
 | Input        | Equivalent from      | Relevant problem | Details |
 |              | old input file format| type(s)          |         |    
 |--------------| ---------------------|------------------| --------|
-|Density           | Heterogeneous nucleation density             | All| Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
-|MeanUndercooling  | Mean nucleation undercooling                 | All| Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
-|StDevUndercooling | Standard deviation of nucleation undercooling| All| Standard deviation of nucleation undercooling (Gaussian distribution), in K
+|Density           | Heterogeneous nucleation density             | C, S, R | Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
+|MeanUndercooling  | Mean nucleation undercooling                 | C, S, R | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
+|StDevUndercooling | Standard deviation of nucleation undercooling| C, S, R | Standard deviation of nucleation undercooling (Gaussian distribution), in K
 
 ## Temperature inputs
 | Input        | Equivalent from      | Relevant problem | Details |
 |              | old input file format| type(s)          |         |    
 |--------------| ---------------------|------------------| --------|
-|G             | Thermal gradient             | C, S | Thermal gradient in the build (+Z) directions, in K/m
-|R             | Cooling rate                 | C, S | Cooling rate (uniform across the domain), in K/s
+|G             | Thermal gradient     | SingleGrain, C, S | Thermal gradient in the build (+Z) directions, in K/m
+|R             | Cooling rate         | SingleGrain, C, S | Cooling rate (uniform across the domain), in K/s
+|InitUndercooling | N/A               | SingleGrain      | Undercooling at the location of the seeded grain 
 |HeatTransferCellSize | Heat transport data mesh size| R    | By default, equal to deltax, and cannot be used if remelting is considered. deltax must divide evenly into HTdeltax
 |LayerwiseTempRead| Discard temperature data and reread temperature files after each layer | R | If set to Y, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to N, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. This option is only applicable to simulations with remelting; simulations without remelting (and simulations where this input is not given) default to N. Setting this to Y is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
 |TemperatureFiles | N/A | R | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than numberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, layerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
@@ -110,6 +112,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |SubstrateFilename | Substrate filename       | S, R     | Path to and filename for substrate data (see note (a))
 |PowderDensity | Density of powder surface sites active | S, R | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (b))
 |ExtendSubstrateThroughPower| Extend baseplate through layers | S, R | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (b))
+|GrainOrientation | N/A               | SingleGrain      | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
 
 (a) One of these inputs must be provided, but not both
 (b) This is optional, but if this is given, "extendSubstrateThroughPower" must be set to false

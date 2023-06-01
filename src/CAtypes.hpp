@@ -28,6 +28,7 @@ typedef Kokkos::View<int *, Kokkos::MemoryTraits<Kokkos::Atomic>> View_a;
 typedef Kokkos::View<float **> Buffer2D;
 typedef Kokkos::View<float *> TestView;
 typedef Kokkos::View<float ***> ViewF3D;
+typedef Kokkos::View<bool **> ViewB2D;
 
 using exe_space = Kokkos::DefaultExecutionSpace::execution_space;
 using device_memory_space = Kokkos::DefaultExecutionSpace::memory_space;
@@ -40,6 +41,7 @@ typedef Kokkos::View<int *, layout, Kokkos::HostSpace> ViewI_H;
 typedef Kokkos::View<int **, layout, Kokkos::HostSpace> ViewI2D_H;
 typedef Kokkos::View<int ***, layout, Kokkos::HostSpace> ViewI3D_H;
 typedef Kokkos::View<float **, layout, Kokkos::HostSpace> Buffer2D_H;
+typedef Kokkos::View<bool **, layout, Kokkos::HostSpace> ViewB2D_H;
 
 typedef Kokkos::Array<int, 26> NList;
 

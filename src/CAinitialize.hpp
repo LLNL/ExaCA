@@ -26,7 +26,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
                        bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
                        bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
-                       bool &LayerwiseTempRead, bool &PrintBinary, bool &PowderFirstLayer);
+                       bool &LayerwiseTempRead, bool &PrintBinary, bool &PowderFirstLayer, double &InitUndercooling,
+                       int &SingleGrainOrientation);
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
                          double PowderDensity);
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
@@ -47,10 +48,12 @@ int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight,
                     double deltax, int nz, double *ZMaxLayer);
 int calcnzActive(int ZBound_Low, int ZBound_High, int id, int layernumber);
 int calcLocalActiveDomainSize(int nx, int MyYSlices, int nzActive);
-void TempInit_DirSolidification(double G, double R, int id, int &nx, int &MyYSlices, double deltax, double deltat,
-                                int nz, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
-                                ViewI &LayerID, ViewI &NumberOfSolidificationEvents, ViewI &SolidificationEventCounter,
-                                ViewI &MeltTimeStep, ViewI MaxSolidificationEvents, ViewF3D &LayerTimeTempHistory);
+void TempInit_UnidirectionalGradient(double G, double R, int, int &nx, int &MyYSlices, double deltax, double deltat,
+                                     int nz, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
+                                     ViewI &LayerID, ViewI &NumberOfSolidificationEvents,
+                                     ViewI &SolidificationEventCounter, ViewI &MeltTimeStep,
+                                     ViewI MaxSolidificationEvents, ViewF3D &LayerTimeTempHistory,
+                                     double InitUndercooling, ViewF &UndercoolingCurrent, std::string SimulationType);
 int calcMaxSolidificationEventsSpot(int nx, int MyYSlices, int NumberOfSpots, int NSpotsX, int SpotRadius,
                                     int SpotOffset, int MyYOffset);
 void OrientationInit(int id, int &NGrainOrientations, ViewF &ReadOrientationData, std::string GrainOrientationFile,
@@ -96,6 +99,10 @@ void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int
                                      int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
                                      ViewF GrainUnitVector, int NGrainOrientations, ViewI CellType, ViewI GrainID,
                                      ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength, double RNGSeed);
+void SubstrateInit_SingleGrain(int id, int SingleGrainOrientation, int nx, int ny, int nz, int MyYSlices, int MyYOffset,
+                               int LocalActiveDomainSize, NList NeighborX, NList NeighborY, NList NeighborZ,
+                               ViewF GrainUnitVector, ViewI CellType, ViewI GrainID, ViewF DiagonalLength,
+                               ViewF DOCenter, ViewF CritDiagonalLength);
 int getBaseplateSizeZ(int nz, double *ZMaxLayer, double ZMin, double deltax, int LayerHeight,
                       bool BaseplateThroughPowder, bool PowderFirstLayer);
 void SubstrateInit_FromFile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int pid,

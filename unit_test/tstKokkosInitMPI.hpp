@@ -216,6 +216,78 @@ void testPowderInit() {
         EXPECT_LT(GrainID_H(i), NextLayer_FirstEpitaxialGrainID);
     }
 }
+
+void testSubstrateInit_SingleGrain() {
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    int SingleGrainOrientation = 0;
+
+    // Let overall domain be 5 cells in X and Z, 50 cells in Y
+    // This should in turn place the single grain in the cell at X = Y = 2 and Z = 24 (domain center)
+    // Domain for each rank
+    int nx = 5;
+    int ny = 50;
+    int nz = 5;
+    int ExpectedGrainX = floorf(static_cast<float>(nx) / 2.0);
+    int ExpectedGrainY = floorf(static_cast<float>(ny) / 2.0);
+    int ExpectedGrainZ = floorf(static_cast<float>(nz) / 2.0);
+
+    // Decompose domain
+    int MyYOffset, MyYSlices, NeighborRank_North, NeighborRank_South;
+    long int LocalActiveDomainSize;
+    bool AtNorthBoundary, AtSouthBoundary;
+    DomainDecomposition(id, np, MyYSlices, MyYOffset, NeighborRank_North, NeighborRank_South, nx, ny, nz,
+                        LocalActiveDomainSize, AtNorthBoundary, AtSouthBoundary);
+
+    // Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ)
+    NList NeighborX, NeighborY, NeighborZ;
+    NeighborListInit(NeighborX, NeighborY, NeighborZ);
+
+    // Views for cell data - init grain IDs to 0, cells to liquid
+    ViewI GrainID("GrainID", LocalActiveDomainSize);
+    ViewI CellType(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalActiveDomainSize);
+    Kokkos::deep_copy(CellType, Liquid);
+
+    // Orientation data - init to dummy values
+    ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9);
+    Kokkos::deep_copy(GrainUnitVector, 1.0 / sqrt(3.0));
+
+    // Cells for octahedron data
+    ViewF DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), LocalActiveDomainSize);
+    ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
+    ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
+
+    // Init grain
+    SubstrateInit_SingleGrain(id, SingleGrainOrientation, nx, ny, nz, MyYSlices, MyYOffset, LocalActiveDomainSize,
+                              NeighborX, NeighborY, NeighborZ, GrainUnitVector, CellType, GrainID, DiagonalLength,
+                              DOCenter, CritDiagonalLength);
+
+    // Copy cell type and grain ID back to host to check if the values match - only 1 cell should've been assigned type
+    // active and GrainID = 1 (though it may be duplicated in the ghost nodes of other ranks)
+    ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    for (int k = 0; k < nz; k++) {
+        for (int i = 0; i < nx; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
+                int GlobalY = j + MyYOffset;
+                int D3D1ConvPosition = k * nx * MyYSlices + i * MyYSlices + j;
+                if ((k == ExpectedGrainZ) && (i == ExpectedGrainX) && (GlobalY == ExpectedGrainY)) {
+                    EXPECT_EQ(GrainID_Host(D3D1ConvPosition), SingleGrainOrientation + 1);
+                    EXPECT_EQ(CellType_Host(D3D1ConvPosition), Active);
+                }
+                else {
+                    EXPECT_EQ(GrainID_Host(D3D1ConvPosition), 0);
+                    EXPECT_EQ(CellType_Host(D3D1ConvPosition), Liquid);
+                }
+            }
+        }
+    }
+}
 //---------------------------------------------------------------------------//
 // cell_init_tests
 //---------------------------------------------------------------------------//
@@ -697,6 +769,7 @@ TEST(TEST_CATEGORY, grain_init_tests) {
     testBaseplateInit_FromGrainSpacing(true);
     testBaseplateInit_FromGrainSpacing(false);
     testPowderInit();
+    testSubstrateInit_SingleGrain();
 }
 TEST(TEST_CATEGORY, cell_init_test) {
     testCellTypeInit_NoRemelt();

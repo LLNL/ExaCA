@@ -760,3 +760,83 @@ void IntermediateOutputAndCheck_Remelt(
                      NGrainOrientations, PathToOutput, IntermediateFileCounter, nzActive, deltax, XMin, YMin, ZMin,
                      NumberOfLayers, XSwitch, TemperatureDataType, PrintIdleMovieFrames, MovieFrameInc, PrintBinary);
 }
+
+//*****************************************************************************/
+// Prints intermediate code output to stdout and checks to see the single grain simulation end condition (the grain has
+// reached a domain edge) has been satisfied
+void IntermediateOutputAndCheck_SingleGrain(int id, int cycle, int MyYSlices, int MyYOffset, int LocalActiveDomainSize,
+                                            int nx, int ny, int nz, int &XSwitch, ViewI CritTimeStep, ViewI CellType) {
+
+    unsigned long int LocalSuperheatedLiquidCells;
+    unsigned long int LocalUndercooledLiquidCells;
+    unsigned long int LocalActiveCells;
+    unsigned long int LocalSolidCells;
+    ViewB2D EdgesReached(Kokkos::ViewAllocateWithoutInitializing("EdgesReached"), 3, 2); // init to false
+    Kokkos::deep_copy(EdgesReached, false);
+
+    Kokkos::parallel_reduce(
+        LocalActiveDomainSize,
+        KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &sum_superheated,
+                      unsigned long int &sum_undercooled, unsigned long int &sum_active, unsigned long int &sum_solid) {
+            if (CellType(D3D1ConvPosition) == Liquid) {
+                if (CritTimeStep(D3D1ConvPosition) > cycle)
+                    sum_superheated += 1;
+                else
+                    sum_undercooled += 1;
+            }
+            else if (CellType(D3D1ConvPosition) == Active) {
+                sum_active += 1;
+                // Did this cell reach a domain edge?
+                int RankZ = D3D1ConvPosition / (nx * MyYSlices);
+                int Rem = D3D1ConvPosition % (nx * MyYSlices);
+                int RankX = Rem / MyYSlices;
+                int RankY = Rem % MyYSlices;
+                int GlobalY = RankY + MyYOffset;
+                if (RankX == 0)
+                    EdgesReached(0, 0) = true;
+                if (RankX == nx - 1)
+                    EdgesReached(0, 1) = true;
+                if (GlobalY == 0)
+                    EdgesReached(1, 0) = true;
+                if (GlobalY == ny - 1)
+                    EdgesReached(1, 1) = true;
+                if (RankZ == 0)
+                    EdgesReached(2, 0) = true;
+                if (RankZ == nz - 1)
+                    EdgesReached(2, 1) = true;
+            }
+            else if (CellType(D3D1ConvPosition) == Solid)
+                sum_solid += 1;
+        },
+        LocalSuperheatedLiquidCells, LocalUndercooledLiquidCells, LocalActiveCells, LocalSolidCells);
+
+    unsigned long int GlobalSuperheatedLiquidCells, GlobalUndercooledLiquidCells, GlobalActiveCells, GlobalSolidCells;
+    MPI_Reduce(&LocalSuperheatedLiquidCells, &GlobalSuperheatedLiquidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0,
+               MPI_COMM_WORLD);
+    MPI_Reduce(&LocalUndercooledLiquidCells, &GlobalUndercooledLiquidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0,
+               MPI_COMM_WORLD);
+    MPI_Reduce(&LocalActiveCells, &GlobalActiveCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalSolidCells, &GlobalSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "cycle = " << cycle << " : Superheated liquid cells = " << GlobalSuperheatedLiquidCells
+                  << " Undercooled liquid cells = " << GlobalUndercooledLiquidCells
+                  << " Active cells = " << GlobalActiveCells << " Solid cells = " << GlobalSolidCells << std::endl;
+
+    // Each rank checks to see if a global domain boundary was reached
+    ViewB2D_H EdgesReached_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), EdgesReached);
+    int XSwitchLocal = 0;
+    std::vector<std::string> EdgeDims = {"X", "Y", "Z"};
+    std::vector<std::string> EdgeNames = {"Lower", "Upper"};
+    for (int edgedim = 0; edgedim < 3; edgedim++) {
+        for (int edgename = 0; edgename < 2; edgename++) {
+            if (EdgesReached_Host(edgedim, edgename)) {
+                std::cout << EdgeNames[edgename] << " edge of domain in the " << EdgeDims[edgedim]
+                          << " direction was reached on rank " << id << " and cycle " << cycle
+                          << "; simulation is complete" << std::endl;
+                XSwitchLocal = 1;
+            }
+        }
+    }
+    // Simulation ends if a global domain boundary was reached on any rank
+    MPI_Allreduce(&XSwitchLocal, &XSwitch, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+}
