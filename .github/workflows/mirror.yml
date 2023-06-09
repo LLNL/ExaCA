@@ -1,0 +1,31 @@
+name: Mirror
+on: 
+  push:
+    branches:
+      - master
+
+jobs:
+  sync-master:
+    runs-on: ubuntu-latest
+    steps:
+      - name: sync
+        uses: wei/git-sync@v3
+        with:
+          source_repo: "LLNL/ExaCA"
+          source_branch: "master"
+          destination_repo: "ExascaleAM/ExaCA"
+          destination_branch: "master"
+          source_ssh_private_key: ${{ secrets.SOURCE_SSH_PRIVATE_KEY }}
+          destination_ssh_private_key: ${{ secrets.DESTINATION_SSH_PRIVATE_KEY }}
+  sync-tags:
+    runs-on: ubuntu-latest
+    steps:
+      - name: sync
+        uses: wei/git-sync@v3
+        with:
+          source_repo: "LLNL/ExaCA"
+          source_branch: "refs/tags/*"
+          destination_repo: "ExascaleAM/ExaCA"
+          destination_branch: "refs/tags/*"
+          source_ssh_private_key: ${{ secrets.SOURCE_SSH_PRIVATE_KEY }}
+          destination_ssh_private_key: ${{ secrets.DESTINATION_SSH_PRIVATE_KEY }}
