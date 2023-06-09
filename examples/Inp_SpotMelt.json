@@ -30,7 +30,7 @@
       "PathToOutput": "./",
       "OutputFile": "TestProblemSpot",
       "PrintBinary": false,
-      "PrintExaConstitSize": 0,
+      "printExaConstitSize": 0,
       "PrintFieldsInit": [],
       "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
       "PrintIntermediateOutput": {

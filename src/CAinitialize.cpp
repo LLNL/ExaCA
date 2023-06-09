@@ -27,16 +27,16 @@
 // Read ExaCA input file (JSON format)
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
                        double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
-                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax,
-                       bool &RemeltingYN, double &deltat, int &NumberOfLayers, int &LayerHeight,
-                       std::string &MaterialFileName, std::string &SubstrateFileName, float &SubstrateGrainSpacing,
-                       bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny, int &nz,
-                       double &FractSurfaceSitesActive, std::string &PathToOutput, int &PrintDebug,
-                       bool &PrintMisorientation, bool &PrintFinalUndercoolingVals, bool &PrintFullOutput, int &NSpotsX,
-                       int &NSpotsY, int &SpotOffset, int &SpotRadius, bool &PrintTimeSeries, int &TimeSeriesInc,
-                       bool &PrintIdleTimeSeriesFrames, bool &PrintDefaultRVE, double &RNGSeed,
-                       bool &BaseplateThroughPowder, double &PowderActiveFraction, int &RVESize,
-                       bool &LayerwiseTempRead, bool &PrintBinary, bool &PowderFirstLayer) {
+                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax, double &deltat,
+                       int &NumberOfLayers, int &LayerHeight, std::string &MaterialFileName,
+                       std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
+                       double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
+                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
+                       bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
+                       bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
+                       bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder,
+                       double &PowderActiveFraction, int &RVESize, bool &LayerwiseTempRead, bool &PrintBinary,
+                       bool &PowderFirstLayer) {
 
     std::ifstream InputData(InputFile);
     nlohmann::json inputdata = nlohmann::json::parse(InputData);
@@ -46,29 +46,20 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // "C": constrained (directional) solidification
     // "S": array of overlapping hemispherical spots
     // "R": time-temperature history comes from external files
-    // Check if simulation type includes remelting ("M" suffix to input problem type)
-    // DirSoldification problems now include remelting logic
+    // Check if simulation type includes remelting ("M" suffix to input problem type) - all simulations now use
+    // remelting, so in the absence of this suffix, print warning that the problem will use remelting DirSoldification
+    // problems now include remelting logic
     if (SimulationType == "RM") {
         SimulationType = "R";
-        RemeltingYN = true;
     }
     else if (SimulationType == "SM") {
         SimulationType = "S";
-        RemeltingYN = true;
     }
-    else if (SimulationType == "C")
-        RemeltingYN = true;
-    else {
-        // Simulation does not including remelting logic
-        RemeltingYN = false;
+    else if ((SimulationType == "S") || (SimulationType == "R")) {
         if (id == 0) {
             if (SimulationType == "S")
-                std::cout << "Note: simulations of spot melt arrays without remelting will not be allowed in a future "
-                             "release, problem type will default to using remelting"
-                          << std::endl;
-            else if (SimulationType == "R")
-                std::cout << "Note: simulations using input temperature data from files without remelting will not be "
-                             "allowed in a future release, problem type will default to using remelting"
+                std::cout << "Warning: While the specified problem type did not includ remelting, all simulations now "
+                             "include remelting by default"
                           << std::endl;
         }
     }
@@ -140,19 +131,11 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         }
         else
             HT_deltax = deltax;
-        if ((RemeltingYN) && (HT_deltax != deltax))
-            throw std::runtime_error("Error: For simulations with external temperature data and remelting logic, CA "
-                                     "cell size and input temperature data resolution must be equivalent");
+        if (HT_deltax != deltax)
+            throw std::runtime_error("Error: CA cell size and input temperature data resolution must be equivalent");
         // Read all temperature files at once (default), or one at a time?
         if (inputdata["TemperatureData"].contains("LayerwiseTempRead")) {
             LayerwiseTempRead = inputdata["TemperatureData"]["LayerwiseTempRead"];
-            if ((!(RemeltingYN)) && (LayerwiseTempRead)) {
-                if (id == 0)
-                    std::cout << "Warning: ability to read temperature files one at a time during initialization of "
-                                 "new layers is only supported for simulations with remelting"
-                              << std::endl;
-                LayerwiseTempRead = false;
-            }
         }
         else
             LayerwiseTempRead = false;
@@ -314,9 +297,6 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         if (PrintTimeSeries)
             std::cout << "Intermediate output for movie frames will be printed every " << TimeSeriesInc
                       << " time steps (or every " << TimeSeriesInc * deltat << " microseconds)" << std::endl;
-        if (RemeltingYN)
-            std::cout << "This simulation includes logic for cells melting and multiple solidification events"
-                      << std::endl;
         if (SimulationType == "C") {
             std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << G
                       << " K/m and a cooling rate of " << R << " K/s" << std::endl;
@@ -723,69 +703,6 @@ void TempInit_DirSolidification(double G, double R, int, int &nx, int &MyYSlices
         });
 }
 
-// Initialize temperature data for an array of overlapping spot melts (done during simulation initialization, no
-// remelting)
-void TempInit_SpotNoRemelt(double G, double R, std::string, int id, int &nx, int &MyYSlices, int &MyYOffset,
-                           double deltax, double deltat, int, int LocalDomainSize, ViewI &CritTimeStep,
-                           ViewF &UndercoolingChange, int LayerHeight, int NumberOfLayers, double FreezingRange,
-                           ViewI &LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset) {
-
-    // This view is initialized with -1 for all cells, populated with other data, and later copied to the device
-    ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_H"), LocalDomainSize);
-    Kokkos::deep_copy(LayerID_Host, -1);
-    // These views are initialized with zero values on the host, populated with other data, and later copied to the
-    // device
-    ViewI_H CritTimeStep_Host("CritTimeStep_H", LocalDomainSize);
-    ViewF_H UndercoolingChange_Host("UndercoolingChange_H", LocalDomainSize);
-
-    int NumberOfSpots = NSpotsX * NSpotsY;
-    // Outer edges of spots are initialized at the liquidus temperature
-    // Spots cool at constant rate R, spot thermal gradient = G
-    // Time between "start" of next spot is the time it takes for the previous spot
-    // to have entirely gone below the solidus temperature
-    float IsothermVelocity = (R / G) * deltat / deltax;                                  // in cells per time step
-    int TimeBetweenSpots = SpotRadius / IsothermVelocity + (FreezingRange / R) / deltat; // in time steps
-    if (id == 0)
-        std::cout << "Initializing temperature field for " << NumberOfSpots
-                  << " spots, each of which takes approximately " << TimeBetweenSpots << " time steps to solidify"
-                  << std::endl;
-    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
-        for (int n = 0; n < NumberOfSpots; n++) {
-            if (id == 0)
-                std::cout << "Initializing spot " << n << " on layer " << layernumber << std::endl;
-            // Initialize critical time step/cooling rate values for this spot/this layer
-            int XSpotPos = SpotRadius + (n % NSpotsX) * SpotOffset;
-            int YSpotPos = SpotRadius + (n / NSpotsX) * SpotOffset;
-            int ZSpotPos = SpotRadius + LayerHeight * layernumber;
-            for (int k = 0; k <= SpotRadius; k++) {
-                // Distance of this cell from the spot center
-                float DistZ = (float)(ZSpotPos - (k + LayerHeight * layernumber));
-                for (int i = 0; i < nx; i++) {
-                    float DistX = (float)(XSpotPos - i);
-                    for (int j = 0; j < MyYSlices; j++) {
-                        int YGlobal = j + MyYOffset;
-                        float DistY = (float)(YSpotPos - YGlobal);
-                        float TotDist = sqrt(DistX * DistX + DistY * DistY + DistZ * DistZ);
-                        if (TotDist <= SpotRadius) {
-                            int GlobalD3D1ConvPosition =
-                                (k + layernumber * LayerHeight) * nx * MyYSlices + i * MyYSlices + j;
-                            CritTimeStep_Host(GlobalD3D1ConvPosition) =
-                                1 + (int)(((float)(SpotRadius)-TotDist) / IsothermVelocity) + TimeBetweenSpots * n;
-                            UndercoolingChange_Host(GlobalD3D1ConvPosition) = R * deltat;
-                            LayerID_Host(GlobalD3D1ConvPosition) = layernumber;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Copy initialized host data back to device
-    CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
-    LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
-    UndercoolingChange = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingChange_Host);
-}
-
 // For an overlapping spot melt pattern, determine the maximum number of times a cell will melt/solidify as part of a
 // layer
 int calcMaxSolidificationEventsSpot(int nx, int MyYSlices, int NumberOfSpots, int NSpotsX, int SpotRadius,
@@ -822,14 +739,13 @@ int calcMaxSolidificationEventsSpot(int nx, int MyYSlices, int NumberOfSpots, in
     return GlobalMaxSEvents;
 }
 
-// Initialize temperature data for an array of overlapping spot melts (done at the start of each layer, with remelting)
-void TempInit_SpotRemelt(int layernumber, double G, double R, std::string, int id, int &nx, int &MyYSlices,
-                         int &MyYOffset, double deltax, double deltat, int ZBound_Low, int, int LocalActiveDomainSize,
-                         int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
-                         ViewF &UndercoolingCurrent, int, double FreezingRange, ViewI &LayerID, int NSpotsX,
-                         int NSpotsY, int SpotRadius, int SpotOffset, ViewF3D &LayerTimeTempHistory,
-                         ViewI &NumberOfSolidificationEvents, ViewI &MeltTimeStep, ViewI &MaxSolidificationEvents,
-                         ViewI &SolidificationEventCounter) {
+// Initialize temperature data for an array of overlapping spot melts (done at the start of each layer)
+void TempInit_Spot(int layernumber, double G, double R, std::string, int id, int &nx, int &MyYSlices, int &MyYOffset,
+                   double deltax, double deltat, int ZBound_Low, int, int LocalActiveDomainSize, int LocalDomainSize,
+                   ViewI &CritTimeStep, ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, int,
+                   double FreezingRange, ViewI &LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset,
+                   ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents, ViewI &MeltTimeStep,
+                   ViewI &MaxSolidificationEvents, ViewI &SolidificationEventCounter) {
 
     int NumberOfSpots = NSpotsX * NSpotsY;
 
@@ -948,7 +864,7 @@ void TempInit_SpotRemelt(int layernumber, double G, double R, std::string, int i
         Kokkos::create_mirror_view_and_copy(device_memory_space(), NumberOfSolidificationEvents_Host);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
-        std::cout << "Spot melt temperature field with remelting for layer " << layernumber
+        std::cout << "Spot melt temperature field for layer " << layernumber
                   << " initialized; each cell will solidify up to " << MaxSolidificationEvents_Host(layernumber)
                   << " times" << std::endl;
 }
@@ -983,225 +899,6 @@ double getTempCoordTL(int i, const std::vector<double> &RawData) {
 double getTempCoordCR(int i, const std::vector<double> &RawData) {
     double CoolingRate = RawData[i + 5];
     return CoolingRate;
-}
-
-// Initialize temperature data for a problem using the reduced/sparse data format and input temperature data from
-// file(s)
-void TempInit_ReadDataNoRemelt(int id, int &nx, int &MyYSlices, int &MyYOffset, double deltax, int HTtoCAratio,
-                               double deltat, int, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
-                               double XMin, double YMin, double ZMin, double *ZMinLayer, double *ZMaxLayer,
-                               int LayerHeight, int NumberOfLayers, int *FinishTimeStep, double FreezingRange,
-                               ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData, int ny) {
-
-    // These views are initialized to zeros on the host, filled with data, and then copied to the device for layer
-    // "layernumber"
-    ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_H"), LocalDomainSize);
-    ViewI_H CritTimeStep_Host("CritTimeStep_H", LocalDomainSize);
-    ViewF_H UndercoolingChange_Host("UndercoolingChange_H", LocalDomainSize);
-
-    // Temperature data read
-    // If HTtoCAratio > 1, an interpolation of input temperature data is needed
-    // The Y bounds are the region (for this MPI rank) of the physical domain that needs to be
-    // read extends past the actual spatial extent of the local domain for purposes of interpolating
-    // from HT_deltax to deltax
-    int LowerYBound = MyYOffset - (MyYOffset % HTtoCAratio);
-    int UpperYBound = MyYOffset + MyYSlices - 1 + HTtoCAratio - ((MyYOffset + MyYSlices - 1) % HTtoCAratio);
-    // Make sure that upper Y bound doesn't extend beyond simulation domain
-    if (UpperYBound >= ny)
-        UpperYBound = ny - 1;
-
-    // LayerID = -1 for cells that don't solidify as part of any layer of the multilayer problem
-    Kokkos::deep_copy(LayerID_Host, -1);
-
-    // removed unused LayerwiseTSOffset variable
-
-    for (int LayerCounter = 0; LayerCounter < NumberOfLayers; LayerCounter++) {
-
-        double SmallestTime = 1000000000;
-        double SmallestTime_Global = 1000000000;
-        double LargestTime = 0;
-        double LargestTime_Global = 0;
-
-        // How many CA cells in the vertical direction are needed to hold this layer's temperature data?
-        int nzTempValuesThisLayer = round((ZMaxLayer[LayerCounter] - ZMinLayer[LayerCounter]) / deltax) + 1;
-        if (id == 0)
-            std::cout << "Initializing temporary temperature data structures with " << nzTempValuesThisLayer
-                      << " cells in z direction" << std::endl;
-        if (id == 0)
-            std::cout << "Layer " << LayerCounter << " rank " << id << " ZMin this layer is " << ZMinLayer[LayerCounter]
-                      << std::endl;
-        std::vector<std::vector<std::vector<double>>> CR, CritTL;
-        for (int k = 0; k < nzTempValuesThisLayer; k++) {
-            std::vector<std::vector<double>> TemperatureXX;
-            for (int i = 0; i < nx; i++) {
-                std::vector<double> TemperatureX;
-                for (int j = LowerYBound; j <= UpperYBound; j++) {
-                    TemperatureX.push_back(-1.0);
-                }
-                TemperatureXX.push_back(TemperatureX);
-            }
-            CR.push_back(TemperatureXX);
-            CritTL.push_back(TemperatureXX);
-        }
-        // Data was already read into the "RawData" temporary data structure
-        // Determine which section of "RawData" is relevant for this layer of the overall domain
-        int StartRange = FirstValue[LayerCounter];
-        int EndRange = LastValue[LayerCounter];
-        if (id == 0)
-            std::cout << "Range for layer " << LayerCounter << " on rank 0 is " << StartRange << " to " << EndRange
-                      << std::endl;
-        MPI_Barrier(MPI_COMM_WORLD);
-        for (int i = StartRange; i < EndRange; i += 6) {
-
-            // Get the integer X, Y, Z coordinates associated with this data point, along with TL and CR values
-            int XInt = getTempCoordX(i, XMin, deltax, RawData);
-            int YInt = getTempCoordY(i, YMin, deltax, RawData);
-            int ZInt = getTempCoordZ(i, deltax, RawData, LayerHeight, LayerCounter, ZMinLayer);
-            double TLiquidus = getTempCoordTL(i, RawData);
-            // Liquidus time/cooling rate - only keep values for the last time that this point went below the liquidus
-            if (TLiquidus > CritTL[ZInt][XInt][YInt - LowerYBound]) {
-                CritTL[ZInt][XInt][YInt - LowerYBound] = TLiquidus;
-                if (TLiquidus < SmallestTime) {
-                    // Store smallest read TLiquidus value over all cells
-                    SmallestTime = RawData[i];
-                }
-                double CoolingRate = getTempCoordCR(i, RawData);
-                CR[ZInt][XInt][YInt - LowerYBound] = CoolingRate;
-                double SolidusTime =
-                    CritTL[ZInt][XInt][YInt - LowerYBound] + FreezingRange / CR[ZInt][XInt][YInt - LowerYBound];
-                if (SolidusTime > LargestTime) {
-                    // Store largest TSolidus value (based on liquidus/cooling rate/freezing range) over all cells
-                    LargestTime = SolidusTime;
-                }
-            }
-        }
-
-        // If reading data from files without a script, time values start at 0 for each layer
-        // If reading data with input from a script time values each layer are continuous, are should be
-        // renormalized to 0 for each layer
-        MPI_Reduce(&LargestTime, &LargestTime_Global, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-        MPI_Bcast(&LargestTime_Global, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&SmallestTime, &SmallestTime_Global, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-        MPI_Bcast(&SmallestTime_Global, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-        if (id == 0) {
-            std::cout << "Smallest time globally for layer " << LayerCounter << " is " << SmallestTime_Global
-                      << std::endl;
-            std::cout << "Largest time globally for layer " << LayerCounter << " is " << LargestTime_Global
-                      << std::endl;
-        }
-        // renormalize last time step value with the start of the layer as time step 0
-        // Previously normalized "time 0" to be the first time a cell goes below the liquidus; this is removed such that
-        // time is consistent with simulations that include remelting, which don't normalize "time 0"
-        FinishTimeStep[LayerCounter] = round(LargestTime_Global / deltat);
-        if (id == 0)
-            std::cout << " Layer " << LayerCounter << " FINISH TIME STEP IS " << FinishTimeStep[LayerCounter]
-                      << std::endl;
-        if (id == 0)
-            std::cout << "Layer " << LayerCounter << " temperatures read" << std::endl;
-
-        // Data interpolation between heat transport and CA grids, if necessary
-        if (HTtoCAratio != 1) {
-            for (int k = 0; k < nzTempValuesThisLayer; k++) {
-                int LowZ = k - (k % HTtoCAratio);
-                int HighZ = LowZ + HTtoCAratio;
-                double FHighZ = (double)(k - LowZ) / (double)(HTtoCAratio);
-                double FLowZ = 1.0 - FHighZ;
-                if (HighZ > nzTempValuesThisLayer - 1)
-                    HighZ = LowZ;
-                for (int i = 0; i < nx; i++) {
-                    int LowX = i - (i % HTtoCAratio);
-                    int HighX = LowX + HTtoCAratio;
-                    double FHighX = (double)(i - LowX) / (double)(HTtoCAratio);
-                    double FLowX = 1.0 - FHighX;
-                    if (HighX >= nx)
-                        HighX = LowX;
-
-                    for (int j = 0; j <= UpperYBound - LowerYBound; j++) {
-                        int LowY = j - (j % HTtoCAratio);
-                        int HighY = LowY + HTtoCAratio;
-                        double FHighY = (float)(j - LowY) / (float)(HTtoCAratio);
-                        double FLowY = 1.0 - FHighY;
-                        if (HighY > UpperYBound - LowerYBound)
-                            HighY = LowY;
-                        double Pt1 = CritTL[LowZ][LowX][LowY];
-                        double Pt2 = CritTL[LowZ][HighX][LowY];
-                        double Pt12 = FLowX * Pt1 + FHighX * Pt2;
-                        double Pt3 = CritTL[LowZ][LowX][HighY];
-                        double Pt4 = CritTL[LowZ][HighX][HighY];
-                        double Pt34 = FLowX * Pt3 + FHighX * Pt4;
-                        double Pt1234 = Pt12 * FLowY + Pt34 * FHighY;
-                        double Pt5 = CritTL[HighZ][LowX][LowY];
-                        double Pt6 = CritTL[HighZ][HighX][LowY];
-                        double Pt56 = FLowX * Pt5 + FHighX * Pt6;
-                        double Pt7 = CritTL[HighZ][LowX][HighY];
-                        double Pt8 = CritTL[HighZ][HighX][HighY];
-                        double Pt78 = FLowX * Pt7 + FHighX * Pt8;
-                        double Pt5678 = Pt56 * FLowY + Pt78 * FHighY;
-                        if ((Pt1 > 0) && (Pt2 > 0) && (Pt3 > 0) && (Pt4 > 0) && (Pt5 > 0) && (Pt6 > 0) && (Pt7 > 0) &&
-                            (Pt8 > 0)) {
-                            CritTL[k][i][j] = Pt1234 * FLowZ + Pt5678 * FHighZ;
-                        }
-                        Pt1 = CR[LowZ][LowX][LowY];
-                        Pt2 = CR[LowZ][HighX][LowY];
-                        Pt12 = FLowX * Pt1 + FHighX * Pt2;
-                        Pt3 = CR[LowZ][LowX][HighY];
-                        Pt4 = CR[LowZ][HighX][HighY];
-                        Pt34 = FLowX * Pt3 + FHighX * Pt4;
-                        Pt1234 = Pt12 * FLowY + Pt34 * FHighY;
-                        Pt5 = CR[HighZ][LowX][LowY];
-                        Pt6 = CR[HighZ][HighX][LowY];
-                        Pt56 = FLowX * Pt5 + FHighX * Pt6;
-                        Pt7 = CR[HighZ][LowX][HighY];
-                        Pt8 = CR[HighZ][HighX][HighY];
-                        Pt78 = FLowX * Pt7 + FHighX * Pt8;
-                        Pt5678 = Pt56 * FLowY + Pt78 * FHighY;
-                        if ((Pt1 > 0) && (Pt2 > 0) && (Pt3 > 0) && (Pt4 > 0) && (Pt5 > 0) && (Pt6 > 0) && (Pt7 > 0) &&
-                            (Pt8 > 0)) {
-                            CR[k][i][j] = Pt1234 * FLowZ + Pt5678 * FHighZ;
-                        }
-                    }
-                }
-            }
-        }
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
-            std::cout << "Interpolation done" << std::endl;
-
-        // Convert CritTL, CritTS matrices into CritTimeStep and UndercoolingChange (change in undercooling with
-        // time step) "ZMin" is the global Z coordinate that corresponds to cells at Z = 0, "ZMax" is the global Z
-        // coordinate that corresponds to cells at Z = nz-1
-        if (id == 0)
-            std::cout << "Layer " << LayerCounter << " data belongs to global z coordinates of "
-                      << round((ZMinLayer[LayerCounter] - ZMin) / deltax) << " through "
-                      << round((ZMinLayer[LayerCounter] - ZMin) / deltax) + nzTempValuesThisLayer - 1 << std::endl;
-
-        for (int k = 0; k < nzTempValuesThisLayer; k++) {
-            for (int i = 0; i < nx; i++) {
-                for (int jj = LowerYBound; jj <= UpperYBound; jj++) {
-                    if ((jj >= MyYOffset) && (jj < MyYOffset + MyYSlices)) {
-                        int Adj_j = jj - MyYOffset;
-                        // Liquidus time normalized to the time at which the layer started solidifying
-                        double CTLiq = CritTL[k][i][jj - LowerYBound] - SmallestTime_Global;
-                        if (CTLiq > 0) {
-                            // Where does this layer's temperature data belong on the global (including all layers)
-                            // grid? Adjust Z coordinate by ZMin
-                            int ZOffset = round((ZMinLayer[LayerCounter] - ZMin) / deltax) + k;
-                            int Coord3D1D = ZOffset * nx * MyYSlices + i * MyYSlices + Adj_j;
-                            CritTimeStep_Host(Coord3D1D) = round(CTLiq / deltat);
-                            LayerID_Host(Coord3D1D) = LayerCounter;
-                            UndercoolingChange_Host(Coord3D1D) = std::abs(CR[k][i][jj - LowerYBound]) * deltat;
-                        }
-                    }
-                }
-            }
-        }
-    } // End read over all temperature files and placement of data
-
-    // Copy initialized host data back to device
-    CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
-    LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
-    UndercoolingChange = Kokkos::create_mirror_view_and_copy(device_memory_space(), UndercoolingChange_Host);
 }
 
 // Calculate the number of times that a cell in layer "layernumber" undergoes melting/solidification, and store in
@@ -1252,15 +949,15 @@ void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries
                   << MaxSolidificationEvents_Host(layernumber) << std::endl;
 }
 
-// Initialize temperature fields for this layer if remelting is considered and data comes from files
-void TempInit_ReadDataRemelt(int layernumber, int id, int nx, int MyYSlices, int, int LocalActiveDomainSize,
-                             int LocalDomainSize, int MyYOffset, double &deltax, double deltat, double FreezingRange,
-                             ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents,
-                             ViewI &MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep,
-                             ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, double XMin, double YMin,
-                             double *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
-                             ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData,
-                             ViewI &SolidificationEventCounter, int TempFilesInSeries) {
+// Initialize temperature fields for this layer with data read from files
+void TempInit_ReadData(int layernumber, int id, int nx, int MyYSlices, int, int LocalActiveDomainSize,
+                       int LocalDomainSize, int MyYOffset, double &deltax, double deltat, double FreezingRange,
+                       ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents,
+                       ViewI &MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep,
+                       ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, double XMin, double YMin,
+                       double *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
+                       ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData,
+                       ViewI &SolidificationEventCounter, int TempFilesInSeries) {
 
     // Data was already read into the "RawData" temporary data structure
     // Determine which section of "RawData" is relevant for this layer of the overall domain
@@ -1821,127 +1518,9 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLa
 }
 
 //*****************************************************************************/
-// Initializes cells at border of solid and liquid as active type - performed on device
-void CellTypeInit_NoRemelt(int layernumber, int id, int np, int nx, int MyYSlices, int MyYOffset, int ZBound_Low,
-                           int nz, int LocalActiveDomainSize, int LocalDomainSize, ViewI CellType, ViewI CritTimeStep,
-                           NList NeighborX, NList NeighborY, NList NeighborZ, int NGrainOrientations,
-                           ViewF GrainUnitVector, ViewF DiagonalLength, ViewI GrainID, ViewF CritDiagonalLength,
-                           ViewF DOCenter, ViewI LayerID, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                           bool AtNorthBoundary, bool AtSouthBoundary, ViewI SendSizeNorth, ViewI SendSizeSouth,
-                           int BufSize) {
-
-    // Start with all cells as solid for the first layer, with liquid cells where temperature data exists
-    if (layernumber == 0) {
-        Kokkos::deep_copy(CellType, Solid);
-        // This is done prior to initializing active cells, as active cells are initialized based on neighbor cell types
-        Kokkos::parallel_for(
-            "CellTypeInitSolLiq", LocalDomainSize, KOKKOS_LAMBDA(const int &GlobalD3D1ConvPosition) {
-                if (CritTimeStep(GlobalD3D1ConvPosition) != 0)
-                    CellType(GlobalD3D1ConvPosition) = Liquid;
-            });
-        Kokkos::fence();
-        int ActCellCount = 0;
-        Kokkos::parallel_reduce(
-            "CellTypeInitAct", LocalDomainSize,
-            KOKKOS_LAMBDA(const int &GlobalD3D1ConvPosition, int &ActCellCount) {
-                // Cells of interest for the CA
-                int GlobalZ = GlobalD3D1ConvPosition / (nx * MyYSlices);
-                int Rem = GlobalD3D1ConvPosition % (nx * MyYSlices);
-                int RankX = Rem / MyYSlices;
-                int RankY = Rem % MyYSlices;
-                if (CellType(GlobalD3D1ConvPosition) == Liquid) {
-                    // This is a liquid or active cell, depending on whether it is located at the interface of the
-                    // solid Check to see if this site is actually at the solid-liquid interface "l" corresponds to
-                    // a specific neighbor direction (of 26 possible neighbors)
-                    // All liquid cells at the bottom surface (k = 0) are at the interface and should be active
-                    // Without solid/wall cell padding below the domain, some of these wouldn't be caught by
-                    // the logic in the below loop over all neighbors
-                    for (int l = 0; l < 26; l++) {
-                        // Global coordinates of adjacent cell center
-                        int MyNeighborX = RankX + NeighborX[l];
-                        int MyNeighborY = RankY + NeighborY[l];
-                        int MyNeighborZ = GlobalZ + NeighborZ[l];
-                        int NeighborD3D1ConvPosition =
-                            MyNeighborZ * nx * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                        if ((MyNeighborX >= 0) && (MyNeighborX < nx) && (MyNeighborY >= 0) &&
-                            (MyNeighborY < MyYSlices) && (MyNeighborZ >= 0) && (MyNeighborZ < nz)) {
-                            if ((CellType(NeighborD3D1ConvPosition) == Solid) || (GlobalZ == 0)) {
-                                // This cell is at the interface - becomes active type
-                                CellType(GlobalD3D1ConvPosition) = Active;
-                                ActCellCount++;
-                                // exit loop over neighboring cells
-                                l = 26;
-                            }
-                        }
-                    }
-                }
-            },
-            ActCellCount);
-        Kokkos::fence();
-        int TotalSubstrateActCells;
-        MPI_Reduce(&ActCellCount, &TotalSubstrateActCells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-        if (id == 0)
-            std::cout << "Number of initial substrate active cells across all ranks and all layers: "
-                      << TotalSubstrateActCells << std::endl;
-    }
-
-    // Each layer, count number of active cells are at the solid-liquid boundary for this layer's portion of the domain
-    Kokkos::parallel_for(
-        "CellTypeInitAct", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
-            // Cells of interest for the CA
-            int RankZ = D3D1ConvPosition / (nx * MyYSlices);
-            int Rem = D3D1ConvPosition % (nx * MyYSlices);
-            int GlobalX = Rem / MyYSlices;
-            int RankY = Rem % MyYSlices;
-            int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + GlobalX * MyYSlices + RankY;
-            if ((CellType(GlobalD3D1ConvPosition) == Active) && (LayerID(GlobalD3D1ConvPosition) == layernumber)) {
-                // This cell was marked as active previously - initialize active cell data structures
-                int GlobalY = RankY + MyYOffset;
-                int RankZ = GlobalZ - ZBound_Low;
-                int D3D1ConvPosition = RankZ * nx * MyYSlices + GlobalX * MyYSlices + RankY;
-                int MyGrainID = GrainID(GlobalD3D1ConvPosition);
-                // Initialize new octahedron
-                createNewOctahedron(D3D1ConvPosition, DiagonalLength, DOCenter, GlobalX, GlobalY, GlobalZ);
-
-                // The orientation for the new grain will depend on its Grain ID
-                int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
-                float cx = GlobalX + 0.5;
-                float cy = GlobalY + 0.5;
-                float cz = GlobalZ + 0.5;
-                // Calculate critical values at which this active cell leads to the activation of a neighboring liquid
-                // cell. Octahedron center and cell center overlap for octahedra created as part of a new grain
-                calcCritDiagonalLength(D3D1ConvPosition, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
-                                       MyOrientation, GrainUnitVector, CritDiagonalLength);
-                // If this new active cell is in the halo region, load the send buffers
-                if (np > 1) {
-
-                    int GhostGID = MyGrainID;
-                    float GhostDOCX = GlobalX + 0.5;
-                    float GhostDOCY = GlobalY + 0.5;
-                    float GhostDOCZ = GlobalZ + 0.5;
-                    float GhostDL = 0.01;
-                    // Collect data for the ghost nodes, if necessary
-                    bool DataFitsInBuffer =
-                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                                       MyYSlices, GlobalX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
-                                       BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
-                    if (!(DataFitsInBuffer)) {
-                        // This cell's data did not fit in the buffer with current size BufSize - mark with temporary
-                        // type
-                        CellType(D3D1ConvPosition) = ActiveFailedBufferLoad;
-                    }
-
-                } // End if statement for serial/parallel code
-            }
-        });
-    Kokkos::fence();
-}
-
-//*****************************************************************************/
 // Initializes cells for the current layer as either solid (don't resolidify) or tempsolid (will melt and resolidify)
-void CellTypeInit_Remelt(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI CritTimeStep, int id,
-                         int ZBound_Low) {
+void CellTypeInit(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI CritTimeStep, int id,
+                  int ZBound_Low) {
 
     int MeltPoolCellCount;
     Kokkos::parallel_reduce(
@@ -1961,46 +1540,6 @@ void CellTypeInit_Remelt(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI
     if (id == 0)
         std::cout << "Number of cells across all ranks to undergo solidification at least once: "
                   << TotalMeltPoolCellCount << std::endl;
-}
-
-//*****************************************************************************/
-// Determine which nuclei are located on a given MPI rank, and may possibly occur during simulation
-// Place the appropriate nuclei data into the structures NucleiLocation, NucleationTimes, and NucleiGrainID
-// Case without remelting (each cell can only have 1 nuclei max, each cell solidifies at most, one time)
-void placeNucleiData_NoRemelt(int Nuclei_ThisLayerSingle, ViewI_H NucleiX, ViewI_H NucleiY, ViewI_H NucleiZ,
-                              int MyYOffset, int nx, int MyYSlices, bool AtNorthBoundary, bool AtSouthBoundary,
-                              int ZBound_Low, ViewI_H CellType_Host, ViewI_H LayerID_Host, ViewI_H CritTimeStep_Host,
-                              ViewF_H UndercoolingChange_Host, int layernumber,
-                              std::vector<int> NucleiGrainID_WholeDomain_V,
-                              std::vector<double> NucleiUndercooling_WholeDomain_V,
-                              std::vector<int> &NucleiGrainID_MyRank_V, std::vector<int> &NucleiLocation_MyRank_V,
-                              std::vector<int> &NucleationTimes_MyRank_V, int &PossibleNuclei_ThisRankThisLayer) {
-
-    for (int NEvent = 0; NEvent < Nuclei_ThisLayerSingle; NEvent++) {
-        if (((NucleiY(NEvent) > MyYOffset) || (AtSouthBoundary)) &&
-            ((NucleiY(NEvent) < MyYOffset + MyYSlices - 1) || (AtNorthBoundary))) {
-            // Convert 3D location (using global X and Y coordinates) into a 1D location (using local X and Y
-            // coordinates) for the possible nucleation event, relative to the bottom of the overall domain
-            int NucleiLocation_AllLayers = (NucleiZ(NEvent) + ZBound_Low) * nx * MyYSlices +
-                                           NucleiX(NEvent) * MyYSlices + (NucleiY(NEvent) - MyYOffset);
-            // Nucleus place criteria - cell is initially liquid, associated with the current layer of the problem
-            if ((CellType_Host(NucleiLocation_AllLayers) == Liquid) &&
-                (LayerID_Host(NucleiLocation_AllLayers) == layernumber)) {
-                // Nucleation event is possible - cell is liquid and associated with this layer of the
-                // multilayer problem - Add nuclei location and undercooling to the list for this rank
-                NucleiLocation_MyRank_V[PossibleNuclei_ThisRankThisLayer] = NucleiLocation_AllLayers;
-                int TimeToNucUnd =
-                    CritTimeStep_Host(NucleiLocation_AllLayers) +
-                    round(NucleiUndercooling_WholeDomain_V[NEvent] / UndercoolingChange_Host(NucleiLocation_AllLayers));
-                NucleationTimes_MyRank_V[PossibleNuclei_ThisRankThisLayer] =
-                    std::max(CritTimeStep_Host(NucleiLocation_AllLayers), TimeToNucUnd);
-                // Assign this cell the potential nucleated grain ID
-                NucleiGrainID_MyRank_V[PossibleNuclei_ThisRankThisLayer] = NucleiGrainID_WholeDomain_V[NEvent];
-                // Increment counter on this MPI rank
-                PossibleNuclei_ThisRankThisLayer++;
-            }
-        }
-    }
 }
 
 // Determine which nuclei are located on a given MPI rank, and may possibly occur during simulation
@@ -2056,8 +1595,8 @@ void NucleiInit(int layernumber, double RNGSeed, int MyYSlices, int MyYOffset, i
                 int ZBound_Low, int id, double NMax, double dTN, double dTsigma, double deltax, ViewI &NucleiLocation,
                 ViewI_H &NucleationTimes_Host, ViewI &NucleiGrainID, ViewI CellType, ViewI CritTimeStep,
                 ViewF UndercoolingChange, ViewI LayerID, int &PossibleNuclei_ThisRankThisLayer, int &Nuclei_WholeDomain,
-                bool AtNorthBoundary, bool AtSouthBoundary, bool RemeltingYN, int &NucleationCounter,
-                ViewI &MaxSolidificationEvents, ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory) {
+                bool AtNorthBoundary, bool AtSouthBoundary, int &NucleationCounter, ViewI &MaxSolidificationEvents,
+                ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory) {
 
     // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation data
     // back to the device again. This is currently performed on the device due to heavy usage of standard library
@@ -2102,11 +1641,7 @@ void NucleiInit(int layernumber, double RNGSeed, int MyYSlices, int MyYOffset, i
     // Max number of nucleated grains in this layer
     int Nuclei_ThisLayerSingle = BulkProb * (nx * ny * nzActive); // equivalent to Nuclei_ThisLayer if no remelting
     // Multiplier for the number of nucleation events per layer, based on the number of solidification events
-    int NucleiMultiplier;
-    if (RemeltingYN)
-        NucleiMultiplier = MaxSolidificationEvents_Host(layernumber);
-    else
-        NucleiMultiplier = 1;
+    int NucleiMultiplier = MaxSolidificationEvents_Host(layernumber);
     int Nuclei_ThisLayer = Nuclei_ThisLayerSingle * NucleiMultiplier;
     // Temporary vectors for storing nucleated grain IDs and undercooling values
     // Nuclei Grain ID are assigned to avoid reusing values from previous layers
@@ -2148,18 +1683,11 @@ void NucleiInit(int layernumber, double RNGSeed, int MyYSlices, int MyYOffset, i
     // nucleation events occur on other ranks and the existing halo exchange functionality will handle this
     std::vector<int> NucleiGrainID_MyRank_V(Nuclei_ThisLayer), NucleiLocation_MyRank_V(Nuclei_ThisLayer),
         NucleationTimes_MyRank_V(Nuclei_ThisLayer);
-    if (RemeltingYN)
-        placeNucleiData_Remelt(NucleiMultiplier, Nuclei_ThisLayerSingle, NucleiX, NucleiY, NucleiZ, MyYOffset, nx,
-                               MyYSlices, AtNorthBoundary, AtSouthBoundary, ZBound_Low,
-                               NumberOfSolidificationEvents_Host, LayerTimeTempHistory_Host,
-                               NucleiGrainID_WholeDomain_V, NucleiUndercooling_WholeDomain_V, NucleiGrainID_MyRank_V,
-                               NucleiLocation_MyRank_V, NucleationTimes_MyRank_V, PossibleNuclei_ThisRankThisLayer);
-    else
-        placeNucleiData_NoRemelt(Nuclei_ThisLayerSingle, NucleiX, NucleiY, NucleiZ, MyYOffset, nx, MyYSlices,
-                                 AtNorthBoundary, AtSouthBoundary, ZBound_Low, CellType_Host, LayerID_Host,
-                                 CritTimeStep_Host, UndercoolingChange_Host, layernumber, NucleiGrainID_WholeDomain_V,
-                                 NucleiUndercooling_WholeDomain_V, NucleiGrainID_MyRank_V, NucleiLocation_MyRank_V,
-                                 NucleationTimes_MyRank_V, PossibleNuclei_ThisRankThisLayer);
+    placeNucleiData_Remelt(NucleiMultiplier, Nuclei_ThisLayerSingle, NucleiX, NucleiY, NucleiZ, MyYOffset, nx,
+                           MyYSlices, AtNorthBoundary, AtSouthBoundary, ZBound_Low, NumberOfSolidificationEvents_Host,
+                           LayerTimeTempHistory_Host, NucleiGrainID_WholeDomain_V, NucleiUndercooling_WholeDomain_V,
+                           NucleiGrainID_MyRank_V, NucleiLocation_MyRank_V, NucleationTimes_MyRank_V,
+                           PossibleNuclei_ThisRankThisLayer);
 
     // How many nucleation events are actually possible (associated with a cell in this layer that will undergo
     // solidification)?

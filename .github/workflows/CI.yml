@@ -88,7 +88,6 @@ jobs:
           $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.json
           mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.json
           mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.json
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt_RM.json
       - name: Test GA
         working-directory: analysis/examples
         run: |
