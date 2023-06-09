@@ -325,12 +325,9 @@ void testResizeRefillBuffers() {
             DiagonalLength(D3D1ConvPosition) = static_cast<float>(RankY);
             float GhostDL = static_cast<float>(RankY);
             // Load into appropriate buffers
-            bool DataFitsInBuffer =
-                loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                               MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                               BufferNorthSend, NGrainOrientations, BufSize);
-            if (!(DataFitsInBuffer))
-                throw std::runtime_error("Error: North send buffer overflowed too soon in testResizeRefillBuffers");
+            loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth, MyYSlices,
+                           RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
+                           NGrainOrientations, BufSize);
         });
     Kokkos::parallel_for(
         "InitDomainActiveCellsSouth", 1, KOKKOS_LAMBDA(const int &) {
@@ -351,12 +348,9 @@ void testResizeRefillBuffers() {
             DiagonalLength(D3D1ConvPosition) = static_cast<float>(RankY);
             float GhostDL = static_cast<float>(RankY);
             // Load into appropriate buffers
-            bool DataFitsInBuffer =
-                loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                               MyYSlices, RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                               BufferNorthSend, NGrainOrientations, BufSize);
-            if (!(DataFitsInBuffer))
-                throw std::runtime_error("Error: South send buffer overflowed too soon in testResizeRefillBuffers");
+            loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth, MyYSlices,
+                           RankX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
+                           NGrainOrientations, BufSize);
         });
 
     // Each rank will have "id % 4" cells of additional data to send to the south, and 1 cell of additional data to send
