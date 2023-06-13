@@ -550,9 +550,8 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
     MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
     if (RemainingCellsOfInterest == 0) {
         // If this rank still has cells that will later undergo transformation (LocalIncompleteCells > 0), check when
-        // the next superheated cells go below the liquidus (no remelting) or check when the next solid cells go above
-        // the liquidus (remelting) Otherwise, assign the largest possible time step as the next time work needs to be
-        // done on the rank
+        // the next solid cells go above the liquidus (remelting) Otherwise, assign the largest possible time step as
+        // the next time work needs to be done on the rank
         unsigned long int NextMeltTimeStep;
         if (LocalTempSolidCells > 0) {
             Kokkos::parallel_reduce(

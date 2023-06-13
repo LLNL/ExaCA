@@ -58,8 +58,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     else if ((SimulationType == "S") || (SimulationType == "R")) {
         if (id == 0) {
             if (SimulationType == "S")
-                std::cout << "Warning: While the specified problem type did not includ remelting, all simulations now "
-                             "include remelting by default"
+                std::cout << "Warning: While the specified problem type did not include remelting, all simulations now "
+                             "include remelting"
                           << std::endl;
         }
     }
