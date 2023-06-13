@@ -22,6 +22,7 @@
 // analyses to be performed
 struct RepresentativeRegion {
 
+    std::string regionName;
     std::string regionType;
     std::string regionOrientation;
     std::string units;
@@ -82,6 +83,7 @@ struct RepresentativeRegion {
                          std::vector<double> XYZBounds, ViewI3D_H GrainID) {
 
         // Data for the specific region of interest
+        regionName = RegionName;
         std::cout << "Parsing data for region " << RegionName << std::endl;
         nlohmann::json RegionData = AnalysisData["Regions"][RegionName];
         // Are the bounds given in cells, or in microns? Store both representations
@@ -485,7 +487,7 @@ struct RepresentativeRegion {
     // "write" routines write data to specific files
     //*****************************************************************************/
     // Print information about a representative area or volume to the console/QoIs file
-    void printAnalysisHeader(std::ofstream &QoIs, const std::string regionName) {
+    void printAnalysisHeader(std::ofstream &QoIs) {
 
         std::string temp;
         temp = "Stats for " + regionType + " " + regionName + "\n";

@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
             std::string QoIs_fname = BaseFileNameThisRegion + "_QoIs.txt";
             QoIs.open(QoIs_fname);
             // Header data for QoIs file
-            representativeRegion.printAnalysisHeader(QoIs, RegionName);
+            representativeRegion.printAnalysisHeader(QoIs);
 
             // Fraction of region consisting of nucleated grains, unmelted material
             if (representativeRegion.AnalysisOptions_StatsYN[0])
