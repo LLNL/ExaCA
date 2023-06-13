@@ -259,8 +259,7 @@ std::array<double, 6> parseTemperatureCoordinateMinMax(std::string tempfile_this
 // rank only contains the points corresponding to cells within the associated Y bounds. NumberOfTemperatureDataPoints is
 // incremented on each rank as data is added to RawData
 void parseTemperatureData(std::string tempfile_thislayer, double YMin, double deltax, int LowerYBound, int UpperYBound,
-                          std::vector<double> &RawData, unsigned int &NumberOfTemperatureDataPoints,
-                          bool BinaryInputData) {
+                          int &NumberOfTemperatureDataPoints, bool BinaryInputData, ViewD_H &RawTemperatureData) {
 
     std::ifstream TemperatureFilestream;
     TemperatureFilestream.open(tempfile_thislayer);
@@ -277,19 +276,19 @@ void parseTemperatureData(std::string tempfile_thislayer, double YMin, double de
             if ((YInt >= LowerYBound) && (YInt <= UpperYBound)) {
                 // This data point is inside the bounds of interest for this MPI rank
                 // Store the x and y values in RawData
-                RawData[NumberOfTemperatureDataPoints] = XTemperaturePoint;
+                RawTemperatureData(NumberOfTemperatureDataPoints) = XTemperaturePoint;
                 NumberOfTemperatureDataPoints++;
-                RawData[NumberOfTemperatureDataPoints] = YTemperaturePoint;
+                RawTemperatureData(NumberOfTemperatureDataPoints) = YTemperaturePoint;
                 NumberOfTemperatureDataPoints++;
                 // Parse the remaining 4 components (z, tm, tl, cr) from the line and store in RawData
                 for (int component = 2; component < 6; component++) {
-                    RawData[NumberOfTemperatureDataPoints] = ReadBinaryData<double>(TemperatureFilestream);
+                    RawTemperatureData(NumberOfTemperatureDataPoints) = ReadBinaryData<double>(TemperatureFilestream);
                     NumberOfTemperatureDataPoints++;
                 }
+                int RawTemperatureData_extent = RawTemperatureData.extent(0);
                 // Adjust size of RawData if it is near full
-                if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
-                    int OldSize = RawData.size();
-                    RawData.resize(OldSize + 1000000);
+                if (NumberOfTemperatureDataPoints >= RawTemperatureData_extent - 6) {
+                    Kokkos::resize(RawTemperatureData, RawTemperatureData_extent + 1000000);
                 }
             }
             else {
@@ -318,13 +317,14 @@ void parseTemperatureData(std::string tempfile_thislayer, double YMin, double de
                 // This data point is inside the bounds of interest for this MPI rank: Store the x, z, tm, tl, and cr
                 // vals inside of RawData, incrementing with each value added
                 for (int component = 0; component < 6; component++) {
-                    RawData[NumberOfTemperatureDataPoints] = getInputDouble(ParsedLine[component]);
+                    RawTemperatureData(NumberOfTemperatureDataPoints) = getInputDouble(ParsedLine[component]);
                     NumberOfTemperatureDataPoints++;
                 }
                 // Adjust size of RawData if it is near full
-                if (NumberOfTemperatureDataPoints >= RawData.size() - 6) {
-                    int OldSize = RawData.size();
-                    RawData.resize(OldSize + 1000000);
+                int RawTemperatureData_extent = RawTemperatureData.extent(0);
+                // Adjust size of RawData if it is near full
+                if (NumberOfTemperatureDataPoints >= RawTemperatureData_extent - 6) {
+                    Kokkos::resize(RawTemperatureData, RawTemperatureData_extent + 1000000);
                 }
             }
         }

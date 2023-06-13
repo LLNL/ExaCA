@@ -23,7 +23,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     int nx, ny, nz, NumberOfLayers, LayerHeight, TempFilesInSeries;
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, RVESize;
-    unsigned int NumberOfTemperatureDataPoints;
     int PrintDebug, TimeSeriesInc;
     bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, UseSubstrateFile, PrintTimeSeries,
         PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead, PrintBinary,
@@ -65,7 +64,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Store data as double - needed for small time steps to resolve local differences in solidification conditions
     // Each data point has 6 values (X, Y, Z coordinates, melting time, liquidus time, and cooling rate)
     // Initial estimate for size
-    std::vector<double> RawData(1000000);
+    ViewD_H RawTemperatureData(Kokkos::ViewAllocateWithoutInitializing("RawTemperatureData"), 1000000);
 
     // Contains "NumberOfLayers" values corresponding to the location within "RawData" of the first data element in each
     // temperature file
@@ -95,8 +94,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // data
     if (SimulationType == "R")
         ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths, NumberOfLayers,
-                            TempFilesInSeries, NumberOfTemperatureDataPoints, RawData, FirstValue, LastValue,
-                            LayerwiseTempRead, 0);
+                            TempFilesInSeries, FirstValue, LastValue, LayerwiseTempRead, 0, RawTemperatureData);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
@@ -136,7 +134,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                           irf.FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
                           MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
                           XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue,
-                          LastValue, RawData, SolidificationEventCounter, TempFilesInSeries);
+                          LastValue, RawTemperatureData, SolidificationEventCounter, TempFilesInSeries);
     else if (SimulationType == "S")
         TempInit_Spot(0, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, ZBound_Low, nz,
                       LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
@@ -369,8 +367,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // If the next layer's temperature data isn't already stored, it should be read
             if ((SimulationType == "R") && (LayerwiseTempRead)) {
                 ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths,
-                                    NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
-                                    FirstValue, LastValue, LayerwiseTempRead, layernumber + 1);
+                                    NumberOfLayers, TempFilesInSeries, FirstValue, LastValue, LayerwiseTempRead,
+                                    layernumber + 1, RawTemperatureData);
             }
             // Reinitialize temperature views back to zero and resize LayerTimeTempHistory, in
             // preparation for loading the next layer's (layernumber + 1) temperature data from RawData into the
@@ -386,7 +384,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                   MyYOffset, deltax, deltat, irf.FreezingRange, LayerTimeTempHistory,
                                   NumberOfSolidificationEvents, MaxSolidificationEvents, MeltTimeStep, CritTimeStep,
                                   UndercoolingChange, UndercoolingCurrent, XMin, YMin, ZMinLayer, LayerHeight, nzActive,
-                                  ZBound_Low, FinishTimeStep, LayerID, FirstValue, LastValue, RawData,
+                                  ZBound_Low, FinishTimeStep, LayerID, FirstValue, LastValue, RawTemperatureData,
                                   SolidificationEventCounter, TempFilesInSeries);
             }
 
