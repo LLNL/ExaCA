@@ -98,17 +98,19 @@ void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI Ce
                     CellType(GlobalCellCoordinateSouth) = Active;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(DataFitsInBuffer))
-                        printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
+                        printf("Error: Send/recv buffer resize failed to include all necessary data, predicted "
                                "results at MPI processor boundaries may be inaccurate\n");
                 }
                 else if (CellType(GlobalCellCoordinateSouth) == LiquidFailedBufferLoad) {
-                    bool DataFitsInBuffer =
-                        loadghostnodes_liquid(SendSizeNorth, SendSizeSouth, MyYSlices, i, 1, k, AtNorthBoundary,
-                                              AtSouthBoundary, BufferSouthSend, BufferNorthSend, BufSize);
+                    // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
+                    // length
+                    bool DataFitsInBuffer = loadghostnodes(
+                        -1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, MyYSlices, i, 1, k, AtNorthBoundary,
+                        AtSouthBoundary, BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
                     CellType(GlobalCellCoordinateSouth) = Liquid;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(DataFitsInBuffer))
-                        printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
+                        printf("Error: Send/recv buffer resize failed to include all necessary data, predicted "
                                "results at MPI processor boundaries may be inaccurate\n");
                 }
                 if (CellType(GlobalCellCoordinateNorth) == ActiveFailedBufferLoad) {
@@ -127,17 +129,20 @@ void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI Ce
                     CellType(GlobalCellCoordinateNorth) = Active;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(DataFitsInBuffer))
-                        printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
+                        printf("Error: Send/recv buffer resize failed to include all necessary data, predicted "
                                "results at MPI processor boundaries may be inaccurate\n");
                 }
                 else if (CellType(GlobalCellCoordinateNorth) == LiquidFailedBufferLoad) {
-                    bool DataFitsInBuffer = loadghostnodes_liquid(SendSizeNorth, SendSizeSouth, MyYSlices, i,
-                                                                  MyYSlices - 2, k, AtNorthBoundary, AtSouthBoundary,
-                                                                  BufferSouthSend, BufferNorthSend, BufSize);
+                    // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
+                    // length
+                    bool DataFitsInBuffer =
+                        loadghostnodes(-1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, MyYSlices, i,
+                                       MyYSlices - 2, k, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
+                                       BufferNorthSend, NGrainOrientations, BufSize);
                     CellType(GlobalCellCoordinateNorth) = Liquid;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(DataFitsInBuffer))
-                        printf("Warning: Send/recv buffer resize failed to include all necessary data, predicted "
+                        printf("Error: Send/recv buffer resize failed to include all necessary data, predicted "
                                "results at MPI processor boundaries may be inaccurate\n");
                 }
             }

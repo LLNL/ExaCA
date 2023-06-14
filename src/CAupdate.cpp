@@ -580,9 +580,11 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
             else if (CellType(GlobalD3D1ConvPosition) == FutureLiquid) {
                 // This type was assigned to a cell that was recently transformed from active to liquid, due to its
                 // bordering of a cell above the liquidus. This information may need to be sent to other MPI ranks
-                bool DataFitsInBuffer =
-                    loadghostnodes_liquid(SendSizeNorth, SendSizeSouth, MyYSlices, GlobalX, RankY, RankZ,
-                                          AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend, BufSize);
+                // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
+                // length
+                bool DataFitsInBuffer = loadghostnodes(
+                    -1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, MyYSlices, GlobalX, RankY, RankZ,
+                    AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
                 if (!(DataFitsInBuffer)) {
                     // This cell's data did not fit in the buffer with current size BufSize - mark with temporary
                     // type
