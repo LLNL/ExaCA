@@ -39,8 +39,8 @@ void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &Ne
                          bool &AtNorthBoundary, bool &AtSouthBoundary);
 void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyYSlices, int MyYOffset,
                          double YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
-                         unsigned int &NumberOfTemperatureDataPoints, std::vector<double> &RawData, int *FirstValue,
-                         int *LastValue, bool LayerwiseTempRead, int layernumber);
+                         int *FirstValue, int *LastValue, bool LayerwiseTempRead, int layernumber,
+                         ViewD_H &RawTemperatureData);
 int calcZBound_Low(std::string SimulationType, int LayerHeight, int layernumber, double *ZMinLayer, double ZMin,
                    double deltax);
 int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, double ZMin,
@@ -61,15 +61,15 @@ void TempInit_Spot(int layernumber, double G, double R, std::string, int id, int
                    double FreezingRange, ViewI &LayerID, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset,
                    ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents, ViewI &MeltTimeStep,
                    ViewI &MaxSolidificationEvents, ViewI &SolidificationEventCounter);
-int getTempCoordX(int i, double XMin, double deltax, const std::vector<double> &RawData);
-int getTempCoordY(int i, double YMin, double deltax, const std::vector<double> &RawData);
-int getTempCoordZ(int i, double deltax, const std::vector<double> &RawData, int LayerHeight, int LayerCounter,
+int getTempCoordX(int i, double XMin, double deltax, const ViewD_H RawTemperatureData);
+int getTempCoordY(int i, double YMin, double deltax, const ViewD_H RawTemperatureData);
+int getTempCoordZ(int i, double deltax, const ViewD_H RawTemperatureData, int LayerHeight, int LayerCounter,
                   double *ZMinLayer);
-double getTempCoordTM(int i, const std::vector<double> &RawData);
-double getTempCoordTL(int i, const std::vector<double> &RawData);
-double getTempCoordCR(int i, const std::vector<double> &RawData);
+double getTempCoordTM(int i, const ViewD_H RawTemperatureData);
+double getTempCoordTL(int i, const ViewD_H RawTemperatureData);
+double getTempCoordCR(int i, const ViewD_H RawTemperatureData);
 void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries, ViewI_H MaxSolidificationEvents_Host,
-                                  int StartRange, int EndRange, std::vector<double> RawData, double XMin, double YMin,
+                                  int StartRange, int EndRange, ViewD_H RawTemperatureData, double XMin, double YMin,
                                   double deltax, double *ZMinLayer, int LayerHeight, int nx, int MyYSlices,
                                   int MyYOffset, int LocalActiveDomainSize);
 void TempInit_ReadData(int layernumber, int id, int nx, int MyYSlices, int nz, int LocalActiveDomainSize,
@@ -78,7 +78,7 @@ void TempInit_ReadData(int layernumber, int id, int nx, int MyYSlices, int nz, i
                        ViewI &MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep,
                        ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, double XMin, double YMin,
                        double *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
-                       ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData,
+                       ViewI &LayerID, int *FirstValue, int *LastValue, ViewD_H RawTemperatureData,
                        ViewI &SolidificationEventCounter, int TempFilesInSeries);
 void SubstrateInit_ConstrainedGrowth(int id, double FractSurfaceSitesActive, int MyYSlices, int nx, int ny,
                                      int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,

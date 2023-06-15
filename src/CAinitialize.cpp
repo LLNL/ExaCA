@@ -516,11 +516,12 @@ void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &Ne
     LocalDomainSize = nx * MyYSlices * nz; // Number of cells on this MPI rank
 }
 
-// Read in temperature data from files, stored in "RawData", with the appropriate MPI ranks storing the appropriate data
+// Read in temperature data from files, stored in the host view "RawData", with the appropriate MPI ranks storing the
+// appropriate data
 void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyYSlices, int MyYOffset,
                          double YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
-                         unsigned int &NumberOfTemperatureDataPoints, std::vector<double> &RawData, int *FirstValue,
-                         int *LastValue, bool LayerwiseTempRead, int layernumber) {
+                         int *FirstValue, int *LastValue, bool LayerwiseTempRead, int layernumber,
+                         ViewD_H &RawTemperatureData) {
 
     double HTtoCAratio_unrounded = HT_deltax / deltax;
     double HTtoCAratio_floor = floor(HTtoCAratio_unrounded);
@@ -553,7 +554,7 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
     // time/cooling rate data and each rank stores the data relevant to itself in "RawData". With remelting
     // (SimulationType == "RM"), this is the same except that some X/Y/Z coordinates may be repeated in a file, and
     // a "melting time" value is stored in addition to liquidus time and cooling rate
-    NumberOfTemperatureDataPoints = 0; // reset to 0 during each call to ReadTemperatureData
+    int NumberOfTemperatureDataPoints = 0;
     // Second pass through the files - ignore header line
     int FirstLayerToRead, LastLayerToRead;
     if (LayerwiseTempRead) {
@@ -579,11 +580,11 @@ void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAra
         // Read and parse temperature file for either binary or ASCII, storing the appropriate values on each MPI rank
         // within RawData and incrementing NumberOfTemperatureDataPoints appropriately
         bool BinaryInputData = checkTemperatureFileFormat(tempfile_thislayer);
-        parseTemperatureData(tempfile_thislayer, YMin, deltax, LowerYBound, UpperYBound, RawData,
-                             NumberOfTemperatureDataPoints, BinaryInputData);
+        parseTemperatureData(tempfile_thislayer, YMin, deltax, LowerYBound, UpperYBound, NumberOfTemperatureDataPoints,
+                             BinaryInputData, RawTemperatureData);
         LastValue[LayerReadCount] = NumberOfTemperatureDataPoints;
     } // End loop over all files read for all layers
-    RawData.resize(NumberOfTemperatureDataPoints);
+    Kokkos::resize(RawTemperatureData, NumberOfTemperatureDataPoints);
     // Determine start values for each layer's data within "RawData", if all layers were read
     if (!(LayerwiseTempRead)) {
         if (NumberOfLayers > TempFilesInSeries) {
@@ -870,41 +871,42 @@ void TempInit_Spot(int layernumber, double G, double R, std::string, int id, int
 }
 
 // Read data from storage, and calculate the normalized x value of the data point
-int getTempCoordX(int i, double XMin, double deltax, const std::vector<double> &RawData) {
-    int XInt = round((RawData[i] - XMin) / deltax);
+int getTempCoordX(int i, double XMin, double deltax, const ViewD_H RawTemperatureData) {
+    int XInt = round((RawTemperatureData(i) - XMin) / deltax);
     return XInt;
 }
 // Read data from storage, and calculate the normalized y value of the data point
-int getTempCoordY(int i, double YMin, double deltax, const std::vector<double> &RawData) {
-    int YInt = round((RawData[i + 1] - YMin) / deltax);
+int getTempCoordY(int i, double YMin, double deltax, const ViewD_H RawTemperatureData) {
+    int YInt = round((RawTemperatureData(i + 1) - YMin) / deltax);
     return YInt;
 }
 // Read data from storage, and calculate the normalized z value of the data point
-int getTempCoordZ(int i, double deltax, const std::vector<double> &RawData, int LayerHeight, int LayerCounter,
+int getTempCoordZ(int i, double deltax, const ViewD_H RawTemperatureData, int LayerHeight, int LayerCounter,
                   double *ZMinLayer) {
-    int ZInt = round((RawData[i + 2] + deltax * LayerHeight * LayerCounter - ZMinLayer[LayerCounter]) / deltax);
+    int ZInt =
+        round((RawTemperatureData(i + 2) + deltax * LayerHeight * LayerCounter - ZMinLayer[LayerCounter]) / deltax);
     return ZInt;
 }
 // Read data from storage, obtain melting time
-double getTempCoordTM(int i, const std::vector<double> &RawData) {
-    double TMelting = RawData[i + 3];
+double getTempCoordTM(int i, const ViewD_H RawTemperatureData) {
+    double TMelting = RawTemperatureData(i + 3);
     return TMelting;
 }
 // Read data from storage, obtain liquidus time
-double getTempCoordTL(int i, const std::vector<double> &RawData) {
-    double TLiquidus = RawData[i + 4];
+double getTempCoordTL(int i, const ViewD_H RawTemperatureData) {
+    double TLiquidus = RawTemperatureData(i + 4);
     return TLiquidus;
 }
 // Read data from storage, obtain cooling rate
-double getTempCoordCR(int i, const std::vector<double> &RawData) {
-    double CoolingRate = RawData[i + 5];
+double getTempCoordCR(int i, const ViewD_H RawTemperatureData) {
+    double CoolingRate = RawTemperatureData(i + 5);
     return CoolingRate;
 }
 
 // Calculate the number of times that a cell in layer "layernumber" undergoes melting/solidification, and store in
 // MaxSolidificationEvents_Host
 void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries, ViewI_H MaxSolidificationEvents_Host,
-                                  int StartRange, int EndRange, std::vector<double> RawData, double XMin, double YMin,
+                                  int StartRange, int EndRange, ViewD_H RawTemperatureData, double XMin, double YMin,
                                   double deltax, double *ZMinLayer, int LayerHeight, int nx, int MyYSlices,
                                   int MyYOffset, int LocalActiveDomainSize) {
 
@@ -928,9 +930,9 @@ void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries
         for (int i = StartRange; i < EndRange; i += 6) {
 
             // Get the integer X, Y, Z coordinates associated with this data point
-            int XInt = getTempCoordX(i, XMin, deltax, RawData);
-            int YInt = getTempCoordY(i, YMin, deltax, RawData);
-            int ZInt = getTempCoordZ(i, deltax, RawData, LayerHeight, layernumber, ZMinLayer);
+            int XInt = getTempCoordX(i, XMin, deltax, RawTemperatureData);
+            int YInt = getTempCoordY(i, YMin, deltax, RawTemperatureData);
+            int ZInt = getTempCoordZ(i, deltax, RawTemperatureData, LayerHeight, layernumber, ZMinLayer);
             // Convert to 1D coordinate in the current layer's domain
             int D3D1ConvPosition = ZInt * nx * MyYSlices + XInt * MyYSlices + (YInt - MyYOffset);
             TempMeltCount(D3D1ConvPosition)++;
@@ -949,14 +951,14 @@ void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries
                   << MaxSolidificationEvents_Host(layernumber) << std::endl;
 }
 
-// Initialize temperature fields for this layer with data read from files
+// Initialize temperature fields for this layer if remelting is considered and data comes from files
 void TempInit_ReadData(int layernumber, int id, int nx, int MyYSlices, int, int LocalActiveDomainSize,
                        int LocalDomainSize, int MyYOffset, double &deltax, double deltat, double FreezingRange,
                        ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents,
                        ViewI &MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep,
                        ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, double XMin, double YMin,
                        double *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
-                       ViewI &LayerID, int *FirstValue, int *LastValue, std::vector<double> RawData,
+                       ViewI &LayerID, int *FirstValue, int *LastValue, ViewD_H RawTemperatureData,
                        ViewI &SolidificationEventCounter, int TempFilesInSeries) {
 
     // Data was already read into the "RawData" temporary data structure
@@ -972,8 +974,8 @@ void TempInit_ReadData(int layernumber, int id, int nx, int MyYSlices, int, int 
     // Get the maximum number of times a cell in layer "layernumber" will undergo melting/solidification
     // Store in the host view "MaxSolidificationEvents_Host"
     calcMaxSolidificationEventsR(id, layernumber, TempFilesInSeries, MaxSolidificationEvents_Host, StartRange, EndRange,
-                                 RawData, XMin, YMin, deltax, ZMinLayer, LayerHeight, nx, MyYSlices, MyYOffset,
-                                 LocalActiveDomainSize);
+                                 RawTemperatureData, XMin, YMin, deltax, ZMinLayer, LayerHeight, nx, MyYSlices,
+                                 MyYOffset, LocalActiveDomainSize);
     // With MaxSolidificationEvents_Host(layernumber) known, can resize LayerTimeTempHistory
     Kokkos::resize(LayerTimeTempHistory, LocalActiveDomainSize, MaxSolidificationEvents_Host(layernumber), 3);
     Kokkos::resize(NumberOfSolidificationEvents, LocalActiveDomainSize);
@@ -1010,12 +1012,12 @@ void TempInit_ReadData(int layernumber, int id, int nx, int MyYSlices, int, int 
 
         // Get the integer X, Y, Z coordinates associated with this data point, along with the associated TM, TL, CR
         // values
-        int XInt = getTempCoordX(i, XMin, deltax, RawData);
-        int YInt = getTempCoordY(i, YMin, deltax, RawData);
-        int ZInt = getTempCoordZ(i, deltax, RawData, LayerHeight, layernumber, ZMinLayer);
-        double TMelting = getTempCoordTM(i, RawData);
-        double TLiquidus = getTempCoordTL(i, RawData);
-        double CoolingRate = getTempCoordCR(i, RawData);
+        int XInt = getTempCoordX(i, XMin, deltax, RawTemperatureData);
+        int YInt = getTempCoordY(i, YMin, deltax, RawTemperatureData);
+        int ZInt = getTempCoordZ(i, deltax, RawTemperatureData, LayerHeight, layernumber, ZMinLayer);
+        double TMelting = getTempCoordTM(i, RawTemperatureData);
+        double TLiquidus = getTempCoordTL(i, RawTemperatureData);
+        double CoolingRate = getTempCoordCR(i, RawTemperatureData);
 
         // 1D cell coordinate on this MPI rank's domain
         int D3D1ConvPosition = ZInt * nx * MyYSlices + XInt * MyYSlices + (YInt - MyYOffset);
