@@ -25,9 +25,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, RVESize;
     unsigned int NumberOfTemperatureDataPoints;
     int PrintDebug, TimeSeriesInc;
-    bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, RemeltingYN, UseSubstrateFile,
-        PrintTimeSeries, PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead,
-        PrintBinary, PowderFirstLayer;
+    bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, UseSubstrateFile, PrintTimeSeries,
+        PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead, PrintBinary,
+        PowderFirstLayer;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction;
     std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
@@ -36,7 +36,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Read input file
     InputReadFromFile(
         id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, TempFilesInSeries,
-        temp_paths, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName,
+        temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName,
         SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
         PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
         PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder,
@@ -63,8 +63,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Data structure for storing raw temperature data from file(s)
     // Store data as double - needed for small time steps to resolve local differences in solidification conditions
-    // With no remelting, each data point has 5 values (X, Y, Z coordinates, liquidus time, and cooling rate)
-    // With remelting, each data point has 6 values (X, Y, Z coordinates, melting time, liquidus time, and cooling rate)
+    // Each data point has 6 values (X, Y, Z coordinates, melting time, liquidus time, and cooling rate)
     // Initial estimate for size
     std::vector<double> RawData(1000000);
 
@@ -110,7 +109,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewF UndercoolingChange(Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange"), LocalDomainSize);
     ViewF UndercoolingCurrent("UndercoolingCurrent", LocalDomainSize);
 
-    // With remelting, temperature fields are also characterized by these variables:
     // Maximum number of times a cell in a given layer undergoes solidification
     ViewI MaxSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfRemeltEvents"), NumberOfLayers);
     // For each cell in the current layer (index 1), and each time solidification happens (index 2), hold the values
@@ -130,31 +128,21 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     int LocalActiveDomainSize =
         calcLocalActiveDomainSize(nx, MyYSlices, nzActive); // Number of active cells on this MPI rank
     // Initialize the temperature fields:
-    // R: input temperature data from files using reduced/sparse data format (with or without remelting)
-    // S: spot melt array test problem (with or without remelting)
+    // R: input temperature data from files using reduced/sparse data format
+    // S: spot melt array test problem
     // C: directional/constrained solidification test problem
-    if ((SimulationType == "R") && (RemeltingYN))
-        TempInit_ReadDataRemelt(0, id, nx, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyYOffset, deltax,
-                                deltat, irf.FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
-                                MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange,
-                                UndercoolingCurrent, XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low,
-                                FinishTimeStep, LayerID, FirstValue, LastValue, RawData, SolidificationEventCounter,
-                                TempFilesInSeries);
-    else if ((SimulationType == "S") && (RemeltingYN))
-        TempInit_SpotRemelt(0, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, ZBound_Low, nz,
-                            LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange,
-                            UndercoolingCurrent, LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius,
-                            SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents, MeltTimeStep,
-                            MaxSolidificationEvents, SolidificationEventCounter);
-    else if ((SimulationType == "R") && (!RemeltingYN))
-        TempInit_ReadDataNoRemelt(id, nx, MyYSlices, MyYOffset, deltax, HTtoCAratio, deltat, nz, LocalDomainSize,
-                                  CritTimeStep, UndercoolingChange, XMin, YMin, ZMin, ZMinLayer, ZMaxLayer, LayerHeight,
-                                  NumberOfLayers, FinishTimeStep, irf.FreezingRange, LayerID, FirstValue, LastValue,
-                                  RawData, ny);
-    else if ((SimulationType == "S") && (!RemeltingYN))
-        TempInit_SpotNoRemelt(G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, nz, LocalDomainSize,
-                              CritTimeStep, UndercoolingChange, LayerHeight, NumberOfLayers, irf.FreezingRange, LayerID,
-                              NSpotsX, NSpotsY, SpotRadius, SpotOffset);
+    if (SimulationType == "R")
+        TempInit_ReadData(0, id, nx, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyYOffset, deltax, deltat,
+                          irf.FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
+                          MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
+                          XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue,
+                          LastValue, RawData, SolidificationEventCounter, TempFilesInSeries);
+    else if (SimulationType == "S")
+        TempInit_Spot(0, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat, ZBound_Low, nz,
+                      LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
+                      LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset,
+                      LayerTimeTempHistory, NumberOfSolidificationEvents, MeltTimeStep, MaxSolidificationEvents,
+                      SolidificationEventCounter);
     else if (SimulationType == "C")
         TempInit_DirSolidification(G, R, id, nx, MyYSlices, deltax, deltat, nz, LocalDomainSize, CritTimeStep,
                                    UndercoolingChange, LayerID, NumberOfSolidificationEvents,
@@ -221,29 +209,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             PowderInit(0, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyYSlices, MyYOffset, id, GrainID, RNGSeed,
                        NextLayer_FirstEpitaxialGrainID, PowderActiveFraction);
         // Separate routine for active cell data structure init for problems other than constrained solidification
-        if (RemeltingYN)
-            CellTypeInit_Remelt(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
-        else {
-            CellTypeInit_NoRemelt(0, id, np, nx, MyYSlices, MyYOffset, ZBound_Low, nz, LocalActiveDomainSize,
-                                  LocalDomainSize, CellType, CritTimeStep, NeighborX, NeighborY, NeighborZ,
-                                  NGrainOrientations, GrainUnitVector, DiagonalLength, GrainID, CritDiagonalLength,
-                                  DOCenter, LayerID, BufferNorthSend, BufferSouthSend, AtNorthBoundary, AtSouthBoundary,
-                                  SendSizeNorth, SendSizeSouth, BufSize);
-            // Count the number of cells' in halo regions where the data did not fit into the send buffers
-            // Reduce across all ranks, as the same BufSize should be maintained across all ranks
-            // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
-            int OldBufSize = BufSize;
-            BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
-            if (OldBufSize != BufSize) {
-                if (id == 0)
-                    std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
-                              << BufSize << std::endl;
-                RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend,
-                              SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter,
-                              DiagonalLength, NGrainOrientations, BufSize);
-            }
-        }
+        CellTypeInit(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
     }
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
@@ -263,7 +229,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // successive layer when layer 0 in complete
     NucleiInit(0, RNGSeed, MyYSlices, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax, dTN, dTsigma, deltax,
                NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep, UndercoolingChange, LayerID,
-               PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary, RemeltingYN,
+               PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary,
                NucleationCounter, MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory);
 
     // Steering Vector
@@ -271,19 +237,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewI_H numSteer_Host(Kokkos::ViewAllocateWithoutInitializing("SteeringVectorSize"), 1);
     numSteer_Host(0) = 0;
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
-
-    // Update ghost node data for initial state of simulation - only needed if no remelting, as there are no active
-    // cells inititially in simulations that directly model the melting process
-    if ((np > 1) && (!(RemeltingYN))) {
-        GhostNodes1D(-1, id, NeighborRank_North, NeighborRank_South, nx, MyYSlices, MyYOffset, NeighborX, NeighborY,
-                     NeighborZ, CellType, DOCenter, GrainID, GrainUnitVector, DiagonalLength, CritDiagonalLength,
-                     NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize,
-                     ZBound_Low, SendSizeNorth, SendSizeSouth);
-        // If not using remelting, the initial number of active cells to communicate is usually much larger than the
-        // number on any given time step - reset the buffer sizes to the initial value of 25
-        BufSize = BufSizeInitialEstimate;
-        ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize);
-    }
 
     // If specified, print initial values in some views for debugging purposes
     double InitTime = MPI_Wtime() - StartInitTime;
@@ -338,11 +291,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Cell capture performed in two steps - first, adding cells of interest to a steering vector (different
             // subroutine called with versus without remelting), and second, iterating over the steering vector to
             // perform active cell creation and capture operations
-            // Constrained/directional solidification problem has views needed for modeling remelt events but does not
-            // have cells that undergo remelting - the steering vector operation for this problem can be constructed
-            // using FillSteeringVector_NoRemelt
+            // Constrained/directional solidification problem cells only undergo 1 solidificaton event and are
+            // initialized as liquid - the steering vector operation for this problem can be constructed using
+            // FillSteeringVector_NoRemelt (a simplified version of FillSteeringVector_Remelt
             StartCreateSVTime = MPI_Wtime();
-            if ((RemeltingYN) && (SimulationType != "C"))
+            if (SimulationType != "C")
                 FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, nx, MyYSlices, NeighborX, NeighborY, NeighborZ,
                                           CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID,
                                           ZBound_Low, nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep);
@@ -359,7 +312,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         BufferNorthSend, BufferSouthSend, SendSizeNorth, SendSizeSouth, ZBound_Low, nzActive, nz,
                         SteeringVector, numSteer, numSteer_Host, AtNorthBoundary, AtSouthBoundary,
                         SolidificationEventCounter, MeltTimeStep, LayerTimeTempHistory, NumberOfSolidificationEvents,
-                        RemeltingYN, BufSize);
+                        BufSize);
             // Count the number of cells' in halo regions where the data did not fit into the send buffers
             // Reduce across all ranks, as the same BufSize should be maintained across all ranks
             // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
@@ -387,23 +340,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             }
 
             if (cycle % 1000 == 0) {
-
-                if (RemeltingYN)
-                    IntermediateOutputAndCheck_Remelt(
-                        id, np, cycle, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny, nz, nzActive, deltax, XMin,
-                        YMin, ZMin, SuccessfulNucEvents_ThisRank, XSwitch, CellType, CritTimeStep, GrainID,
-                        SimulationType, layernumber, NumberOfLayers, ZBound_Low, NGrainOrientations, LayerID,
-                        GrainUnitVector, UndercoolingChange, UndercoolingCurrent, PathToOutput, OutputFile,
-                        PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter, NumberOfLayers, MeltTimeStep,
-                        PrintBinary);
-                else
-                    IntermediateOutputAndCheck(id, np, cycle, MyYSlices, MyYOffset, LocalDomainSize,
-                                               LocalActiveDomainSize, nx, ny, nz, nzActive, deltax, XMin, YMin, ZMin,
-                                               SuccessfulNucEvents_ThisRank, XSwitch, CellType, CritTimeStep, GrainID,
-                                               SimulationType, FinishTimeStep, layernumber, NumberOfLayers, ZBound_Low,
-                                               NGrainOrientations, LayerID, GrainUnitVector, UndercoolingChange,
-                                               UndercoolingCurrent, PathToOutput, OutputFile, PrintIdleTimeSeriesFrames,
-                                               TimeSeriesInc, IntermediateFileCounter, NumberOfLayers, PrintBinary);
+                IntermediateOutputAndCheck(
+                    id, np, cycle, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny, nz, nzActive, deltax, XMin,
+                    YMin, ZMin, SuccessfulNucEvents_ThisRank, XSwitch, CellType, CritTimeStep, GrainID, SimulationType,
+                    layernumber, NumberOfLayers, ZBound_Low, NGrainOrientations, LayerID, GrainUnitVector,
+                    UndercoolingChange, UndercoolingCurrent, PathToOutput, OutputFile, PrintIdleTimeSeriesFrames,
+                    TimeSeriesInc, IntermediateFileCounter, NumberOfLayers, MeltTimeStep, PrintBinary);
             }
 
         } while (XSwitch == 0);
@@ -423,32 +365,29 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 calcZBound_High(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin, deltax, nz, ZMaxLayer);
             nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber + 1);
             LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
-            if (RemeltingYN) {
-                // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
-                // If the next layer's temperature data isn't already stored, it should be read
-                if ((SimulationType == "R") && (LayerwiseTempRead)) {
-                    ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths,
-                                        NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
-                                        FirstValue, LastValue, LayerwiseTempRead, layernumber + 1);
-                }
-                // With remelting, also reinitialize temperature views back to zero and resize LayerTimeTempHistory, in
-                // preparation for loading the next layer's (layernumber + 1) temperature data from RawData into the
-                // temperature views
-                if (SimulationType == "S")
-                    TempInit_SpotRemelt(layernumber + 1, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax,
-                                        deltat, ZBound_Low, nz, LocalActiveDomainSize, LocalDomainSize, CritTimeStep,
-                                        UndercoolingChange, UndercoolingCurrent, LayerHeight, irf.FreezingRange,
-                                        LayerID, NSpotsX, NSpotsY, SpotRadius, SpotOffset, LayerTimeTempHistory,
-                                        NumberOfSolidificationEvents, MeltTimeStep, MaxSolidificationEvents,
-                                        SolidificationEventCounter);
-                else if (SimulationType == "R") {
-                    TempInit_ReadDataRemelt(
-                        layernumber + 1, id, nx, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize, MyYOffset,
-                        deltax, deltat, irf.FreezingRange, LayerTimeTempHistory, NumberOfSolidificationEvents,
-                        MaxSolidificationEvents, MeltTimeStep, CritTimeStep, UndercoolingChange, UndercoolingCurrent,
-                        XMin, YMin, ZMinLayer, LayerHeight, nzActive, ZBound_Low, FinishTimeStep, LayerID, FirstValue,
-                        LastValue, RawData, SolidificationEventCounter, TempFilesInSeries);
-                }
+            // Determine the bounds of the next layer: Z coordinates span ZBound_Low-ZBound_High, inclusive
+            // If the next layer's temperature data isn't already stored, it should be read
+            if ((SimulationType == "R") && (LayerwiseTempRead)) {
+                ReadTemperatureData(id, deltax, HT_deltax, HTtoCAratio, MyYSlices, MyYOffset, YMin, temp_paths,
+                                    NumberOfLayers, TempFilesInSeries, NumberOfTemperatureDataPoints, RawData,
+                                    FirstValue, LastValue, LayerwiseTempRead, layernumber + 1);
+            }
+            // Reinitialize temperature views back to zero and resize LayerTimeTempHistory, in
+            // preparation for loading the next layer's (layernumber + 1) temperature data from RawData into the
+            // temperature views
+            if (SimulationType == "S")
+                TempInit_Spot(layernumber + 1, G, R, SimulationType, id, nx, MyYSlices, MyYOffset, deltax, deltat,
+                              ZBound_Low, nz, LocalActiveDomainSize, LocalDomainSize, CritTimeStep, UndercoolingChange,
+                              UndercoolingCurrent, LayerHeight, irf.FreezingRange, LayerID, NSpotsX, NSpotsY,
+                              SpotRadius, SpotOffset, LayerTimeTempHistory, NumberOfSolidificationEvents, MeltTimeStep,
+                              MaxSolidificationEvents, SolidificationEventCounter);
+            else if (SimulationType == "R") {
+                TempInit_ReadData(layernumber + 1, id, nx, MyYSlices, nz, LocalActiveDomainSize, LocalDomainSize,
+                                  MyYOffset, deltax, deltat, irf.FreezingRange, LayerTimeTempHistory,
+                                  NumberOfSolidificationEvents, MaxSolidificationEvents, MeltTimeStep, CritTimeStep,
+                                  UndercoolingChange, UndercoolingCurrent, XMin, YMin, ZMinLayer, LayerHeight, nzActive,
+                                  ZBound_Low, FinishTimeStep, LayerID, FirstValue, LastValue, RawData,
+                                  SolidificationEventCounter, TempFilesInSeries);
             }
 
             // Resize and zero all view data relating to the active region from the last layer, in preparation for the
@@ -464,30 +403,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                            GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, PowderActiveFraction);
 
             // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
-            if (RemeltingYN)
-                CellTypeInit_Remelt(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
-            else {
-                CellTypeInit_NoRemelt(layernumber + 1, id, np, nx, MyYSlices, MyYOffset, ZBound_Low, nz,
-                                      LocalActiveDomainSize, LocalDomainSize, CellType, CritTimeStep, NeighborX,
-                                      NeighborY, NeighborZ, NGrainOrientations, GrainUnitVector, DiagonalLength,
-                                      GrainID, CritDiagonalLength, DOCenter, LayerID, BufferNorthSend, BufferSouthSend,
-                                      AtNorthBoundary, AtSouthBoundary, SendSizeNorth, SendSizeSouth, BufSize);
-                // Count the number of cells' in halo regions where the data did not fit into the send buffers
-                // Reduce across all ranks, as the same BufSize should be maintained across all ranks
-                // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
-                int OldBufSize = BufSize;
-                BufSize =
-                    ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                  SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
-                if (OldBufSize != BufSize) {
-                    if (id == 0)
-                        std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
-                                  << BufSize << std::endl;
-                    RefillBuffers(nx, nzActive, MyYSlices, ZBound_Low, CellType, BufferNorthSend, BufferSouthSend,
-                                  SendSizeNorth, SendSizeSouth, AtNorthBoundary, AtSouthBoundary, GrainID, DOCenter,
-                                  DiagonalLength, NGrainOrientations, BufSize);
-                }
-            }
+            CellTypeInit(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
 
             // Initialize potential nucleation event data for next layer "layernumber + 1"
             // Views containing nucleation data will be resized to the possible number of nuclei on a given MPI rank for
@@ -495,24 +411,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             NucleiInit(layernumber + 1, RNGSeed, MyYSlices, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax, dTN,
                        dTsigma, deltax, NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep,
                        UndercoolingChange, LayerID, PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain,
-                       AtNorthBoundary, AtSouthBoundary, RemeltingYN, NucleationCounter, MaxSolidificationEvents,
+                       AtNorthBoundary, AtSouthBoundary, NucleationCounter, MaxSolidificationEvents,
                        NumberOfSolidificationEvents, LayerTimeTempHistory);
 
-            // Update ghost nodes for grain locations and attributes
-            MPI_Barrier(MPI_COMM_WORLD);
-            if ((np > 1) && (!(RemeltingYN))) {
-                GhostNodes1D(-1, id, NeighborRank_North, NeighborRank_South, nx, MyYSlices, MyYOffset, NeighborX,
-                             NeighborY, NeighborZ, CellType, DOCenter, GrainID, GrainUnitVector, DiagonalLength,
-                             CritDiagonalLength, NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv,
-                             BufferSouthRecv, BufSize, ZBound_Low, SendSizeNorth, SendSizeSouth);
-                // If not using remelting, the initial number of active cells to communicate is usually much larger than
-                // the number on any given time step - reset the buffer sizes to the initial value of 25
-                BufSize = BufSizeInitialEstimate;
-                ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv,
-                                    BufSizeInitialEstimate);
-            }
-            if (id == 0)
-                std::cout << "New layer ghost nodes initialized" << std::endl;
             XSwitch = 0;
             MPI_Barrier(MPI_COMM_WORLD);
             double LayerTime2 = MPI_Wtime();
@@ -572,7 +473,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Print the log file with JSON format, timing information to the console
     PrintExaCALog(id, np, InputFile, SimulationType, MyYSlices, MyYOffset, irf, deltax, NMax, dTN, dTsigma, temp_paths,
-                  TempFilesInSeries, HT_deltax, RemeltingYN, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
+                  TempFilesInSeries, HT_deltax, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
                   SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
                   NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
                   InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,

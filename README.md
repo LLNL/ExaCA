@@ -134,14 +134,11 @@ framework). Tests are automatically generated for the enabled Kokkos backend.
 ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - A separate README file located in the `examples/` directory goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
  * `Inp_DirSolidification.json`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
  * `Inp_SmallDirSolidification.json`: a smaller and simpler version of the previous
- * `Inp_SpotMelt.json`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate, where cells are only allowed to undergo solidification one time (i.e., overlap regions only solidify when they've cooled below the liquidus for the final time in the simulation)
+ * `Inp_SpotMelt.json`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate
  * `Inp_SmallSpotMelt.json`: a smaller and simpler version of the previous
- * `Inp_SpotMelt_RM.json`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate, where cells in the overlap region are allowed to melt and solidify as many times as needed
- * `Inp_SmallSpotMelt_RM.json`: a smaller and simpler version of the previous
 
 Example problems only possible with external data (available via https://github.com/LLNL/ExaCA-Data):
- * `Inp_AMBenchMultilayer.json`: simulates 4 layers of a representative even-odd layer alternating scan pattern for AM builds
- * `Inp_SimpleRaster.json`: simulates a single layer consisting of four overlapping melt pools
+ * `Inp_SingleLine.json`: simulates melting and solidification of a single line of melt pool data
  * `Inp_TwoLineTwoLayer.json`: simulates two layers consisting of segments of two overlapping melt pools
 
 Run by calling the created executable with an ExaCA input file:

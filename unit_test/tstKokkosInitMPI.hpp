@@ -219,217 +219,7 @@ void testPowderInit() {
 //---------------------------------------------------------------------------//
 // cell_init_tests
 //---------------------------------------------------------------------------//
-void testCellTypeInit_NoRemelt() {
-
-    int id, np;
-    // Get number of processes
-    MPI_Comm_size(MPI_COMM_WORLD, &np);
-    // Get individual process ID
-    MPI_Comm_rank(MPI_COMM_WORLD, &id);
-
-    int layernumber = 0;
-    // Create test grid
-    int nz = 7;
-    // Each MPI rank has a different portion of the domain in the Z direction "active" for initialization, starting at Z
-    // = 5
-    int ZBound_High = 5;
-    int ZBound_Low = ZBound_High - (5 - (id % nz));
-    int nzActive = ZBound_High - ZBound_Low + 1;
-    // Each rank is assigned the same X and Y regions
-    int nx = 7;
-    // Each rank is assigned a different portion of the domain in Y
-    int MyYSlices = 4;
-    int MyYOffset = 0;
-    int LocalActiveDomainSize = nx * MyYSlices * nzActive;
-    int LocalDomainSize = nx * MyYSlices * nz;
-    // MPI rank locations relative to the global grid
-    bool AtNorthBoundary, AtSouthBoundary;
-    if (id == 0)
-        AtSouthBoundary = true;
-    else
-        AtSouthBoundary = false;
-    if (id == np - 1)
-        AtNorthBoundary = true;
-    else
-        AtNorthBoundary = false;
-
-    // Initialize neighbor lists
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    NList NeighborX, NeighborY, NeighborZ;
-    NeighborListInit(NeighborX, NeighborY, NeighborZ);
-
-    // Initialize test CellType, CritTimeStep, GrainID, LayerID data
-    ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
-    ViewI_H GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"), LocalDomainSize);
-    ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID_Host"), LocalDomainSize);
-    for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < MyYSlices; j++) {
-                int D3D1ConvPositionGlobal = k * nx * MyYSlices + i * MyYSlices + j;
-                GrainID_Host(D3D1ConvPositionGlobal) = 1;
-                // Let the top portion of the cells be part of a different layernumber
-                if (k == nz - 1)
-                    LayerID_Host(D3D1ConvPositionGlobal) = 1;
-                else
-                    LayerID_Host(D3D1ConvPositionGlobal) = 0;
-                // Bottom left portion of the cells have no temperature data
-                if (i + k <= 5)
-                    CritTimeStep_Host(D3D1ConvPositionGlobal) = 0;
-                else
-                    CritTimeStep_Host(D3D1ConvPositionGlobal) = 1;
-            }
-        }
-    }
-    ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep_Host);
-    ViewI GrainID = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID_Host);
-    ViewI LayerID = Kokkos::create_mirror_view_and_copy(memory_space(), LayerID_Host);
-
-    // Initialize an orientation for the grain being tested
-    int NGrainOrientations = 1;
-    ViewF_H GrainUnitVector_Host(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector_Host"),
-                                 9 * NGrainOrientations);
-    GrainUnitVector_Host(0) = 0.848294;  // x1
-    GrainUnitVector_Host(1) = 0.493303;  // y1
-    GrainUnitVector_Host(2) = 0.19248;   // z1
-    GrainUnitVector_Host(3) = -0.522525; // x2
-    GrainUnitVector_Host(4) = 0.720911;  // y2
-    GrainUnitVector_Host(5) = 0.455253;  // z2
-    GrainUnitVector_Host(6) = 0.0858167; // x3
-    GrainUnitVector_Host(7) = -0.486765; // y3
-    GrainUnitVector_Host(8) = 0.869308;  // z3
-    ViewF GrainUnitVector = Kokkos::create_mirror_view_and_copy(memory_space(), GrainUnitVector_Host);
-
-    // Active cell data structures
-    ViewF DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), LocalActiveDomainSize);
-    ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
-    ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
-
-    // Cell types to be initialized
-    ViewI CellType(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalDomainSize);
-
-    // Buffers for ghost node data (fixed size)
-    int BufSize = nx * nzActive;
-
-    // Send buffers for ghost node data should be initialized with -1s
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSize, 8);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSize, 8);
-    Kokkos::parallel_for(
-        "BufferReset", BufSize, KOKKOS_LAMBDA(const int &i) {
-            BufferNorthSend(i, 0) = -1.0;
-            BufferSouthSend(i, 0) = -1.0;
-        });
-    // Init sizes to zero
-    ViewI SendSizeSouth("SendSizeSouth", 1);
-    ViewI SendSizeNorth("SendSizeNorth", 1);
-
-    // Initialize cell types and active cell data structures
-    CellTypeInit_NoRemelt(layernumber, id, np, nx, MyYSlices, MyYOffset, ZBound_Low, nz, LocalActiveDomainSize,
-                          LocalDomainSize, CellType, CritTimeStep, NeighborX, NeighborY, NeighborZ, NGrainOrientations,
-                          GrainUnitVector, DiagonalLength, GrainID, CritDiagonalLength, DOCenter, LayerID,
-                          BufferNorthSend, BufferSouthSend, AtNorthBoundary, AtSouthBoundary, SendSizeNorth,
-                          SendSizeSouth, BufSize);
-
-    // Copy views back to host to check the results
-    ViewF_H DiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DiagonalLength);
-    ViewF_H CritDiagonalLength_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CritDiagonalLength);
-    ViewF_H DOCenter_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), DOCenter);
-    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
-
-    // Solid cells where no temperature data existed
-    // Active cells separate solid-liquid cells, as well as at the active region bottom (implicitly borders a solid
-    // cell, since the layers below should be solid) Liquid cells are all other cells
-    // Based on the orientation of the octahedron and the distance to each neighboring cell on the
-    // grid, these critical diagonal lengths were calculated to be the expected values required for
-    // the octahedron to engulf the centers of each neighboring cells
-    std::vector<float> CritDiagonalLength_Expected{
-        1.7009791, 2.1710088, 1.9409314, 1.9225541, 2.2444904, 2.6762404, 2.7775438, 2.6560757, 2.1579263,
-        1.5170407, 1.5170407, 2.0631709, 2.4170833, 2.4170833, 2.0631709, 1.4566354, 1.4566354, 1.7009791,
-        1.9409314, 2.1710088, 2.2444904, 1.9225541, 2.6560757, 2.1579263, 2.6762404, 2.7775438};
-    int ActiveCellCount_North = 0;
-    int ActiveCellCount_South = 0;
-    for (int k = 0; k < nz; k++) {
-        for (int i = 0; i < nx; i++) {
-            for (int j = 0; j < MyYSlices; j++) {
-                int D3D1ConvPositionGlobal = k * nx * MyYSlices + i * MyYSlices + j;
-                if (i + k <= 5) {
-                    EXPECT_EQ(CellType_Host(D3D1ConvPositionGlobal), Solid);
-                }
-                else if (i + k <= 7) {
-                    EXPECT_EQ(CellType_Host(D3D1ConvPositionGlobal), Active);
-                    if ((!(AtSouthBoundary)) && (j == 1) && (k >= ZBound_Low) && (k <= ZBound_High))
-                        ActiveCellCount_South++;
-                    if ((!(AtNorthBoundary)) && (j == MyYSlices - 2) && (k >= ZBound_Low) && (k <= ZBound_High))
-                        ActiveCellCount_North++;
-                    // Check that active cell data structures were initialized properly for cells in the active portion
-                    // of the domain
-                    if ((k >= ZBound_Low) && (k <= ZBound_High)) {
-                        int D3D1ConvPosition = (k - ZBound_Low) * nx * MyYSlices + i * MyYSlices + j;
-                        EXPECT_FLOAT_EQ(DiagonalLength_Host(D3D1ConvPosition),
-                                        0.01); // initial octahedron diagonal length
-                        // Octahedron center should be at the origin of the active cell on the grid in x, y, z (0, 1, 0)
-                        // plus 0.5 to each coordinate, since the center is coincident with the cell center
-                        EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition),
-                                        i + 0.5); // X position of octahedron center
-                        EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition + 1),
-                                        j + MyYOffset + 0.5); // Y position of octahedron center
-                        EXPECT_FLOAT_EQ(DOCenter_Host(3 * D3D1ConvPosition + 2),
-                                        k + 0.5); // Z position of octahedron center
-                        // Check critical diagonal length values against expected values
-                        for (int n = 0; n < 26; n++) {
-                            EXPECT_FLOAT_EQ(CritDiagonalLength_Host(26 * D3D1ConvPosition + n),
-                                            CritDiagonalLength_Expected[n]);
-                        }
-                    }
-                }
-                else {
-                    EXPECT_EQ(CellType_Host(D3D1ConvPositionGlobal), Liquid);
-                }
-            }
-        }
-    }
-
-    auto BufferSouthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferSouthSend);
-    auto BufferNorthSend_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
-
-    // Get the number of cells' worth of data that should've been exchanged from each neighbor
-    auto SendSizeSouth_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeSouth);
-    auto SendSizeNorth_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeNorth);
-    // Should match the number of active cells that were created at the edge of each rank's subdomain, and within the
-    // current active layer of the problem
-    EXPECT_EQ(ActiveCellCount_South, SendSizeSouth_H(0));
-    EXPECT_EQ(ActiveCellCount_North, SendSizeNorth_H(0));
-
-    // Further check that active cell data was properly loaded into send buffers, and that locations in the send buffers
-    // not corresponding to active cells were left alone (should still be -1s)
-    for (int BufPosition = 0; BufPosition < SendSizeSouth_H(0); BufPosition++) {
-        int RankX = static_cast<int>(BufferSouthSend_H(BufPosition, 0));
-        int RankZ = static_cast<int>(BufferSouthSend_H(BufPosition, 1));
-        EXPECT_EQ(static_cast<int>(BufferSouthSend_H(BufPosition, 2)), 1); // Grain orientation should be 1
-        EXPECT_EQ(static_cast<int>(BufferSouthSend_H(BufPosition, 3)), 1); // Grain number should be 1
-        EXPECT_FLOAT_EQ(BufferSouthSend_H(BufPosition, 4), RankX + 0.5);
-        EXPECT_FLOAT_EQ(BufferSouthSend_H(BufPosition, 5), 1 + MyYOffset + 0.5);
-        EXPECT_FLOAT_EQ(BufferSouthSend_H(BufPosition, 6), RankZ + ZBound_Low + 0.5);
-        EXPECT_FLOAT_EQ(BufferSouthSend_H(BufPosition, 7), 0.01);
-    }
-    for (int BufPosition = SendSizeSouth_H(0); BufPosition < BufSize; BufPosition++) {
-        EXPECT_EQ(static_cast<int>(BufferSouthSend_H(BufPosition, 0)), -1); // Should still be -1 from init
-    }
-    for (int BufPosition = 0; BufPosition < SendSizeNorth_H(0); BufPosition++) {
-        int RankX = static_cast<int>(BufferNorthSend_H(BufPosition, 0));
-        int RankZ = static_cast<int>(BufferNorthSend_H(BufPosition, 1));
-        EXPECT_EQ(static_cast<int>(BufferNorthSend_H(BufPosition, 2)), 1); // Grain orientation should be 1
-        EXPECT_EQ(static_cast<int>(BufferNorthSend_H(BufPosition, 3)), 1); // Grain number should be 1
-        EXPECT_FLOAT_EQ(BufferNorthSend_H(BufPosition, 4), RankX + 0.5);
-        EXPECT_FLOAT_EQ(BufferNorthSend_H(BufPosition, 5), 2 + MyYOffset + 0.5);
-        EXPECT_FLOAT_EQ(BufferNorthSend_H(BufPosition, 6), RankZ + ZBound_Low + 0.5);
-        EXPECT_FLOAT_EQ(BufferNorthSend_H(BufPosition, 7), 0.01);
-    }
-    for (int BufPosition = SendSizeNorth_H(0); BufPosition < BufSize; BufPosition++) {
-        EXPECT_EQ(static_cast<int>(BufferNorthSend_H(BufPosition, 0)), -1); // Should still be -1 from init
-    }
-}
-
-void testCellTypeInit_Remelt() {
+void testCellTypeInit() {
 
     int id, np;
     // Get number of processes
@@ -472,7 +262,7 @@ void testCellTypeInit_Remelt() {
     ViewI CellType("CellType", LocalDomainSize);
 
     // Initialize cell type values
-    CellTypeInit_Remelt(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
+    CellTypeInit(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
 
     // Copy cell types back to host to check
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
@@ -499,9 +289,8 @@ void testCellTypeInit_Remelt() {
 //---------------------------------------------------------------------------//
 // nuclei_init_tests
 //---------------------------------------------------------------------------//
-void testNucleiInit(bool RemeltingYN) {
+void testNucleiInit() {
 
-    // Test is different depending on whether or not remelting is considered
     int id, np;
     // Get number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &np);
@@ -538,12 +327,8 @@ void testNucleiInit(bool RemeltingYN) {
     double NMax = 0.125; // This nucleation density ensures there will be 4 potential nuclei per MPI rank present
                          // without remelting (each cell solidifies once)
     int MaxPotentialNuclei_PerPass = 4 * np;
-    // Without remelting, each cell solidifies once, with remelting, a cell can solidify 1-3 times
-    int MaxSolidificationEvents_Count;
-    if (RemeltingYN)
-        MaxSolidificationEvents_Count = 3;
-    else
-        MaxSolidificationEvents_Count = 1;
+    // A cell can solidify 1-3 times
+    int MaxSolidificationEvents_Count = 3;
     double dTN = 1;
     double dTsigma = 0.0001;
     double RNGSeed = 0.0;
@@ -584,54 +369,42 @@ void testNucleiInit(bool RemeltingYN) {
                                       LocalActiveDomainSize, MaxSolidificationEvents_Count, 3);
     MaxSolidificationEvents_Host(0) = MaxSolidificationEvents_Count;
     MaxSolidificationEvents_Host(1) = MaxSolidificationEvents_Count;
-    if (RemeltingYN) {
-        // Cells solidify 1, 2, or 3 times, depending on their X coordinate
-        for (int k = 0; k < nzActive; k++) {
-            for (int i = 0; i < nx; i++) {
-                for (int j = 0; j < MyYSlices; j++) {
-                    int D3D1ConvPosition = k * nx * MyYSlices + i * MyYSlices + j;
-                    if (i < nx / 2 - 1)
-                        NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 3;
-                    else if (i < nx / 2)
-                        NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 2;
-                    else
-                        NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 1;
-                }
+    // Cells solidify 1, 2, or 3 times, depending on their X coordinate
+    for (int k = 0; k < nzActive; k++) {
+        for (int i = 0; i < nx; i++) {
+            for (int j = 0; j < MyYSlices; j++) {
+                int D3D1ConvPosition = k * nx * MyYSlices + i * MyYSlices + j;
+                if (i < nx / 2 - 1)
+                    NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 3;
+                else if (i < nx / 2)
+                    NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 2;
+                else
+                    NumberOfSolidificationEvents_Host(D3D1ConvPosition) = 1;
             }
         }
-        for (int n = 0; n < MaxSolidificationEvents_Count; n++) {
-            for (int RankZ = 0; RankZ < nzActive; RankZ++) {
-                for (int RankX = 0; RankX < nx; RankX++) {
-                    for (int RankY = 0; RankY < MyYSlices; RankY++) {
-                        int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
-                        int GlobalZ = RankZ + ZBound_Low;
-                        if (n < NumberOfSolidificationEvents_Host(D3D1ConvPosition)) {
-                            LayerTimeTempHistory_Host(D3D1ConvPosition, n, 0) =
-                                GlobalZ + RankY + MyYOffset +
-                                (LocalActiveDomainSize * n); // melting time step depends on solidification event number
-                            LayerTimeTempHistory_Host(D3D1ConvPosition, n, 1) =
-                                GlobalZ + RankY + MyYOffset + 1 +
-                                (LocalActiveDomainSize *
-                                 n); // liquidus time stemp depends on solidification event number
-                            LayerTimeTempHistory_Host(D3D1ConvPosition, n, 2) =
-                                1.2; // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep
-                                     // value
-                        }
+    }
+    for (int n = 0; n < MaxSolidificationEvents_Count; n++) {
+        for (int RankZ = 0; RankZ < nzActive; RankZ++) {
+            for (int RankX = 0; RankX < nx; RankX++) {
+                for (int RankY = 0; RankY < MyYSlices; RankY++) {
+                    int D3D1ConvPosition = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
+                    int GlobalZ = RankZ + ZBound_Low;
+                    if (n < NumberOfSolidificationEvents_Host(D3D1ConvPosition)) {
+                        LayerTimeTempHistory_Host(D3D1ConvPosition, n, 0) =
+                            GlobalZ + RankY + MyYOffset +
+                            (LocalActiveDomainSize * n); // melting time step depends on solidification event number
+                        LayerTimeTempHistory_Host(D3D1ConvPosition, n, 1) =
+                            GlobalZ + RankY + MyYOffset + 1 +
+                            (LocalActiveDomainSize * n); // liquidus time stemp depends on solidification event number
+                        LayerTimeTempHistory_Host(D3D1ConvPosition, n, 2) =
+                            1.2; // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep
+                                 // value
                     }
                 }
             }
         }
     }
-    else {
-        for (int i = 0; i < LocalDomainSize; i++) {
-            int GlobalZ = i / (nx * MyYSlices);
-            int Rem = i % (nx * MyYSlices);
-            int RankY = Rem % MyYSlices;
-            CritTimeStep_Host(i) = GlobalZ + RankY + MyYOffset + 1;
-            UndercoolingChange_Host(i) =
-                1.2; // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep value
-        }
-    }
+
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep_Host);
     ViewF UndercoolingChange = Kokkos::create_mirror_view_and_copy(memory_space(), UndercoolingChange_Host);
@@ -642,7 +415,7 @@ void testNucleiInit(bool RemeltingYN) {
 
     NucleiInit(layernumber, RNGSeed, MyYSlices, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax, dTN, dTsigma, deltax,
                NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep, UndercoolingChange, LayerID,
-               PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary, RemeltingYN,
+               PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary,
                NucleationCounter, MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory);
 
     // Copy results back to host to check
@@ -669,18 +442,13 @@ void testNucleiInit(bool RemeltingYN) {
         int GlobalZ = GlobalCellLocation / (nx * MyYSlices);
         int Rem = GlobalCellLocation % (nx * MyYSlices);
         int RankY = Rem % MyYSlices;
-        // Expected nucleation time is known exactly if no remelting
+        // Expected nucleation time with remelting can be one of 3 possibilities, depending on the associated
+        // solidification event
         int Expected_NucleationTimeNoRM = GlobalZ + RankY + MyYOffset + 2;
-        if (RemeltingYN) {
-            // Expected nucleation time with remelting can be one of 3 possibilities, depending on the associated
-            // solidification event
-            int AssociatedSEvent = NucleationTimes_Host(n) / LocalActiveDomainSize;
-            int Expected_NucleationTimeRM = Expected_NucleationTimeNoRM + AssociatedSEvent * LocalActiveDomainSize;
-            EXPECT_EQ(NucleationTimes_Host(n), Expected_NucleationTimeRM);
-        }
-        else {
-            EXPECT_EQ(NucleationTimes_Host(n), Expected_NucleationTimeNoRM);
-        }
+        int AssociatedSEvent = NucleationTimes_Host(n) / LocalActiveDomainSize;
+        int Expected_NucleationTimeRM = Expected_NucleationTimeNoRM + AssociatedSEvent * LocalActiveDomainSize;
+        EXPECT_EQ(NucleationTimes_Host(n), Expected_NucleationTimeRM);
+
         // Are the nucleation events in order of the time steps at which they may occur?
         if (n < PossibleNuclei_ThisRankThisLayer - 2) {
             EXPECT_LE(NucleationTimes_Host(n), NucleationTimes_Host(n + 1));
@@ -698,13 +466,6 @@ TEST(TEST_CATEGORY, grain_init_tests) {
     testBaseplateInit_FromGrainSpacing(false);
     testPowderInit();
 }
-TEST(TEST_CATEGORY, cell_init_test) {
-    testCellTypeInit_NoRemelt();
-    testCellTypeInit_Remelt();
-}
-TEST(TEST_CATEGORY, nuclei_init_test) {
-    // w/ and w/o remelting
-    testNucleiInit(true);
-    testNucleiInit(false);
-}
+TEST(TEST_CATEGORY, cell_init_test) { testCellTypeInit(); }
+TEST(TEST_CATEGORY, nuclei_init_test) { testNucleiInit(); }
 } // end namespace Test
