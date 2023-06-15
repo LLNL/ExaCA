@@ -17,7 +17,7 @@ jobs:
     container: ghcr.io/ecp-copa/ci-containers/ubuntu:latest
     steps:
       - name: Checkout kokkos
-        uses: actions/checkout@v2.2.0
+        uses: actions/checkout@v3
         with:
           repository: kokkos/kokkos
           ref: ${{ matrix.kokkos_ver }}
@@ -29,7 +29,7 @@ jobs:
           cmake --build build --parallel 2
           cmake --install build
       - name: Checkout ExaCA
-        uses: actions/checkout@v2.2.0
+        uses: actions/checkout@v3
       - name: Build ExaCA
         run: |
           cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/exaca -DCMAKE_PREFIX_PATH="$HOME/kokkos" -DExaCA_ENABLE_TESTING=ON -DExaCA_ENABLE_JSON=ON -DCMAKE_BUILD_TYPE=Debug ${{ github.event.inputs.cmake_args }}

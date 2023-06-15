@@ -46,7 +46,7 @@ jobs:
           mkdir ~/Licenses
           curl https://dynamicinstaller.intel.com/api/v2/license > ~/Licenses/intel.lic
       - name: Checkout kokkos
-        uses: actions/checkout@v2.2.0
+        uses: actions/checkout@v3
         with:
           repository: kokkos/kokkos
           ref: ${{ matrix.kokkos_ver }}
@@ -63,7 +63,7 @@ jobs:
           cmake --build build --parallel 2
           cmake --install build
       - name: Checkout ExaCA
-        uses: actions/checkout@v2.2.0
+        uses: actions/checkout@v3
       - name: Build ExaCA
         run: |
           cmake -B build \
