@@ -1,0 +1,83 @@
+name: e4s-build
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+concurrency:
+  group: ${ {github.event_name }}-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}      
+jobs:
+  HIP:
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      matrix:
+        cxx: ['hipcc']
+        cmake_build_type: ['Release']
+        kokkos_ver: ['3.4.01']
+    runs-on: ubuntu-20.04
+    container: docker.io/ecpe4s/e4s-base-rocm:23.05
+    steps:
+      - name: Checkout GTest
+        uses: actions/checkout@v3
+        with:
+          repository: google/googletest
+          ref: release-1.11.0
+          path: gtest
+      - name: Build gtest
+        working-directory: gtest
+        run: |
+          cmake -B build \
+            -DCMAKE_INSTALL_PREFIX=$HOME/gtest \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout json
+        uses: actions/checkout@v3
+        with:
+          repository: nlohmann/json
+          ref: v3.11.2
+          path: json
+      - name: Build json
+        working-directory: json
+        run: |
+          cmake -B build \
+            -DCMAKE_INSTALL_PREFIX=$HOME/json \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DJSON_BuildTests=OFF
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout kokkos
+        uses: actions/checkout@v3
+        with:
+          repository: kokkos/kokkos
+          ref: ${{ matrix.kokkos_ver }}
+          path: kokkos
+      - name: Build kokkos
+        working-directory: kokkos
+        run: |
+          cmake -B build \
+            -DCMAKE_INSTALL_PREFIX=$HOME/kokkos \
+            -DKokkos_ENABLE_HIP=ON \
+            -DKokkos_ARCH_VEGA908=ON \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout ExaCA
+        uses: actions/checkout@v3
+      - name: Build ExaCA
+        run: |
+          cmake -B build \
+            -D CMAKE_INSTALL_PREFIX=$HOME/exaca \
+            -D CMAKE_PREFIX_PATH="$HOME/kokkos;$HOME/gtest;$HOME/json" \
+            -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror" \
+            -D ExaCA_ENABLE_TESTING=ON
+          cmake --build build --parallel 2
+          cmake --install build
