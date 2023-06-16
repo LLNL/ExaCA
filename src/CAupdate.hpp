@@ -7,6 +7,7 @@
 #define EXACA_UPDATE_HPP
 
 #include "CAinterfacialresponse.hpp"
+#include "CAprint.hpp"
 #include "CAtypes.hpp"
 
 #include <Kokkos_Core.hpp>
@@ -98,18 +99,14 @@ void CellCapture(int id, int np, int cycle, int LocalActiveDomainSize, int Local
                  ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, int &BufSize);
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
                   ViewI MeltTimeStep, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low, ViewI CellType,
-                  ViewI LayerID, int id, int layernumber, int np, int nx, int ny, int nz, int MyYOffset, ViewI GrainID,
-                  ViewI CritTimeStep, ViewF GrainUnitVector, ViewF UndercoolingChange, ViewF UndercoolingCurrent,
-                  std::string OutputFile, int NGrainOrientations, std::string PathToOutput,
-                  int &IntermediateFileCounter, int nzActive, double deltax, double XMin, double YMin, double ZMin,
-                  int NumberOfLayers, bool PrintIdleMovieFrames, int MovieFrameInc, bool PrintBinary);
-void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int MyYOffset, int LocalActiveDomainSize,
-                                int nx, int ny, int nz, int nzActive, double deltax, double XMin, double YMin,
-                                double ZMin, int SuccessfulNucEvents_ThisRank, int &XSwitch, ViewI CellType,
-                                ViewI CritTimeStep, ViewI GrainID, std::string TemperatureDataType, int layernumber,
-                                int, int ZBound_Low, int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector,
-                                ViewF UndercoolingChange, ViewF UndercoolingCurrent, std::string PathToOutput,
-                                std::string OutputFile, bool PrintIdleMovieFrames, int MovieFrameInc,
-                                int &IntermediateFileCounter, int NumberOfLayers, ViewI MeltTimeStep, bool PrintBinary);
+                  ViewI LayerID, int id, int layernumber, int np, int nx, int ny, ViewI GrainID, ViewF GrainUnitVector,
+                  PrintData printData, int NGrainOrientations, int nzActive, double deltax, double XMin, double YMin,
+                  double ZMin);
+void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int LocalActiveDomainSize, int nx, int ny,
+                                int nzActive, double deltax, double XMin, double YMin, double ZMin,
+                                int SuccessfulNucEvents_ThisRank, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
+                                ViewI GrainID, std::string TemperatureDataType, int layernumber, int, int ZBound_Low,
+                                int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector, PrintData printData,
+                                ViewI MeltTimeStep);
 
 #endif

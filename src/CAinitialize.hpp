@@ -6,8 +6,8 @@
 #ifndef EXACA_INIT_HPP
 #define EXACA_INIT_HPP
 
+#include "CAprint.hpp"
 #include "CAtypes.hpp"
-
 #include <Kokkos_Core.hpp>
 
 #include <nlohmann/json.hpp>
@@ -16,17 +16,13 @@
 #include <vector>
 
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
-                       double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
-                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax, double &deltat,
-                       int &NumberOfLayers, int &LayerHeight, std::string &MaterialFileName,
-                       std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
-                       double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
-                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
-                       bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
-                       bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                       bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder,
-                       double &PowderActiveFraction, int &RVESize, bool &LayerwiseTempRead, bool &PrintBinary,
-                       bool &PowderFirstLayer);
+                       double &dTN, double &dTsigma, std::string &GrainOrientationFile, int &TempFilesInSeries,
+                       std::vector<std::string> &temp_paths, double &HT_deltax, double &deltat, int &NumberOfLayers,
+                       int &LayerHeight, std::string &MaterialFileName, std::string &SubstrateFileName,
+                       float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny,
+                       int &nz, double &FractSurfaceSitesActive, int &NSpotsX, int &NSpotsY, int &SpotOffset,
+                       int &SpotRadius, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderActiveFraction,
+                       bool &LayerwiseTempRead, bool &PowderFirstLayer, PrintData &printData);
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
                          double PowderDensity);
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);

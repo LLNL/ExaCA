@@ -23,24 +23,22 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartInitTime = MPI_Wtime();
 
     int nx, ny, nz, NumberOfLayers, LayerHeight, TempFilesInSeries;
-    int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, RVESize;
-    int PrintDebug, TimeSeriesInc;
-    bool PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, UseSubstrateFile, PrintTimeSeries,
-        PrintIdleTimeSeriesFrames, PrintDefaultRVE, BaseplateThroughPowder, LayerwiseTempRead, PrintBinary,
-        PowderFirstLayer;
+    int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio;
+    bool UseSubstrateFile, BaseplateThroughPowder, LayerwiseTempRead, PowderFirstLayer;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction;
-    std::string SubstrateFileName, MaterialFileName, SimulationType, OutputFile, GrainOrientationFile, PathToOutput;
+    std::string SubstrateFileName, MaterialFileName, SimulationType, GrainOrientationFile;
     std::vector<std::string> temp_paths;
 
-    // Read input file
-    InputReadFromFile(
-        id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, OutputFile, GrainOrientationFile, TempFilesInSeries,
-        temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight, MaterialFileName, SubstrateFileName,
-        SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput, PrintDebug,
-        PrintMisorientation, PrintFinalUndercoolingVals, PrintFullOutput, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
-        PrintTimeSeries, TimeSeriesInc, PrintIdleTimeSeriesFrames, PrintDefaultRVE, RNGSeed, BaseplateThroughPowder,
-        PowderActiveFraction, RVESize, LayerwiseTempRead, PrintBinary, PowderFirstLayer);
+    // Data printing structure - contains print options (false by default) and functions
+    PrintData printData(np);
+
+    // Read input file - toggle appropriate print options
+    InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, GrainOrientationFile,
+                      TempFilesInSeries, temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight, MaterialFileName,
+                      SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
+                      FractSurfaceSitesActive, NSpotsX, NSpotsY, SpotOffset, SpotRadius, RNGSeed,
+                      BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, PowderFirstLayer, printData);
     InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax);
 
     // Variables characterizing local processor grids relative to global domain
@@ -233,23 +231,16 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     numSteer_Host(0) = 0;
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
 
+    // Get the size of buffer data for sending/receiving print information before printing any fields
+    printData.getSendRecvDataSizes(nx, ny, nz, MyYSlices, MyYOffset, np);
     // If specified, print initial values in some views for debugging purposes
     double InitTime = MPI_Wtime() - StartInitTime;
     if (id == 0)
         std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
-    if (PrintDebug) {
-        // Host mirrors of CellType and GrainID are not maintained - pass device views and perform copy inside of
-        // subroutine
-        PrintExaCAData(id, -1, np, nx, ny, nz, MyYSlices, MyYOffset, GrainID, CritTimeStep, GrainUnitVector, LayerID,
-                       CellType, UndercoolingChange, UndercoolingCurrent, OutputFile, NGrainOrientations, PathToOutput,
-                       PrintDebug, false, false, false, false, false, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                       NumberOfLayers, PrintBinary);
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
-            std::cout << "Initialization data file(s) printed" << std::endl;
-    }
+    printData.printInitExaCAData(id, np, nx, ny, MyYSlices, nzActive, deltax, XMin, YMin, ZMin, GrainID, LayerID,
+                                 MeltTimeStep, CritTimeStep, UndercoolingChange);
+    MPI_Barrier(MPI_COMM_WORLD);
     int cycle = 0;
-    int IntermediateFileCounter = 0;
     double StartRunTime = MPI_Wtime();
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
 
@@ -259,16 +250,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         // Loop continues until all liquid cells claimed by solid grains
         do {
             // Start of time step - check and see if intermediate system output is to be printed to files
-            if ((PrintTimeSeries) && (cycle % TimeSeriesInc == 0)) {
+            if ((printData.PrintTimeSeries) && (cycle % printData.TimeSeriesInc == 0)) {
                 // Print current state of ExaCA simulation (up to and including the current layer's data)
-                // Host mirrors of CellType and GrainID are not maintained - pass device views and perform copy inside
-                // of subroutine
-                PrintExaCAData(id, layernumber, np, nx, ny, nz, MyYSlices, MyYOffset, GrainID, CritTimeStep,
-                               GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent, OutputFile,
-                               NGrainOrientations, PathToOutput, 0, false, false, false, true, false,
-                               IntermediateFileCounter, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin, NumberOfLayers,
-                               PrintBinary);
-                IntermediateFileCounter++;
+                printData.printIntermediateGrainMisorientation(id, np, cycle, nx, ny, MyYSlices, nzActive, deltax, XMin,
+                                                               YMin, ZMin, GrainID, LayerID, CellType, GrainUnitVector,
+                                                               NGrainOrientations, layernumber, ZBound_Low);
             }
             cycle++;
 
@@ -333,13 +319,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             }
 
             if (cycle % 1000 == 0) {
-                IntermediateOutputAndCheck(id, np, cycle, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny, nz,
+                IntermediateOutputAndCheck(id, np, cycle, MyYOffset, LocalActiveDomainSize, nx, ny,
                                            nzActive, deltax, XMin, YMin, ZMin, nucleation.SuccessfulNucleationCounter,
                                            XSwitch, CellType, CritTimeStep, GrainID, SimulationType, layernumber,
-                                           NumberOfLayers, ZBound_Low, NGrainOrientations, LayerID, GrainUnitVector,
-                                           UndercoolingChange, UndercoolingCurrent, PathToOutput, OutputFile,
-                                           PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter,
-                                           NumberOfLayers, MeltTimeStep, PrintBinary);
+                                           NumberOfLayers, ZBound_Low, NGrainOrientations, LayerID, GrainUnitVector, printData, MeltTimeStep);
             }
 
         } while (XSwitch == 0);
@@ -350,8 +333,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                           << layernumber + 1 << std::endl;
 
             // Reset intermediate file counter to zero if printing video files
-            if (PrintTimeSeries)
-                IntermediateFileCounter = 0;
+            if (printData.PrintTimeSeries)
+                printData.resetIntermediateFileCounter();
 
             // Determine new active cell domain size and offset from bottom of global domain
             ZBound_Low = calcZBound_Low(SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
@@ -427,21 +410,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartOutTime = MPI_Wtime();
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if (((PrintMisorientation) || (PrintFinalUndercoolingVals) || (PrintFullOutput)) || (PrintDefaultRVE)) {
-        if (id == 0)
-            std::cout << "Collecting data on rank 0 and printing to files" << std::endl;
-        // Host mirrors of CellType and GrainID are not maintained - pass device views and perform copy inside of
-        // subroutine
-        PrintExaCAData(id, NumberOfLayers - 1, np, nx, ny, nz, MyYSlices, MyYOffset, GrainID, CritTimeStep,
-                       GrainUnitVector, LayerID, CellType, UndercoolingChange, UndercoolingCurrent, OutputFile,
-                       NGrainOrientations, PathToOutput, 0, PrintMisorientation, PrintFinalUndercoolingVals,
-                       PrintFullOutput, false, PrintDefaultRVE, 0, ZBound_Low, nzActive, deltax, XMin, YMin, ZMin,
-                       NumberOfLayers, PrintBinary, RVESize);
-    }
-    else {
-        if (id == 0)
-            std::cout << "No output files to be printed, exiting program" << std::endl;
-    }
+    // Collect and print specified final fields to output files
+    printData.printFinalExaCAData(id, np, nx, ny, nz, MyYSlices, NumberOfLayers, LayerID, CellType, GrainID,
+                                  UndercoolingCurrent, UndercoolingChange, MeltTimeStep, CritTimeStep, GrainUnitVector,
+                                  NGrainOrientations, deltax, XMin, YMin, ZMin);
 
     // Calculate volume fraction of solidified domain consisting of nucleated grains
     float VolFractionNucleated = calcVolFractionNucleated(id, nx, MyYSlices, LocalDomainSize, LayerID, GrainID,
@@ -465,11 +437,15 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
     // Print the log file with JSON format, timing information to the console
-    PrintExaCALog(id, np, InputFile, SimulationType, MyYSlices, MyYOffset, irf, deltax, NMax, dTN, dTsigma, temp_paths,
-                  TempFilesInSeries, HT_deltax, deltat, NumberOfLayers, LayerHeight, SubstrateFileName,
-                  SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz, FractSurfaceSitesActive, PathToOutput,
-                  NSpotsX, NSpotsY, SpotOffset, SpotRadius, OutputFile, InitTime, RunTime, OutTime, cycle, InitMaxTime,
-                  InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
-                  CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin,
-                  ZMax, GrainOrientationFile, VolFractionNucleated);
+    PrintExaCALog(id, np, InputFile, printData.PathToOutput, printData.BaseFileName, SimulationType, MyYSlices,
+                  MyYOffset, irf, deltax, NMax, dTN, dTsigma, temp_paths, TempFilesInSeries, HT_deltax, deltat,
+                  NumberOfLayers, LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
+                  nz, FractSurfaceSitesActive, NSpotsX, NSpotsY, SpotOffset, SpotRadius, InitTime, RunTime, OutTime,
+                  cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime,
+                  CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, XMin, XMax, YMin,
+                  YMax, ZMin, ZMax, GrainOrientationFile, VolFractionNucleated);
+    if (id == 0)
+        PrintExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
+                         CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
+                         OutMaxTime, OutMinTime);
 }
