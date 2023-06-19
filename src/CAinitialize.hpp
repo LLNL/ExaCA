@@ -98,18 +98,6 @@ void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLa
                 int &NextLayer_FirstEpitaxialGrainID, double PowderActiveFraction);
 void CellTypeInit(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI NumberOfSolidificationEvents,
                   int id, int ZBound_Low);
-void NucleiInit(int layernumber, double RNGSeed, int MyYSlices, int MyYOffset, int nx, int ny, int nzActive,
-                int ZBound_Low, int id, double NMax, double dTN, double dTsigma, double deltax, ViewI &NucleiLocation,
-                ViewI_H &NucleationTimes_Host, ViewI &NucleiGrainID, ViewI CellType, ViewI CritTimeStep,
-                ViewF UndercoolingChange, ViewI LayerID, int &PossibleNuclei_ThisRankThisLayer, int &Nuclei_WholeDomain,
-                bool AtNorthBoundary, bool AtSouthBoundary, int &NucleationCounter, ViewI &MaxSolidificationEvents,
-                ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory);
-void placeNucleiData(int NucleiMultiplier, int Nuclei_ThisLayerSingle, ViewI_H NucleiX, ViewI_H NucleiY,
-                     ViewI_H NucleiZ, int MyYOffset, int nx, int MyYSlices, bool AtNorthBoundary, bool AtSouthBoundary,
-                     int ZBound_Low, ViewI_H NumberOfSolidificationEvents_Host, ViewF3D_H LayerTimeTempHistory_Host,
-                     std::vector<int> NucleiGrainID_WholeDomain_V, std::vector<double> NucleiUndercooling_WholeDomain_V,
-                     std::vector<int> &NucleiGrainID_MyRank_V, std::vector<int> &NucleiLocation_MyRank_V,
-                     std::vector<int> &NucleationTimes_MyRank_V, int &PossibleNuclei_ThisRankThisLayer);
 void ZeroResetViews(int LocalActiveDomainSize, ViewF &DiagonalLength, ViewF &CritDiagonalLength, ViewF &DOCenter,
                     ViewI &SteeringVector);
 

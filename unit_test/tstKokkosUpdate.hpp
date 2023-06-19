@@ -7,6 +7,7 @@
 
 #include "CAfunctions.hpp"
 #include "CAinitialize.hpp"
+#include "CAnucleation.hpp"
 #include "CAtypes.hpp"
 #include "CAupdate.hpp"
 
@@ -19,10 +20,6 @@
 namespace Test {
 //---------------------------------------------------------------------------//
 void testNucleation() {
-
-    int SuccessfulNucEvents_ThisRank = 0; // nucleation event counter
-    // Counters for nucleation events (successful or not) - host and device
-    int NucleationCounter = 0;
 
     // Create views - 125 cells, 75 of which are part of the active layer of the domain (Z = 2-5)
     int nx = 5;
@@ -40,25 +37,24 @@ void testNucleation() {
     Kokkos::deep_copy(CellType_Host, Liquid);
 
     // Create test nucleation data - 10 possible events
-    int PossibleNuclei_ThisRankThisLayer = 10;
-    ViewI_H NucleationTimes_Host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
-                                 PossibleNuclei_ThisRankThisLayer);
-    ViewI_H NucleiLocation_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation_Host"),
-                                PossibleNuclei_ThisRankThisLayer);
-    ViewI_H NucleiGrainID_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
-                               PossibleNuclei_ThisRankThisLayer);
-    for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
+    int PossibleNuclei = 10;
+    NucleationData nucleationData(PossibleNuclei, 1.0, 1.0);
+    nucleationData.resetNucleiCounters();
+    nucleationData.PossibleNuclei = 10;
+    ViewI_H NucleiLocations_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations_Host"), PossibleNuclei);
+    ViewI_H NucleiGrainID_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"), PossibleNuclei);
+    for (int n = 0; n < PossibleNuclei; n++) {
         // NucleationTimes values should be in the order in which the events occur - start with setting them between 0
         // and 9 NucleiLocations are in order starting with 50, through 59 (locations relative to the bottom of the
         // whole domain)
-        NucleationTimes_Host(n) = n;
-        NucleiLocation_Host(n) = ZBound_Low * nx * MyYSlices + n;
+        nucleationData.NucleationTimes_Host(n) = n;
+        NucleiLocations_Host(n) = ZBound_Low * nx * MyYSlices + n;
         // Give these nucleation events grain IDs based on their order, starting with -1 and counting down
         NucleiGrainID_Host(n) = -(n + 1);
     }
     // Include the case where 2 potential nucleation events (3 and 4) happen on the same time step - both successful
     // Let nucleation events 3 and 4 both occur on time step 4
-    NucleationTimes_Host(3) = NucleationTimes_Host(4);
+    nucleationData.NucleationTimes_Host(3) = nucleationData.NucleationTimes_Host(4);
 
     // Include the case where a potential nucleation event (2) is unsuccessful (time step 2)
     int UnsuccessfulLocA = ZBound_Low * nx * MyYSlices + 2;
@@ -67,14 +63,14 @@ void testNucleation() {
 
     // Include the case where 2 potential nucleation events (5 and 6) happen on the same time step (time step 6) - the
     // first successful, the second unsuccessful
-    NucleationTimes_Host(5) = NucleationTimes_Host(6);
+    nucleationData.NucleationTimes_Host(5) = nucleationData.NucleationTimes_Host(6);
     int UnsuccessfulLocC = ZBound_Low * nx * MyYSlices + 6;
     CellType_Host(UnsuccessfulLocC) = Active;
     GrainID_Host(UnsuccessfulLocC) = 2;
 
     // Include the case where 2 potential nucleation events (8 and 9) happen on the same time step (time step 8) - the
     // first unsuccessful, the second successful
-    NucleationTimes_Host(8) = NucleationTimes_Host(9);
+    nucleationData.NucleationTimes_Host(8) = nucleationData.NucleationTimes_Host(9);
     int UnsuccessfulLocB = ZBound_Low * nx * MyYSlices + 8;
     CellType_Host(UnsuccessfulLocB) = Active;
     GrainID_Host(UnsuccessfulLocB) = 3;
@@ -83,8 +79,8 @@ void testNucleation() {
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
     ViewI CellType = Kokkos::create_mirror_view_and_copy(memory_space(), CellType_Host);
     ViewI GrainID = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID_Host);
-    ViewI NucleiLocation = Kokkos::create_mirror_view_and_copy(memory_space(), NucleiLocation_Host);
-    ViewI NucleiGrainID = Kokkos::create_mirror_view_and_copy(memory_space(), NucleiGrainID_Host);
+    nucleationData.NucleiLocations = Kokkos::create_mirror_view_and_copy(memory_space(), NucleiLocations_Host);
+    nucleationData.NucleiGrainID = Kokkos::create_mirror_view_and_copy(memory_space(), NucleiGrainID_Host);
 
     // Steering Vector
     ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
@@ -93,9 +89,7 @@ void testNucleation() {
 
     // Take enough time steps such that every nucleation event has a chance to occur
     for (int cycle = 0; cycle < 10; cycle++) {
-        Nucleation(cycle, SuccessfulNucEvents_ThisRank, NucleationCounter, PossibleNuclei_ThisRankThisLayer,
-                   NucleationTimes_Host, NucleiLocation, NucleiGrainID, CellType, GrainID, ZBound_Low, nx, MyYSlices,
-                   SteeringVector, numSteer);
+        nucleationData.nucleate_grain(cycle, CellType, GrainID, ZBound_Low, nx, MyYSlices, SteeringVector, numSteer);
     }
 
     // Copy CellType, SteeringVector, numSteer, GrainID back to host to check nucleation results
@@ -105,9 +99,9 @@ void testNucleation() {
     GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Check that all 10 possible nucleation events were attempted
-    EXPECT_EQ(NucleationCounter, 10);
+    EXPECT_EQ(nucleationData.NucleationCounter, 10);
     // Check that 7 of the 10 nucleation events were successful
-    EXPECT_EQ(SuccessfulNucEvents_ThisRank, 7);
+    EXPECT_EQ(nucleationData.SuccessfulNucleationCounter, 7);
     EXPECT_EQ(numSteer_Host(0), 7);
 
     // Ensure that the 3 events that should not have occurred, did not occur

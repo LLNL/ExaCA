@@ -78,9 +78,6 @@ KOKKOS_INLINE_FUNCTION void calcCritDiagonalLength(int D3D1ConvPosition, float x
     }
 }
 
-void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCounter, int PossibleNuclei_ThisRank,
-                ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID, ViewI CellType, ViewI GrainID,
-                int ZBound_Low, int nx, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G);
 void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, ViewI CritTimeStep,
                                  ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewI CellType, int ZBound_Low,
                                  int layernumber, ViewI LayerID, ViewI SteeringVector, ViewI numSteer_G,
