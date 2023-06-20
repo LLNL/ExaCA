@@ -549,7 +549,7 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
                   PrintData printData, int NGrainOrientations, int nzActive, double deltax, double XMin, double YMin,
                   double ZMin) {
 
-    MPI_Bcast(&LocalTempSolidCells, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
     if (RemainingCellsOfInterest == 0) {
         // If this rank still has cells that will later undergo transformation (LocalIncompleteCells > 0), check when
         // the next solid cells go above the liquidus (remelting) Otherwise, assign the largest possible time step as

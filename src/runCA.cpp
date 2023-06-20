@@ -319,10 +319,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             }
 
             if (cycle % 1000 == 0) {
-                IntermediateOutputAndCheck(id, np, cycle, MyYOffset, LocalActiveDomainSize, nx, ny,
-                                           nzActive, deltax, XMin, YMin, ZMin, nucleation.SuccessfulNucleationCounter,
-                                           XSwitch, CellType, CritTimeStep, GrainID, SimulationType, layernumber,
-                                           NumberOfLayers, ZBound_Low, NGrainOrientations, LayerID, GrainUnitVector, printData, MeltTimeStep);
+                IntermediateOutputAndCheck(id, np, cycle, MyYSlices, LocalActiveDomainSize, nx, ny, nzActive, deltax,
+                                           XMin, YMin, ZMin, nucleation.SuccessfulNucleationCounter, XSwitch, CellType,
+                                           CritTimeStep, GrainID, SimulationType, layernumber, NumberOfLayers,
+                                           ZBound_Low, NGrainOrientations, LayerID, GrainUnitVector, printData,
+                                           MeltTimeStep);
             }
 
         } while (XSwitch == 0);
