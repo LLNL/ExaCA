@@ -18,8 +18,15 @@
 #include <string>
 #include <vector>
 
-// Interfacial repsonse function with various functional forms.
-struct NucleationData {
+// Data regarding nucleation events in the domain
+template <typename MemorySpace>
+struct Nucleation {
+
+    using memory_space = MemorySpace;
+    using view_type_int = Kokkos::View<int *, memory_space>;
+    using view_type_int_host = Kokkos::View<int *, layout, Kokkos::HostSpace>;
+    using view_type_float3d = Kokkos::View<float ***, memory_space>;
+    using view_type_float3d_host = Kokkos::View<float ***, layout, Kokkos::HostSpace>;
 
     // Four counters tracked here:
     // 1. Nuclei_WholeDomain - tracks all nuclei (regardless of whether an event would be possible based on the layer ID
@@ -37,23 +44,24 @@ struct NucleationData {
     double BulkProb;
 
     // The time steps at which nucleation events will occur in the given layer, on the host
-    ViewI_H NucleationTimes_Host;
+    view_type_int_host NucleationTimes_Host;
     // The locations and grain IDs of the potential nuclei in the layer
-    ViewI NucleiLocations, NucleiGrainID;
+    view_type_int NucleiLocations, NucleiGrainID;
 
     // Constructor - initialize CA views using input for initial guess at number of possible events
     // Default is that no nucleation has occurred to this point, optional input argument to start with the counter at a
     // specific value
-    NucleationData(const int EstimatedNuclei_ThisRankThisLayer, const double NMax, const double deltax,
-                   int NumPriorNuclei = 0)
-        : NucleationTimes_Host(ViewI_H(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
-                                       EstimatedNuclei_ThisRankThisLayer))
-        , NucleiLocations(
-              ViewI(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations"), EstimatedNuclei_ThisRankThisLayer))
-        , NucleiGrainID(
-              ViewI(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"), EstimatedNuclei_ThisRankThisLayer)) {
+    Nucleation(const int EstimatedNuclei_ThisRankThisLayer, const double NMax, const double deltax,
+               int NumPriorNuclei = 0)
+        : NucleationTimes_Host(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
+                                                  EstimatedNuclei_ThisRankThisLayer))
+        , NucleiLocations(view_type_int(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations"),
+                                        EstimatedNuclei_ThisRankThisLayer))
+        , NucleiGrainID(view_type_int(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"),
+                                      EstimatedNuclei_ThisRankThisLayer)) {
         Nuclei_WholeDomain = NumPriorNuclei;
         BulkProb = NMax * deltax * deltax * deltax;
+        resetNucleiCounters(); // start counters at 0
     }
 
     // Reset the nuclei counters prior to nuclei initialization for a layer
@@ -67,18 +75,19 @@ struct NucleationData {
 
     // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur,
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
-    void placeNuclei(ViewI MaxSolidificationEvents, ViewI NumberOfSolidificationEvents, ViewF3D LayerTimeTempHistory,
-                     double RNGSeed, int layernumber, int nx, int ny, int nzActive, double dTN, double dTsigma,
-                     int MyYSlices, int MyYOffset, int ZBound_Low, int id, bool AtNorthBoundary, bool AtSouthBoundary) {
+    void placeNuclei(view_type_int MaxSolidificationEvents, view_type_int NumberOfSolidificationEvents,
+                     view_type_float3d LayerTimeTempHistory, double RNGSeed, int layernumber, int nx, int ny,
+                     int nzActive, double dTN, double dTsigma, int MyYSlices, int MyYOffset, int ZBound_Low, int id,
+                     bool AtNorthBoundary, bool AtSouthBoundary) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
         // library algorithm functions Copy temperature data into temporary host views for this subroutine
-        ViewI_H MaxSolidificationEvents_Host =
+        view_type_int_host MaxSolidificationEvents_Host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
-        ViewI_H NumberOfSolidificationEvents_Host =
+        view_type_int_host NumberOfSolidificationEvents_Host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NumberOfSolidificationEvents);
-        ViewF3D_H LayerTimeTempHistory_Host =
+        view_type_float3d_host LayerTimeTempHistory_Host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerTimeTempHistory);
 
         // Use new RNG seed for each layer
@@ -100,9 +109,9 @@ struct NucleationData {
         std::vector<int> NucleiGrainID_WholeDomain_V(Nuclei_ThisLayer);
         std::vector<double> NucleiUndercooling_WholeDomain_V(Nuclei_ThisLayer);
         // Views for storing potential nucleated grain coordinates
-        ViewI_H NucleiX(Kokkos::ViewAllocateWithoutInitializing("NucleiX"), Nuclei_ThisLayer);
-        ViewI_H NucleiY(Kokkos::ViewAllocateWithoutInitializing("NucleiY"), Nuclei_ThisLayer);
-        ViewI_H NucleiZ(Kokkos::ViewAllocateWithoutInitializing("NucleiZ"), Nuclei_ThisLayer);
+        view_type_int_host NucleiX(Kokkos::ViewAllocateWithoutInitializing("NucleiX"), Nuclei_ThisLayer);
+        view_type_int_host NucleiY(Kokkos::ViewAllocateWithoutInitializing("NucleiY"), Nuclei_ThisLayer);
+        view_type_int_host NucleiZ(Kokkos::ViewAllocateWithoutInitializing("NucleiZ"), Nuclei_ThisLayer);
 
         for (int meltevent = 0; meltevent < NucleiMultiplier; meltevent++) {
             for (int n = 0; n < Nuclei_ThisLayerSingle; n++) {
@@ -206,16 +215,18 @@ struct NucleationData {
         // Create temporary view to store nucleation locations, grain ID data initialized on the host
         // NucleationTimes_H are stored using a host view that is passed to Nucleation subroutine and later used - don't
         // need a temporary host view
-        ViewI_H NucleiLocations_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations_Host"), PossibleNuclei);
-        ViewI_H NucleiGrainID_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"), PossibleNuclei);
+        view_type_int_host NucleiLocations_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations_Host"),
+                                                PossibleNuclei);
+        view_type_int_host NucleiGrainID_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
+                                              PossibleNuclei);
         for (int n = 0; n < PossibleNuclei; n++) {
             NucleationTimes_Host(n) = std::get<0>(NucleationTimeLocID[n]);
             NucleiLocations_Host(n) = std::get<1>(NucleationTimeLocID[n]);
             NucleiGrainID_Host(n) = std::get<2>(NucleationTimeLocID[n]);
         }
         // Copy nucleation data to the device
-        NucleiLocations = Kokkos::create_mirror_view_and_copy(device_memory_space(), NucleiLocations_Host);
-        NucleiGrainID = Kokkos::create_mirror_view_and_copy(device_memory_space(), NucleiGrainID_Host);
+        NucleiLocations = Kokkos::create_mirror_view_and_copy(memory_space(), NucleiLocations_Host);
+        NucleiGrainID = Kokkos::create_mirror_view_and_copy(memory_space(), NucleiGrainID_Host);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Nucleation data structures for layer " << layernumber << " initialized" << std::endl;
@@ -224,8 +235,8 @@ struct NucleationData {
     // Compute velocity from local undercooling.
     // functional form is assumed to be cubic if not explicitly given in input file
     KOKKOS_INLINE_FUNCTION
-    void nucleate_grain(int cycle, ViewI CellType, ViewI GrainID, int ZBound_Low, int nx, int MyYSlices,
-                        ViewI SteeringVector, ViewI numSteer_G) {
+    void nucleate_grain(int cycle, view_type_int CellType, view_type_int GrainID, int ZBound_Low, int nx, int MyYSlices,
+                        view_type_int SteeringVector, view_type_int numSteer_G) {
 
         // Is there nucleation left in this layer to check?
         if (NucleationCounter < PossibleNuclei) {

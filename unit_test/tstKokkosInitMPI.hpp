@@ -378,30 +378,29 @@ void testNucleiInit() {
     // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
     int EstimatedNuclei_ThisRankThisLayer = NMax * pow(deltax, 3) * LocalActiveDomainSize;
-    NucleationData nucleationData(EstimatedNuclei_ThisRankThisLayer, NMax, deltax,
-                                  100); // NucleiGrainID should start at -101 - supply optional input arg to constructor
-    nucleationData.resetNucleiCounters();
+    Nucleation<memory_space> nucleation(
+        EstimatedNuclei_ThisRankThisLayer, NMax, deltax,
+        100); // NucleiGrainID should start at -101 - supply optional input arg to constructor
 
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 1 - they will be initialized for each
     // successive layer when layer 1 in complete
-    nucleationData.placeNuclei(MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory, RNGSeed, 1,
-                               nx, ny, nzActive, dTN, dTsigma, MyYSlices, MyYOffset, ZBound_Low, id, AtNorthBoundary,
-                               AtSouthBoundary);
+    nucleation.placeNuclei(MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory, RNGSeed, 1, nx,
+                           ny, nzActive, dTN, dTsigma, MyYSlices, MyYOffset, ZBound_Low, id, AtNorthBoundary,
+                           AtSouthBoundary);
 
     // Copy results back to host to check
-    ViewI_H NucleiLocation_Host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleationData.NucleiLocations);
-    ViewI_H NucleiGrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleationData.NucleiGrainID);
+    ViewI_H NucleiLocation_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.NucleiLocations);
+    ViewI_H NucleiGrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.NucleiGrainID);
 
     // Was the nucleation counter initialized to zero?
-    EXPECT_EQ(nucleationData.NucleationCounter, 0);
+    EXPECT_EQ(nucleation.NucleationCounter, 0);
 
     // Is the total number of nuclei in the system correct, based on the number of remelting events? Equal probability
     // of creating a nucleus each time a cell resolidifies
     int ExpectedNucleiPerRank = 100 + MaxSolidificationEvents_Count * MaxPotentialNuclei_PerPass;
-    EXPECT_EQ(nucleationData.Nuclei_WholeDomain, ExpectedNucleiPerRank);
-    for (int n = 0; n < nucleationData.PossibleNuclei; n++) {
+    EXPECT_EQ(nucleation.Nuclei_WholeDomain, ExpectedNucleiPerRank);
+    for (int n = 0; n < nucleation.PossibleNuclei; n++) {
         // Are the nuclei grain IDs negative numbers in the expected range based on the inputs?
         EXPECT_GT(NucleiGrainID_Host(n), -(100 + ExpectedNucleiPerRank * np + 1));
         EXPECT_LT(NucleiGrainID_Host(n), -100);
@@ -414,13 +413,13 @@ void testNucleiInit() {
         // Expected nucleation time with remelting can be one of 3 possibilities, depending on the associated
         // solidification event
         int Expected_NucleationTimeNoRM = GlobalZ + RankY + MyYOffset + 2;
-        int AssociatedSEvent = nucleationData.NucleationTimes_Host(n) / LocalActiveDomainSize;
+        int AssociatedSEvent = nucleation.NucleationTimes_Host(n) / LocalActiveDomainSize;
         int Expected_NucleationTimeRM = Expected_NucleationTimeNoRM + AssociatedSEvent * LocalActiveDomainSize;
-        EXPECT_EQ(nucleationData.NucleationTimes_Host(n), Expected_NucleationTimeRM);
+        EXPECT_EQ(nucleation.NucleationTimes_Host(n), Expected_NucleationTimeRM);
 
         // Are the nucleation events in order of the time steps at which they may occur?
-        if (n < nucleationData.PossibleNuclei - 2) {
-            EXPECT_LE(nucleationData.NucleationTimes_Host(n), nucleationData.NucleationTimes_Host(n + 1));
+        if (n < nucleation.PossibleNuclei - 2) {
+            EXPECT_LE(nucleation.NucleationTimes_Host(n), nucleation.NucleationTimes_Host(n + 1));
         }
     }
 }
