@@ -367,7 +367,7 @@ void testNucleiInit() {
         }
     }
 
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
+    using memory_space = TEST_MEMSPACE;
     ViewI MaxSolidificationEvents = Kokkos::create_mirror_view_and_copy(memory_space(), MaxSolidificationEvents_Host);
     ViewI NumberOfSolidificationEvents =
         Kokkos::create_mirror_view_and_copy(memory_space(), NumberOfSolidificationEvents_Host);
