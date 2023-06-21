@@ -32,7 +32,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny,
                        int &nz, double &FractSurfaceSitesActive, int &NSpotsX, int &NSpotsY, int &SpotOffset,
                        int &SpotRadius, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderActiveFraction,
-                       bool &LayerwiseTempRead, bool &PowderFirstLayer, PrintData &printData) {
+                       bool &LayerwiseTempRead, bool &PowderFirstLayer, Print<device_memory_space> &print) {
 
     std::ifstream InputData(InputFile);
     nlohmann::json inputdata = nlohmann::json::parse(InputData);
@@ -197,7 +197,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     }
 
     // Printing inputs:
-    printData.getPrintDataFromInputFile(inputdata, id, deltat);
+    print.getPrintDataFromInputFile(inputdata, id, deltat);
 
     // Print information to console about the input file data read
     if (id == 0) {

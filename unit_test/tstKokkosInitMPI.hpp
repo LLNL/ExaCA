@@ -132,12 +132,12 @@ void testInputReadFromFile(int PrintVersion) {
         std::vector<std::string> temp_paths;
         std::cout << "Reading " << FileName << std::endl;
         // Data printing structure - contains print options (false by default) and functions
-        PrintData printData(np);
+        Print<device_memory_space> print(np);
         InputReadFromFile(id, FileName, SimulationType, deltax, NMax, dTN, dTsigma, GrainOrientationFile,
                           TempFilesInSeries, temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight,
                           MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
                           nz, FractSurfaceSitesActive, NSpotsX, NSpotsY, SpotOffset, SpotRadius, RNGSeed,
-                          BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, PowderFirstLayer, printData);
+                          BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, PowderFirstLayer, print);
         InterfacialResponseFunction irf(0, MaterialFileName, deltat, deltax);
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -157,9 +157,9 @@ void testInputReadFromFile(int PrintVersion) {
 
         // These are different for all 3 test problems
         if (FileName == InputFilenames[0]) {
-            EXPECT_TRUE(printData.PrintTimeSeries);
-            EXPECT_EQ(printData.TimeSeriesInc, 5250);
-            EXPECT_FALSE(printData.PrintIdleTimeSeriesFrames);
+            EXPECT_TRUE(print.PrintTimeSeries);
+            EXPECT_EQ(print.TimeSeriesInc, 5250);
+            EXPECT_FALSE(print.PrintIdleTimeSeriesFrames);
             EXPECT_DOUBLE_EQ(G, 500000.0);
             EXPECT_DOUBLE_EQ(R, 300000.0);
             // compare with float to avoid floating point error with irrational number
@@ -169,27 +169,27 @@ void testInputReadFromFile(int PrintVersion) {
             EXPECT_EQ(ny, 200);
             EXPECT_EQ(nz, 200);
             EXPECT_DOUBLE_EQ(FractSurfaceSitesActive, 0.08);
-            EXPECT_TRUE(printData.BaseFileName == "TestProblemDirS");
-            EXPECT_TRUE(printData.PrintInitCritTimeStep);
-            EXPECT_FALSE(printData.PrintInitGrainID);
-            EXPECT_FALSE(printData.PrintInitLayerID);
-            EXPECT_FALSE(printData.PrintInitMeltTimeStep);
-            EXPECT_FALSE(printData.PrintInitUndercoolingChange);
-            EXPECT_TRUE(printData.PrintFinalGrainID);
-            EXPECT_TRUE(printData.PrintFinalLayerID);
-            EXPECT_TRUE(printData.PrintFinalMisorientation);
-            EXPECT_FALSE(printData.PrintFinalUndercoolingCurrent);
-            EXPECT_FALSE(printData.PrintFinalMeltTimeStep);
-            EXPECT_FALSE(printData.PrintFinalCritTimeStep);
-            EXPECT_FALSE(printData.PrintFinalUndercoolingChange);
-            EXPECT_FALSE(printData.PrintDefaultRVE);
+            EXPECT_TRUE(print.BaseFileName == "TestProblemDirS");
+            EXPECT_TRUE(print.PrintInitCritTimeStep);
+            EXPECT_FALSE(print.PrintInitGrainID);
+            EXPECT_FALSE(print.PrintInitLayerID);
+            EXPECT_FALSE(print.PrintInitMeltTimeStep);
+            EXPECT_FALSE(print.PrintInitUndercoolingChange);
+            EXPECT_TRUE(print.PrintFinalGrainID);
+            EXPECT_TRUE(print.PrintFinalLayerID);
+            EXPECT_TRUE(print.PrintFinalMisorientation);
+            EXPECT_FALSE(print.PrintFinalUndercoolingCurrent);
+            EXPECT_FALSE(print.PrintFinalMeltTimeStep);
+            EXPECT_FALSE(print.PrintFinalCritTimeStep);
+            EXPECT_FALSE(print.PrintFinalUndercoolingChange);
+            EXPECT_FALSE(print.PrintDefaultRVE);
             EXPECT_DOUBLE_EQ(RNGSeed, 0.0);
-            EXPECT_FALSE(printData.PrintBinary);
+            EXPECT_FALSE(print.PrintBinary);
         }
         else if (FileName == InputFilenames[1]) {
-            EXPECT_TRUE(printData.PrintTimeSeries);
-            EXPECT_EQ(printData.TimeSeriesInc, 37500);
-            EXPECT_TRUE(printData.PrintIdleTimeSeriesFrames);
+            EXPECT_TRUE(print.PrintTimeSeries);
+            EXPECT_EQ(print.TimeSeriesInc, 37500);
+            EXPECT_TRUE(print.PrintIdleTimeSeriesFrames);
             EXPECT_DOUBLE_EQ(G, 500000.0);
             EXPECT_DOUBLE_EQ(R, 300000.0);
             // compare with float to avoid floating point error with irrational number
@@ -206,22 +206,21 @@ void testInputReadFromFile(int PrintVersion) {
             // Option defaults to false
             EXPECT_FALSE(PowderFirstLayer);
             EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 25.0);
-            EXPECT_TRUE(printData.BaseFileName == "TestProblemSpot");
-            EXPECT_TRUE(printData.PrintInitCritTimeStep);
-            EXPECT_TRUE(printData.PrintInitMeltTimeStep);
-            EXPECT_FALSE(printData.PrintInitGrainID);
-            EXPECT_FALSE(printData.PrintInitLayerID);
-            EXPECT_FALSE(printData.PrintInitUndercoolingChange);
-            EXPECT_TRUE(printData.PrintFinalGrainID);
-            EXPECT_TRUE(printData.PrintFinalLayerID);
-            EXPECT_TRUE(printData.PrintFinalMisorientation);
-            EXPECT_FALSE(printData.PrintFinalUndercoolingCurrent);
-            EXPECT_FALSE(printData.PrintFinalMeltTimeStep);
-            EXPECT_FALSE(printData.PrintFinalCritTimeStep);
-            EXPECT_FALSE(printData.PrintFinalUndercoolingChange);
-            EXPECT_FALSE(printData.PrintDefaultRVE);
+            EXPECT_TRUE(print.BaseFileName == "TestProblemSpot");
+            EXPECT_TRUE(print.PrintInitCritTimeStep);
+            EXPECT_TRUE(print.PrintInitMeltTimeStep);
+            EXPECT_FALSE(print.PrintInitGrainID);
+            EXPECT_FALSE(print.PrintInitLayerID);
+            EXPECT_FALSE(print.PrintInitUndercoolingChange);
+            EXPECT_TRUE(print.PrintFinalGrainID);
+            EXPECT_TRUE(print.PrintFinalLayerID);
+            EXPECT_TRUE(print.PrintFinalMisorientation);
+            EXPECT_FALSE(print.PrintFinalUndercoolingCurrent);
+            EXPECT_FALSE(print.PrintFinalMeltTimeStep);
+            EXPECT_FALSE(print.PrintFinalCritTimeStep);
+            EXPECT_FALSE(print.PrintFinalUndercoolingChange);
+            EXPECT_FALSE(print.PrintDefaultRVE);
             EXPECT_DOUBLE_EQ(RNGSeed, 0.0);
-            EXPECT_FALSE(printData.PrintBinary);
         }
         else if (FileName == InputFilenames[2]) {
             EXPECT_DOUBLE_EQ(deltat, 1.5 * pow(10, -6));
@@ -233,40 +232,40 @@ void testInputReadFromFile(int PrintVersion) {
             EXPECT_DOUBLE_EQ(PowderActiveFraction, 0.001);
             EXPECT_TRUE(PowderFirstLayer);
             EXPECT_DOUBLE_EQ(HT_deltax, deltax);
-            EXPECT_TRUE(printData.BaseFileName == "Test");
+            EXPECT_TRUE(print.BaseFileName == "Test");
             EXPECT_TRUE(temp_paths[0] == ".//1DummyTemperature.txt");
             EXPECT_TRUE(temp_paths[1] == ".//2DummyTemperature.txt");
             if (PrintVersion == 0) {
-                EXPECT_TRUE(printData.PrintInitCritTimeStep);
-                EXPECT_TRUE(printData.PrintInitMeltTimeStep);
-                EXPECT_TRUE(printData.PrintInitGrainID);
-                EXPECT_TRUE(printData.PrintInitLayerID);
-                EXPECT_TRUE(printData.PrintInitUndercoolingChange);
-                EXPECT_TRUE(printData.PrintFinalMisorientation);
-                EXPECT_TRUE(printData.PrintFinalUndercoolingCurrent);
-                EXPECT_TRUE(printData.PrintFinalLayerID);
-                EXPECT_TRUE(printData.PrintFinalGrainID);
-                EXPECT_TRUE(printData.PrintTimeSeries);
-                EXPECT_EQ(printData.TimeSeriesInc, 200); // value from file divided by deltat
-                EXPECT_TRUE(printData.PrintIdleTimeSeriesFrames);
-                EXPECT_FALSE(printData.PrintDefaultRVE);
+                EXPECT_TRUE(print.PrintInitCritTimeStep);
+                EXPECT_TRUE(print.PrintInitMeltTimeStep);
+                EXPECT_TRUE(print.PrintInitGrainID);
+                EXPECT_TRUE(print.PrintInitLayerID);
+                EXPECT_TRUE(print.PrintInitUndercoolingChange);
+                EXPECT_TRUE(print.PrintFinalMisorientation);
+                EXPECT_TRUE(print.PrintFinalUndercoolingCurrent);
+                EXPECT_TRUE(print.PrintFinalLayerID);
+                EXPECT_TRUE(print.PrintFinalGrainID);
+                EXPECT_TRUE(print.PrintTimeSeries);
+                EXPECT_EQ(print.TimeSeriesInc, 200); // value from file divided by deltat
+                EXPECT_TRUE(print.PrintIdleTimeSeriesFrames);
+                EXPECT_FALSE(print.PrintDefaultRVE);
             }
             else if (PrintVersion == 1) {
-                EXPECT_FALSE(printData.PrintInitCritTimeStep);
-                EXPECT_FALSE(printData.PrintInitMeltTimeStep);
-                EXPECT_FALSE(printData.PrintInitGrainID);
-                EXPECT_FALSE(printData.PrintInitLayerID);
-                EXPECT_FALSE(printData.PrintInitUndercoolingChange);
-                EXPECT_TRUE(printData.PrintFinalMisorientation);
-                EXPECT_FALSE(printData.PrintFinalUndercoolingCurrent);
-                EXPECT_TRUE(printData.PrintFinalLayerID);
-                EXPECT_TRUE(printData.PrintFinalGrainID);
-                EXPECT_TRUE(printData.PrintDefaultRVE);
-                EXPECT_FALSE(printData.PrintTimeSeries);
+                EXPECT_FALSE(print.PrintInitCritTimeStep);
+                EXPECT_FALSE(print.PrintInitMeltTimeStep);
+                EXPECT_FALSE(print.PrintInitGrainID);
+                EXPECT_FALSE(print.PrintInitLayerID);
+                EXPECT_FALSE(print.PrintInitUndercoolingChange);
+                EXPECT_TRUE(print.PrintFinalMisorientation);
+                EXPECT_FALSE(print.PrintFinalUndercoolingCurrent);
+                EXPECT_TRUE(print.PrintFinalLayerID);
+                EXPECT_TRUE(print.PrintFinalGrainID);
+                EXPECT_TRUE(print.PrintDefaultRVE);
+                EXPECT_FALSE(print.PrintTimeSeries);
             }
             EXPECT_FALSE(LayerwiseTempRead);
             EXPECT_DOUBLE_EQ(RNGSeed, 2.0);
-            EXPECT_TRUE(printData.PrintBinary);
+            EXPECT_TRUE(print.PrintBinary);
         }
     }
 }

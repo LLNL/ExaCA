@@ -37,7 +37,18 @@ void WriteData(std::ofstream &outstream, PrintType PrintValue, bool PrintBinary,
 }
 
 // Struct to hold data printing options and functions
-struct PrintData {
+template <typename MemorySpace>
+struct Print {
+
+    using memory_space = MemorySpace;
+    using view_type_int = Kokkos::View<int *, memory_space>;
+    using view_type_int_host = Kokkos::View<int *, layout, Kokkos::HostSpace>;
+    using view_type_int3d = Kokkos::View<int ***, memory_space>;
+    using view_type_int3d_host = Kokkos::View<int ***, layout, Kokkos::HostSpace>;
+    using view_type_float = Kokkos::View<float *, memory_space>;
+    using view_type_float_host = Kokkos::View<float *, layout, Kokkos::HostSpace>;
+    using view_type_float3d = Kokkos::View<float ***, memory_space>;
+    using view_type_float3d_host = Kokkos::View<float ***, layout, Kokkos::HostSpace>;
 
     // Base name of CA output
     std::string BaseFileName;
@@ -72,15 +83,15 @@ struct PrintData {
 
     // Message sizes and data offsets for data send/recieved to/from other ranks- message size different for different
     // ranks
-    ViewI_H RecvYOffset, RecvYSlices, RBufSize;
+    view_type_int_host RecvYOffset, RecvYSlices, RBufSize;
     // Y coordinates for a given rank's data being send/loaded into the view of all domain data on rank 0=
     int SendBufStartY, SendBufEndY, SendBufSize;
 
     // Default constructor - options are set in getPrintDataFromFile as necessary
-    PrintData(int np)
-        : RecvYOffset(ViewI_H(Kokkos::ViewAllocateWithoutInitializing("RecvYOffset"), np))
-        , RecvYSlices(ViewI_H(Kokkos::ViewAllocateWithoutInitializing("RecvYSlices"), np))
-        , RBufSize(ViewI_H(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np)) {
+    Print(int np)
+        : RecvYOffset(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RecvYOffset"), np))
+        , RecvYSlices(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RecvYSlices"), np))
+        , RBufSize(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np)) {
 
         // Fields to be printed at start of run: GrainID, LayerID, MeltTimeStep, CritTimeStep, UndercoolingChange (all
         // for first layer)
@@ -215,8 +226,9 @@ struct PrintData {
 
     // Called on rank 0, prints initial values of selected data structures to Paraview files for the first layer
     void printInitExaCAData(int id, int np, int nx, int ny, int MyYSlices, int nzActive, double deltax, double XMin,
-                            double YMin, double ZMin, ViewI GrainID, ViewI LayerID, ViewI MeltTimeStep,
-                            ViewI CritTimeStep, ViewF UndercoolingChange) {
+                            double YMin, double ZMin, view_type_int GrainID, view_type_int LayerID,
+                            view_type_int MeltTimeStep, view_type_int CritTimeStep,
+                            view_type_float UndercoolingChange) {
 
         if ((PrintInitGrainID) || (PrintInitLayerID) || (PrintInitMeltTimeStep) || (PrintInitCritTimeStep) ||
             (PrintInitUndercoolingChange)) {
@@ -228,31 +240,36 @@ struct PrintData {
             }
             if (PrintInitGrainID) {
                 ViewI3D_H GrainID_WholeDomain =
-                    collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
+                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
+                        id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "int", "GrainID", GrainID_WholeDomain);
             }
             if (PrintInitLayerID) {
                 ViewI3D_H LayerID_WholeDomain =
-                    collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
+                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
+                        id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "short", "LayerID", LayerID_WholeDomain);
             }
             if (PrintInitMeltTimeStep) {
-                ViewI3D_H MeltTimeStep_WholeDomain = collectViewData<ViewI3D_H, ViewI, ViewI_H>(
-                    id, np, nx, ny, nzActive, MyYSlices, MPI_INT, MeltTimeStep);
+                ViewI3D_H MeltTimeStep_WholeDomain =
+                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
+                        id, np, nx, ny, nzActive, MyYSlices, MPI_INT, MeltTimeStep);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (PrintInitCritTimeStep) {
-                ViewI3D_H CritTimeStep_WholeDomain = collectViewData<ViewI3D_H, ViewI, ViewI_H>(
-                    id, np, nx, ny, nzActive, MyYSlices, MPI_INT, CritTimeStep);
+                ViewI3D_H CritTimeStep_WholeDomain =
+                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
+                        id, np, nx, ny, nzActive, MyYSlices, MPI_INT, CritTimeStep);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (PrintInitUndercoolingChange) {
-                ViewF3D_H UndercoolingChange_WholeDomain = collectViewData<ViewF3D_H, ViewF, ViewF_H>(
-                    id, np, nx, ny, nzActive, MyYSlices, MPI_FLOAT, UndercoolingChange);
+                ViewF3D_H UndercoolingChange_WholeDomain =
+                    collectViewData<view_type_float3d_host, view_type_float, view_type_float_host>(
+                        id, np, nx, ny, nzActive, MyYSlices, MPI_FLOAT, UndercoolingChange);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "float", "UndercoolingChange",
                                   UndercoolingChange_WholeDomain);
@@ -266,19 +283,23 @@ struct PrintData {
     // marking which cells are liquid
     void printIntermediateGrainMisorientation(int id, int np, int cycle, int nx, int ny, int MyYSlices, int nzActive,
                                               double deltax, double XMin, double YMin, double ZMin, ViewI GrainID,
-                                              ViewI LayerID, ViewI CellType, ViewF GrainUnitVector,
+                                              view_type_int LayerID, ViewI CellType, view_type_float GrainUnitVector,
                                               int NGrainOrientations, int layernumber, int ZBound_Low) {
 
         IntermediateFileCounter++;
-        ViewI3D_H GrainID_WholeDomain =
-            collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
-        ViewI3D_H LayerID_WholeDomain =
-            collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
-        ViewI3D_H CellType_WholeDomain =
-            collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, CellType);
+        view_type_int3d_host GrainID_WholeDomain =
+            collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(id, np, nx, ny, nzActive,
+                                                                                     MyYSlices, MPI_INT, GrainID);
+        view_type_int3d_host LayerID_WholeDomain =
+            collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(id, np, nx, ny, nzActive,
+                                                                                     MyYSlices, MPI_INT, LayerID);
+        view_type_int3d_host CellType_WholeDomain =
+            collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(id, np, nx, ny, nzActive,
+                                                                                     MyYSlices, MPI_INT, CellType);
         if (id == 0) {
             std::cout << "Intermediate output on time step " << cycle << std::endl;
-            ViewF_H GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
+            view_type_float_host GrainUnitVector_Host =
+                Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
             printGrainMisorientations(nx, ny, nzActive, LayerID_WholeDomain, GrainID_WholeDomain, CellType_WholeDomain,
                                       GrainUnitVector_Host, NGrainOrientations, deltax, XMin, YMin, ZMin, true,
                                       layernumber, ZBound_Low, nzActive);
@@ -286,10 +307,11 @@ struct PrintData {
     }
 
     // Prints final values of selected data structures to Paraview files
-    void printFinalExaCAData(int id, int np, int nx, int ny, int nz, int MyYSlices, int NumberOfLayers, ViewI LayerID,
-                             ViewI CellType, ViewI GrainID, ViewF UndercoolingCurrent, ViewF UndercoolingChange,
-                             ViewI MeltTimeStep, ViewI CritTimeStep, ViewF GrainUnitVector, int NGrainOrientations,
-                             double deltax, double XMin, double YMin, double ZMin) {
+    void printFinalExaCAData(int id, int np, int nx, int ny, int nz, int MyYSlices, int NumberOfLayers,
+                             view_type_int LayerID, view_type_int CellType, view_type_int GrainID,
+                             view_type_float UndercoolingCurrent, view_type_float UndercoolingChange,
+                             view_type_int MeltTimeStep, view_type_int CritTimeStep, view_type_float GrainUnitVector,
+                             int NGrainOrientations, double deltax, double XMin, double YMin, double ZMin) {
 
         if (id == 0)
             std::cout << "Printing final data structures to vtk files" << std::endl;
@@ -305,20 +327,22 @@ struct PrintData {
                 WriteHeader(Grainplot, FName, nx, ny, nz, deltax, XMin, YMin, ZMin);
             if ((PrintFinalGrainID) || (PrintFinalLayerID) || (PrintFinalMisorientation) || (PrintDefaultRVE)) {
                 ViewI3D_H GrainID_WholeDomain =
-                    collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
+                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
+                        id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
                 ViewI3D_H LayerID_WholeDomain =
-                    collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nz, MyYSlices, MPI_INT, LayerID);
+                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
+                        id, np, nx, ny, nz, MyYSlices, MPI_INT, LayerID);
                 if ((id == 0) && (PrintFinalGrainID))
                     printViewData(Grainplot, nx, ny, nz, "int", "GrainID", GrainID_WholeDomain);
                 if ((id == 0) && (PrintFinalLayerID))
                     printViewData(Grainplot, nx, ny, nz, "int", "LayerID", LayerID_WholeDomain);
                 if ((id == 0) && (PrintFinalMisorientation)) {
-                    ViewF_H GrainUnitVector_Host =
+                    view_type_float_host GrainUnitVector_Host =
                         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
-                    ViewI3D_H CellType_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("ViewData_WholeDomain"), 0,
-                                                   0,
-                                                   0); // not used in this call to printGrainMisorientations but is a
-                                                       // function input, empty view passed as dummy argument
+                    view_type_int3d_host CellType_WholeDomain(
+                        Kokkos::ViewAllocateWithoutInitializing("ViewData_WholeDomain"), 0, 0,
+                        0); // not used in this call to printGrainMisorientations but is a
+                            // function input, empty view passed as dummy argument
                     printGrainMisorientations(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain,
                                               CellType_WholeDomain, GrainUnitVector_Host, NGrainOrientations, deltax,
                                               XMin, YMin, ZMin, false);
@@ -328,8 +352,9 @@ struct PrintData {
                                               NumberOfLayers);
             }
             if ((id == 0) && (PrintFinalUndercoolingCurrent)) {
-                ViewF3D_H UndercoolingCurrent_WholeDomain = collectViewData<ViewF3D_H, ViewF, ViewF_H>(
-                    id, np, nx, ny, nz, MyYSlices, MPI_FLOAT, UndercoolingCurrent);
+                view_type_float3d_host UndercoolingCurrent_WholeDomain =
+                    collectViewData<view_type_float3d_host, view_type_float, view_type_float_host>(
+                        id, np, nx, ny, nz, MyYSlices, MPI_FLOAT, UndercoolingCurrent);
                 printViewData(Grainplot, nx, ny, nz, "float", "UndercoolingFinal", UndercoolingCurrent_WholeDomain);
             }
             if (id == 0)
@@ -344,26 +369,30 @@ struct PrintData {
             if (id == 0)
                 WriteHeader(GrainplotF, FName, nx, ny, nz, deltax, XMin, YMin, ZMin);
             if (PrintFinalMeltTimeStep) {
-                ViewI3D_H MeltTimeStep_WholeDomain =
-                    collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nz, MyYSlices, MPI_INT, MeltTimeStep);
+                view_type_int3d_host MeltTimeStep_WholeDomain =
+                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
+                        id, np, nx, ny, nz, MyYSlices, MPI_INT, MeltTimeStep);
                 if (id == 0)
                     printViewData(GrainplotF, nx, ny, nz, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (PrintFinalCritTimeStep) {
-                ViewI3D_H CritTimeStep_WholeDomain =
-                    collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nz, MyYSlices, MPI_INT, CritTimeStep);
+                view_type_int3d_host CritTimeStep_WholeDomain =
+                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
+                        id, np, nx, ny, nz, MyYSlices, MPI_INT, CritTimeStep);
                 if (id == 0)
                     printViewData(GrainplotF, nx, ny, nz, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (PrintFinalUndercoolingChange) {
-                ViewF3D_H UndercoolingChange_WholeDomain = collectViewData<ViewF3D_H, ViewF, ViewF_H>(
-                    id, np, nx, ny, nz, MyYSlices, MPI_FLOAT, UndercoolingChange);
+                view_type_float3d_host UndercoolingChange_WholeDomain =
+                    collectViewData<view_type_float3d_host, view_type_float, view_type_float_host>(
+                        id, np, nx, ny, nz, MyYSlices, MPI_FLOAT, UndercoolingChange);
                 if (id == 0)
                     printViewData(GrainplotF, nx, ny, nz, "int", "UndercoolingChange", UndercoolingChange_WholeDomain);
             }
             if (PrintFinalCellType) {
-                ViewI3D_H CellType_WholeDomain =
-                    collectViewData<ViewI3D_H, ViewI, ViewI_H>(id, np, nx, ny, nz, MyYSlices, MPI_INT, CellType);
+                view_type_int3d_host CellType_WholeDomain =
+                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
+                        id, np, nx, ny, nz, MyYSlices, MPI_INT, CellType);
                 if (id == 0)
                     printViewData(GrainplotF, nx, ny, nz, "int", "CellType", CellType_WholeDomain);
             }
@@ -495,10 +524,11 @@ struct PrintData {
     // On rank 0, print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview
     // file Optionally add layer label/intermediate frame and print -1 for liquid cells if this is being printed as
     // intermediate output
-    void printGrainMisorientations(int nx, int ny, int nz, ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain,
-                                   ViewI3D_H CellType_WholeDomain, ViewF_H GrainUnitVector, int NGrainOrientations,
-                                   double deltax, double XMin, double YMin, double ZMin, bool IntermediatePrint,
-                                   int layernumber = 0, int ZBound_Low = 0, int nzActive = 0) {
+    void printGrainMisorientations(int nx, int ny, int nz, view_type_int3d_host LayerID_WholeDomain,
+                                   view_type_int3d_host GrainID_WholeDomain, view_type_int3d_host CellType_WholeDomain,
+                                   view_type_float_host GrainUnitVector, int NGrainOrientations, double deltax,
+                                   double XMin, double YMin, double ZMin, bool IntermediatePrint, int layernumber = 0,
+                                   int ZBound_Low = 0, int nzActive = 0) {
 
         // Print grain orientations to file - either all layers, or if in an intermediate state, the layers up to the
         // current one
@@ -521,7 +551,7 @@ struct PrintData {
         GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
         // Get grain misorientations relative to the Z direction for each orientation
-        ViewF_H GrainMisorientation = MisorientationCalc(NGrainOrientations, GrainUnitVector, 2);
+        view_type_float_host GrainMisorientation = MisorientationCalc(NGrainOrientations, GrainUnitVector, 2);
         // Print is slightly different for intermediate vs final state
         // Intermediate state: misorientation printed for all cells, 200 for cells that are currently liquid
         // Final state: misorientationtation printed for all cells that underwent solidification, 200 printed for other
@@ -554,8 +584,8 @@ struct PrintData {
     // domain. The default location is as close to the center of the domain in X and Y as possible, and as close to the
     // top of the domain while not including the final layer's microstructure. If an RVE size was not specified in the
     // input file, the default size is 0.5 by 0.5 by 0.5 mm
-    void printExaConstitDefaultRVE(int nx, int ny, int nz, ViewI3D_H LayerID_WholeDomain, ViewI3D_H GrainID_WholeDomain,
-                                   double deltax, int NumberOfLayers) {
+    void printExaConstitDefaultRVE(int nx, int ny, int nz, view_type_int3d_host LayerID_WholeDomain,
+                                   view_type_int3d_host GrainID_WholeDomain, double deltax, int NumberOfLayers) {
 
         // Determine the lower and upper Y bounds of the RVE
         int RVE_XLow = std::floor(nx / 2) - std::floor(RVESize / 2);
@@ -624,156 +654,22 @@ struct PrintData {
     }
 };
 
-inline std::string version() { return ExaCA_VERSION; }
-
-inline std::string gitCommitHash() { return ExaCA_GIT_COMMIT_HASH; }
-
-inline std::string kokkosVersion() { return ExaCA_Kokkos_VERSION_STRING; }
-
-// Print a log file for this ExaCA run in json file format, containing information about the run parameters used
-// from the input file as well as the decomposition scheme
-inline void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutput, std::string BaseFileName,
-                          std::string SimulationType, int MyYSlices, int MyYOffset, InterfacialResponseFunction irf,
-                          double deltax, double NMax, double dTN, double dTsigma, std::vector<std::string> temp_paths,
-                          int TempFilesInSeries, double HT_deltax, double deltat, int NumberOfLayers, int LayerHeight,
-                          std::string SubstrateFileName, double SubstrateGrainSpacing, bool SubstrateFile, double G,
-                          double R, int nx, int ny, int nz, double FractSurfaceSitesActive, int NSpotsX, int NSpotsY,
-                          int SpotOffset, int SpotRadius, double InitTime, double RunTime, double OutTime, int cycle,
-                          double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
-                          double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
-                          double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
-                          double XMax, double YMin, double YMax, double ZMin, double ZMax,
-                          std::string GrainOrientationFile, float VolFractionNucleated) {
-
-    int *YSlices = new int[np];
-    int *YOffset = new int[np];
-    MPI_Gather(&MyYSlices, 1, MPI_INT, YSlices, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Gather(&MyYOffset, 1, MPI_INT, YOffset, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-    if (id == 0) {
-        std::string FName = PathToOutput + BaseFileName + ".json";
-        std::cout << "Printing ExaCA log file" << std::endl;
-        std::ofstream ExaCALog;
-        ExaCALog.open(FName);
-        ExaCALog << "{" << std::endl;
-        ExaCALog << "   \"ExaCAVersion\": \"" << version() << "\", " << std::endl;
-        ExaCALog << "   \"ExaCACommitHash\": \"" << gitCommitHash() << "\", " << std::endl;
-        ExaCALog << "   \"KokkosVersion\": \"" << kokkosVersion() << "\", " << std::endl;
-        ExaCALog << "   \"InputFile\": \"" << InputFile << "\", " << std::endl;
-        ExaCALog << "   \"TimeStepOfOutput\": " << cycle << "," << std::endl;
-        ExaCALog << "   \"SimulationType\": \"" << SimulationType << "\"," << std::endl;
-        ExaCALog << "   \"GrainOrientationFile\": \"" << GrainOrientationFile << "\"," << std::endl;
-        ExaCALog << "   \"Domain\": {" << std::endl;
-        ExaCALog << "      \"Nx\": " << nx << "," << std::endl;
-        ExaCALog << "      \"Ny\": " << ny << "," << std::endl;
-        ExaCALog << "      \"Nz\": " << nz << "," << std::endl;
-        ExaCALog << "      \"CellSize\": " << deltax << "," << std::endl;
-        ExaCALog << "      \"TimeStep\": " << deltat << "," << std::endl;
-        ExaCALog << "      \"XBounds\": [" << XMin << "," << XMax << "]," << std::endl;
-        ExaCALog << "      \"YBounds\": [" << YMin << "," << YMax << "]," << std::endl;
-        ExaCALog << "      \"ZBounds\": [" << ZMin << "," << ZMax << "]";
-        if (SimulationType != "C") {
-            ExaCALog << "," << std::endl;
-            ExaCALog << "      \"NumberOfLayers\": " << NumberOfLayers << "," << std::endl;
-            ExaCALog << "      \"LayerOffset\": " << LayerHeight << "," << std::endl;
-            if (SimulationType == "S") {
-                ExaCALog << "," << std::endl;
-                ExaCALog << "      \"NSpotsX\": " << NSpotsX << "," << std::endl;
-                ExaCALog << "      \"NSpotsY\": " << NSpotsY << "," << std::endl;
-                ExaCALog << "      \"RSpots\": " << SpotRadius << "," << std::endl;
-                ExaCALog << "      \"SpotOffset\": " << SpotOffset << std::endl;
-            }
-            else
-                ExaCALog << std::endl;
-        }
-        else
-            ExaCALog << std::endl;
-        ExaCALog << "   }," << std::endl;
-        ExaCALog << "   \"Nucleation\": {" << std::endl;
-        ExaCALog << "      \"Density\": " << NMax << "," << std::endl;
-        ExaCALog << "      \"MeanUndercooling\": " << dTN << "," << std::endl;
-        ExaCALog << "      \"StDevUndercooling\": " << dTsigma << "," << std::endl;
-        ExaCALog << "      \"VolFractionNucleated\": " << VolFractionNucleated << std::endl;
-        ExaCALog << "   }," << std::endl;
-        ExaCALog << "   \"TemperatureData\": {" << std::endl;
-        if (SimulationType == "R") {
-            ExaCALog << "       \"TemperatureFiles\": [";
-            for (int i = 0; i < TempFilesInSeries - 1; i++) {
-                ExaCALog << "\"" << temp_paths[i] << "\", ";
-            }
-            ExaCALog << "\"" << temp_paths[TempFilesInSeries - 1] << "\"]," << std::endl;
-            ExaCALog << "       \"HeatTransferCellSize\": " << HT_deltax << std::endl;
-        }
-        else {
-            ExaCALog << "      \"G\": " << G << "," << std::endl;
-            ExaCALog << "      \"R\": " << R << std::endl;
-        }
-        ExaCALog << "   }," << std::endl;
-        ExaCALog << "   \"Substrate\": {" << std::endl;
-        if (SimulationType == "C")
-            ExaCALog << "       \"FractionSurfaceSitesActive\": " << FractSurfaceSitesActive << std::endl;
-        else {
-            if (SubstrateFile)
-                ExaCALog << "       \"SubstrateFilename\": " << SubstrateFileName << std::endl;
-            else
-                ExaCALog << "       \"MeanSize\": " << SubstrateGrainSpacing << std::endl;
-        }
-        ExaCALog << "   }," << std::endl;
-        ExaCALog << irf.print() << std::endl;
-        ExaCALog << "   \"NumberMPIRanks\": " << np << "," << std::endl;
-        ExaCALog << "   \"Decomposition\": {" << std::endl;
-        ExaCALog << "       \"SubdomainYSize\": [";
-        for (int i = 0; i < np - 1; i++)
-            ExaCALog << YSlices[i] << ",";
-        ExaCALog << YSlices[np - 1] << "]," << std::endl;
-        ExaCALog << "       \"SubdomainYOffset\": [";
-        for (int i = 0; i < np - 1; i++)
-            ExaCALog << YOffset[i] << ",";
-        ExaCALog << YOffset[np - 1] << "]" << std::endl;
-        ExaCALog << "   }," << std::endl;
-        ExaCALog << "   \"Timing\": {" << std::endl;
-        ExaCALog << "       \"Runtime\": " << InitTime + RunTime + OutTime << "," << std::endl;
-        ExaCALog << "       \"InitRunOutputBreakdown\": [" << InitTime << "," << RunTime << "," << OutTime << "],"
-                 << std::endl;
-        ExaCALog << "       \"MaxMinInitTime\": [" << InitMaxTime << "," << InitMinTime << "]," << std::endl;
-        ExaCALog << "       \"MaxMinNucleationTime\": [" << NuclMaxTime << "," << NuclMinTime << "]," << std::endl;
-        ExaCALog << "       \"MaxMinSteeringVectorCreationTime\": [" << CreateSVMaxTime << "," << CreateSVMinTime
-                 << "]," << std::endl;
-        ExaCALog << "       \"MaxMinCellCaptureTime\": [" << CaptureMaxTime << "," << CaptureMinTime << "],"
-                 << std::endl;
-        ExaCALog << "       \"MaxMinGhostExchangeTime\": [" << GhostMaxTime << "," << GhostMinTime << "]," << std::endl;
-        ExaCALog << "       \"MaxMinOutputTime\": [" << OutMaxTime << "," << OutMinTime << "]" << std::endl;
-        ExaCALog << "   }" << std::endl;
-        ExaCALog << "}" << std::endl;
-        ExaCALog.close();
-    }
-}
-
-// Print timing info to console
-inline void PrintExaCATiming(int np, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
-                             double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
-                             double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
-                             double GhostMinTime, double OutMaxTime, double OutMinTime) {
-
-    std::cout << "===================================================================================" << std::endl;
-    std::cout << "Having run with = " << np << " processors" << std::endl;
-    std::cout << "Output written at cycle = " << cycle << std::endl;
-    std::cout << "Total time = " << InitTime + RunTime + OutTime << std::endl;
-    std::cout << "Time spent initializing data = " << InitTime << " s" << std::endl;
-    std::cout << "Time spent performing CA calculations = " << RunTime << " s" << std::endl;
-    std::cout << "Time spent collecting and printing output data = " << OutTime << " s\n" << std::endl;
-
-    std::cout << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime << " s" << std::endl;
-    std::cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s" << std::endl;
-    std::cout << "Max/min rank time in CA steering vector creation = " << CreateSVMaxTime << " / " << CreateSVMinTime
-              << " s" << std::endl;
-    std::cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s"
-              << std::endl;
-    std::cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s"
-              << std::endl;
-    std::cout << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s\n" << std::endl;
-
-    std::cout << "===================================================================================" << std::endl;
-}
-
+std::string version();
+std::string gitCommitHash();
+std::string kokkosVersion();
+void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutput, std::string BaseFileName,
+                   std::string SimulationType, int MyYSlices, int MyYOffset, InterfacialResponseFunction irf,
+                   double deltax, double NMax, double dTN, double dTsigma, std::vector<std::string> temp_paths,
+                   int TempFilesInSeries, double HT_deltax, double deltat, int NumberOfLayers, int LayerHeight,
+                   std::string SubstrateFileName, double SubstrateGrainSpacing, bool SubstrateFile, double G, double R,
+                   int nx, int ny, int nz, double FractSurfaceSitesActive, int NSpotsX, int NSpotsY, int SpotOffset,
+                   int SpotRadius, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
+                   double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
+                   double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
+                   double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin, double XMax, double YMin,
+                   double YMax, double ZMin, double ZMax, std::string GrainOrientationFile, float VolFractionNucleated);
+void PrintExaCATiming(int np, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
+                      double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
+                      double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
+                      double GhostMinTime, double OutMaxTime, double OutMinTime);
 #endif

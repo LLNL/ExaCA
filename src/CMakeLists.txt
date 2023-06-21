@@ -18,6 +18,7 @@ set(EXACA_SOURCES
     CAghostnodes.cpp
     CAinitialize.cpp
     CAparsefiles.cpp
+    CAprint.cpp
     CAupdate.cpp
     runCA.cpp
 )
