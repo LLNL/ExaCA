@@ -96,8 +96,8 @@ void BaseplateInit_FromGrainSpacing(float SubstrateGrainSpacing, int nx, int ny,
 void PowderInit(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLayer, double ZMin, double deltax,
                 int MyYSlices, int MyYOffset, int id, ViewI GrainID, double RNGSeed,
                 int &NextLayer_FirstEpitaxialGrainID, double PowderActiveFraction);
-void CellTypeInit(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI CritTimeStep, int id,
-                  int ZBound_Low);
+void CellTypeInit(int nx, int MyYSlices, int LocalActiveDomainSize, ViewI CellType, ViewI NumberOfSolidificationEvents,
+                  int id, int ZBound_Low);
 void NucleiInit(int layernumber, double RNGSeed, int MyYSlices, int MyYOffset, int nx, int ny, int nzActive,
                 int ZBound_Low, int id, double NMax, double dTN, double dTsigma, double deltax, ViewI &NucleiLocation,
                 ViewI_H &NucleationTimes_Host, ViewI &NucleiGrainID, ViewI CellType, ViewI CritTimeStep,

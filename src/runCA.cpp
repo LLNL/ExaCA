@@ -207,7 +207,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             PowderInit(0, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, MyYSlices, MyYOffset, id, GrainID, RNGSeed,
                        NextLayer_FirstEpitaxialGrainID, PowderActiveFraction);
         // Separate routine for active cell data structure init for problems other than constrained solidification
-        CellTypeInit(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
+        CellTypeInit(nx, MyYSlices, LocalActiveDomainSize, CellType, NumberOfSolidificationEvents, id, ZBound_Low);
     }
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
@@ -296,7 +296,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             if (SimulationType != "C")
                 FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, nx, MyYSlices, NeighborX, NeighborY, NeighborZ,
                                           CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID,
-                                          ZBound_Low, nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep);
+                                          ZBound_Low, nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep,
+                                          SolidificationEventCounter, NumberOfSolidificationEvents,
+                                          LayerTimeTempHistory);
             else
                 FillSteeringVector_NoRemelt(cycle, LocalActiveDomainSize, nx, MyYSlices, CritTimeStep,
                                             UndercoolingCurrent, UndercoolingChange, CellType, ZBound_Low, layernumber,
@@ -309,8 +311,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         CritDiagonalLength, DiagonalLength, CellType, DOCenter, GrainID, NGrainOrientations,
                         BufferNorthSend, BufferSouthSend, SendSizeNorth, SendSizeSouth, ZBound_Low, nzActive, nz,
                         SteeringVector, numSteer, numSteer_Host, AtNorthBoundary, AtSouthBoundary,
-                        SolidificationEventCounter, MeltTimeStep, LayerTimeTempHistory, NumberOfSolidificationEvents,
-                        BufSize);
+                        SolidificationEventCounter, LayerTimeTempHistory, NumberOfSolidificationEvents, BufSize);
             // Count the number of cells' in halo regions where the data did not fit into the send buffers
             // Reduce across all ranks, as the same BufSize should be maintained across all ranks
             // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
@@ -401,7 +402,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                            GrainID, RNGSeed, NextLayer_FirstEpitaxialGrainID, PowderActiveFraction);
 
             // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
-            CellTypeInit(nx, MyYSlices, LocalActiveDomainSize, CellType, CritTimeStep, id, ZBound_Low);
+            CellTypeInit(nx, MyYSlices, LocalActiveDomainSize, CellType, NumberOfSolidificationEvents, id, ZBound_Low);
 
             // Initialize potential nucleation event data for next layer "layernumber + 1"
             // Views containing nucleation data will be resized to the possible number of nuclei on a given MPI rank for
