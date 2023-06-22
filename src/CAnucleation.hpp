@@ -234,7 +234,6 @@ struct Nucleation {
 
     // Compute velocity from local undercooling.
     // functional form is assumed to be cubic if not explicitly given in input file
-    KOKKOS_INLINE_FUNCTION
     void nucleate_grain(int cycle, view_type_int CellType, view_type_int GrainID, int ZBound_Low, int nx, int MyYSlices,
                         view_type_int SteeringVector, view_type_int numSteer_G) {
 
@@ -258,11 +257,13 @@ struct Nucleation {
                 // parallel_reduce checks each potential nucleation event this time step (FirstEvent, up to but not
                 // including LastEvent)
                 int NucleationThisDT = 0; // return number of successful event from parallel_reduce
+                auto NucleiLocations_local = NucleiLocations;
+                auto NucleiGrainID_local = NucleiGrainID;
                 // Launch kokkos kernel - check if the corresponding CA cell location is liquid
                 Kokkos::parallel_reduce(
                     "NucleiUpdateLoop", Kokkos::RangePolicy<>(FirstEvent, LastEvent),
                     KOKKOS_LAMBDA(const int NucleationCounter_Device, int &update) {
-                        int NucleationEventLocation_GlobalGrid = NucleiLocations(NucleationCounter_Device);
+                        int NucleationEventLocation_GlobalGrid = NucleiLocations_local(NucleationCounter_Device);
                         int update_val =
                             FutureActive; // added to steering vector to become a new active cell as part of cellcapture
                         int old_val = Liquid;
@@ -272,7 +273,7 @@ struct Nucleation {
                             // Successful nucleation event - atomic update of cell type, proceeded if the atomic
                             // exchange is successful (cell was liquid) Add future active cell location to steering
                             // vector and change cell type, assign new Grain ID
-                            GrainID(NucleationEventLocation_GlobalGrid) = NucleiGrainID(NucleationCounter_Device);
+                            GrainID(NucleationEventLocation_GlobalGrid) = NucleiGrainID_local(NucleationCounter_Device);
                             int GlobalZ = NucleationEventLocation_GlobalGrid / (nx * MyYSlices);
                             int Rem = NucleationEventLocation_GlobalGrid % (nx * MyYSlices);
                             int RankX = Rem / MyYSlices;
