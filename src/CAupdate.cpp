@@ -16,66 +16,6 @@ using std::max;
 using std::min;
 
 //*****************************************************************************/
-void Nucleation(int cycle, int &SuccessfulNucEvents_ThisRank, int &NucleationCounter, int PossibleNuclei_ThisRank,
-                ViewI_H NucleationTimes_H, ViewI NucleiLocations, ViewI NucleiGrainID, ViewI CellType, ViewI GrainID,
-                int ZBound_Low, int nx, int MyYSlices, ViewI SteeringVector, ViewI numSteer_G) {
-
-    // Is there nucleation left in this layer to check?
-    if (NucleationCounter < PossibleNuclei_ThisRank) {
-        // Is there at least one potential nucleation event on this rank, at this time step?
-        if (cycle == NucleationTimes_H(NucleationCounter)) {
-            bool NucleationCheck = true;
-            int FirstEvent = NucleationCounter; // first potential nucleation event to check
-            // Are there any other nucleation events this time step to check?
-            while (NucleationCheck) {
-                NucleationCounter++;
-                // If the previous nucleation event was the last one for this layer of the simulation, exit loop
-                if (NucleationCounter == PossibleNuclei_ThisRank)
-                    break;
-                // If the next nucleation event corresponds to a future time step, finish check
-                if (cycle != NucleationTimes_H(NucleationCounter))
-                    NucleationCheck = false;
-            }
-            int LastEvent = NucleationCounter;
-            // parallel_reduce checks each potential nucleation event this time step (FirstEvent, up to but not
-            // including LastEvent)
-            int NucleationThisDT = 0; // return number of successful event from parallel_reduce
-            // Launch kokkos kernel - check if the corresponding CA cell location is liquid
-            Kokkos::parallel_reduce(
-                "NucleiUpdateLoop", Kokkos::RangePolicy<>(FirstEvent, LastEvent),
-                KOKKOS_LAMBDA(const int NucleationCounter_Device, int &update) {
-                    int NucleationEventLocation_GlobalGrid = NucleiLocations(NucleationCounter_Device);
-                    int update_val =
-                        FutureActive; // added to steering vector to become a new active cell as part of cellcapture
-                    int old_val = Liquid;
-                    int OldCellTypeValue = Kokkos::atomic_compare_exchange(
-                        &CellType(NucleationEventLocation_GlobalGrid), old_val, update_val);
-                    if (OldCellTypeValue == Liquid) {
-                        // Successful nucleation event - atomic update of cell type, proceeded if the atomic
-                        // exchange is successful (cell was liquid) Add future active cell location to steering
-                        // vector and change cell type, assign new Grain ID
-                        GrainID(NucleationEventLocation_GlobalGrid) = NucleiGrainID(NucleationCounter_Device);
-                        int GlobalZ = NucleationEventLocation_GlobalGrid / (nx * MyYSlices);
-                        int Rem = NucleationEventLocation_GlobalGrid % (nx * MyYSlices);
-                        int RankX = Rem / MyYSlices;
-                        int RankY = Rem % MyYSlices;
-                        int RankZ = GlobalZ - ZBound_Low;
-                        int NucleationEventLocation_LocalGrid = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
-                        SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = NucleationEventLocation_LocalGrid;
-                        // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
-                        // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)
-                        update++;
-                    }
-                },
-                NucleationThisDT);
-            // Update the number of successful nuclei counter with the number of successful nucleation events from this
-            // time step (NucleationThisDT)
-            SuccessfulNucEvents_ThisRank += NucleationThisDT;
-        }
-    }
-}
-
-//*****************************************************************************/
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step
 void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, ViewI CritTimeStep,

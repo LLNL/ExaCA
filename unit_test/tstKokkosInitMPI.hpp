@@ -7,6 +7,7 @@
 
 #include "CAfunctions.hpp"
 #include "CAinitialize.hpp"
+#include "CAnucleation.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 
@@ -288,11 +289,9 @@ void testNucleiInit() {
     // Get individual process ID
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     // Create test data
-    int nz = 5;
     // Only Z = 1 through 4 is part of this layer
     int nzActive = 4;
     int ZBound_Low = 1;
-    int layernumber = 1;
     int nx = 4;
     // Each rank is assigned a different portion of the domain in Y
     int ny = 2 * np;
@@ -300,7 +299,6 @@ void testNucleiInit() {
     int MyYOffset = 2 * id;
     double deltax = 1;
     int LocalActiveDomainSize = nx * MyYSlices * nzActive;
-    int LocalDomainSize = nx * MyYSlices * nz;
     // MPI rank locations relative to the global grid
     bool AtNorthBoundary, AtSouthBoundary;
     if (id == 0)
@@ -324,35 +322,8 @@ void testNucleiInit() {
     double dTsigma = 0.0001;
     double RNGSeed = 0.0;
 
-    // Initialize CellType to liquid, LayerID to 1 on device
-    ViewI CellType("CellType_Device", LocalDomainSize);
-    Kokkos::deep_copy(CellType, Liquid);
-    ViewI LayerID("LayerID_Device", LocalDomainSize);
-    Kokkos::deep_copy(LayerID, 1);
-
-    // Without knowing PossibleNuclei_ThisRankThisLayer yet, allocate nucleation data structures based on an estimated
-    // size NucleationTimes only exists on the host - used to decide whether or not to call nucleation subroutine
-    int EstimatedNuclei_ThisRankThisLayer = NMax * pow(deltax, 3) * LocalActiveDomainSize;
-    ViewI_H NucleationTimes_Host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
-                                 EstimatedNuclei_ThisRankThisLayer);
-    ViewI NucleiLocation(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation"), EstimatedNuclei_ThisRankThisLayer);
-    ViewI NucleiGrainID(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"), EstimatedNuclei_ThisRankThisLayer);
-
-    // Counters for nucleation events
-    int NucleationCounter;                // total nucleation events checked
-    int PossibleNuclei_ThisRankThisLayer; // total successful nucleation events
-    int Nuclei_WholeDomain = 100;         // NucleiGrainID should start at -101
-
-    // This part of the test is different depending on whether remelting is considered
-    // Without remelting, initialize MaxSolidificationEvents to 1 for each layer, initialize CritTimeStep values and
-    // UndercoolingChange values to values depending on cell coordinates relative to global grid, then copy to the
-    // device. LayerTimeTempHistory and NumberOfSolidificationEvents are unused on the device With remelting, initialize
-    // MaxSolidificationEvents to 3 for each layer. LayerTimeTempHistory and NumberOfSolidificationEvents are
-    // initialized for each cell on the host and copied to the device, while CritTimeStep and UndercoolingChange go
-    // unused
-    ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
-    ViewF_H UndercoolingChange_Host(Kokkos::ViewAllocateWithoutInitializing("UndercoolingChange_Host"),
-                                    LocalDomainSize);
+    // Initialize MaxSolidificationEvents to 3 for each layer. LayerTimeTempHistory and NumberOfSolidificationEvents are
+    // initialized for each cell on the host and copied to the device
     ViewI_H MaxSolidificationEvents_Host(Kokkos::ViewAllocateWithoutInitializing("MaxSolidificationEvents_Host"), 2);
     ViewI_H NumberOfSolidificationEvents_Host(
         Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents_Host"), LocalActiveDomainSize);
@@ -396,34 +367,40 @@ void testNucleiInit() {
         }
     }
 
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-    ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(memory_space(), CritTimeStep_Host);
-    ViewF UndercoolingChange = Kokkos::create_mirror_view_and_copy(memory_space(), UndercoolingChange_Host);
+    using memory_space = TEST_MEMSPACE;
     ViewI MaxSolidificationEvents = Kokkos::create_mirror_view_and_copy(memory_space(), MaxSolidificationEvents_Host);
     ViewI NumberOfSolidificationEvents =
         Kokkos::create_mirror_view_and_copy(memory_space(), NumberOfSolidificationEvents_Host);
     ViewF3D LayerTimeTempHistory = Kokkos::create_mirror_view_and_copy(memory_space(), LayerTimeTempHistory_Host);
 
-    NucleiInit(layernumber, RNGSeed, MyYSlices, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax, dTN, dTsigma, deltax,
-               NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep, UndercoolingChange, LayerID,
-               PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary,
-               NucleationCounter, MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory);
+    // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event
+    // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
+    // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
+    // NucleiInit when the number of nuclei per rank is known
+    int EstimatedNuclei_ThisRankThisLayer = NMax * pow(deltax, 3) * LocalActiveDomainSize;
+    Nucleation<memory_space> nucleation(
+        EstimatedNuclei_ThisRankThisLayer, NMax, deltax,
+        100); // NucleiGrainID should start at -101 - supply optional input arg to constructor
+
+    // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
+    // Potential nucleation grains are only associated with liquid cells in layer 1 - they will be initialized for each
+    // successive layer when layer 1 in complete
+    nucleation.placeNuclei(MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory, RNGSeed, 1, nx,
+                           ny, nzActive, dTN, dTsigma, MyYSlices, MyYOffset, ZBound_Low, id, AtNorthBoundary,
+                           AtSouthBoundary);
 
     // Copy results back to host to check
-    ViewI_H NucleiLocation_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NucleiLocation);
-    ViewI_H NucleiGrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NucleiGrainID);
-    MaxSolidificationEvents_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
-    NumberOfSolidificationEvents_Host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NumberOfSolidificationEvents);
+    ViewI_H NucleiLocation_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.NucleiLocations);
+    ViewI_H NucleiGrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.NucleiGrainID);
 
     // Was the nucleation counter initialized to zero?
-    EXPECT_EQ(NucleationCounter, 0);
+    EXPECT_EQ(nucleation.NucleationCounter, 0);
 
     // Is the total number of nuclei in the system correct, based on the number of remelting events? Equal probability
     // of creating a nucleus each time a cell resolidifies
     int ExpectedNucleiPerRank = 100 + MaxSolidificationEvents_Count * MaxPotentialNuclei_PerPass;
-    EXPECT_EQ(Nuclei_WholeDomain, ExpectedNucleiPerRank);
-    for (int n = 0; n < PossibleNuclei_ThisRankThisLayer; n++) {
+    EXPECT_EQ(nucleation.Nuclei_WholeDomain, ExpectedNucleiPerRank);
+    for (int n = 0; n < nucleation.PossibleNuclei; n++) {
         // Are the nuclei grain IDs negative numbers in the expected range based on the inputs?
         EXPECT_GT(NucleiGrainID_Host(n), -(100 + ExpectedNucleiPerRank * np + 1));
         EXPECT_LT(NucleiGrainID_Host(n), -100);
@@ -436,13 +413,13 @@ void testNucleiInit() {
         // Expected nucleation time with remelting can be one of 3 possibilities, depending on the associated
         // solidification event
         int Expected_NucleationTimeNoRM = GlobalZ + RankY + MyYOffset + 2;
-        int AssociatedSEvent = NucleationTimes_Host(n) / LocalActiveDomainSize;
+        int AssociatedSEvent = nucleation.NucleationTimes_Host(n) / LocalActiveDomainSize;
         int Expected_NucleationTimeRM = Expected_NucleationTimeNoRM + AssociatedSEvent * LocalActiveDomainSize;
-        EXPECT_EQ(NucleationTimes_Host(n), Expected_NucleationTimeRM);
+        EXPECT_EQ(nucleation.NucleationTimes_Host(n), Expected_NucleationTimeRM);
 
         // Are the nucleation events in order of the time steps at which they may occur?
-        if (n < PossibleNuclei_ThisRankThisLayer - 2) {
-            EXPECT_LE(NucleationTimes_Host(n), NucleationTimes_Host(n + 1));
+        if (n < nucleation.PossibleNuclei - 2) {
+            EXPECT_LE(nucleation.NucleationTimes_Host(n), nucleation.NucleationTimes_Host(n + 1));
         }
     }
 }

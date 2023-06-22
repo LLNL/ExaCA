@@ -7,6 +7,7 @@
 
 #include "CAghostnodes.hpp"
 #include "CAinitialize.hpp"
+#include "CAnucleation.hpp"
 #include "CAprint.hpp"
 #include "CAtypes.hpp"
 #include "CAupdate.hpp"
@@ -213,22 +214,18 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (id == 0)
         std::cout << "Grain struct initialized" << std::endl;
 
-    int PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, NucleationCounter;
-    // Without knowing PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes,
-    // resize inside of NucleiInit when the number of nuclei per rank is known
+    // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event
+    // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
+    // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
+    // NucleiInit when the number of nuclei per rank is known
     int EstimatedNuclei_ThisRankThisLayer = NMax * pow(deltax, 3) * LocalActiveDomainSize;
-    ViewI_H NucleationTimes_Host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
-                                 EstimatedNuclei_ThisRankThisLayer);
-    ViewI NucleiLocation(Kokkos::ViewAllocateWithoutInitializing("NucleiLocation"), EstimatedNuclei_ThisRankThisLayer);
-    ViewI NucleiGrainID(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"), EstimatedNuclei_ThisRankThisLayer);
-
+    Nucleation<device_memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, NMax, deltax);
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
     // successive layer when layer 0 in complete
-    NucleiInit(0, RNGSeed, MyYSlices, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax, dTN, dTsigma, deltax,
-               NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep, UndercoolingChange, LayerID,
-               PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain, AtNorthBoundary, AtSouthBoundary,
-               NucleationCounter, MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory);
+    nucleation.placeNuclei(MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory, RNGSeed, 0, nx,
+                           ny, nzActive, dTN, dTsigma, MyYSlices, MyYOffset, ZBound_Low, id, AtNorthBoundary,
+                           AtSouthBoundary);
 
     // Steering Vector
     ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), LocalActiveDomainSize);
@@ -256,7 +253,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartRunTime = MPI_Wtime();
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
 
-        int SuccessfulNucEvents_ThisRank = 0;
         int XSwitch = 0;
         double LayerTime1 = MPI_Wtime();
 
@@ -280,9 +276,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Cells with a successful nucleation event are marked and added to a steering vector, later dealt with in
             // CellCapture
             StartNuclTime = MPI_Wtime();
-            Nucleation(cycle, SuccessfulNucEvents_ThisRank, NucleationCounter, PossibleNuclei_ThisRankThisLayer,
-                       NucleationTimes_Host, NucleiLocation, NucleiGrainID, CellType, GrainID, ZBound_Low, nx,
-                       MyYSlices, SteeringVector, numSteer);
+            nucleation.nucleate_grain(cycle, CellType, GrainID, ZBound_Low, nx, MyYSlices, SteeringVector, numSteer);
             NuclTime += MPI_Wtime() - StartNuclTime;
 
             // Update cells on GPU - new active cells, solidification of old active cells
@@ -339,12 +333,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             }
 
             if (cycle % 1000 == 0) {
-                IntermediateOutputAndCheck(
-                    id, np, cycle, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny, nz, nzActive, deltax, XMin,
-                    YMin, ZMin, SuccessfulNucEvents_ThisRank, XSwitch, CellType, CritTimeStep, GrainID, SimulationType,
-                    layernumber, NumberOfLayers, ZBound_Low, NGrainOrientations, LayerID, GrainUnitVector,
-                    UndercoolingChange, UndercoolingCurrent, PathToOutput, OutputFile, PrintIdleTimeSeriesFrames,
-                    TimeSeriesInc, IntermediateFileCounter, NumberOfLayers, MeltTimeStep, PrintBinary);
+                IntermediateOutputAndCheck(id, np, cycle, MyYSlices, MyYOffset, LocalActiveDomainSize, nx, ny, nz,
+                                           nzActive, deltax, XMin, YMin, ZMin, nucleation.SuccessfulNucleationCounter,
+                                           XSwitch, CellType, CritTimeStep, GrainID, SimulationType, layernumber,
+                                           NumberOfLayers, ZBound_Low, NGrainOrientations, LayerID, GrainUnitVector,
+                                           UndercoolingChange, UndercoolingCurrent, PathToOutput, OutputFile,
+                                           PrintIdleTimeSeriesFrames, TimeSeriesInc, IntermediateFileCounter,
+                                           NumberOfLayers, MeltTimeStep, PrintBinary);
             }
 
         } while (XSwitch == 0);
@@ -407,11 +402,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Initialize potential nucleation event data for next layer "layernumber + 1"
             // Views containing nucleation data will be resized to the possible number of nuclei on a given MPI rank for
             // the next layer
-            NucleiInit(layernumber + 1, RNGSeed, MyYSlices, MyYOffset, nx, ny, nzActive, ZBound_Low, id, NMax, dTN,
-                       dTsigma, deltax, NucleiLocation, NucleationTimes_Host, NucleiGrainID, CellType, CritTimeStep,
-                       UndercoolingChange, LayerID, PossibleNuclei_ThisRankThisLayer, Nuclei_WholeDomain,
-                       AtNorthBoundary, AtSouthBoundary, NucleationCounter, MaxSolidificationEvents,
-                       NumberOfSolidificationEvents, LayerTimeTempHistory);
+            nucleation.resetNucleiCounters(); // start counters at 0
+            nucleation.placeNuclei(MaxSolidificationEvents, NumberOfSolidificationEvents, LayerTimeTempHistory, RNGSeed,
+                                   layernumber + 1, nx, ny, nzActive, dTN, dTsigma, MyYSlices, MyYOffset, ZBound_Low,
+                                   id, AtNorthBoundary, AtSouthBoundary);
 
             XSwitch = 0;
             MPI_Barrier(MPI_COMM_WORLD);

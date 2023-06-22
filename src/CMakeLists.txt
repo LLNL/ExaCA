@@ -5,6 +5,7 @@ set(EXACA_HEADERS
     CAghostnodes.hpp
     CAinitialize.hpp
     CAinterfacialresponse.hpp
+    CAnucleation.hpp
     CAparsefiles.hpp
     CAprint.hpp
     CAtypes.hpp
