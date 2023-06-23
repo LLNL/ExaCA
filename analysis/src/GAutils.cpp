@@ -270,8 +270,8 @@ double convertToCells(double deltax, std::string RegionType) {
     return SizeToCellScaling;
 }
 
-// Print the string "temp" to both output file streams
-void dual_print(std::string temp, std::ostream &stream1, std::ostream &stream2) {
-    stream1 << temp;
-    stream2 << temp;
+// Print the string "output" to both output file streams
+void dual_print(std::string output, std::ostream &stream1, std::ostream &stream2) {
+    stream1 << output;
+    stream2 << output;
 }
