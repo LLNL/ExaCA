@@ -5,6 +5,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "CAcelldata.hpp"
 #include "CAfunctions.hpp"
 #include "CAinitialize.hpp"
 #include "CAnucleation.hpp"
@@ -36,9 +37,12 @@ void testNucleation() {
 
     // All cells have GrainID of 0, CellType of Liquid - with the exception of the locations where the nucleation events
     // are unable to occur
-    view_int_host GrainID_Host("GrainID_Host", LocalDomainSize);
-    view_int_host CellType_Host(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), LocalDomainSize);
-    Kokkos::deep_copy(CellType_Host, Liquid);
+    CellData cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
+    ViewI CellType = cellData.getCellTypeSubview();
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    ViewI GrainID = cellData.getGrainIDSubview();
+    ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Create test nucleation data - 10 possible events
     int PossibleNuclei = 10;
@@ -48,10 +52,10 @@ void testNucleation() {
     view_int_host NucleiGrainID_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"), PossibleNuclei);
     for (int n = 0; n < PossibleNuclei; n++) {
         // NucleationTimes values should be in the order in which the events occur - start with setting them between 0
-        // and 9 NucleiLocations are in order starting with 50, through 59 (locations relative to the bottom of the
-        // whole domain)
+        // and 9 NucleiLocations are in order starting with 0, through 9 (locations relative to the bottom of the
+        // layer)
         nucleation.NucleationTimes_Host(n) = n;
-        NucleiLocations_Host(n) = ZBound_Low * nx * MyYSlices + n;
+        NucleiLocations_Host(n) = n;
         // Give these nucleation events grain IDs based on their order, starting with -1 and counting down
         NucleiGrainID_Host(n) = -(n + 1);
     }
@@ -60,27 +64,27 @@ void testNucleation() {
     nucleation.NucleationTimes_Host(3) = nucleation.NucleationTimes_Host(4);
 
     // Include the case where a potential nucleation event (2) is unsuccessful (time step 2)
-    int UnsuccessfulLocA = ZBound_Low * nx * MyYSlices + 2;
+    int UnsuccessfulLocA = 2;
     CellType_Host(UnsuccessfulLocA) = Active;
     GrainID_Host(UnsuccessfulLocA) = 1;
 
     // Include the case where 2 potential nucleation events (5 and 6) happen on the same time step (time step 6) - the
     // first successful, the second unsuccessful
     nucleation.NucleationTimes_Host(5) = nucleation.NucleationTimes_Host(6);
-    int UnsuccessfulLocC = ZBound_Low * nx * MyYSlices + 6;
+    int UnsuccessfulLocC = 6;
     CellType_Host(UnsuccessfulLocC) = Active;
     GrainID_Host(UnsuccessfulLocC) = 2;
 
     // Include the case where 2 potential nucleation events (8 and 9) happen on the same time step (time step 8) - the
     // first unsuccessful, the second successful
     nucleation.NucleationTimes_Host(8) = nucleation.NucleationTimes_Host(9);
-    int UnsuccessfulLocB = ZBound_Low * nx * MyYSlices + 8;
+    int UnsuccessfulLocB = 8;
     CellType_Host(UnsuccessfulLocB) = Active;
     GrainID_Host(UnsuccessfulLocB) = 3;
 
     // Copy host views to device
-    auto CellType = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), CellType_Host);
-    auto GrainID = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), GrainID_Host);
+    CellType = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), CellType_Host);
+    GrainID = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), GrainID_Host);
     nucleation.NucleiLocations = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), NucleiLocations_Host);
     nucleation.NucleiGrainID = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), NucleiGrainID_Host);
 
@@ -91,13 +95,15 @@ void testNucleation() {
 
     // Take enough time steps such that every nucleation event has a chance to occur
     for (int cycle = 0; cycle < 10; cycle++) {
-        nucleation.nucleate_grain(cycle, CellType, GrainID, ZBound_Low, nx, MyYSlices, SteeringVector, numSteer);
+        nucleation.nucleate_grain(cycle, cellData, ZBound_Low, nx, MyYSlices, SteeringVector, numSteer);
     }
 
     // Copy CellType, SteeringVector, numSteer, GrainID back to host to check nucleation results
+    CellType = cellData.getCellTypeSubview();
     CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     auto SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SteeringVector);
     auto numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), numSteer);
+    GrainID = cellData.getGrainIDSubview();
     GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Check that all 10 possible nucleation events were attempted
@@ -108,27 +114,26 @@ void testNucleation() {
 
     // Ensure that the 3 events that should not have occurred, did not occur
     // These cells should be untouched - active type, and same GrainID they was initialized with
-    EXPECT_EQ(CellType_Host(ZBound_Low * nx * MyYSlices + 2), Active);
-    EXPECT_EQ(GrainID_Host(ZBound_Low * nx * MyYSlices + 2), 1);
-    EXPECT_EQ(CellType_Host(ZBound_Low * nx * MyYSlices + 6), Active);
-    EXPECT_EQ(GrainID_Host(ZBound_Low * nx * MyYSlices + 6), 2);
-    EXPECT_EQ(CellType_Host(ZBound_Low * nx * MyYSlices + 8), Active);
-    EXPECT_EQ(GrainID_Host(ZBound_Low * nx * MyYSlices + 8), 3);
+    EXPECT_EQ(CellType_Host(2), Active);
+    EXPECT_EQ(GrainID_Host(2), 1);
+    EXPECT_EQ(CellType_Host(6), Active);
+    EXPECT_EQ(GrainID_Host(6), 2);
+    EXPECT_EQ(CellType_Host(8), Active);
+    EXPECT_EQ(GrainID_Host(8), 3);
 
     // Check that the successful nucleation events occurred as expected
-    // For each cell location (relative to the domain bottom) that should be home to a successful nucleation event,
+    // For each cell location (relative to the layer bottom) that should be home to a successful nucleation event,
     // check that the CellType has been set to FutureActive and the GrainID matches the expected value Also check that
     // the adjusted cell coordinate (relative to the current layer bounds) appears somewhere within the steering vector
     std::vector<int> SuccessfulNuc_GrainIDs{-1, -2, -4, -5, -6, -8, -10};
-    std::vector<int> SuccessfulNuc_CellLocations{50, 51, 53, 54, 55, 57, 59};
+    std::vector<int> SuccessfulNuc_CellLocations{0, 1, 3, 4, 5, 7, 9};
     for (int nevent = 0; nevent < 7; nevent++) {
-        int CellLocation_AllLayers = SuccessfulNuc_CellLocations[nevent];
-        EXPECT_EQ(CellType_Host(CellLocation_AllLayers), FutureActive);
-        EXPECT_EQ(GrainID_Host(CellLocation_AllLayers), SuccessfulNuc_GrainIDs[nevent]);
+        int CellLocation = SuccessfulNuc_CellLocations[nevent];
+        EXPECT_EQ(CellType_Host(CellLocation), FutureActive);
+        EXPECT_EQ(GrainID_Host(CellLocation), SuccessfulNuc_GrainIDs[nevent]);
         bool OnSteeringVector = false;
         for (int svloc = 0; svloc < 7; svloc++) {
-            int CellLocation_CurrentLayer = CellLocation_AllLayers - nx * MyYSlices * ZBound_Low;
-            if (SteeringVector_Host(svloc) == CellLocation_CurrentLayer) {
+            if (SteeringVector_Host(svloc) == CellLocation) {
                 OnSteeringVector = true;
                 break;
             }
@@ -153,8 +158,7 @@ void testFillSteeringVector_Remelt() {
     NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
-    ViewI_H GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"), LocalDomainSize);
-    ViewI_H CellType_Host(Kokkos::ViewAllocateWithoutInitializing("CellType_Host"), LocalDomainSize);
+    CellData cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     ViewI_H MeltTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("MeltTimeStep_Host"), LocalDomainSize);
     ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
     ViewI_H SolidificationEventCounter_Host("SolidificationEventCounter_Host", LocalDomainSize); // init to 0
@@ -166,22 +170,27 @@ void testFillSteeringVector_Remelt() {
                                      LocalDomainSize); // initialize to 0, no initial undercooling
     ViewF3D_H LayerTimeTempHistory_Host("LayerTimeTempHistory_Host", LocalActiveDomainSize, 1,
                                         3); // initialize to 0, no initial undercooling
+    ViewI CellType = cellData.getCellTypeSubview();
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    ViewI GrainID = cellData.getGrainIDSubview();
+    ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
+    for (int D3D1ConvPosition = 0; D3D1ConvPosition < LocalActiveDomainSize; D3D1ConvPosition++) {
+        GrainID_Host(D3D1ConvPosition) = 1;
+        CellType_Host(D3D1ConvPosition) = TempSolid;
+    }
     for (int GlobalD3D1ConvPosition = 0; GlobalD3D1ConvPosition < LocalDomainSize; GlobalD3D1ConvPosition++) {
         // Cell coordinates on this rank in X, Y, and Z (GlobalZ = relative to domain bottom)
         int GlobalZ = GlobalD3D1ConvPosition / (nx * MyYSlices);
         int Rem = GlobalD3D1ConvPosition % (nx * MyYSlices);
         int RankY = Rem % MyYSlices;
-        GrainID_Host(GlobalD3D1ConvPosition) = 1;
         // Cells at Z = 0 through Z = 2 are Solid, Z = 3 and 4 are TempSolid
         if (GlobalZ <= 2) {
-            CellType_Host(GlobalD3D1ConvPosition) = Solid;
             // Solid cells should have -1 assigned as their melt/crit time steps
             MeltTimeStep_Host(GlobalD3D1ConvPosition) = -1;
             CritTimeStep_Host(GlobalD3D1ConvPosition) = -1;
         }
         else {
-            CellType_Host(GlobalD3D1ConvPosition) = TempSolid;
             // Cells "melt" at a time step corresponding to their Y location in the overall domain (depends on MyYOffset
             // of the rank)
             MeltTimeStep_Host(GlobalD3D1ConvPosition) = RankY + MyYOffset + 1;
@@ -210,8 +219,8 @@ void testFillSteeringVector_Remelt() {
     numSteer_Host(0) = 0;
     // Copy views to device for test
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
-    ViewI GrainID = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_Host);
-    ViewI CellType = Kokkos::create_mirror_view_and_copy(device_memory_space(), CellType_Host);
+    GrainID = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_Host);
+    CellType = Kokkos::create_mirror_view_and_copy(device_memory_space(), CellType_Host);
     ViewI MeltTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), MeltTimeStep_Host);
     ViewI CritTimeStep = Kokkos::create_mirror_view_and_copy(device_memory_space(), CritTimeStep_Host);
     ViewI SolidificationEventCounter =
@@ -228,13 +237,14 @@ void testFillSteeringVector_Remelt() {
         // Update cell types, local undercooling each time step, and fill the steering vector
         std::cout << cycle << std::endl;
         FillSteeringVector_Remelt(cycle, LocalActiveDomainSize, nx, MyYSlices, NeighborX, NeighborY, NeighborZ,
-                                  CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType, GrainID, ZBound_Low,
-                                  nzActive, SteeringVector, numSteer, numSteer_Host, MeltTimeStep,
-                                  SolidificationEventCounter, NumberOfSolidificationEvents, LayerTimeTempHistory);
+                                  CritTimeStep, UndercoolingCurrent, UndercoolingChange, cellData, ZBound_Low, nzActive,
+                                  SteeringVector, numSteer, numSteer_Host, MeltTimeStep, SolidificationEventCounter,
+                                  NumberOfSolidificationEvents, LayerTimeTempHistory);
     }
 
     // Copy CellType, SteeringVector, numSteer, UndercoolingCurrent, Buffers back to host to check steering vector
     // construction results
+    CellType = cellData.getCellTypeSubview();
     CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     ViewI_H SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SteeringVector);
     numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), numSteer);
@@ -251,28 +261,29 @@ void testFillSteeringVector_Remelt() {
     // should have TempSolid cells (if not enough time steps to melt) or Liquid (if enough time steps to melt). Local
     // undercooling should be based on the Rank ID and the time step that it reached the liquidus relative to numcycles
     int FutureActiveCells = 0;
-    for (int i = 0; i < LocalDomainSize; i++) {
-        // Cell coordinates on this rank in X, Y, and Z (GlobalZ = relative to domain bottom)
-        int GlobalZ = i / (nx * MyYSlices);
-        if (GlobalZ <= 2) {
-            EXPECT_EQ(CellType_Host(i), Solid);
-            EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(i), 0.0);
-        }
+    for (int D3D1ConvPosition = 0; D3D1ConvPosition < LocalActiveDomainSize; D3D1ConvPosition++) {
+        int RankZ = D3D1ConvPosition / (nx * MyYSlices);
+        int GlobalZ = RankZ + ZBound_Low;
+        int GlobalD3D1ConvPosition = D3D1ConvPosition + ZBound_Low * nx * MyYSlices;
+        if (GlobalZ <= 2)
+            EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(GlobalD3D1ConvPosition), 0.0);
         else {
-            if (numcycles < MeltTimeStep_Host(i)) {
-                EXPECT_EQ(CellType_Host(i), TempSolid);
-                EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(i), 0.0);
+            if (numcycles < MeltTimeStep_Host(GlobalD3D1ConvPosition)) {
+                EXPECT_EQ(CellType_Host(D3D1ConvPosition), TempSolid);
+                EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(GlobalD3D1ConvPosition), 0.0);
             }
-            else if ((numcycles >= MeltTimeStep_Host(i)) && (numcycles <= CritTimeStep_Host(i))) {
-                EXPECT_EQ(CellType_Host(i), Liquid);
-                EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(i), 0.0);
+            else if ((numcycles >= MeltTimeStep_Host(GlobalD3D1ConvPosition)) &&
+                     (numcycles <= CritTimeStep_Host(GlobalD3D1ConvPosition))) {
+                EXPECT_EQ(CellType_Host(D3D1ConvPosition), Liquid);
+                EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(GlobalD3D1ConvPosition), 0.0);
             }
             else {
-                EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(i), (numcycles - CritTimeStep_Host(i)) * 0.2);
+                EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(GlobalD3D1ConvPosition),
+                                (numcycles - CritTimeStep_Host(GlobalD3D1ConvPosition)) * 0.2);
                 if (GlobalZ == 4)
-                    EXPECT_EQ(CellType_Host(i), Liquid);
+                    EXPECT_EQ(CellType_Host(D3D1ConvPosition), Liquid);
                 else {
-                    EXPECT_EQ(CellType_Host(i), FutureActive);
+                    EXPECT_EQ(CellType_Host(D3D1ConvPosition), FutureActive);
                     FutureActiveCells++;
                 }
             }
