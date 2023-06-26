@@ -173,23 +173,9 @@ The analysis executable, in addition to outputting grain statistics, can also ou
 
 ## Citing ExaCA
 
-If you use ExaCA in your work, please cite the following paper:
-```
-@article{rolchigo2022,
-  title = {ExaCA: A performance portable exascale cellular automata application for alloy solidification modeling},
-  journal = {Computational Materials Science},
-  volume = {214},
-  pages = {111692},
-  year = {2022},
-  issn = {0927-0256},
-  doi = {https://doi.org/10.1016/j.commatsci.2022.111692},
-  url = {https://www.sciencedirect.com/science/article/pii/S0927025622004189},
-  author = {Matt Rolchigo and Samuel Temple Reeve and Benjamin Stump and Gerald L. Knapp and John Coleman and Alex Plotkowski and James Belak},
-}
-```
-
-If you would like to cite the software itself, cite the current release or
-version used from [Zenodo](https://doi.org/10.5281/zenodo.6908176).
+If you use ExaCA in your work, please cite the following [paper](CITATION.bib).
+In addition, cite the current release or version used from
+[Zenodo](https://doi.org/10.5281/zenodo.6908176).
 
 ## Contributing
 
