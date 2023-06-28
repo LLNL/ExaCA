@@ -12,13 +12,6 @@
 
 #include <nlohmann/json.hpp>
 
-#include <cmath>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <vector>
-
 std::string version() { return ExaCA_VERSION; }
 
 std::string gitCommitHash() { return ExaCA_GIT_COMMIT_HASH; }
