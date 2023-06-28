@@ -37,17 +37,11 @@ void WriteData(std::ofstream &outstream, PrintType PrintValue, bool PrintBinary,
 }
 
 // Struct to hold data printing options and functions
-template <typename MemorySpace>
 struct Print {
 
-    using memory_space = MemorySpace;
-    using view_type_int = Kokkos::View<int *, memory_space>;
     using view_type_int_host = Kokkos::View<int *, layout, Kokkos::HostSpace>;
-    using view_type_int3d = Kokkos::View<int ***, memory_space>;
     using view_type_int3d_host = Kokkos::View<int ***, layout, Kokkos::HostSpace>;
-    using view_type_float = Kokkos::View<float *, memory_space>;
     using view_type_float_host = Kokkos::View<float *, layout, Kokkos::HostSpace>;
-    using view_type_float3d = Kokkos::View<float ***, memory_space>;
     using view_type_float3d_host = Kokkos::View<float ***, layout, Kokkos::HostSpace>;
 
     // Base name of CA output
@@ -225,10 +219,10 @@ struct Print {
     }
 
     // Called on rank 0, prints initial values of selected data structures to Paraview files for the first layer
+    template <typename ViewTypeInt, typename ViewTypeFloat>
     void printInitExaCAData(int id, int np, int nx, int ny, int MyYSlices, int nzActive, double deltax, double XMin,
-                            double YMin, double ZMin, view_type_int GrainID, view_type_int LayerID,
-                            view_type_int MeltTimeStep, view_type_int CritTimeStep,
-                            view_type_float UndercoolingChange) {
+                            double YMin, double ZMin, ViewTypeInt GrainID, ViewTypeInt LayerID,
+                            ViewTypeInt MeltTimeStep, ViewTypeInt CritTimeStep, ViewTypeFloat UndercoolingChange) {
 
         if ((PrintInitGrainID) || (PrintInitLayerID) || (PrintInitMeltTimeStep) || (PrintInitCritTimeStep) ||
             (PrintInitUndercoolingChange)) {
@@ -239,37 +233,35 @@ struct Print {
                 WriteHeader(Grainplot, FName, nx, ny, nzActive, deltax, XMin, YMin, ZMin);
             }
             if (PrintInitGrainID) {
-                ViewI3D_H GrainID_WholeDomain =
-                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
-                        id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
+                view_type_int3d_host GrainID_WholeDomain = collectViewData<view_type_int3d_host, view_type_int_host>(
+                    id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "int", "GrainID", GrainID_WholeDomain);
             }
             if (PrintInitLayerID) {
-                ViewI3D_H LayerID_WholeDomain =
-                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
-                        id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
+                view_type_int3d_host LayerID_WholeDomain = collectViewData<view_type_int3d_host, view_type_int_host>(
+                    id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "short", "LayerID", LayerID_WholeDomain);
             }
             if (PrintInitMeltTimeStep) {
-                ViewI3D_H MeltTimeStep_WholeDomain =
-                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
-                        id, np, nx, ny, nzActive, MyYSlices, MPI_INT, MeltTimeStep);
+                view_type_int3d_host MeltTimeStep_WholeDomain =
+                    collectViewData<view_type_int3d_host, view_type_int_host>(id, np, nx, ny, nzActive, MyYSlices,
+                                                                              MPI_INT, MeltTimeStep);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (PrintInitCritTimeStep) {
-                ViewI3D_H CritTimeStep_WholeDomain =
-                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
-                        id, np, nx, ny, nzActive, MyYSlices, MPI_INT, CritTimeStep);
+                view_type_int3d_host CritTimeStep_WholeDomain =
+                    collectViewData<view_type_int3d_host, view_type_int_host>(id, np, nx, ny, nzActive, MyYSlices,
+                                                                              MPI_INT, CritTimeStep);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (PrintInitUndercoolingChange) {
-                ViewF3D_H UndercoolingChange_WholeDomain =
-                    collectViewData<view_type_float3d_host, view_type_float, view_type_float_host>(
-                        id, np, nx, ny, nzActive, MyYSlices, MPI_FLOAT, UndercoolingChange);
+                view_type_float3d_host UndercoolingChange_WholeDomain =
+                    collectViewData<view_type_float3d_host, view_type_float_host>(id, np, nx, ny, nzActive, MyYSlices,
+                                                                                  MPI_FLOAT, UndercoolingChange);
                 if (id == 0)
                     printViewData(Grainplot, nx, ny, nzActive, "float", "UndercoolingChange",
                                   UndercoolingChange_WholeDomain);
@@ -281,21 +273,19 @@ struct Print {
 
     // Called on rank 0, prints intermediate values of grain misorientation for all layers up to current layer, also
     // marking which cells are liquid
+    template <typename ViewTypeInt, typename ViewTypeFloat>
     void printIntermediateGrainMisorientation(int id, int np, int cycle, int nx, int ny, int MyYSlices, int nzActive,
-                                              double deltax, double XMin, double YMin, double ZMin, ViewI GrainID,
-                                              view_type_int LayerID, ViewI CellType, view_type_float GrainUnitVector,
+                                              double deltax, double XMin, double YMin, double ZMin, ViewTypeInt GrainID,
+                                              ViewTypeInt LayerID, ViewTypeInt CellType, ViewTypeFloat GrainUnitVector,
                                               int NGrainOrientations, int layernumber, int ZBound_Low) {
 
         IntermediateFileCounter++;
-        view_type_int3d_host GrainID_WholeDomain =
-            collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(id, np, nx, ny, nzActive,
-                                                                                     MyYSlices, MPI_INT, GrainID);
-        view_type_int3d_host LayerID_WholeDomain =
-            collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(id, np, nx, ny, nzActive,
-                                                                                     MyYSlices, MPI_INT, LayerID);
-        view_type_int3d_host CellType_WholeDomain =
-            collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(id, np, nx, ny, nzActive,
-                                                                                     MyYSlices, MPI_INT, CellType);
+        view_type_int3d_host GrainID_WholeDomain = collectViewData<view_type_int3d_host, view_type_int_host>(
+            id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
+        view_type_int3d_host LayerID_WholeDomain = collectViewData<view_type_int3d_host, view_type_int_host>(
+            id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
+        view_type_int3d_host CellType_WholeDomain = collectViewData<view_type_int3d_host, view_type_int_host>(
+            id, np, nx, ny, nzActive, MyYSlices, MPI_INT, CellType);
         if (id == 0) {
             std::cout << "Intermediate output on time step " << cycle << std::endl;
             view_type_float_host GrainUnitVector_Host =
@@ -307,10 +297,11 @@ struct Print {
     }
 
     // Prints final values of selected data structures to Paraview files
+    template <typename ViewTypeInt, typename ViewTypeFloat>
     void printFinalExaCAData(int id, int np, int nx, int ny, int nz, int MyYSlices, int NumberOfLayers,
-                             view_type_int LayerID, view_type_int CellType, view_type_int GrainID,
-                             view_type_float UndercoolingCurrent, view_type_float UndercoolingChange,
-                             view_type_int MeltTimeStep, view_type_int CritTimeStep, view_type_float GrainUnitVector,
+                             ViewTypeInt LayerID, ViewTypeInt CellType, ViewTypeInt GrainID,
+                             ViewTypeFloat UndercoolingCurrent, ViewTypeFloat UndercoolingChange,
+                             ViewTypeInt MeltTimeStep, ViewTypeInt CritTimeStep, ViewTypeFloat GrainUnitVector,
                              int NGrainOrientations, double deltax, double XMin, double YMin, double ZMin) {
 
         if (id == 0)
@@ -326,12 +317,10 @@ struct Print {
             if (id == 0)
                 WriteHeader(Grainplot, FName, nx, ny, nz, deltax, XMin, YMin, ZMin);
             if ((PrintFinalGrainID) || (PrintFinalLayerID) || (PrintFinalMisorientation) || (PrintDefaultRVE)) {
-                ViewI3D_H GrainID_WholeDomain =
-                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
-                        id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
-                ViewI3D_H LayerID_WholeDomain =
-                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
-                        id, np, nx, ny, nz, MyYSlices, MPI_INT, LayerID);
+                view_type_int3d_host GrainID_WholeDomain = collectViewData<view_type_int3d_host, view_type_int_host>(
+                    id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
+                view_type_int3d_host LayerID_WholeDomain = collectViewData<view_type_int3d_host, view_type_int_host>(
+                    id, np, nx, ny, nz, MyYSlices, MPI_INT, LayerID);
                 if ((id == 0) && (PrintFinalGrainID))
                     printViewData(Grainplot, nx, ny, nz, "int", "GrainID", GrainID_WholeDomain);
                 if ((id == 0) && (PrintFinalLayerID))
@@ -353,8 +342,8 @@ struct Print {
             }
             if ((id == 0) && (PrintFinalUndercoolingCurrent)) {
                 view_type_float3d_host UndercoolingCurrent_WholeDomain =
-                    collectViewData<view_type_float3d_host, view_type_float, view_type_float_host>(
-                        id, np, nx, ny, nz, MyYSlices, MPI_FLOAT, UndercoolingCurrent);
+                    collectViewData<view_type_float3d_host, view_type_float_host>(id, np, nx, ny, nz, MyYSlices,
+                                                                                  MPI_FLOAT, UndercoolingCurrent);
                 printViewData(Grainplot, nx, ny, nz, "float", "UndercoolingFinal", UndercoolingCurrent_WholeDomain);
             }
             if (id == 0)
@@ -370,29 +359,28 @@ struct Print {
                 WriteHeader(GrainplotF, FName, nx, ny, nz, deltax, XMin, YMin, ZMin);
             if (PrintFinalMeltTimeStep) {
                 view_type_int3d_host MeltTimeStep_WholeDomain =
-                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
-                        id, np, nx, ny, nz, MyYSlices, MPI_INT, MeltTimeStep);
+                    collectViewData<view_type_int3d_host, view_type_int_host>(id, np, nx, ny, nz, MyYSlices, MPI_INT,
+                                                                              MeltTimeStep);
                 if (id == 0)
                     printViewData(GrainplotF, nx, ny, nz, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (PrintFinalCritTimeStep) {
                 view_type_int3d_host CritTimeStep_WholeDomain =
-                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
-                        id, np, nx, ny, nz, MyYSlices, MPI_INT, CritTimeStep);
+                    collectViewData<view_type_int3d_host, view_type_int_host>(id, np, nx, ny, nz, MyYSlices, MPI_INT,
+                                                                              CritTimeStep);
                 if (id == 0)
                     printViewData(GrainplotF, nx, ny, nz, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (PrintFinalUndercoolingChange) {
                 view_type_float3d_host UndercoolingChange_WholeDomain =
-                    collectViewData<view_type_float3d_host, view_type_float, view_type_float_host>(
-                        id, np, nx, ny, nz, MyYSlices, MPI_FLOAT, UndercoolingChange);
+                    collectViewData<view_type_float3d_host, view_type_float_host>(id, np, nx, ny, nz, MyYSlices,
+                                                                                  MPI_FLOAT, UndercoolingChange);
                 if (id == 0)
                     printViewData(GrainplotF, nx, ny, nz, "int", "UndercoolingChange", UndercoolingChange_WholeDomain);
             }
             if (PrintFinalCellType) {
-                view_type_int3d_host CellType_WholeDomain =
-                    collectViewData<view_type_int3d_host, view_type_int, view_type_int_host>(
-                        id, np, nx, ny, nz, MyYSlices, MPI_INT, CellType);
+                view_type_int3d_host CellType_WholeDomain = collectViewData<view_type_int3d_host, view_type_int_host>(
+                    id, np, nx, ny, nz, MyYSlices, MPI_INT, CellType);
                 if (id == 0)
                     printViewData(GrainplotF, nx, ny, nz, "int", "CellType", CellType_WholeDomain);
             }
@@ -425,7 +413,7 @@ struct Print {
     // Called on rank 0 to collect view data from other ranks, or on other ranks to send data to rank 0
     // MPI datatype corresponding to the view data
     // TODO: change MPI datatype to include MPI_SHORT when LayerID is stored as a consistent type
-    template <typename Print3DViewType, typename Collect1DViewTypeDevice, typename Collect1DViewTypeHost>
+    template <typename Print3DViewType, typename Collect1DViewTypeHost, typename Collect1DViewTypeDevice>
     Print3DViewType collectViewData(int id, int np, int nx, int ny, int nz, int MyYSlices, MPI_Datatype msg_type,
                                     Collect1DViewTypeDevice ViewDataThisRank_Device) {
 

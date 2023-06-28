@@ -24,7 +24,7 @@ void testPrintExaConstitDefaultRVE() {
     int nz = 10;
     int NumberOfLayers = 10;
     double deltax = 0.0001; // in meters
-    Print<device_memory_space> print(1);
+    Print print(1);
     print.PrintDefaultRVE = true;
     print.RVESize = 0.0005 / deltax;
     // File name/path for test RVE output (each rank writes/reads different file)

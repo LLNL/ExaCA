@@ -546,8 +546,8 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
                   ViewI MeltTimeStep, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low, ViewI CellType,
                   ViewI LayerID, int id, int layernumber, int np, int nx, int ny, ViewI GrainID, ViewF GrainUnitVector,
-                  Print<device_memory_space> print, int NGrainOrientations, int nzActive, double deltax, double XMin,
-                  double YMin, double ZMin) {
+                  Print print, int NGrainOrientations, int nzActive, double deltax, double XMin, double YMin,
+                  double ZMin) {
 
     MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
     if (RemainingCellsOfInterest == 0) {
@@ -607,8 +607,8 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int L
                                 int nzActive, double deltax, double XMin, double YMin, double ZMin,
                                 int SuccessfulNucEvents_ThisRank, int &XSwitch, ViewI CellType, ViewI CritTimeStep,
                                 ViewI GrainID, std::string TemperatureDataType, int layernumber, int, int ZBound_Low,
-                                int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector,
-                                Print<device_memory_space> print, ViewI MeltTimeStep) {
+                                int NGrainOrientations, ViewI LayerID, ViewF GrainUnitVector, Print print,
+                                ViewI MeltTimeStep) {
 
     unsigned long int LocalSuperheatedCells;
     unsigned long int LocalUndercooledCells;

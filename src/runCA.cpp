@@ -31,7 +31,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     std::vector<std::string> temp_paths;
 
     // Data printing structure - contains print options (false by default) and functions
-    Print<device_memory_space> print(np);
+    Print print(np);
 
     // Read input file - toggle appropriate print options
     InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, GrainOrientationFile,

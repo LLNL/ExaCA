@@ -132,7 +132,7 @@ void testInputReadFromFile(int PrintVersion) {
         std::vector<std::string> temp_paths;
         std::cout << "Reading " << FileName << std::endl;
         // Data printing structure - contains print options (false by default) and functions
-        Print<device_memory_space> print(np);
+        Print print(np);
         InputReadFromFile(id, FileName, SimulationType, deltax, NMax, dTN, dTsigma, GrainOrientationFile,
                           TempFilesInSeries, temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight,
                           MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
