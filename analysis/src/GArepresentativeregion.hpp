@@ -401,14 +401,10 @@ struct RepresentativeRegion {
     }
 
     void calcNecessaryGrainExtents(ViewI3D_H GrainID, double deltax) {
-        // If representativeRegion.AnalysisOptions_StatsYN[3] or
-        // representativeRegion.AnalysisOptions_PerGrainStatsYN[5] is toggled, grain extents are needed If
-        // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[4] or
-        // representativeRegion.AnalysisOptions_PerGrainStatsYN[2] is toggled, X extents are needed If
-        // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[5] or
-        // representativeRegion.AnalysisOptions_PerGrainStatsYN[3] is toggled, Y extents are needed If
-        // representativeRegion.representativeRegion.AnalysisOptions_StatsYN[6] or
-        // representativeRegion.AnalysisOptions_PerGrainStatsYN[4] is toggled, Z extents are needed
+        // For the analysis options:
+        // If StatsYN[3] or PerGrainStatsYN[5] is toggled, all grain extents are needed. If StatsYN[4] or
+        // PerGrainStatsYN[2] is toggled, X extents are needed. If StatsYN[5] or PerGrainStatsYN[3] is toggled, Y
+        // extents are needed. If StatsYN[6] or PerGrainStatsYN[4] is toggled, Z extents are needed
         bool calcExtentX = false;
         bool calcExtentY = false;
         bool calcExtentZ = false;
