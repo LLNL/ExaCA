@@ -37,27 +37,10 @@ void CheckInputFiles(std::string &LogFile, std::string MicrostructureFile, std::
                      std::string &RGBFilename, std::string &EulerAnglesFilename);
 double convertToMicrons(double deltax, std::string RegionType);
 double convertToCells(double deltax, std::string RegionType);
-std::vector<int> getRepresentativeRegionGrainIDs(ViewI3D_H GrainID, const int XLow, const int XHigh, const int YLow,
-                                                 const int YHigh, const int ZLow, const int ZHigh,
-                                                 const int RepresentativeRegionSize);
-std::vector<int> getUniqueGrains(const std::vector<int> GrainIDVector, int &NumberOfGrains);
-ViewI_H getOrientationHistogram(int NumberOfOrientations, ViewI3D_H GrainID, ViewI3D_H LayerID, int XMin, int XMax,
-                                int YMin, int YMax, int ZMin, int ZMax);
-ViewI_H getOrientationHistogram(int NumberOfOrientations, std::vector<int> GrainIDVector,
-                                int RepresentativeRegionSize_Cells);
-std::vector<float> getGrainSizes(const std::vector<int> GrainIDVector, const std::vector<int> UniqueGrainIDVector,
-                                 const int NumberOfGrains, double deltax, std::string RegionType);
-void calcGrainExtent(std::vector<float> &GrainExtent, ViewI3D_H GrainID, const std::vector<int> UniqueGrainIDVector,
-                     std::vector<float> GrainSizeVector, const int NumberOfGrains, const int XLow, const int XHigh,
-                     const int YLow, const int YHigh, const int ZLow, const int ZHigh, std::string Direction,
-                     double deltax, std::string RegionType);
 std::vector<float> getGrainMisorientation(std::string Direction, ViewF_H GrainUnitVector,
                                           std::vector<int> UniqueGrainIDVector, int NumberOfOrientations,
                                           int NumberOfGrains);
-void calcBuildTransAspectRatio(std::vector<float> &BuildTransAspectRatio, std::vector<float> GrainExtentX,
-                               std::vector<float> GrainExtentY, std::vector<float> GrainExtentZ, int NumberOfGrains);
-std::vector<float> getIPFZColor(int Color, std::vector<int> UniqueGrainIDVector, int NumberOfOrientations,
-                                ViewF_H GrainRGBValues, int NumberOfGrains);
+void dual_print(std::string temp, std::ostream &stream1, std::ostream &stream2);
 template <typename ReturnType, typename FirstType, typename SecondType>
 ReturnType DivideCast(FirstType Int1, SecondType Int2) {
     return static_cast<ReturnType>(Int1) / static_cast<ReturnType>(Int2);

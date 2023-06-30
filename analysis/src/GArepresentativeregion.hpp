@@ -22,6 +22,7 @@
 // analyses to be performed
 struct RepresentativeRegion {
 
+    std::string regionName;
     std::string regionType;
     std::string regionOrientation;
     std::string units;
@@ -35,6 +36,7 @@ struct RepresentativeRegion {
     std::vector<int> yBounds_Cells = std::vector<int>(2);
     std::vector<int> zBounds_Cells = std::vector<int>(2);
     int regionSize_Cells;
+    std::vector<float> GrainExtentX, GrainExtentY, GrainExtentZ;
 
     // Analysis options for printing stats to the screen (_Stats), to the file of grainwise statistics (_PerGrainStats),
     // or to files of layerwise statistics (_LayerwiseStats)
@@ -68,10 +70,22 @@ struct RepresentativeRegion {
     // Analysis options that print separate files
     bool PrintExaConstitYN, PrintPoleFigureYN, PrintInversePoleFigureMapYN;
 
-    // Constructor
-    RepresentativeRegion(nlohmann::json RegionData, int nx, int ny, int nz, double deltax,
-                         std::vector<double> XYZBounds) {
+    // List of grain ID values in the representative region
+    std::vector<int> GrainIDVector;
+    // List of unique grain IDs associated with the region and the number of grains
+    int NumberOfGrains;
+    std::vector<int> UniqueGrainIDVector;
+    // Size (in units of length, area, or volume, depending on regionType) associated with each grain
+    std::vector<float> GrainSizeVector_Microns;
 
+    // Constructor
+    RepresentativeRegion(nlohmann::json AnalysisData, std::string RegionName, int nx, int ny, int nz, double deltax,
+                         std::vector<double> XYZBounds, ViewI3D_H GrainID) {
+
+        // Data for the specific region of interest
+        regionName = RegionName;
+        std::cout << "Parsing data for region " << RegionName << std::endl;
+        nlohmann::json RegionData = AnalysisData["Regions"][RegionName];
         // Are the bounds given in cells, or in microns? Store both representations
         setUnits(RegionData);
         // Obtain the bounds of the region in x, y, and z, in both cells and microns
@@ -99,6 +113,14 @@ struct RepresentativeRegion {
                                         AnalysisOptions_LayerwiseStatsYN);
         // Check other Y/N options (false by default or if not an allowed option for the region type)
         ReadSeparateFileAnalysisOptions(RegionData);
+
+        // List of grain ID values in the representative region
+        GrainIDVector = getGrainIDVector(GrainID);
+        // List of unique grain IDs associated with the region, also initialize the number of grains
+        UniqueGrainIDVector = getUniqueGrains();
+        // Size (in units of length, area, or volume, depending on regionType) associated with each grain
+        GrainSizeVector_Microns = getGrainSizeVector(deltax);
+        std::cout << "Loaded analysis options for region " << RegionName << std::endl;
     }
 
     void ReadSeparateFileAnalysisOptions(nlohmann::json RegionData) {
@@ -289,8 +311,6 @@ struct RepresentativeRegion {
 
     // Set the appropriate units for the region based on the dimensions (in microns)
     void setUnitDimension() {
-        regionSize_Cells = (xBounds_Cells[1] - xBounds_Cells[0] + 1) * (yBounds_Cells[1] - yBounds_Cells[0] + 1) *
-                           (zBounds_Cells[1] - zBounds_Cells[0] + 1);
         if (regionType == "length")
             units_dimension = "microns";
         else if (regionType == "area")
@@ -300,6 +320,10 @@ struct RepresentativeRegion {
         else
             throw std::runtime_error("Error: Invalid region type in setRegionSize during region construction");
     }
+
+    // Helper functions used to analyze a region of microstructure data
+    // Subroutines starting with "get" return the data specified
+    // Subroutines starting with "calc" calculate the quantity specified but do not return it
 
     // Get the list of Grain IDs associated with the representative region
     std::vector<int> getGrainIDVector(ViewI3D_H GrainID) {
@@ -317,14 +341,15 @@ struct RepresentativeRegion {
         return GrainIDVector;
     }
 
-    // Get the list of unique Grain IDs associated with the representative region
-    std::vector<int> getUniqueGrainIDVector(std::vector<int> GrainIDVector) {
-
+    // Given an input vector of integer Grain ID values, return an output vector consisting of the unique Grain ID
+    // values, sorted from lowest to highest. Store the number of grains
+    std::vector<int> getUniqueGrains() {
         std::vector<int> UniqueGrainIDVector = GrainIDVector;
         std::sort(UniqueGrainIDVector.begin(), UniqueGrainIDVector.end());
         std::vector<int>::iterator it;
         it = std::unique(UniqueGrainIDVector.begin(), UniqueGrainIDVector.end());
         UniqueGrainIDVector.resize(std::distance(UniqueGrainIDVector.begin(), it));
+        NumberOfGrains = UniqueGrainIDVector.size();
         return UniqueGrainIDVector;
     }
 
@@ -332,9 +357,7 @@ struct RepresentativeRegion {
     // unique Grain ID values "UniqueGrainIDVector" (of size "NumberOfGrains"), return a third vector "GrainSizeVector"
     // listing the size of each of the "NumberOfGrains" grains (scaled by the cell size deltax and depending on whether
     // the region is 1D, 2D, or 3D)
-    std::vector<float> getGrainSizeVector(const std::vector<int> GrainIDVector,
-                                          const std::vector<int> UniqueGrainIDVector, const int NumberOfGrains,
-                                          double deltax) {
+    std::vector<float> getGrainSizeVector(double deltax) {
 
         std::vector<float> GrainSizeVector(NumberOfGrains);
         double conv = convertToMicrons(deltax, regionType);
@@ -346,24 +369,346 @@ struct RepresentativeRegion {
         return GrainSizeVector;
     }
 
-    // TODO: Consolidate volume/area header print routines from GAprint when non-JSON option is removed
-    // Print header for grain statistics file for a representative volume
-    void printAnalysisHeader_Volume(std::ofstream &QoIs, std::string RegionName) {
+    // Given the 3D grain structure "GrainID", determine the extent in the direction specified of each of the
+    // "NumberOfGrains" unique grains from the volume bounded by [XLow, XHigh], [YLow, YHigh], [ZLow, ZHigh]. Extent is
+    // calculated in microns
+    void calcGrainExtent(std::vector<float> &GrainExtent, ViewI3D_H GrainID, std::string Direction, double deltax) {
 
-        std::cout << "Stats for " << RegionName << " volume:" << std::endl;
-        QoIs << "Stats for " << RegionName << " volume:" << std::endl;
-        std::cout << "The representative volume specified is bounded by X = [" << xBounds_Meters[0] << ","
-                  << xBounds_Meters[1] << "], Y = [" << yBounds_Meters[0] << "," << yBounds_Meters[1] << "], and Z = ["
-                  << zBounds_Meters[0] << "," << zBounds_Meters[1] << "] m" << std::endl;
-        std::cout << "The representative volume specified is bounded by cells spanning X = [" << xBounds_Cells[0] << ","
-                  << xBounds_Cells[1] << "], Y = [" << yBounds_Cells[0] << "," << yBounds_Cells[1] << "], and Z = ["
-                  << zBounds_Cells[0] << "," << zBounds_Cells[1] << "]" << std::endl;
-        QoIs << "The representative volume specified is bounded by X = [" << xBounds_Meters[0] << ","
-             << xBounds_Meters[1] << "], Y = [" << yBounds_Meters[0] << "," << yBounds_Meters[1] << "], and Z = ["
-             << zBounds_Meters[0] << "," << zBounds_Meters[1] << "] m" << std::endl;
-        QoIs << "The representative volume specified is bounded by cells spanning X = [" << xBounds_Cells[0] << ","
-             << xBounds_Cells[1] << "], Y = [" << yBounds_Cells[0] << "," << yBounds_Cells[1] << "], and Z = ["
-             << zBounds_Cells[0] << "," << zBounds_Cells[1] << "]" << std::endl;
+        for (int n = 0; n < NumberOfGrains; n++) {
+            int ThisGrainID = UniqueGrainIDVector[n];
+            int ThisGrainSize = std::round(GrainSizeVector_Microns[n] * convertToCells(deltax, regionType));
+            std::vector<int> GrainCoordinate(ThisGrainSize);
+            int count = 0;
+            for (int k = zBounds_Cells[0]; k <= zBounds_Cells[1]; k++) {
+                for (int i = xBounds_Cells[0]; i <= xBounds_Cells[1]; i++) {
+                    for (int j = yBounds_Cells[0]; j <= yBounds_Cells[1]; j++) {
+                        if (GrainID(k, i, j) == ThisGrainID) {
+                            if (Direction == "X")
+                                GrainCoordinate[count] = i;
+                            else if (Direction == "Y")
+                                GrainCoordinate[count] = j;
+                            else if (Direction == "Z")
+                                GrainCoordinate[count] = k;
+                            count++;
+                        }
+                    }
+                }
+            }
+            int MinCoord = *std::min_element(GrainCoordinate.begin(), GrainCoordinate.end());
+            int MaxCoord = *std::max_element(GrainCoordinate.begin(), GrainCoordinate.end());
+            GrainExtent[n] = (MaxCoord - MinCoord + 1) * convertToMicrons(deltax, "length");
+        }
+    }
+
+    void calcNecessaryGrainExtents(ViewI3D_H GrainID, double deltax) {
+        // For the analysis options:
+        // If StatsYN[3] or PerGrainStatsYN[5] is toggled, all grain extents are needed. If StatsYN[4] or
+        // PerGrainStatsYN[2] is toggled, X extents are needed. If StatsYN[5] or PerGrainStatsYN[3] is toggled, Y
+        // extents are needed. If StatsYN[6] or PerGrainStatsYN[4] is toggled, Z extents are needed
+        bool calcExtentX = false;
+        bool calcExtentY = false;
+        bool calcExtentZ = false;
+        if ((AnalysisOptions_StatsYN[3]) || (AnalysisOptions_StatsYN[4])) {
+            calcExtentX = true;
+            calcExtentY = true;
+            calcExtentZ = true;
+        }
+        else {
+            if ((AnalysisOptions_StatsYN[4]) || (AnalysisOptions_PerGrainStatsYN[2]))
+                calcExtentX = true;
+            if ((AnalysisOptions_StatsYN[5]) || (AnalysisOptions_PerGrainStatsYN[3]))
+                calcExtentY = true;
+            if ((AnalysisOptions_StatsYN[6]) || (AnalysisOptions_PerGrainStatsYN[4]))
+                calcExtentZ = true;
+        }
+        if (calcExtentX) {
+            GrainExtentX.resize(NumberOfGrains);
+            calcGrainExtent(GrainExtentX, GrainID, "X", deltax);
+        }
+        if (calcExtentY) {
+            GrainExtentY.resize(NumberOfGrains);
+            calcGrainExtent(GrainExtentY, GrainID, "Y", deltax);
+        }
+        if (calcExtentZ) {
+            GrainExtentZ.resize(NumberOfGrains);
+            calcGrainExtent(GrainExtentZ, GrainID, "Z", deltax);
+        }
+    }
+
+    // Calculate misorientation relative to the specified cardinal direction for each grain and store in the vector
+    std::vector<float> getGrainMisorientation(std::string Direction, ViewF_H GrainUnitVector,
+                                              int NumberOfOrientations) {
+
+        std::vector<float> GrainMisorientationVector(NumberOfGrains);
+        int direction;
+        if (Direction == "X")
+            direction = 0;
+        else if (Direction == "Y")
+            direction = 1;
+        else if (Direction == "Z")
+            direction = 2;
+        else
+            throw std::runtime_error(
+                "Error: invalid direction specified in calcGrainMisorientation: should be X, Y, or Z");
+        ViewF_H GrainMisorientation = MisorientationCalc(NumberOfOrientations, GrainUnitVector, direction);
+        for (int n = 0; n < NumberOfGrains; n++) {
+            int MyOrientation = getGrainOrientation(UniqueGrainIDVector[n], NumberOfOrientations);
+            float MyMisorientation = GrainMisorientation(MyOrientation);
+            GrainMisorientationVector[n] = MyMisorientation;
+        }
+        return GrainMisorientationVector;
+    }
+
+    // Create a histogram of orientations for texture determination, using the GrainID values in the volume bounded by
+    // [XMin,XMax], [YMin,YMax], [ZMin,ZMax] and excluding and cells that did not undergo melting (GrainID = -1)
+    ViewI_H getOrientationHistogram(int NumberOfOrientations, ViewI3D_H GrainID, ViewI3D_H LayerID) {
+
+        // Init histogram values to zero
+        ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
+        for (int k = zBounds_Cells[0]; k <= zBounds_Cells[1]; k++) {
+            for (int j = yBounds_Cells[0]; j <= yBounds_Cells[1]; j++) {
+                for (int i = xBounds_Cells[0]; i <= xBounds_Cells[1]; i++) {
+                    if (LayerID(k, i, j) != -1) {
+                        int GOVal = getGrainOrientation(GrainID(k, i, j), NumberOfOrientations);
+                        GOHistogram(GOVal)++;
+                    }
+                }
+            }
+        }
+        return GOHistogram;
+    }
+
+    //*****************************************************************************/
+    // "print" routines print average quantities to the screen (and to the file stream specified by QoIs)
+    // "write" routines write data to specific files
+    //*****************************************************************************/
+    // Print information about a representative area or volume to the console/QoIs file
+    void printAnalysisHeader(std::ofstream &QoIs) {
+
+        std::string temp;
+        temp = "Stats for " + regionType + " " + regionName + "\n";
+        if (regionOrientation == "XY") {
+            temp += "The representative area is located at Z = " + std::to_string(zBounds_Meters[0]) + " m\n";
+            temp += "(in CA units, Z = " + std::to_string(zBounds_Cells[0]) + ")\n";
+            temp += "The representative area is bounded by the region spanning X = [" +
+                    std::to_string(xBounds_Meters[0]) + "," + std::to_string(xBounds_Meters[1]) + "], Y = [ " +
+                    std::to_string(yBounds_Meters[0]) + "," + std::to_string(yBounds_Meters[1]) + "] m\n";
+            temp += "(in CA units X = [" + std::to_string(xBounds_Cells[0]) + "," + std::to_string(xBounds_Cells[1]) +
+                    "], Y = [" + std::to_string(yBounds_Cells[0]) + "," + std::to_string(yBounds_Cells[1]) + "])\n";
+        }
+        else if (regionOrientation == "XZ") {
+            temp += "The representative area is located at Y = " + std::to_string(yBounds_Meters[0]) + " m\n";
+            temp += "(in CA units, Y = " + std::to_string(yBounds_Cells[0]) + ")\n";
+            temp += "The representative area is bounded by the region spanning X = [" +
+                    std::to_string(xBounds_Meters[0]) + "," + std::to_string(xBounds_Meters[1]) + "], Z = [" +
+                    std::to_string(zBounds_Meters[0]) + "," + std::to_string(zBounds_Meters[1]) + "] m\n";
+            temp += "(in CA units X = [" + std::to_string(xBounds_Cells[0]) + "," + std::to_string(xBounds_Cells[1]) +
+                    "], Z = [" + std::to_string(zBounds_Cells[0]) + "," + std::to_string(zBounds_Cells[1]) + "])\n";
+        }
+        else if (regionOrientation == "YZ") {
+            temp += "The representative area is located at X = " + std::to_string(xBounds_Meters[0]) + " m\n";
+            temp += "(in CA units, X = " + std::to_string(xBounds_Cells[0]) + ")\n";
+            temp += "The representative area is bounded by the region spanning Y = [" +
+                    std::to_string(yBounds_Meters[0]) + "," + std::to_string(yBounds_Meters[1]) + "], Z = [" +
+                    std::to_string(zBounds_Meters[0]) + "," + std::to_string(zBounds_Meters[1]) + "] m\n";
+            temp += "(in CA units Y = [" + std::to_string(yBounds_Cells[0]) + "," + std::to_string(yBounds_Cells[1]) +
+                    "], Z = [" + std::to_string(zBounds_Cells[0]) + "," + std::to_string(zBounds_Cells[1]) + "])\n";
+        }
+        else if (regionOrientation == "XYZ") {
+            temp += "The representative volume specified is bounded by X = [" + std::to_string(xBounds_Meters[0]) +
+                    "," + std::to_string(xBounds_Meters[1]) + "], Y = [" + std::to_string(yBounds_Meters[0]) + "," +
+                    std::to_string(yBounds_Meters[1]) + "], and Z = [" + std::to_string(zBounds_Meters[0]) + "," +
+                    std::to_string(zBounds_Meters[1]) + "] m\n";
+            temp += "The representative volume specified is bounded by cells spanning X = [" +
+                    std::to_string(xBounds_Cells[0]) + "," + std::to_string(xBounds_Cells[1]) + "], Y = [" +
+                    std::to_string(yBounds_Cells[0]) + "," + std::to_string(yBounds_Cells[1]) + "], and Z = [" +
+                    std::to_string(zBounds_Cells[0]) + "," + std::to_string(zBounds_Cells[1]) + "]\n";
+        }
+        else
+            throw std::runtime_error("Error: invalid region type");
+        dual_print(temp, std::cout, QoIs);
+    }
+
+    // Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
+    // grains to the console/QoIs file
+    void printGrainTypeFractions(std::ofstream &QoIs, ViewI3D_H GrainID, ViewI3D_H LayerID) {
+
+        int NumberOfUnmeltedCells = 0;
+        int NumberOfNucleatedGrainCells = 0;
+        for (int k = zBounds_Cells[0]; k <= zBounds_Cells[1]; k++) {
+            for (int i = xBounds_Cells[0]; i <= xBounds_Cells[1]; i++) {
+                for (int j = yBounds_Cells[0]; j <= yBounds_Cells[1]; j++) {
+                    if (LayerID(k, i, j) == -1)
+                        NumberOfUnmeltedCells++;
+                    if (GrainID(k, i, j) < 0)
+                        NumberOfNucleatedGrainCells++;
+                }
+            }
+        }
+        std::string temp;
+        temp = "-- The representative region consists of " + std::to_string(regionSize_Cells) + " cells\n";
+        temp += "-- The number of cells in the region that did not undergo melting is " +
+                std::to_string(NumberOfUnmeltedCells) + "\n";
+        float VolFractNucGrains = DivideCast<float>(NumberOfNucleatedGrainCells, regionSize_Cells);
+        temp += "-- The volume fraction consisting of nucleated grains is " + std::to_string(VolFractNucGrains) + "\n";
+        dual_print(temp, std::cout, QoIs);
+    }
+
+    // Print average misorientation for the region relative to each direction
+    void printMeanMisorientations(std::ofstream &QoIs, std::vector<float> GrainMisorientationXVector,
+                                  std::vector<float> GrainMisorientationYVector,
+                                  std::vector<float> GrainMisorientationZVector) {
+
+        std::vector<std::string> MisorientationDirectionLabels = {"misorientationX", "misorientationY",
+                                                                  "misorientationZ"};
+        std::vector<std::string> MisorientationDirectionLabelsShort = {"+X", "+Y", "+Z"};
+        float GrainMisorientation_sum_x = 0.0;
+        float GrainMisorientation_sum_y = 0.0;
+        float GrainMisorientation_sum_z = 0.0;
+        for (int n = 0; n < NumberOfGrains; n++) {
+            GrainMisorientation_sum_x += GrainMisorientationXVector[n] * GrainSizeVector_Microns[n];
+            GrainMisorientation_sum_y += GrainMisorientationYVector[n] * GrainSizeVector_Microns[n];
+            GrainMisorientation_sum_z += GrainMisorientationZVector[n] * GrainSizeVector_Microns[n];
+        }
+        float AvgMisorientationX = DivideCast<float>(GrainMisorientation_sum_x, regionSize_Meters);
+        float AvgMisorientationY = DivideCast<float>(GrainMisorientation_sum_y, regionSize_Meters);
+        float AvgMisorientationZ = DivideCast<float>(GrainMisorientation_sum_z, regionSize_Meters);
+        std::string temp;
+        temp = "-- Average misorientation (weighted by size) for grains relative to the X direction (in degrees): " +
+               std::to_string(AvgMisorientationX) + "\n";
+        temp += "-- Average misorientation (weighted by size) for grains relative to the Y direction (in degrees): " +
+                std::to_string(AvgMisorientationY) + "\n";
+        temp += "-- Average misorientation (weighted by size) for grains relative to the Z direction (in degrees): " +
+                std::to_string(AvgMisorientationZ) + "\n";
+        dual_print(temp, std::cout, QoIs);
+    }
+
+    // Print the average grain size and the number of grains in the region
+    void printMeanSize(std::ofstream &QoIs) {
+
+        double AvgSizePerGrain = DivideCast<double>(regionSize_Microns, NumberOfGrains);
+        std::string temp = "-- There are " + std::to_string(NumberOfGrains) + " grains in this " + regionType +
+                           " , and the mean grain " + regionType + " is " + std::to_string(AvgSizePerGrain) + " " +
+                           units_dimension + "\n";
+        dual_print(temp, std::cout, QoIs);
+    }
+
+    // Print average grain extent in the specified direction
+    void printMeanExtent(std::ofstream &QoIs, std::string Direction) {
+
+        float GrainExtentSum = 0.0;
+        std::vector<float> GrainExtent_Microns;
+        if (Direction == "X")
+            GrainExtent_Microns = GrainExtentX;
+        else if (Direction == "Y")
+            GrainExtent_Microns = GrainExtentY;
+        else if (Direction == "Z")
+            GrainExtent_Microns = GrainExtentZ;
+        for (int n = 0; n < NumberOfGrains; n++)
+            GrainExtentSum += GrainExtent_Microns[n];
+        float AvgGrainExtent = DivideCast<float>(GrainExtentSum, NumberOfGrains);
+        std::string temp = "-- The mean grain extent in the " + Direction + " direction is " +
+                           std::to_string(AvgGrainExtent) + " microns\n";
+        dual_print(temp, std::cout, QoIs);
+    }
+
+    // Print average aspect ratio in the build to the average of the transverse directions
+    void printMeanBuildTransAspectRatio(std::ofstream &QoIs) {
+
+        std::vector<float> GrainAspectRatios(NumberOfGrains);
+        float ARSum = 0.0;
+        float VolWtARSum = 0.0;
+        for (int n = 0; n < NumberOfGrains; n++) {
+            float AR_XZ = GrainExtentZ[n] / GrainExtentX[n];
+            float AR_YZ = GrainExtentZ[n] / GrainExtentY[n];
+            GrainAspectRatios[n] = 0.5 * (AR_XZ + AR_YZ);
+            ARSum += GrainAspectRatios[n];
+            VolWtARSum += GrainAspectRatios[n] * GrainSizeVector_Microns[n];
+        }
+        double RepresentativeRegionSize_Microns = regionSize_Meters * pow(10, 18);
+        std::string temp;
+        temp = "-- The mean grain aspect ratio (Z direction to transverse) is " +
+               std::to_string(DivideCast<float>(ARSum, NumberOfGrains)) + "\n";
+        temp += "-- The mean volume-weighted grain aspect ratio (Z direction to transverse) is " +
+                std::to_string(DivideCast<float>(VolWtARSum, RepresentativeRegionSize_Microns)) + "\n";
+        dual_print(temp, std::cout, QoIs);
+    }
+
+    // Write unweighted and/or weighted grain areas as a function of build height to file(s)
+    // TODO: Remove weighted grain area calculations from the next release
+    void writeAreaSeries(std::string BaseFileName, double deltax, ViewI3D_H GrainID) {
+
+        bool PrintUnweightedAreas = AnalysisOptions_LayerwiseStatsYN[0];
+        bool PrintWeightedAreas = AnalysisOptions_LayerwiseStatsYN[1];
+        std::string FName1 = BaseFileName + "_GrainAreas.csv";
+        std::string FName2 = BaseFileName + "_WeightedGrainAreas.csv";
+        std::ofstream Grainplot1, Grainplot2;
+        if (PrintUnweightedAreas) {
+            std::cout << "Printing file " << FName1 << " of grain area values (in square microns) for all Z coordinates"
+                      << std::endl;
+            Grainplot1.open(FName1);
+            Grainplot1 << "Zcoordinate(µm),MeanArea(µm2)" << std::endl;
+        }
+        if (PrintWeightedAreas) {
+            std::cout << "Printing file " << FName2
+                      << " of weighted grain area values (in square microns) for every 5th Z coordinate" << std::endl;
+            std::cout << "Note: Option to print weighted grain area data will be removed in a future release"
+                      << std::endl;
+            Grainplot2.open(FName2);
+            Grainplot2 << "Zcoordinate(µm),WeightedMeanArea(µm2)" << std::endl;
+        }
+
+        int LayerArea = (xBounds_Cells[1] - xBounds_Cells[0] + 1) * (yBounds_Cells[1] - yBounds_Cells[0] + 1);
+        for (int k = zBounds_Cells[0]; k <= zBounds_Cells[1]; k++) {
+            // All GrainID values in the representative area at Z = k
+            std::vector<int> GrainIDVector_Area(regionSize_Cells);
+            int count = 0;
+            for (int i = xBounds_Cells[0]; i <= xBounds_Cells[1]; i++) {
+                for (int j = yBounds_Cells[0]; j <= yBounds_Cells[1]; j++) {
+                    GrainIDVector_Area[count] = GrainID(k, i, j);
+                    count++;
+                }
+            }
+            // Get the number of grains in the representative area and a list of the unique grain IDs
+            std::vector<int> UniqueGrainIDVector_Area = GrainIDVector_Area;
+            std::sort(UniqueGrainIDVector_Area.begin(), UniqueGrainIDVector_Area.end());
+            std::vector<int>::iterator it;
+            it = std::unique(UniqueGrainIDVector_Area.begin(), UniqueGrainIDVector_Area.end());
+            UniqueGrainIDVector_Area.resize(std::distance(UniqueGrainIDVector_Area.begin(), it));
+            int NumberOfGrains_Area = UniqueGrainIDVector_Area.size();
+            double MeanGrainAreaThisLayer = DivideCast<double>(LayerArea, NumberOfGrains_Area);
+            if (PrintUnweightedAreas)
+                Grainplot1 << zBounds_Meters[0] * pow(10, 6) + convertToMicrons(deltax, "length") << ","
+                           << MeanGrainAreaThisLayer * convertToMicrons(deltax, "area") << std::endl;
+            if ((PrintWeightedAreas) && (k % 5 == 0)) {
+                std::vector<float> GrainSizeVector_Microns_Area(NumberOfGrains_Area);
+                double conv = convertToMicrons(deltax, "area");
+                for (int n = 0; n < NumberOfGrains_Area; n++) {
+                    int GrainSizeCells =
+                        std::count(GrainIDVector_Area.begin(), GrainIDVector_Area.end(), UniqueGrainIDVector_Area[n]);
+                    GrainSizeVector_Microns_Area[n] = conv * GrainSizeCells;
+                }
+                float AreaXArea = 0.0;
+                for (int n = 0; n < NumberOfGrains_Area; n++)
+                    AreaXArea += GrainSizeVector_Microns_Area[n] * GrainSizeVector_Microns_Area[n];
+                double WeightedArea = DivideCast<double>(AreaXArea, LayerArea);
+                Grainplot2 << zBounds_Meters[0] * pow(10, 6) + convertToMicrons(deltax, "length") << "," << WeightedArea
+                           << std::endl;
+                if (k == zBounds_Cells[1])
+                    std::cout
+                        << "[Note: this will no longer be printed in a future release] The mean weighted grain area "
+                           "at the representative region top (Z coordinate = "
+                        << zBounds_Cells[1] << ") is " << WeightedArea << " square microns" << std::endl;
+            }
+            if (k == zBounds_Cells[1])
+                std::cout << "[Note: this will no longer be printed in a future release] The mean grain area at the "
+                             "representative region top (Z coordinate = "
+                          << zBounds_Cells[1] << ") is " << MeanGrainAreaThisLayer << " square microns" << std::endl;
+        }
+        if (PrintUnweightedAreas)
+            Grainplot1.close();
+        if (PrintWeightedAreas)
+            Grainplot2.close();
     }
 
     // Write pole figure data for this region to a file to be read by MTEX
@@ -384,6 +729,28 @@ struct RepresentativeRegion {
                         << GrainEulerAngles(3 * i + 2) << " " << (float)(GOHistogram(i)) << std::endl;
         }
         GrainplotPF.close();
+    }
+
+    // From the grain extents in x, y, and z, calcualte the aspect ratio for each grain in the build to the average of
+    // the transverse directions
+    void calcBuildTransAspectRatio(std::vector<float> &BuildTransAspectRatio) {
+
+        for (int n = 0; n < NumberOfGrains; n++) {
+            float AR_XZ = GrainExtentZ[n] / GrainExtentX[n];
+            float AR_YZ = GrainExtentZ[n] / GrainExtentY[n];
+            BuildTransAspectRatio[n] = 0.5 * (AR_XZ + AR_YZ);
+        }
+    }
+
+    // Determine the R, G, or B value for this grain orientation for the IPF-Z inverse pole figure colormap (Color = 0
+    // for R, 1 for G, 2 for B)
+    std::vector<float> getIPFZColor(int Color, int NumberOfOrientations, ViewF_H GrainRGBValues) {
+        std::vector<float> IPFZColor(NumberOfGrains);
+        for (int n = 0; n < NumberOfGrains; n++) {
+            int MyOrientation = getGrainOrientation(UniqueGrainIDVector[n], NumberOfOrientations);
+            IPFZColor[n] = GrainRGBValues(3 * MyOrientation + Color);
+        }
+        return IPFZColor;
     }
 
     // Print data to be read by MTEX to plot the cross-section using the inverse pole figure colormap
@@ -486,14 +853,10 @@ struct RepresentativeRegion {
     }
 
     // Write a csv file of stats for each grain
-    void writePerGrainStats(std::string OutputFileName, std::vector<int> UniqueGrainIDVector,
-                            std::vector<float> GrainMisorientationXVector,
+    void writePerGrainStats(std::string OutputFileName, std::vector<float> GrainMisorientationXVector,
                             std::vector<float> GrainMisorientationYVector,
-                            std::vector<float> GrainMisorientationZVector, std::vector<float> GrainSizeVector,
-                            std::vector<float> GrainExtentX, std::vector<float> GrainExtentY,
-                            std::vector<float> GrainExtentZ, std::vector<float> BuildTransAspectRatio,
-                            int NumberOfGrains, std::vector<float> GrainRed, std::vector<float> GrainGreen,
-                            std::vector<float> GrainBlue) {
+                            std::vector<float> GrainMisorientationZVector, std::vector<float> BuildTransAspectRatio,
+                            std::vector<float> GrainRed, std::vector<float> GrainGreen, std::vector<float> GrainBlue) {
 
         // Which quantities should be printed?
         std::string stats_fname = OutputFileName + "_grains.csv";
@@ -524,7 +887,7 @@ struct RepresentativeRegion {
                 GrainStats << "," << GrainMisorientationXVector[n] << "," << GrainMisorientationYVector[n] << ","
                            << GrainMisorientationZVector[n];
             if (AnalysisOptions_PerGrainStatsYN[1])
-                GrainStats << "," << GrainSizeVector[n];
+                GrainStats << "," << GrainSizeVector_Microns[n];
             if (AnalysisOptions_PerGrainStatsYN[2])
                 GrainStats << "," << GrainExtentX[n];
             if (AnalysisOptions_PerGrainStatsYN[3])
