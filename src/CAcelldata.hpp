@@ -29,6 +29,7 @@ struct CellData {
     using memory_space = MemorySpace;
     using view_type_int = Kokkos::View<int *, memory_space>;
     using view_type_int_host = typename view_type_int::HostMirror;
+    using view_type_int_unmanaged = Kokkos::View<int *, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
     using view_type_float = Kokkos::View<float *, memory_space>;
 
     int NextLayer_FirstEpitaxialGrainID, BottomOfCurrentLayer, TopOfCurrentLayer;
@@ -388,14 +389,9 @@ struct CellData {
             PowderGrainIDs[n] = n + NextLayer_FirstEpitaxialGrainID; // assigned a nonzero GrainID
         }
         std::shuffle(PowderGrainIDs.begin(), PowderGrainIDs.end(), gen);
-        // Copy powder layer GrainIDs into a host view, then a device view
-        view_type_int_host PowderGrainIDs_Host(Kokkos::ViewAllocateWithoutInitializing("PowderGrainIDs_Host"),
-                                               PowderLayerCells);
-        for (int n = 0; n < PowderLayerCells; n++) {
-            PowderGrainIDs_Host(n) = PowderGrainIDs[n];
-        }
-        view_type_int PowderGrainIDs_Device =
-            Kokkos::create_mirror_view_and_copy(device_memory_space(), PowderGrainIDs_Host);
+        // Wrap powder layer GrainIDs into an unmanaged view, then copy to the device
+        view_type_int_unmanaged PowderGrainIDs_Host(PowderGrainIDs.data(), PowderLayerCells);
+        auto PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), PowderGrainIDs_Host);
         // Associate powder grain IDs with CA cells in the powder layer
         // Use bounds from temperature field for this layer to determine which cells are part of the powder
         int PowderTopZ = round((ZMaxLayer[layernumber] - ZMin) / deltax) + 1;
