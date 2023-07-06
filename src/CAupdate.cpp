@@ -26,8 +26,8 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, i
     // Cells associated with this layer that are not solid type but have passed the liquidus (crit time step) have their
     // undercooling values updated Cells that meet the aforementioned criteria and are active type should be added to
     // the steering vector
-    ViewI CellType = cellData.getCellTypeSubview();
-    ViewI LayerID = cellData.getLayerIDSubview();
+    auto CellType = cellData.getCellTypeSubview();
+    auto LayerID = cellData.getLayerIDSubview();
     Kokkos::parallel_for(
         "FillSV", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
             // Cells of interest for the CA
@@ -67,8 +67,8 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
                                ViewI MeltTimeStep, ViewI SolidificationEventCounter, ViewI NumberOfSolidificationEvents,
                                ViewF3D LayerTimeTempHistory) {
 
-    ViewI CellType = cellData.getCellTypeSubview();
-    ViewI GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview();
+    auto GrainID = cellData.getGrainIDSubview();
     Kokkos::parallel_for(
         "FillSV_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
             // Coordinate of this cell on the "global" (all cells in the Z direction) grid
@@ -186,8 +186,8 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
-    ViewI CellType = cellData.getCellTypeSubview();
-    ViewI GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview();
+    auto GrainID = cellData.getGrainIDSubview();
     Kokkos::parallel_for(
         "CellCapture", numSteer_Host(0), KOKKOS_LAMBDA(const int &num) {
             numSteer(0) = 0;
@@ -612,9 +612,9 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int L
                                 int ZBound_Low, int NGrainOrientations, ViewF GrainUnitVector, Print print,
                                 ViewI MeltTimeStep) {
 
-    ViewI CellType = cellData.getCellTypeSubview();
-    ViewI GrainID = cellData.getGrainIDSubview();
-    ViewI LayerID = cellData.getLayerIDSubview();
+    auto CellType = cellData.getCellTypeSubview();
+    auto GrainID = cellData.getGrainIDSubview();
+    auto LayerID = cellData.getLayerIDSubview();
     unsigned long int LocalSuperheatedCells;
     unsigned long int LocalUndercooledCells;
     unsigned long int LocalActiveCells;

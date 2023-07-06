@@ -77,8 +77,8 @@ void RefillBuffers(int nx, int nzActive, int MyYSlices, int, CellData<device_mem
                    bool AtNorthBoundary, bool AtSouthBoundary, ViewF DOCenter, ViewF DiagonalLength,
                    int NGrainOrientations, int BufSize) {
 
-    ViewI CellType = cellData.getCellTypeSubview();
-    ViewI GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview();
+    auto GrainID = cellData.getGrainIDSubview();
     Kokkos::parallel_for(
         "FillSendBuffersOverflow", nx, KOKKOS_LAMBDA(const int &i) {
             for (int k = 0; k < nzActive; k++) {
@@ -171,8 +171,8 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
 
     // unpack in any order
     bool unpack_complete = false;
-    ViewI CellType = cellData.getCellTypeSubview();
-    ViewI GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview();
+    auto GrainID = cellData.getGrainIDSubview();
     while (!unpack_complete) {
         // Get the next buffer to unpack from rank "unpack_index"
         int unpack_index = MPI_UNDEFINED;
