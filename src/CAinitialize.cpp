@@ -26,17 +26,13 @@
 
 // Read ExaCA input file (JSON format)
 void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
-                       double &dTN, double &dTsigma, std::string &OutputFile, std::string &GrainOrientationFile,
-                       int &TempFilesInSeries, std::vector<std::string> &temp_paths, double &HT_deltax, double &deltat,
-                       int &NumberOfLayers, int &LayerHeight, std::string &MaterialFileName,
-                       std::string &SubstrateFileName, float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G,
-                       double &R, int &nx, int &ny, int &nz, double &FractSurfaceSitesActive, std::string &PathToOutput,
-                       int &PrintDebug, bool &PrintMisorientation, bool &PrintFinalUndercoolingVals,
-                       bool &PrintFullOutput, int &NSpotsX, int &NSpotsY, int &SpotOffset, int &SpotRadius,
-                       bool &PrintTimeSeries, int &TimeSeriesInc, bool &PrintIdleTimeSeriesFrames,
-                       bool &PrintDefaultRVE, double &RNGSeed, bool &BaseplateThroughPowder,
-                       double &PowderActiveFraction, int &RVESize, bool &LayerwiseTempRead, bool &PrintBinary,
-                       bool &PowderFirstLayer) {
+                       double &dTN, double &dTsigma, std::string &GrainOrientationFile, int &TempFilesInSeries,
+                       std::vector<std::string> &temp_paths, double &HT_deltax, double &deltat, int &NumberOfLayers,
+                       int &LayerHeight, std::string &MaterialFileName, std::string &SubstrateFileName,
+                       float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny,
+                       int &nz, double &FractSurfaceSitesActive, int &NSpotsX, int &NSpotsY, int &SpotOffset,
+                       int &SpotRadius, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderActiveFraction,
+                       bool &LayerwiseTempRead, bool &PowderFirstLayer, Print &print) {
 
     std::ifstream InputData(InputFile);
     nlohmann::json inputdata = nlohmann::json::parse(InputData);
@@ -201,91 +197,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     }
 
     // Printing inputs:
-    // Path to output data
-    PathToOutput = inputdata["Printing"]["PathToOutput"];
-    // Name of output data
-    OutputFile = inputdata["Printing"]["OutputFile"];
-    // Should ASCII or binary be used to print vtk data? Defaults to ASCII if not given
-    if (inputdata["Printing"].contains("PrintBinary"))
-        PrintBinary = inputdata["Printing"]["PrintBinary"];
-    else
-        PrintBinary = false;
-    // Should default ExaConstit output be printed after the simulation? If so, what size RVE?
-    if (inputdata["Printing"].contains("PrintExaConstitSize")) {
-        RVESize = inputdata["Printing"]["PrintExaConstitSize"];
-        if (RVESize == 0)
-            PrintDefaultRVE = false;
-        else
-            PrintDefaultRVE = true;
-    }
-    else
-        PrintDefaultRVE = false;
-    // Which fields should be printed at the start and end of the simulation? Certain permutations are not currently
-    // supported
-    // TODO: redo to customize printing of data, allow any fields to be printed at start or end of simulation, with or
-    // without remelting
-    // Field names are: GrainID, LayerID, CritTimeStep, UndercoolingCurrent, UndercoolingChange, CellType,
-    // GrainMisorientation
-    std::vector<std::string> Fieldnames_key = {"GrainID",
-                                               "LayerID",
-                                               "CritTimeStep",
-                                               "UndercoolingCurrent",
-                                               "UndercoolingChange",
-                                               "CellType",
-                                               "GrainMisorientation"};
-    std::vector<bool> PrintFieldsInit = getPrintFieldValues(inputdata, "PrintFieldsInit", Fieldnames_key);
-    std::vector<bool> PrintFieldsFinal = getPrintFieldValues(inputdata, "PrintFieldsFinal", Fieldnames_key);
-    // Printing init data: if any of fields 3, 4, 5 are present, print first six fields. If any of fields 0, 1, 2 are
-    // present, print first three fields (for consistency with old input file format)
-    if ((PrintFieldsInit[3]) || (PrintFieldsInit[4]) || (PrintFieldsInit[5]))
-        PrintDebug = 2;
-    else if ((PrintFieldsInit[0]) || (PrintFieldsInit[1]) || (PrintFieldsInit[2]))
-        PrintDebug = 1;
-    else
-        PrintDebug = 0;
-    if ((PrintFieldsInit[6]) && (id == 0))
-        std::cout
-            << "Warning: Option of printing grain misorientation data currently only supported at end of simulation"
-            << std::endl;
-    // Printing final data: "UndercoolingCurrent" at the end of the simulation is the final undercooling of each cell
-    if ((PrintFieldsFinal[0]) || (PrintFieldsFinal[1]))
-        PrintFullOutput = true;
-    else
-        PrintFullOutput = false;
-    if (PrintFieldsFinal[3])
-        PrintFinalUndercoolingVals = true;
-    else
-        PrintFinalUndercoolingVals = false;
-    if (PrintFieldsFinal[6])
-        PrintMisorientation = true;
-    else
-        PrintMisorientation = false;
-    if (((PrintFieldsFinal[2]) || (PrintFieldsFinal[4]) || (PrintFieldsFinal[5])) && (id == 0))
-        std::cout << "Warning: Options of printing crit time step, undercooling change, and cell type are only "
-                     "supported after simulation initialization"
-                  << std::endl;
-    // Should intermediate output be printed?
-    if (inputdata["Printing"].contains("PrintIntermediateOutput")) {
-        // An increment of 0 will set the intermediate file printing to false
-        double TimeSeriesFrameInc_time = inputdata["Printing"]["PrintIntermediateOutput"]["Frequency"];
-        if (TimeSeriesFrameInc_time == 0) {
-            PrintTimeSeries = false;
-            PrintIdleTimeSeriesFrames = false;
-        }
-        else {
-            PrintTimeSeries = true;
-            // Increment is given in microseconds, convert to seconds
-            TimeSeriesFrameInc_time = TimeSeriesFrameInc_time * pow(10, -6);
-            TimeSeriesInc = round(TimeSeriesFrameInc_time / deltat);
-            // Should the intermediate output be printed even if the simulation was unchanged from the previous output
-            // step?
-            PrintIdleTimeSeriesFrames = inputdata["Printing"]["PrintIntermediateOutput"]["PrintIdleFrames"];
-        }
-    }
-    else {
-        PrintTimeSeries = false;
-        PrintIdleTimeSeriesFrames = false;
-    }
+    print.getPrintDataFromInputFile(inputdata, id, deltat);
 
     // Print information to console about the input file data read
     if (id == 0) {
@@ -294,9 +206,6 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         std::cout << "Nucleation density is " << NMax << " per m^3" << std::endl;
         std::cout << "Mean nucleation undercooling is " << dTN << " K, standard deviation of distribution is "
                   << dTsigma << "K" << std::endl;
-        if (PrintTimeSeries)
-            std::cout << "Intermediate output for movie frames will be printed every " << TimeSeriesInc
-                      << " time steps (or every " << TimeSeriesInc * deltat << " microseconds)" << std::endl;
         if (SimulationType == "C") {
             std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << G
                       << " K/m and a cooling rate of " << R << " K/s" << std::endl;

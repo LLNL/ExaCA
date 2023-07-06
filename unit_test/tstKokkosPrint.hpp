@@ -18,17 +18,17 @@ namespace Test {
 //---------------------------------------------------------------------------//
 void testPrintExaConstitDefaultRVE() {
 
-    // File name/path for test RVE output (each rank writes/reads different file)
-    std::string BaseFileName = "TestRVERank_0";
-    std::string PathToOutput = "";
-
     // Create test grid - set up so that the RVE is 5 cells in X, Y, and Z
     int nx = 10;
     int ny = 10;
     int nz = 10;
     int NumberOfLayers = 10;
     double deltax = 0.0001; // in meters
-    int RVESize = 0.0005 / deltax;
+    Print print(1);
+    print.PrintDefaultRVE = true;
+    print.RVESize = 0.0005 / deltax;
+    // File name/path for test RVE output (each rank writes/reads different file)
+    print.BaseFileName = "TestRVERank_0";
 
     // Create test data
     ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), nz, nx, ny);
@@ -43,12 +43,11 @@ void testPrintExaConstitDefaultRVE() {
     }
 
     // Print RVE
-    PrintExaConstitDefaultRVE(BaseFileName, PathToOutput, nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain, deltax,
-                              NumberOfLayers, RVESize);
+    print.printExaConstitDefaultRVE(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain, deltax, NumberOfLayers);
 
     // Check printed RVE
     std::ifstream GrainplotE;
-    std::string ExpectedFilename = BaseFileName + "_ExaConstit.csv";
+    std::string ExpectedFilename = "TestRVERank_0_ExaConstit.csv";
     GrainplotE.open(ExpectedFilename);
     std::string line;
     std::getline(GrainplotE, line);

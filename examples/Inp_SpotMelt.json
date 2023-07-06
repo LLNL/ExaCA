@@ -31,7 +31,7 @@
       "OutputFile": "TestProblemSpot",
       "PrintBinary": false,
       "printExaConstitSize": 0,
-      "PrintFieldsInit": [],
+      "PrintFieldsInit": ["MeltTimeStep","CritTimeStep"],
       "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
       "PrintIntermediateOutput": {
           "Frequency": 2500,

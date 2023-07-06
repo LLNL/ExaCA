@@ -27,7 +27,7 @@
       "OutputFile": "TestProblemDirS",
       "PrintBinary": false,
       "PrintExaConstitSize": 0,
-      "PrintFieldsInit": [],
+      "PrintFieldsInit": ["CritTimeStep"],
       "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
       "PrintIntermediateOutput": {
           "Frequency": 350,
