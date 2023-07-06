@@ -33,6 +33,7 @@ struct CellData {
     using view_type_float = Kokkos::View<float *, memory_space>;
 
     int NextLayer_FirstEpitaxialGrainID, BottomOfCurrentLayer, TopOfCurrentLayer;
+    std::pair<int, int> LayerRange;
     view_type_int GrainID_AllLayers, CellType_AllLayers, LayerID_AllLayers;
 
     // Constructor for views and view bounds for current layer
@@ -46,6 +47,7 @@ struct CellData {
 
         BottomOfCurrentLayer = ZBound_Low * nx * MyYSlices;
         TopOfCurrentLayer = BottomOfCurrentLayer + LocalActiveDomainSize;
+        LayerRange = std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer);
     }
 
     // Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom
@@ -441,6 +443,7 @@ struct CellData {
         // ZBound_Low
         BottomOfCurrentLayer = ZBound_Low * nx * MyYSlices;
         TopOfCurrentLayer = BottomOfCurrentLayer + LocalActiveDomainSize;
+        LayerRange = std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer);
 
         // If the baseplate was initialized from a substrate grain spacing, initialize powder layer grain structure
         // for the next layer "layernumber + 1" Otherwise, the entire substrate (baseplate + powder) was read from a
@@ -485,21 +488,9 @@ struct CellData {
 
     // Take a view consisting of data for all layers, and return a subview of the same type consisting of just the cells
     // corresponding to the current layer of a multilayer problem
-    view_type_int getGrainIDSubview() {
-        view_type_int GrainID =
-            Kokkos::subview(GrainID_AllLayers, std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer));
-        return GrainID;
-    }
-    view_type_int getLayerIDSubview() {
-        view_type_int LayerID =
-            Kokkos::subview(LayerID_AllLayers, std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer));
-        return LayerID;
-    }
-    view_type_int getCellTypeSubview() {
-        view_type_int CellType =
-            Kokkos::subview(CellType_AllLayers, std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer));
-        return CellType;
-    }
+    auto getGrainIDSubview() { return Kokkos::subview(GrainID_AllLayers, LayerRange); }
+    auto getLayerIDSubview() { return Kokkos::subview(LayerID_AllLayers, LayerRange); }
+    auto getCellTypeSubview() { return Kokkos::subview(CellType_AllLayers, LayerRange); }
 };
 
 #endif
