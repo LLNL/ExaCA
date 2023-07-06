@@ -265,10 +265,10 @@ struct Print {
                                               int NGrainOrientations, int layernumber, int ZBound_Low) {
 
         IntermediateFileCounter++;
+        auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
+        auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
+        auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, CellType);
         if (id == 0) {
-            auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
-            auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
-            auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, CellType);
             std::cout << "Intermediate output on time step " << cycle << std::endl;
             auto GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
             printGrainMisorientations(nx, ny, nzActive, LayerID_WholeDomain, GrainID_WholeDomain, CellType_WholeDomain,
