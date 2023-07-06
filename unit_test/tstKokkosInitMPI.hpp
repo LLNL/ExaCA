@@ -314,10 +314,9 @@ void testCellDataInit_ConstrainedGrowth() {
                                        LocalActiveDomainSize);
     ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
     ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
-    CellData cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
-    cellData.substrate_init_dirsol(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
-                                   NeighborZ, GrainUnitVector, NGrainOrientations, DiagonalLength, DOCenter,
-                                   CritDiagonalLength, RNGSeed);
+    CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    cellData.init_substrate(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY, NeighborZ,
+                            GrainUnitVector, NGrainOrientations, DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed);
     // Copy CellType, GrainID views to host to check values
     ViewI_H CellType_AllLayers_Host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
@@ -427,8 +426,8 @@ void testCellDataInit(bool PowderFirstLayer) {
         });
 
     // Call constructor
-    CellData cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
-    cellData.substrate_init("", false, false, PowderFirstLayer, nx, ny, nz, LayerHeight, LocalActiveDomainSize,
+    CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    cellData.init_substrate("", false, false, PowderFirstLayer, nx, ny, nz, LayerHeight, LocalActiveDomainSize,
                             ZMaxLayer, ZMin, deltax, MyYSlices, MyYOffset, ZBound_Low, id, RNGSeed,
                             SubstrateGrainSpacing, PowderActiveFraction, NumberOfSolidificationEvents);
 

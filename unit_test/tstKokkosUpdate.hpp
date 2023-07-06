@@ -37,7 +37,7 @@ void testNucleation() {
 
     // All cells have GrainID of 0, CellType of Liquid - with the exception of the locations where the nucleation events
     // are unable to occur
-    CellData cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
     ViewI CellType = cellData.getCellTypeSubview();
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
@@ -158,7 +158,7 @@ void testFillSteeringVector_Remelt() {
     NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
-    CellData cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     ViewI_H MeltTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("MeltTimeStep_Host"), LocalDomainSize);
     ViewI_H CritTimeStep_Host(Kokkos::ViewAllocateWithoutInitializing("CritTimeStep_Host"), LocalDomainSize);
     ViewI_H SolidificationEventCounter_Host("SolidificationEventCounter_Host", LocalDomainSize); // init to 0

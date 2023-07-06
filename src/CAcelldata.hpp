@@ -23,20 +23,25 @@
 #include <vector>
 
 // Data that belongs to individual cells governing the current state and various ID values
+template <typename MemorySpace>
 struct CellData {
 
+    using memory_space = MemorySpace;
+    using view_type_int = Kokkos::View<int *, memory_space>;
     using view_type_int_host = Kokkos::View<int *, layout, Kokkos::HostSpace>;
+    using view_type_float = Kokkos::View<float *, memory_space>;
+
     int NextLayer_FirstEpitaxialGrainID, BottomOfCurrentLayer, TopOfCurrentLayer;
-    ViewI GrainID_AllLayers, CellType_AllLayers, LayerID_AllLayers;
+    view_type_int GrainID_AllLayers, CellType_AllLayers, LayerID_AllLayers;
 
     // Constructor for views and view bounds for current layer
     // TODO: CellType is only needed for the current layer, and LayerID is only needed for all layers/no subview is
     // needed. Leaving them as-is for now each with the "AllLayers" and "Current layer/subview slice" to minimize
     // changes to the rest of the code to accomodate. GrainID is initialized to zeros, while others are not initialized
     CellData(int LocalDomainSize, int LocalActiveDomainSize, int nx, int MyYSlices, int ZBound_Low)
-        : GrainID_AllLayers(ViewI("GrainID", LocalDomainSize))
-        , CellType_AllLayers(ViewI(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalDomainSize))
-        , LayerID_AllLayers(ViewI(Kokkos::ViewAllocateWithoutInitializing("LayerID"), LocalDomainSize)) {
+        : GrainID_AllLayers(view_type_int("GrainID", LocalDomainSize))
+        , CellType_AllLayers(view_type_int(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalDomainSize))
+        , LayerID_AllLayers(view_type_int(Kokkos::ViewAllocateWithoutInitializing("LayerID"), LocalDomainSize)) {
 
         BottomOfCurrentLayer = ZBound_Low * nx * MyYSlices;
         TopOfCurrentLayer = BottomOfCurrentLayer + LocalActiveDomainSize;
@@ -45,10 +50,10 @@ struct CellData {
     // Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom
     // surface of the constrained domain. Also initialize active cell data structures associated with the substrate
     // grains
-    void substrate_init_dirsol(int id, double FractSurfaceSitesActive, int MyYSlices, int nx, int ny, int MyYOffset,
-                               NList NeighborX, NList NeighborY, NList NeighborZ, ViewF GrainUnitVector,
-                               int NGrainOrientations, ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength,
-                               double RNGSeed) {
+    void init_substrate(int id, double FractSurfaceSitesActive, int MyYSlices, int nx, int ny, int MyYOffset,
+                        NList NeighborX, NList NeighborY, NList NeighborZ, view_type_float GrainUnitVector,
+                        int NGrainOrientations, view_type_float DiagonalLength, view_type_float DOCenter,
+                        view_type_float CritDiagonalLength, double RNGSeed) {
 
         // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
         // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between
@@ -64,8 +69,8 @@ struct CellData {
         // On all ranks, generate active site locations - same list on every rank
         // TODO: Generate random numbers on GPU, instead of using host view and copying over - ensure that locations are
         // in the same order every time based on the RNGSeed
-        ViewI_H ActCellX_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellX_Host"), SubstrateActCells);
-        ViewI_H ActCellY_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellY_Host"), SubstrateActCells);
+        view_type_int_host ActCellX_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellX_Host"), SubstrateActCells);
+        view_type_int_host ActCellY_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellY_Host"), SubstrateActCells);
 
         // Randomly locate substrate grain seeds for cells in the interior of this subdomain (at the k = 0 bottom
         // surface)
@@ -78,8 +83,8 @@ struct CellData {
         }
 
         // Copy views of substrate grain locations back to the device
-        ViewI ActCellX_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellX_Host);
-        ViewI ActCellY_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellY_Host);
+        view_type_int ActCellX_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellX_Host);
+        view_type_int ActCellY_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellY_Host);
 
         // Start with all cells as liquid prior to locating substrate grain seeds
         // All cells have LayerID = 0 as this is not a multilayer problem
@@ -123,20 +128,19 @@ struct CellData {
             std::cout << "Number of substrate active cells across all ranks: " << SubstrateActCells << std::endl;
     }
 
-    void substrate_init(std::string SubstrateFileName, bool UseSubstrateFile, bool BaseplateThroughPowder,
+    void init_substrate(std::string SubstrateFileName, bool UseSubstrateFile, bool BaseplateThroughPowder,
                         bool PowderFirstLayer, int nx, int ny, int nz, int LayerHeight, int LocalActiveDomainSize,
                         double *ZMaxLayer, double ZMin, double deltax, int MyYSlices, int MyYOffset, int ZBound_Low,
                         int id, double RNGSeed, double SubstrateGrainSpacing, double PowderActiveFraction,
-                        ViewI NumberOfSolidificationEvents) {
+                        view_type_int NumberOfSolidificationEvents) {
 
         // Generate the baseplate microstructure, or read it from a file, to initialize the grain ID values
         if (UseSubstrateFile)
-            init_baseplate_grainid_fromfile(SubstrateFileName, nz, nx, MyYSlices, MyYOffset, id, ZMin, ZMaxLayer,
-                                            BaseplateThroughPowder, PowderFirstLayer, LayerHeight, deltax);
+            init_baseplate_grainid(SubstrateFileName, nz, nx, MyYSlices, MyYOffset, id, ZMin, ZMaxLayer,
+                                   BaseplateThroughPowder, PowderFirstLayer, LayerHeight, deltax);
         else
-            init_baseplate_grainid_fromspacing(SubstrateGrainSpacing, nx, ny, ZMin, ZMaxLayer, MyYSlices, MyYOffset, id,
-                                               deltax, RNGSeed, nz, BaseplateThroughPowder, PowderFirstLayer,
-                                               LayerHeight);
+            init_baseplate_grainid(SubstrateGrainSpacing, nx, ny, ZMin, ZMaxLayer, MyYSlices, MyYOffset, id, deltax,
+                                   RNGSeed, nz, BaseplateThroughPowder, PowderFirstLayer, LayerHeight);
 
         // Optionally generate powder grain structure grain IDs for top of layer 0
         if (PowderFirstLayer)
@@ -174,9 +178,9 @@ struct CellData {
     }
 
     // Initializes Grain ID values where the substrate comes from a file
-    void init_baseplate_grainid_fromfile(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset,
-                                         int id, double ZMin, double *ZMaxLayer, bool BaseplateThroughPowder,
-                                         bool PowderFirstLayer, int LayerHeight, double deltax) {
+    void init_baseplate_grainid(std::string SubstrateFileName, int nz, int nx, int MyYSlices, int MyYOffset, int id,
+                                double ZMin, double *ZMaxLayer, bool BaseplateThroughPowder, bool PowderFirstLayer,
+                                int LayerHeight, double deltax) {
 
         // Assign GrainID values to cells that are part of the substrate - read values from file and initialize using
         // temporary host view
@@ -242,9 +246,9 @@ struct CellData {
 
     // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi
     // Tessellation
-    void init_baseplate_grainid_fromspacing(float SubstrateGrainSpacing, int nx, int ny, double ZMin, double *ZMaxLayer,
-                                            int MyYSlices, int MyYOffset, int id, double deltax, double RNGSeed, int nz,
-                                            bool BaseplateThroughPowder, bool PowderFirstLayer, int LayerHeight) {
+    void init_baseplate_grainid(float SubstrateGrainSpacing, int nx, int ny, double ZMin, double *ZMaxLayer,
+                                int MyYSlices, int MyYOffset, int id, double deltax, double RNGSeed, int nz,
+                                bool BaseplateThroughPowder, bool PowderFirstLayer, int LayerHeight) {
 
         // Number of cells to assign GrainID
         int BaseplateSizeZ = get_baseplate_size_z(nz, ZMaxLayer, ZMin, deltax, LayerHeight, BaseplateThroughPowder,
@@ -297,9 +301,9 @@ struct CellData {
         }
 
         // Copy baseplate views to the device
-        ViewI BaseplateGrainIDs_Device =
+        view_type_int BaseplateGrainIDs_Device =
             Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainIDs_Host);
-        ViewI BaseplateGrainLocations_Device =
+        view_type_int BaseplateGrainLocations_Device =
             Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainLocations_Host);
         if (id == 0) {
             std::cout << "Baseplate spanning domain coordinates Z = 0 through " << BaseplateSizeZ - 1 << std::endl;
@@ -390,7 +394,8 @@ struct CellData {
         for (int n = 0; n < PowderLayerCells; n++) {
             PowderGrainIDs_Host(n) = PowderGrainIDs[n];
         }
-        ViewI PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), PowderGrainIDs_Host);
+        view_type_int PowderGrainIDs_Device =
+            Kokkos::create_mirror_view_and_copy(device_memory_space(), PowderGrainIDs_Host);
         // Associate powder grain IDs with CA cells in the powder layer
         // Use bounds from temperature field for this layer to determine which cells are part of the powder
         int PowderTopZ = round((ZMaxLayer[layernumber] - ZMin) / deltax) + 1;
@@ -434,7 +439,7 @@ struct CellData {
     void init_next_layer(int nextlayernumber, int id, int nx, int ny, int MyYSlices, int MyYOffset, int ZBound_Low,
                          int LayerHeight, int LocalActiveDomainSize, bool UseSubstrateFile, bool BaseplateThroughPowder,
                          double ZMin, double *ZMaxLayer, double deltax, double RNGSeed, double PowderActiveFraction,
-                         ViewI NumberOfSolidificationEvents) {
+                         view_type_int NumberOfSolidificationEvents) {
 
         // Subviews for the next layer's grain id, layer id, cell type are constructed based on updated layer bound
         // ZBound_Low
@@ -457,7 +462,7 @@ struct CellData {
     // Initializes cells for the current layer as either solid (don't resolidify) or tempsolid (will melt and
     // resolidify)
     void init_celltype_layerid(int layernumber, int nx, int MyYSlices, int LocalActiveDomainSize,
-                               ViewI NumberOfSolidificationEvents, int id, int ZBound_Low) {
+                               view_type_int NumberOfSolidificationEvents, int id, int ZBound_Low) {
 
         int MeltPoolCellCount;
         auto CellType_AllLayers_local = CellType_AllLayers;
@@ -484,16 +489,19 @@ struct CellData {
 
     // Take a view consisting of data for all layers, and return a subview of the same type consisting of just the cells
     // corresponding to the current layer of a multilayer problem
-    ViewI getGrainIDSubview() {
-        ViewI GrainID = Kokkos::subview(GrainID_AllLayers, std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer));
+    view_type_int getGrainIDSubview() {
+        view_type_int GrainID =
+            Kokkos::subview(GrainID_AllLayers, std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer));
         return GrainID;
     }
-    ViewI getLayerIDSubview() {
-        ViewI LayerID = Kokkos::subview(LayerID_AllLayers, std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer));
+    view_type_int getLayerIDSubview() {
+        view_type_int LayerID =
+            Kokkos::subview(LayerID_AllLayers, std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer));
         return LayerID;
     }
-    ViewI getCellTypeSubview() {
-        ViewI CellType = Kokkos::subview(CellType_AllLayers, std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer));
+    view_type_int getCellTypeSubview() {
+        view_type_int CellType =
+            Kokkos::subview(CellType_AllLayers, std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer));
         return CellType;
     }
 };

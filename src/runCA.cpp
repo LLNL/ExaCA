@@ -180,13 +180,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ResetSendBuffers(BufSize, BufferNorthSend, BufferSouthSend, SendSizeNorth, SendSizeSouth);
 
     // Initialize cell types, grain IDs, and layer IDs
-    CellData cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    CellData<device_memory_space> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     if (SimulationType == "C")
-        cellData.substrate_init_dirsol(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
-                                       NeighborZ, GrainUnitVector, NGrainOrientations, DiagonalLength, DOCenter,
-                                       CritDiagonalLength, RNGSeed);
+        cellData.init_substrate(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY,
+                                NeighborZ, GrainUnitVector, NGrainOrientations, DiagonalLength, DOCenter,
+                                CritDiagonalLength, RNGSeed);
     else
-        cellData.substrate_init(SubstrateFileName, UseSubstrateFile, BaseplateThroughPowder, PowderFirstLayer, nx, ny,
+        cellData.init_substrate(SubstrateFileName, UseSubstrateFile, BaseplateThroughPowder, PowderFirstLayer, nx, ny,
                                 nz, LayerHeight, LocalActiveDomainSize, ZMaxLayer, ZMin, deltax, MyYSlices, MyYOffset,
                                 ZBound_Low, id, RNGSeed, SubstrateGrainSpacing, PowderActiveFraction,
                                 NumberOfSolidificationEvents);

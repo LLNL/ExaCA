@@ -19,9 +19,9 @@ using std::min;
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step
 void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, ViewI CritTimeStep,
-                                 ViewF UndercoolingCurrent, ViewF UndercoolingChange, CellData &cellData,
-                                 int ZBound_Low, int layernumber, ViewI SteeringVector, ViewI numSteer,
-                                 ViewI_H numSteer_Host) {
+                                 ViewF UndercoolingCurrent, ViewF UndercoolingChange,
+                                 CellData<device_memory_space> &cellData, int ZBound_Low, int layernumber,
+                                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host) {
 
     // Cells associated with this layer that are not solid type but have passed the liquidus (crit time step) have their
     // undercooling values updated Cells that meet the aforementioned criteria and are active type should be added to
@@ -62,9 +62,9 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, i
 // this time step - version with remelting
 void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, NList NeighborX,
                                NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
-                               ViewF UndercoolingChange, CellData &cellData, int ZBound_Low, int nzActive,
-                               ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, ViewI MeltTimeStep,
-                               ViewI SolidificationEventCounter, ViewI NumberOfSolidificationEvents,
+                               ViewF UndercoolingChange, CellData<device_memory_space> &cellData, int ZBound_Low,
+                               int nzActive, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host,
+                               ViewI MeltTimeStep, ViewI SolidificationEventCounter, ViewI NumberOfSolidificationEvents,
                                ViewF3D LayerTimeTempHistory) {
 
     ViewI CellType = cellData.getCellTypeSubview();
@@ -178,11 +178,11 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
 void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialResponseFunction irf, int MyYOffset,
                  NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
                  ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
-                 CellData &cellData, ViewF DOCenter, int NGrainOrientations, Buffer2D BufferNorthSend,
-                 Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth, int ZBound_Low, int nzActive, int,
-                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
-                 bool AtSouthBoundary, ViewI SolidificationEventCounter, ViewF3D LayerTimeTempHistory,
-                 ViewI NumberOfSolidificationEvents, int &BufSize) {
+                 CellData<device_memory_space> &cellData, ViewF DOCenter, int NGrainOrientations,
+                 Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
+                 int ZBound_Low, int nzActive, int, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host,
+                 bool AtNorthBoundary, bool AtSouthBoundary, ViewI SolidificationEventCounter,
+                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, int &BufSize) {
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
@@ -607,9 +607,10 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
 // remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int LocalActiveDomainSize, int nx, int ny,
                                 int nzActive, double deltax, double XMin, double YMin, double ZMin,
-                                int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData &cellData, ViewI CritTimeStep,
-                                std::string TemperatureDataType, int layernumber, int, int ZBound_Low,
-                                int NGrainOrientations, ViewF GrainUnitVector, Print print, ViewI MeltTimeStep) {
+                                int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<device_memory_space> &cellData,
+                                ViewI CritTimeStep, std::string TemperatureDataType, int layernumber, int,
+                                int ZBound_Low, int NGrainOrientations, ViewF GrainUnitVector, Print print,
+                                ViewI MeltTimeStep) {
 
     ViewI CellType = cellData.getCellTypeSubview();
     ViewI GrainID = cellData.getGrainIDSubview();

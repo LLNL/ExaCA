@@ -72,9 +72,10 @@ void ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, B
 
 // Refill the buffers as necessary starting from the old count size, using the data from cells marked with type
 // ActiveFailedBufferLoad
-void RefillBuffers(int nx, int nzActive, int MyYSlices, int, CellData &cellData, Buffer2D BufferNorthSend,
-                   Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth, bool AtNorthBoundary,
-                   bool AtSouthBoundary, ViewF DOCenter, ViewF DiagonalLength, int NGrainOrientations, int BufSize) {
+void RefillBuffers(int nx, int nzActive, int MyYSlices, int, CellData<device_memory_space> &cellData,
+                   Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
+                   bool AtNorthBoundary, bool AtSouthBoundary, ViewF DOCenter, ViewF DiagonalLength,
+                   int NGrainOrientations, int BufSize) {
 
     ViewI CellType = cellData.getCellTypeSubview();
     ViewI GrainID = cellData.getGrainIDSubview();
@@ -152,9 +153,9 @@ void RefillBuffers(int nx, int nzActive, int MyYSlices, int, CellData &cellData,
 //*****************************************************************************/
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
 void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int MyYSlices, int MyYOffset,
-                  NList NeighborX, NList NeighborY, NList NeighborZ, CellData &cellData, ViewF DOCenter,
-                  ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations,
-                  Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
+                  NList NeighborX, NList NeighborY, NList NeighborZ, CellData<device_memory_space> &cellData,
+                  ViewF DOCenter, ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength,
+                  int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
                   Buffer2D BufferSouthRecv, int BufSize, int ZBound_Low, ViewI SendSizeNorth, ViewI SendSizeSouth) {
 
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
