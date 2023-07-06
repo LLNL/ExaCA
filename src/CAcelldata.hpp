@@ -28,7 +28,7 @@ struct CellData {
 
     using memory_space = MemorySpace;
     using view_type_int = Kokkos::View<int *, memory_space>;
-    using view_type_int_host = Kokkos::View<int *, layout, Kokkos::HostSpace>;
+    using view_type_int_host = typename view_type_int::HostMirror;
     using view_type_float = Kokkos::View<float *, memory_space>;
 
     int NextLayer_FirstEpitaxialGrainID, BottomOfCurrentLayer, TopOfCurrentLayer;
@@ -83,8 +83,8 @@ struct CellData {
         }
 
         // Copy views of substrate grain locations back to the device
-        view_type_int ActCellX_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellX_Host);
-        view_type_int ActCellY_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellY_Host);
+        auto ActCellX_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellX_Host);
+        auto ActCellY_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellY_Host);
 
         // Start with all cells as liquid prior to locating substrate grain seeds
         // All cells have LayerID = 0 as this is not a multilayer problem
@@ -301,9 +301,9 @@ struct CellData {
         }
 
         // Copy baseplate views to the device
-        view_type_int BaseplateGrainIDs_Device =
+        auto BaseplateGrainIDs_Device =
             Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainIDs_Host);
-        view_type_int BaseplateGrainLocations_Device =
+        auto BaseplateGrainLocations_Device =
             Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainLocations_Host);
         if (id == 0) {
             std::cout << "Baseplate spanning domain coordinates Z = 0 through " << BaseplateSizeZ - 1 << std::endl;
