@@ -63,7 +63,7 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutp
         if (SimulationType != "C") {
             ExaCALog << "," << std::endl;
             ExaCALog << "      \"NumberOfLayers\": " << NumberOfLayers << "," << std::endl;
-            ExaCALog << "      \"LayerOffset\": " << LayerHeight << "," << std::endl;
+            ExaCALog << "      \"LayerOffset\": " << LayerHeight;
             if (SimulationType == "S") {
                 ExaCALog << "," << std::endl;
                 ExaCALog << "      \"NSpotsX\": " << NSpotsX << "," << std::endl;
