@@ -70,7 +70,8 @@ macro(ExaCA_add_tests)
       target_link_libraries(${_target} ${EXACA_UNIT_TEST_PACKAGE} ${gtest_target})
 
       foreach(_np ${EXACA_UNIT_TEST_MPIEXEC_NUMPROCS})
-        if(_device STREQUAL PTHREAD OR _device STREQUAL OPENMP)
+        # FIXME: remove PTHREAD
+        if(_device STREQUAL PTHREAD OR _device STREQUAL THREADS OR _device STREQUAL OPENMP)
           foreach(_thread ${EXACA_UNIT_TEST_NUMTHREADS})
             add_test(NAME ${_target}_np_${_np}_nt_${_thread} COMMAND
               ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_np} ${MPIEXEC_PREFLAGS}

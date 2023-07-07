@@ -27,7 +27,8 @@ endif()
 message(STATUS "ExaCA commit: ${ExaCA_GIT_COMMIT_HASH}")
 
 # NOTE: this order is specifically used in the unit tests.
-set(EXACA_SUPPORTED_DEVICES SERIAL PTHREAD OPENMP CUDA HIP)
+# FIXME: remove PTHREAD
+set(EXACA_SUPPORTED_DEVICES SERIAL PTHREAD THREADS OPENMP CUDA HIP)
 
 add_subdirectory(src)
 
