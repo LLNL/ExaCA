@@ -62,9 +62,7 @@ if(ExaCA_ENABLE_TESTING)
   set(EXACA_TEST_DEVICES)
   foreach(_device ${EXACA_SUPPORTED_DEVICES})
     if(Kokkos_ENABLE_${_device})
-      # FIXME: enable multiple test backends when source is templated.
-      #list(APPEND EXACA_TEST_DEVICES ${_device})
-      set(EXACA_TEST_DEVICES ${_device})
+      list(APPEND EXACA_TEST_DEVICES ${_device})
     endif()
   endforeach()
 
