@@ -233,8 +233,8 @@ struct Nucleation {
     void nucleate_grain(int cycle, CellData<device_memory_space> &cellData, int, int, int, view_type_int SteeringVector,
                         view_type_int numSteer_G) {
 
-        ViewI CellType = cellData.getCellTypeSubview();
-        ViewI GrainID = cellData.getGrainIDSubview();
+        auto CellType = cellData.getCellTypeSubview();
+        auto GrainID = cellData.getGrainIDSubview();
 
         // Is there nucleation left in this layer to check?
         if (NucleationCounter < PossibleNuclei) {

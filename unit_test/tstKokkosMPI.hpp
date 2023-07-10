@@ -93,8 +93,8 @@ void testGhostNodes1D() {
 
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid
     CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
-    ViewI CellType = cellData.getCellTypeSubview();
-    ViewI GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview();
+    auto GrainID = cellData.getGrainIDSubview();
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     Kokkos::deep_copy(CellType_Host, Liquid);
     ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);

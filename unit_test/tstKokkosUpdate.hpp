@@ -39,7 +39,7 @@ void testNucleation() {
     // are unable to occur
     CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
-    ViewI CellType = cellData.getCellTypeSubview();
+    auto CellType = cellData.getCellTypeSubview();
     ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     ViewI GrainID = cellData.getGrainIDSubview();
     ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
