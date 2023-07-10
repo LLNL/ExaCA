@@ -548,7 +548,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
                   ViewI MeltTimeStep, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low, ViewI CellType,
                   ViewI LayerID, int id, int layernumber, int np, int nx, int ny, ViewI GrainID, ViewF GrainUnitVector,
-                  Print print, int NGrainOrientations, int nzActive, double deltax, double XMin, double YMin,
+                  Print print, int NGrainOrientations, int nzActive, int nz, double deltax, double XMin, double YMin,
                   double ZMin) {
 
     MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
@@ -589,7 +589,7 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
                     if (cycle_jump % print.TimeSeriesInc == 0) {
                         // Print current state of ExaCA simulation (up to and including the current layer's data)
                         print.printIntermediateGrainMisorientation(
-                            id, np, cycle, nx, ny, MyYSlices, nzActive, deltax, XMin, YMin, ZMin, GrainID, LayerID,
+                            id, np, cycle, nx, ny, nz, MyYSlices, nzActive, deltax, XMin, YMin, ZMin, GrainID, LayerID,
                             CellType, GrainUnitVector, NGrainOrientations, layernumber, ZBound_Low);
                     }
                 }
@@ -606,7 +606,7 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
 // Prints intermediate code output to stdout (intermediate output collected and printed is different than without
 // remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int LocalActiveDomainSize, int nx, int ny,
-                                int nzActive, double deltax, double XMin, double YMin, double ZMin,
+                                int nz, int nzActive, double deltax, double XMin, double YMin, double ZMin,
                                 int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<device_memory_space> &cellData,
                                 ViewI CritTimeStep, std::string TemperatureDataType, int layernumber, int,
                                 int ZBound_Low, int NGrainOrientations, ViewF GrainUnitVector, Print print,
@@ -668,5 +668,5 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int L
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
         JumpTimeStep(cycle, RemainingCellsOfInterest, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize,
                      MyYSlices, ZBound_Low, CellType, LayerID, id, layernumber, np, nx, ny, GrainID, GrainUnitVector,
-                     print, NGrainOrientations, nzActive, deltax, XMin, YMin, ZMin);
+                     print, NGrainOrientations, nzActive, nz, deltax, XMin, YMin, ZMin);
 }

@@ -259,19 +259,20 @@ struct Print {
     // Called on rank 0, prints intermediate values of grain misorientation for all layers up to current layer, also
     // marking which cells are liquid
     template <typename ViewTypeInt, typename ViewTypeFloat>
-    void printIntermediateGrainMisorientation(int id, int np, int cycle, int nx, int ny, int MyYSlices, int nzActive,
-                                              double deltax, double XMin, double YMin, double ZMin, ViewTypeInt GrainID,
-                                              ViewTypeInt LayerID, ViewTypeInt CellType, ViewTypeFloat GrainUnitVector,
-                                              int NGrainOrientations, int layernumber, int ZBound_Low) {
+    void printIntermediateGrainMisorientation(int id, int np, int cycle, int nx, int ny, int nz, int MyYSlices,
+                                              int nzActive, double deltax, double XMin, double YMin, double ZMin,
+                                              ViewTypeInt GrainID, ViewTypeInt LayerID, ViewTypeInt CellType,
+                                              ViewTypeFloat GrainUnitVector, int NGrainOrientations, int layernumber,
+                                              int ZBound_Low) {
 
         IntermediateFileCounter++;
-        auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
-        auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
-        auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, CellType);
+        auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
+        auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, LayerID);
+        auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, CellType);
         if (id == 0) {
             std::cout << "Intermediate output on time step " << cycle << std::endl;
             auto GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
-            printGrainMisorientations(nx, ny, nzActive, LayerID_WholeDomain, GrainID_WholeDomain, CellType_WholeDomain,
+            printGrainMisorientations(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain, CellType_WholeDomain,
                                       GrainUnitVector_Host, NGrainOrientations, deltax, XMin, YMin, ZMin, true,
                                       layernumber, ZBound_Low, nzActive);
         }

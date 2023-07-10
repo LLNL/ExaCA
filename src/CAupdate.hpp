@@ -37,10 +37,10 @@ void CellCapture(int id, int np, int cycle, int LocalActiveDomainSize, int Local
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
                   ViewI MeltTimeStep, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low,
                   CellData<device_memory_space> &cellData, int id, int layernumber, int np, int nx, int ny,
-                  ViewF GrainUnitVector, Print print, int NGrainOrientations, int nzActive, double deltax, double XMin,
-                  double YMin, double ZMin);
+                  ViewF GrainUnitVector, Print print, int NGrainOrientations, int nzActive, int nz, double deltax,
+                  double XMin, double YMin, double ZMin);
 void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int LocalActiveDomainSize, int nx, int ny,
-                                int nzActive, double deltax, double XMin, double YMin, double ZMin,
+                                int nz, int nzActive, double deltax, double XMin, double YMin, double ZMin,
                                 int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<device_memory_space> &cellData,
                                 ViewI CritTimeStep, std::string TemperatureDataType, int layernumber, int,
                                 int ZBound_Low, int NGrainOrientations, ViewF GrainUnitVector, Print print,

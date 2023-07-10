@@ -237,9 +237,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             if ((print.PrintTimeSeries) && (cycle % print.TimeSeriesInc == 0)) {
                 // Print current state of ExaCA simulation (up to and including the current layer's data)
                 print.printIntermediateGrainMisorientation(
-                    id, np, cycle, nx, ny, MyYSlices, nzActive, deltax, XMin, YMin, ZMin, cellData.GrainID_AllLayers,
-                    cellData.LayerID_AllLayers, cellData.CellType_AllLayers, GrainUnitVector, NGrainOrientations,
-                    layernumber, ZBound_Low);
+                    id, np, cycle, nx, ny, nz, MyYSlices, nzActive, deltax, XMin, YMin, ZMin,
+                    cellData.GrainID_AllLayers, cellData.LayerID_AllLayers, cellData.CellType_AllLayers,
+                    GrainUnitVector, NGrainOrientations, layernumber, ZBound_Low);
             }
             cycle++;
 
@@ -304,10 +304,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             }
 
             if (cycle % 1000 == 0) {
-                IntermediateOutputAndCheck(id, np, cycle, MyYSlices, LocalActiveDomainSize, nx, ny, nzActive, deltax,
-                                           XMin, YMin, ZMin, nucleation.SuccessfulNucleationCounter, XSwitch, cellData,
-                                           CritTimeStep, SimulationType, layernumber, NumberOfLayers, ZBound_Low,
-                                           NGrainOrientations, GrainUnitVector, print, MeltTimeStep);
+                IntermediateOutputAndCheck(id, np, cycle, MyYSlices, LocalActiveDomainSize, nx, ny, nz, nzActive,
+                                           deltax, XMin, YMin, ZMin, nucleation.SuccessfulNucleationCounter, XSwitch,
+                                           cellData, CritTimeStep, SimulationType, layernumber, NumberOfLayers,
+                                           ZBound_Low, NGrainOrientations, GrainUnitVector, print, MeltTimeStep);
             }
 
         } while (XSwitch == 0);
