@@ -76,8 +76,8 @@ struct Nucleation {
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
     template <class... Params>
     void placeNuclei(view_type_int MaxSolidificationEvents, view_type_int NumberOfSolidificationEvents,
-                     Kokkos::View<float ***, Params...> LayerTimeTempHistory, double RNGSeed, int layernumber, int nx, int ny,
-                     int nzActive, double dTN, double dTsigma, int MyYSlices, int MyYOffset, int, int id,
+                     Kokkos::View<float ***, Params...> LayerTimeTempHistory, double RNGSeed, int layernumber, int nx,
+                     int ny, int nzActive, double dTN, double dTsigma, int MyYSlices, int MyYOffset, int, int id,
                      bool AtNorthBoundary, bool AtSouthBoundary) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
