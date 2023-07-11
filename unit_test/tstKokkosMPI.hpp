@@ -251,10 +251,6 @@ void testGhostNodes1D() {
 }
 
 void testResizeRefillBuffers() {
-    using memory_space = TEST_MEMSPACE;
-    using view_type_float = Kokkos::View<float *, memory_space>;
-    using view_type_int = Kokkos::View<int *, memory_space>;
-
     int id, np;
     // Get number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &np);
@@ -285,11 +281,11 @@ void testResizeRefillBuffers() {
 
     // Allocate device views: entire domain on each rank
     // Default to wall cells (CellType(index) = 0) with GrainID of 0
-    view_type_int GrainID("GrainID", LocalDomainSize);
-    view_type_int CellType("CellType", LocalDomainSize);
+    ViewI GrainID("GrainID", LocalDomainSize);
+    ViewI CellType("CellType", LocalDomainSize);
     // Allocate device views: only the active layer on each rank
-    view_type_float DiagonalLength("DiagonalLength", LocalActiveDomainSize);
-    view_type_float DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
+    ViewF DiagonalLength("DiagonalLength", LocalActiveDomainSize);
+    ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
 
     // Create send/receive buffers with a buffer size too small to hold all of the active cell data
     int BufSize = 1;
@@ -298,8 +294,8 @@ void testResizeRefillBuffers() {
     Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
     Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, 8);
     // Init counts to 0 on device
-    view_type_int SendSizeSouth("SendSizeSouth", 1);
-    view_type_int SendSizeNorth("SendSizeNorth", 1);
+    ViewI SendSizeSouth("SendSizeSouth", 1);
+    ViewI SendSizeNorth("SendSizeNorth", 1);
     // Allocate counts on host (no init needed, will be copied from device)
     ViewI_H SendSizeSouth_Host(Kokkos::ViewAllocateWithoutInitializing("SendSizeSouth_Host"), 1);
     ViewI_H SendSizeNorth_Host(Kokkos::ViewAllocateWithoutInitializing("SendSizeNorth_Host"), 1);

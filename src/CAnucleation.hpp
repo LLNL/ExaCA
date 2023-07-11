@@ -24,9 +24,7 @@ struct Nucleation {
 
     using memory_space = MemorySpace;
     using view_type_int = Kokkos::View<int *, memory_space>;
-    using view_type_int_host = Kokkos::View<int *, layout, Kokkos::HostSpace>;
-    using view_type_float3d = Kokkos::View<float ***, memory_space>;
-    using view_type_float3d_host = Kokkos::View<float ***, layout, Kokkos::HostSpace>;
+    using view_type_int_host = typename view_type_int::HostMirror;
 
     // Four counters tracked here:
     // 1. Nuclei_WholeDomain - tracks all nuclei (regardless of whether an event would be possible based on the layer ID
@@ -75,20 +73,20 @@ struct Nucleation {
 
     // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur,
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
+    template <class... Params>
     void placeNuclei(view_type_int MaxSolidificationEvents, view_type_int NumberOfSolidificationEvents,
-                     view_type_float3d LayerTimeTempHistory, double RNGSeed, int layernumber, int nx, int ny,
-                     int nzActive, double dTN, double dTsigma, int MyYSlices, int MyYOffset, int ZBound_Low, int id,
-                     bool AtNorthBoundary, bool AtSouthBoundary) {
+                     Kokkos::View<float ***, Params...> LayerTimeTempHistory, double RNGSeed, int layernumber, int nx,
+                     int ny, int nzActive, double dTN, double dTsigma, int MyYSlices, int MyYOffset, int ZBound_Low,
+                     int id, bool AtNorthBoundary, bool AtSouthBoundary) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
         // library algorithm functions Copy temperature data into temporary host views for this subroutine
-        view_type_int_host MaxSolidificationEvents_Host =
+        auto MaxSolidificationEvents_Host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
-        view_type_int_host NumberOfSolidificationEvents_Host =
+        auto NumberOfSolidificationEvents_Host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NumberOfSolidificationEvents);
-        view_type_float3d_host LayerTimeTempHistory_Host =
-            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerTimeTempHistory);
+        auto LayerTimeTempHistory_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerTimeTempHistory);
 
         // Use new RNG seed for each layer
         std::mt19937_64 generator(RNGSeed + layernumber);

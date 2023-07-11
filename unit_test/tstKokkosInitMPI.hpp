@@ -532,6 +532,10 @@ void testCellTypeInit() {
 //---------------------------------------------------------------------------//
 void testNucleiInit() {
 
+    using memory_space = TEST_MEMSPACE;
+    using view_int_host = Kokkos::View<int *, Kokkos::HostSpace>;
+    using view_float3d_host = Kokkos::View<float ***, Kokkos::HostSpace>;
+
     int id, np;
     // Get number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &np);
@@ -573,11 +577,12 @@ void testNucleiInit() {
 
     // Initialize MaxSolidificationEvents to 3 for each layer. LayerTimeTempHistory and NumberOfSolidificationEvents are
     // initialized for each cell on the host and copied to the device
-    ViewI_H MaxSolidificationEvents_Host(Kokkos::ViewAllocateWithoutInitializing("MaxSolidificationEvents_Host"), 2);
-    ViewI_H NumberOfSolidificationEvents_Host(
+    view_int_host MaxSolidificationEvents_Host(Kokkos::ViewAllocateWithoutInitializing("MaxSolidificationEvents_Host"),
+                                               2);
+    view_int_host NumberOfSolidificationEvents_Host(
         Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents_Host"), LocalActiveDomainSize);
-    ViewF3D LayerTimeTempHistory_Host(Kokkos::ViewAllocateWithoutInitializing("LayerTimeTempHistory_Host"),
-                                      LocalActiveDomainSize, MaxSolidificationEvents_Count, 3);
+    view_float3d_host LayerTimeTempHistory_Host(Kokkos::ViewAllocateWithoutInitializing("LayerTimeTempHistory_Host"),
+                                                LocalActiveDomainSize, MaxSolidificationEvents_Count, 3);
     MaxSolidificationEvents_Host(0) = MaxSolidificationEvents_Count;
     MaxSolidificationEvents_Host(1) = MaxSolidificationEvents_Count;
     // Cells solidify 1, 2, or 3 times, depending on their X coordinate
@@ -616,11 +621,10 @@ void testNucleiInit() {
         }
     }
 
-    using memory_space = TEST_MEMSPACE;
-    ViewI MaxSolidificationEvents = Kokkos::create_mirror_view_and_copy(memory_space(), MaxSolidificationEvents_Host);
-    ViewI NumberOfSolidificationEvents =
+    auto MaxSolidificationEvents = Kokkos::create_mirror_view_and_copy(memory_space(), MaxSolidificationEvents_Host);
+    auto NumberOfSolidificationEvents =
         Kokkos::create_mirror_view_and_copy(memory_space(), NumberOfSolidificationEvents_Host);
-    ViewF3D LayerTimeTempHistory = Kokkos::create_mirror_view_and_copy(memory_space(), LayerTimeTempHistory_Host);
+    auto LayerTimeTempHistory = Kokkos::create_mirror_view_and_copy(memory_space(), LayerTimeTempHistory_Host);
 
     // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
@@ -639,8 +643,8 @@ void testNucleiInit() {
                            AtSouthBoundary);
 
     // Copy results back to host to check
-    ViewI_H NucleiLocation_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.NucleiLocations);
-    ViewI_H NucleiGrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.NucleiGrainID);
+    auto NucleiLocation_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.NucleiLocations);
+    auto NucleiGrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.NucleiGrainID);
 
     // Was the nucleation counter initialized to zero?
     EXPECT_EQ(nucleation.NucleationCounter, 0);
