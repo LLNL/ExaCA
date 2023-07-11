@@ -40,9 +40,9 @@ void testNucleation() {
     CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
     auto CellType = cellData.getCellTypeSubview();
-    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
-    ViewI GrainID = cellData.getGrainIDSubview();
-    ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
+    auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    auto GrainID = cellData.getGrainIDSubview();
+    auto GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     // Create test nucleation data - 10 possible events
     int PossibleNuclei = 10;
@@ -170,10 +170,10 @@ void testFillSteeringVector_Remelt() {
                                      LocalDomainSize); // initialize to 0, no initial undercooling
     ViewF3D_H LayerTimeTempHistory_Host("LayerTimeTempHistory_Host", LocalActiveDomainSize, 1,
                                         3); // initialize to 0, no initial undercooling
-    ViewI CellType = cellData.getCellTypeSubview();
-    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
-    ViewI GrainID = cellData.getGrainIDSubview();
-    ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
+    auto CellType = cellData.getCellTypeSubview();
+    auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    auto GrainID = cellData.getGrainIDSubview();
+    auto GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
     for (int D3D1ConvPosition = 0; D3D1ConvPosition < LocalActiveDomainSize; D3D1ConvPosition++) {
         GrainID_Host(D3D1ConvPosition) = 1;

@@ -318,10 +318,9 @@ void testCellDataInit_ConstrainedGrowth() {
     cellData.init_substrate(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY, NeighborZ,
                             GrainUnitVector, NGrainOrientations, DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed);
     // Copy CellType, GrainID views to host to check values
-    ViewI_H CellType_AllLayers_Host =
+    auto CellType_AllLayers_Host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
-    ViewI_H GrainID_AllLayers_Host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
+    auto GrainID_AllLayers_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
     for (int i = 0; i < LocalDomainSize; i++) {
         if (i >= nx * MyYSlices) {
             // Not at bottom surface - should be liquid cells with GrainID still equal to 0
@@ -432,7 +431,7 @@ void testCellDataInit(bool PowderFirstLayer) {
                             SubstrateGrainSpacing, PowderActiveFraction, NumberOfSolidificationEvents);
 
     // Copy GrainID results back to host to check first layer's initialization
-    ViewI_H GrainID_AllLayers_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
+    auto GrainID_AllLayers_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
 
     // Baseplate grains - cells should have GrainIDs between 1 and np (inclusive)
     for (int i = 0; i < BaseplateSize; i++) {
@@ -463,7 +462,7 @@ void testCellDataInit(bool PowderFirstLayer) {
     }
 
     // Copy cell types back to host to check
-    ViewI_H CellType_AllLayers_Host =
+    auto CellType_AllLayers_Host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
     for (int D3D1ConvPosition = 0; D3D1ConvPosition < LocalActiveDomainSize; D3D1ConvPosition++) {
         int Rem = D3D1ConvPosition % (nx * MyYSlices);
@@ -501,8 +500,8 @@ void testCellDataInit(bool PowderFirstLayer) {
     }
 
     // Subview grain IDs should match the grain IDs overall
-    ViewI GrainID = cellData.getGrainIDSubview();
-    ViewI_H GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
+    auto GrainID = cellData.getGrainIDSubview();
+    auto GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
     for (int D3D1ConvPosition = 0; D3D1ConvPosition < LocalActiveDomainSize; D3D1ConvPosition++) {
         int RankZ = D3D1ConvPosition / (nx * MyYSlices);
         int GlobalZ = RankZ + ZBound_Low;

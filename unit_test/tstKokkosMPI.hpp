@@ -95,9 +95,9 @@ void testGhostNodes1D() {
     CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     auto CellType = cellData.getCellTypeSubview();
     auto GrainID = cellData.getGrainIDSubview();
-    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     Kokkos::deep_copy(CellType_Host, Liquid);
-    ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
+    auto GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
     // Initialize active domain views to 0
     ViewF_H DiagonalLength_Host("DiagonalLength_Host", LocalActiveDomainSize);
     ViewF_H DOCenter_Host("DOCenter_Host", 3 * LocalActiveDomainSize);
@@ -279,8 +279,8 @@ void testResizeRefillBuffers() {
     // Default to wall cells (CellType(index) = 0) with GrainID of 0
     CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
-    ViewI CellType = cellData.getCellTypeSubview();
-    ViewI GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview();
+    auto GrainID = cellData.getGrainIDSubview();
 
     // Allocate device views: only the active layer on each rank
     ViewF DiagonalLength("DiagonalLength", LocalActiveDomainSize);
