@@ -230,7 +230,7 @@ struct Nucleation {
 
     // Compute velocity from local undercooling.
     // functional form is assumed to be cubic if not explicitly given in input file
-    void nucleate_grain(int cycle, CellData<device_memory_space> &cellData, int, int, int, view_type_int SteeringVector,
+    void nucleate_grain(int cycle, CellData<memory_space> &cellData, int, int, int, view_type_int SteeringVector,
                         view_type_int numSteer_G) {
 
         auto CellType = cellData.getCellTypeSubview();
