@@ -219,9 +219,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double InitTime = MPI_Wtime() - StartInitTime;
     if (id == 0)
         std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
-    print.printInitExaCAData<ViewI, ViewF>(id, np, nx, ny, MyYSlices, nzActive, deltax, XMin, YMin, ZMin,
-                                           cellData.GrainID_AllLayers, cellData.LayerID_AllLayers, MeltTimeStep,
-                                           CritTimeStep, UndercoolingChange);
+    print.printInitExaCAData(id, np, nx, ny, MyYSlices, nzActive, deltax, XMin, YMin, ZMin, cellData.GrainID_AllLayers,
+                             cellData.LayerID_AllLayers, MeltTimeStep, CritTimeStep, UndercoolingChange);
     MPI_Barrier(MPI_COMM_WORLD);
     int cycle = 0;
     double StartRunTime = MPI_Wtime();
@@ -391,10 +390,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     // Collect and print specified final fields to output files
-    print.printFinalExaCAData<ViewI, ViewF>(id, np, nx, ny, nz, MyYSlices, NumberOfLayers, cellData.LayerID_AllLayers,
-                                            cellData.CellType_AllLayers, cellData.GrainID_AllLayers,
-                                            UndercoolingCurrent, UndercoolingChange, MeltTimeStep, CritTimeStep,
-                                            GrainUnitVector, NGrainOrientations, deltax, XMin, YMin, ZMin);
+    print.printFinalExaCAData(id, np, nx, ny, nz, MyYSlices, NumberOfLayers, cellData.LayerID_AllLayers,
+                              cellData.CellType_AllLayers, cellData.GrainID_AllLayers, UndercoolingCurrent,
+                              UndercoolingChange, MeltTimeStep, CritTimeStep, GrainUnitVector, NGrainOrientations,
+                              deltax, XMin, YMin, ZMin);
 
     // Calculate volume fraction of solidified domain consisting of nucleated grains
     float VolFractionNucleated =

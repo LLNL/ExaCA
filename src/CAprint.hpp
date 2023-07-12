@@ -214,10 +214,12 @@ struct Print {
     }
 
     // Called on rank 0, prints initial values of selected data structures to Paraview files for the first layer
-    template <typename ViewTypeInt, typename ViewTypeFloat>
+    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeMeltTimeStep,
+              typename ViewTypeCritTimeStep, typename ViewTypeUndercoolingChange>
     void printInitExaCAData(int id, int np, int nx, int ny, int MyYSlices, int nzActive, double deltax, double XMin,
-                            double YMin, double ZMin, ViewTypeInt GrainID, ViewTypeInt LayerID,
-                            ViewTypeInt MeltTimeStep, ViewTypeInt CritTimeStep, ViewTypeFloat UndercoolingChange) {
+                            double YMin, double ZMin, ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
+                            ViewTypeMeltTimeStep MeltTimeStep, ViewTypeCritTimeStep CritTimeStep,
+                            ViewTypeUndercoolingChange UndercoolingChange) {
 
         if ((PrintInitGrainID) || (PrintInitLayerID) || (PrintInitMeltTimeStep) || (PrintInitCritTimeStep) ||
             (PrintInitUndercoolingChange)) {
@@ -258,12 +260,13 @@ struct Print {
 
     // Called on rank 0, prints intermediate values of grain misorientation for all layers up to current layer, also
     // marking which cells are liquid
-    template <typename ViewTypeInt, typename ViewTypeFloat>
+    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCellType,
+              typename ViewTypeGrainUnitVector>
     void printIntermediateGrainMisorientation(int id, int np, int cycle, int nx, int ny, int nz, int MyYSlices,
                                               int nzActive, double deltax, double XMin, double YMin, double ZMin,
-                                              ViewTypeInt GrainID, ViewTypeInt LayerID, ViewTypeInt CellType,
-                                              ViewTypeFloat GrainUnitVector, int NGrainOrientations, int layernumber,
-                                              int ZBound_Low) {
+                                              ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
+                                              ViewTypeCellType CellType, ViewTypeGrainUnitVector GrainUnitVector,
+                                              int NGrainOrientations, int layernumber, int ZBound_Low) {
 
         IntermediateFileCounter++;
         auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
@@ -279,11 +282,14 @@ struct Print {
     }
 
     // Prints final values of selected data structures to Paraview files
-    template <typename ViewTypeInt, typename ViewTypeFloat>
+    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCell, typename ViewTypeGrainUnit,
+              typename ViewTypeUndercoolingCurrent, typename ViewTypeUndercoolingChange, typename ViewTypeMeltTimeStep,
+              typename ViewTypeCritTimeStep>
     void printFinalExaCAData(int id, int np, int nx, int ny, int nz, int MyYSlices, int NumberOfLayers,
-                             ViewTypeInt LayerID, ViewTypeInt CellType, ViewTypeInt GrainID,
-                             ViewTypeFloat UndercoolingCurrent, ViewTypeFloat UndercoolingChange,
-                             ViewTypeInt MeltTimeStep, ViewTypeInt CritTimeStep, ViewTypeFloat GrainUnitVector,
+                             ViewTypeLayerID LayerID, ViewTypeCell CellType, ViewTypeGrainID GrainID,
+                             ViewTypeUndercoolingCurrent UndercoolingCurrent,
+                             ViewTypeUndercoolingChange UndercoolingChange, ViewTypeMeltTimeStep MeltTimeStep,
+                             ViewTypeCritTimeStep CritTimeStep, ViewTypeGrainUnit GrainUnitVector,
                              int NGrainOrientations, double deltax, double XMin, double YMin, double ZMin) {
 
         if (id == 0)
