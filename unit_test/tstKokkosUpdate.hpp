@@ -37,7 +37,7 @@ void testNucleation() {
 
     // All cells have GrainID of 0, CellType of Liquid - with the exception of the locations where the nucleation events
     // are unable to occur
-    CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    CellData<memory_space> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
     auto CellType = cellData.getCellTypeSubview();
     auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);

@@ -92,7 +92,7 @@ void testGhostNodes1D() {
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid
-    CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    CellData<device_memory_space> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     auto CellType = cellData.getCellTypeSubview();
     auto GrainID = cellData.getGrainIDSubview();
     auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
@@ -277,7 +277,7 @@ void testResizeRefillBuffers() {
 
     // Allocate device views: entire domain on each rank
     // Default to wall cells (CellType(index) = 0) with GrainID of 0
-    CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    CellData<device_memory_space> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
     auto CellType = cellData.getCellTypeSubview();
     auto GrainID = cellData.getGrainIDSubview();
