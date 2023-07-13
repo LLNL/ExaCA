@@ -305,7 +305,7 @@ void testCellDataInit_ConstrainedGrowth() {
     double RNGSeed = 0.0;
     std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors.csv", id);
     int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
-    ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
+    view_float GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
     OrientationInit(id, NGrainOrientations, GrainUnitVector, GrainOrientationFile);
 
     // Initialize neighbor lists
