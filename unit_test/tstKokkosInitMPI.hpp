@@ -275,6 +275,10 @@ void testInputReadFromFile(int PrintVersion) {
 //---------------------------------------------------------------------------//
 void testCellDataInit_ConstrainedGrowth() {
 
+    using memory_space = TEST_MEMSPACE;
+    using view_int = Kokkos::View<int *, memory_space>;
+    using view_float = Kokkos::View<float *, memory_space>;
+
     int id, np;
     // Get number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &np);
@@ -309,12 +313,13 @@ void testCellDataInit_ConstrainedGrowth() {
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
     // Initialize views - set initial GrainID values to 0, all CellType values to liquid
-    ViewF DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), LocalActiveDomainSize);
-    ViewI NumberOfSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents"),
-                                       LocalActiveDomainSize);
-    ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
-    ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * LocalActiveDomainSize);
-    CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    view_float DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), LocalActiveDomainSize);
+    view_int NumberOfSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents"),
+                                          LocalActiveDomainSize);
+    view_float DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * LocalActiveDomainSize);
+    view_float CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"),
+                                  26 * LocalActiveDomainSize);
+    CellData<memory_space> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     cellData.init_substrate(id, FractSurfaceSitesActive, MyYSlices, nx, ny, MyYOffset, NeighborX, NeighborY, NeighborZ,
                             GrainUnitVector, NGrainOrientations, DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed);
     // Copy CellType, GrainID views to host to check values
@@ -343,6 +348,10 @@ void testCellDataInit_ConstrainedGrowth() {
 }
 
 void testCellDataInit(bool PowderFirstLayer) {
+
+    using memory_space = TEST_MEMSPACE;
+    using view_int = Kokkos::View<int *, memory_space>;
+    using view_float = Kokkos::View<float *, memory_space>;
 
     int id, np;
     // Get number of processes
@@ -403,10 +412,10 @@ void testCellDataInit(bool PowderFirstLayer) {
     // unused views in constructor
     NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
-    ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 0);
-    ViewF DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), 0);
-    ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 0);
-    ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 0);
+    view_float GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 0);
+    view_float DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), 0);
+    view_float DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 0);
+    view_float CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 0);
 
     // Create dummy temperature data
     ViewI NumberOfSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents"),
@@ -425,7 +434,7 @@ void testCellDataInit(bool PowderFirstLayer) {
         });
 
     // Call constructor
-    CellData<TEST_MEMSPACE> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
+    CellData<memory_space> cellData(LocalDomainSize, LocalActiveDomainSize, nx, MyYSlices, ZBound_Low);
     cellData.init_substrate("", false, false, PowderFirstLayer, nx, ny, nz, LayerHeight, LocalActiveDomainSize,
                             ZMaxLayer, ZMin, deltax, MyYSlices, MyYOffset, ZBound_Low, id, RNGSeed,
                             SubstrateGrainSpacing, PowderActiveFraction, NumberOfSolidificationEvents);
