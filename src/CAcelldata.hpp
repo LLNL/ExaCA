@@ -86,8 +86,8 @@ struct CellData {
         }
 
         // Copy views of substrate grain locations back to the device
-        auto ActCellX_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellX_Host);
-        auto ActCellY_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), ActCellY_Host);
+        auto ActCellX_Device = Kokkos::create_mirror_view_and_copy(memory_space(), ActCellX_Host);
+        auto ActCellY_Device = Kokkos::create_mirror_view_and_copy(memory_space(), ActCellY_Host);
 
         // Start with all cells as liquid prior to locating substrate grain seeds
         // All cells have LayerID = 0 as this is not a multilayer problem
@@ -242,7 +242,7 @@ struct CellData {
         }
         Substrate.close();
         // Copy GrainIDs read from file to device
-        GrainID_AllLayers = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_AllLayers_Host);
+        GrainID_AllLayers = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID_AllLayers_Host);
         if (id == 0)
             std::cout << "Substrate file read complete" << std::endl;
     }
@@ -304,10 +304,9 @@ struct CellData {
         }
 
         // Copy baseplate views to the device
-        auto BaseplateGrainIDs_Device =
-            Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainIDs_Host);
+        auto BaseplateGrainIDs_Device = Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainIDs_Host);
         auto BaseplateGrainLocations_Device =
-            Kokkos::create_mirror_view_and_copy(device_memory_space(), BaseplateGrainLocations_Host);
+            Kokkos::create_mirror_view_and_copy(memory_space(), BaseplateGrainLocations_Host);
         if (id == 0) {
             std::cout << "Baseplate spanning domain coordinates Z = 0 through " << BaseplateSizeZ - 1 << std::endl;
             std::cout << "Number of baseplate grains: " << NumberOfBaseplateGrains << std::endl;
@@ -393,7 +392,7 @@ struct CellData {
         std::shuffle(PowderGrainIDs.begin(), PowderGrainIDs.end(), gen);
         // Wrap powder layer GrainIDs into an unmanaged view, then copy to the device
         view_type_int_unmanaged PowderGrainIDs_Host(PowderGrainIDs.data(), PowderLayerCells);
-        auto PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(device_memory_space(), PowderGrainIDs_Host);
+        auto PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(memory_space(), PowderGrainIDs_Host);
         // Associate powder grain IDs with CA cells in the powder layer
         // Use bounds from temperature field for this layer to determine which cells are part of the powder
         int PowderTopZ = round((ZMaxLayer[layernumber] - ZMin) / deltax) + 1;
