@@ -6,6 +6,7 @@
 #ifndef EXACA_NUCLEATION_HPP
 #define EXACA_NUCLEATION_HPP
 
+#include "CAcelldata.hpp"
 #include "CAconfig.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
@@ -76,8 +77,8 @@ struct Nucleation {
     template <class... Params>
     void placeNuclei(view_type_int MaxSolidificationEvents, view_type_int NumberOfSolidificationEvents,
                      Kokkos::View<float ***, Params...> LayerTimeTempHistory, double RNGSeed, int layernumber, int nx,
-                     int ny, int nzActive, double dTN, double dTsigma, int MyYSlices, int MyYOffset, int ZBound_Low,
-                     int id, bool AtNorthBoundary, bool AtSouthBoundary) {
+                     int ny, int nzActive, double dTN, double dTsigma, int MyYSlices, int MyYOffset, int, int id,
+                     bool AtNorthBoundary, bool AtSouthBoundary) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
@@ -151,19 +152,16 @@ struct Nucleation {
                 if (((NucleiY(NEvent) > MyYOffset) || (AtSouthBoundary)) &&
                     ((NucleiY(NEvent) < MyYOffset + MyYSlices - 1) || (AtNorthBoundary))) {
                     // Convert 3D location (using global X and Y coordinates) into a 1D location (using local X and Y
-                    // coordinates) for the possible nucleation event, both as relative to the bottom of this layer as
-                    // well as relative to the bottom of the overall domain
+                    // coordinates) for the possible nucleation event, both as relative to the bottom of this layer
                     int NucleiLocation_ThisLayer =
                         NucleiZ(NEvent) * nx * MyYSlices + NucleiX(NEvent) * MyYSlices + (NucleiY(NEvent) - MyYOffset);
-                    int NucleiLocation_AllLayers = (NucleiZ(NEvent) + ZBound_Low) * nx * MyYSlices +
-                                                   NucleiX(NEvent) * MyYSlices + (NucleiY(NEvent) - MyYOffset);
                     // Criteria for placing a nucleus - whether or not this nuclei is associated with a solidification
                     // event
                     if (meltevent < NumberOfSolidificationEvents_Host(NucleiLocation_ThisLayer)) {
                         // Nucleation event is possible - cell undergoes solidification at least once, this nucleation
                         // event is associated with one of the time periods during which the associated cell undergoes
                         // solidification
-                        NucleiLocation_MyRank_V[PossibleNuclei] = NucleiLocation_AllLayers;
+                        NucleiLocation_MyRank_V[PossibleNuclei] = NucleiLocation_ThisLayer;
 
                         int CritTimeStep_ThisEvent = LayerTimeTempHistory_Host(NucleiLocation_ThisLayer, meltevent, 1);
                         float UndercoolingChange_ThisEvent =
@@ -232,8 +230,11 @@ struct Nucleation {
 
     // Compute velocity from local undercooling.
     // functional form is assumed to be cubic if not explicitly given in input file
-    void nucleate_grain(int cycle, view_type_int CellType, view_type_int GrainID, int ZBound_Low, int nx, int MyYSlices,
-                        view_type_int SteeringVector, view_type_int numSteer_G) {
+    void nucleate_grain(int cycle, CellData<memory_space> &cellData, int, int, int, view_type_int SteeringVector,
+                        view_type_int numSteer_G) {
+
+        auto CellType = cellData.getCellTypeSubview();
+        auto GrainID = cellData.getGrainIDSubview();
 
         // Is there nucleation left in this layer to check?
         if (NucleationCounter < PossibleNuclei) {
@@ -261,25 +262,18 @@ struct Nucleation {
                 Kokkos::parallel_reduce(
                     "NucleiUpdateLoop", Kokkos::RangePolicy<>(FirstEvent, LastEvent),
                     KOKKOS_LAMBDA(const int NucleationCounter_Device, int &update) {
-                        int NucleationEventLocation_GlobalGrid = NucleiLocations_local(NucleationCounter_Device);
+                        int NucleationEventLocation = NucleiLocations_local(NucleationCounter_Device);
                         int update_val =
                             FutureActive; // added to steering vector to become a new active cell as part of cellcapture
                         int old_val = Liquid;
-                        int OldCellTypeValue = Kokkos::atomic_compare_exchange(
-                            &CellType(NucleationEventLocation_GlobalGrid), old_val, update_val);
+                        int OldCellTypeValue =
+                            Kokkos::atomic_compare_exchange(&CellType(NucleationEventLocation), old_val, update_val);
                         if (OldCellTypeValue == Liquid) {
                             // Successful nucleation event - atomic update of cell type, proceeded if the atomic
                             // exchange is successful (cell was liquid) Add future active cell location to steering
                             // vector and change cell type, assign new Grain ID
-                            GrainID(NucleationEventLocation_GlobalGrid) = NucleiGrainID_local(NucleationCounter_Device);
-                            int GlobalZ = NucleationEventLocation_GlobalGrid / (nx * MyYSlices);
-                            int Rem = NucleationEventLocation_GlobalGrid % (nx * MyYSlices);
-                            int RankX = Rem / MyYSlices;
-                            int RankY = Rem % MyYSlices;
-                            int RankZ = GlobalZ - ZBound_Low;
-                            int NucleationEventLocation_LocalGrid = RankZ * nx * MyYSlices + RankX * MyYSlices + RankY;
-                            SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) =
-                                NucleationEventLocation_LocalGrid;
+                            GrainID(NucleationEventLocation) = NucleiGrainID_local(NucleationCounter_Device);
+                            SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = NucleationEventLocation;
                             // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
                             // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)
                             update++;

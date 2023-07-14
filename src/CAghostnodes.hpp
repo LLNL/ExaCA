@@ -6,6 +6,7 @@
 #ifndef EXACA_GHOST_HPP
 #define EXACA_GHOST_HPP
 
+#include "CAcelldata.hpp"
 #include "CAfunctions.hpp"
 #include "CAtypes.hpp"
 
@@ -62,14 +63,14 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
                   ViewI_H SendSizeSouth_Host, int OldBufSize, int NumCellsBufferPadding = 25);
 void ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                          Buffer2D &BufferSouthRecv, int NewBufSize);
-void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, ViewI CellType, Buffer2D BufferNorthSend,
-                   Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth, bool AtNorthBoundary,
-                   bool AtSouthBoundary, ViewI GrainID, ViewF DOCenter, ViewF DiagonalLength, int NGrainOrientations,
-                   int BufSize);
+void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, CellData<device_memory_space> &cellData,
+                   Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
+                   bool AtNorthBoundary, bool AtSouthBoundary, ViewF DOCenter, ViewF DiagonalLength,
+                   int NGrainOrientations, int BufSize);
 void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int MyYSlices, int MyYOffset,
-                  NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CellType, ViewF DOCenter, ViewI GrainID,
-                  ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations,
-                  Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
+                  NList NeighborX, NList NeighborY, NList NeighborZ, CellData<device_memory_space> &cellData,
+                  ViewF DOCenter, ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength,
+                  int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
                   Buffer2D BufferSouthRecv, int BufSize, int ZBound_Low, ViewI SendSizeNorth, ViewI SendSizeSouth);
 
 #endif
