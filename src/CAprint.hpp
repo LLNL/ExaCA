@@ -260,24 +260,22 @@ struct Print {
 
     // Called on rank 0, prints intermediate values of grain misorientation for all layers up to current layer, also
     // marking which cells are liquid
-    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCellType,
-              typename ViewTypeGrainUnitVector>
+    template <typename ViewTypeGrainID, typename ViewTypeCellType, typename ViewTypeGrainUnitVector>
     void printIntermediateGrainMisorientation(int id, int np, int cycle, int nx, int ny, int nz, int MyYSlices,
                                               int nzActive, double deltax, double XMin, double YMin, double ZMin,
-                                              ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
-                                              ViewTypeCellType CellType, ViewTypeGrainUnitVector GrainUnitVector,
-                                              int NGrainOrientations, int layernumber, int ZBound_Low) {
+                                              ViewTypeGrainID GrainID, ViewTypeCellType CellType,
+                                              ViewTypeGrainUnitVector GrainUnitVector, int NGrainOrientations,
+                                              int layernumber, int ZBound_Low) {
 
         IntermediateFileCounter++;
         auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
-        auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, LayerID);
         auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, CellType);
         if (id == 0) {
             std::cout << "Intermediate output on time step " << cycle << std::endl;
             auto GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
-            printGrainMisorientations(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain, CellType_WholeDomain,
-                                      GrainUnitVector_Host, NGrainOrientations, deltax, XMin, YMin, ZMin, true,
-                                      layernumber, ZBound_Low, nzActive);
+            printGrainMisorientations(nx, ny, nz, GrainID_WholeDomain, CellType_WholeDomain, GrainUnitVector_Host,
+                                      NGrainOrientations, deltax, XMin, YMin, ZMin, true, layernumber, ZBound_Low,
+                                      nzActive);
         }
     }
 
@@ -317,9 +315,9 @@ struct Print {
                     // empty view passed as dummy argument (not used in this call to printGrainMisorientation)
                     Kokkos::View<int ***, Kokkos::HostSpace> CellType_WholeDomain(
                         Kokkos::ViewAllocateWithoutInitializing("ViewData_WholeDomain"), 0, 0, 0);
-                    printGrainMisorientations(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain,
-                                              CellType_WholeDomain, GrainUnitVector_Host, NGrainOrientations, deltax,
-                                              XMin, YMin, ZMin, false);
+                    printGrainMisorientations(nx, ny, nz, GrainID_WholeDomain, CellType_WholeDomain,
+                                              GrainUnitVector_Host, NGrainOrientations, deltax, XMin, YMin, ZMin,
+                                              false);
                 }
                 if ((id == 0) && (PrintDefaultRVE))
                     printExaConstitDefaultRVE(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain, deltax,
@@ -491,11 +489,10 @@ struct Print {
     // file Optionally add layer label/intermediate frame and print -1 for liquid cells if this is being printed as
     // intermediate output
     template <typename ViewTypeInt3DHost, typename ViewTypeFloat>
-    void printGrainMisorientations(int nx, int ny, int nz, ViewTypeInt3DHost LayerID_WholeDomain,
-                                   ViewTypeInt3DHost GrainID_WholeDomain, ViewTypeInt3DHost CellType_WholeDomain,
-                                   ViewTypeFloat GrainUnitVector, int NGrainOrientations, double deltax, double XMin,
-                                   double YMin, double ZMin, bool IntermediatePrint, int layernumber = 0,
-                                   int ZBound_Low = 0, int nzActive = 0) {
+    void printGrainMisorientations(int nx, int ny, int nz, ViewTypeInt3DHost GrainID_WholeDomain,
+                                   ViewTypeInt3DHost CellType_WholeDomain, ViewTypeFloat GrainUnitVector,
+                                   int NGrainOrientations, double deltax, double XMin, double YMin, double ZMin,
+                                   bool IntermediatePrint, int layernumber = 0, int ZBound_Low = 0, int nzActive = 0) {
 
         // Print grain orientations to file - either all layers, or if in an intermediate state, the layers up to the
         // current one
@@ -517,18 +514,20 @@ struct Print {
         GrainplotM << "SCALARS Angle_z unsigned_short 1" << std::endl;
         GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
-        // Get grain misorientations relative to the Z direction for each orientation
+        // Get grain <100> misorientation relative to the Z direction for each orientation
         auto GrainMisorientation = MisorientationCalc(NGrainOrientations, GrainUnitVector, 2);
-        // Print is slightly different for intermediate vs final state
-        // Intermediate state: misorientation printed for all cells, 200 for cells that are currently liquid
-        // Final state: misorientationtation printed for all cells that underwent solidification, 200 printed for other
-        // cells
+        // For cells that are currently liquid (possible only for intermediate state print, as the final state will only
+        // have solid cells), -1 is printed as the misorienatation. Misorientations for grains from the baseplate or
+        // powder layer are between 0-62 (degrees, rounded to nearest integer), and cells that are associated with
+        // nucleated grains are assigned values between 100-162 to differentiate them. Additionally, 200 is printed as
+        // the misorientation for cells in the powder layer that have not been assigned a grain ID.
         for (int k = 0; k < ZPrintSize; k++) {
             for (int j = 0; j < ny; j++) {
                 for (int i = 0; i < nx; i++) {
                     unsigned short IntPrintVal;
-                    if (((IntermediatePrint) && (CellType_WholeDomain(k, i, j) != Liquid)) ||
-                        ((!IntermediatePrint) && (LayerID_WholeDomain(k, i, j) != -1))) {
+                    if (GrainID_WholeDomain(k, i, j) == 0)
+                        IntPrintVal = 200;
+                    else {
                         int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
                         if (GrainID_WholeDomain(k, i, j) < 0)
                             IntPrintVal =
@@ -536,8 +535,10 @@ struct Print {
                         else
                             IntPrintVal = static_cast<unsigned short>(std::round(GrainMisorientation(MyOrientation)));
                     }
-                    else
-                        IntPrintVal = 200;
+                    if (IntermediatePrint) {
+                        if (CellType_WholeDomain(k, i, j) == Liquid)
+                            IntPrintVal = -1;
+                    }
                     WriteData(GrainplotM, IntPrintVal, PrintBinary, true);
                 }
             }
