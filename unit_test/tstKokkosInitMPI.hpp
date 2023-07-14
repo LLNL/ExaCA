@@ -418,8 +418,8 @@ void testCellDataInit(bool PowderFirstLayer) {
     view_float CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 0);
 
     // Create dummy temperature data
-    ViewI NumberOfSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents"),
-                                       LocalActiveDomainSize);
+    view_int NumberOfSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents"),
+                                          LocalActiveDomainSize);
     Kokkos::parallel_for(
         "InitTestTemperatureData", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
             int Rem = D3D1ConvPosition % (nx * MyYSlices);
