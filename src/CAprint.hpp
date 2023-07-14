@@ -511,7 +511,7 @@ struct Print {
                   << std::endl;
         std::ofstream GrainplotM;
         WriteHeader(GrainplotM, FName, nx, ny, ZPrintSize, deltax, XMin, YMin, ZMin);
-        GrainplotM << "SCALARS Angle_z unsigned_short 1" << std::endl;
+        GrainplotM << "SCALARS Angle_z short 1" << std::endl;
         GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
         // Get grain <100> misorientation relative to the Z direction for each orientation
@@ -524,16 +524,15 @@ struct Print {
         for (int k = 0; k < ZPrintSize; k++) {
             for (int j = 0; j < ny; j++) {
                 for (int i = 0; i < nx; i++) {
-                    unsigned short IntPrintVal;
+                    short IntPrintVal;
                     if (GrainID_WholeDomain(k, i, j) == 0)
                         IntPrintVal = 200;
                     else {
                         int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
                         if (GrainID_WholeDomain(k, i, j) < 0)
-                            IntPrintVal =
-                                static_cast<unsigned short>(std::round(GrainMisorientation(MyOrientation)) + 100);
+                            IntPrintVal = static_cast<short>(std::round(GrainMisorientation(MyOrientation)) + 100);
                         else
-                            IntPrintVal = static_cast<unsigned short>(std::round(GrainMisorientation(MyOrientation)));
+                            IntPrintVal = static_cast<short>(std::round(GrainMisorientation(MyOrientation)));
                     }
                     if (IntermediatePrint) {
                         if (CellType_WholeDomain(k, i, j) == Liquid)
