@@ -546,11 +546,12 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
 // The cells of interest are active cells, and the view checked for future work is
 // MeltTimeStep Print intermediate output during this jump if PrintIdleMovieFrames = true
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
-                  ViewI MeltTimeStep, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low, ViewI CellType,
-                  ViewI LayerID, int id, int layernumber, int np, int nx, int ny, ViewI GrainID, ViewF GrainUnitVector,
-                  Print print, int NGrainOrientations, int nzActive, int nz, double deltax, double XMin, double YMin,
-                  double ZMin) {
+                  ViewI MeltTimeStep, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low,
+                  CellData<device_memory_space> &cellData, int id, int layernumber, int np, int nx, int ny,
+                  ViewF GrainUnitVector, Print print, int NGrainOrientations, int nzActive, int nz, double deltax,
+                  double XMin, double YMin, double ZMin) {
 
+    auto CellType = cellData.getCellTypeSubview();
     MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
     if (RemainingCellsOfInterest == 0) {
         // If this rank still has cells that will later undergo transformation (LocalIncompleteCells > 0), check when
@@ -588,9 +589,10 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
                 for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextMeltTimeStep; cycle_jump++) {
                     if (cycle_jump % print.TimeSeriesInc == 0) {
                         // Print current state of ExaCA simulation (up to and including the current layer's data)
-                        print.printIntermediateGrainMisorientation(
-                            id, np, cycle, nx, ny, nz, MyYSlices, nzActive, deltax, XMin, YMin, ZMin, GrainID, LayerID,
-                            CellType, GrainUnitVector, NGrainOrientations, layernumber, ZBound_Low);
+                        print.printIntermediateGrainMisorientation(id, np, cycle, nx, ny, nz, MyYSlices, nzActive,
+                                                                   deltax, XMin, YMin, ZMin, cellData.GrainID_AllLayers,
+                                                                   cellData.CellType_AllLayers, GrainUnitVector,
+                                                                   NGrainOrientations, layernumber, ZBound_Low);
                     }
                 }
             }
@@ -667,6 +669,6 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int L
     unsigned long int RemainingCellsOfInterest = GlobalActiveCells + GlobalSuperheatedCells + GlobalUndercooledCells;
     if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
         JumpTimeStep(cycle, RemainingCellsOfInterest, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize,
-                     MyYSlices, ZBound_Low, CellType, LayerID, id, layernumber, np, nx, ny, GrainID, GrainUnitVector,
-                     print, NGrainOrientations, nzActive, nz, deltax, XMin, YMin, ZMin);
+                     MyYSlices, ZBound_Low, cellData, id, layernumber, np, nx, ny, GrainUnitVector, print,
+                     NGrainOrientations, nzActive, nz, deltax, XMin, YMin, ZMin);
 }

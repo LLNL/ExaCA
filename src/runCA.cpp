@@ -235,10 +235,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Start of time step - check and see if intermediate system output is to be printed to files
             if ((print.PrintTimeSeries) && (cycle % print.TimeSeriesInc == 0)) {
                 // Print current state of ExaCA simulation (up to and including the current layer's data)
-                print.printIntermediateGrainMisorientation(
-                    id, np, cycle, nx, ny, nz, MyYSlices, nzActive, deltax, XMin, YMin, ZMin,
-                    cellData.GrainID_AllLayers, cellData.LayerID_AllLayers, cellData.CellType_AllLayers,
-                    GrainUnitVector, NGrainOrientations, layernumber, ZBound_Low);
+                print.printIntermediateGrainMisorientation(id, np, cycle, nx, ny, nz, MyYSlices, nzActive, deltax, XMin,
+                                                           YMin, ZMin, cellData.GrainID_AllLayers,
+                                                           cellData.CellType_AllLayers, GrainUnitVector,
+                                                           NGrainOrientations, layernumber, ZBound_Low);
             }
             cycle++;
 
