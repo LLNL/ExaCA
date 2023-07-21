@@ -17,18 +17,18 @@
 // return true) but keep incrementing the send size counters for use resizing the buffers in the future
 KOKKOS_INLINE_FUNCTION bool loadghostnodes(const int GhostGID, const float GhostDOCX, const float GhostDOCY,
                                            const float GhostDOCZ, const float GhostDL, ViewI SendSizeNorth,
-                                           ViewI SendSizeSouth, const int MyYSlices, const int RankX, const int RankY,
-                                           const int RankZ, const bool AtNorthBoundary, const bool AtSouthBoundary,
-                                           Buffer2D BufferSouthSend, Buffer2D BufferNorthSend, int NGrainOrientations,
-                                           int BufSize) {
+                                           ViewI SendSizeSouth, const int ny_local, const int coord_x,
+                                           const int coord_y, const int coord_z, const bool AtNorthBoundary,
+                                           const bool AtSouthBoundary, Buffer2D BufferSouthSend,
+                                           Buffer2D BufferNorthSend, int NGrainOrientations, int BufSize) {
     bool DataFitsInBuffer = true;
-    if ((RankY == 1) && (!(AtSouthBoundary))) {
+    if ((coord_y == 1) && (!(AtSouthBoundary))) {
         int GNPositionSouth = Kokkos::atomic_fetch_add(&SendSizeSouth(0), 1);
         if (GNPositionSouth >= BufSize)
             DataFitsInBuffer = false;
         else {
-            BufferSouthSend(GNPositionSouth, 0) = static_cast<float>(RankX);
-            BufferSouthSend(GNPositionSouth, 1) = static_cast<float>(RankZ);
+            BufferSouthSend(GNPositionSouth, 0) = static_cast<float>(coord_x);
+            BufferSouthSend(GNPositionSouth, 1) = static_cast<float>(coord_z);
             BufferSouthSend(GNPositionSouth, 2) =
                 static_cast<float>(getGrainOrientation(GhostGID, NGrainOrientations, false));
             BufferSouthSend(GNPositionSouth, 3) = static_cast<float>(getGrainNumber(GhostGID, NGrainOrientations));
@@ -38,13 +38,13 @@ KOKKOS_INLINE_FUNCTION bool loadghostnodes(const int GhostGID, const float Ghost
             BufferSouthSend(GNPositionSouth, 7) = GhostDL;
         }
     }
-    else if ((RankY == MyYSlices - 2) && (!(AtNorthBoundary))) {
+    else if ((coord_y == ny_local - 2) && (!(AtNorthBoundary))) {
         int GNPositionNorth = Kokkos::atomic_fetch_add(&SendSizeNorth(0), 1);
         if (GNPositionNorth >= BufSize)
             DataFitsInBuffer = false;
         else {
-            BufferNorthSend(GNPositionNorth, 0) = static_cast<float>(RankX);
-            BufferNorthSend(GNPositionNorth, 1) = static_cast<float>(RankZ);
+            BufferNorthSend(GNPositionNorth, 0) = static_cast<float>(coord_x);
+            BufferNorthSend(GNPositionNorth, 1) = static_cast<float>(coord_z);
             BufferNorthSend(GNPositionNorth, 2) =
                 static_cast<float>(getGrainOrientation(GhostGID, NGrainOrientations, false));
             BufferNorthSend(GNPositionNorth, 3) = static_cast<float>(getGrainNumber(GhostGID, NGrainOrientations));
@@ -63,14 +63,14 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
                   ViewI_H SendSizeSouth_Host, int OldBufSize, int NumCellsBufferPadding = 25);
 void ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                          Buffer2D &BufferSouthRecv, int NewBufSize);
-void RefillBuffers(int nx, int nzActive, int MyYSlices, int ZBound_Low, CellData<device_memory_space> &cellData,
+void RefillBuffers(int nx, int nz_layer, int ny_local, CellData<device_memory_space> &cellData,
                    Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
                    bool AtNorthBoundary, bool AtSouthBoundary, ViewF DOCenter, ViewF DiagonalLength,
                    int NGrainOrientations, int BufSize);
-void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int MyYSlices, int MyYOffset,
+void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int ny_local, int y_offset,
                   NList NeighborX, NList NeighborY, NList NeighborZ, CellData<device_memory_space> &cellData,
                   ViewF DOCenter, ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength,
                   int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
-                  Buffer2D BufferSouthRecv, int BufSize, int ZBound_Low, ViewI SendSizeNorth, ViewI SendSizeSouth);
+                  Buffer2D BufferSouthRecv, int BufSize, ViewI SendSizeNorth, ViewI SendSizeSouth);
 
 #endif

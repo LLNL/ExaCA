@@ -31,52 +31,18 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
                    double &ZMin, double &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
                    double *ZMinLayer, double *ZMaxLayer, int SpotRadius);
 void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &NeighborRank_North,
-                         int &NeighborRank_South, int &nx, int &ny, int &nz, long int &LocalDomainSize,
+                         int &NeighborRank_South, int &nx, int &ny, int &nz, int &DomainSize_AllLayers,
                          bool &AtNorthBoundary, bool &AtSouthBoundary);
-void ReadTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int MyYSlices, int MyYOffset,
-                         double YMin, std::vector<std::string> &temp_paths, int NumberOfLayers, int TempFilesInSeries,
-                         int *FirstValue, int *LastValue, bool LayerwiseTempRead, int layernumber,
-                         ViewD_H &RawTemperatureData);
-int calcZBound_Low(std::string SimulationType, int LayerHeight, int layernumber, double *ZMinLayer, double ZMin,
-                   double deltax);
-int calcZBound_High(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, double ZMin,
-                    double deltax, int nz, double *ZMaxLayer);
-int calcnzActive(int ZBound_Low, int ZBound_High, int id, int layernumber);
-int calcLocalActiveDomainSize(int nx, int MyYSlices, int nzActive);
-void TempInit_DirSolidification(double G, double R, int id, int &nx, int &MyYSlices, double deltax, double deltat,
-                                int nz, int LocalDomainSize, ViewI &CritTimeStep, ViewF &UndercoolingChange,
-                                ViewI &NumberOfSolidificationEvents, ViewI &SolidificationEventCounter,
-                                ViewI &MeltTimeStep, ViewI MaxSolidificationEvents, ViewF3D &LayerTimeTempHistory);
-int calcMaxSolidificationEventsSpot(int nx, int MyYSlices, int NumberOfSpots, int NSpotsX, int SpotRadius,
-                                    int SpotOffset, int MyYOffset);
-void TempInit_Spot(int layernumber, double G, double R, std::string, int id, int &nx, int &MyYSlices, int &MyYOffset,
-                   double deltax, double deltat, int ZBound_Low, int nz, int LocalActiveDomainSize, int LocalDomainSize,
-                   ViewI &CritTimeStep, ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, int LayerHeight,
-                   double FreezingRange, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset,
-                   ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents, ViewI &MeltTimeStep,
-                   ViewI &MaxSolidificationEvents, ViewI &SolidificationEventCounter);
-int getTempCoordX(int i, double XMin, double deltax, const ViewD_H RawTemperatureData);
-int getTempCoordY(int i, double YMin, double deltax, const ViewD_H RawTemperatureData);
-int getTempCoordZ(int i, double deltax, const ViewD_H RawTemperatureData, int LayerHeight, int LayerCounter,
-                  double *ZMinLayer);
-double getTempCoordTM(int i, const ViewD_H RawTemperatureData);
-double getTempCoordTL(int i, const ViewD_H RawTemperatureData);
-double getTempCoordCR(int i, const ViewD_H RawTemperatureData);
-void calcMaxSolidificationEventsR(int id, int layernumber, int TempFilesInSeries, ViewI_H MaxSolidificationEvents_Host,
-                                  int StartRange, int EndRange, ViewD_H RawTemperatureData, double XMin, double YMin,
-                                  double deltax, double *ZMinLayer, int LayerHeight, int nx, int MyYSlices,
-                                  int MyYOffset, int LocalActiveDomainSize);
-void TempInit_ReadData(int layernumber, int id, int nx, int MyYSlices, int nz, int LocalActiveDomainSize,
-                       int LocalDomainSize, int MyYOffset, double &deltax, double deltat, double FreezingRange,
-                       ViewF3D &LayerTimeTempHistory, ViewI &NumberOfSolidificationEvents,
-                       ViewI &MaxSolidificationEvents, ViewI &MeltTimeStep, ViewI &CritTimeStep,
-                       ViewF &UndercoolingChange, ViewF &UndercoolingCurrent, double XMin, double YMin,
-                       double *ZMinLayer, int LayerHeight, int nzActive, int ZBound_Low, int *FinishTimeStep,
-                       int *FirstValue, int *LastValue, ViewD_H RawTemperatureData, ViewI &SolidificationEventCounter,
-                       int TempFilesInSeries);
+int calc_z_layer_bottom(std::string SimulationType, int LayerHeight, int layernumber, double *ZMinLayer, double ZMin,
+                        double deltax);
+int calc_z_layer_top(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, double ZMin,
+                     double deltax, int nz, double *ZMaxLayer);
+int calc_nz_layer(int z_layer_bottom, int z_layer_top, int id, int layernumber);
+int calcLayerDomainSize(int nx, int ny_local, int nz_layer);
 void ZeroResetViews(int LocalActiveDomainSize, ViewF &DiagonalLength, ViewF &CritDiagonalLength, ViewF &DOCenter,
                     ViewI &SteeringVector);
-
+// Check if the temperature data is in ASCII or binary format
+bool checkTemperatureFileFormat(std::string tempfile_thislayer);
 //*****************************************************************************/
 // Initialize grain orientations and unit vectors
 template <typename ViewTypeFloat>

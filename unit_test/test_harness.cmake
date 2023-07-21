@@ -1,38 +1,5 @@
-
 ##--------------------------------------------------------------------------##
-## Create tests without Kokkos
-##--------------------------------------------------------------------------##
-macro(ExaCA_add_tests_nobackend)
-  cmake_parse_arguments(EXACA_UNIT_TEST "MPI" "PACKAGE" "NAMES" ${ARGN})
-  set(EXACA_UNIT_TEST_MPIEXEC_NUMPROCS 1)
-  if(EXACA_UNIT_TEST_MPI)
-    foreach( _np 2 4 )
-      if(MPIEXEC_MAX_NUMPROCS GREATER_EQUAL ${_np})
-        list(APPEND EXACA_UNIT_TEST_MPIEXEC_NUMPROCS ${_np})
-      endif()
-    endforeach()
-    if(MPIEXEC_MAX_NUMPROCS GREATER 4)
-      list(APPEND EXACA_UNIT_TEST_MPIEXEC_NUMPROCS ${MPIEXEC_MAX_NUMPROCS})
-    endif()
-  endif()
-  set(EXACA_UNIT_TEST_MAIN ${TEST_HARNESS_DIR}/unit_test_main_nobackend.cpp)
-
-  set(_dir ${CMAKE_CURRENT_SOURCE_DIR})
-  foreach(_test ${EXACA_UNIT_TEST_NAMES})
-    set(_target ExaCA_${_test}_test)
-    add_executable(${_target} tst${_test}.cpp ${EXACA_UNIT_TEST_MAIN})
-    target_link_libraries(${_target} ${EXACA_UNIT_TEST_PACKAGE} ${gtest_target})
-
-    foreach(_np ${EXACA_UNIT_TEST_MPIEXEC_NUMPROCS})
-      add_test(NAME ${_target}_np_${_np} COMMAND
-        ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_np} ${MPIEXEC_PREFLAGS}
-        $<TARGET_FILE:${_target}> ${MPIEXEC_POSTFLAGS} ${gtest_args})
-    endforeach()
-  endforeach()
-endmacro()
-
-##--------------------------------------------------------------------------##
-## Create main tests
+## Create main tests (all tests use Kokkos)
 ##--------------------------------------------------------------------------##
 macro(ExaCA_add_tests)
   cmake_parse_arguments(EXACA_UNIT_TEST "MPI" "PACKAGE" "NAMES" ${ARGN})

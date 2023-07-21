@@ -80,67 +80,10 @@ void testReadWrite(bool PrintReadBinary) {
     }
 }
 
-void testInterfacialResponse() {
-
-    // Test that the interfacial response can be read for the new file format
-    std::vector<std::string> material_file_names = {"Inconel625.json", "Inconel625_Quadratic.json", "SS316.json"};
-    double deltax = 0.5;
-    double deltat = 1.0;
-    for (auto file_name : material_file_names) {
-        std::cout << "Reading " << file_name << std::endl;
-        InterfacialResponseFunction irf(0, file_name, deltat, deltax);
-
-        // Check that fitting parameters were correctly initialized and normalized
-        // Fitting parameters should've been normalized by deltat / deltax, i.e. twice as large as the numbers in the
-        // file
-        double ATest, BTest, CTest, DTest, FreezingRangeTest, ExpectedV;
-        double LocU = 11.0;
-        if (file_name == "Inconel625.json") {
-            ATest = -0.00000010302;
-            BTest = 0.00010533;
-            CTest = 0.0022196;
-            DTest = 0;
-            FreezingRangeTest = 210;
-            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, 3.0) + BTest * pow(LocU, 2.0) + CTest * LocU + DTest);
-        }
-        else if (file_name == "Inconel625_Quadratic.json") {
-            ATest = 0.000072879;
-            BTest = 0.004939;
-            CTest = -0.047024;
-            FreezingRangeTest = 210;
-            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, 2.0) + BTest * LocU + CTest);
-        }
-        else if (file_name == "SS316.json") {
-            ATest = 0.000007325;
-            BTest = 3.12;
-            CTest = 0;
-            FreezingRangeTest = 26.5;
-            ExpectedV = (deltat / deltax) * (ATest * pow(LocU, BTest) + CTest);
-        }
-        else {
-            throw std::runtime_error("File not set up for testing.");
-        }
-        // For all IRFs, A and C should be normalized by deltat/deltax (i.e., 2)
-        // For the power law IRF (SS316), B is dimensionless and should not be normalized unlike the other IRFs where
-        // all coefficients are normalized
-        EXPECT_DOUBLE_EQ(irf.A, ATest * 2);
-        if (file_name == "SS316.json")
-            EXPECT_DOUBLE_EQ(irf.B, BTest);
-        else
-            EXPECT_DOUBLE_EQ(irf.B, BTest * 2);
-        EXPECT_DOUBLE_EQ(irf.C, CTest * 2);
-        if (file_name == "Inconel625.json") {
-            EXPECT_DOUBLE_EQ(irf.D, DTest * 2);
-        }
-        EXPECT_DOUBLE_EQ(irf.FreezingRange, FreezingRangeTest);
-        double ComputedV = irf.compute(LocU);
-        EXPECT_DOUBLE_EQ(ComputedV, ExpectedV);
-    }
-}
 //---------------------------------------------------------------------------//
 // activedomainsizecalc
 //---------------------------------------------------------------------------//
-void testcalcZBound_Low() {
+void calcz_layer_bottom() {
 
     int LayerHeight = 10;
     int NumberOfLayers = 10;
@@ -152,14 +95,14 @@ void testcalcZBound_Low() {
         // both problem types by the same)
         ZMinLayer[layernumber] = ZMin + layernumber * LayerHeight * deltax;
         // Call function for each layernumber, and for simulation types "S" and "R"
-        int ZBound_Low_S = calcZBound_Low("S", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
-        EXPECT_EQ(ZBound_Low_S, LayerHeight * layernumber);
-        int ZBound_Low_R = calcZBound_Low("R", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
-        EXPECT_EQ(ZBound_Low_R, LayerHeight * layernumber);
+        int z_layer_bottom_S = calc_z_layer_bottom("S", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
+        EXPECT_EQ(z_layer_bottom_S, LayerHeight * layernumber);
+        int z_layer_bottom_R = calc_z_layer_bottom("R", LayerHeight, layernumber, ZMinLayer, ZMin, deltax);
+        EXPECT_EQ(z_layer_bottom_R, LayerHeight * layernumber);
     }
 }
 
-void testcalcZBound_High() {
+void calcz_layer_top() {
 
     // A separate function is now used for ZBound_High calculation
     int SpotRadius = 100;
@@ -174,39 +117,39 @@ void testcalcZBound_High() {
         // ZMax value of ZMin + SpotRadius (lets solution for both problem types be the same)
         ZMaxLayer[layernumber] = ZMin + SpotRadius * deltax + layernumber * LayerHeight * deltax;
         // Call function for each layernumber, and for simulation types "S" and "R"
-        int ZBound_Max_S = calcZBound_High("S", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
-        EXPECT_EQ(ZBound_Max_S, SpotRadius + LayerHeight * layernumber);
-        int ZBound_Max_R = calcZBound_High("R", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
-        EXPECT_EQ(ZBound_Max_R, SpotRadius + LayerHeight * layernumber);
+        int z_layer_top_S = calc_z_layer_top("S", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        EXPECT_EQ(z_layer_top_S, SpotRadius + LayerHeight * layernumber);
+        int z_layer_top_R = calc_z_layer_top("R", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        EXPECT_EQ(z_layer_top_R, SpotRadius + LayerHeight * layernumber);
         // For simulation type C, should be independent of layernumber
-        int ZBound_Max_C = calcZBound_High("C", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
-        EXPECT_EQ(ZBound_Max_C, nz - 1);
+        int z_layer_top_C = calc_z_layer_top("C", SpotRadius, LayerHeight, layernumber, ZMin, deltax, nz, ZMaxLayer);
+        EXPECT_EQ(z_layer_top_C, nz - 1);
     }
 }
 
-void testcalcnzActive() {
+void testcalc_nz_layer() {
 
     int id = 0;
-    int ZBound_Low = 5;
+    int z_layer_bottom = 5;
     int NumberOfLayers = 10;
     for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
-        int ZBound_High = 6 + layernumber;
-        int nzActive = calcnzActive(ZBound_Low, ZBound_High, id, layernumber);
-        EXPECT_EQ(nzActive, 2 + layernumber);
+        int z_layer_top = 6 + layernumber;
+        int nz_layer = calc_nz_layer(z_layer_bottom, z_layer_top, id, layernumber);
+        EXPECT_EQ(nz_layer, 2 + layernumber);
     }
 }
 
-void testcalcLocalActiveDomainSize() {
+void testcalcLayerDomainSize() {
 
     int nx = 5;
-    int MyYSlices = 4;
-    int nzActive = 10;
-    int LocalActiveDomainSize = calcLocalActiveDomainSize(nx, MyYSlices, nzActive);
-    EXPECT_EQ(LocalActiveDomainSize, 10 * 5 * 4);
+    int ny_local = 4;
+    int nz_layer = 10;
+    int DomainSize = calcLayerDomainSize(nx, ny_local, nz_layer);
+    EXPECT_EQ(DomainSize, 10 * 5 * 4);
 }
 
 //---------------------------------------------------------------------------//
-// temp_init_test
+// bounds_init_test
 //---------------------------------------------------------------------------//
 void testFindXYZBounds(bool TestBinaryInputRead) {
 
@@ -277,6 +220,64 @@ void testFindXYZBounds(bool TestBinaryInputRead) {
     EXPECT_EQ(nz, 5);
 }
 
+void testOrientationInit_Vectors() {
+
+    int id;
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    int ValsPerLine = 9;
+    int NGrainOrientations = 0;
+    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors.csv", id);
+
+    // View for storing orientation data
+    ViewF GrainOrientationData(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData"), 0);
+
+    // Call OrientationInit - without optional final argument
+    OrientationInit(id, NGrainOrientations, GrainOrientationData, GrainOrientationFile);
+
+    // Copy orientation data back to the host
+    ViewF_H GrainOrientationData_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainOrientationData);
+
+    // Check results
+    EXPECT_EQ(NGrainOrientations, 10000);
+
+    std::vector<float> ExpectedGrainOrientations = {0.848294,  0.493303,  0.19248,  -0.522525, 0.720911,  0.455253,
+                                                    0.0858167, -0.486765, 0.869308, 0.685431,  0.188182,  0.7034,
+                                                    -0.468504, 0.85348,   0.228203, -0.557394, -0.485963, 0.673166};
+    for (int n = 0; n < 2 * ValsPerLine; n++) {
+        EXPECT_FLOAT_EQ(GrainOrientationData_Host(n), ExpectedGrainOrientations[n]);
+    }
+}
+
+void testOrientationInit_Angles() {
+
+    int id;
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    int ValsPerLine = 3;
+    int NGrainOrientations = 0;
+    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationEulerAnglesBungeZXZ.csv", id);
+
+    // View for storing orientation data
+    ViewF GrainOrientationData(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData"), 0);
+
+    // Call OrientationInit - with optional final argument
+    OrientationInit(id, NGrainOrientations, GrainOrientationData, GrainOrientationFile, ValsPerLine);
+
+    // Copy orientation data back to the host
+    ViewF_H GrainOrientationData_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainOrientationData);
+
+    // Check results
+    EXPECT_EQ(NGrainOrientations, 10000);
+
+    // Check first two orientations
+    std::vector<float> ExpectedGrainOrientations = {9.99854, 29.62172, 22.91854, 311.08350, 47.68814, 72.02547};
+    for (int n = 0; n < 2 * ValsPerLine; n++) {
+        EXPECT_FLOAT_EQ(GrainOrientationData_Host(n), ExpectedGrainOrientations[n]);
+    }
+}
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
@@ -284,17 +285,20 @@ TEST(TEST_CATEGORY, fileread_test) {
     // test functions for reading and writing data as binary (true) and ASCII (false)
     testReadWrite(true);
     testReadWrite(false);
-    testInterfacialResponse();
 }
 TEST(TEST_CATEGORY, activedomainsizecalc) {
-    testcalcZBound_Low();
-    testcalcZBound_High();
-    testcalcnzActive();
-    testcalcLocalActiveDomainSize();
+    calcz_layer_bottom();
+    calcz_layer_top();
+    testcalc_nz_layer();
+    testcalcLayerDomainSize();
 }
-TEST(TEST_CATEGORY, temperature_init_test) {
+TEST(TEST_CATEGORY, bounds_init_test) {
     // reading temperature files to obtain xyz bounds, using binary/non-binary format
     testFindXYZBounds(false);
     testFindXYZBounds(true);
+}
+TEST(TEST_CATEGORY, orientation_init_tests) {
+    testOrientationInit_Vectors();
+    testOrientationInit_Angles();
 }
 } // end namespace Test

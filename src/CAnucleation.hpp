@@ -8,6 +8,7 @@
 
 #include "CAcelldata.hpp"
 #include "CAconfig.hpp"
+#include "CAtemperature.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
 
@@ -75,31 +76,31 @@ struct Nucleation {
     // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur,
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
     template <class... Params>
-    void placeNuclei(view_type_int MaxSolidificationEvents, view_type_int NumberOfSolidificationEvents,
-                     Kokkos::View<float ***, Params...> LayerTimeTempHistory, double RNGSeed, int layernumber, int nx,
-                     int ny, int nzActive, double dTN, double dTsigma, int MyYSlices, int MyYOffset, int, int id,
+    void placeNuclei(Temperature<memory_space> &temperature, double RNGSeed, int layernumber, int nx, int ny,
+                     int nz_layer, double dTN, double dTsigma, int ny_local, int y_offset, int, int id,
                      bool AtNorthBoundary, bool AtSouthBoundary) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
         // library algorithm functions Copy temperature data into temporary host views for this subroutine
         auto MaxSolidificationEvents_Host =
-            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
+            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.MaxSolidificationEvents);
         auto NumberOfSolidificationEvents_Host =
-            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), NumberOfSolidificationEvents);
-        auto LayerTimeTempHistory_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), LayerTimeTempHistory);
+            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.NumberOfSolidificationEvents);
+        auto LayerTimeTempHistory_Host =
+            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.LayerTimeTempHistory);
 
         // Use new RNG seed for each layer
         std::mt19937_64 generator(RNGSeed + layernumber);
         // Uniform distribution for nuclei location assignment
         std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
         std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
-        std::uniform_real_distribution<double> Zdist(-0.49999, nzActive - 0.5);
+        std::uniform_real_distribution<double> Zdist(-0.49999, nz_layer - 0.5);
         // Gaussian distribution of nucleation undercooling
         std::normal_distribution<double> Gdistribution(dTN, dTsigma);
 
         // Max number of nucleated grains in this layer
-        int Nuclei_ThisLayerSingle = BulkProb * (nx * ny * nzActive); // equivalent to Nuclei_ThisLayer if no remelting
+        int Nuclei_ThisLayerSingle = BulkProb * (nx * ny * nz_layer); // equivalent to Nuclei_ThisLayer if no remelting
         // Multiplier for the number of nucleation events per layer, based on the number of solidification events
         int NucleiMultiplier = MaxSolidificationEvents_Host(layernumber);
         int Nuclei_ThisLayer = Nuclei_ThisLayerSingle * NucleiMultiplier;
@@ -149,12 +150,12 @@ struct Nucleation {
         for (int meltevent = 0; meltevent < NucleiMultiplier; meltevent++) {
             for (int n = 0; n < Nuclei_ThisLayerSingle; n++) {
                 int NEvent = meltevent * Nuclei_ThisLayerSingle + n;
-                if (((NucleiY(NEvent) > MyYOffset) || (AtSouthBoundary)) &&
-                    ((NucleiY(NEvent) < MyYOffset + MyYSlices - 1) || (AtNorthBoundary))) {
+                if (((NucleiY(NEvent) > y_offset) || (AtSouthBoundary)) &&
+                    ((NucleiY(NEvent) < y_offset + ny_local - 1) || (AtNorthBoundary))) {
                     // Convert 3D location (using global X and Y coordinates) into a 1D location (using local X and Y
                     // coordinates) for the possible nucleation event, both as relative to the bottom of this layer
                     int NucleiLocation_ThisLayer =
-                        NucleiZ(NEvent) * nx * MyYSlices + NucleiX(NEvent) * MyYSlices + (NucleiY(NEvent) - MyYOffset);
+                        get1Dindex(NucleiX(NEvent), NucleiY(NEvent) - y_offset, NucleiZ(NEvent), nx, ny_local);
                     // Criteria for placing a nucleus - whether or not this nuclei is associated with a solidification
                     // event
                     if (meltevent < NumberOfSolidificationEvents_Host(NucleiLocation_ThisLayer)) {
@@ -163,12 +164,15 @@ struct Nucleation {
                         // solidification
                         NucleiLocation_MyRank_V[PossibleNuclei] = NucleiLocation_ThisLayer;
 
-                        int CritTimeStep_ThisEvent = LayerTimeTempHistory_Host(NucleiLocation_ThisLayer, meltevent, 1);
+                        float CritTimeStep_ThisEvent =
+                            LayerTimeTempHistory_Host(NucleiLocation_ThisLayer, meltevent, 1);
                         float UndercoolingChange_ThisEvent =
                             LayerTimeTempHistory_Host(NucleiLocation_ThisLayer, meltevent, 2);
-                        int TimeToNucUnd = CritTimeStep_ThisEvent + round(NucleiUndercooling_WholeDomain_V[NEvent] /
-                                                                          UndercoolingChange_ThisEvent);
-                        NucleationTimes_MyRank_V[PossibleNuclei] = std::max(CritTimeStep_ThisEvent, TimeToNucUnd);
+                        float TimeToNucUnd = round(CritTimeStep_ThisEvent + NucleiUndercooling_WholeDomain_V[NEvent] /
+                                                                                UndercoolingChange_ThisEvent);
+                        if (CritTimeStep_ThisEvent > TimeToNucUnd)
+                            TimeToNucUnd = CritTimeStep_ThisEvent;
+                        NucleationTimes_MyRank_V[PossibleNuclei] = round(TimeToNucUnd);
                         // Assign this cell the potential nucleated grain ID
                         NucleiGrainID_MyRank_V[PossibleNuclei] = NucleiGrainID_WholeDomain_V[NEvent];
                         // Increment counter on this MPI rank
@@ -223,9 +227,6 @@ struct Nucleation {
         // Copy nucleation data to the device
         NucleiLocations = Kokkos::create_mirror_view_and_copy(memory_space(), NucleiLocations_Host);
         NucleiGrainID = Kokkos::create_mirror_view_and_copy(memory_space(), NucleiGrainID_Host);
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
-            std::cout << "Nucleation data structures for layer " << layernumber << " initialized" << std::endl;
     }
 
     // Compute velocity from local undercooling.
