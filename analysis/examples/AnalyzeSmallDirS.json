@@ -2,9 +2,9 @@
     "Regions": {
         "RepresentativeVolume": {
             "units": "Cells",
-            "xBounds": [5, 45],
-            "yBounds": [5, 45],
-            "zBounds": [1, 49],
+            "xBounds": [0, 19],
+            "yBounds": [0, 19],
+            "zBounds": [0, 19],
             "printExaConstit": false,
             "printPoleFigure": true,
             "printAvgStats": ["GrainTypeFractions","Misorientation","Size", "BuildTransAspectRatio","Extent"],
@@ -13,7 +13,7 @@
         },
         "XYCross": {
             "units": "Cells",
-            "zBounds": [45,45],
+            "zBounds": [19,19],
             "printPoleFigureData": true,
             "printInversePoleFigureData": true
         },
