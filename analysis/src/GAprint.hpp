@@ -30,7 +30,7 @@ void printAnalysisHeader_Area(std::ofstream &QoIs, const int XLow_cells, const i
 //****
 // Functions for printing data for a region of various type
 void printGrainTypeFractions(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,
-                             const int ZLow, const int ZHigh, ViewI3D_H GrainID, ViewI3D_H LayerID,
+                             const int ZLow, const int ZHigh, ViewI3D_H GrainID, ViewS3D_H LayerID,
                              int RepresentativeRegionSize);
 void printMeanMisorientations(std::ofstream &QoIs, int NumberOfGrains, std::vector<float> GrainMisorientationXVector,
                               std::vector<float> GrainMisorientationYVector,

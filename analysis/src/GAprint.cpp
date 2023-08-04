@@ -68,7 +68,7 @@ void printAnalysisHeader_Area(std::ofstream &QoIs, const int XLow_cells, const i
 // Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
 // grains to the console/QoIs file
 void printGrainTypeFractions(std::ofstream &QoIs, const int XLow, const int XHigh, const int YLow, const int YHigh,
-                             const int ZLow, const int ZHigh, ViewI3D_H GrainID, ViewI3D_H LayerID,
+                             const int ZLow, const int ZHigh, ViewI3D_H GrainID, ViewS3D_H LayerID,
                              int RepresentativeRegionSize) {
 
     int NumberOfUnmeltedCells = 0;

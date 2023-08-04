@@ -17,7 +17,7 @@
 
 // Search a specified region of LayerID in x and y for either the smallest Z that doesn't contain any layer "L",
 // or the largest Z that doesn't contain any layer "L"
-int FindTopOrBottom(ViewI3D_H LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow) {
+int FindTopOrBottom(ViewS3D_H LayerID, int XLow, int XHigh, int YLow, int YHigh, int nz, int L, std::string HighLow) {
 
     int TopBottomZ = -1;
     bool SearchingForTop = true;
@@ -120,47 +120,6 @@ void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax
     InputDataStream.close();
 }
 
-// Reads portion of a paraview file and places data in the appropriate data structure
-// ASCII data at each Z value is separated by a newline
-void ReadASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest) {
-    for (int k = 0; k < nz; k++) {
-        // Get line from file
-        std::string line;
-        getline(InputDataStream, line);
-        // Parse string at spaces
-        std::istringstream ss(line);
-        for (int j = 0; j < ny; j++) {
-            for (int i = 0; i < nx; i++) {
-                FieldOfInterest(k, i, j) = ParseASCIIData<int>(ss);
-            }
-        }
-    }
-}
-
-// Reads binary string from a paraview file, converts to int field, and places data in the appropriate data structure
-// Each field consists of a single binary string (no newlines)
-void ReadBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz, ViewI3D_H FieldOfInterest,
-                     std::string FieldName) {
-    for (int k = 0; k < nz; k++) {
-        for (int j = 0; j < ny; j++) {
-            for (int i = 0; i < nx; i++) {
-                // Store converted values in view - LayerID data is a short int, GrainID data is an int
-                if (FieldName == "GrainID")
-                    FieldOfInterest(k, i, j) = ReadBinaryData<int>(InputDataStream, true);
-                else if (FieldName == "LayerID")
-                    FieldOfInterest(k, i, j) = ReadBinaryData<short>(InputDataStream, true);
-            }
-        }
-    }
-}
-
-// Reads and ignored field data
-void ReadIgnoreField(std::ifstream &InputDataStream, int nx, int ny, int nz) {
-    std::string line;
-    for (int i = 0; i < nx * ny * nz; i++)
-        getline(InputDataStream, line);
-}
-
 // Ensure that the appropriate files exist - orientation files should be installed, other files should start with the
 // BaseFileName value given from the command line
 void CheckInputFiles(std::string &LogFile, std::string MicrostructureFile, std::string &RotationFilename,
@@ -181,7 +140,15 @@ void CheckInputFiles(std::string &LogFile, std::string MicrostructureFile, std::
     checkFileNotEmpty(EulerAnglesFilename);
     checkFileNotEmpty(RGBFilename);
 }
-void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H GrainID, ViewI3D_H LayerID) {
+
+// Reads and ignored ASCII field data
+void ReadIgnoreASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz) {
+    std::string line;
+    for (int i = 0; i < nx * ny * nz; i++)
+        getline(InputDataStream, line);
+}
+
+void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, ViewI3D_H &GrainID, ViewS3D_H &LayerID) {
 
     std::ifstream InputDataStream;
     InputDataStream.open(MicrostructureFile);
@@ -198,46 +165,75 @@ void InitializeData(std::string MicrostructureFile, int nx, int ny, int nz, View
                 Binaryvtk = true;
     }
     for (int field = 0; field < 3; field++) {
-        // This line says which variable appears next in the file
+        // This line says which variable appears next in the file, along with its type
         // A blank line ends the file read
+        std::string read_datatype_string, read_fieldname;
         getline(InputDataStream, line);
         if (line.empty())
             break;
-        size_t FoundGrainID = line.find("GrainID");
-        size_t FoundLayerID = line.find("LayerID");
-        size_t FoundMelted = line.find("Melted");
-        // 1 more unused line
-        getline(InputDataStream, line);
-        // Place appropriate data
-        if (FoundGrainID != std::string::npos) {
-            if (Binaryvtk)
-                ReadBinaryField(InputDataStream, nx, ny, nz, GrainID, "GrainID");
-            else
-                ReadASCIIField(InputDataStream, nx, ny, nz, GrainID);
+        else {
+            // Thus far, every ExaCA field printed to VTK files has been one of these three types - ensure that this
+            // field is one of them
+            std::vector<std::string> possible_vtk_datatypes = {"short", "int", "float"};
+            int num_possible_vtk_types = possible_vtk_datatypes.size();
+            for (auto n = 0; n < num_possible_vtk_types; n++) {
+                if (line.find(possible_vtk_datatypes[n]) != std::string::npos)
+                    read_datatype_string = possible_vtk_datatypes[n];
+            }
+            if (read_datatype_string.empty())
+                throw std::runtime_error("Error: Unknown data type for a field in the vtk file");
+
+            // GrainID and LayerID are the only fields currently used by the analysis, other fields will be
+            // skipped/ignored
+            std::vector<std::string> possible_fieldnames = {"GrainID", "LayerID"};
+            int num_possible_fieldnames = possible_fieldnames.size();
+            for (auto n = 0; n < num_possible_fieldnames; n++) {
+                if (line.find(possible_fieldnames[n]) != std::string::npos)
+                    read_fieldname = possible_fieldnames[n];
+            }
+            if (read_fieldname.empty()) {
+                std::cout << "Reading and ignoring field described by" << line << std::endl;
+                if (Binaryvtk) {
+                    if (read_datatype_string == "short")
+                        ReadIgnoreBinaryField<short>(InputDataStream, nx, ny, nz);
+                    else if (read_datatype_string == "int")
+                        ReadIgnoreBinaryField<int>(InputDataStream, nx, ny, nz);
+                    else if (read_datatype_string == "float")
+                        ReadIgnoreBinaryField<float>(InputDataStream, nx, ny, nz);
+                }
+                else
+                    ReadIgnoreASCIIField(InputDataStream, nx, ny, nz);
+            }
+            else {
+                // Valid fieldname to be read
+                // 1 more unused line
+                getline(InputDataStream, line);
+                // Place appropriate data
+                if (read_fieldname == "GrainID") {
+                    // GrainID data should be type int
+                    if (read_datatype_string != "int")
+                        throw std::runtime_error("Error: Field GrainID should be data of type int");
+                    if (Binaryvtk)
+                        GrainID = ReadBinaryField<ViewI3D_H, int>(InputDataStream, nx, ny, nz, "GrainID");
+                    else
+                        GrainID = ReadASCIIField<ViewI3D_H>(InputDataStream, nx, ny, nz, "GrainID");
+                }
+                else if (read_fieldname == "LayerID") {
+                    // LayerID may be int or short, but is stored as type short
+                    if ((read_datatype_string != "int") && (read_datatype_string != "short"))
+                        throw std::runtime_error("Error: Field LayerID should be data of type int or short");
+                    if (!Binaryvtk)
+                        LayerID = ReadASCIIField<ViewS3D_H>(InputDataStream, nx, ny, nz, "LayerID");
+                    else {
+                        if (read_datatype_string == "int")
+                            LayerID = ReadBinaryField<ViewS3D_H, int>(InputDataStream, nx, ny, nz, "LayerID");
+                        else
+                            LayerID = ReadBinaryField<ViewS3D_H, short>(InputDataStream, nx, ny, nz, "LayerID");
+                    }
+                }
+                std::cout << "Data field " << read_fieldname << " read" << std::endl;
+            }
         }
-        else if (FoundLayerID != std::string::npos) {
-            if (Binaryvtk)
-                ReadBinaryField(InputDataStream, nx, ny, nz, LayerID, "LayerID");
-            else
-                ReadASCIIField(InputDataStream, nx, ny, nz, LayerID);
-        }
-        else if (FoundMelted != std::string::npos) {
-            std::cout << "Note: Melted data is no longer used and will be ignored" << std::endl;
-            // Note: version of ExaCA that printed output with melted data is older than the version that prints binary
-            // vtk output, melted field will always consist of ASCII characters if present in the output
-            ReadIgnoreField(InputDataStream, nx, ny, nz);
-        }
-        else
-            throw std::runtime_error(
-                "Error: unexpected data field in ExaCA microstructure file (not GrainID or LayerID)");
-        std::string Fieldname;
-        if (FoundGrainID != std::string::npos)
-            Fieldname = "GrainID";
-        else if (FoundLayerID != std::string::npos)
-            Fieldname = "LayerID";
-        else if (FoundMelted != std::string::npos)
-            Fieldname = "Melted";
-        std::cout << "Data field " << Fieldname << " read" << std::endl;
     }
     InputDataStream.close();
 }

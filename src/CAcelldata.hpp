@@ -28,12 +28,13 @@ struct CellData {
     using view_type_int = Kokkos::View<int *, memory_space>;
     using view_type_int_host = typename view_type_int::HostMirror;
     using view_type_int_unmanaged = Kokkos::View<int *, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+    using view_type_short = Kokkos::View<short *, memory_space>;
     using view_type_float = Kokkos::View<float *, memory_space>;
 
     int NextLayer_FirstEpitaxialGrainID, BottomOfCurrentLayer, TopOfCurrentLayer;
     std::pair<int, int> LayerRange;
-    view_type_int GrainID_AllLayers, CellType_AllLayers, LayerID_AllLayers;
-
+    view_type_int GrainID_AllLayers, CellType_AllLayers;
+    view_type_short LayerID_AllLayers;
     // Constructor for views and view bounds for current layer
     // TODO: CellType is only needed for the current layer, and LayerID is only needed for all layers/no subview is
     // needed. Leaving them as-is for now each with the "AllLayers" and "Current layer/subview slice" to minimize
@@ -41,7 +42,7 @@ struct CellData {
     CellData(int LocalDomainSize, int LocalActiveDomainSize, int nx, int MyYSlices, int ZBound_Low)
         : GrainID_AllLayers(view_type_int("GrainID", LocalDomainSize))
         , CellType_AllLayers(view_type_int(Kokkos::ViewAllocateWithoutInitializing("CellType"), LocalDomainSize))
-        , LayerID_AllLayers(view_type_int(Kokkos::ViewAllocateWithoutInitializing("LayerID"), LocalDomainSize)) {
+        , LayerID_AllLayers(view_type_short(Kokkos::ViewAllocateWithoutInitializing("LayerID"), LocalDomainSize)) {
 
         BottomOfCurrentLayer = ZBound_Low * nx * MyYSlices;
         TopOfCurrentLayer = BottomOfCurrentLayer + LocalActiveDomainSize;
