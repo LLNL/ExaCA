@@ -531,7 +531,7 @@ void testcalcVolFractionNucleated() {
     // Let all cells except those at Z = 0 have undergone solidification
     // Let the cells at Z = 1 consist of positive grain IDs, and those at Z = 2 of negative grain IDs
     ViewI_H GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID"), LocalDomainSize);
-    ViewI_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID"), LocalDomainSize);
+    ViewS_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID"), LocalDomainSize);
     for (int k = 0; k < nz; k++) {
         for (int i = 0; i < nx; i++) {
             for (int j = 0; j < MyYSlices; j++) {
@@ -548,7 +548,7 @@ void testcalcVolFractionNucleated() {
         }
     }
     ViewI GrainID = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_Host);
-    ViewI LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
+    ViewS LayerID = Kokkos::create_mirror_view_and_copy(device_memory_space(), LayerID_Host);
 
     // Perform calculation and compare to expected value (half of the solidified portion of the domain should consist of
     // nucleated grains, regardless of the number of MPI ranks used)

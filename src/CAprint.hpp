@@ -234,7 +234,7 @@ struct Print {
                 printViewData(id, Grainplot, nx, ny, nzActive, "int", "GrainID", GrainID_WholeDomain);
             }
             if (PrintInitLayerID) {
-                auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, LayerID);
+                auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_SHORT, LayerID);
                 printViewData(id, Grainplot, nx, ny, nzActive, "short", "LayerID", LayerID_WholeDomain);
             }
             if (PrintInitMeltTimeStep) {
@@ -304,11 +304,11 @@ struct Print {
                 WriteHeader(Grainplot, FName, nx, ny, nz, deltax, XMin, YMin, ZMin);
             if ((PrintFinalGrainID) || (PrintFinalLayerID) || (PrintFinalMisorientation) || (PrintDefaultRVE)) {
                 auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
-                auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, LayerID);
+                auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_SHORT, LayerID);
                 if (PrintFinalGrainID)
                     printViewData(id, Grainplot, nx, ny, nz, "int", "GrainID", GrainID_WholeDomain);
                 if (PrintFinalLayerID)
-                    printViewData(id, Grainplot, nx, ny, nz, "int", "LayerID", LayerID_WholeDomain);
+                    printViewData(id, Grainplot, nx, ny, nz, "short", "LayerID", LayerID_WholeDomain);
                 if ((id == 0) && PrintFinalMisorientation) {
                     auto GrainUnitVector_Host =
                         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
@@ -384,7 +384,6 @@ struct Print {
 
     // Called on rank 0 to collect view data from other ranks, or on other ranks to send data to rank 0
     // MPI datatype corresponding to the view data
-    // TODO: change MPI datatype to include MPI_SHORT when LayerID is stored as a consistent type
     template <typename Collect1DViewTypeDevice>
     auto collectViewData(int id, int np, int nx, int ny, int nz, int MyYSlices, MPI_Datatype msg_type,
                          Collect1DViewTypeDevice ViewDataThisRank_Device) {
@@ -453,8 +452,6 @@ struct Print {
             return;
 
         // Print data to the vtk file - casting to the appropriate type if necessary
-        // TODO: LayerID uses short int here, but is stored as an int, this cast won't be necessary when that view type
-        // is consistent
         Grainplot << "SCALARS " << VarNameLabel << " " << DataLabel << " 1" << std::endl;
         Grainplot << "LOOKUP_TABLE default" << std::endl;
         for (int k = 0; k < nz; k++) {
@@ -551,8 +548,8 @@ struct Print {
     // domain. The default location is as close to the center of the domain in X and Y as possible, and as close to the
     // top of the domain while not including the final layer's microstructure. If an RVE size was not specified in the
     // input file, the default size is 0.5 by 0.5 by 0.5 mm
-    template <typename ViewTypeInt3DHost>
-    void printExaConstitDefaultRVE(int nx, int ny, int nz, ViewTypeInt3DHost LayerID_WholeDomain,
+    template <typename ViewTypeShort3DHost, typename ViewTypeInt3DHost>
+    void printExaConstitDefaultRVE(int nx, int ny, int nz, ViewTypeShort3DHost LayerID_WholeDomain,
                                    ViewTypeInt3DHost GrainID_WholeDomain, double deltax, int NumberOfLayers) {
 
         // Determine the lower and upper Y bounds of the RVE

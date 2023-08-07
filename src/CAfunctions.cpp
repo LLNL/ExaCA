@@ -166,7 +166,7 @@ ViewF_H MisorientationCalc(int NumberOfOrientations, ViewF_H GrainUnitVector, in
 }
 
 // Stores/returns the volume fraction of nucleated grains to the console
-float calcVolFractionNucleated(int id, int nx, int MyYSlices, int LocalDomainSize, ViewI LayerID, ViewI GrainID,
+float calcVolFractionNucleated(int id, int nx, int MyYSlices, int LocalDomainSize, ViewS LayerID, ViewI GrainID,
                                bool AtNorthBoundary, bool AtSouthBoundary) {
 
     // For interior cells, add the number of cells that underwent melting/solidification and the number of cells with

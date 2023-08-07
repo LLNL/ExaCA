@@ -461,7 +461,7 @@ struct RepresentativeRegion {
 
     // Create a histogram of orientations for texture determination, using the GrainID values in the volume bounded by
     // [XMin,XMax], [YMin,YMax], [ZMin,ZMax] and excluding and cells that did not undergo melting (GrainID = -1)
-    ViewI_H getOrientationHistogram(int NumberOfOrientations, ViewI3D_H GrainID, ViewI3D_H LayerID) {
+    ViewI_H getOrientationHistogram(int NumberOfOrientations, ViewI3D_H GrainID, ViewS3D_H LayerID) {
 
         // Init histogram values to zero
         ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
@@ -531,7 +531,7 @@ struct RepresentativeRegion {
 
     // Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
     // grains to the console/QoIs file
-    void printGrainTypeFractions(std::ofstream &QoIs, ViewI3D_H GrainID, ViewI3D_H LayerID) {
+    void printGrainTypeFractions(std::ofstream &QoIs, ViewI3D_H GrainID, ViewS3D_H LayerID) {
 
         int NumberOfUnmeltedCells = 0;
         int NumberOfNucleatedGrainCells = 0;

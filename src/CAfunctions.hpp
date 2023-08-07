@@ -113,7 +113,7 @@ double MaxVal(double TestVec3[6], int NVals);
 void InitialDecomposition(int id, int np, int &NeighborRank_North, int &NeighborRank_South, bool &AtNorthBoundary,
                           bool &AtSouthBoundary);
 ViewF_H MisorientationCalc(int NumberOfOrientations, ViewF_H GrainUnitVector, int dir);
-float calcVolFractionNucleated(int id, int nx, int MyYSlices, int LocalDomainSize, ViewI LayerID, ViewI GrainID,
+float calcVolFractionNucleated(int id, int nx, int MyYSlices, int LocalDomainSize, ViewS LayerID, ViewI GrainID,
                                bool AtNorthBoundary, bool AtSouthBoundary);
 
 #endif
