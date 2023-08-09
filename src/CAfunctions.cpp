@@ -13,105 +13,61 @@
 /*************************** FUNCTIONS CALLED THROUGH MAIN SUBROUTINES ***************************/
 
 //*****************************************************************************/
-int YMPSlicesCalc(int p, int ny, int np) {
-    int YRemoteMPSlices = 0;
-    int YSlicesPerP = ny / np;
+// Subdivide ny into ny_local across np ranks as evenly as possible, return ny_local on rank p
+int get_nylocal(int p, int ny, int np) {
+    int ny_local = 0;
+    int ny_local_est = ny / np;
     int YRemainder = ny % np;
     if (YRemainder == 0) {
-        YRemoteMPSlices = YSlicesPerP;
+        ny_local = ny_local_est;
     }
     else {
         if (YRemainder > p) {
-            YRemoteMPSlices = YSlicesPerP + 1;
+            ny_local = ny_local_est + 1;
         }
         else {
-            YRemoteMPSlices = YSlicesPerP;
+            ny_local = ny_local_est;
         }
     }
-    return YRemoteMPSlices;
+    return ny_local;
 }
 
 //*****************************************************************************/
-int YOffsetCalc(int p, int ny, int np) {
-    int RemoteYOffset = 0;
-    int YSlicesPerP = ny / np;
+// Get the offset in the Y direction of the local grid on rank p from the global grid of np ranks, which has ny total
+// cells in Y
+int get_yoffset(int p, int ny, int np) {
+    int y_offset = 0;
+    int y_offset_est = ny / np;
     int YRemainder = ny % np;
     if (YRemainder == 0) {
-        RemoteYOffset = p * YSlicesPerP;
+        y_offset = p * y_offset_est;
     }
     else {
         if (YRemainder > p) {
-            RemoteYOffset = p * (YSlicesPerP + 1);
+            y_offset = p * (y_offset_est + 1);
         }
         else {
-            RemoteYOffset = (YSlicesPerP + 1) * (YRemainder - 1) + YSlicesPerP + 1 + (p - YRemainder) * YSlicesPerP;
+            y_offset = (y_offset_est + 1) * (YRemainder - 1) + y_offset_est + 1 + (p - YRemainder) * y_offset_est;
         }
     }
-    return RemoteYOffset;
+    return y_offset;
 }
 
 // Add ghost nodes to the appropriate subdomains (added where the subdomains overlap, but not at edges of physical
 // domain)
-void AddGhostNodes(int NeighborRank_North, int NeighborRank_South, int &MyYSlices, int &MyYOffset) {
+void AddGhostNodes(int NeighborRank_North, int NeighborRank_South, int &ny_local, int &y_offset) {
 
     // Add halo regions in Y direction if this subdomain borders subdomains on other processors
     // If only 1 rank in the y direction, no halo regions - subdomain is coincident with overall simulation domain
     // If multiple ranks in the y direction, either 1 halo region (borders another rank's subdomain in either the +y or
     // -y direction) or 2 halo regions (if it borders other rank's subdomains in both the +y and -y directions)
     if (NeighborRank_North != MPI_PROC_NULL)
-        MyYSlices++;
+        ny_local++;
     if (NeighborRank_South != MPI_PROC_NULL) {
-        MyYSlices++;
+        ny_local++;
         // Also adjust subdomain offset, as these ghost nodes were added on the -y side of the subdomain
-        MyYOffset--;
+        y_offset--;
     }
-}
-
-//*****************************************************************************/
-int FindItBounds(int RankX, int RankY, int MyXSlices, int MyYSlices) {
-    int ItBounds;
-    // If X and Y coordinates are not on edges, Case 0: iteratation over neighbors 0-25 possible
-    // If Y coordinate is on lower edge, Case 1: iteration over only neighbors 9-25 possible
-    // If Y coordinate is on upper edge, Case 2: iteration over only neighbors 0-16 possible
-    // If X coordinate is on lower edge, Case 3: iteration over only neighbors
-    // 0,1,3,4,6,8,9,10,11,13,15,17,18,20,21,22,24 If X coordinate is on upper edge, Case 4: iteration over only
-    // neighbors 0,2,3,4,5,7,9,10,12,14,16,17,19,20,21,23,25 If X/Y coordinates are on lower edge, Case 5: iteration
-    // over only neighbors 9,10,11,13,15,17,18,20,21,22,24 If X coordinate is on upper edge/Y on lower edge, Case 6: If
-    // X coordinate is on lower edge/Y on upper edge, Case 7: If X/Y coordinates are on upper edge, Case 8:
-    if (RankY == 0) {
-        if (RankX == 0) {
-            ItBounds = 5;
-        }
-        else if (RankX == MyXSlices - 1) {
-            ItBounds = 6;
-        }
-        else {
-            ItBounds = 1;
-        }
-    }
-    else if (RankY == MyYSlices - 1) {
-        if (RankX == 0) {
-            ItBounds = 7;
-        }
-        else if (RankX == MyXSlices - 1) {
-            ItBounds = 8;
-        }
-        else {
-            ItBounds = 2;
-        }
-    }
-    else {
-        if (RankX == 0) {
-            ItBounds = 3;
-        }
-        else if (RankX == MyXSlices - 1) {
-            ItBounds = 4;
-        }
-        else {
-            ItBounds = 0;
-        }
-    }
-    return ItBounds;
 }
 
 //*****************************************************************************/
@@ -166,7 +122,7 @@ ViewF_H MisorientationCalc(int NumberOfOrientations, ViewF_H GrainUnitVector, in
 }
 
 // Stores/returns the volume fraction of nucleated grains to the console
-float calcVolFractionNucleated(int id, int nx, int MyYSlices, int LocalDomainSize, ViewS LayerID, ViewI GrainID,
+float calcVolFractionNucleated(int id, int nx, int ny_local, int DomainSize, ViewS LayerID, ViewI GrainID,
                                bool AtNorthBoundary, bool AtSouthBoundary) {
 
     // For interior cells, add the number of cells that underwent melting/solidification and the number of cells with
@@ -174,17 +130,16 @@ float calcVolFractionNucleated(int id, int nx, int MyYSlices, int LocalDomainSiz
     int MeltedCells_Local = 0;
     int NucleatedGrainCells_Local = 0;
     Kokkos::parallel_reduce(
-        "NumSolidifiedCells", LocalDomainSize,
-        KOKKOS_LAMBDA(const int D3D1ConvPosition, int &update_meltcount, int &update_nucleatecount) {
-            int Rem = D3D1ConvPosition % (nx * MyYSlices);
-            int RankY = Rem % MyYSlices;
+        "NumSolidifiedCells", DomainSize,
+        KOKKOS_LAMBDA(const int index, int &update_meltcount, int &update_nucleatecount) {
+            int coord_y = getCoordY(index, nx, ny_local);
             // Is this Y coordinate in the halo region? If so, do not increment counter
             bool InHaloRegion = false;
-            if (((RankY == 0) && (!AtSouthBoundary)) || ((RankY == MyYSlices - 1) && (!AtNorthBoundary)))
+            if (((coord_y == 0) && (!AtSouthBoundary)) || ((coord_y == ny_local - 1) && (!AtNorthBoundary)))
                 InHaloRegion = true;
-            if ((GrainID(D3D1ConvPosition) < 0) && (!InHaloRegion))
+            if ((GrainID(index) < 0) && (!InHaloRegion))
                 update_nucleatecount++;
-            if ((LayerID(D3D1ConvPosition) != -1) && (!InHaloRegion))
+            if ((LayerID(index) != -1) && (!InHaloRegion))
                 update_meltcount++;
         },
         MeltedCells_Local, NucleatedGrainCells_Local);

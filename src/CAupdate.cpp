@@ -18,10 +18,9 @@ using std::min;
 //*****************************************************************************/
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step
-void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, ViewI CritTimeStep,
-                                 ViewF UndercoolingCurrent, ViewF UndercoolingChange,
-                                 CellData<device_memory_space> &cellData, int ZBound_Low, int layernumber,
-                                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host) {
+void FillSteeringVector_NoRemelt(int cycle, int DomainSize, Temperature<device_memory_space> &temperature,
+                                 CellData<device_memory_space> &cellData, int layernumber, ViewI SteeringVector,
+                                 ViewI numSteer, ViewI_H numSteer_Host) {
 
     // Cells associated with this layer that are not solid type but have passed the liquidus (crit time step) have their
     // undercooling values updated Cells that meet the aforementioned criteria and are active type should be added to
@@ -29,28 +28,19 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, i
     auto CellType = cellData.getCellTypeSubview();
     auto LayerID = cellData.getLayerIDSubview();
     Kokkos::parallel_for(
-        "FillSV", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
-            // Cells of interest for the CA
-            int RankZ = D3D1ConvPosition / (nx * MyYSlices);
-            int Rem = D3D1ConvPosition % (nx * MyYSlices);
-            int RankX = Rem / MyYSlices;
-            int RankY = Rem % MyYSlices;
-            int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
-            int cellType = CellType(D3D1ConvPosition);
+        "FillSV", DomainSize, KOKKOS_LAMBDA(const int &index) {
+            int cellType = CellType(index);
             // TODO: layer check no longer needed here
-            int layerCheck = (LayerID(D3D1ConvPosition) <= layernumber);
+            int layerCheck = (LayerID(index) <= layernumber);
             int isNotSolid = (cellType != Solid);
-            int pastCritTime = (cycle > CritTimeStep(GlobalD3D1ConvPosition));
-
-            int cell_Liquid = (cellType == Liquid);
+            int CritTimeStep = temperature.LayerTimeTempHistory(index, 0, 1);
+            int pastCritTime = (cycle > CritTimeStep);
             int cell_Active = (cellType == Active);
 
             if (layerCheck && isNotSolid && pastCritTime) {
-                UndercoolingCurrent(GlobalD3D1ConvPosition) +=
-                    UndercoolingChange(GlobalD3D1ConvPosition) * (cell_Liquid + cell_Active);
+                temperature.update_undercooling(index);
                 if (cell_Active) {
-                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
+                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = index;
                 }
             }
         });
@@ -60,109 +50,92 @@ void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, i
 //*****************************************************************************/
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step - version with remelting
-void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, NList NeighborX,
-                               NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
-                               ViewF UndercoolingChange, CellData<device_memory_space> &cellData, int ZBound_Low,
-                               int nzActive, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host,
-                               ViewI MeltTimeStep, ViewI SolidificationEventCounter, ViewI NumberOfSolidificationEvents,
-                               ViewF3D LayerTimeTempHistory) {
+void FillSteeringVector_Remelt(int cycle, int DomainSize, int nx, int ny_local, NList NeighborX, NList NeighborY,
+                               NList NeighborZ, Temperature<device_memory_space> &temperature,
+                               CellData<device_memory_space> &cellData, int nz_layer, ViewI SteeringVector,
+                               ViewI numSteer, ViewI_H numSteer_Host) {
 
     auto CellType = cellData.getCellTypeSubview();
     auto GrainID = cellData.getGrainIDSubview();
     Kokkos::parallel_for(
-        "FillSV_RM", LocalActiveDomainSize, KOKKOS_LAMBDA(const int &D3D1ConvPosition) {
-            // Coordinate of this cell on the "global" (all cells in the Z direction) grid
-            int RankZ = D3D1ConvPosition / (nx * MyYSlices);
-            int Rem = D3D1ConvPosition % (nx * MyYSlices);
-            int RankX = Rem / MyYSlices;
-            int RankY = Rem % MyYSlices;
-            int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
-
-            int cellType = CellType(D3D1ConvPosition);
-            bool isNotSolid = ((cellType != TempSolid) && (cellType != Solid));
-            bool atMeltTime = (cycle == MeltTimeStep(GlobalD3D1ConvPosition));
-            bool atCritTime = (cycle == CritTimeStep(GlobalD3D1ConvPosition));
-            bool pastCritTime = (cycle > CritTimeStep(GlobalD3D1ConvPosition));
-            if (atMeltTime) {
-                CellType(D3D1ConvPosition) = Liquid;
-                UndercoolingCurrent(GlobalD3D1ConvPosition) = 0.0;
-                // If this cell melts at least one more time after the melting event that just took place, replace the
-                // value for melt time step with the next time step this cell goes above the liquidus
-                if (cellType != TempSolid) {
-                    // This cell either hasn't started or hasn't finished the previous solidification event, but has
-                    // undergone melting - increment the solidification counter to move on to the next
-                    // melt-solidification event and replace CritTimeStep and UndercoolingChange with the values
-                    // corresponding to this next event
-                    SolidificationEventCounter(D3D1ConvPosition)++;
-                    CritTimeStep(GlobalD3D1ConvPosition) = static_cast<int>(
-                        LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 1));
-                    UndercoolingChange(GlobalD3D1ConvPosition) =
-                        LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 2);
-                    // If this cell melts at least one more time after the melting event that just took place, replace
-                    // the value for melt time step with the next time step this cell goes above the liquidus
-                    if ((SolidificationEventCounter(D3D1ConvPosition) + 1) !=
-                        NumberOfSolidificationEvents(D3D1ConvPosition)) {
-                        MeltTimeStep(GlobalD3D1ConvPosition) = static_cast<int>(LayerTimeTempHistory(
-                            D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition) + 1, 0));
+        "FillSV_RM", DomainSize, KOKKOS_LAMBDA(const int &index) {
+            int cellType = CellType(index);
+            // Only iterate over cells that are not Solid type
+            if (cellType != Solid) {
+                int MeltTimeStep = temperature.getMeltTimeStep(index);
+                int CritTimeStep = temperature.getCritTimeStep(index);
+                bool atMeltTime = (cycle == MeltTimeStep);
+                bool atCritTime = (cycle == CritTimeStep);
+                bool pastCritTime = (cycle > CritTimeStep);
+                if (atMeltTime) {
+                    // Cell melts, undercooling is reset to 0 from the previous value, if any
+                    CellType(index) = Liquid;
+                    temperature.reset_undercooling(index);
+                    if (cellType != TempSolid) {
+                        // This cell either hasn't started or hasn't finished the previous solidification event, but has
+                        // undergone melting - increment the solidification counter to move on to the next
+                        // melt-solidification event
+                        temperature.update_solidification_counter(index);
                     }
-                }
-                else if ((SolidificationEventCounter(D3D1ConvPosition) + 1) !=
-                         NumberOfSolidificationEvents(D3D1ConvPosition)) {
-                    // If this cell melts at least one more time after the melting event that just took place, replace
-                    // the value for melt time step with the next time step this cell goes above the liquidus
-                    MeltTimeStep(GlobalD3D1ConvPosition) = static_cast<int>(
-                        LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition) + 1, 0));
-                }
-                // Any adjacent active cells should also be remelted, as these cells are more likely heating up than
-                // cooling down These are converted to the temporary FutureLiquid state, to be later iterated over and
-                // loaded into the steering vector as necessary
-                for (int l = 0; l < 26; l++) {
-                    // "l" correpsponds to the specific neighboring cell
-                    // Local coordinates of adjacent cell center
-                    int MyNeighborX = RankX + NeighborX[l];
-                    int MyNeighborY = RankY + NeighborY[l];
-                    int MyNeighborZ = RankZ + NeighborZ[l];
-                    if ((MyNeighborX >= 0) && (MyNeighborX < nx) && (MyNeighborY >= 0) && (MyNeighborY < MyYSlices) &&
-                        (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
-                        int NeighborD3D1ConvPosition =
-                            MyNeighborZ * nx * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                        if (CellType(NeighborD3D1ConvPosition) == Active) {
-                            CellType(NeighborD3D1ConvPosition) = FutureLiquid;
-                            SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = NeighborD3D1ConvPosition;
+                    // Any adjacent active cells should also be remelted, as these cells are more likely heating up than
+                    // cooling down These are converted to the temporary FutureLiquid state, to be later iterated over
+                    // and loaded into the steering vector as necessary Get the x, y, z coordinates of the cell on this
+                    // MPI rank
+                    int coord_x = getCoordX(index, nx, ny_local);
+                    int coord_y = getCoordY(index, nx, ny_local);
+                    int coord_z = getCoordZ(index, nx, ny_local);
+                    for (int l = 0; l < 26; l++) {
+                        // "l" correpsponds to the specific neighboring cell
+                        // Local coordinates of adjacent cell center
+                        int neighbor_coord_x = coord_x + NeighborX[l];
+                        int neighbor_coord_y = coord_y + NeighborY[l];
+                        int neighbor_coord_z = coord_z + NeighborZ[l];
+                        if ((neighbor_coord_x >= 0) && (neighbor_coord_x < nx) && (neighbor_coord_y >= 0) &&
+                            (neighbor_coord_y < ny_local) && (neighbor_coord_z < nz_layer) && (neighbor_coord_z >= 0)) {
+                            int neighbor_index =
+                                get1Dindex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z, nx, ny_local);
+                            if (CellType(neighbor_index) == Active) {
+                                // Mark adjacent active cells to this as cells that should be converted into liquid, as
+                                // they are more likely heating than cooling
+                                CellType(neighbor_index) = FutureLiquid;
+                                SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = neighbor_index;
+                            }
                         }
                     }
                 }
-            }
-            else if ((isNotSolid) && (pastCritTime)) {
-                // Update cell undercooling
-                UndercoolingCurrent(GlobalD3D1ConvPosition) += UndercoolingChange(GlobalD3D1ConvPosition);
-                if (cellType == Active) {
-                    // Add active cells below liquidus to steering vector
-                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
+                else if ((cellType != TempSolid) && (pastCritTime)) {
+                    // Update cell undercooling
+                    temperature.update_undercooling(index);
+                    if (cellType == Active) {
+                        // Add active cells below liquidus to steering vector
+                        SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = index;
+                    }
                 }
-            }
-            else if ((atCritTime) && (cellType == Liquid) && (GrainID(D3D1ConvPosition) != 0)) {
-                // If this cell has cooled to the liquidus temperature, borders at least one solid/tempsolid cell, and
-                // is part of a grain, it should become active. This only needs to be checked on the time step where the
-                // cell reaches the liquidus, not every time step beyond this
-                for (int l = 0; l < 26; l++) {
-                    // "l" correpsponds to the specific neighboring cell
-                    // Local coordinates of adjacent cell center
-                    int MyNeighborX = RankX + NeighborX[l];
-                    int MyNeighborY = RankY + NeighborY[l];
-                    int MyNeighborZ = RankZ + NeighborZ[l];
-                    if ((MyNeighborX >= 0) && (MyNeighborX < nx) && (MyNeighborY >= 0) && (MyNeighborY < MyYSlices) &&
-                        (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
-                        int NeighborD3D1ConvPosition =
-                            MyNeighborZ * nx * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                        if ((CellType(NeighborD3D1ConvPosition) == TempSolid) ||
-                            (CellType(NeighborD3D1ConvPosition) == Solid) || (RankZ == 0)) {
-                            // Cell activation to be performed as part of steering vector
-                            l = 26;
-                            SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = D3D1ConvPosition;
-                            CellType(D3D1ConvPosition) =
-                                FutureActive; // this cell cannot be captured - is being activated
+                else if ((atCritTime) && (cellType == Liquid) && (GrainID(index) != 0)) {
+                    // Get the x, y, z coordinates of the cell on this MPI rank
+                    int coord_x = getCoordX(index, nx, ny_local);
+                    int coord_y = getCoordY(index, nx, ny_local);
+                    int coord_z = getCoordZ(index, nx, ny_local);
+                    // If this cell has cooled to the liquidus temperature, borders at least one solid/tempsolid cell,
+                    // and is part of a grain, it should become active. This only needs to be checked on the time step
+                    // where the cell reaches the liquidus, not every time step beyond this
+                    for (int l = 0; l < 26; l++) {
+                        // "l" correpsponds to the specific neighboring cell
+                        // Local coordinates of adjacent cell center
+                        int neighbor_coord_x = coord_x + NeighborX[l];
+                        int neighbor_coord_y = coord_y + NeighborY[l];
+                        int neighbor_coord_z = coord_z + NeighborZ[l];
+                        if ((neighbor_coord_x >= 0) && (neighbor_coord_x < nx) && (neighbor_coord_y >= 0) &&
+                            (neighbor_coord_y < ny_local) && (neighbor_coord_z < nz_layer) && (neighbor_coord_z >= 0)) {
+                            int neighbor_index =
+                                get1Dindex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z, nx, ny_local);
+                            if ((CellType(neighbor_index) == TempSolid) || (CellType(neighbor_index) == Solid) ||
+                                (coord_z == 0)) {
+                                // Cell activation to be performed as part of steering vector
+                                l = 26;
+                                SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = index;
+                                CellType(index) = FutureActive; // this cell cannot be captured - is being activated
+                            }
                         }
                     }
                 }
@@ -175,14 +148,13 @@ void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int
 }
 
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialResponseFunction irf, int MyYOffset,
-                 NList NeighborX, NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
-                 ViewF UndercoolingChange, ViewF GrainUnitVector, ViewF CritDiagonalLength, ViewF DiagonalLength,
-                 CellData<device_memory_space> &cellData, ViewF DOCenter, int NGrainOrientations,
+void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunction irf, int y_offset, NList NeighborX,
+                 NList NeighborY, NList NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength,
+                 ViewF DiagonalLength, CellData<device_memory_space> &cellData,
+                 Temperature<device_memory_space> &temperature, ViewF DOCenter, int NGrainOrientations,
                  Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
-                 int ZBound_Low, int nzActive, int, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host,
-                 bool AtNorthBoundary, bool AtSouthBoundary, ViewI SolidificationEventCounter,
-                 ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents, int &BufSize) {
+                 int nz_layer, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
+                 bool AtSouthBoundary, int &BufSize) {
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
@@ -191,39 +163,37 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
     Kokkos::parallel_for(
         "CellCapture", numSteer_Host(0), KOKKOS_LAMBDA(const int &num) {
             numSteer(0) = 0;
-            int D3D1ConvPosition = SteeringVector(num);
-            // Cells of interest for the CA - active cells and future active cells
-            int RankZ = D3D1ConvPosition / (nx * MyYSlices);
-            int Rem = D3D1ConvPosition % (nx * MyYSlices);
-            int GlobalX = Rem / MyYSlices;
-            int RankY = Rem % MyYSlices;
-            int GlobalZ = RankZ + ZBound_Low;
-            int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + GlobalX * MyYSlices + RankY;
-            if (CellType(D3D1ConvPosition) == Active) {
+            int index = SteeringVector(num);
+            // Get the x, y, z coordinates of the cell on this MPI rank
+            int coord_x = getCoordX(index, nx, ny_local);
+            int coord_y = getCoordY(index, nx, ny_local);
+            int coord_z = getCoordZ(index, nx, ny_local);
+            // Cells of interest for the CA - active cells and future active/liquid cells
+            if (CellType(index) == Active) {
                 // Update local diagonal length of active cell
-                double LocU = UndercoolingCurrent(GlobalD3D1ConvPosition);
+                double LocU = temperature.UndercoolingCurrent(index);
                 LocU = min(210.0, LocU);
                 double V = irf.compute(LocU);
-                DiagonalLength(D3D1ConvPosition) += min(0.045, V); // Max amount the diagonal can grow per time step
+                DiagonalLength(index) += min(0.045, V); // Max amount the diagonal can grow per time step
                 // Cycle through all neigboring cells on this processor to see if they have been captured
                 // Cells in ghost nodes cannot capture cells on other processors
                 bool DeactivateCell = true; // switch that becomes false if the cell has at least 1 liquid type neighbor
                 // Which neighbors should be iterated over?
                 for (int l = 0; l < 26; l++) {
                     // Local coordinates of adjacent cell center
-                    int MyNeighborX = GlobalX + NeighborX[l];
-                    int MyNeighborY = RankY + NeighborY[l];
-                    int MyNeighborZ = RankZ + NeighborZ[l];
+                    int neighbor_coord_x = coord_x + NeighborX[l];
+                    int neighbor_coord_y = coord_y + NeighborY[l];
+                    int neighbor_coord_z = coord_z + NeighborZ[l];
                     // Check if neighbor is in bounds
-                    if ((MyNeighborX >= 0) && (MyNeighborX < nx) && (MyNeighborY >= 0) && (MyNeighborY < MyYSlices) &&
-                        (MyNeighborZ < nzActive) && (MyNeighborZ >= 0)) {
-                        long int NeighborD3D1ConvPosition =
-                            MyNeighborZ * nx * MyYSlices + MyNeighborX * MyYSlices + MyNeighborY;
-                        if (CellType(NeighborD3D1ConvPosition) == Liquid)
+                    if ((neighbor_coord_x >= 0) && (neighbor_coord_x < nx) && (neighbor_coord_y >= 0) &&
+                        (neighbor_coord_y < ny_local) && (neighbor_coord_z < nz_layer) && (neighbor_coord_z >= 0)) {
+                        int neighbor_index =
+                            get1Dindex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z, nx, ny_local);
+                        if (CellType(neighbor_index) == Liquid)
                             DeactivateCell = false;
                         // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
-                        if ((DiagonalLength(D3D1ConvPosition) >= CritDiagonalLength(26 * D3D1ConvPosition + l)) &&
-                            (CellType(NeighborD3D1ConvPosition) == Liquid)) {
+                        if ((DiagonalLength(index) >= CritDiagonalLength(26 * index + l)) &&
+                            (CellType(neighbor_index) == Liquid)) {
                             // Use of atomic_compare_exchange
                             // (https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_compare_exchange) old_val =
                             // atomic_compare_exchange(ptr_to_value,comparison_value, new_value); Atomicly sets the
@@ -234,27 +204,28 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                             // already been changed to "TemporaryUpdate" type, return a value of "0"
                             int update_val = TemporaryUpdate;
                             int old_val = Liquid;
-                            int OldCellTypeValue = Kokkos::atomic_compare_exchange(&CellType(NeighborD3D1ConvPosition),
-                                                                                   old_val, update_val);
+                            int OldCellTypeValue =
+                                Kokkos::atomic_compare_exchange(&CellType(neighbor_index), old_val, update_val);
                             // Only proceed if CellType was previously liquid (this current thread changed the value to
                             // TemporaryUpdate)
                             if (OldCellTypeValue == Liquid) {
-                                int GlobalY = RankY + MyYOffset;
-                                int h = GrainID(D3D1ConvPosition);
+                                int h = GrainID(index);
                                 int MyOrientation = getGrainOrientation(h, NGrainOrientations);
 
                                 // The new cell is captured by this cell's growing octahedron (Grain "h")
-                                GrainID(NeighborD3D1ConvPosition) = h;
+                                GrainID(neighbor_index) = h;
 
                                 // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
-                                float cxold = DOCenter((long int)(3) * D3D1ConvPosition);
-                                float cyold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(1));
-                                float czold = DOCenter((long int)(3) * D3D1ConvPosition + (long int)(2));
+                                float cxold = DOCenter(3 * index);
+                                float cyold = DOCenter(3 * index + 1);
+                                float czold = DOCenter(3 * index + 2);
 
                                 // (xp,yp,zp) are the global coordinates of the new cell's center
-                                float xp = GlobalX + NeighborX[l] + 0.5;
-                                float yp = GlobalY + NeighborY[l] + 0.5;
-                                float zp = GlobalZ + NeighborZ[l] + 0.5;
+                                // Note that the Y coordinate is relative to the domain origin to keep the coordinate
+                                // system continuous across ranks
+                                float xp = coord_x + NeighborX[l] + 0.5;
+                                float yp = coord_y + y_offset + NeighborY[l] + 0.5;
+                                float zp = coord_z + NeighborZ[l] + 0.5;
 
                                 // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image
                                 // of the center of the new cell
@@ -383,7 +354,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                                 float L13 = 0.5 * (fmin(J1, sqrtf(3.0)) + fmin(J2, sqrtf(3.0)));
                                 float NewODiagL = sqrtf(2.0) * fmax(L12, L13); // half diagonal length of new octahedron
 
-                                DiagonalLength(NeighborD3D1ConvPosition) = NewODiagL;
+                                DiagonalLength(neighbor_index) = NewODiagL;
                                 // Calculate coordinates of new decentered octahedron center
                                 float CaptDiag[3];
                                 CaptDiag[0] = xc - cxold;
@@ -401,15 +372,14 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                                 float cy = yc - NewODiagL * CaptDiagUV[1];
                                 float cz = zc - NewODiagL * CaptDiagUV[2];
 
-                                DOCenter((long int)(3) * NeighborD3D1ConvPosition) = cx;
-                                DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(1)) = cy;
-                                DOCenter((long int)(3) * NeighborD3D1ConvPosition + (long int)(2)) = cz;
+                                DOCenter(3 * neighbor_index) = cx;
+                                DOCenter(3 * neighbor_index + 1) = cy;
+                                DOCenter(3 * neighbor_index + 2) = cz;
 
                                 // Get new critical diagonal length values for the newly activated cell (at array
-                                // position "NeighborD3D1ConvPosition")
-                                calcCritDiagonalLength(NeighborD3D1ConvPosition, xp, yp, zp, cx, cy, cz, NeighborX,
-                                                       NeighborY, NeighborZ, MyOrientation, GrainUnitVector,
-                                                       CritDiagonalLength);
+                                // position "neighbor_index")
+                                calcCritDiagonalLength(neighbor_index, xp, yp, zp, cx, cy, cz, NeighborX, NeighborY,
+                                                       NeighborZ, MyOrientation, GrainUnitVector, CritDiagonalLength);
 
                                 if (np > 1) {
                                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting this
@@ -421,20 +391,20 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                                     float GhostDL = NewODiagL;
                                     // Collect data for the ghost nodes, if necessary
                                     // Data loaded into the ghost nodes is for the cell that was just captured
-                                    bool DataFitsInBuffer =
-                                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL,
-                                                       SendSizeNorth, SendSizeSouth, MyYSlices, MyNeighborX,
-                                                       MyNeighborY, MyNeighborZ, AtNorthBoundary, AtSouthBoundary,
-                                                       BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
+                                    bool DataFitsInBuffer = loadghostnodes(
+                                        GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth,
+                                        SendSizeSouth, ny_local, neighbor_coord_x, neighbor_coord_y, neighbor_coord_z,
+                                        AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
+                                        NGrainOrientations, BufSize);
                                     if (!(DataFitsInBuffer)) {
                                         // This cell's data did not fit in the buffer with current size BufSize - mark
                                         // with temporary type
-                                        CellType(NeighborD3D1ConvPosition) = ActiveFailedBufferLoad;
+                                        CellType(neighbor_index) = ActiveFailedBufferLoad;
                                     }
                                     else {
                                         // Cell activation is now finished - cell type can be changed from
                                         // TemporaryUpdate to Active
-                                        CellType(NeighborD3D1ConvPosition) = Active;
+                                        CellType(neighbor_index) = Active;
                                     }
                                 } // End if statement for serial/parallel code
                                 else {
@@ -443,7 +413,7 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                                     // which the new cell is activated, and another thread acts on the new active cell
                                     // before the cell's new critical diagonal length/triangle index/diagonal length
                                     // values are assigned
-                                    CellType(NeighborD3D1ConvPosition) = Active;
+                                    CellType(neighbor_index) = Active;
                                 }
                             } // End if statement within locked capture loop
                         }     // End if statement for outer capture loop
@@ -452,89 +422,80 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
                 if (DeactivateCell) {
                     // This active cell has no more neighboring cells to be captured
                     // Update the counter for the number of times this cell went from liquid to active to solid
-                    SolidificationEventCounter(D3D1ConvPosition)++;
+                    bool SolidificationCompleteYN = temperature.update_check_solidification_counter(index);
                     // Did the cell solidify for the last time in the layer?
                     // If so, this cell is solid - ignore until next layer (if needed)
-                    // If not, update CritTimeStep, and UndercoolingChange with values for the next
-                    // solidification event, and change cell type to TempSolid
-                    if (SolidificationEventCounter(D3D1ConvPosition) ==
-                        NumberOfSolidificationEvents(D3D1ConvPosition)) {
-                        CellType(D3D1ConvPosition) = Solid;
-                    }
-                    else {
-                        CellType(D3D1ConvPosition) = TempSolid;
-                        CritTimeStep(GlobalD3D1ConvPosition) = (int)(LayerTimeTempHistory(
-                            D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 1));
-                        UndercoolingChange(GlobalD3D1ConvPosition) =
-                            LayerTimeTempHistory(D3D1ConvPosition, SolidificationEventCounter(D3D1ConvPosition), 2);
-                    }
+                    // If not, this cell is tempsolid, will become liquid again
+                    if (SolidificationCompleteYN)
+                        CellType(index) = Solid;
+                    else
+                        CellType(index) = TempSolid;
                 }
             }
-            else if (CellType(D3D1ConvPosition) == FutureActive) {
+            else if (CellType(index) == FutureActive) {
                 // Successful nucleation event - this cell is becoming a new active cell
-                CellType(D3D1ConvPosition) = TemporaryUpdate; // avoid operating on the new active cell before its
-                                                              // associated octahedron data is initialized
-
-                // Location of this cell on the global grid
-                int GlobalY = RankY + MyYOffset;
-                int MyGrainID = GrainID(D3D1ConvPosition); // GrainID was assigned as part of Nucleation
+                CellType(index) = TemporaryUpdate; // avoid operating on the new active cell before its
+                                                   // associated octahedron data is initialized
+                int MyGrainID = GrainID(index);    // GrainID was assigned as part of Nucleation
 
                 // Initialize new octahedron
-                createNewOctahedron(D3D1ConvPosition, DiagonalLength, DOCenter, GlobalX, GlobalY, GlobalZ);
+                createNewOctahedron(index, DiagonalLength, DOCenter, coord_x, coord_y, y_offset, coord_z);
                 // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative GrainID
                 // values)
                 int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
-                float cx = GlobalX + 0.5;
-                float cy = GlobalY + 0.5;
-                float cz = GlobalZ + 0.5;
+                // Octahedron center is at (cx, cy, cz) - note that the Y coordinate is relative to the domain origin to
+                // keep the coordinate system continuous across ranks
+                float cx = coord_x + 0.5;
+                float cy = coord_y + y_offset + 0.5;
+                float cz = coord_z + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid
                 // cell. Octahedron center and cell center overlap for octahedra created as part of a new grain
-                calcCritDiagonalLength(D3D1ConvPosition, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
-                                       MyOrientation, GrainUnitVector, CritDiagonalLength);
+                calcCritDiagonalLength(index, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ, MyOrientation,
+                                       GrainUnitVector, CritDiagonalLength);
                 if (np > 1) {
                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting this change if the
                     // slowdown is minor
                     int GhostGID = MyGrainID;
-                    float GhostDOCX = GlobalX + 0.5;
-                    float GhostDOCY = GlobalY + 0.5;
-                    float GhostDOCZ = GlobalZ + 0.5;
+                    float GhostDOCX = cx;
+                    float GhostDOCY = cy;
+                    float GhostDOCZ = cz;
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
                     bool DataFitsInBuffer =
                         loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                                       MyYSlices, GlobalX, RankY, RankZ, AtNorthBoundary, AtSouthBoundary,
+                                       ny_local, coord_x, coord_y, coord_z, AtNorthBoundary, AtSouthBoundary,
                                        BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
                     if (!(DataFitsInBuffer)) {
                         // This cell's data did not fit in the buffer with current size BufSize - mark with temporary
                         // type
-                        CellType(D3D1ConvPosition) = ActiveFailedBufferLoad;
+                        CellType(index) = ActiveFailedBufferLoad;
                     }
                     else {
                         // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
-                        CellType(D3D1ConvPosition) = Active;
+                        CellType(index) = Active;
                     }
                 } // End if statement for serial/parallel code
                 else {
                     // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
-                    CellType(D3D1ConvPosition) = Active;
+                    CellType(index) = Active;
                 } // End if statement for serial/parallel code
             }
-            else if (CellType(D3D1ConvPosition) == FutureLiquid) {
+            else if (CellType(index) == FutureLiquid) {
                 // This type was assigned to a cell that was recently transformed from active to liquid, due to its
                 // bordering of a cell above the liquidus. This information may need to be sent to other MPI ranks
                 // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
                 // length
                 bool DataFitsInBuffer = loadghostnodes(
-                    -1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, MyYSlices, GlobalX, RankY, RankZ,
+                    -1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, ny_local, coord_x, coord_y, coord_z,
                     AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
                 if (!(DataFitsInBuffer)) {
                     // This cell's data did not fit in the buffer with current size BufSize - mark with temporary
                     // type
-                    CellType(D3D1ConvPosition) = LiquidFailedBufferLoad;
+                    CellType(index) = LiquidFailedBufferLoad;
                 }
                 else {
                     // Cell activation is now finished - cell type can be changed from FutureLiquid to Active
-                    CellType(D3D1ConvPosition) = Liquid;
+                    CellType(index) = Liquid;
                 }
             }
         });
@@ -546,9 +507,9 @@ void CellCapture(int, int np, int, int, int, int nx, int MyYSlices, InterfacialR
 // The cells of interest are active cells, and the view checked for future work is
 // MeltTimeStep Print intermediate output during this jump if PrintIdleMovieFrames = true
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
-                  ViewI MeltTimeStep, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low,
+                  Temperature<device_memory_space> &temperature, int DomainSize, int ny_local, int z_layer_bottom,
                   CellData<device_memory_space> &cellData, int id, int layernumber, int np, int nx, int ny,
-                  ViewF GrainUnitVector, Print print, int NGrainOrientations, int nzActive, int nz, double deltax,
+                  ViewF GrainUnitVector, Print print, int NGrainOrientations, int nz_layer, int nz, double deltax,
                   double XMin, double YMin, double ZMin) {
 
     auto CellType = cellData.getCellTypeSubview();
@@ -560,18 +521,13 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
         unsigned long int NextMeltTimeStep;
         if (LocalTempSolidCells > 0) {
             Kokkos::parallel_reduce(
-                "CheckNextTSForWork", LocalActiveDomainSize,
-                KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &tempv) {
-                    int RankZ = D3D1ConvPosition / (nx * MyYSlices);
-                    int Rem = D3D1ConvPosition % (nx * MyYSlices);
-                    int RankX = Rem / MyYSlices;
-                    int RankY = Rem % MyYSlices;
-                    int GlobalZ = RankZ + ZBound_Low;
-                    int GlobalD3D1ConvPosition = GlobalZ * nx * MyYSlices + RankX * MyYSlices + RankY;
-                    unsigned long int NextMeltTimeStep_ThisCell =
-                        static_cast<unsigned long int>(MeltTimeStep(GlobalD3D1ConvPosition));
+                "CheckNextTSForWork", DomainSize,
+                KOKKOS_LAMBDA(const int &index, unsigned long int &tempv) {
                     // criteria for a cell to be associated with future work
-                    if (CellType(D3D1ConvPosition) == TempSolid) {
+                    if (CellType(index) == TempSolid) {
+                        int SolidificationCounter_ThisCell = temperature.SolidificationEventCounter(index);
+                        unsigned long int NextMeltTimeStep_ThisCell = static_cast<unsigned long int>(
+                            temperature.LayerTimeTempHistory(index, SolidificationCounter_ThisCell, 0));
                         if (NextMeltTimeStep_ThisCell < tempv)
                             tempv = NextMeltTimeStep_ThisCell;
                     }
@@ -589,10 +545,10 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
                 for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextMeltTimeStep; cycle_jump++) {
                     if (cycle_jump % print.TimeSeriesInc == 0) {
                         // Print current state of ExaCA simulation (up to and including the current layer's data)
-                        print.printIntermediateGrainMisorientation(id, np, cycle, nx, ny, nz, MyYSlices, nzActive,
+                        print.printIntermediateGrainMisorientation(id, np, cycle, nx, ny, nz, ny_local, nz_layer,
                                                                    deltax, XMin, YMin, ZMin, cellData.GrainID_AllLayers,
                                                                    cellData.CellType_AllLayers, GrainUnitVector,
-                                                                   NGrainOrientations, layernumber, ZBound_Low);
+                                                                   NGrainOrientations, layernumber, z_layer_bottom);
                     }
                 }
             }
@@ -607,12 +563,11 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
 //*****************************************************************************/
 // Prints intermediate code output to stdout (intermediate output collected and printed is different than without
 // remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
-void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int LocalActiveDomainSize, int nx, int ny,
-                                int nz, int nzActive, double deltax, double XMin, double YMin, double ZMin,
+void IntermediateOutputAndCheck(int id, int np, int &cycle, int ny_local, int DomainSize, int nx, int ny, int nz,
+                                int nz_layer, int z_layer_bottom, double deltax, double XMin, double YMin, double ZMin,
                                 int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<device_memory_space> &cellData,
-                                ViewI CritTimeStep, std::string TemperatureDataType, int layernumber, int,
-                                int ZBound_Low, int NGrainOrientations, ViewF GrainUnitVector, Print print,
-                                ViewI MeltTimeStep) {
+                                Temperature<device_memory_space> &temperature, std::string SimulationType,
+                                int layernumber, int NGrainOrientations, ViewF GrainUnitVector, Print print) {
 
     auto CellType = cellData.getCellTypeSubview();
     auto GrainID = cellData.getGrainIDSubview();
@@ -623,22 +578,22 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int L
     unsigned long int LocalTempSolidCells;
     unsigned long int LocalFinishedSolidCells;
     Kokkos::parallel_reduce(
-        LocalActiveDomainSize,
-        KOKKOS_LAMBDA(const int &D3D1ConvPosition, unsigned long int &sum_superheated,
-                      unsigned long int &sum_undercooled, unsigned long int &sum_active,
-                      unsigned long int &sum_temp_solid, unsigned long int &sum_finished_solid) {
-            int GlobalD3D1ConvPosition = D3D1ConvPosition + ZBound_Low * nx * MyYSlices;
-            if (CellType(D3D1ConvPosition) == Liquid) {
-                if (CritTimeStep(GlobalD3D1ConvPosition) > cycle)
+        DomainSize,
+        KOKKOS_LAMBDA(const int &index, unsigned long int &sum_superheated, unsigned long int &sum_undercooled,
+                      unsigned long int &sum_active, unsigned long int &sum_temp_solid,
+                      unsigned long int &sum_finished_solid) {
+            if (CellType(index) == Liquid) {
+                int CritTimeStep = temperature.getCritTimeStep(index);
+                if (CritTimeStep > cycle)
                     sum_superheated += 1;
                 else
                     sum_undercooled += 1;
             }
-            else if (CellType(D3D1ConvPosition) == Active)
+            else if (CellType(index) == Active)
                 sum_active += 1;
-            else if (CellType(D3D1ConvPosition) == TempSolid)
+            else if (CellType(index) == TempSolid)
                 sum_temp_solid += 1;
-            else if (CellType(D3D1ConvPosition) == Solid)
+            else if (CellType(index) == Solid)
                 sum_finished_solid += 1;
         },
         LocalSuperheatedCells, LocalUndercooledCells, LocalActiveCells, LocalTempSolidCells, LocalFinishedSolidCells);
@@ -667,8 +622,8 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int L
     MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
     // Cells of interest are those currently undergoing a melting-solidification cycle
     unsigned long int RemainingCellsOfInterest = GlobalActiveCells + GlobalSuperheatedCells + GlobalUndercooledCells;
-    if ((XSwitch == 0) && ((TemperatureDataType == "R") || (TemperatureDataType == "S")))
-        JumpTimeStep(cycle, RemainingCellsOfInterest, LocalTempSolidCells, MeltTimeStep, LocalActiveDomainSize,
-                     MyYSlices, ZBound_Low, cellData, id, layernumber, np, nx, ny, GrainUnitVector, print,
-                     NGrainOrientations, nzActive, nz, deltax, XMin, YMin, ZMin);
+    if ((XSwitch == 0) && ((SimulationType == "R") || (SimulationType == "S")))
+        JumpTimeStep(cycle, RemainingCellsOfInterest, LocalTempSolidCells, temperature, DomainSize, ny_local,
+                     z_layer_bottom, cellData, id, layernumber, np, nx, ny, GrainUnitVector, print, NGrainOrientations,
+                     nz_layer, nz, deltax, XMin, YMin, ZMin);
 }

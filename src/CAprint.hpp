@@ -9,6 +9,7 @@
 #include "CAfunctions.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAparsefiles.hpp"
+#include "CAtemperature.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
 
@@ -72,14 +73,14 @@ struct Print {
     // Message sizes and data offsets for data send/recieved to/from other ranks- message size different for different
     // ranks
     using view_type_int_host = Kokkos::View<int *, Kokkos::HostSpace>;
-    view_type_int_host RecvYOffset, RecvYSlices, RBufSize;
+    view_type_int_host Recv_y_offset, Recv_ny_local, RBufSize;
     // Y coordinates for a given rank's data being send/loaded into the view of all domain data on rank 0=
     int SendBufStartY, SendBufEndY, SendBufSize;
 
     // Default constructor - options are set in getPrintDataFromFile as necessary
     Print(int np)
-        : RecvYOffset(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RecvYOffset"), np))
-        , RecvYSlices(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RecvYSlices"), np))
+        : Recv_y_offset(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_y_offset"), np))
+        , Recv_ny_local(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_ny_local"), np))
         , RBufSize(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np)) {
 
         // Fields to be printed at start of run: GrainID, LayerID, MeltTimeStep, CritTimeStep, UndercoolingChange (all
@@ -118,24 +119,24 @@ struct Print {
         RVESize = 0;
     }
 
-    void getSendRecvDataSizes(int nx, int ny, int nz, int MyYSlices, int MyYOffset, int np) {
+    void getSendRecvDataSizes(int nx, int ny, int nz, int ny_local, int y_offset, int np) {
 
         // Buffers for sending/receiving data across ranks
         for (int recvrank = 0; recvrank < np; recvrank++) {
-            RecvYOffset(recvrank) = YOffsetCalc(recvrank, ny, np);
-            RecvYSlices(recvrank) = YMPSlicesCalc(recvrank, ny, np);
-            RBufSize(recvrank) = nx * RecvYSlices(recvrank) * nz;
+            Recv_y_offset(recvrank) = get_yoffset(recvrank, ny, np);
+            Recv_ny_local(recvrank) = get_nylocal(recvrank, ny, np);
+            RBufSize(recvrank) = nx * Recv_ny_local(recvrank) * nz;
         }
 
         // Y coordinates for a given rank's data being send/loaded into the view of all domain data on rank 0=
-        if (MyYOffset == 0)
+        if (y_offset == 0)
             SendBufStartY = 0;
         else
             SendBufStartY = 1;
-        if (MyYSlices + MyYOffset == ny)
-            SendBufEndY = MyYSlices;
+        if (ny_local + y_offset == ny)
+            SendBufEndY = ny_local;
         else
-            SendBufEndY = MyYSlices - 1;
+            SendBufEndY = ny_local - 1;
         SendBufSize = nx * (SendBufEndY - SendBufStartY) * nz;
     }
 
@@ -213,13 +214,77 @@ struct Print {
             std::cout << "Successfully parsed data printing options from input file" << std::endl;
     }
 
-    // Called on rank 0, prints initial values of selected data structures to Paraview files for the first layer
-    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeMeltTimeStep,
-              typename ViewTypeCritTimeStep, typename ViewTypeUndercoolingChange>
-    void printInitExaCAData(int id, int np, int nx, int ny, int MyYSlices, int nzActive, double deltax, double XMin,
-                            double YMin, double ZMin, ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
-                            ViewTypeMeltTimeStep MeltTimeStep, ViewTypeCritTimeStep CritTimeStep,
-                            ViewTypeUndercoolingChange UndercoolingChange) {
+    // Called on rank 0 to collect view data from other ranks, or on other ranks to send data to rank 0
+    // MPI datatype corresponding to the view data
+    template <typename Collect1DViewTypeDevice>
+    auto collectViewData(int id, int np, int nx, int ny, int nz, int ny_local, MPI_Datatype msg_type,
+                         Collect1DViewTypeDevice ViewDataThisRank_Device) {
+        // View (int or float extracted from 1D View) for 3D data (no initial size, only given size/filled on rank 0)
+        using value_type = typename Collect1DViewTypeDevice::value_type;
+        Kokkos::View<value_type ***, Kokkos::HostSpace> ViewData_WholeDomain(
+            Kokkos::ViewAllocateWithoutInitializing(ViewDataThisRank_Device.label() + "_WholeDomain"), 0, 0, 0);
+
+        // Get the host view type
+        using host_view_type = typename Collect1DViewTypeDevice::HostMirror;
+
+        // Copy view data of interest host
+        auto ViewDataThisRank = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ViewDataThisRank_Device);
+        if (id == 0) {
+            // View (short, int, or float) for 3D data given a size
+            Kokkos::resize(ViewData_WholeDomain, nz, nx, ny);
+            // Place rank 0 data into view for whole domain
+            for (int coord_z = 0; coord_z < nz; coord_z++) {
+                for (int coord_x = 0; coord_x < nx; coord_x++) {
+                    for (int coord_y_local = 0; coord_y_local < ny_local; coord_y_local++) {
+                        int index = get1Dindex(coord_x, coord_y_local, coord_z, nx, ny_local);
+                        ViewData_WholeDomain(coord_z, coord_x, coord_y_local) = ViewDataThisRank(index);
+                    }
+                }
+            }
+
+            // Recieve values from other ranks - message size different for different ranks
+            for (int recvrank = 1; recvrank < np; recvrank++) {
+                int RecvBufSize_ThisRank = RBufSize(recvrank);
+                host_view_type RecvBufData(Kokkos::ViewAllocateWithoutInitializing("RecvBufData"),
+                                           RecvBufSize_ThisRank);
+                MPI_Recv(RecvBufData.data(), RecvBufSize_ThisRank, msg_type, recvrank, 0, MPI_COMM_WORLD,
+                         MPI_STATUS_IGNORE);
+                int DataCounter = 0;
+                for (int coord_z = 0; coord_z < nz; coord_z++) {
+                    for (int coord_x = 0; coord_x < nx; coord_x++) {
+                        for (int coord_y_local = 0; coord_y_local < Recv_ny_local(recvrank); coord_y_local++) {
+                            int coord_y_global = coord_y_local + Recv_y_offset(recvrank);
+                            ViewData_WholeDomain(coord_z, coord_x, coord_y_global) = RecvBufData(DataCounter);
+                            DataCounter++;
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            // Send non-ghost node data to rank 0
+            int DataCounter = 0;
+            host_view_type SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
+            for (int coord_z = 0; coord_z < nz; coord_z++) {
+                for (int coord_x = 0; coord_x < nx; coord_x++) {
+                    for (int coord_y_local = SendBufStartY; coord_y_local < SendBufEndY; coord_y_local++) {
+                        int index = get1Dindex(coord_x, coord_y_local, coord_z, nx, ny_local);
+                        SendBuf(DataCounter) = ViewDataThisRank(index);
+                        DataCounter++;
+                    }
+                }
+            }
+            MPI_Send(SendBuf.data(), SendBufSize, msg_type, 0, 0, MPI_COMM_WORLD);
+        }
+        return ViewData_WholeDomain;
+    }
+
+    // Called on rank 0, prints initial values of selected data structures to Paraview files for cells between the
+    // overall simulation bottom and the top of the first layer
+    template <typename ViewTypeGrainID, typename ViewTypeLayerID>
+    void printInitExaCAData(int id, int np, int nx, int ny, int ny_local, int nz_layer, int DomainSize, double deltax,
+                            double XMin, double YMin, double ZMin, ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
+                            Temperature<device_memory_space> &temperature) {
 
         if ((PrintInitGrainID) || (PrintInitLayerID) || (PrintInitMeltTimeStep) || (PrintInitCritTimeStep) ||
             (PrintInitUndercoolingChange)) {
@@ -227,30 +292,33 @@ struct Print {
             std::ofstream Grainplot;
             if (id == 0) {
                 std::cout << "Printing initial data structures to a vtk file" << std::endl;
-                WriteHeader(Grainplot, FName, nx, ny, nzActive, deltax, XMin, YMin, ZMin);
+                WriteHeader(Grainplot, FName, nx, ny, nz_layer, deltax, XMin, YMin, ZMin);
             }
             if (PrintInitGrainID) {
-                auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, GrainID);
-                printViewData(id, Grainplot, nx, ny, nzActive, "int", "GrainID", GrainID_WholeDomain);
+                auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_INT, GrainID);
+                printViewData(id, Grainplot, nx, ny, nz_layer, "int", "GrainID", GrainID_WholeDomain);
             }
             if (PrintInitLayerID) {
-                auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_SHORT, LayerID);
-                printViewData(id, Grainplot, nx, ny, nzActive, "short", "LayerID", LayerID_WholeDomain);
+                auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_SHORT, LayerID);
+                printViewData(id, Grainplot, nx, ny, nz_layer, "short", "LayerID", LayerID_WholeDomain);
             }
             if (PrintInitMeltTimeStep) {
+                ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, DomainSize);
                 auto MeltTimeStep_WholeDomain =
-                    collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, MeltTimeStep);
-                printViewData(id, Grainplot, nx, ny, nzActive, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
+                    collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_INT, MeltTimeStep);
+                printViewData(id, Grainplot, nx, ny, nz_layer, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (PrintInitCritTimeStep) {
+                ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, DomainSize);
                 auto CritTimeStep_WholeDomain =
-                    collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_INT, CritTimeStep);
-                printViewData(id, Grainplot, nx, ny, nzActive, "int", "CritTimeStep", CritTimeStep_WholeDomain);
+                    collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_INT, CritTimeStep);
+                printViewData(id, Grainplot, nx, ny, nz_layer, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (PrintInitUndercoolingChange) {
+                ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(2, DomainSize, 0);
                 auto UndercoolingChange_WholeDomain =
-                    collectViewData(id, np, nx, ny, nzActive, MyYSlices, MPI_FLOAT, UndercoolingChange);
-                printViewData(id, Grainplot, nx, ny, nzActive, "float", "UndercoolingChange",
+                    collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_FLOAT, UndercoolingChange);
+                printViewData(id, Grainplot, nx, ny, nz_layer, "float", "UndercoolingChange",
                               UndercoolingChange_WholeDomain);
             }
             if (id == 0)
@@ -261,40 +329,35 @@ struct Print {
     // Called on rank 0, prints intermediate values of grain misorientation for all layers up to current layer, also
     // marking which cells are liquid
     template <typename ViewTypeGrainID, typename ViewTypeCellType, typename ViewTypeGrainUnitVector>
-    void printIntermediateGrainMisorientation(int id, int np, int cycle, int nx, int ny, int nz, int MyYSlices,
-                                              int nzActive, double deltax, double XMin, double YMin, double ZMin,
+    void printIntermediateGrainMisorientation(int id, int np, int cycle, int nx, int ny, int nz, int ny_local,
+                                              int nz_layer, double deltax, double XMin, double YMin, double ZMin,
                                               ViewTypeGrainID GrainID, ViewTypeCellType CellType,
                                               ViewTypeGrainUnitVector GrainUnitVector, int NGrainOrientations,
-                                              int layernumber, int ZBound_Low) {
+                                              int layernumber, int z_layer_bottom) {
 
         IntermediateFileCounter++;
-        auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
-        auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, CellType);
+        auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, GrainID);
+        auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, CellType);
         if (id == 0) {
             std::cout << "Intermediate output on time step " << cycle << std::endl;
             auto GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
             printGrainMisorientations(nx, ny, nz, GrainID_WholeDomain, CellType_WholeDomain, GrainUnitVector_Host,
-                                      NGrainOrientations, deltax, XMin, YMin, ZMin, true, layernumber, ZBound_Low,
-                                      nzActive);
+                                      NGrainOrientations, deltax, XMin, YMin, ZMin, true, layernumber, z_layer_bottom,
+                                      nz_layer);
         }
     }
 
     // Prints final values of selected data structures to Paraview files
-    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCell, typename ViewTypeGrainUnit,
-              typename ViewTypeUndercoolingCurrent, typename ViewTypeUndercoolingChange, typename ViewTypeMeltTimeStep,
-              typename ViewTypeCritTimeStep>
-    void printFinalExaCAData(int id, int np, int nx, int ny, int nz, int MyYSlices, int NumberOfLayers,
+    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCell, typename ViewTypeGrainUnit>
+    void printFinalExaCAData(int id, int np, int nx, int ny, int nz, int ny_local, int NumberOfLayers, int DomainSize,
                              ViewTypeLayerID LayerID, ViewTypeCell CellType, ViewTypeGrainID GrainID,
-                             ViewTypeUndercoolingCurrent UndercoolingCurrent,
-                             ViewTypeUndercoolingChange UndercoolingChange, ViewTypeMeltTimeStep MeltTimeStep,
-                             ViewTypeCritTimeStep CritTimeStep, ViewTypeGrainUnit GrainUnitVector,
+                             Temperature<device_memory_space> &temperature, ViewTypeGrainUnit GrainUnitVector,
                              int NGrainOrientations, double deltax, double XMin, double YMin, double ZMin) {
 
         if (id == 0)
             std::cout << "Printing final data structures to vtk files" << std::endl;
 
-        if ((PrintFinalGrainID) || (PrintFinalLayerID) || (PrintFinalMisorientation) ||
-            (PrintFinalUndercoolingCurrent) || (PrintDefaultRVE)) {
+        if ((PrintFinalGrainID) || (PrintFinalLayerID) || (PrintFinalMisorientation) || (PrintDefaultRVE)) {
 
             // GrainID and LayerID are printed to one vtk file, while Grain misorientation is printed to a separate vtk
             // file GrainID and LayerID are also needed needed if PrintFinalMisorientation = true
@@ -303,8 +366,8 @@ struct Print {
             if (id == 0)
                 WriteHeader(Grainplot, FName, nx, ny, nz, deltax, XMin, YMin, ZMin);
             if ((PrintFinalGrainID) || (PrintFinalLayerID) || (PrintFinalMisorientation) || (PrintDefaultRVE)) {
-                auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, GrainID);
-                auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_SHORT, LayerID);
+                auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, GrainID);
+                auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_SHORT, LayerID);
                 if (PrintFinalGrainID)
                     printViewData(id, Grainplot, nx, ny, nz, "int", "GrainID", GrainID_WholeDomain);
                 if (PrintFinalLayerID)
@@ -323,37 +386,41 @@ struct Print {
                     printExaConstitDefaultRVE(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain, deltax,
                                               NumberOfLayers);
             }
-            if (PrintFinalUndercoolingCurrent) {
-                auto UndercoolingCurrent_WholeDomain =
-                    collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_FLOAT, UndercoolingCurrent);
-                printViewData(id, Grainplot, nx, ny, nz, "float", "UndercoolingFinal", UndercoolingCurrent_WholeDomain);
-            }
             if (id == 0)
                 Grainplot.close();
         }
 
         if ((PrintFinalMeltTimeStep) || (PrintFinalCritTimeStep) || (PrintFinalUndercoolingChange) ||
-            (PrintFinalCellType)) {
+            (PrintFinalCellType) || (PrintFinalUndercoolingCurrent)) {
             // Temperature field data is printed to a separate vtk file
             std::string FName = PathToOutput + BaseFileName + "_final.vtk";
             std::ofstream GrainplotF;
             if (id == 0)
                 WriteHeader(GrainplotF, FName, nx, ny, nz, deltax, XMin, YMin, ZMin);
             if (PrintFinalMeltTimeStep) {
-                auto MeltTimeStep_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, MeltTimeStep);
+                ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, DomainSize);
+                auto MeltTimeStep_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, MeltTimeStep);
                 printViewData(id, GrainplotF, nx, ny, nz, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (PrintFinalCritTimeStep) {
-                auto CritTimeStep_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, CritTimeStep);
+                ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, DomainSize);
+                auto CritTimeStep_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, CritTimeStep);
                 printViewData(id, GrainplotF, nx, ny, nz, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (PrintFinalUndercoolingChange) {
+                ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(0, DomainSize, 0);
                 auto UndercoolingChange_WholeDomain =
-                    collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_FLOAT, UndercoolingChange);
+                    collectViewData(id, np, nx, ny, nz, ny_local, MPI_FLOAT, UndercoolingChange);
                 printViewData(id, GrainplotF, nx, ny, nz, "int", "UndercoolingChange", UndercoolingChange_WholeDomain);
             }
+            if (PrintFinalUndercoolingCurrent) {
+                auto UndercoolingCurrent_WholeDomain =
+                    collectViewData(id, np, nx, ny, nz, ny_local, MPI_FLOAT, temperature.UndercoolingCurrent);
+                printViewData(id, GrainplotF, nx, ny, nz, "float", "UndercoolingFinal",
+                              UndercoolingCurrent_WholeDomain);
+            }
             if (PrintFinalCellType) {
-                auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nz, MyYSlices, MPI_INT, CellType);
+                auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, CellType);
                 printViewData(id, GrainplotF, nx, ny, nz, "int", "CellType", CellType_WholeDomain);
             }
             if (id == 0)
@@ -382,68 +449,6 @@ struct Print {
         ParaviewOutputStream << std::fixed << "POINT_DATA " << nx * ny * nz << std::endl;
     }
 
-    // Called on rank 0 to collect view data from other ranks, or on other ranks to send data to rank 0
-    // MPI datatype corresponding to the view data
-    template <typename Collect1DViewTypeDevice>
-    auto collectViewData(int id, int np, int nx, int ny, int nz, int MyYSlices, MPI_Datatype msg_type,
-                         Collect1DViewTypeDevice ViewDataThisRank_Device) {
-        // View (int or float extracted from 1D View) for 3D data (no initial size, only given size/filled on rank 0)
-        using value_type = typename Collect1DViewTypeDevice::value_type;
-        Kokkos::View<value_type ***, Kokkos::HostSpace> ViewData_WholeDomain(
-            Kokkos::ViewAllocateWithoutInitializing(ViewDataThisRank_Device.label() + "_WholeDomain"), 0, 0, 0);
-
-        // Get the host view type
-        using host_view_type = typename Collect1DViewTypeDevice::HostMirror;
-
-        // Copy view data of interest host
-        auto ViewDataThisRank = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ViewDataThisRank_Device);
-        if (id == 0) {
-            // View (short, int, or float) for 3D data given a size
-            Kokkos::resize(ViewData_WholeDomain, nz, nx, ny);
-            // Place rank 0 data into view for whole domain
-            for (int k = 0; k < nz; k++) {
-                for (int i = 0; i < nx; i++) {
-                    for (int j = 0; j < MyYSlices; j++) {
-                        ViewData_WholeDomain(k, i, j) = ViewDataThisRank(k * nx * MyYSlices + i * MyYSlices + j);
-                    }
-                }
-            }
-
-            // Recieve values from other ranks - message size different for different ranks
-            for (int recvrank = 1; recvrank < np; recvrank++) {
-                int RecvBufSize_ThisRank = RBufSize(recvrank);
-                host_view_type RecvBufData(Kokkos::ViewAllocateWithoutInitializing("RecvBufData"),
-                                           RecvBufSize_ThisRank);
-                MPI_Recv(RecvBufData.data(), RecvBufSize_ThisRank, msg_type, recvrank, 0, MPI_COMM_WORLD,
-                         MPI_STATUS_IGNORE);
-                int DataCounter = 0;
-                for (int k = 0; k < nz; k++) {
-                    for (int i = 0; i < nx; i++) {
-                        for (int j = 0; j < RecvYSlices(recvrank); j++) {
-                            ViewData_WholeDomain(k, i, j + RecvYOffset(recvrank)) = RecvBufData(DataCounter);
-                            DataCounter++;
-                        }
-                    }
-                }
-            }
-        }
-        else {
-            // Send non-ghost node data to rank 0
-            int DataCounter = 0;
-            host_view_type SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
-            for (int k = 0; k < nz; k++) {
-                for (int i = 0; i < nx; i++) {
-                    for (int j = SendBufStartY; j < SendBufEndY; j++) {
-                        SendBuf(DataCounter) = ViewDataThisRank(k * nx * MyYSlices + i * MyYSlices + j);
-                        DataCounter++;
-                    }
-                }
-            }
-            MPI_Send(SendBuf.data(), SendBufSize, msg_type, 0, 0, MPI_COMM_WORLD);
-        }
-        return ViewData_WholeDomain;
-    }
-
     // Called on rank 0 to write view data to the vtk file
     template <typename Print3DViewType>
     void printViewData(int id, std::ofstream &Grainplot, int nx, int ny, int nz, std::string DataLabel,
@@ -454,19 +459,19 @@ struct Print {
         // Print data to the vtk file - casting to the appropriate type if necessary
         Grainplot << "SCALARS " << VarNameLabel << " " << DataLabel << " 1" << std::endl;
         Grainplot << "LOOKUP_TABLE default" << std::endl;
-        for (int k = 0; k < nz; k++) {
-            for (int j = 0; j < ny; j++) {
-                for (int i = 0; i < nx; i++) {
+        for (int coord_z = 0; coord_z < nz; coord_z++) {
+            for (int coord_y_global = 0; coord_y_global < ny; coord_y_global++) {
+                for (int coord_x = 0; coord_x < nx; coord_x++) {
                     if (DataLabel == "int") {
-                        int writeval = static_cast<int>(ViewData_WholeDomain(k, i, j));
+                        int writeval = static_cast<int>(ViewData_WholeDomain(coord_z, coord_x, coord_y_global));
                         WriteData(Grainplot, writeval, PrintBinary, true);
                     }
                     else if (DataLabel == "short") {
-                        short writeval = static_cast<short>(ViewData_WholeDomain(k, i, j));
+                        short writeval = static_cast<short>(ViewData_WholeDomain(coord_z, coord_x, coord_y_global));
                         WriteData(Grainplot, writeval, PrintBinary, true);
                     }
                     else if (DataLabel == "float") {
-                        float writeval = static_cast<float>(ViewData_WholeDomain(k, i, j));
+                        float writeval = static_cast<float>(ViewData_WholeDomain(coord_z, coord_x, coord_y_global));
                         WriteData(Grainplot, writeval, PrintBinary, true);
                     }
                 }
@@ -489,7 +494,7 @@ struct Print {
     void printGrainMisorientations(int nx, int ny, int nz, ViewTypeInt3DHost GrainID_WholeDomain,
                                    ViewTypeInt3DHost CellType_WholeDomain, ViewTypeFloat GrainUnitVector,
                                    int NGrainOrientations, double deltax, double XMin, double YMin, double ZMin,
-                                   bool IntermediatePrint, int layernumber = 0, int ZBound_Low = 0, int nzActive = 0) {
+                                   bool IntermediatePrint, int layernumber = 0, int ZBound_Low = 0, int nz_layer = 0) {
 
         // Print grain orientations to file - either all layers, or if in an intermediate state, the layers up to the
         // current one
@@ -498,7 +503,7 @@ struct Print {
         if (IntermediatePrint) {
             FName = PathToOutput + BaseFileName + "_layer" + std::to_string(layernumber) + "_" +
                     std::to_string(IntermediateFileCounter) + ".vtk";
-            ZPrintSize = ZBound_Low + nzActive;
+            ZPrintSize = ZBound_Low + nz_layer;
         }
         else {
             FName = PathToOutput + BaseFileName + "_Misorientations.vtk";
@@ -623,7 +628,7 @@ std::string version();
 std::string gitCommitHash();
 std::string kokkosVersion();
 void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutput, std::string BaseFileName,
-                   std::string SimulationType, int MyYSlices, int MyYOffset, InterfacialResponseFunction irf,
+                   std::string SimulationType, int ny_local, int y_offset, InterfacialResponseFunction irf,
                    double deltax, double NMax, double dTN, double dTsigma, std::vector<std::string> temp_paths,
                    int TempFilesInSeries, double HT_deltax, double deltat, int NumberOfLayers, int LayerHeight,
                    std::string SubstrateFileName, double SubstrateGrainSpacing, bool SubstrateFile, double G, double R,

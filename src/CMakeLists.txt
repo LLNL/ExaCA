@@ -8,6 +8,7 @@ set(EXACA_HEADERS
     CAnucleation.hpp
     CAparsefiles.hpp
     CAprint.hpp
+    CAtemperature.hpp
     CAtypes.hpp
     CAupdate.hpp
     ExaCA.hpp

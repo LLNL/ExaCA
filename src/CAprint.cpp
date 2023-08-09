@@ -21,7 +21,7 @@ std::string kokkosVersion() { return ExaCA_Kokkos_VERSION_STRING; }
 // Print a log file for this ExaCA run in json file format, containing information about the run parameters used
 // from the input file as well as the decomposition scheme
 void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutput, std::string BaseFileName,
-                   std::string SimulationType, int MyYSlices, int MyYOffset, InterfacialResponseFunction irf,
+                   std::string SimulationType, int ny_local, int y_offset, InterfacialResponseFunction irf,
                    double deltax, double NMax, double dTN, double dTsigma, std::vector<std::string> temp_paths,
                    int TempFilesInSeries, double HT_deltax, double deltat, int NumberOfLayers, int LayerHeight,
                    std::string SubstrateFileName, double SubstrateGrainSpacing, bool SubstrateFile, double G, double R,
@@ -33,10 +33,10 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutp
                    double YMax, double ZMin, double ZMax, std::string GrainOrientationFile,
                    float VolFractionNucleated) {
 
-    int *YSlices = new int[np];
-    int *YOffset = new int[np];
-    MPI_Gather(&MyYSlices, 1, MPI_INT, YSlices, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Gather(&MyYOffset, 1, MPI_INT, YOffset, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    int *ny_local_allranks = new int[np];
+    int *y_offset_allranks = new int[np];
+    MPI_Gather(&ny_local, 1, MPI_INT, ny_local_allranks, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(&y_offset, 1, MPI_INT, y_offset_allranks, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (id == 0) {
         std::string FName = PathToOutput + BaseFileName + ".json";
@@ -112,12 +112,12 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutp
         ExaCALog << "   \"Decomposition\": {" << std::endl;
         ExaCALog << "       \"SubdomainYSize\": [";
         for (int i = 0; i < np - 1; i++)
-            ExaCALog << YSlices[i] << ",";
-        ExaCALog << YSlices[np - 1] << "]," << std::endl;
+            ExaCALog << ny_local_allranks[i] << ",";
+        ExaCALog << ny_local_allranks[np - 1] << "]," << std::endl;
         ExaCALog << "       \"SubdomainYOffset\": [";
         for (int i = 0; i < np - 1; i++)
-            ExaCALog << YOffset[i] << ",";
-        ExaCALog << YOffset[np - 1] << "]" << std::endl;
+            ExaCALog << y_offset_allranks[i] << ",";
+        ExaCALog << y_offset_allranks[np - 1] << "]" << std::endl;
         ExaCALog << "   }," << std::endl;
         ExaCALog << "   \"Timing\": {" << std::endl;
         ExaCALog << "       \"Runtime\": " << InitTime + RunTime + OutTime << "," << std::endl;

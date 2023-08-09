@@ -12,6 +12,7 @@
 #include "CAinterfacialresponse.hpp"
 #include "CAparsefiles.hpp"
 #include "CAprint.hpp"
+#include "CAtemperature.hpp"
 #include "CAtypes.hpp"
 #include "CAupdate.hpp"
 #include "runCA.hpp"

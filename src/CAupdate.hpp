@@ -9,41 +9,36 @@
 #include "CAcelldata.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAprint.hpp"
+#include "CAtemperature.hpp"
 #include "CAtypes.hpp"
 
 #include <Kokkos_Core.hpp>
 
 #include <string>
 
-void FillSteeringVector_NoRemelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, ViewI CritTimeStep,
-                                 ViewF UndercoolingCurrent, ViewF UndercoolingChange,
-                                 CellData<device_memory_space> &cellData, int ZBound_Low, int layernumber,
-                                 ViewI SteeringVector, ViewI numSteer_G, ViewI_H numSteer_H);
-void FillSteeringVector_Remelt(int cycle, int LocalActiveDomainSize, int nx, int MyYSlices, NList NeighborX,
-                               NList NeighborY, NList NeighborZ, ViewI CritTimeStep, ViewF UndercoolingCurrent,
-                               ViewF UndercoolingChange, CellData<device_memory_space> &cellData, int ZBound_Low,
-                               int nzActive, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host,
-                               ViewI MeltTimeStep, ViewI SolidificationEventCounter, ViewI NumberOfSolidificationEvents,
-                               ViewF3D LayerTimeTempHistory);
-void CellCapture(int id, int np, int cycle, int LocalActiveDomainSize, int LocalDomainSize, int nx, int MyYSlices,
-                 InterfacialResponseFunction irf, int MyYOffset, NList NeighborX, NList NeighborY, NList NeighborZ,
-                 ViewI CritTimeStep, ViewF UndercoolingCurrent, ViewF UndercoolingChange, ViewF GrainUnitVector,
-                 ViewF CritDiagonalLength, ViewF DiagonalLength, CellData<device_memory_space> &cellData,
-                 ViewF DOCenter, int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend,
-                 ViewI SendSizeNorth, ViewI SendSizeSouth, int ZBound_Low, int nzActive, int nz, ViewI SteeringVector,
-                 ViewI numSteer_G, ViewI_H numSteer_H, bool AtNorthBoundary, bool AtSouthBoundary,
-                 ViewI SolidificationEventCounter, ViewF3D LayerTimeTempHistory, ViewI NumberOfSolidificationEvents,
-                 int &BufSize);
+void FillSteeringVector_NoRemelt(int cycle, int DomainSize, Temperature<device_memory_space> &temperature,
+                                 CellData<device_memory_space> &cellData, int layernumber, ViewI SteeringVector,
+                                 ViewI numSteer, ViewI_H numSteer_Host);
+void FillSteeringVector_Remelt(int cycle, int DomainSize, int nx, int ny_local, NList NeighborX, NList NeighborY,
+                               NList NeighborZ, Temperature<device_memory_space> &temperature,
+                               CellData<device_memory_space> &cellData, int nz_layer, ViewI SteeringVector,
+                               ViewI numSteer, ViewI_H numSteer_Host);
+void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunction irf, int y_offset, NList NeighborX,
+                 NList NeighborY, NList NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength,
+                 ViewF DiagonalLength, CellData<device_memory_space> &cellData,
+                 Temperature<device_memory_space> &temperature, ViewF DOCenter, int NGrainOrientations,
+                 Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
+                 int nz_layer, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
+                 bool AtSouthBoundary, int &BufSize);
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
-                  ViewI MeltTimeStep, int LocalActiveDomainSize, int MyYSlices, int ZBound_Low,
+                  Temperature<device_memory_space> &temperature, int DomainSize, int ny_local, int z_layer_bottom,
                   CellData<device_memory_space> &cellData, int id, int layernumber, int np, int nx, int ny,
-                  ViewF GrainUnitVector, Print print, int NGrainOrientations, int nzActive, int nz, double deltax,
+                  ViewF GrainUnitVector, Print print, int NGrainOrientations, int nz_layer, int nz, double deltax,
                   double XMin, double YMin, double ZMin);
-void IntermediateOutputAndCheck(int id, int np, int &cycle, int MyYSlices, int LocalActiveDomainSize, int nx, int ny,
-                                int nz, int nzActive, double deltax, double XMin, double YMin, double ZMin,
+void IntermediateOutputAndCheck(int id, int np, int &cycle, int ny_local, int DomainSize, int nx, int ny, int nz,
+                                int nz_layer, int z_layer_bottom, double deltax, double XMin, double YMin, double ZMin,
                                 int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<device_memory_space> &cellData,
-                                ViewI CritTimeStep, std::string TemperatureDataType, int layernumber, int,
-                                int ZBound_Low, int NGrainOrientations, ViewF GrainUnitVector, Print print,
-                                ViewI MeltTimeStep);
+                                Temperature<device_memory_space> &temperature, std::string SimulationType,
+                                int layernumber, int NGrainOrientations, ViewF GrainUnitVector, Print print);
 
 #endif
