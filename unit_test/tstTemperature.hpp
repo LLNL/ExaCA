@@ -169,7 +169,7 @@ TEST(TEST_CATEGORY, temperature) {
     std::vector<bool> LayerwiseTempRead_vals = {false, true, false, true};
     std::vector<bool> TestBinaryInputRead_vals = {false, false, false, true};
     int num_vals = TestBinaryInputRead_vals.size();
-    for (int test_count = 0; test_count < num_vals - 1; test_count++) {
+    for (int test_count = 0; test_count < num_vals; test_count++) {
         testReadTemperatureData(NumberOfLayers_vals[test_count], LayerwiseTempRead_vals[test_count],
                                 TestBinaryInputRead_vals[test_count]);
     }
