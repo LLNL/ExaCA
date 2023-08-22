@@ -25,10 +25,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartInitTime = MPI_Wtime();
 
     int nx, ny, nz, NumberOfLayers, LayerHeight, TempFilesInSeries;
-    int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio;
+    int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, singleGrainOrientation;
     bool UseSubstrateFile, BaseplateThroughPowder, LayerwiseTempRead, PowderFirstLayer;
     float SubstrateGrainSpacing;
-    double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction;
+    double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction,
+        initUndercooling;
     std::string SubstrateFileName, MaterialFileName, SimulationType, GrainOrientationFile;
     std::vector<std::string> temp_paths;
 
@@ -40,7 +41,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       TempFilesInSeries, temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight, MaterialFileName,
                       SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
                       FractSurfaceSitesActive, NSpotsX, NSpotsY, SpotOffset, SpotRadius, RNGSeed,
-                      BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, PowderFirstLayer, print);
+                      BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, PowderFirstLayer, print,
+                      initUndercooling, singleGrainOrientation);
     InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax);
 
     // Variables characterizing local processor grids relative to global domain
@@ -95,8 +97,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         temperature.readTemperatureData(id, deltax, HT_deltax, HTtoCAratio, y_offset, ny_local, YMin, temp_paths,
                                         NumberOfLayers, TempFilesInSeries, LayerwiseTempRead, 0);
     // Initialize the temperature fields for the simualtion type of interest
-    if (SimulationType == "C")
-        temperature.initialize(G, R, id, nx, ny_local, deltax, deltat, DomainSize);
+    if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
+        if (G == 0)
+            temperature.initialize(R, id, deltat, DomainSize, initUndercooling);
+        else
+            temperature.initialize(SimulationType, G, R, id, nx, ny_local, nz, deltax, deltat, DomainSize,
+                                   initUndercooling);
+    }
     else if (SimulationType == "S")
         temperature.initialize(G, R, id, nx, ny_local, y_offset, deltax, deltat, DomainSize, irf.FreezingRange, NSpotsX,
                                NSpotsY, SpotRadius, SpotOffset, NumberOfLayers);
@@ -144,6 +151,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         cellData.init_substrate(id, FractSurfaceSitesActive, ny_local, nx, ny, y_offset, NeighborX, NeighborY,
                                 NeighborZ, GrainUnitVector, NGrainOrientations, DiagonalLength, DOCenter,
                                 CritDiagonalLength, RNGSeed);
+    else if (SimulationType == "SingleGrain")
+        cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize, NeighborX,
+                                NeighborY, NeighborZ, GrainUnitVector, DiagonalLength, DOCenter, CritDiagonalLength);
     else
         cellData.init_substrate(SubstrateFileName, UseSubstrateFile, BaseplateThroughPowder, PowderFirstLayer, nx, ny,
                                 nz, LayerHeight, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset,
@@ -254,11 +264,15 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
-            if (cycle % 1000 == 0) {
+            if ((cycle % 1000 == 0) && (SimulationType != "SingleGrain")) {
                 IntermediateOutputAndCheck(id, np, cycle, ny_local, DomainSize, nx, ny, nz, nz_layer, z_layer_bottom,
                                            deltax, XMin, YMin, ZMin, nucleation.SuccessfulNucleationCounter, XSwitch,
                                            cellData, temperature, SimulationType, layernumber, NGrainOrientations,
                                            GrainUnitVector, print);
+            }
+            else if (SimulationType == "SingleGrain") {
+                IntermediateOutputAndCheck_SingleGrain(id, cycle, ny_local, y_offset, DomainSize, nx, ny, nz, XSwitch,
+                                                       cellData.CellType_AllLayers);
             }
 
         } while (XSwitch == 0);

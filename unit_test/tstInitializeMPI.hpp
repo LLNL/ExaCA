@@ -124,10 +124,11 @@ void testInputReadFromFile(int PrintVersion) {
 
     // Read and parse each input file
     for (auto FileName : InputFilenames) {
-        int TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, NSpotsX, NSpotsY, SpotOffset, SpotRadius;
+        int TempFilesInSeries, NumberOfLayers, LayerHeight, nx, ny, nz, NSpotsX, NSpotsY, SpotOffset, SpotRadius,
+            singleGrainOrientation;
         float SubstrateGrainSpacing;
         double deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R, FractSurfaceSitesActive, RNGSeed,
-            PowderActiveFraction;
+            PowderActiveFraction, initUndercooling;
         bool BaseplateThroughPowder, LayerwiseTempRead, UseSubstrateFile, PowderFirstLayer;
         std::string SimulationType, GrainOrientationFile, temppath, tempfile, SubstrateFileName, MaterialFileName;
         std::vector<std::string> temp_paths;
@@ -138,7 +139,8 @@ void testInputReadFromFile(int PrintVersion) {
                           TempFilesInSeries, temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight,
                           MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
                           nz, FractSurfaceSitesActive, NSpotsX, NSpotsY, SpotOffset, SpotRadius, RNGSeed,
-                          BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, PowderFirstLayer, print);
+                          BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, PowderFirstLayer, print,
+                          initUndercooling, singleGrainOrientation);
         InterfacialResponseFunction irf(0, MaterialFileName, deltat, deltax);
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -163,6 +165,7 @@ void testInputReadFromFile(int PrintVersion) {
             EXPECT_FALSE(print.PrintIdleTimeSeriesFrames);
             EXPECT_DOUBLE_EQ(G, 500000.0);
             EXPECT_DOUBLE_EQ(R, 300000.0);
+            EXPECT_DOUBLE_EQ(initUndercooling, 0.0);
             // compare with float to avoid floating point error with irrational number
             float deltat_comp = static_cast<float>(deltat);
             EXPECT_FLOAT_EQ(deltat_comp, pow(10, -6) / 15.0);

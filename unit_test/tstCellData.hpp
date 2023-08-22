@@ -24,6 +24,77 @@ namespace Test {
 //---------------------------------------------------------------------------//
 // cell_init_tests
 //---------------------------------------------------------------------------//
+void testCellDataInit_SingleGrain() {
+
+    using memory_space = TEST_MEMSPACE;
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    int singleGrainOrientation = 0;
+
+    // Let overall domain be 5 cells in X and Z, 50 cells in Y
+    // This should in turn place the single grain in the cell at X = Y = 2 and Z = 24 (domain center)
+    // Domain for each rank
+    int nx = 5;
+    int ny = 50;
+    int nz = 5;
+    int expectedGrainX = floorf(static_cast<float>(nx) / 2.0);
+    int expectedGrainY = floorf(static_cast<float>(ny) / 2.0);
+    int expectedGrainZ = floorf(static_cast<float>(nz) / 2.0);
+
+    // Decompose domain
+    int y_offset, ny_local, NeighborRank_North, NeighborRank_South;
+    int DomainSize;
+    bool AtNorthBoundary, AtSouthBoundary;
+    DomainDecomposition(id, np, ny_local, y_offset, NeighborRank_North, NeighborRank_South, nx, ny, nz, DomainSize,
+                        AtNorthBoundary, AtSouthBoundary);
+
+    // Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ)
+    NList NeighborX, NeighborY, NeighborZ;
+    NeighborListInit(NeighborX, NeighborY, NeighborZ);
+
+    // Cell data struct
+    CellData<memory_space> cellData(DomainSize, DomainSize, nx, ny_local, 0);
+
+    // Orientation data - init to dummy values
+    ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9);
+    Kokkos::deep_copy(GrainUnitVector, 1.0 / sqrt(3.0));
+
+    // Cells for octahedron data
+    ViewF DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), DomainSize);
+    ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * DomainSize);
+    ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * DomainSize);
+
+    // Init grain
+    cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize, NeighborX,
+                            NeighborY, NeighborZ, GrainUnitVector, DiagonalLength, DOCenter, CritDiagonalLength);
+
+    // Copy cell type and grain ID back to host to check if the values match - only 1 cell should've been assigned type
+    // active and GrainID = 1 (though it may be duplicated in the ghost nodes of other ranks)
+    ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
+    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
+    for (int coord_z = 0; coord_z < nz; coord_z++) {
+        for (int coord_x = 0; coord_x < nx; coord_x++) {
+            for (int coord_y = 0; coord_y < ny_local; coord_y++) {
+                int coord_y_global = coord_y + y_offset;
+                int coord_1d = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
+                if ((coord_z == expectedGrainZ) && (coord_x == expectedGrainX) && (coord_y_global == expectedGrainY)) {
+                    EXPECT_EQ(GrainID_Host(coord_1d), singleGrainOrientation + 1);
+                    EXPECT_EQ(CellType_Host(coord_1d), Active);
+                }
+                else {
+                    EXPECT_EQ(GrainID_Host(coord_1d), 0);
+                    EXPECT_EQ(CellType_Host(coord_1d), Liquid);
+                }
+            }
+        }
+    }
+}
+
 void testCellDataInit_ConstrainedGrowth() {
 
     using memory_space = TEST_MEMSPACE;
@@ -280,6 +351,7 @@ void testCellDataInit(bool PowderFirstLayer) {
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, cell_init_tests) {
+    testCellDataInit_SingleGrain();
     testCellDataInit_ConstrainedGrowth();
     // For non-constrained solidification problems, test w/ and w/o space left for powder layer
     testCellDataInit(true);

@@ -40,5 +40,7 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int ny_local, int Do
                                 int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<device_memory_space> &cellData,
                                 Temperature<device_memory_space> &temperature, std::string SimulationType,
                                 int layernumber, int NGrainOrientations, ViewF GrainUnitVector, Print print);
+void IntermediateOutputAndCheck_SingleGrain(int id, int cycle, int ny_local, int y_offset, int DomainSize, int nx,
+                                            int ny, int nz, int &XSwitch, ViewI CellType_AllLayers);
 
 #endif

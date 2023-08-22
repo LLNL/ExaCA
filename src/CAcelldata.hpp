@@ -49,6 +49,51 @@ struct CellData {
         LayerRange = std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer);
     }
 
+    // Initializes the single active cell and associated active cell data structures for the single grain at the domain
+    // center
+    void init_substrate(int id, int singleGrainOrientation, int nx, int ny, int nz, int ny_local, int y_offset,
+                        int DomainSize, NList NeighborX, NList NeighborY, NList NeighborZ, ViewF GrainUnitVector,
+                        ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength) {
+
+        // Location of the single grain
+        int grainLocationX = floorf(static_cast<float>(nx) / 2.0);
+        int grainLocationY = floorf(static_cast<float>(ny) / 2.0);
+        int grainLocationZ = floorf(static_cast<float>(nz) / 2.0);
+
+        auto CellType_AllLayers_local = CellType_AllLayers;
+        auto GrainID_AllLayers_local = GrainID_AllLayers;
+        Kokkos::parallel_for(
+            "SingleGrainInit", DomainSize, KOKKOS_LAMBDA(const int &index) {
+                int coord_x = getCoordX(index, nx, ny_local);
+                int coord_y = getCoordY(index, nx, ny_local);
+                int coord_z = getCoordZ(index, nx, ny_local);
+                int coord_y_global = coord_y + y_offset;
+                if ((coord_x == grainLocationX) && (coord_y_global == grainLocationY) && (coord_z == grainLocationZ)) {
+                    CellType_AllLayers_local(index) = Active;
+                    GrainID_AllLayers_local(index) = singleGrainOrientation + 1;
+
+                    // Initialize new octahedron
+                    createNewOctahedron(index, DiagonalLength, DOCenter, coord_x, coord_y, y_offset, coord_z);
+
+                    // The orientation for the new grain will depend on its Grain ID
+                    float cx = coord_x + 0.5;
+                    float cy = coord_y_global + 0.5;
+                    float cz = coord_z + 0.5;
+                    // Calculate critical values at which this active cell leads to the activation of a neighboring
+                    // liquid cell. Octahedron center and cell center overlap for octahedra created as part of a new
+                    // grain
+                    calcCritDiagonalLength(index, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
+                                           singleGrainOrientation, GrainUnitVector, CritDiagonalLength);
+                }
+                else
+                    CellType_AllLayers_local(index) = Liquid;
+            });
+        if ((grainLocationY >= y_offset) && (grainLocationY < y_offset + ny_local))
+            std::cout << "Rank " << id << " initialized a grain with orientation " << singleGrainOrientation
+                      << " initialized at X = " << grainLocationX << ", Y = " << grainLocationY
+                      << ", Z = " << grainLocationZ << std::endl;
+    }
+
     // Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom
     // surface of the constrained domain. Also initialize active cell data structures associated with the substrate
     // grains
