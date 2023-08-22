@@ -227,17 +227,12 @@ struct Temperature {
                 // Cells reach liquidus at a time dependent on their Z coordinate
                 float liquidusTime = distFromLiquidus * G * deltax / (R * deltat);
                 // Cells with negative liquidus time values are already undercooled, should have positive undercooling
-                // Cells with positive liquidus time values are not yet tracked, leave as default init 0s
-                if (liquidusTime < 0) {
+                // Cells with positive liquidus time values are not yet tracked
+                // Leave current undercooling as default zeros
+                if (liquidusTime < 0)
                     LayerTimeTempHistory_local(index, 0, 1) = -1;
-                }
-                else {
+                else
                     LayerTimeTempHistory_local(index, 0, 1) = liquidusTime;
-                    if (SimulationType == "C")
-                        UndercoolingCurrent(index) = 0.0;
-                    else
-                        UndercoolingCurrent(index) = -R * deltat * liquidusTime;
-                }
                 // Cells cool at a constant rate
                 LayerTimeTempHistory_local(index, 0, 2) = R * deltat;
                 // All cells solidify once
