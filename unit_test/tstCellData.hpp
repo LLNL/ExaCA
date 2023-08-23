@@ -27,6 +27,7 @@ namespace Test {
 void testCellDataInit_SingleGrain() {
 
     using memory_space = TEST_MEMSPACE;
+    using view_float = Kokkos::View<float *, memory_space>;
 
     int id, np;
     // Get number of processes
@@ -61,13 +62,13 @@ void testCellDataInit_SingleGrain() {
     CellData<memory_space> cellData(DomainSize, DomainSize, nx, ny_local, 0);
 
     // Orientation data - init to dummy values
-    ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9);
+    view_float GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9);
     Kokkos::deep_copy(GrainUnitVector, 1.0 / sqrt(3.0));
 
     // Cells for octahedron data
-    ViewF DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), DomainSize);
-    ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * DomainSize);
-    ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * DomainSize);
+    view_float DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), DomainSize);
+    view_float DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * DomainSize);
+    view_float CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * DomainSize);
 
     // Init grain
     cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize, NeighborX,
@@ -75,8 +76,8 @@ void testCellDataInit_SingleGrain() {
 
     // Copy cell type and grain ID back to host to check if the values match - only 1 cell should've been assigned type
     // active and GrainID = 1 (though it may be duplicated in the ghost nodes of other ranks)
-    ViewI_H GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
-    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
+    auto GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
+    auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
     for (int coord_z = 0; coord_z < nz; coord_z++) {
         for (int coord_x = 0; coord_x < nx; coord_x++) {
             for (int coord_y = 0; coord_y < ny_local; coord_y++) {

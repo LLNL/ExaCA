@@ -631,8 +631,8 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int ny_local, int Do
 //*****************************************************************************/
 // Prints intermediate code output to stdout and checks to see the single grain simulation end condition (the grain has
 // reached a domain edge) has been satisfied
-void IntermediateOutputAndCheck_SingleGrain(int id, int cycle, int ny_local, int y_offset, int DomainSize, int nx,
-                                            int ny, int nz, int &XSwitch, ViewI CellType_AllLayers) {
+void IntermediateOutputAndCheck(int id, int cycle, int ny_local, int y_offset, int DomainSize, int nx, int ny, int nz,
+                                int &XSwitch, ViewI CellType_AllLayers) {
 
     unsigned long int LocalLiquidCells, LocalActiveCells, LocalSolidCells;
     ViewB2D EdgesReached(Kokkos::ViewAllocateWithoutInitializing("EdgesReached"), 3, 2); // init to false

@@ -271,8 +271,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                                            GrainUnitVector, print);
             }
             else if (SimulationType == "SingleGrain") {
-                IntermediateOutputAndCheck_SingleGrain(id, cycle, ny_local, y_offset, DomainSize, nx, ny, nz, XSwitch,
-                                                       cellData.CellType_AllLayers);
+                IntermediateOutputAndCheck(id, cycle, ny_local, y_offset, DomainSize, nx, ny, nz, XSwitch,
+                                           cellData.CellType_AllLayers);
             }
 
         } while (XSwitch == 0);

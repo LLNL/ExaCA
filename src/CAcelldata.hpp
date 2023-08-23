@@ -52,8 +52,9 @@ struct CellData {
     // Initializes the single active cell and associated active cell data structures for the single grain at the domain
     // center
     void init_substrate(int id, int singleGrainOrientation, int nx, int ny, int nz, int ny_local, int y_offset,
-                        int DomainSize, NList NeighborX, NList NeighborY, NList NeighborZ, ViewF GrainUnitVector,
-                        ViewF DiagonalLength, ViewF DOCenter, ViewF CritDiagonalLength) {
+                        int DomainSize, NList NeighborX, NList NeighborY, NList NeighborZ,
+                        view_type_float GrainUnitVector, view_type_float DiagonalLength, view_type_float DOCenter,
+                        view_type_float CritDiagonalLength) {
 
         // Location of the single grain
         int grainLocationX = floorf(static_cast<float>(nx) / 2.0);

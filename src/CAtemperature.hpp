@@ -193,7 +193,7 @@ struct Temperature {
                 MaxSolidificationEvents_local(0) = 1;
                 NumberOfSolidificationEvents_local(index) = 1;
                 // All cells at init undercooling
-                UndercoolingCurrent(index) = initUndercooling;
+                UndercoolingCurrent_local(index) = initUndercooling;
             });
         if (id == 0)
             std::cout << "Undercooling field initialized to = " << initUndercooling << " K for all cells" << std::endl;
@@ -225,14 +225,16 @@ struct Temperature {
                 // All cells past melting time step
                 LayerTimeTempHistory_local(index, 0, 0) = -1;
                 // Cells reach liquidus at a time dependent on their Z coordinate
-                float liquidusTime = distFromLiquidus * G * deltax / (R * deltat);
                 // Cells with negative liquidus time values are already undercooled, should have positive undercooling
-                // Cells with positive liquidus time values are not yet tracked
-                // Leave current undercooling as default zeros
-                if (liquidusTime < 0)
+                // and negative liquidus time step Cells with positive liquidus time values are not yet tracked - leave
+                // current undercooling as default zeros and set liquidus time step
+                if (distFromLiquidus < 0) {
                     LayerTimeTempHistory_local(index, 0, 1) = -1;
+                    UndercoolingCurrent_local(index) = initUndercooling - distFromLiquidus * (G * deltax);
+                }
                 else
-                    LayerTimeTempHistory_local(index, 0, 1) = liquidusTime;
+                    LayerTimeTempHistory_local(index, 0, 1) = distFromLiquidus * G * deltax / (R * deltat);
+                ;
                 // Cells cool at a constant rate
                 LayerTimeTempHistory_local(index, 0, 2) = R * deltat;
                 // All cells solidify once
