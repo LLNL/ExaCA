@@ -627,3 +627,71 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int ny_local, int Do
                      z_layer_bottom, cellData, id, layernumber, np, nx, ny, GrainUnitVector, print, NGrainOrientations,
                      nz_layer, nz, deltax, XMin, YMin, ZMin);
 }
+
+//*****************************************************************************/
+// Prints intermediate code output to stdout and checks to see the single grain simulation end condition (the grain has
+// reached a domain edge) has been satisfied
+void IntermediateOutputAndCheck(int id, int cycle, int ny_local, int y_offset, int DomainSize, int nx, int ny, int nz,
+                                int &XSwitch, ViewI CellType_AllLayers) {
+
+    unsigned long int LocalLiquidCells, LocalActiveCells, LocalSolidCells;
+    ViewB2D EdgesReached(Kokkos::ViewAllocateWithoutInitializing("EdgesReached"), 3, 2); // init to false
+    Kokkos::deep_copy(EdgesReached, false);
+
+    Kokkos::parallel_reduce(
+        DomainSize,
+        KOKKOS_LAMBDA(const int &index, unsigned long int &sum_liquid, unsigned long int &sum_active,
+                      unsigned long int &sum_solid) {
+            if (CellType_AllLayers(index) == Liquid)
+                sum_liquid += 1;
+            else if (CellType_AllLayers(index) == Active) {
+                sum_active += 1;
+                // Did this cell reach a domain edge?
+                int coord_x = getCoordX(index, nx, ny_local);
+                int coord_y = getCoordY(index, nx, ny_local);
+                int coord_z = getCoordZ(index, nx, ny_local);
+                int coord_y_global = coord_y + y_offset;
+                if (coord_x == 0)
+                    EdgesReached(0, 0) = true;
+                if (coord_x == nx - 1)
+                    EdgesReached(0, 1) = true;
+                if (coord_y_global == 0)
+                    EdgesReached(1, 0) = true;
+                if (coord_y_global == ny - 1)
+                    EdgesReached(1, 1) = true;
+                if (coord_z == 0)
+                    EdgesReached(2, 0) = true;
+                if (coord_z == nz - 1)
+                    EdgesReached(2, 1) = true;
+            }
+            else if (CellType_AllLayers(index) == Solid)
+                sum_solid += 1;
+        },
+        LocalLiquidCells, LocalActiveCells, LocalSolidCells);
+
+    unsigned long int GlobalLiquidCells, GlobalActiveCells, GlobalSolidCells;
+    MPI_Reduce(&LocalLiquidCells, &GlobalLiquidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalActiveCells, &GlobalActiveCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&LocalSolidCells, &GlobalSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "cycle = " << cycle << " : Liquid cells = " << GlobalLiquidCells
+                  << " Active cells = " << GlobalActiveCells << " Solid cells = " << GlobalSolidCells << std::endl;
+
+    // Each rank checks to see if a global domain boundary was reached
+    ViewB2D_H EdgesReached_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), EdgesReached);
+    int XSwitchLocal = 0;
+    std::vector<std::string> EdgeDims = {"X", "Y", "Z"};
+    std::vector<std::string> EdgeNames = {"Lower", "Upper"};
+    for (int edgedim = 0; edgedim < 3; edgedim++) {
+        for (int edgename = 0; edgename < 2; edgename++) {
+            if (EdgesReached_Host(edgedim, edgename)) {
+                std::cout << EdgeNames[edgename] << " edge of domain in the " << EdgeDims[edgedim]
+                          << " direction was reached on rank " << id << " and cycle " << cycle
+                          << "; simulation is complete" << std::endl;
+                XSwitchLocal = 1;
+            }
+        }
+    }
+    // Simulation ends if a global domain boundary was reached on any rank
+    MPI_Allreduce(&XSwitchLocal, &XSwitch, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+}

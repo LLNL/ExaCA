@@ -159,6 +159,107 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     }
 }
 
+// Test unidirectional solidification problem for either directional solidification or growth of a single grain seed,
+// with thermal gradient G in the domain
+void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
+
+    using memory_space = TEST_MEMSPACE;
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    int nx = 2;
+    int ny_local = 5;
+    int nz = 6; // (Front is at Z = 0 for directional growth, single grain seed at Z = 2 for singlegrain problem)
+    int DomainSize = nx * ny_local * nz;
+    int coord_z_Center = floorf(static_cast<float>(nz) / 2.0);
+    double initUndercooling;
+    if (SimulationType == "C")
+        initUndercooling = 0.0;
+    else
+        initUndercooling = 2.0;
+
+    // For problems with non-zero thermal gradient, 1 K difference between each cell and its neighbor in Z
+    double deltax;
+    if (G == 0)
+        deltax = 1 * pow(10, -6);
+    else
+        deltax = 1.0 / G;
+    double GNorm = G * deltax;
+    // Cells cool at rate of 1 K per time step
+    double R = 1000000;
+    double deltat = 1 * pow(10, -6);
+    double RNorm = R * deltat;
+
+    // Temperature struct
+    Temperature<memory_space> temperature(DomainSize, 1);
+    if (G == 0)
+        temperature.initialize(R, id, deltat, DomainSize, initUndercooling);
+    else
+        temperature.initialize(SimulationType, G, R, id, nx, ny_local, nz, deltax, deltat, DomainSize,
+                               initUndercooling);
+
+    // Copy temperature views back to host
+    auto NumberOfSolidificationEvents_Host = Kokkos::create_mirror_view_and_copy(
+        Kokkos::HostSpace(), temperature.NumberOfSolidificationEvents); // Copy orientation data back to the host
+    auto SolidificationEventCounter_Host = Kokkos::create_mirror_view_and_copy(
+        Kokkos::HostSpace(), temperature.SolidificationEventCounter); // Copy orientation data back to the host
+    auto MaxSolidificationEvents_Host = Kokkos::create_mirror_view_and_copy(
+        Kokkos::HostSpace(), temperature.MaxSolidificationEvents); // Copy orientation data back to the host
+    auto UndercoolingCurrent_Host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.UndercoolingCurrent);
+    auto LayerTimeTempHistory_Host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.LayerTimeTempHistory);
+
+    // Check results
+    int locationOfLiquidus;
+    if (SimulationType == "C")
+        locationOfLiquidus = 0;
+    else
+        locationOfLiquidus = coord_z_Center + round(initUndercooling / GNorm);
+    EXPECT_EQ(MaxSolidificationEvents_Host(0), 1);
+    for (int coord_z = 0; coord_z < nz; coord_z++) {
+        for (int coord_x = 0; coord_x < nx; coord_x++) {
+            for (int coord_y = 0; coord_y < ny_local; coord_y++) {
+                int index = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
+                // Each cell solidifies once, and counter should start at 0, associated with the zeroth layer
+                // MeltTimeStep should be -1 for all cells
+                // Cells cool at 1 K per time step
+                EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 0), -1.0);
+                EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 2), RNorm);
+                EXPECT_EQ(NumberOfSolidificationEvents_Host(index), 1);
+                EXPECT_EQ(SolidificationEventCounter_Host(index), 0);
+                // UndercoolingCurrent should be zero for cells if a positive G is given, or initUndercooling if being
+                // initialized with a uniform undercooling field (all cells initially below liquidus)
+                if (G == 0) {
+                    EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(index), initUndercooling);
+                    EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 1), -1);
+                }
+                else {
+                    int distFromLiquidus = coord_z - locationOfLiquidus;
+                    if (distFromLiquidus < 0) {
+                        // Undercooled cell (liquidus time step already passed, set to -1)
+                        // Cell is more undercooled from initUndercooling based on the magnitude of the distance from
+                        // the liquidus and the thermal gradient
+                        EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 1), -1);
+                        EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(index),
+                                        initUndercooling - distFromLiquidus * (G * deltax));
+                    }
+                    else {
+                        // Cell has not yet reached the nonzero liquidus time yet (or reaches it at time = 0), either
+                        // does not have an assigned undercooling or the assigned undercooling is zero
+                        EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 1), distFromLiquidus * GNorm / RNorm);
+                        EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(index), 0.0);
+                    }
+                }
+            }
+        }
+    }
+}
+
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
@@ -173,5 +274,10 @@ TEST(TEST_CATEGORY, temperature) {
         testReadTemperatureData(NumberOfLayers_vals[test_count], LayerwiseTempRead_vals[test_count],
                                 TestBinaryInputRead_vals[test_count]);
     }
+    // Test for directional and single grain problems, and with and without a thermal gradient for the single grain
+    // problem
+    testInit_UnidirectionalGradient("C", 1000000);
+    testInit_UnidirectionalGradient("SingleGrain", 0);
+    testInit_UnidirectionalGradient("SingleGrain", 1000000);
 }
 } // end namespace Test

@@ -32,7 +32,8 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny,
                        int &nz, double &FractSurfaceSitesActive, int &NSpotsX, int &NSpotsY, int &SpotOffset,
                        int &SpotRadius, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderActiveFraction,
-                       bool &LayerwiseTempRead, bool &PowderFirstLayer, Print &print) {
+                       bool &LayerwiseTempRead, bool &PowderFirstLayer, Print &print, double &initUndercooling,
+                       int &singleGrainOrientation) {
 
     std::ifstream InputData(InputFile);
     nlohmann::json inputdata = nlohmann::json::parse(InputData);
@@ -81,7 +82,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
     // Time step - given in seconds, stored in microseconds
     deltat = inputdata["Domain"]["TimeStep"];
     deltat = deltat * pow(10, -6);
-    if (SimulationType == "C") {
+    if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
         // Domain size, in cells
         nx = inputdata["Domain"]["Nx"];
         ny = inputdata["Domain"]["Ny"];
@@ -111,10 +112,18 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
 
     // Nucleation inputs:
     // Nucleation density (normalized by 10^12 m^-3), mean nucleation undercooling/st dev undercooling(K)
-    NMax = inputdata["Nucleation"]["Density"];
-    NMax = NMax * pow(10, 12);
-    dTN = inputdata["Nucleation"]["MeanUndercooling"];
-    dTsigma = inputdata["Nucleation"]["StDev"];
+    // SingleGrain problem type does not have nucleation, just a grain of a single orientation in the domain center
+    if (SimulationType != "SingleGrain") {
+        NMax = inputdata["Nucleation"]["Density"];
+        NMax = NMax * pow(10, 12);
+        dTN = inputdata["Nucleation"]["MeanUndercooling"];
+        dTsigma = inputdata["Nucleation"]["StDev"];
+    }
+    else {
+        NMax = 0.0;
+        dTN = 0.0;
+        dTsigma = 0.0;
+    }
 
     // Temperature inputs:
     if (SimulationType == "R") {
@@ -148,12 +157,20 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
         G = inputdata["TemperatureData"]["G"];
         R = inputdata["TemperatureData"]["R"];
+        if (SimulationType == "SingleGrain")
+            initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
+        else
+            initUndercooling = 0.0;
     }
 
     // Substrate inputs:
     if (SimulationType == "C") {
         // Fraction of sites at bottom surface active
         FractSurfaceSitesActive = inputdata["Substrate"]["FractionSurfaceSitesActive"];
+    }
+    else if (SimulationType == "SingleGrain") {
+        // Orientation of the single grain at the domain center
+        singleGrainOrientation = inputdata["Substrate"]["GrainOrientation"];
     }
     else {
         // Substrate data - should data come from an initial size or a file?
@@ -431,7 +448,7 @@ int calc_z_layer_bottom(std::string SimulationType, int LayerHeight, int layernu
                         double deltax) {
 
     int z_layer_bottom = -1; // assign dummy initial value
-    if (SimulationType == "C") {
+    if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
         // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
         z_layer_bottom = 0;
     }
@@ -454,7 +471,7 @@ int calc_z_layer_top(std::string SimulationType, int SpotRadius, int LayerHeight
                      double deltax, int nz, double *ZMaxLayer) {
 
     int z_layer_top = -1; // assign dummy initial value
-    if (SimulationType == "C") {
+    if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
         // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
         z_layer_top = nz - 1;
     }

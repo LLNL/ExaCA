@@ -4,6 +4,7 @@ ExaCA currently can model three types of problems:
 * Problem type C is a directional solidification problem, with the bottom surface initialized with some fraction of sites home to epitaxial grains and at the liquidus temperature and a positive thermal gradient in the +Z direction. The domain is then cooled at a constant rate. 
 * Problem type S or SM is an array of hemispherical spots, with the number of spots in X, Y, and the number of layers for which the pattern is repeated (offset by a specified number of cells in the positive Z direction) specified. This problem type also uses fixed thermal gradient magnitude and cooling rate for each spot. 
     * The M is no longer required in the problem type, as problem type S is now the same as SM (it now includes multiple melting and solidification events per cell)
+* Problem type `SingleGrain` is an initial nuclei at the domain center growing each time step until a domain edge is reached
 * Problem type R or RM is a custom solidification problem using time-temperature history file(s) (default location is `examples/Temperatures`). The format of these files are as follows:
     * The first line should be the names of the columns: x, y, z, tm, tl, cr
     * Each line following the first should have six comma-separated values corresponding to x, y, z, tm, tl, cr. x, y, and z are cell coordinates, in meters, of a given location in the simulation. The spacing between locations should correpond to a Cartesian grid, with a cell size equivalent to that specified in the input file. For each time that an x,y,z coordinate went above and below the liqiuidus temperature of the alloy during a heat transport simulation, a tm (time at which the point went above the liquidus), tl (time at which the point went below the liquidus), and cr (instantaneous cooling rate at the liquidus) should be recorded. As meters and seconds are the units used, and the cell size and time step tend to be on the order of micrometers and microseconds, it is recommended that this data be given as double precision values to avoid truncation of values
@@ -49,7 +50,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |                        | C for directional solidification (thermal gradient in build direction, fixed cooling rate)
 |                        | S for spot melt array problem (fixed thermal gradient/constant cooling rate for each hemispherical spot)
 |                        | R for use of temperature data provided in the appropriate format (see README file in examples/Temperatures)
-|                        | M should be appended to problem type if multiple melting and solidifcation events are desired (i.e, SM or RM)
+|                        | `SingleGrain` for solidification of a single grain at the domain center, continuing until it reaches a domain edge
 | MaterialFileName       | Name of material file in examples/Materials used (see README file in examples/Materials)
 | GrainOrientationFile   | File listing rotation matrix components used in assigning orientations to grains (see README file in examples/Substrate)
 | RandomSeed             | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
@@ -64,9 +65,9 @@ The .json files in the examples subdirectory are provided on the command line to
 |--------------|------------------------|---------|
 |CellSize      | All                    | CA cell size, in microns
 |TimeStep      | All                    | CA time step, in microseconds (note previously for problem type C, this was derived from deltax, G, and R)
-|Nx            | C                      | Domain size in x, in cells
-|Ny            | C                      | Domain size in y, in cells
-|Nz            | C                      | Domain size in z, in cells
+|Nx            | C, SingleGrain         | Domain size in x, in cells
+|Ny            | C, SingleGrain         | Domain size in y, in cells
+|Nz            | C, SingleGrain         | Domain size in z, in cells
 |NumberOfLayers| S, R                   | Number of layers for which the temperature pattern will be repeated
 |LayerOffset   | S, R                   | If numberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
 |NSpotsX       | S                      | Number of spots in the x direction
@@ -77,18 +78,19 @@ The .json files in the examples subdirectory are provided on the command line to
 ## Nucleation inputs
 | Input            |Relevant problem type(s)| Details |
 |------------------|------------------------|---------|
-|Density           | All                    | Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
-|MeanUndercooling  | All                    | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
-|StDevUndercooling | All                    | Standard deviation of nucleation undercooling (Gaussian distribution), in K
+|Density           | C, S, R                | Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
+|MeanUndercooling  | C, S, R                | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
+|StDevUndercooling | C, S, R                | Standard deviation of nucleation undercooling (Gaussian distribution), in K
 
 ## Temperature inputs
 | Input        | Relevant problem type(s)| Details |
 |--------------|-------------------------|---------|
-|G             | C, S                    | Thermal gradient in the build (+Z) directions, in K/m
-|R             | C, S                    | Cooling rate (uniform across the domain), in K/s
+|G             | C, S, SingleGrain       | Thermal gradient in the build (+Z) directions, in K/m
+|R             | C, S, SingleGrain       | Cooling rate (uniform across the domain), in K/s
 |HeatTransferCellSize |  R               | By default, equal to deltax, and cannot be used if remelting is considered. deltax must divide evenly into HTdeltax
 |LayerwiseTempRead | R                   | If set to Y, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to N, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. This option is only applicable to simulations with remelting; simulations without remelting (and simulations where this input is not given) default to N. Setting this to Y is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
 |TemperatureFiles | R                    | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than numberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, layerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
+|InitUndercooling | N/A               | SingleGrain      | Undercooling at the location of the seeded grain 
 
 ## Substrate inputs
 | Input        | Relevant problem type(s))| Details |
@@ -98,6 +100,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |SubstrateFilename |  S, R                | Path to and filename for substrate data (see note (a))
 |PowderDensity | S, R                     | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (b))
 |ExtendSubstrateThroughPower| S, R        | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (b))
+|GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
 
 (a) One of these inputs must be provided, but not both
 (b) This is optional, but if this is given, "extendSubstrateThroughPower" must be set to false
