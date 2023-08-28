@@ -30,8 +30,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutp
                    double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
                    double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
                    double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin, double XMax, double YMin,
-                   double YMax, double ZMin, double ZMax, std::string GrainOrientationFile,
-                   float VolFractionNucleated) {
+                   double YMax, double ZMin, double ZMax, std::string GrainOrientationFile, float VolFractionNucleated,
+                   int singleGrainOrientation) {
 
     int *ny_local_allranks = new int[np];
     int *y_offset_allranks = new int[np];
@@ -100,6 +100,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutp
         ExaCALog << "   \"Substrate\": {" << std::endl;
         if (SimulationType == "C")
             ExaCALog << "       \"FractionSurfaceSitesActive\": " << FractSurfaceSitesActive << std::endl;
+        else if (SimulationType == "SingleGrain")
+            ExaCALog << "       \"GrainOrientation\": " << singleGrainOrientation << std::endl;
         else {
             if (SubstrateFile)
                 ExaCALog << "       \"SubstrateFilename\": " << SubstrateFileName << std::endl;

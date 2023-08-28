@@ -637,7 +637,8 @@ void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutp
                    double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
                    double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
                    double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin, double XMax, double YMin,
-                   double YMax, double ZMin, double ZMax, std::string GrainOrientationFile, float VolFractionNucleated);
+                   double YMax, double ZMin, double ZMax, std::string GrainOrientationFile, float VolFractionNucleated,
+                   int singleGrainOrientation);
 void PrintExaCATiming(int np, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
                       double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
                       double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
