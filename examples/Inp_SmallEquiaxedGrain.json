@@ -1,0 +1,32 @@
+{
+   "SimulationType": "SingleGrain",
+   "MaterialFileName": "Inconel625.json",
+   "GrainOrientationFile": "GrainOrientationVectors.csv",
+   "Domain": {
+       "CellSize": 1,
+       "TimeStep": 0.0666667,
+       "Nx": 19,
+       "Ny": 19,
+       "Nz": 19
+   },
+   "TemperatureData": {
+      "InitUndercooling": 10,
+      "G": 0,
+      "R": 0
+   },
+   "Substrate": {
+      "GrainOrientation": 0
+   },
+   "Printing": {
+      "PathToOutput": "./",
+      "OutputFile": "TestProblemSmallEquiaxedGrain",
+      "PrintBinary": false,
+      "PrintExaConstitSize": 0,
+      "PrintFieldsInit": [],
+      "PrintFieldsFinal": ["GrainID"],
+      "PrintIntermediateOutput": {
+          "Frequency": 0,
+          "PrintIdleFrames": false
+      }
+   }
+}

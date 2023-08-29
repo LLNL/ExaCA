@@ -9,6 +9,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_DirSolidification.jso
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_DirSolidification.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SpotMelt.json
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_SpotMelt.json COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SmallEquiaxedGrain.json
+  ${CMAKE_CURRENT_BINARY_DIR}/Inp_SmallEquiaxedGrain.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Materials/Inconel625.json
   ${CMAKE_CURRENT_BINARY_DIR}/Inconel625.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Materials/Inconel625_Quadratic.json

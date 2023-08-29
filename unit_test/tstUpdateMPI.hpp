@@ -579,6 +579,28 @@ void testSmallDirS() {
     float VolFractionNucleated = logdata["Nucleation"]["VolFractionNucleated"];
     EXPECT_NEAR(VolFractionNucleated, 0.1784, 0.0100);
 }
+
+void testSmallEquiaxedGrain() {
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    std::string InputFile = "Inp_SmallEquiaxedGrain.json";
+
+    // Run Small equiaxed grain problem and check time step at which the grain reaches the domain edge
+    RunProgram_Reduced(id, np, InputFile);
+
+    // MPI barrier to ensure that log file has been written
+    MPI_Barrier(MPI_COMM_WORLD);
+    std::string LogFile = "TestProblemSmallEquiaxedGrain.json";
+    std::ifstream LogDataStream(LogFile);
+    nlohmann::json logdata = nlohmann::json::parse(LogDataStream);
+    int TimeStepOfOutput = logdata["TimeStepOfOutput"];
+    EXPECT_EQ(TimeStepOfOutput, 4819);
+}
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
@@ -588,5 +610,8 @@ TEST(TEST_CATEGORY, communication) {
     testResetBufferCapacity();
 }
 TEST(TEST_CATEGORY, domain_calculations) { testcalcVolFractionNucleated(); }
-TEST(TEST_CATEGORY, full_simulations) { testSmallDirS(); }
+TEST(TEST_CATEGORY, full_simulations) {
+    testSmallDirS();
+    testSmallEquiaxedGrain();
+}
 } // end namespace Test
