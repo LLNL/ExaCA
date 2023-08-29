@@ -17,8 +17,8 @@
 #include <string>
 
 void FillSteeringVector_NoRemelt(int cycle, int DomainSize, Temperature<device_memory_space> &temperature,
-                                 CellData<device_memory_space> &cellData, int layernumber, ViewI SteeringVector,
-                                 ViewI numSteer, ViewI_H numSteer_Host);
+                                 CellData<device_memory_space> &cellData, ViewI SteeringVector, ViewI numSteer,
+                                 ViewI_H numSteer_Host);
 void FillSteeringVector_Remelt(int cycle, int DomainSize, int nx, int ny_local, NList NeighborX, NList NeighborY,
                                NList NeighborZ, Temperature<device_memory_space> &temperature,
                                CellData<device_memory_space> &cellData, int nz_layer, ViewI SteeringVector,

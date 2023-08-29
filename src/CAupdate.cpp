@@ -19,25 +19,21 @@ using std::min;
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step
 void FillSteeringVector_NoRemelt(int cycle, int DomainSize, Temperature<device_memory_space> &temperature,
-                                 CellData<device_memory_space> &cellData, int layernumber, ViewI SteeringVector,
-                                 ViewI numSteer, ViewI_H numSteer_Host) {
+                                 CellData<device_memory_space> &cellData, ViewI SteeringVector, ViewI numSteer,
+                                 ViewI_H numSteer_Host) {
 
     // Cells associated with this layer that are not solid type but have passed the liquidus (crit time step) have their
     // undercooling values updated Cells that meet the aforementioned criteria and are active type should be added to
     // the steering vector
     auto CellType = cellData.getCellTypeSubview();
-    auto LayerID = cellData.getLayerIDSubview();
     Kokkos::parallel_for(
         "FillSV", DomainSize, KOKKOS_LAMBDA(const int &index) {
             int cellType = CellType(index);
-            // TODO: layer check no longer needed here
-            int layerCheck = (LayerID(index) <= layernumber);
             int isNotSolid = (cellType != Solid);
             int CritTimeStep = temperature.LayerTimeTempHistory(index, 0, 1);
             int pastCritTime = (cycle > CritTimeStep);
-            int cell_Active = (cellType == Active);
-
-            if (layerCheck && isNotSolid && pastCritTime) {
+            int cell_Active = ((cellType == Active) || (cellType == FutureActive));
+            if (isNotSolid && pastCritTime) {
                 temperature.update_undercooling(index);
                 if (cell_Active) {
                     SteeringVector(Kokkos::atomic_fetch_add(&numSteer(0), 1)) = index;
