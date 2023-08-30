@@ -52,9 +52,7 @@ struct CellData {
     // Initializes the single active cell and associated active cell data structures for the single grain at the domain
     // center
     void init_substrate(int id, int singleGrainOrientation, int nx, int ny, int nz, int ny_local, int y_offset,
-                        int DomainSize, NList NeighborX, NList NeighborY, NList NeighborZ,
-                        view_type_float GrainUnitVector, view_type_float DiagonalLength, view_type_float DOCenter,
-                        view_type_float CritDiagonalLength) {
+                        int DomainSize) {
 
         // Location of the single grain
         int grainLocationX = floorf(static_cast<float>(nx) / 2.0);
@@ -70,21 +68,8 @@ struct CellData {
                 int coord_z = getCoordZ(index, nx, ny_local);
                 int coord_y_global = coord_y + y_offset;
                 if ((coord_x == grainLocationX) && (coord_y_global == grainLocationY) && (coord_z == grainLocationZ)) {
-                    CellType_AllLayers_local(index) = Active;
+                    CellType_AllLayers_local(index) = FutureActive;
                     GrainID_AllLayers_local(index) = singleGrainOrientation + 1;
-
-                    // Initialize new octahedron
-                    createNewOctahedron(index, DiagonalLength, DOCenter, coord_x, coord_y, y_offset, coord_z);
-
-                    // The orientation for the new grain will depend on its Grain ID
-                    float cx = coord_x + 0.5;
-                    float cy = coord_y_global + 0.5;
-                    float cz = coord_z + 0.5;
-                    // Calculate critical values at which this active cell leads to the activation of a neighboring
-                    // liquid cell. Octahedron center and cell center overlap for octahedra created as part of a new
-                    // grain
-                    calcCritDiagonalLength(index, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
-                                           singleGrainOrientation, GrainUnitVector, CritDiagonalLength);
                 }
                 else
                     CellType_AllLayers_local(index) = Liquid;
@@ -95,13 +80,10 @@ struct CellData {
                       << ", Z = " << grainLocationZ << std::endl;
     }
 
-    // Initializes cell types and epitaxial Grain ID values where substrate grains are active cells on the bottom
-    // surface of the constrained domain. Also initialize active cell data structures associated with the substrate
-    // grains
+    // Initializes cell types and epitaxial Grain ID values where substrate grains are future active cells on the bottom
+    // surface of the constrained domain
     void init_substrate(int id, double FractSurfaceSitesActive, int ny_local, int nx, int ny, int y_offset,
-                        NList NeighborX, NList NeighborY, NList NeighborZ, view_type_float GrainUnitVector,
-                        int NGrainOrientations, view_type_float DiagonalLength, view_type_float DOCenter,
-                        view_type_float CritDiagonalLength, double RNGSeed) {
+                        double RNGSeed) {
 
         // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
         // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between
@@ -153,21 +135,8 @@ struct CellData {
                     int coord_y = ActCellY_Device(n) - y_offset;
                     int coord_z = 0;
                     int index = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
-                    CellType_AllLayers_local(index) = Active;
+                    CellType_AllLayers_local(index) = FutureActive;
                     GrainID_AllLayers_local(index) = n + 1; // assign GrainID > 0 to epitaxial seeds
-                    // Initialize new octahedron
-                    createNewOctahedron(index, DiagonalLength, DOCenter, coord_x, coord_y, y_offset, coord_z);
-
-                    // The orientation for the new grain will depend on its Grain ID
-                    int MyOrientation = getGrainOrientation(n + 1, NGrainOrientations);
-                    float cx = coord_x + 0.5;
-                    float cy = coord_y + 0.5;
-                    float cz = coord_z + 0.5;
-                    // Calculate critical values at which this active cell leads to the activation of a neighboring
-                    // liquid cell. Octahedron center and cell center overlap for octahedra created as part of a new
-                    // grain
-                    calcCritDiagonalLength(index, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ,
-                                           MyOrientation, GrainUnitVector, CritDiagonalLength);
                 }
             });
         if (id == 0)

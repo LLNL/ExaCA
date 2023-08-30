@@ -27,7 +27,6 @@ namespace Test {
 void testCellDataInit_SingleGrain() {
 
     using memory_space = TEST_MEMSPACE;
-    using view_float = Kokkos::View<float *, memory_space>;
 
     int id, np;
     // Get number of processes
@@ -54,25 +53,11 @@ void testCellDataInit_SingleGrain() {
     DomainDecomposition(id, np, ny_local, y_offset, NeighborRank_North, NeighborRank_South, nx, ny, nz, DomainSize,
                         AtNorthBoundary, AtSouthBoundary);
 
-    // Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ)
-    NList NeighborX, NeighborY, NeighborZ;
-    NeighborListInit(NeighborX, NeighborY, NeighborZ);
-
     // Cell data struct
     CellData<memory_space> cellData(DomainSize, DomainSize, nx, ny_local, 0);
 
-    // Orientation data - init to dummy values
-    view_float GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9);
-    Kokkos::deep_copy(GrainUnitVector, 1.0 / sqrt(3.0));
-
-    // Cells for octahedron data
-    view_float DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), DomainSize);
-    view_float DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * DomainSize);
-    view_float CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * DomainSize);
-
     // Init grain
-    cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize, NeighborX,
-                            NeighborY, NeighborZ, GrainUnitVector, DiagonalLength, DOCenter, CritDiagonalLength);
+    cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize);
 
     // Copy cell type and grain ID back to host to check if the values match - only 1 cell should've been assigned type
     // active and GrainID = 1 (though it may be duplicated in the ghost nodes of other ranks)
@@ -85,7 +70,7 @@ void testCellDataInit_SingleGrain() {
                 int coord_1d = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
                 if ((coord_z == expectedGrainZ) && (coord_x == expectedGrainX) && (coord_y_global == expectedGrainY)) {
                     EXPECT_EQ(GrainID_Host(coord_1d), singleGrainOrientation + 1);
-                    EXPECT_EQ(CellType_Host(coord_1d), Active);
+                    EXPECT_EQ(CellType_Host(coord_1d), FutureActive);
                 }
                 else {
                     EXPECT_EQ(GrainID_Host(coord_1d), 0);
@@ -99,8 +84,6 @@ void testCellDataInit_SingleGrain() {
 void testCellDataInit_ConstrainedGrowth() {
 
     using memory_space = TEST_MEMSPACE;
-    using view_int = Kokkos::View<int *, memory_space>;
-    using view_float = Kokkos::View<float *, memory_space>;
 
     int id, np;
     // Get number of processes
@@ -126,24 +109,8 @@ void testCellDataInit_ConstrainedGrowth() {
 
     double FractSurfaceSitesActive = 0.5; // Each rank will have 2 active cells each, on average
     double RNGSeed = 0.0;
-    std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors.csv", id);
-    int NGrainOrientations = 10000; // Number of grain orientations considered in the simulation
-    view_float GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NGrainOrientations);
-    OrientationInit(id, NGrainOrientations, GrainUnitVector, GrainOrientationFile);
-
-    // Initialize neighbor lists
-    NList NeighborX, NeighborY, NeighborZ;
-    NeighborListInit(NeighborX, NeighborY, NeighborZ);
-
-    // Initialize views - set initial GrainID values to 0, all CellType values to liquid
-    view_float DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), DomainSize);
-    view_int NumberOfSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents"),
-                                          DomainSize);
-    view_float DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * DomainSize);
-    view_float CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * DomainSize);
     CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
-    cellData.init_substrate(id, FractSurfaceSitesActive, ny_local, nx, ny, y_offset, NeighborX, NeighborY, NeighborZ,
-                            GrainUnitVector, NGrainOrientations, DiagonalLength, DOCenter, CritDiagonalLength, RNGSeed);
+    cellData.init_substrate(id, FractSurfaceSitesActive, ny_local, nx, ny, y_offset, RNGSeed);
     // Copy CellType, GrainID views to host to check values
     auto CellType_AllLayers_Host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
@@ -157,7 +124,7 @@ void testCellDataInit_ConstrainedGrowth() {
         else {
             // Check that active cells have GrainIDs > 0, and less than 2 * np + 1 (there are 2 * np different positive
             // GrainIDs used for epitaxial grain seeds)
-            if (CellType_AllLayers_Host(index) == Active) {
+            if (CellType_AllLayers_Host(index) == FutureActive) {
                 EXPECT_GT(GrainID_AllLayers_Host(index), 0);
                 EXPECT_LT(GrainID_AllLayers_Host(index), 2 * np + 1);
             }

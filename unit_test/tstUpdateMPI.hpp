@@ -599,7 +599,7 @@ void testSmallEquiaxedGrain() {
     std::ifstream LogDataStream(LogFile);
     nlohmann::json logdata = nlohmann::json::parse(LogDataStream);
     int TimeStepOfOutput = logdata["TimeStepOfOutput"];
-    EXPECT_EQ(TimeStepOfOutput, 4819);
+    EXPECT_EQ(TimeStepOfOutput, 4820);
 }
 //---------------------------------------------------------------------------//
 // RUN TESTS

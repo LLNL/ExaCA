@@ -148,12 +148,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Initialize cell types, grain IDs, and layer IDs
     CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
     if (SimulationType == "C")
-        cellData.init_substrate(id, FractSurfaceSitesActive, ny_local, nx, ny, y_offset, NeighborX, NeighborY,
-                                NeighborZ, GrainUnitVector, NGrainOrientations, DiagonalLength, DOCenter,
-                                CritDiagonalLength, RNGSeed);
+        cellData.init_substrate(id, FractSurfaceSitesActive, ny_local, nx, ny, y_offset, RNGSeed);
     else if (SimulationType == "SingleGrain")
-        cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize, NeighborX,
-                                NeighborY, NeighborZ, GrainUnitVector, DiagonalLength, DOCenter, CritDiagonalLength);
+        cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize);
     else
         cellData.init_substrate(SubstrateFileName, UseSubstrateFile, BaseplateThroughPowder, PowderFirstLayer, nx, ny,
                                 nz, LayerHeight, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset,
@@ -225,12 +222,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // FillSteeringVector_NoRemelt (a simplified version of FillSteeringVector_Remelt
             StartCreateSVTime = MPI_Wtime();
 
-            if (SimulationType != "C")
+            if ((SimulationType == "C") || (SimulationType == "SingleGrain"))
+                FillSteeringVector_NoRemelt(cycle, DomainSize, temperature, cellData, SteeringVector, numSteer,
+                                            numSteer_Host);
+            else
                 FillSteeringVector_Remelt(cycle, DomainSize, nx, ny_local, NeighborX, NeighborY, NeighborZ, temperature,
                                           cellData, nz_layer, SteeringVector, numSteer, numSteer_Host);
-            else
-                FillSteeringVector_NoRemelt(cycle, DomainSize, temperature, cellData, layernumber, SteeringVector,
-                                            numSteer, numSteer_Host);
             CreateSVTime += MPI_Wtime() - StartCreateSVTime;
 
             StartCaptureTime = MPI_Wtime();
