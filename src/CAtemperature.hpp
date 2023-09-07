@@ -625,9 +625,20 @@ struct Temperature {
 
     // Extract the next time that this point undergoes melting
     KOKKOS_INLINE_FUNCTION
-    int getMeltTimeStep(const int index) const {
+    int getMeltTimeStep(const int cycle, const int index) const {
+        double MeltTimeStep;
         int SolidificationEventCounter_cell = SolidificationEventCounter(index);
-        int MeltTimeStep = static_cast<int>(LayerTimeTempHistory(index, SolidificationEventCounter_cell, 0));
+        MeltTimeStep = static_cast<int>(LayerTimeTempHistory(index, SolidificationEventCounter_cell, 0));
+        if (cycle > MeltTimeStep) {
+            // If the cell has already exceeded the melt time step for the current melt-solidification event, get the
+            // melt time step associated with the next solidification event - or, if there is no next
+            // melt-solidification event, return the max possible int as the cell will not melt again during this layer
+            // of the multilayer problem
+            if (SolidificationEventCounter_cell < (NumberOfSolidificationEvents(index) - 1))
+                MeltTimeStep = static_cast<int>(LayerTimeTempHistory(index, SolidificationEventCounter_cell + 1, 0));
+            else
+                MeltTimeStep = INT_MAX;
+        }
         return MeltTimeStep;
     }
 

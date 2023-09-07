@@ -58,7 +58,7 @@ void FillSteeringVector_Remelt(int cycle, int DomainSize, int nx, int ny_local, 
             int cellType = CellType(index);
             // Only iterate over cells that are not Solid type
             if (cellType != Solid) {
-                int MeltTimeStep = temperature.getMeltTimeStep(index);
+                int MeltTimeStep = temperature.getMeltTimeStep(cycle, index);
                 int CritTimeStep = temperature.getCritTimeStep(index);
                 bool atMeltTime = (cycle == MeltTimeStep);
                 bool atCritTime = (cycle == CritTimeStep);
