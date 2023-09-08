@@ -174,12 +174,19 @@ void testCellDataInit(bool PowderFirstLayer) {
 
     // If there is a powder layer, the baseplate should be Z = 0 through 1 w/ powder for the top row of cells, otherwise
     // it should be 0 through 2
-    int BaseplateSize;
-    int LayerHeight = 1;
-    if (PowderFirstLayer)
-        BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax) + 1 - LayerHeight);
-    else
+    // If there is no powder layer, the baseplate should be Z = 0 through 2 with no powder
+    double BaseplateTopZ;
+    int BaseplateSize, ExpectedNumPowderGrainsPerLayer;
+    if (PowderFirstLayer) {
+        BaseplateTopZ = deltax;
+        BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax));
+        ExpectedNumPowderGrainsPerLayer = nx * ny_local * np;
+    }
+    else {
+        BaseplateTopZ = 2 * deltax;
         BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax) + 1);
+        ExpectedNumPowderGrainsPerLayer = 0;
+    }
     int DomainSize = nx * ny_local * nz_layer;
     int DomainSize_AllLayers = nx * ny_local * nz;
     // There are 45 * np total cells in this domain (nx * ny * nz)
@@ -224,9 +231,9 @@ void testCellDataInit(bool PowderFirstLayer) {
 
     // Call constructor
     CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
-    cellData.init_substrate("", false, false, PowderFirstLayer, nx, ny, nz, LayerHeight, DomainSize, ZMaxLayer, ZMin,
-                            deltax, ny_local, y_offset, z_layer_bottom, id, RNGSeed, SubstrateGrainSpacing,
-                            PowderActiveFraction, NumberOfSolidificationEvents);
+    cellData.init_substrate("", false, false, nx, ny, nz, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset,
+                            z_layer_bottom, id, RNGSeed, SubstrateGrainSpacing, PowderActiveFraction,
+                            NumberOfSolidificationEvents, BaseplateTopZ);
 
     // Copy GrainID results back to host to check first layer's initialization
     auto GrainID_AllLayers_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
@@ -237,23 +244,19 @@ void testCellDataInit(bool PowderFirstLayer) {
         EXPECT_LT(GrainID_AllLayers_H(i), np + 1);
     }
 
-    // In the case where there is powder on the first layer, the baseplate size is "LayerHeight" fewer cells in the Z
-    // direction, and there should be LayerHeight * nx * MyYSlices * np powder grain IDs
-    int ExpectedNumPowderGrainsPerLayer = LayerHeight * nx * ny_local * np;
     if (PowderFirstLayer) {
-        EXPECT_EQ(BaseplateSize, nx * ny_local * (nz_layer - LayerHeight));
         // Powder grains should have unique Grain ID values larger than 0 and smaller than
         // NextLayer_FirstEpitaxialGrainID
         EXPECT_EQ(cellData.NextLayer_FirstEpitaxialGrainID, np + 1 + ExpectedNumPowderGrainsPerLayer);
-        int BottomPowderLayer = nx * ny_local * (z_layer_bottom + nz_layer - LayerHeight);
-        int TopPowderLayer = nx * ny_local * (z_layer_bottom + nz_layer);
+        // Powder should only exist at cells corresponding to Z = 2
+        int BottomPowderLayer = nx * ny_local * 2;
+        int TopPowderLayer = nx * ny_local * 3;
         for (int i = BottomPowderLayer; i < TopPowderLayer; i++) {
             EXPECT_GT(GrainID_AllLayers_H(i), 0);
             EXPECT_LT(GrainID_AllLayers_H(i), cellData.NextLayer_FirstEpitaxialGrainID);
         }
     }
     else {
-        EXPECT_EQ(BaseplateSize, nx * ny_local * nz_layer);
         // Next unused GrainID should be the number of grains present in the baseplate plus 1 (since GrainID = 0 is not
         // used for any baseplate grains)
         EXPECT_EQ(cellData.NextLayer_FirstEpitaxialGrainID, np + 1);
@@ -274,8 +277,9 @@ void testCellDataInit(bool PowderFirstLayer) {
     int PreviousLayer_FirstEpitaxialGrainID = cellData.NextLayer_FirstEpitaxialGrainID;
     z_layer_bottom = 1;
     // Initialize the next layer using the same time-temperature history - powder should span cells at Z = 3
-    cellData.init_next_layer(1, id, nx, ny, ny_local, y_offset, z_layer_bottom, LayerHeight, DomainSize, false, false,
-                             ZMin, ZMaxLayer, deltax, RNGSeed, PowderActiveFraction, NumberOfSolidificationEvents);
+    ExpectedNumPowderGrainsPerLayer = nx * ny_local * np;
+    cellData.init_next_layer(1, id, nx, ny, ny_local, y_offset, z_layer_bottom, DomainSize, false, ZMin, ZMaxLayer,
+                             deltax, RNGSeed, PowderActiveFraction, NumberOfSolidificationEvents);
 
     // Copy all grain IDs for all layers back to the host to check that they match
     // and that the powder layer was initialized correctly
@@ -287,8 +291,8 @@ void testCellDataInit(bool PowderFirstLayer) {
 
     // Powder grains should have unique Grain ID values between PreviousLayer_FirstEpitaxialGrainID and
     // NextLayer_FirstEpitaxialGrainID - 1
-    int BottomPowderLayer = nx * ny_local * (z_layer_bottom + nz_layer - LayerHeight);
-    int TopPowderLayer = nx * ny_local * (z_layer_bottom + nz_layer);
+    int BottomPowderLayer = nx * ny_local * 3;
+    int TopPowderLayer = nx * ny_local * 4;
     for (int index_AllLayers = BottomPowderLayer; index_AllLayers < TopPowderLayer; index_AllLayers++) {
         EXPECT_GT(GrainID_AllLayers_H(index_AllLayers), PreviousLayer_FirstEpitaxialGrainID - 1);
         EXPECT_LT(GrainID_AllLayers_H(index_AllLayers), cellData.NextLayer_FirstEpitaxialGrainID);

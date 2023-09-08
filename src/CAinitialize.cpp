@@ -32,7 +32,7 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                        float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny,
                        int &nz, double &FractSurfaceSitesActive, int &NSpotsX, int &NSpotsY, int &SpotOffset,
                        int &SpotRadius, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderActiveFraction,
-                       bool &LayerwiseTempRead, bool &PowderFirstLayer, Print &print, double &initUndercooling,
+                       bool &LayerwiseTempRead, double &BaseplateTopZ, Print &print, double &initUndercooling,
                        int &singleGrainOrientation) {
 
     std::ifstream InputData(InputFile);
@@ -201,16 +201,18 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
         }
         else
             PowderActiveFraction = 1.0; // defaults to a unique grain at each site in the powder layers
-        // Should a powder layer be initialized at the top of the baseplate for the first layer? (Defaults to false,
-        // where the baseplate spans all of layer 0, and only starting with layer 1 is a powder layer present)
-        if (inputdata["Substrate"].contains("PowderFirstLayer"))
-            PowderFirstLayer = inputdata["Substrate"]["PowderFirstLayer"];
+        if ((inputdata["Substrate"].contains("PowderFirstLayer")) && (id == 0))
+            std::cout << "Warning: PowderFirstLayer input is no longer used, the top of the first layer must be "
+                         "specified using BaseplateTopZ (which will otherwise default to Z = 0)"
+                      << std::endl;
+        // The top of the baseplate is designated using BaseplateTopZ (assumed to be Z = 0 if not given in input file)
+        if (inputdata["Substrate"].contains("BaseplateTopZ"))
+            BaseplateTopZ = inputdata["Substrate"]["BaseplateTopZ"];
         else
-            PowderFirstLayer = false;
-        if ((BaseplateThroughPowder) && ((PowderFirstLayer) || (inputdata["Substrate"].contains("PowderDensity"))))
-            throw std::runtime_error(
-                "Error: if the option to extend the baseplate through the powder layers is toggled, options regarding "
-                "the powder layer (PowderFirstLayer/PowderDensity cannot be given");
+            BaseplateTopZ = 0.0;
+        if ((BaseplateThroughPowder) && (inputdata["Substrate"].contains("PowderDensity")))
+            throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers is "
+                                     "toggled, a powder layer density cannot be given");
     }
 
     // Printing inputs:

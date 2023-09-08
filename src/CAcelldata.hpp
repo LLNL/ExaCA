@@ -143,24 +143,32 @@ struct CellData {
             std::cout << "Number of substrate active cells across all ranks: " << SubstrateActCells << std::endl;
     }
 
-    void init_substrate(std::string SubstrateFileName, bool UseSubstrateFile, bool BaseplateThroughPowder,
-                        bool PowderFirstLayer, int nx, int ny, int nz, int LayerHeight, int DomainSize,
-                        double *ZMaxLayer, double ZMin, double deltax, int ny_local, int y_offset, int z_layer_bottom,
-                        int id, double RNGSeed, double SubstrateGrainSpacing, double PowderActiveFraction,
-                        view_type_int NumberOfSolidificationEvents) {
+    void init_substrate(std::string SubstrateFileName, bool UseSubstrateFile, bool BaseplateThroughPowder, int nx,
+                        int ny, int nz, int DomainSize, double *ZMaxLayer, double ZMin, double deltax, int ny_local,
+                        int y_offset, int z_layer_bottom, int id, double RNGSeed, double SubstrateGrainSpacing,
+                        double PowderActiveFraction, view_type_int NumberOfSolidificationEvents, double BaseplateTopZ) {
 
-        // Generate the baseplate microstructure, or read it from a file, to initialize the grain ID values
+        // Determine the number of cells in the Z direction that are part of the baseplate
+        int BaseplateSizeZ =
+            get_baseplate_size_z(id, nz, ZMin, ZMaxLayer, deltax, BaseplateThroughPowder, BaseplateTopZ);
+
+        // Generate the baseplate microstructure, or read it from a file, to initialize the grain ID values from Z = 0
+        // up to but not including Z = BaseplateTopZ
         if (UseSubstrateFile)
-            init_baseplate_grainid(SubstrateFileName, nz, nx, ny_local, y_offset, id, ZMin, ZMaxLayer,
-                                   BaseplateThroughPowder, PowderFirstLayer, LayerHeight, deltax);
+            init_baseplate_grainid(SubstrateFileName, nz, nx, ny_local, y_offset, id, BaseplateSizeZ);
         else
-            init_baseplate_grainid(SubstrateGrainSpacing, nx, ny, ZMin, ZMaxLayer, ny_local, y_offset, id, deltax,
-                                   RNGSeed, nz, BaseplateThroughPowder, PowderFirstLayer, LayerHeight);
+            init_baseplate_grainid(SubstrateGrainSpacing, nx, ny, ny_local, y_offset, id, deltax, RNGSeed,
+                                   BaseplateSizeZ);
 
-        // Optionally generate powder grain structure grain IDs for top of layer 0
-        if (PowderFirstLayer)
-            init_powder_grainid(0, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, ny_local, y_offset, id, RNGSeed,
-                                PowderActiveFraction);
+        // Powder layer extends from Z = PowderBottomZ up to but not including Z = PowderTopZ
+        int PowderBottomZ =
+            round((BaseplateTopZ - ZMin) / deltax) + 1; // Bottom of layer is the next coordinate up from the baseplate
+        int PowderTopZ = round((ZMaxLayer[0] - ZMin) / deltax) + 1;
+        // Generate powder grain structure grain IDs for top of layer 0 if needed (i.e, if the powder layer height is
+        // more than zero cells)
+        if (PowderTopZ > PowderBottomZ)
+            init_powder_grainid(0, nx, ny, ny_local, y_offset, id, RNGSeed, PowderActiveFraction, PowderBottomZ,
+                                PowderTopZ);
 
         // LayerID starts at -1 for all cells
         Kokkos::deep_copy(LayerID_AllLayers, -1);
@@ -170,33 +178,43 @@ struct CellData {
     }
 
     // Determine the height of the baseplate, in CA cells
-    // The baseplate always starts at the simulation bottom (Z coordinate corresponding to ZMin), regardless of whether
-    // the first layer melts the cells at the bottom or not If BaseplateThroughPowder is true, the baseplate
-    // microstructure extends through the entire simulation domain in Z If BaseplateThroughPowder is false and
-    // PowderFirstLayer is true, the baseplate extends to the Z coordinate that is LayerHeight cells short of the top of
-    // the first layer (the final LayerHeight cells of the first layer will be initialized using the powder options
-    // specified)) If BaseplateThroughPowder is false and PowderFirstLayer is false, the baseplate extends to the top of
-    // the first layer
-    int get_baseplate_size_z(int nz, double *ZMaxLayer, double ZMin, double deltax, int LayerHeight,
-                             bool BaseplateThroughPowder, bool PowderFirstLayer) {
+    // The baseplate always starts at the simulation bottom (Z coordinate corresponding to ZMin, Z index = 0),
+    // regardless of whether the first layer melts the cells at the bottom or not. If BaseplateThroughPowder is true,
+    // the baseplate microstructure extends through the entire simulation domain in Z (size nz). If
+    // BaseplateThroughPowder is false, the baseplate top from the input file is used, or it is assumed that the top of
+    // the baseplate is at Z = 0 microns
+    int get_baseplate_size_z(int id, int nz, double ZMin, double *ZMaxLayer, double deltax, bool BaseplateThroughPowder,
+                             double BaseplateTopZ) {
         int BaseplateSizeZ;
         if (BaseplateThroughPowder)
             BaseplateSizeZ = nz;
         else {
-            if (PowderFirstLayer)
-                BaseplateSizeZ = round((ZMaxLayer[0] - ZMin) / deltax) + 1 - LayerHeight;
-
-            else
-                BaseplateSizeZ = round((ZMaxLayer[0] - ZMin) / deltax) + 1;
+            BaseplateSizeZ = round((BaseplateTopZ - ZMin) / deltax) + 1;
+            int MaxBaseplateSizeZ = round((ZMaxLayer[0] - ZMin) / deltax) + 1;
+            if (BaseplateSizeZ > MaxBaseplateSizeZ) {
+                BaseplateSizeZ = MaxBaseplateSizeZ;
+                if (id == 0)
+                    std::cout << "Warning: The specified location of the baseplate top is located above the "
+                                 "temperature data for the first layer of the problem; it will be truncated to stop at "
+                                 "the top Z coordinate of the first layer's temperature data"
+                              << std::endl;
+            }
         }
+        if ((id == 0) && (BaseplateSizeZ < 1))
+            std::cout << "Warning: no baseplate microstructure will be used, as the temperature data does not overlap "
+                         "with the input value for the baseplate top"
+                      << std::endl;
         return BaseplateSizeZ;
     }
 
     // Initializes Grain ID values where the substrate comes from a file
     void init_baseplate_grainid(std::string SubstrateFileName, int nz, int nx, int ny_local, int y_offset, int id,
-                                double ZMin, double *ZMaxLayer, bool BaseplateThroughPowder, bool PowderFirstLayer,
-                                int LayerHeight, double deltax) {
+                                int BaseplateSizeZ) {
 
+        if (id == 0)
+            std::cout << "Warning: Reading substrate data from a file will require a vtk file of GrainID values in a "
+                         "future release"
+                      << std::endl;
         // Assign GrainID values to cells that are part of the substrate - read values from file and initialize using
         // temporary host view
         view_type_int_host GrainID_AllLayers_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"),
@@ -206,8 +224,6 @@ struct CellData {
         int Substrate_LowY = y_offset;
         int Substrate_HighY = y_offset + ny_local;
         int nxS, nyS, nzS;
-        int BaseplateSizeZ = get_baseplate_size_z(nz, ZMaxLayer, ZMin, deltax, LayerHeight, BaseplateThroughPowder,
-                                                  PowderFirstLayer); // in CA cells
         if ((id == 0) && (BaseplateSizeZ < 1))
             std::cout
                 << "Warning: No substrate data from the file be used, as the powder layer extends further in the Z "
@@ -261,18 +277,9 @@ struct CellData {
 
     // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi
     // Tessellation
-    void init_baseplate_grainid(float SubstrateGrainSpacing, int nx, int ny, double ZMin, double *ZMaxLayer,
-                                int ny_local, int y_offset, int id, double deltax, double RNGSeed, int nz,
-                                bool BaseplateThroughPowder, bool PowderFirstLayer, int LayerHeight) {
+    void init_baseplate_grainid(float SubstrateGrainSpacing, int nx, int ny, int ny_local, int y_offset, int id,
+                                double deltax, double RNGSeed, int BaseplateSizeZ) {
 
-        // Number of cells to assign GrainID
-        int BaseplateSizeZ = get_baseplate_size_z(nz, ZMaxLayer, ZMin, deltax, LayerHeight, BaseplateThroughPowder,
-                                                  PowderFirstLayer); // in CA cells
-        if ((id == 0) && (BaseplateSizeZ < 1))
-            std::cout
-                << "Warning: no baseplate microstructure will be used, as the powder layer extends further in the Z "
-                   "direction than the first layer's temperature data"
-                << std::endl;
         std::mt19937_64 gen(RNGSeed);
 
         // Based on the baseplate volume (convert to cubic microns to match units) and the substrate grain spacing,
@@ -384,10 +391,10 @@ struct CellData {
     }
 
     // Each layer's top Z coordinates are seeded with CA-cell sized substrate grains (emulating bulk nucleation
-    // alongside the edges of partially melted powder particles)
-    void init_powder_grainid(int layernumber, int nx, int ny, int LayerHeight, double *ZMaxLayer, double ZMin,
-                             double deltax, int ny_local, int y_offset, int id, double RNGSeed,
-                             double PowderActiveFraction) {
+    // alongside the edges of partially melted powder particles). These Z coordinates span PowderBottomZ up to but not
+    // including PowderTopZ
+    void init_powder_grainid(int layernumber, int nx, int ny, int ny_local, int y_offset, int id, double RNGSeed,
+                             double PowderActiveFraction, int PowderBottomZ, int PowderTopZ) {
 
         // On all ranks, generate list of powder grain IDs (starting with NextLayer_FirstEpitaxialGrainID, and shuffle
         // them so that their locations aren't sequential and depend on the RNGSeed (different for each layer)
@@ -395,7 +402,8 @@ struct CellData {
         std::uniform_real_distribution<double> dis(0.0, 1.0);
 
         // TODO: This should be performed on the device, rather than the host
-        int PowderLayerCells = nx * ny * LayerHeight;
+        int PowderLayerHeight = PowderTopZ - PowderBottomZ;
+        int PowderLayerCells = nx * ny * PowderLayerHeight;
         int PowderLayerAssignedCells = round(static_cast<double>(PowderLayerCells) * PowderActiveFraction);
         std::vector<int> PowderGrainIDs(PowderLayerCells, 0);
         for (int n = 0; n < PowderLayerAssignedCells; n++) {
@@ -406,13 +414,10 @@ struct CellData {
         view_type_int_unmanaged PowderGrainIDs_Host(PowderGrainIDs.data(), PowderLayerCells);
         auto PowderGrainIDs_Device = Kokkos::create_mirror_view_and_copy(memory_space(), PowderGrainIDs_Host);
         // Associate powder grain IDs with CA cells in the powder layer
-        // Use bounds from temperature field for this layer to determine which cells are part of the powder
-        int PowderTopZ = round((ZMaxLayer[layernumber] - ZMin) / deltax) + 1;
-        int PowderBottomZ = PowderTopZ - LayerHeight;
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Initializing powder layer for Z = " << PowderBottomZ << " through " << PowderTopZ - 1 << " ("
-                      << nx * ny * (PowderTopZ - PowderBottomZ) << " cells)" << std::endl;
+                      << nx * ny * PowderLayerHeight << " cells)" << std::endl;
 
         int PowderStart = nx * ny * PowderBottomZ;
         int PowderEnd = nx * ny * PowderTopZ;
@@ -448,9 +453,8 @@ struct CellData {
     // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
     //*****************************************************************************/
     void init_next_layer(int nextlayernumber, int id, int nx, int ny, int ny_local, int y_offset, int z_layer_bottom,
-                         int LayerHeight, int DomainSize, bool UseSubstrateFile, bool BaseplateThroughPowder,
-                         double ZMin, double *ZMaxLayer, double deltax, double RNGSeed, double PowderActiveFraction,
-                         view_type_int NumberOfSolidificationEvents) {
+                         int DomainSize, bool BaseplateThroughPowder, double ZMin, double *ZMaxLayer, double deltax,
+                         double RNGSeed, double PowderActiveFraction, view_type_int NumberOfSolidificationEvents) {
 
         // Subviews for the next layer's grain id, layer id, cell type are constructed based on updated layer bound
         // z_layer_bottom
@@ -458,12 +462,13 @@ struct CellData {
         TopOfCurrentLayer = BottomOfCurrentLayer + DomainSize;
         LayerRange = std::make_pair(BottomOfCurrentLayer, TopOfCurrentLayer);
 
-        // If the baseplate was initialized from a substrate grain spacing, initialize powder layer grain structure
-        // for the next layer "layernumber + 1" Otherwise, the entire substrate (baseplate + powder) was read from a
-        // file, and the powder layers have already been initialized
-        if ((!(UseSubstrateFile)) && (!(BaseplateThroughPowder)))
-            init_powder_grainid(nextlayernumber, nx, ny, LayerHeight, ZMaxLayer, ZMin, deltax, ny_local, y_offset, id,
-                                RNGSeed, PowderActiveFraction);
+        // Powder layer extends from Z = PowderBottomZ (1 cell above the top of the previous layer) up to but not
+        // including Z = PowderTopZ
+        int PowderBottomZ = round((ZMaxLayer[nextlayernumber - 1] - ZMin) / deltax) + 1;
+        int PowderTopZ = round((ZMaxLayer[nextlayernumber] - ZMin) / deltax) + 1;
+        if (!(BaseplateThroughPowder))
+            init_powder_grainid(nextlayernumber, nx, ny, ny_local, y_offset, id, RNGSeed, PowderActiveFraction,
+                                PowderBottomZ, PowderTopZ);
 
         // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
         init_celltype_layerid(nextlayernumber, nx, ny_local, DomainSize, NumberOfSolidificationEvents, id,
