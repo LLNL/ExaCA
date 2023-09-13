@@ -98,12 +98,12 @@ The .json files in the examples subdirectory are provided on the command line to
 |FractionSurfaceSitesActive | C           | What fraction of cells at the bottom surface of the domain are the source of a grain?
 |MeanSize      | S, R                     | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
 |SubstrateFilename |  S, R                | Path to and filename for substrate data (see note (a))
-|PowderDensity | S, R                     | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (b))
-|ExtendSubstrateThroughPower| S, R        | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (b))
+|PowderDensity | S, R                     | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))
+|ExtendSubstrateThroughPowder| S, R        | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
+| BaseplateTopZ   | S, R                  | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
 |GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
 
 (a) One of these inputs must be provided, but not both
-(b) This is optional, but if this is given, "extendSubstrateThroughPower" must be set to false
 
 ## Printing inputs
 | Input        | Relevant problem type(s))| Details |

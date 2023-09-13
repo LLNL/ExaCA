@@ -26,10 +26,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     int nx, ny, nz, NumberOfLayers, LayerHeight, TempFilesInSeries;
     int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, singleGrainOrientation;
-    bool UseSubstrateFile, BaseplateThroughPowder, LayerwiseTempRead, PowderFirstLayer;
+    bool UseSubstrateFile, BaseplateThroughPowder, LayerwiseTempRead;
     float SubstrateGrainSpacing;
     double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction,
-        initUndercooling;
+        initUndercooling, BaseplateTopZ;
     std::string SubstrateFileName, MaterialFileName, SimulationType, GrainOrientationFile;
     std::vector<std::string> temp_paths;
 
@@ -41,7 +41,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                       TempFilesInSeries, temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight, MaterialFileName,
                       SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
                       FractSurfaceSitesActive, NSpotsX, NSpotsY, SpotOffset, SpotRadius, RNGSeed,
-                      BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, PowderFirstLayer, print,
+                      BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, BaseplateTopZ, print,
                       initUndercooling, singleGrainOrientation);
     InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax);
 
@@ -152,10 +152,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     else if (SimulationType == "SingleGrain")
         cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize);
     else
-        cellData.init_substrate(SubstrateFileName, UseSubstrateFile, BaseplateThroughPowder, PowderFirstLayer, nx, ny,
-                                nz, LayerHeight, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset,
-                                z_layer_bottom, id, RNGSeed, SubstrateGrainSpacing, PowderActiveFraction,
-                                temperature.NumberOfSolidificationEvents);
+        cellData.init_substrate(SubstrateFileName, UseSubstrateFile, BaseplateThroughPowder, nx, ny, nz, DomainSize,
+                                ZMaxLayer, ZMin, deltax, ny_local, y_offset, z_layer_bottom, id, RNGSeed,
+                                SubstrateGrainSpacing, PowderActiveFraction, temperature.NumberOfSolidificationEvents,
+                                BaseplateTopZ);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Grain struct initialized" << std::endl;
@@ -313,9 +313,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             MPI_Barrier(MPI_COMM_WORLD);
 
             // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
-            cellData.init_next_layer(layernumber + 1, id, nx, ny, ny_local, y_offset, z_layer_bottom, LayerHeight,
-                                     DomainSize, UseSubstrateFile, BaseplateThroughPowder, ZMin, ZMaxLayer, deltax,
-                                     RNGSeed, PowderActiveFraction, temperature.NumberOfSolidificationEvents);
+            cellData.init_next_layer(layernumber + 1, id, nx, ny, ny_local, y_offset, z_layer_bottom, DomainSize,
+                                     BaseplateThroughPowder, ZMin, ZMaxLayer, deltax, RNGSeed, PowderActiveFraction,
+                                     temperature.NumberOfSolidificationEvents);
 
             // Initialize potential nucleation event data for next layer "layernumber + 1"
             // Views containing nucleation data will be resized to the possible number of nuclei on a given MPI rank for

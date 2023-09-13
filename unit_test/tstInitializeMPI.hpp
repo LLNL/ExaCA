@@ -52,7 +52,7 @@ void WriteTestData(std::string InputFilename, int PrintVersion) {
     TestDataFile << "   \"Substrate\": {" << std::endl;
     TestDataFile << "      \"SubstrateFilename\": \"DummySubstrate.txt\"," << std::endl;
     TestDataFile << "      \"PowderDensity\": 1000," << std::endl;
-    TestDataFile << "      \"PowderFirstLayer\": true" << std::endl;
+    TestDataFile << "      \"BaseplateTopZ\": -0.00625" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"Printing\": {" << std::endl;
     TestDataFile << "      \"PathToOutput\": \"ExaCA\"," << std::endl;
@@ -128,8 +128,8 @@ void testInputReadFromFile(int PrintVersion) {
             singleGrainOrientation;
         float SubstrateGrainSpacing;
         double deltax, NMax, dTN, dTsigma, HT_deltax, deltat, G, R, FractSurfaceSitesActive, RNGSeed,
-            PowderActiveFraction, initUndercooling;
-        bool BaseplateThroughPowder, LayerwiseTempRead, UseSubstrateFile, PowderFirstLayer;
+            PowderActiveFraction, initUndercooling, BaseplateTopZ;
+        bool BaseplateThroughPowder, LayerwiseTempRead, UseSubstrateFile;
         std::string SimulationType, GrainOrientationFile, temppath, tempfile, SubstrateFileName, MaterialFileName;
         std::vector<std::string> temp_paths;
         std::cout << "Reading " << FileName << std::endl;
@@ -139,7 +139,7 @@ void testInputReadFromFile(int PrintVersion) {
                           TempFilesInSeries, temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight,
                           MaterialFileName, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny,
                           nz, FractSurfaceSitesActive, NSpotsX, NSpotsY, SpotOffset, SpotRadius, RNGSeed,
-                          BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, PowderFirstLayer, print,
+                          BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, BaseplateTopZ, print,
                           initUndercooling, singleGrainOrientation);
         InterfacialResponseFunction irf(0, MaterialFileName, deltat, deltax);
         MPI_Barrier(MPI_COMM_WORLD);
@@ -207,8 +207,8 @@ void testInputReadFromFile(int PrintVersion) {
             EXPECT_EQ(LayerHeight, 20);
             EXPECT_FALSE(UseSubstrateFile);
             EXPECT_FALSE(BaseplateThroughPowder);
-            // Option defaults to false
-            EXPECT_FALSE(PowderFirstLayer);
+            // Option defaults to 0.0
+            EXPECT_DOUBLE_EQ(BaseplateTopZ, 0.0);
             EXPECT_FLOAT_EQ(SubstrateGrainSpacing, 25.0);
             EXPECT_TRUE(print.BaseFileName == "TestProblemSpot");
             EXPECT_TRUE(print.PrintInitCritTimeStep);
@@ -234,7 +234,8 @@ void testInputReadFromFile(int PrintVersion) {
             EXPECT_TRUE(UseSubstrateFile);
             EXPECT_FALSE(LayerwiseTempRead);
             EXPECT_DOUBLE_EQ(PowderActiveFraction, 0.001);
-            EXPECT_TRUE(PowderFirstLayer);
+            // -0.00625 was input
+            EXPECT_DOUBLE_EQ(BaseplateTopZ, -0.00625);
             EXPECT_DOUBLE_EQ(HT_deltax, deltax);
             EXPECT_TRUE(print.BaseFileName == "Test");
             EXPECT_TRUE(temp_paths[0] == ".//1DummyTemperature.txt");
