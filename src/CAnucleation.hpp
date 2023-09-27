@@ -100,11 +100,13 @@ struct Nucleation {
         std::normal_distribution<double> Gdistribution(dTN, dTsigma);
 
         // Max number of nucleated grains in this layer
-        int Nuclei_ThisLayerSingle = BulkProb * (nx * ny * nz_layer); // equivalent to Nuclei_ThisLayer if no remelting
+        long int Cells_ThisLayer =
+            static_cast<long int>(nx) * static_cast<long int>(ny) * static_cast<long int>(nz_layer);
+        long int Nuclei_ThisLayerSingle =
+            std::lround(BulkProb * Cells_ThisLayer); // equivalent to Nuclei_ThisLayer if no remelting
         // Multiplier for the number of nucleation events per layer, based on the number of solidification events
-        int NucleiMultiplier = MaxSolidificationEvents_Host(layernumber);
-        int Nuclei_ThisLayer = Nuclei_ThisLayerSingle * NucleiMultiplier;
-        // Temporary vectors for storing nucleated grain IDs and undercooling values
+        long int NucleiMultiplier = static_cast<long int>(MaxSolidificationEvents_Host(layernumber));
+        long int Nuclei_ThisLayer = Nuclei_ThisLayerSingle * NucleiMultiplier;
         // Nuclei Grain ID are assigned to avoid reusing values from previous layers
         std::vector<int> NucleiGrainID_WholeDomain_V(Nuclei_ThisLayer);
         std::vector<double> NucleiUndercooling_WholeDomain_V(Nuclei_ThisLayer);
