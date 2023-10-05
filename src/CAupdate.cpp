@@ -574,7 +574,7 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int ny_local, int Do
     unsigned long int LocalTempSolidCells;
     unsigned long int LocalFinishedSolidCells;
     Kokkos::parallel_reduce(
-        DomainSize,
+        "IntermediateOutput", DomainSize,
         KOKKOS_LAMBDA(const int &index, unsigned long int &sum_superheated, unsigned long int &sum_undercooled,
                       unsigned long int &sum_active, unsigned long int &sum_temp_solid,
                       unsigned long int &sum_finished_solid) {
@@ -635,7 +635,7 @@ void IntermediateOutputAndCheck(int id, int cycle, int ny_local, int y_offset, i
     Kokkos::deep_copy(EdgesReached, false);
 
     Kokkos::parallel_reduce(
-        DomainSize,
+        "IntermediateOutput", DomainSize,
         KOKKOS_LAMBDA(const int &index, unsigned long int &sum_liquid, unsigned long int &sum_active,
                       unsigned long int &sum_solid) {
             if (CellType_AllLayers(index) == Liquid)
