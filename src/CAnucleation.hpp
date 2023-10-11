@@ -100,11 +100,25 @@ struct Nucleation {
         std::normal_distribution<double> Gdistribution(dTN, dTsigma);
 
         // Max number of nucleated grains in this layer
-        int Nuclei_ThisLayerSingle = BulkProb * (nx * ny * nz_layer); // equivalent to Nuclei_ThisLayer if no remelting
+        // Use long int in intermediate steps calculating the number of nucleated grains, though the number should be
+        // small enough to be stored as an int
+        long int Cells_ThisLayer_long =
+            static_cast<long int>(nx) * static_cast<long int>(ny) * static_cast<long int>(nz_layer);
+        long int Nuclei_ThisLayerSingle_long =
+            std::lround(BulkProb * Cells_ThisLayer_long); // equivalent to Nuclei_ThisLayer if no remelting
         // Multiplier for the number of nucleation events per layer, based on the number of solidification events
-        int NucleiMultiplier = MaxSolidificationEvents_Host(layernumber);
-        int Nuclei_ThisLayer = Nuclei_ThisLayerSingle * NucleiMultiplier;
-        // Temporary vectors for storing nucleated grain IDs and undercooling values
+        long int NucleiMultiplier_long = static_cast<long int>(MaxSolidificationEvents_Host(layernumber));
+        long int Nuclei_ThisLayer_long = Nuclei_ThisLayerSingle_long * NucleiMultiplier_long;
+        // Vector and view sizes should be type int for indexing and grain ID assignment purposes -
+        // Nuclei_ThisLayer_long should be less than INT_MAX
+        if (Nuclei_ThisLayer_long > INT_MAX)
+            throw std::runtime_error("Error: Number of potential nucleation sites in the system exceeds the number of "
+                                     "valid GrainID; either nucleation density, the number of melt-solidification "
+                                     "events in the temperature data, or the domain size should be reduced");
+        int Nuclei_ThisLayerSingle = static_cast<int>(Nuclei_ThisLayerSingle_long);
+        int Nuclei_ThisLayer = static_cast<int>(Nuclei_ThisLayer_long);
+        int NucleiMultiplier = static_cast<long int>(NucleiMultiplier_long);
+
         // Nuclei Grain ID are assigned to avoid reusing values from previous layers
         std::vector<int> NucleiGrainID_WholeDomain_V(Nuclei_ThisLayer);
         std::vector<double> NucleiUndercooling_WholeDomain_V(Nuclei_ThisLayer);
