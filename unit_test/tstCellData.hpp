@@ -8,7 +8,7 @@
 #include "CAcelldata.hpp"
 #include "CAfunctions.hpp"
 #include "CAinitialize.hpp"
-#include "CAnucleation.hpp"
+#include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 
@@ -175,15 +175,16 @@ void testCellDataInit(bool PowderFirstLayer) {
     // If there is a powder layer, the baseplate should be Z = 0 through 1 w/ powder for the top row of cells, otherwise
     // it should be 0 through 2
     // If there is no powder layer, the baseplate should be Z = 0 through 2 with no powder
-    double BaseplateTopZ;
+    // Empty inputs struct with default values - manually set non-default substrateInputs values
+    Inputs<memory_space> inputs;
     int BaseplateSize, ExpectedNumPowderGrainsPerLayer;
     if (PowderFirstLayer) {
-        BaseplateTopZ = deltax;
+        inputs.substrateInputs.BaseplateTopZ = deltax;
         BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax));
         ExpectedNumPowderGrainsPerLayer = nx * ny_local * np;
     }
     else {
-        BaseplateTopZ = 2 * deltax;
+        inputs.substrateInputs.BaseplateTopZ = 2 * deltax;
         BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax) + 1);
         ExpectedNumPowderGrainsPerLayer = 0;
     }
@@ -195,15 +196,11 @@ void testCellDataInit(bool PowderFirstLayer) {
     // cells (Z > 2) are outside the first layer of the domain and are not assigned Grain IDs with the rest of the
     // baseplate. This grain spacing ensures that there will be 1 grain per number of MPI ranks present (larger when
     // powder layer is present as the baseplate will only have a third as many cells)
-    double SubstrateGrainSpacing;
     if (PowderFirstLayer)
-        SubstrateGrainSpacing = 2.62;
+        inputs.substrateInputs.SubstrateGrainSpacing = 2.62;
     else
-        SubstrateGrainSpacing = 3.0;
-    double RNGSeed = 0.0;
-
-    // Used if Powderfirstlayer = true
-    double PowderActiveFraction = 1.0;
+        inputs.substrateInputs.SubstrateGrainSpacing = 3.0;
+    inputs.RNGSeed = 0.0;
 
     // unused views in constructor
     NList NeighborX, NeighborY, NeighborZ;
@@ -231,9 +228,8 @@ void testCellDataInit(bool PowderFirstLayer) {
 
     // Call constructor
     CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
-    cellData.init_substrate("", false, false, nx, ny, nz, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset,
-                            z_layer_bottom, id, RNGSeed, SubstrateGrainSpacing, PowderActiveFraction,
-                            NumberOfSolidificationEvents, BaseplateTopZ);
+    cellData.init_substrate(nx, ny, nz, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset, z_layer_bottom, id,
+                            inputs, NumberOfSolidificationEvents);
 
     // Copy GrainID results back to host to check first layer's initialization
     auto GrainID_AllLayers_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
@@ -278,8 +274,8 @@ void testCellDataInit(bool PowderFirstLayer) {
     z_layer_bottom = 1;
     // Initialize the next layer using the same time-temperature history - powder should span cells at Z = 3
     ExpectedNumPowderGrainsPerLayer = nx * ny_local * np;
-    cellData.init_next_layer(1, id, nx, ny, ny_local, y_offset, z_layer_bottom, DomainSize, false, ZMin, ZMaxLayer,
-                             deltax, RNGSeed, PowderActiveFraction, NumberOfSolidificationEvents);
+    cellData.init_next_layer(1, id, nx, ny, ny_local, y_offset, z_layer_bottom, DomainSize, inputs, ZMin, ZMaxLayer,
+                             deltax, NumberOfSolidificationEvents);
 
     // Copy all grain IDs for all layers back to the host to check that they match
     // and that the powder layer was initialized correctly

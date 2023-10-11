@@ -7,6 +7,7 @@
 #define EXACA_PRINT_HPP
 
 #include "CAfunctions.hpp"
+#include "CAinputs.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtemperature.hpp"
@@ -37,7 +38,7 @@ void WriteData(std::ofstream &outstream, PrintType PrintValue, bool PrintBinary,
         outstream << PrintValue << " ";
 }
 
-// Struct to hold data printing options and functions
+// Struct to hold data printing options and functions (would ideally just store a copy of Inputs.printInputs here)
 struct Print {
     // Base name of CA output
     std::string BaseFileName;
@@ -77,49 +78,48 @@ struct Print {
     // Y coordinates for a given rank's data being send/loaded into the view of all domain data on rank 0=
     int SendBufStartY, SendBufEndY, SendBufSize;
 
-    // Default constructor - options are set in getPrintDataFromFile as necessary
-    Print(int np)
+    // Default constructor - options are set in getPrintDataFromFile and copied into this struct
+    Print(Inputs<device_memory_space> &inputs, int nx, int ny, int nz, int ny_local, int y_offset, int np)
         : Recv_y_offset(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_y_offset"), np))
         , Recv_ny_local(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_ny_local"), np))
         , RBufSize(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np)) {
 
+        BaseFileName = inputs.printInputs.BaseFileName;
+        PathToOutput = inputs.printInputs.PathToOutput;
         // Fields to be printed at start of run: GrainID, LayerID, MeltTimeStep, CritTimeStep, UndercoolingChange (all
         // for first layer)
-        PrintInitGrainID = false;
-        PrintInitLayerID = false;
-        PrintInitMeltTimeStep = false;
-        PrintInitCritTimeStep = false;
-        PrintInitUndercoolingChange = false;
+        PrintInitGrainID = inputs.printInputs.PrintInitGrainID;
+        PrintInitLayerID = inputs.printInputs.PrintInitLayerID;
+        PrintInitMeltTimeStep = inputs.printInputs.PrintInitMeltTimeStep;
+        PrintInitCritTimeStep = inputs.printInputs.PrintInitCritTimeStep;
+        PrintInitUndercoolingChange = inputs.printInputs.PrintInitUndercoolingChange;
         // Fields to be printed at end of run: GrainID, LayerID, GrainMisorientation, UndercoolingCurrent (for whole
         // domain) and MeltTimeStep, CritTimeStep, UndercoolingChange, CellType (for the final layer)
-        PrintFinalGrainID = false;
-        PrintFinalLayerID = false;
-        PrintFinalMisorientation = false;
-        PrintFinalUndercoolingCurrent = false;
-        PrintFinalMeltTimeStep = false;
-        PrintFinalCritTimeStep = false;
-        PrintFinalUndercoolingChange = false;
-        PrintFinalCellType = false;
+        PrintFinalGrainID = inputs.printInputs.PrintFinalGrainID;
+        PrintFinalLayerID = inputs.printInputs.PrintFinalLayerID;
+        PrintFinalMisorientation = inputs.printInputs.PrintFinalMisorientation;
+        PrintFinalUndercoolingCurrent = inputs.printInputs.PrintFinalUndercoolingCurrent;
+        PrintFinalMeltTimeStep = inputs.printInputs.PrintFinalMeltTimeStep;
+        PrintFinalCritTimeStep = inputs.printInputs.PrintFinalCritTimeStep;
+        PrintFinalUndercoolingChange = inputs.printInputs.PrintFinalUndercoolingChange;
+        PrintFinalCellType = inputs.printInputs.PrintFinalCellType;
 
         // Print intermediate output of grain misorientation in time
-        PrintTimeSeries = false;
+        PrintTimeSeries = inputs.printInputs.PrintTimeSeries;
         // If printing the time series, should microstructure be printed if unchanged from the previous frame
-        PrintIdleTimeSeriesFrames = false;
+        PrintIdleTimeSeriesFrames = inputs.printInputs.PrintIdleTimeSeriesFrames;
         // If printing the time series, the increment, in time steps, between printing of intermediate output
-        TimeSeriesInc = 1;
+        TimeSeriesInc = inputs.printInputs.TimeSeriesInc;
         // If printing the time series, the counter for the number of intermediate files that have been printed for a
         // given layer of a multilayer problem
-        IntermediateFileCounter = 0;
+        IntermediateFileCounter = inputs.printInputs.IntermediateFileCounter;
 
         // Should binary be used for printing vtk data?
-        PrintBinary = false;
+        PrintBinary = inputs.printInputs.PrintBinary;
 
         // Should the default RVE data for ExaConstit be printed? If so, with what size?
-        PrintDefaultRVE = false;
-        RVESize = 0;
-    }
-
-    void getSendRecvDataSizes(int nx, int ny, int nz, int ny_local, int y_offset, int np) {
+        PrintDefaultRVE = inputs.printInputs.PrintDefaultRVE;
+        RVESize = inputs.printInputs.RVESize;
 
         // Buffers for sending/receiving data across ranks
         for (int recvrank = 0; recvrank < np; recvrank++) {
@@ -138,80 +138,6 @@ struct Print {
         else
             SendBufEndY = ny_local - 1;
         SendBufSize = nx * (SendBufEndY - SendBufStartY) * nz;
-    }
-
-    // Read the input data file and initialize appropriate variables to non-default values if necessary
-    void getPrintDataFromInputFile(nlohmann::json inputdata, int id, double deltat) {
-        // Path to output data
-        PathToOutput = inputdata["Printing"]["PathToOutput"];
-        // Name of output data
-        BaseFileName = inputdata["Printing"]["OutputFile"];
-        // Should ASCII or binary be used to print vtk data? Defaults to ASCII if not given
-        if (inputdata["Printing"].contains("PrintBinary"))
-            PrintBinary = inputdata["Printing"]["PrintBinary"];
-        // Should default ExaConstit output be printed after the simulation? If so, what size RVE?
-        // If a size of 0 is given, this is set to false
-        if (inputdata["Printing"].contains("PrintExaConstitSize")) {
-            RVESize = inputdata["Printing"]["PrintExaConstitSize"];
-            if (RVESize != 0)
-                PrintDefaultRVE = true;
-        }
-
-        // Which fields should be printed at the start and end of the simulation?
-        std::vector<std::string> InitFieldnames_key = {"GrainID", "LayerID", "MeltTimeStep", "CritTimeStep",
-                                                       "UndercoolingChange"};
-        std::vector<bool> PrintFieldsInit = getPrintFieldValues(inputdata, "PrintFieldsInit", InitFieldnames_key);
-        if (PrintFieldsInit[0])
-            PrintInitGrainID = true;
-        if (PrintFieldsInit[1])
-            PrintInitLayerID = true;
-        if (PrintFieldsInit[2])
-            PrintInitMeltTimeStep = true;
-        if (PrintFieldsInit[3])
-            PrintInitCritTimeStep = true;
-        if (PrintFieldsInit[4])
-            PrintInitUndercoolingChange = true;
-
-        std::vector<std::string> FinalFieldnames_key = {
-            "GrainID",      "LayerID",      "GrainMisorientation", "UndercoolingCurrent",
-            "MeltTimeStep", "CritTimeStep", "UndercoolingChange",  "CellType"};
-        std::vector<bool> PrintFieldsFinal = getPrintFieldValues(inputdata, "PrintFieldsFinal", FinalFieldnames_key);
-        if (PrintFieldsFinal[0])
-            PrintFinalGrainID = true;
-        if (PrintFieldsFinal[1])
-            PrintFinalLayerID = true;
-        if (PrintFieldsFinal[2])
-            PrintFinalMisorientation = true;
-        if (PrintFieldsFinal[3])
-            PrintFinalUndercoolingCurrent = true;
-        if (PrintFieldsFinal[4])
-            PrintFinalMeltTimeStep = true;
-        if (PrintFieldsFinal[5])
-            PrintFinalCritTimeStep = true;
-        if (PrintFieldsFinal[6])
-            PrintFinalUndercoolingChange = true;
-        if (PrintFieldsFinal[7])
-            PrintFinalCellType = true;
-
-        // Should intermediate output be printed?
-        if (inputdata["Printing"].contains("PrintIntermediateOutput")) {
-            // An increment of 0 will set the intermediate file printing to false
-            double TimeSeriesFrameInc_time = inputdata["Printing"]["PrintIntermediateOutput"]["Frequency"];
-            if (TimeSeriesFrameInc_time != 0) {
-                PrintTimeSeries = true;
-                // Increment is given in microseconds, convert to seconds
-                TimeSeriesFrameInc_time = TimeSeriesFrameInc_time * pow(10, -6);
-                TimeSeriesInc = round(TimeSeriesFrameInc_time / deltat);
-                // Should the intermediate output be printed even if the simulation was unchanged from the previous
-                // output step?
-                PrintIdleTimeSeriesFrames = inputdata["Printing"]["PrintIntermediateOutput"]["PrintIdleFrames"];
-                if (id == 0)
-                    std::cout << "Intermediate output for movie frames will be printed every " << TimeSeriesInc
-                              << " time steps (or every " << TimeSeriesInc * deltat << " microseconds)" << std::endl;
-            }
-        }
-        if (id == 0)
-            std::cout << "Successfully parsed data printing options from input file" << std::endl;
     }
 
     // Called on rank 0 to collect view data from other ranks, or on other ranks to send data to rank 0
@@ -624,21 +550,6 @@ struct Print {
     }
 };
 
-std::string version();
-std::string gitCommitHash();
-std::string kokkosVersion();
-void PrintExaCALog(int id, int np, std::string InputFile, std::string PathToOutput, std::string BaseFileName,
-                   std::string SimulationType, int ny_local, int y_offset, InterfacialResponseFunction irf,
-                   double deltax, double NMax, double dTN, double dTsigma, std::vector<std::string> temp_paths,
-                   int TempFilesInSeries, double HT_deltax, double deltat, int NumberOfLayers, int LayerHeight,
-                   std::string SubstrateFileName, double SubstrateGrainSpacing, bool SubstrateFile, double G, double R,
-                   int nx, int ny, int nz, double FractSurfaceSitesActive, int NSpotsX, int NSpotsY, int SpotOffset,
-                   int SpotRadius, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
-                   double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
-                   double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
-                   double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin, double XMax, double YMin,
-                   double YMax, double ZMin, double ZMax, std::string GrainOrientationFile, float VolFractionNucleated,
-                   int singleGrainOrientation);
 void PrintExaCATiming(int np, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
                       double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
                       double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,

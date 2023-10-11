@@ -5,15 +5,7 @@
 
 #include "CAinitialize.hpp"
 
-#include "CAconfig.hpp"
-#include "CAfunctions.hpp"
-#include "CAghostnodes.hpp"
-#include "CAparsefiles.hpp"
-#include "CAupdate.hpp"
-
 #include "mpi.h"
-
-#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -22,249 +14,16 @@
 #include <random>
 #include <regex>
 
-// Initializes input parameters, mesh, temperature field, and grain structures for CA simulations
-
-// Read ExaCA input file (JSON format)
-void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
-                       double &dTN, double &dTsigma, std::string &GrainOrientationFile, int &TempFilesInSeries,
-                       std::vector<std::string> &temp_paths, double &HT_deltax, double &deltat, int &NumberOfLayers,
-                       int &LayerHeight, std::string &MaterialFileName, std::string &SubstrateFileName,
-                       float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny,
-                       int &nz, double &FractSurfaceSitesActive, int &NSpotsX, int &NSpotsY, int &SpotOffset,
-                       int &SpotRadius, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderActiveFraction,
-                       bool &LayerwiseTempRead, double &BaseplateTopZ, Print &print, double &initUndercooling,
-                       int &singleGrainOrientation) {
-
-    std::ifstream InputData(InputFile);
-    nlohmann::json inputdata = nlohmann::json::parse(InputData);
-
-    // General inputs
-    SimulationType = inputdata["SimulationType"];
-    // "C": constrained (directional) solidification
-    // "S": array of overlapping hemispherical spots
-    // "R": time-temperature history comes from external files
-    // Check if simulation type includes remelting ("M" suffix to input problem type) - all simulations now use
-    // remelting, so in the absence of this suffix, print warning that the problem will use remelting DirSoldification
-    // problems now include remelting logic
-    if (SimulationType == "RM") {
-        SimulationType = "R";
-    }
-    else if (SimulationType == "SM") {
-        SimulationType = "S";
-    }
-    else if ((SimulationType == "S") || (SimulationType == "R")) {
-        if (id == 0) {
-            if (SimulationType == "S")
-                std::cout << "Warning: While the specified problem type did not include remelting, all simulations now "
-                             "include remelting"
-                          << std::endl;
-        }
-    }
-    if ((SimulationType == "S") && (id == 0))
-        std::cout << "Warning: The spot melt array simulation type (Problem type S) is now deprecated and will be "
-                     "removed in a future release"
-                  << std::endl;
-    // Input files that should be present for all problem types
-    std::string MaterialFileName_Read = inputdata["MaterialFileName"];
-    std::string GrainOrientationFile_Read = inputdata["GrainOrientationFile"];
-    // Path to file of materials constants based on install/source location
-    MaterialFileName = checkFileInstalled(MaterialFileName_Read, id);
-    checkFileNotEmpty(MaterialFileName);
-    // Path to file of grain orientations based on install/source location
-    GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, id);
-    checkFileNotEmpty(GrainOrientationFile);
-    // Seed for random number generator (defaults to 0 if not given)
-    if (inputdata.contains("RandomSeed"))
-        RNGSeed = inputdata["RandomSeed"];
-    else
-        RNGSeed = 0.0;
-
-    // Domain inputs:
-    // Cell size - given in meters, stored in micrometers
-    deltax = inputdata["Domain"]["CellSize"];
-    deltax = deltax * pow(10, -6);
-    // Time step - given in seconds, stored in microseconds
-    deltat = inputdata["Domain"]["TimeStep"];
-    deltat = deltat * pow(10, -6);
-    if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
-        // Domain size, in cells
-        nx = inputdata["Domain"]["Nx"];
-        ny = inputdata["Domain"]["Ny"];
-        nz = inputdata["Domain"]["Nz"];
-        NumberOfLayers = 1;
-        LayerHeight = nz;
-    }
-    else {
-        // Number of layers, layer height are needed for problem types S and R
-        NumberOfLayers = inputdata["Domain"]["NumberOfLayers"];
-        LayerHeight = inputdata["Domain"]["LayerOffset"];
-        // Type S needs spot information, which is then used to compute the domain bounds
-        if (SimulationType == "S") {
-            NSpotsX = inputdata["Domain"]["NSpotsX"];
-            NSpotsY = inputdata["Domain"]["NSpotsY"];
-            // Radius and offset are given in micrometers, convert to cells
-            SpotRadius = inputdata["Domain"]["RSpots"];
-            SpotRadius = SpotRadius * pow(10, -6) / deltax;
-            SpotOffset = inputdata["Domain"]["SpotOffset"];
-            SpotOffset = SpotOffset * pow(10, -6) / deltax;
-            // Calculate nx, ny, and nz based on spot array pattern and number of layers
-            nz = SpotRadius + 1 + (NumberOfLayers - 1) * LayerHeight;
-            nx = 2 * SpotRadius + 1 + SpotOffset * (NSpotsX - 1);
-            ny = 2 * SpotRadius + 1 + SpotOffset * (NSpotsY - 1);
-        }
-    }
-
-    // Nucleation inputs:
-    // Nucleation density (normalized by 10^12 m^-3), mean nucleation undercooling/st dev undercooling(K)
-    // SingleGrain problem type does not have nucleation, just a grain of a single orientation in the domain center
-    if (SimulationType != "SingleGrain") {
-        NMax = inputdata["Nucleation"]["Density"];
-        NMax = NMax * pow(10, 12);
-        dTN = inputdata["Nucleation"]["MeanUndercooling"];
-        dTsigma = inputdata["Nucleation"]["StDev"];
-    }
-    else {
-        NMax = 0.0;
-        dTN = 0.0;
-        dTsigma = 0.0;
-    }
-
-    // Temperature inputs:
-    if (SimulationType == "R") {
-        // Temperature data resolution - default to using CA cell size if the assumed temperature data resolution if not
-        // given
-        if (inputdata["TemperatureData"].contains("HeatTransferCellSize")) {
-            HT_deltax = inputdata["TemperatureData"]["HeatTransferCellSize"];
-            // Value is given in micrometers, convert to meters
-            HT_deltax = HT_deltax * pow(10, -6);
-        }
-        else
-            HT_deltax = deltax;
-        if (HT_deltax != deltax)
-            throw std::runtime_error("Error: CA cell size and input temperature data resolution must be equivalent");
-        // Read all temperature files at once (default), or one at a time?
-        if (inputdata["TemperatureData"].contains("LayerwiseTempRead")) {
-            LayerwiseTempRead = inputdata["TemperatureData"]["LayerwiseTempRead"];
-        }
-        else
-            LayerwiseTempRead = false;
-        // Get the paths/number of/names of the temperature data files used
-        TempFilesInSeries = inputdata["TemperatureData"]["TemperatureFiles"].size();
-        if (TempFilesInSeries == 0)
-            throw std::runtime_error("Error: No temperature files listed in the temperature instructions file");
-        else {
-            for (int filename = 0; filename < TempFilesInSeries; filename++)
-                temp_paths.push_back(inputdata["TemperatureData"]["TemperatureFiles"][filename]);
-        }
-    }
-    else {
-        // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
-        G = inputdata["TemperatureData"]["G"];
-        R = inputdata["TemperatureData"]["R"];
-        if (SimulationType == "SingleGrain")
-            initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
-        else
-            initUndercooling = 0.0;
-    }
-
-    // Substrate inputs:
-    if (SimulationType == "C") {
-        // Fraction of sites at bottom surface active
-        FractSurfaceSitesActive = inputdata["Substrate"]["FractionSurfaceSitesActive"];
-    }
-    else if (SimulationType == "SingleGrain") {
-        // Orientation of the single grain at the domain center
-        singleGrainOrientation = inputdata["Substrate"]["GrainOrientation"];
-    }
-    else {
-        // Substrate data - should data come from an initial size or a file?
-        if ((inputdata["Substrate"].contains("SubstrateFilename")) && (inputdata["Substrate"].contains("MeanSize")))
-            throw std::runtime_error("Error: only one of substrate grain size and substrate structure filename should "
-                                     "be provided in the input file");
-        else if (inputdata["Substrate"].contains("SubstrateFilename")) {
-            SubstrateFileName = inputdata["Substrate"]["SubstrateFilename"];
-            UseSubstrateFile = true;
-        }
-        else if (inputdata["Substrate"].contains("MeanSize")) {
-            SubstrateGrainSpacing = inputdata["Substrate"]["MeanSize"];
-            UseSubstrateFile = false;
-        }
-        // Should the baseplate microstructure be extended through the powder layers? Default is false
-        if (inputdata["Substrate"].contains("ExtendSubstrateThroughPower"))
-            BaseplateThroughPowder = inputdata["Substrate"]["ExtendSubstrateThroughPower"];
-        else
-            BaseplateThroughPowder = false;
-        if (inputdata["Substrate"].contains("PowderDensity")) {
-            // powder density is given as a density per unit volume, normalized by 10^12 m^-3 --> convert this into a
-            // density of sites active on the CA grid (0 to 1)
-            PowderActiveFraction = inputdata["Substrate"]["PowderDensity"];
-            PowderActiveFraction = PowderActiveFraction * pow(10, 12) * pow(deltax, 3);
-            if ((PowderActiveFraction < 0.0) || (PowderActiveFraction > 1.0))
-                throw std::runtime_error("Error: Density of powder surface sites active must be larger than 0 and less "
-                                         "than 1/(CA cell volume)");
-        }
-        else
-            PowderActiveFraction = 1.0; // defaults to a unique grain at each site in the powder layers
-        if ((inputdata["Substrate"].contains("PowderFirstLayer")) && (id == 0))
-            std::cout << "Warning: PowderFirstLayer input is no longer used, the top of the first layer must be "
-                         "specified using BaseplateTopZ (which will otherwise default to Z = 0)"
-                      << std::endl;
-        // The top of the baseplate is designated using BaseplateTopZ (assumed to be Z = 0 if not given in input file)
-        if (inputdata["Substrate"].contains("BaseplateTopZ"))
-            BaseplateTopZ = inputdata["Substrate"]["BaseplateTopZ"];
-        else
-            BaseplateTopZ = 0.0;
-        if ((BaseplateThroughPowder) && (inputdata["Substrate"].contains("PowderDensity")))
-            throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers is "
-                                     "toggled, a powder layer density cannot be given");
-    }
-
-    // Printing inputs:
-    print.getPrintDataFromInputFile(inputdata, id, deltat);
-
-    // Print information to console about the input file data read
-    if (id == 0) {
-        std::cout << "Material simulated is " << MaterialFileName << std::endl;
-        std::cout << "CA cell size is " << deltax * pow(10, 6) << " microns" << std::endl;
-        std::cout << "Nucleation density is " << NMax << " per m^3" << std::endl;
-        std::cout << "Mean nucleation undercooling is " << dTN << " K, standard deviation of distribution is "
-                  << dTsigma << "K" << std::endl;
-        if (SimulationType == "C") {
-            std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << G
-                      << " K/m and a cooling rate of " << R << " K/s" << std::endl;
-            std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
-            std::cout << "The fraction of CA cells at the bottom surface that are active is " << FractSurfaceSitesActive
-                      << std::endl;
-        }
-        else if (SimulationType == "S") {
-            std::cout << "CA Simulation using a radial, fixed thermal gradient of " << G
-                      << " K/m as a series of hemispherical spots, and a cooling rate of " << R << " K/s" << std::endl;
-            std::cout << "A total of " << NumberOfLayers << " spots per layer, with layers offset by " << LayerHeight
-                      << " CA cells will be simulated" << std::endl;
-            std::cout << "The time step is " << deltat * pow(10, 6) << " microseconds" << std::endl;
-        }
-        else if (SimulationType == "R") {
-            std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
-            std::cout << "The time step is " << deltat << " seconds" << std::endl;
-            std::cout << "The first temperature data file to be read is " << temp_paths[0] << ", and there are "
-                      << TempFilesInSeries << " in the series" << std::endl;
-            std::cout << "A total of " << NumberOfLayers << " layers of solidification offset by " << LayerHeight
-                      << " CA cells will be simulated" << std::endl;
-        }
-    }
-}
-
-void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
-                         double PowderActiveFraction) {
+void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, Inputs &inputs) {
 
     // Check to make sure powder grain density is compatible with the number of powder sites
     // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur when
     // assigning powder layer GrainIDs
-    if (!(BaseplateThroughPowder)) {
+    if (!(inputs.substrateInputs.BaseplateThroughPowder)) {
         long int NumCellsPowderLayers =
             (long int)(nx) * (long int)(ny) * (long int)(LayerHeight) * (long int)(NumberOfLayers - 1);
         long int NumAssignedCellsPowderLayers =
-            std::lround(round(static_cast<double>(NumCellsPowderLayers) * PowderActiveFraction));
+            std::lround(round(static_cast<double>(NumCellsPowderLayers) * inputs.substrateInputs.PowderActiveFraction));
         if (NumAssignedCellsPowderLayers > INT_MAX)
             throw std::runtime_error("Error: A smaller value for powder density is required to avoid potential integer "
                                      "overflow when assigning powder layer GrainID");
@@ -297,12 +56,11 @@ bool checkTemperatureFileFormat(std::string tempfile_thislayer) {
 
 // Obtain the physical XYZ bounds of the domain, using either domain size from the input file, or reading temperature
 // data files and parsing the coordinates
-void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
-                   std::vector<std::string> &temp_paths, double &XMin, double &XMax, double &YMin, double &YMax,
-                   double &ZMin, double &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
-                   double *ZMinLayer, double *ZMaxLayer, int SpotRadius) {
+void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XMin, double &XMax, double &YMin,
+                   double &YMax, double &ZMin, double &ZMax, double *ZMinLayer, double *ZMaxLayer, int NumberOfLayers,
+                   int LayerHeight, Inputs<device_memory_space> &inputs) {
 
-    if (SimulationType == "R") {
+    if (inputs.SimulationType == "R") {
         // Two passes through reading temperature data files- the first pass only reads the headers to
         // determine units and X/Y/Z bounds of the simulaton domain. Using the X/Y/Z bounds of the simulation domain,
         // nx, ny, and nz can be calculated and the domain decomposed among MPI processes. The maximum number of
@@ -320,7 +78,7 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
         // the simulation domain) is
         std::ifstream FirstTemperatureFile;
-        FirstTemperatureFile.open(temp_paths[0]);
+        FirstTemperatureFile.open(inputs.temperatureInputs.temp_paths[0]);
         std::string FirstLineFirstFile;
         getline(FirstTemperatureFile, FirstLineFirstFile);
         std::size_t found = FirstLineFirstFile.find("Number of temperature data points");
@@ -332,10 +90,11 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
 
         // Read all data files to determine the domain bounds, max number of remelting events
         // for simulations with remelting
-        int LayersToRead = std::min(NumberOfLayers, TempFilesInSeries); // was given in input file
+        int LayersToRead =
+            std::min(NumberOfLayers, inputs.temperatureInputs.TempFilesInSeries); // was given in input file
         for (int LayerReadCount = 1; LayerReadCount <= LayersToRead; LayerReadCount++) {
 
-            std::string tempfile_thislayer = temp_paths[LayerReadCount - 1];
+            std::string tempfile_thislayer = inputs.temperatureInputs.temp_paths[LayerReadCount - 1];
             // Get min and max x coordinates in this file, which can be a binary or ASCII input file
             // binary file type uses extension .catemp, all other file types assumed to be comma-separated ASCII input
             bool BinaryInputData = checkTemperatureFileFormat(tempfile_thislayer);
@@ -368,9 +127,10 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         }
         // Extend domain in Z (build) direction if the number of layers are simulated is greater than the number
         // of temperature files read
-        if (NumberOfLayers > TempFilesInSeries) {
-            for (int LayerReadCount = TempFilesInSeries; LayerReadCount < NumberOfLayers; LayerReadCount++) {
-                if (TempFilesInSeries == 1) {
+        if (NumberOfLayers > inputs.temperatureInputs.TempFilesInSeries) {
+            for (int LayerReadCount = inputs.temperatureInputs.TempFilesInSeries; LayerReadCount < NumberOfLayers;
+                 LayerReadCount++) {
+                if (inputs.temperatureInputs.TempFilesInSeries == 1) {
                     // Only one temperature file was read, so the upper Z bound should account for an additional
                     // "NumberOfLayers-1" worth of data Since all layers have the same temperature data, each
                     // layer's "ZMinLayer" is just translated from that of the first layer
@@ -381,12 +141,14 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
                 else {
                     // "TempFilesInSeries" temperature files was read, so the upper Z bound should account for
                     // an additional "NumberOfLayers-TempFilesInSeries" worth of data
-                    int RepeatedFile = (LayerReadCount) % TempFilesInSeries;
-                    int RepeatUnit = LayerReadCount / TempFilesInSeries;
+                    int RepeatedFile = (LayerReadCount) % inputs.temperatureInputs.TempFilesInSeries;
+                    int RepeatUnit = LayerReadCount / inputs.temperatureInputs.TempFilesInSeries;
                     ZMinLayer[LayerReadCount] =
-                        ZMinLayer[RepeatedFile] + RepeatUnit * TempFilesInSeries * deltax * LayerHeight;
+                        ZMinLayer[RepeatedFile] +
+                        RepeatUnit * inputs.temperatureInputs.TempFilesInSeries * deltax * LayerHeight;
                     ZMaxLayer[LayerReadCount] =
-                        ZMaxLayer[RepeatedFile] + RepeatUnit * TempFilesInSeries * deltax * LayerHeight;
+                        ZMaxLayer[RepeatedFile] +
+                        RepeatUnit * inputs.temperatureInputs.TempFilesInSeries * deltax * LayerHeight;
                     ZMax += deltax * LayerHeight;
                 }
             }
@@ -413,7 +175,7 @@ void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, 
         // If this is a spot melt problem, also set the ZMin/ZMax for each layer
         for (int n = 0; n < NumberOfLayers; n++) {
             ZMinLayer[n] = deltax * (LayerHeight * n);
-            ZMaxLayer[n] = deltax * (SpotRadius + LayerHeight * n);
+            ZMaxLayer[n] = deltax * (inputs.domainInputs.SpotRadius + LayerHeight * n);
         }
     }
     if (id == 0) {

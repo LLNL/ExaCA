@@ -7,6 +7,8 @@
 #define EXACA_UPDATE_HPP
 
 #include "CAcelldata.hpp"
+#include "CAfunctions.hpp"
+#include "CAghostnodes.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAprint.hpp"
 #include "CAtemperature.hpp"

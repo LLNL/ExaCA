@@ -153,6 +153,8 @@ void testcalcLayerDomainSize() {
 //---------------------------------------------------------------------------//
 void testFindXYZBounds(bool TestBinaryInputRead) {
 
+    using memory_space = TEST_MEMSPACE;
+
     // Write fake OpenFOAM data - temperature data should be of type double
     double deltax = 1 * pow(10, -6);
     std::string TestFilename = "TestData";
@@ -187,9 +189,11 @@ void testFindXYZBounds(bool TestBinaryInputRead) {
     }
     TestData.close();
 
-    int TempFilesInSeries = 1;
-    std::vector<std::string> temp_paths(TempFilesInSeries);
-    temp_paths[0] = TestFilename;
+    // Empty inputs struct with default values - manually set non-default substrateInputs values
+    Inputs<memory_space> inputs;
+    inputs.SimulationType = "R";
+    inputs.temperatureInputs.TempFilesInSeries = 1;
+    inputs.temperatureInputs.temp_paths.push_back(TestFilename);
     int LayerHeight = 2;
     int NumberOfLayers = 2;
     // Values to be calculated in FindXYZBounds
@@ -198,8 +202,8 @@ void testFindXYZBounds(bool TestBinaryInputRead) {
     double *ZMinLayer = new double[NumberOfLayers];
     double *ZMaxLayer = new double[NumberOfLayers];
 
-    FindXYZBounds("R", 0, deltax, nx, ny, nz, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerHeight,
-                  NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer, 0);
+    FindXYZBounds(0, deltax, nx, ny, nz, XMin, XMax, YMin, YMax, ZMin, ZMax, ZMinLayer, ZMaxLayer, NumberOfLayers,
+                  LayerHeight, inputs);
 
     EXPECT_DOUBLE_EQ(XMin, 0.0);
     EXPECT_DOUBLE_EQ(YMin, 0.0);

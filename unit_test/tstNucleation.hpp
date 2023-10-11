@@ -8,6 +8,7 @@
 #include "CAcelldata.hpp"
 #include "CAfunctions.hpp"
 #include "CAinitialize.hpp"
+#include "CAinputs.hpp"
 #include "CAnucleation.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtemperature.hpp"
@@ -61,14 +62,16 @@ void testNucleiInit() {
     // There are 40 * np total cells in this domain (nx * ny * nz)
     // Each rank has 40 cells - the top 32 cells are part of the active layer and are candidates for nucleation
     // assignment
-    double NMax = 0.125; // This nucleation density ensures there will be 4 potential nuclei per MPI rank present
-                         // without remelting (each cell solidifies once)
     int MaxPotentialNuclei_PerPass = 4 * np;
     // A cell can solidify 1-3 times
     int MaxSolidificationEvents_Count = 3;
-    double dTN = 1;
-    double dTsigma = 0.0001;
-    double RNGSeed = 0.0;
+    // Empty inputs struct with manually set nucleation parameters
+    // This nucleation density ensures there will be 4 potential nuclei per MPI rank present
+    // without remelting (each cell solidifies once)
+    Inputs<memory_space> inputs;
+    inputs.nucleationInputs.dTN = 1;
+    inputs.nucleationInputs.dTsigma = 0.0001;
+    inputs.nucleationInputs.NMax = 0.125;
 
     // Allocate temperature data structures
     Temperature<memory_space> temperature(DomainSize, NumberOfLayers, 1);
@@ -125,16 +128,16 @@ void testNucleiInit() {
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
     // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
-    int EstimatedNuclei_ThisRankThisLayer = NMax * pow(deltax, 3) * DomainSize;
+    int EstimatedNuclei_ThisRankThisLayer = inputs.nucleationInputs.NMax * pow(deltax, 3) * DomainSize;
     Nucleation<memory_space> nucleation(
-        EstimatedNuclei_ThisRankThisLayer, NMax, deltax,
+        EstimatedNuclei_ThisRankThisLayer, inputs.nucleationInputs.NMax, deltax,
         100); // NucleiGrainID should start at -101 - supply optional input arg to constructor
 
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 1 - they will be initialized for each
     // successive layer when layer 1 in complete
-    nucleation.placeNuclei(temperature, RNGSeed, 1, nx, ny, nz_layer, dTN, dTsigma, ny_local, y_offset, z_layer_bottom,
-                           id, AtNorthBoundary, AtSouthBoundary);
+    nucleation.placeNuclei(temperature, inputs, 1, nx, ny, nz_layer, ny_local, y_offset, z_layer_bottom, id,
+                           AtNorthBoundary, AtSouthBoundary);
 
     // Copy results back to host to check
     auto NucleiLocation_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.NucleiLocations);

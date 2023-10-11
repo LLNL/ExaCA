@@ -5,15 +5,6 @@
 
 #include "runCA.hpp"
 
-#include "CAcelldata.hpp"
-#include "CAghostnodes.hpp"
-#include "CAinitialize.hpp"
-#include "CAnucleation.hpp"
-#include "CAprint.hpp"
-#include "CAtemperature.hpp"
-#include "CAtypes.hpp"
-#include "CAupdate.hpp"
-
 #include "mpi.h"
 
 #include <string>
@@ -24,26 +15,21 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartNuclTime, StartCreateSVTime, StartCaptureTime, StartGhostTime;
     double StartInitTime = MPI_Wtime();
 
-    int nx, ny, nz, NumberOfLayers, LayerHeight, TempFilesInSeries;
-    int NSpotsX, NSpotsY, SpotOffset, SpotRadius, HTtoCAratio, singleGrainOrientation;
-    bool UseSubstrateFile, BaseplateThroughPowder, LayerwiseTempRead;
-    float SubstrateGrainSpacing;
-    double HT_deltax, deltax, deltat, FractSurfaceSitesActive, G, R, NMax, dTN, dTsigma, RNGSeed, PowderActiveFraction,
-        initUndercooling, BaseplateTopZ;
-    std::string SubstrateFileName, MaterialFileName, SimulationType, GrainOrientationFile;
-    std::vector<std::string> temp_paths;
-
-    // Data printing structure - contains print options (false by default) and functions
-    Print print(np);
-
     // Read input file - toggle appropriate print options
-    InputReadFromFile(id, InputFile, SimulationType, deltax, NMax, dTN, dTsigma, GrainOrientationFile,
-                      TempFilesInSeries, temp_paths, HT_deltax, deltat, NumberOfLayers, LayerHeight, MaterialFileName,
-                      SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                      FractSurfaceSitesActive, NSpotsX, NSpotsY, SpotOffset, SpotRadius, RNGSeed,
-                      BaseplateThroughPowder, PowderActiveFraction, LayerwiseTempRead, BaseplateTopZ, print,
-                      initUndercooling, singleGrainOrientation);
-    InterfacialResponseFunction irf(id, MaterialFileName, deltat, deltax);
+    Inputs<device_memory_space> inputs(id, InputFile);
+
+    // These parameters from the inputs struct will eventually be stored in the grid struct, but for now are temporarily
+    // kept in the current scope
+    int nx = inputs.domainInputs.nx;
+    int ny = inputs.domainInputs.ny;
+    int nz = inputs.domainInputs.nz;
+    int NumberOfLayers = inputs.domainInputs.NumberOfLayers;
+    int LayerHeight = inputs.domainInputs.LayerHeight;
+    double deltax = inputs.domainInputs.deltax;
+    double HT_deltax = inputs.temperatureInputs.HT_deltax;
+
+    // Material response function
+    InterfacialResponseFunction irf(id, inputs.MaterialFileName, inputs.domainInputs.deltat, deltax);
 
     // Variables characterizing local processor grids relative to global domain
     // 1D decomposition in Y: Each MPI rank has a subset consisting of of ny_local cells, out of ny cells in Y
@@ -69,20 +55,21 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // temperature data files and parsing the coordinates
     // For simulations using input temperature data with remelting: even if only LayerwiseTempRead is true, all files
     // need to be read to determine the domain bounds
-    FindXYZBounds(SimulationType, id, deltax, nx, ny, nz, temp_paths, XMin, XMax, YMin, YMax, ZMin, ZMax, LayerHeight,
-                  NumberOfLayers, TempFilesInSeries, ZMinLayer, ZMaxLayer, SpotRadius);
+    FindXYZBounds(id, deltax, nx, ny, nz, XMin, XMax, YMin, YMax, ZMin, ZMax, ZMinLayer, ZMaxLayer, NumberOfLayers,
+                  LayerHeight, inputs);
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
-    if ((SimulationType == "R") || (SimulationType == "S"))
-        checkPowderOverflow(nx, ny, LayerHeight, NumberOfLayers, BaseplateThroughPowder, PowderActiveFraction);
+    if ((inputs.SimulationType == "R") || (inputs.SimulationType == "S"))
+        checkPowderOverflow(nx, ny, LayerHeight, NumberOfLayers, inputs);
 
     // Decompose the domain into subdomains on each MPI rank: Calculate ny_local and y_offset for each rank, where
     // each subdomain contains "ny_local" in Y, offset from the full domain origin by "y_offset" cells in Y
     DomainDecomposition(id, np, ny_local, y_offset, NeighborRank_North, NeighborRank_South, nx, ny, nz,
                         DomainSize_AllLayers, AtNorthBoundary, AtSouthBoundary);
     // Bounds of the current layer: Z coordinates span z_layer_bottom-z_layer_top, inclusive
-    int z_layer_bottom = calc_z_layer_bottom(SimulationType, LayerHeight, 0, ZMinLayer, ZMin, deltax);
-    int z_layer_top = calc_z_layer_top(SimulationType, SpotRadius, LayerHeight, 0, ZMin, deltax, nz, ZMaxLayer);
+    int z_layer_bottom = calc_z_layer_bottom(inputs.SimulationType, LayerHeight, 0, ZMinLayer, ZMin, deltax);
+    int z_layer_top = calc_z_layer_top(inputs.SimulationType, inputs.domainInputs.SpotRadius, LayerHeight, 0, ZMin,
+                                       deltax, nz, ZMaxLayer);
     int nz_layer = calc_nz_layer(z_layer_bottom, z_layer_top, id, 0);
     DomainSize = calcLayerDomainSize(nx, ny_local, nz_layer); // Number of cells in the current layer on this MPI rank
     MPI_Barrier(MPI_COMM_WORLD);
@@ -93,23 +80,21 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Temperature fields characterized by data in this structure
     Temperature<device_memory_space> temperature(DomainSize, NumberOfLayers);
     // Read temperature data if necessary
-    if (SimulationType == "R")
-        temperature.readTemperatureData(id, deltax, HT_deltax, HTtoCAratio, y_offset, ny_local, YMin, temp_paths,
-                                        NumberOfLayers, TempFilesInSeries, LayerwiseTempRead, 0);
+    if (inputs.SimulationType == "R")
+        temperature.readTemperatureData(id, deltax, HT_deltax, y_offset, ny_local, YMin, NumberOfLayers, inputs, 0);
     // Initialize the temperature fields for the simualtion type of interest
-    if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
-        if (G == 0)
-            temperature.initialize(R, id, deltat, DomainSize, initUndercooling);
+    if ((inputs.SimulationType == "C") || (inputs.SimulationType == "SingleGrain")) {
+        if (inputs.temperatureInputs.G == 0)
+            temperature.initialize(id, DomainSize, inputs);
         else
-            temperature.initialize(SimulationType, G, R, id, nx, ny_local, nz, deltax, deltat, DomainSize,
-                                   initUndercooling);
+            temperature.initialize(id, nx, ny_local, nz, deltax, DomainSize, inputs);
     }
-    else if (SimulationType == "S")
-        temperature.initialize(G, R, id, nx, ny_local, y_offset, deltax, deltat, DomainSize, irf.FreezingRange, NSpotsX,
-                               NSpotsY, SpotRadius, SpotOffset, NumberOfLayers);
-    else if (SimulationType == "R")
-        temperature.initialize(0, id, nx, ny_local, DomainSize, y_offset, deltax, deltat, irf.FreezingRange, XMin, YMin,
-                               ZMinLayer, LayerHeight, nz_layer, z_layer_bottom, FinishTimeStep, TempFilesInSeries);
+    else if (inputs.SimulationType == "S")
+        temperature.initialize(id, nx, ny_local, y_offset, deltax, DomainSize, irf.FreezingRange, inputs,
+                               NumberOfLayers);
+    else if (inputs.SimulationType == "R")
+        temperature.initialize(0, id, nx, ny_local, DomainSize, y_offset, deltax, irf.FreezingRange, XMin, YMin,
+                               ZMinLayer, LayerHeight, nz_layer, z_layer_bottom, FinishTimeStep, inputs);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization" << std::endl;
@@ -119,7 +104,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 0);
 
     // Initialize grain orientations
-    OrientationInit(id, NGrainOrientations, GrainUnitVector, GrainOrientationFile);
+    OrientationInit(id, NGrainOrientations, GrainUnitVector, inputs.GrainOrientationFile);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with orientation initialization " << std::endl;
@@ -147,15 +132,15 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Initialize cell types, grain IDs, and layer IDs
     CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
-    if (SimulationType == "C")
-        cellData.init_substrate(id, FractSurfaceSitesActive, ny_local, nx, ny, y_offset, RNGSeed);
-    else if (SimulationType == "SingleGrain")
-        cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize);
+    if (inputs.SimulationType == "C")
+        cellData.init_substrate(id, inputs.substrateInputs.FractSurfaceSitesActive, ny_local, nx, ny, y_offset,
+                                inputs.RNGSeed);
+    else if (inputs.SimulationType == "SingleGrain")
+        cellData.init_substrate(id, inputs.substrateInputs.singleGrainOrientation, nx, ny, nz, ny_local, y_offset,
+                                DomainSize);
     else
-        cellData.init_substrate(SubstrateFileName, UseSubstrateFile, BaseplateThroughPowder, nx, ny, nz, DomainSize,
-                                ZMaxLayer, ZMin, deltax, ny_local, y_offset, z_layer_bottom, id, RNGSeed,
-                                SubstrateGrainSpacing, PowderActiveFraction, temperature.NumberOfSolidificationEvents,
-                                BaseplateTopZ);
+        cellData.init_substrate(nx, ny, nz, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset, z_layer_bottom, id,
+                                inputs, temperature.NumberOfSolidificationEvents);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Grain struct initialized" << std::endl;
@@ -164,13 +149,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
     // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
-    int EstimatedNuclei_ThisRankThisLayer = NMax * pow(deltax, 3) * DomainSize;
-    Nucleation<device_memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, NMax, deltax);
+    int EstimatedNuclei_ThisRankThisLayer = inputs.nucleationInputs.NMax * pow(deltax, 3) * DomainSize;
+    Nucleation<device_memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, inputs.nucleationInputs.NMax, deltax);
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
     // successive layer when layer 0 in complete
-    nucleation.placeNuclei(temperature, RNGSeed, 0, nx, ny, nz_layer, dTN, dTsigma, ny_local, y_offset, z_layer_bottom,
-                           id, AtNorthBoundary, AtSouthBoundary);
+    nucleation.placeNuclei(temperature, inputs, 0, nx, ny, nz_layer, ny_local, y_offset, z_layer_bottom, id,
+                           AtNorthBoundary, AtSouthBoundary);
 
     // Steering Vector
     ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), DomainSize);
@@ -178,8 +163,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     numSteer_Host(0) = 0;
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
 
-    // Get the size of buffer data for sending/receiving print information before printing any fields
-    print.getSendRecvDataSizes(nx, ny, nz, ny_local, y_offset, np);
+    // Initialize printing struct from inputs
+    Print print(inputs, nx, ny, nz, ny_local, y_offset, np);
+
     // If specified, print initial values in some views for debugging purposes
     double InitTime = MPI_Wtime() - StartInitTime;
     if (id == 0)
@@ -222,7 +208,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // FillSteeringVector_NoRemelt (a simplified version of FillSteeringVector_Remelt
             StartCreateSVTime = MPI_Wtime();
 
-            if ((SimulationType == "C") || (SimulationType == "SingleGrain"))
+            if ((inputs.SimulationType == "C") || (inputs.SimulationType == "SingleGrain"))
                 FillSteeringVector_NoRemelt(cycle, DomainSize, temperature, cellData, SteeringVector, numSteer,
                                             numSteer_Host);
             else
@@ -261,13 +247,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
-            if ((cycle % 1000 == 0) && (SimulationType != "SingleGrain")) {
+            if ((cycle % 1000 == 0) && (inputs.SimulationType != "SingleGrain")) {
                 IntermediateOutputAndCheck(id, np, cycle, ny_local, DomainSize, nx, ny, nz, nz_layer, z_layer_bottom,
                                            deltax, XMin, YMin, ZMin, nucleation.SuccessfulNucleationCounter, XSwitch,
-                                           cellData, temperature, SimulationType, layernumber, NGrainOrientations,
-                                           GrainUnitVector, print);
+                                           cellData, temperature, inputs.SimulationType, layernumber,
+                                           NGrainOrientations, GrainUnitVector, print);
             }
-            else if (SimulationType == "SingleGrain") {
+            else if (inputs.SimulationType == "SingleGrain") {
                 IntermediateOutputAndCheck(id, cycle, ny_local, y_offset, DomainSize, nx, ny, nz, XSwitch,
                                            cellData.CellType_AllLayers);
             }
@@ -284,23 +270,23 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 print.resetIntermediateFileCounter();
 
             // Determine new active cell domain size and offset from bottom of global domain
-            z_layer_bottom = calc_z_layer_bottom(SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
-            z_layer_top =
-                calc_z_layer_top(SimulationType, SpotRadius, LayerHeight, layernumber + 1, ZMin, deltax, nz, ZMaxLayer);
+            z_layer_bottom =
+                calc_z_layer_bottom(inputs.SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
+            z_layer_top = calc_z_layer_top(inputs.SimulationType, inputs.domainInputs.SpotRadius, LayerHeight,
+                                           layernumber + 1, ZMin, deltax, nz, ZMaxLayer);
             nz_layer = calc_nz_layer(z_layer_bottom, z_layer_top, id, layernumber + 1);
             DomainSize = calcLayerDomainSize(nx, ny_local, nz_layer);
             // Determine the bounds of the next layer: Z coordinates span z_layer_bottom-z_layer_top, inclusive
             // For simulation type R, need to initialize new temperature field data for layer "layernumber + 1"
-            if (SimulationType == "R") {
+            if (inputs.SimulationType == "R") {
                 // If the next layer's temperature data isn't already stored, it should be read
-                if (LayerwiseTempRead)
-                    temperature.readTemperatureData(id, deltax, HT_deltax, HTtoCAratio, y_offset, ny_local, YMin,
-                                                    temp_paths, NumberOfLayers, TempFilesInSeries, LayerwiseTempRead,
-                                                    layernumber + 1);
+                if (inputs.temperatureInputs.LayerwiseTempRead)
+                    temperature.readTemperatureData(id, deltax, HT_deltax, y_offset, ny_local, YMin, NumberOfLayers,
+                                                    inputs, layernumber + 1);
                 // Initialize next layer's temperature data
-                temperature.initialize(layernumber + 1, id, nx, ny_local, DomainSize, y_offset, deltax, deltat,
+                temperature.initialize(layernumber + 1, id, nx, ny_local, DomainSize, y_offset, deltax,
                                        irf.FreezingRange, XMin, YMin, ZMinLayer, LayerHeight, nz_layer, z_layer_bottom,
-                                       FinishTimeStep, TempFilesInSeries);
+                                       FinishTimeStep, inputs);
             }
 
             // Reset initial undercooling/solidification event counter of all cells to zeros for the next layer,
@@ -314,15 +300,14 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
             cellData.init_next_layer(layernumber + 1, id, nx, ny, ny_local, y_offset, z_layer_bottom, DomainSize,
-                                     BaseplateThroughPowder, ZMin, ZMaxLayer, deltax, RNGSeed, PowderActiveFraction,
-                                     temperature.NumberOfSolidificationEvents);
+                                     inputs, ZMin, ZMaxLayer, deltax, temperature.NumberOfSolidificationEvents);
 
             // Initialize potential nucleation event data for next layer "layernumber + 1"
             // Views containing nucleation data will be resized to the possible number of nuclei on a given MPI rank for
             // the next layer
             nucleation.resetNucleiCounters(); // start counters at 0
-            nucleation.placeNuclei(temperature, RNGSeed, layernumber + 1, nx, ny, nz_layer, dTN, dTsigma, ny_local,
-                                   y_offset, z_layer_bottom, id, AtNorthBoundary, AtSouthBoundary);
+            nucleation.placeNuclei(temperature, inputs, layernumber + 1, nx, ny, nz_layer, ny_local, y_offset,
+                                   z_layer_bottom, id, AtNorthBoundary, AtSouthBoundary);
 
             XSwitch = 0;
             MPI_Barrier(MPI_COMM_WORLD);
@@ -371,13 +356,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
     // Print the log file with JSON format, timing information to the console
-    PrintExaCALog(id, np, InputFile, print.PathToOutput, print.BaseFileName, SimulationType, ny_local, y_offset, irf,
-                  deltax, NMax, dTN, dTsigma, temp_paths, TempFilesInSeries, HT_deltax, deltat, NumberOfLayers,
-                  LayerHeight, SubstrateFileName, SubstrateGrainSpacing, UseSubstrateFile, G, R, nx, ny, nz,
-                  FractSurfaceSitesActive, NSpotsX, NSpotsY, SpotOffset, SpotRadius, InitTime, RunTime, OutTime, cycle,
-                  InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
-                  CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin,
-                  ZMax, GrainOrientationFile, VolFractionNucleated, singleGrainOrientation);
+    inputs.PrintExaCALog(id, np, InputFile, ny_local, y_offset, irf, deltax, HT_deltax, NumberOfLayers, LayerHeight, nx,
+                         ny, nz, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
+                         CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
+                         OutMaxTime, OutMinTime, XMin, XMax, YMin, YMax, ZMin, ZMax, VolFractionNucleated);
     if (id == 0)
         PrintExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
                          CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,

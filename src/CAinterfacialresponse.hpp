@@ -6,7 +6,6 @@
 #ifndef EXACA_IRF_HPP
 #define EXACA_IRF_HPP
 
-#include "CAconfig.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 

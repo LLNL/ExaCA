@@ -7,7 +7,6 @@
 #define EXACA_NUCLEATION_HPP
 
 #include "CAcelldata.hpp"
-#include "CAconfig.hpp"
 #include "CAtemperature.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
@@ -76,9 +75,9 @@ struct Nucleation {
     // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur,
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
     template <class... Params>
-    void placeNuclei(Temperature<memory_space> &temperature, double RNGSeed, int layernumber, int nx, int ny,
-                     int nz_layer, double dTN, double dTsigma, int ny_local, int y_offset, int, int id,
-                     bool AtNorthBoundary, bool AtSouthBoundary) {
+    void placeNuclei(Temperature<memory_space> &temperature, Inputs<memory_space> &inputs, int layernumber, int nx,
+                     int ny, int nz_layer, int ny_local, int y_offset, int, int id, bool AtNorthBoundary,
+                     bool AtSouthBoundary) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
@@ -91,13 +90,13 @@ struct Nucleation {
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.LayerTimeTempHistory);
 
         // Use new RNG seed for each layer
-        std::mt19937_64 generator(RNGSeed + layernumber);
+        std::mt19937_64 generator(inputs.RNGSeed + layernumber);
         // Uniform distribution for nuclei location assignment
         std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
         std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
         std::uniform_real_distribution<double> Zdist(-0.49999, nz_layer - 0.5);
         // Gaussian distribution of nucleation undercooling
-        std::normal_distribution<double> Gdistribution(dTN, dTsigma);
+        std::normal_distribution<double> Gdistribution(inputs.nucleationInputs.dTN, inputs.nucleationInputs.dTsigma);
 
         // Max number of nucleated grains in this layer
         // Use long int in intermediate steps calculating the number of nucleated grains, though the number should be

@@ -4,8 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "CAghostnodes.hpp"
-#include "CAfunctions.hpp"
-#include "CAupdate.hpp"
+
 #include "mpi.h"
 
 #include <algorithm>
