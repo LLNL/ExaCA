@@ -15,7 +15,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartNuclTime, StartCreateSVTime, StartCaptureTime, StartGhostTime;
     double StartInitTime = MPI_Wtime();
 
-    // Read input file - toggle appropriate print options
+    // Read input file
     Inputs<device_memory_space> inputs(id, InputFile);
 
     // These parameters from the inputs struct will eventually be stored in the grid struct, but for now are temporarily

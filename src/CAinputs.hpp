@@ -21,13 +21,13 @@
 
 // Structs to organize data within inputs struct
 struct DomainInputs {
-    double deltax, deltat;
+    double deltax = 0.0, deltat = 0.0;
     // number of CA cells in each direction only initialized here for problem types C, S, and SingleGrain
-    int nx, ny, nz;
+    int nx = 0, ny = 0, nz = 0;
     // multilayer problems only
-    int NumberOfLayers, LayerHeight;
+    int NumberOfLayers = 1, LayerHeight = 0;
     // problem type S only
-    int NSpotsX, NSpotsY, SpotRadius, SpotOffset;
+    int NSpotsX = 0, NSpotsY = 0, SpotRadius = 0, SpotOffset = 0;
 };
 
 struct NucleationInputs {
@@ -40,34 +40,34 @@ struct NucleationInputs {
 struct TemperatureInputs {
     // Used for problem type R (by default, all temperature files read during init)
     bool LayerwiseTempRead = false;
-    int TempFilesInSeries;
-    double HT_deltax;
+    int TempFilesInSeries = 0;
+    double HT_deltax = 0.0;
     std::vector<std::string> temp_paths;
     // Use for problem types other than R (no temperature files to read) - default to no initial undercooling at
     // solidification front
-    double G, R;
+    double G = 0, R = 0;
     double initUndercooling = 0.0;
 };
 
 struct SubstrateInputs {
     // problem type C only
-    double FractSurfaceSitesActive;
+    double FractSurfaceSitesActive = 0.0;
     // problem type SingleGrain only
-    double singleGrainOrientation;
+    int singleGrainOrientation = 0;
     // problem types S and R only
     bool UseSubstrateFile = false;
     bool BaseplateThroughPowder = false;
-    std::string SubstrateFileName;
-    double SubstrateGrainSpacing;
+    std::string SubstrateFileName = "";
+    double SubstrateGrainSpacing = 0.0;
     // defaults to all sites in powder layer initialized with a new grain
     double PowderActiveFraction = 1.0;
     // Top of baseplate assumed at Z = 0 if not otherwise given
-    double BaseplateTopZ;
+    double BaseplateTopZ = 0.0;
 };
 
 struct PrintInputs {
     // Base name of CA output
-    std::string BaseFileName;
+    std::string BaseFileName = "";
     // Path to CA output
     std::string PathToOutput = "";
     // Fields to be printed at start of run: GrainID, LayerID, MeltTimeStep, CritTimeStep, UndercoolingChange (all
@@ -111,7 +111,7 @@ struct Inputs {
 
     using memory_space = MemorySpace;
 
-    std::string SimulationType, MaterialFileName, GrainOrientationFile;
+    std::string SimulationType = "", MaterialFileName = "", GrainOrientationFile = "";
     double RNGSeed = 0.0;
     DomainInputs domainInputs;
     NucleationInputs nucleationInputs;
@@ -181,8 +181,6 @@ struct Inputs {
             domainInputs.nx = inputdata["Domain"]["Nx"];
             domainInputs.ny = inputdata["Domain"]["Ny"];
             domainInputs.nz = inputdata["Domain"]["Nz"];
-            domainInputs.NumberOfLayers = 1;
-            domainInputs.LayerHeight = domainInputs.nz;
         }
         else {
             // Number of layers, layer height are needed for problem types S and R
@@ -298,8 +296,6 @@ struct Inputs {
             // file)
             if (inputdata["Substrate"].contains("BaseplateTopZ"))
                 substrateInputs.BaseplateTopZ = inputdata["Substrate"]["BaseplateTopZ"];
-            else
-                substrateInputs.BaseplateTopZ = 0.0;
             if ((substrateInputs.BaseplateThroughPowder) && (inputdata["Substrate"].contains("PowderDensity")))
                 throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers is "
                                          "toggled, a powder layer density cannot be given");
