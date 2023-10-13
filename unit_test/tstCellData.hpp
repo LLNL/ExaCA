@@ -55,10 +55,10 @@ void testCellDataInit_SingleGrain() {
     Inputs inputs;
 
     // Cell data struct
-    CellData<memory_space> cellData(DomainSize, DomainSize, nx, ny_local, 0, inputs.substrateInputs);
+    CellData<memory_space> cellData(DomainSize, DomainSize, nx, ny_local, 0, inputs.substrate);
 
     // Check that default substrate single grain orientation was set
-    EXPECT_DOUBLE_EQ(inputs.substrateInputs.singleGrainOrientation, cellData._inputs.singleGrainOrientation);
+    EXPECT_DOUBLE_EQ(inputs.substrate.singleGrainOrientation, cellData._inputs.singleGrainOrientation);
 
     // Init grain
     cellData.init_substrate(id, nx, ny, nz, ny_local, y_offset, DomainSize);
@@ -114,12 +114,11 @@ void testCellDataInit_ConstrainedGrowth() {
     // Empty inputs struct
     Inputs inputs;
     // Set fract surface cells active to 0.5
-    inputs.substrateInputs.FractSurfaceSitesActive = 0.5;
+    inputs.substrate.FractSurfaceSitesActive = 0.5;
     // Construct celldata struct
-    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
-                                    inputs.substrateInputs);
+    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom, inputs.substrate);
     // Check appropriate initialization of celldata input
-    EXPECT_DOUBLE_EQ(inputs.substrateInputs.FractSurfaceSitesActive, cellData._inputs.FractSurfaceSitesActive);
+    EXPECT_DOUBLE_EQ(inputs.substrate.FractSurfaceSitesActive, cellData._inputs.FractSurfaceSitesActive);
     // Initialize substrate grains
     cellData.init_substrate(id, ny_local, nx, ny, y_offset, inputs.RNGSeed);
     // Copy CellType, GrainID views to host to check values
@@ -186,16 +185,16 @@ void testCellDataInit(bool PowderFirstLayer) {
     // If there is a powder layer, the baseplate should be Z = 0 through 1 w/ powder for the top row of cells, otherwise
     // it should be 0 through 2
     // If there is no powder layer, the baseplate should be Z = 0 through 2 with no powder
-    // Empty inputs struct with default values - manually set non-default substrateInputs values
+    // Empty inputs struct with default values - manually set non-default substrate values
     Inputs inputs;
     int BaseplateSize, ExpectedNumPowderGrainsPerLayer;
     if (PowderFirstLayer) {
-        inputs.substrateInputs.BaseplateTopZ = deltax;
+        inputs.substrate.BaseplateTopZ = deltax;
         BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax));
         ExpectedNumPowderGrainsPerLayer = nx * ny_local * np;
     }
     else {
-        inputs.substrateInputs.BaseplateTopZ = 2 * deltax;
+        inputs.substrate.BaseplateTopZ = 2 * deltax;
         BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax) + 1);
         ExpectedNumPowderGrainsPerLayer = 0;
     }
@@ -208,9 +207,9 @@ void testCellDataInit(bool PowderFirstLayer) {
     // baseplate. This grain spacing ensures that there will be 1 grain per number of MPI ranks present (larger when
     // powder layer is present as the baseplate will only have a third as many cells)
     if (PowderFirstLayer)
-        inputs.substrateInputs.SubstrateGrainSpacing = 2.62;
+        inputs.substrate.SubstrateGrainSpacing = 2.62;
     else
-        inputs.substrateInputs.SubstrateGrainSpacing = 3.0;
+        inputs.substrate.SubstrateGrainSpacing = 3.0;
     inputs.RNGSeed = 0.0;
 
     // unused views in constructor
@@ -238,11 +237,10 @@ void testCellDataInit(bool PowderFirstLayer) {
     Kokkos::fence();
 
     // Call constructor
-    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
-                                    inputs.substrateInputs);
+    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom, inputs.substrate);
     // Check that substrate inputs were copied from inputs struct correctly
-    EXPECT_DOUBLE_EQ(inputs.substrateInputs.BaseplateTopZ, cellData._inputs.BaseplateTopZ);
-    EXPECT_DOUBLE_EQ(inputs.substrateInputs.SubstrateGrainSpacing, cellData._inputs.SubstrateGrainSpacing);
+    EXPECT_DOUBLE_EQ(inputs.substrate.BaseplateTopZ, cellData._inputs.BaseplateTopZ);
+    EXPECT_DOUBLE_EQ(inputs.substrate.SubstrateGrainSpacing, cellData._inputs.SubstrateGrainSpacing);
     EXPECT_FALSE(cellData._inputs.UseSubstrateFile);
     EXPECT_FALSE(cellData._inputs.BaseplateThroughPowder);
     EXPECT_DOUBLE_EQ(cellData._inputs.PowderActiveFraction, 1.0);

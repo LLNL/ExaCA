@@ -19,11 +19,11 @@ void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, In
     // Check to make sure powder grain density is compatible with the number of powder sites
     // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur when
     // assigning powder layer GrainIDs
-    if (!(inputs.substrateInputs.BaseplateThroughPowder)) {
+    if (!(inputs.substrate.BaseplateThroughPowder)) {
         long int NumCellsPowderLayers =
             (long int)(nx) * (long int)(ny) * (long int)(LayerHeight) * (long int)(NumberOfLayers - 1);
         long int NumAssignedCellsPowderLayers =
-            std::lround(round(static_cast<double>(NumCellsPowderLayers) * inputs.substrateInputs.PowderActiveFraction));
+            std::lround(round(static_cast<double>(NumCellsPowderLayers) * inputs.substrate.PowderActiveFraction));
         if (NumAssignedCellsPowderLayers > INT_MAX)
             throw std::runtime_error("Error: A smaller value for powder density is required to avoid potential integer "
                                      "overflow when assigning powder layer GrainID");
@@ -78,7 +78,7 @@ void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XM
         // header) is used, or whether the "old" OpenFOAM header (which contains information like the X/Y/Z bounds of
         // the simulation domain) is
         std::ifstream FirstTemperatureFile;
-        FirstTemperatureFile.open(inputs.temperatureInputs.temp_paths[0]);
+        FirstTemperatureFile.open(inputs.temperature.temp_paths[0]);
         std::string FirstLineFirstFile;
         getline(FirstTemperatureFile, FirstLineFirstFile);
         std::size_t found = FirstLineFirstFile.find("Number of temperature data points");
@@ -90,11 +90,10 @@ void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XM
 
         // Read all data files to determine the domain bounds, max number of remelting events
         // for simulations with remelting
-        int LayersToRead =
-            std::min(NumberOfLayers, inputs.temperatureInputs.TempFilesInSeries); // was given in input file
+        int LayersToRead = std::min(NumberOfLayers, inputs.temperature.TempFilesInSeries); // was given in input file
         for (int LayerReadCount = 1; LayerReadCount <= LayersToRead; LayerReadCount++) {
 
-            std::string tempfile_thislayer = inputs.temperatureInputs.temp_paths[LayerReadCount - 1];
+            std::string tempfile_thislayer = inputs.temperature.temp_paths[LayerReadCount - 1];
             // Get min and max x coordinates in this file, which can be a binary or ASCII input file
             // binary file type uses extension .catemp, all other file types assumed to be comma-separated ASCII input
             bool BinaryInputData = checkTemperatureFileFormat(tempfile_thislayer);
@@ -127,10 +126,10 @@ void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XM
         }
         // Extend domain in Z (build) direction if the number of layers are simulated is greater than the number
         // of temperature files read
-        if (NumberOfLayers > inputs.temperatureInputs.TempFilesInSeries) {
-            for (int LayerReadCount = inputs.temperatureInputs.TempFilesInSeries; LayerReadCount < NumberOfLayers;
+        if (NumberOfLayers > inputs.temperature.TempFilesInSeries) {
+            for (int LayerReadCount = inputs.temperature.TempFilesInSeries; LayerReadCount < NumberOfLayers;
                  LayerReadCount++) {
-                if (inputs.temperatureInputs.TempFilesInSeries == 1) {
+                if (inputs.temperature.TempFilesInSeries == 1) {
                     // Only one temperature file was read, so the upper Z bound should account for an additional
                     // "NumberOfLayers-1" worth of data Since all layers have the same temperature data, each
                     // layer's "ZMinLayer" is just translated from that of the first layer
@@ -141,14 +140,14 @@ void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XM
                 else {
                     // "TempFilesInSeries" temperature files was read, so the upper Z bound should account for
                     // an additional "NumberOfLayers-TempFilesInSeries" worth of data
-                    int RepeatedFile = (LayerReadCount) % inputs.temperatureInputs.TempFilesInSeries;
-                    int RepeatUnit = LayerReadCount / inputs.temperatureInputs.TempFilesInSeries;
-                    ZMinLayer[LayerReadCount] =
-                        ZMinLayer[RepeatedFile] +
-                        RepeatUnit * inputs.temperatureInputs.TempFilesInSeries * deltax * LayerHeight;
-                    ZMaxLayer[LayerReadCount] =
-                        ZMaxLayer[RepeatedFile] +
-                        RepeatUnit * inputs.temperatureInputs.TempFilesInSeries * deltax * LayerHeight;
+                    int RepeatedFile = (LayerReadCount) % inputs.temperature.TempFilesInSeries;
+                    int RepeatUnit = LayerReadCount / inputs.temperature.TempFilesInSeries;
+                    ZMinLayer[LayerReadCount] = ZMinLayer[RepeatedFile] + RepeatUnit *
+                                                                              inputs.temperature.TempFilesInSeries *
+                                                                              deltax * LayerHeight;
+                    ZMaxLayer[LayerReadCount] = ZMaxLayer[RepeatedFile] + RepeatUnit *
+                                                                              inputs.temperature.TempFilesInSeries *
+                                                                              deltax * LayerHeight;
                     ZMax += deltax * LayerHeight;
                 }
             }
@@ -175,7 +174,7 @@ void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XM
         // If this is a spot melt problem, also set the ZMin/ZMax for each layer
         for (int n = 0; n < NumberOfLayers; n++) {
             ZMinLayer[n] = deltax * (LayerHeight * n);
-            ZMaxLayer[n] = deltax * (inputs.domainInputs.SpotRadius + LayerHeight * n);
+            ZMaxLayer[n] = deltax * (inputs.domain.SpotRadius + LayerHeight * n);
         }
     }
     if (id == 0) {

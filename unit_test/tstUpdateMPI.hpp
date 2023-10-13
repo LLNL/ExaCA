@@ -94,7 +94,7 @@ void testGhostNodes1D() {
 
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid
     CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
-                                           inputs.substrateInputs);
+                                           inputs.substrate);
     // Subviews are the portion of the domain of interst for the test (i.e., the current layer of the problem, cells
     // located at the top 5 Z coordinates)
     auto CellType = cellData.getCellTypeSubview();
@@ -283,7 +283,7 @@ void testResizeRefillBuffers() {
     // Allocate device views: entire domain on each rank
     // Default to wall cells (CellType(index) = 0) with GrainID of 0
     CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
-                                           inputs.substrateInputs);
+                                           inputs.substrate);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
     auto CellType = cellData.getCellTypeSubview();
     auto GrainID = cellData.getGrainIDSubview();

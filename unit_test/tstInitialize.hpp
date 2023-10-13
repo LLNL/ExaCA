@@ -190,8 +190,8 @@ void testFindXYZBounds(bool TestBinaryInputRead) {
     // Empty inputs struct with default values - manually set non-default substrateInputs values
     Inputs inputs;
     inputs.SimulationType = "R";
-    inputs.temperatureInputs.TempFilesInSeries = 1;
-    inputs.temperatureInputs.temp_paths.push_back(TestFilename);
+    inputs.temperature.TempFilesInSeries = 1;
+    inputs.temperature.temp_paths.push_back(TestFilename);
     int LayerHeight = 2;
     int NumberOfLayers = 2;
     // Values to be calculated in FindXYZBounds

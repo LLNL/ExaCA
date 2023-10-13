@@ -20,16 +20,16 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // These parameters from the inputs struct will eventually be stored in the grid struct, but for now are temporarily
     // kept in the current scope
-    int nx = inputs.domainInputs.nx;
-    int ny = inputs.domainInputs.ny;
-    int nz = inputs.domainInputs.nz;
-    int NumberOfLayers = inputs.domainInputs.NumberOfLayers;
-    int LayerHeight = inputs.domainInputs.LayerHeight;
-    double deltax = inputs.domainInputs.deltax;
-    double HT_deltax = inputs.temperatureInputs.HT_deltax;
+    int nx = inputs.domain.nx;
+    int ny = inputs.domain.ny;
+    int nz = inputs.domain.nz;
+    int NumberOfLayers = inputs.domain.NumberOfLayers;
+    int LayerHeight = inputs.domain.LayerHeight;
+    double deltax = inputs.domain.deltax;
+    double HT_deltax = inputs.temperature.HT_deltax;
 
     // Material response function
-    InterfacialResponseFunction irf(id, inputs.MaterialFileName, inputs.domainInputs.deltat, deltax);
+    InterfacialResponseFunction irf(id, inputs.MaterialFileName, inputs.domain.deltat, deltax);
 
     // Variables characterizing local processor grids relative to global domain
     // 1D decomposition in Y: Each MPI rank has a subset consisting of of ny_local cells, out of ny cells in Y
@@ -68,8 +68,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                         DomainSize_AllLayers, AtNorthBoundary, AtSouthBoundary);
     // Bounds of the current layer: Z coordinates span z_layer_bottom-z_layer_top, inclusive
     int z_layer_bottom = calc_z_layer_bottom(inputs.SimulationType, LayerHeight, 0, ZMinLayer, ZMin, deltax);
-    int z_layer_top = calc_z_layer_top(inputs.SimulationType, inputs.domainInputs.SpotRadius, LayerHeight, 0, ZMin,
-                                       deltax, nz, ZMaxLayer);
+    int z_layer_top =
+        calc_z_layer_top(inputs.SimulationType, inputs.domain.SpotRadius, LayerHeight, 0, ZMin, deltax, nz, ZMaxLayer);
     int nz_layer = calc_nz_layer(z_layer_bottom, z_layer_top, id, 0);
     DomainSize = calcLayerDomainSize(nx, ny_local, nz_layer); // Number of cells in the current layer on this MPI rank
     MPI_Barrier(MPI_COMM_WORLD);
@@ -78,25 +78,24 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   << " total cells in the Z direction" << std::endl;
 
     // Temperature fields characterized by data in this structure
-    Temperature<device_memory_space> temperature(DomainSize, NumberOfLayers, inputs.temperatureInputs);
+    Temperature<device_memory_space> temperature(DomainSize, NumberOfLayers, inputs.temperature);
     // Read temperature data if necessary
     if (inputs.SimulationType == "R")
         temperature.readTemperatureData(id, deltax, y_offset, ny_local, YMin, NumberOfLayers, 0);
     // Initialize the temperature fields for the simualtion type of interest
     if ((inputs.SimulationType == "C") || (inputs.SimulationType == "SingleGrain")) {
-        if (inputs.temperatureInputs.G == 0)
-            temperature.initialize(id, DomainSize, inputs.domainInputs.deltat);
+        if (inputs.temperature.G == 0)
+            temperature.initialize(id, DomainSize, inputs.domain.deltat);
         else
             temperature.initialize(id, inputs.SimulationType, nx, ny_local, nz, deltax, DomainSize,
-                                   inputs.domainInputs.deltat);
+                                   inputs.domain.deltat);
     }
     else if (inputs.SimulationType == "S")
         temperature.initialize(id, nx, ny_local, y_offset, deltax, DomainSize, irf.FreezingRange, inputs,
                                NumberOfLayers);
     else if (inputs.SimulationType == "R")
         temperature.initialize(0, id, nx, ny_local, DomainSize, y_offset, deltax, irf.FreezingRange, XMin, YMin,
-                               ZMinLayer, LayerHeight, nz_layer, z_layer_bottom, FinishTimeStep,
-                               inputs.domainInputs.deltat);
+                               ZMinLayer, LayerHeight, nz_layer, z_layer_bottom, FinishTimeStep, inputs.domain.deltat);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization" << std::endl;
@@ -134,7 +133,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Initialize cell types, grain IDs, and layer IDs
     CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
-                                           inputs.substrateInputs);
+                                           inputs.substrate);
     if (inputs.SimulationType == "C")
         cellData.init_substrate(id, ny_local, nx, ny, y_offset, inputs.RNGSeed);
     else if (inputs.SimulationType == "SingleGrain")
@@ -150,8 +149,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
     // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
-    int EstimatedNuclei_ThisRankThisLayer = inputs.nucleationInputs.NMax * pow(deltax, 3) * DomainSize;
-    Nucleation<device_memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, deltax, inputs.nucleationInputs);
+    int EstimatedNuclei_ThisRankThisLayer = inputs.nucleation.NMax * pow(deltax, 3) * DomainSize;
+    Nucleation<device_memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, deltax, inputs.nucleation);
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
     // successive layer when layer 0 in complete
@@ -165,7 +164,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
 
     // Initialize printing struct from inputs
-    Print print(nx, ny, nz, ny_local, y_offset, np, inputs.printInputs);
+    Print print(nx, ny, nz, ny_local, y_offset, np, inputs.print);
 
     // If specified, print initial values in some views for debugging purposes
     double InitTime = MPI_Wtime() - StartInitTime;
@@ -270,7 +269,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Determine new active cell domain size and offset from bottom of global domain
             z_layer_bottom =
                 calc_z_layer_bottom(inputs.SimulationType, LayerHeight, layernumber + 1, ZMinLayer, ZMin, deltax);
-            z_layer_top = calc_z_layer_top(inputs.SimulationType, inputs.domainInputs.SpotRadius, LayerHeight,
+            z_layer_top = calc_z_layer_top(inputs.SimulationType, inputs.domain.SpotRadius, LayerHeight,
                                            layernumber + 1, ZMin, deltax, nz, ZMaxLayer);
             nz_layer = calc_nz_layer(z_layer_bottom, z_layer_top, id, layernumber + 1);
             DomainSize = calcLayerDomainSize(nx, ny_local, nz_layer);
@@ -278,13 +277,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // For simulation type R, need to initialize new temperature field data for layer "layernumber + 1"
             if (inputs.SimulationType == "R") {
                 // If the next layer's temperature data isn't already stored, it should be read
-                if (inputs.temperatureInputs.LayerwiseTempRead)
+                if (inputs.temperature.LayerwiseTempRead)
                     temperature.readTemperatureData(id, deltax, y_offset, ny_local, YMin, NumberOfLayers,
                                                     layernumber + 1);
                 // Initialize next layer's temperature data
                 temperature.initialize(layernumber + 1, id, nx, ny_local, DomainSize, y_offset, deltax,
                                        irf.FreezingRange, XMin, YMin, ZMinLayer, LayerHeight, nz_layer, z_layer_bottom,
-                                       FinishTimeStep, inputs.domainInputs.deltat);
+                                       FinishTimeStep, inputs.domain.deltat);
             }
 
             // Reset initial undercooling/solidification event counter of all cells to zeros for the next layer,

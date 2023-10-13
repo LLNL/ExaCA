@@ -295,15 +295,15 @@ struct Temperature {
     void initialize(int id, int nx, int ny_local, int y_offset, double deltax, int DomainSize, double FreezingRange,
                     Inputs &inputs, int NumberOfLayers) {
 
-        int NumberOfSpots = inputs.domainInputs.NSpotsX * inputs.domainInputs.NSpotsY;
+        int NumberOfSpots = inputs.domain.NSpotsX * inputs.domain.NSpotsY;
 
         // Temporary host view for the maximum number of times a cell in a given layer will solidify (same for every
         // layer)
         view_type_int_host MaxSolidificationEvents_Host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
         int MaxNumSolidificationEvents =
-            calcMaxSolidificationEvents(nx, ny_local, NumberOfSpots, inputs.domainInputs.NSpotsX,
-                                        inputs.domainInputs.SpotRadius, inputs.domainInputs.SpotOffset, y_offset);
+            calcMaxSolidificationEvents(nx, ny_local, NumberOfSpots, inputs.domain.NSpotsX, inputs.domain.SpotRadius,
+                                        inputs.domain.SpotOffset, y_offset);
         for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++)
             MaxSolidificationEvents_Host(layernumber) = MaxNumSolidificationEvents;
 
@@ -319,10 +319,9 @@ struct Temperature {
         // Spots cool at constant rate R, spot thermal gradient = G
         // Time between "start" of next spot is the time it takes for the previous spot
         // to have entirely gone below the solidus temperature
-        float IsothermVelocity =
-            (_inputs.R / _inputs.G) * inputs.domainInputs.deltat / deltax; // in cells per time step
-        int TimeBetweenSpots = inputs.domainInputs.SpotRadius / IsothermVelocity +
-                               (FreezingRange / _inputs.R) / inputs.domainInputs.deltat; // in time steps
+        float IsothermVelocity = (_inputs.R / _inputs.G) * inputs.domain.deltat / deltax; // in cells per time step
+        int TimeBetweenSpots = inputs.domain.SpotRadius / IsothermVelocity +
+                               (FreezingRange / _inputs.R) / inputs.domain.deltat; // in time steps
 
         if (id == 0)
             std::cout << "Initializing temperature field for " << NumberOfSpots
@@ -333,33 +332,31 @@ struct Temperature {
             if (id == 0)
                 std::cout << "Initializing spot " << n << std::endl;
             // Initialize LayerTimeTempHistory data values for this spot/this layer - relative to the layer bottom
-            int XSpotPos =
-                inputs.domainInputs.SpotRadius + (n % inputs.domainInputs.NSpotsX) * inputs.domainInputs.SpotOffset;
-            int YSpotPos =
-                inputs.domainInputs.SpotRadius + (n / inputs.domainInputs.NSpotsX) * inputs.domainInputs.SpotOffset;
-            for (int coord_z = 0; coord_z <= inputs.domainInputs.SpotRadius; coord_z++) {
+            int XSpotPos = inputs.domain.SpotRadius + (n % inputs.domain.NSpotsX) * inputs.domain.SpotOffset;
+            int YSpotPos = inputs.domain.SpotRadius + (n / inputs.domain.NSpotsX) * inputs.domain.SpotOffset;
+            for (int coord_z = 0; coord_z <= inputs.domain.SpotRadius; coord_z++) {
                 // Distance of this cell from the spot center
-                float DistZ = (float)(inputs.domainInputs.SpotRadius - coord_z);
+                float DistZ = (float)(inputs.domain.SpotRadius - coord_z);
                 for (int coord_x = 0; coord_x < nx; coord_x++) {
                     float DistX = (float)(XSpotPos - coord_x);
                     for (int coord_y = 0; coord_y < ny_local; coord_y++) {
                         int coord_y_global = coord_y + y_offset;
                         float DistY = (float)(YSpotPos - coord_y_global);
                         float TotDist = sqrt(DistX * DistX + DistY * DistY + DistZ * DistZ);
-                        if (TotDist <= inputs.domainInputs.SpotRadius) {
+                        if (TotDist <= inputs.domain.SpotRadius) {
                             int index = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
                             // Melt time
                             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 0) =
                                 1 + TimeBetweenSpots * n;
                             // Liquidus time
-                            int LiquidusTime = round((static_cast<float>(inputs.domainInputs.SpotRadius) - TotDist) /
-                                                     IsothermVelocity) +
-                                               TimeBetweenSpots * n;
+                            int LiquidusTime =
+                                round((static_cast<float>(inputs.domain.SpotRadius) - TotDist) / IsothermVelocity) +
+                                TimeBetweenSpots * n;
                             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 1) =
                                 1 + LiquidusTime;
                             // Cooling rate
                             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 2) =
-                                _inputs.R * inputs.domainInputs.deltat;
+                                _inputs.R * inputs.domain.deltat;
                             NumberOfSolidificationEvents_Host(index)++;
                         }
                     }

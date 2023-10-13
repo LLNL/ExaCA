@@ -41,10 +41,10 @@ void testFillSteeringVector_Remelt() {
     Inputs inputs;
     // Initialize cell/temperature structures
     CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
-                                           inputs.substrateInputs);
+                                           inputs.substrate);
     auto CellType = cellData.getCellTypeSubview();
     auto GrainID = cellData.getGrainIDSubview();
-    Temperature<device_memory_space> temperature(DomainSize, 1, inputs.temperatureInputs);
+    Temperature<device_memory_space> temperature(DomainSize, 1, inputs.temperature);
 
     // Fill temperature structure
     Kokkos::parallel_for(

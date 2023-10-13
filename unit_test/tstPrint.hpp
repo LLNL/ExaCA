@@ -29,17 +29,17 @@ void testPrintExaConstitDefaultRVE() {
 
     // Empty inputs struct with default values - manually set non-default substrateInputs values
     Inputs inputs;
-    inputs.printInputs.PrintDefaultRVE = true;
-    inputs.printInputs.RVESize = 0.0005 / deltax;
+    inputs.print.PrintDefaultRVE = true;
+    inputs.print.RVESize = 0.0005 / deltax;
     // File name/path for test RVE output
-    inputs.printInputs.BaseFileName = "TestRVE";
+    inputs.print.BaseFileName = "TestRVE";
     // Initialize printing struct from inputs
-    Print print(nx, ny, nz, ny_local, y_offset, 1, inputs.printInputs);
+    Print print(nx, ny, nz, ny_local, y_offset, 1, inputs.print);
 
     // Check that inputs in print struct match the initialization from inputs
     EXPECT_TRUE(print._inputs.PrintDefaultRVE);
-    EXPECT_DOUBLE_EQ(inputs.printInputs.RVESize, print._inputs.RVESize);
-    EXPECT_EQ(inputs.printInputs.BaseFileName, print._inputs.BaseFileName);
+    EXPECT_DOUBLE_EQ(inputs.print.RVESize, print._inputs.RVESize);
+    EXPECT_EQ(inputs.print.BaseFileName, print._inputs.BaseFileName);
 
     // Create test data
     ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), nz, nx, ny);
