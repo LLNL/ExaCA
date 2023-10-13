@@ -60,6 +60,10 @@ void InputReadFromFile(int id, std::string InputFile, std::string &SimulationTyp
                           << std::endl;
         }
     }
+    if ((SimulationType == "S") && (id == 0))
+        std::cout << "Warning: The spot melt array simulation type (Problem type S) is now deprecated and will be "
+                     "removed in a future release"
+                  << std::endl;
     // Input files that should be present for all problem types
     std::string MaterialFileName_Read = inputdata["MaterialFileName"];
     std::string GrainOrientationFile_Read = inputdata["GrainOrientationFile"];
