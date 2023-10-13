@@ -22,7 +22,7 @@ float getInputFloat(std::string val_input, int factor = 0);
 double getInputDouble(std::string val_input, int factor = 0);
 void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values,
                  char separator = ',');
-void checkForHeaderValues(std::string header_line);
+int checkForHeaderValues(std::string header_line);
 bool checkFileExists(const std::string path, const int id, const bool error = true);
 std::string checkFileInstalled(const std::string name, const int id);
 void checkFileNotEmpty(std::string testfilename);
@@ -105,15 +105,17 @@ void parseTemperatureData(std::string tempfile_thislayer, double YMin, double de
         }
     }
     else {
-        std::string DummyLine;
-        // ignore header line
-        getline(TemperatureFilestream, DummyLine);
+        // Get number of columns in this temperature file
+        std::string HeaderLine;
+        getline(TemperatureFilestream, HeaderLine);
+        int vals_per_line = checkForHeaderValues(HeaderLine);
         while (!TemperatureFilestream.eof()) {
             std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
             std::string ReadLine;
             if (!getline(TemperatureFilestream, ReadLine))
                 break;
-            splitString(ReadLine, ParsedLine, 6);
+            // Only parse the first 6 columns of the temperature data
+            splitString(ReadLine, ParsedLine, vals_per_line);
             // Check the y value from ParsedLine, to check if this point is stored on this rank
             double YTemperaturePoint = getInputDouble(ParsedLine[1]);
             // Check the CA grid positions of the data point to see which rank(s) should store it
