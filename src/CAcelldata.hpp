@@ -37,14 +37,18 @@ struct CellData {
     std::pair<int, int> LayerRange;
     view_type_int GrainID_AllLayers, CellType_AllLayers;
     view_type_short LayerID_AllLayers;
+    // Substrate inputs from file
+    SubstrateInputs _inputs;
+
     // Constructor for views and view bounds for current layer
     // TODO: CellType is only needed for the current layer, and LayerID is only needed for all layers/no subview is
     // needed. Leaving them as-is for now each with the "AllLayers" and "Current layer/subview slice" to minimize
     // changes to the rest of the code to accomodate. GrainID is initialized to zeros, while others are not initialized
-    CellData(int DomainSize_AllLayers, int DomainSize, int nx, int ny_local, int z_layer_bottom)
+    CellData(int DomainSize_AllLayers, int DomainSize, int nx, int ny_local, int z_layer_bottom, SubstrateInputs inputs)
         : GrainID_AllLayers(view_type_int("GrainID", DomainSize_AllLayers))
         , CellType_AllLayers(view_type_int(Kokkos::ViewAllocateWithoutInitializing("CellType"), DomainSize_AllLayers))
-        , LayerID_AllLayers(view_type_short(Kokkos::ViewAllocateWithoutInitializing("LayerID"), DomainSize_AllLayers)) {
+        , LayerID_AllLayers(view_type_short(Kokkos::ViewAllocateWithoutInitializing("LayerID"), DomainSize_AllLayers))
+        , _inputs(inputs) {
 
         BottomOfCurrentLayer = z_layer_bottom * nx * ny_local;
         TopOfCurrentLayer = BottomOfCurrentLayer + DomainSize;
@@ -53,8 +57,7 @@ struct CellData {
 
     // Initializes the single active cell and associated active cell data structures for the single grain at the domain
     // center
-    void init_substrate(int id, int singleGrainOrientation, int nx, int ny, int nz, int ny_local, int y_offset,
-                        int DomainSize) {
+    void init_substrate(int id, int nx, int ny, int nz, int ny_local, int y_offset, int DomainSize) {
 
         // Location of the single grain
         int grainLocationX = floorf(static_cast<float>(nx) / 2.0);
@@ -63,6 +66,7 @@ struct CellData {
 
         auto CellType_AllLayers_local = CellType_AllLayers;
         auto GrainID_AllLayers_local = GrainID_AllLayers;
+        int singleGrainOrientation_local = _inputs.singleGrainOrientation;
         Kokkos::parallel_for(
             "SingleGrainInit", DomainSize, KOKKOS_LAMBDA(const int &index) {
                 int coord_x = getCoordX(index, nx, ny_local);
@@ -71,21 +75,20 @@ struct CellData {
                 int coord_y_global = coord_y + y_offset;
                 if ((coord_x == grainLocationX) && (coord_y_global == grainLocationY) && (coord_z == grainLocationZ)) {
                     CellType_AllLayers_local(index) = FutureActive;
-                    GrainID_AllLayers_local(index) = singleGrainOrientation + 1;
+                    GrainID_AllLayers_local(index) = singleGrainOrientation_local + 1;
                 }
                 else
                     CellType_AllLayers_local(index) = Liquid;
             });
         if ((grainLocationY >= y_offset) && (grainLocationY < y_offset + ny_local))
-            std::cout << "Rank " << id << " initialized a grain with orientation " << singleGrainOrientation
+            std::cout << "Rank " << id << " initialized a grain with orientation " << singleGrainOrientation_local
                       << " initialized at X = " << grainLocationX << ", Y = " << grainLocationY
                       << ", Z = " << grainLocationZ << std::endl;
     }
 
     // Initializes cell types and epitaxial Grain ID values where substrate grains are future active cells on the bottom
     // surface of the constrained domain
-    void init_substrate(int id, double FractSurfaceSitesActive, int ny_local, int nx, int ny, int y_offset,
-                        double RNGSeed) {
+    void init_substrate(int id, int ny_local, int nx, int ny, int y_offset, double RNGSeed) {
 
         // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
         // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between
@@ -96,7 +99,7 @@ struct CellData {
 
         // Determine number of active cells from the fraction of sites active and the number of sites on the bottom
         // domain surface
-        int SubstrateActCells = std::round(FractSurfaceSitesActive * nx * ny);
+        int SubstrateActCells = std::round(_inputs.FractSurfaceSitesActive * nx * ny);
 
         // On all ranks, generate active site locations - same list on every rank
         // TODO: Generate random numbers on GPU, instead of using host view and copying over - ensure that locations are
@@ -146,32 +149,27 @@ struct CellData {
     }
 
     void init_substrate(int nx, int ny, int nz, int DomainSize, double *ZMaxLayer, double ZMin, double deltax,
-                        int ny_local, int y_offset, int z_layer_bottom, int id, Inputs<memory_space> &inputs,
+                        int ny_local, int y_offset, int z_layer_bottom, int id, double RNGSeed,
                         view_type_int NumberOfSolidificationEvents) {
 
         // Determine the number of cells in the Z direction that are part of the baseplate
-        int BaseplateSizeZ =
-            get_baseplate_size_z(id, nz, ZMin, ZMaxLayer, deltax, inputs.substrateInputs.BaseplateThroughPowder,
-                                 inputs.substrateInputs.BaseplateTopZ);
+        int BaseplateSizeZ = get_baseplate_size_z(id, nz, ZMin, ZMaxLayer, deltax);
 
         // Generate the baseplate microstructure, or read it from a file, to initialize the grain ID values from Z = 0
         // up to but not including Z = BaseplateTopZ
-        if (inputs.substrateInputs.UseSubstrateFile)
-            init_baseplate_grainid(inputs.substrateInputs.SubstrateFileName, nz, nx, ny_local, y_offset, id,
-                                   BaseplateSizeZ);
+        if (_inputs.UseSubstrateFile)
+            init_baseplate_grainid(nz, nx, ny_local, y_offset, id, BaseplateSizeZ);
         else
-            init_baseplate_grainid(inputs.substrateInputs.SubstrateGrainSpacing, nx, ny, ny_local, y_offset, id, deltax,
-                                   inputs.RNGSeed, BaseplateSizeZ);
+            init_baseplate_grainid(nx, ny, ny_local, y_offset, id, deltax, RNGSeed, BaseplateSizeZ);
 
         // Powder layer extends from Z = PowderBottomZ up to but not including Z = PowderTopZ
-        int PowderBottomZ = round((inputs.substrateInputs.BaseplateTopZ - ZMin) / deltax) +
-                            1; // Bottom of layer is the next coordinate up from the baseplate
+        // Bottom of layer is the next coordinate up from the baseplate
+        int PowderBottomZ = round((_inputs.BaseplateTopZ - ZMin) / deltax) + 1;
         int PowderTopZ = round((ZMaxLayer[0] - ZMin) / deltax) + 1;
         // Generate powder grain structure grain IDs for top of layer 0 if needed (i.e, if the powder layer height is
         // more than zero cells)
         if (PowderTopZ > PowderBottomZ)
-            init_powder_grainid(0, nx, ny, ny_local, y_offset, id, inputs.RNGSeed,
-                                inputs.substrateInputs.PowderActiveFraction, PowderBottomZ, PowderTopZ);
+            init_powder_grainid(0, nx, ny, ny_local, y_offset, id, RNGSeed, PowderBottomZ, PowderTopZ);
 
         // LayerID starts at -1 for all cells
         Kokkos::deep_copy(LayerID_AllLayers, -1);
@@ -186,13 +184,12 @@ struct CellData {
     // the baseplate microstructure extends through the entire simulation domain in Z (size nz). If
     // BaseplateThroughPowder is false, the baseplate top from the input file is used, or it is assumed that the top of
     // the baseplate is at Z = 0 microns
-    int get_baseplate_size_z(int id, int nz, double ZMin, double *ZMaxLayer, double deltax, bool BaseplateThroughPowder,
-                             double BaseplateTopZ) {
+    int get_baseplate_size_z(int id, int nz, double ZMin, double *ZMaxLayer, double deltax) {
         int BaseplateSizeZ;
-        if (BaseplateThroughPowder)
+        if (_inputs.BaseplateThroughPowder)
             BaseplateSizeZ = nz;
         else {
-            BaseplateSizeZ = round((BaseplateTopZ - ZMin) / deltax) + 1;
+            BaseplateSizeZ = round((_inputs.BaseplateTopZ - ZMin) / deltax) + 1;
             int MaxBaseplateSizeZ = round((ZMaxLayer[0] - ZMin) / deltax) + 1;
             if (BaseplateSizeZ > MaxBaseplateSizeZ) {
                 BaseplateSizeZ = MaxBaseplateSizeZ;
@@ -211,8 +208,7 @@ struct CellData {
     }
 
     // Initializes Grain ID values where the substrate comes from a file
-    void init_baseplate_grainid(std::string SubstrateFileName, int nz, int nx, int ny_local, int y_offset, int id,
-                                int BaseplateSizeZ) {
+    void init_baseplate_grainid(int nz, int nx, int ny_local, int y_offset, int id, int BaseplateSizeZ) {
 
         if (id == 0)
             std::cout << "Warning: Reading substrate data from a file will require a vtk file of GrainID values in a "
@@ -223,7 +219,7 @@ struct CellData {
         view_type_int_host GrainID_AllLayers_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"),
                                                   nx * ny_local * nz);
         std::ifstream Substrate;
-        Substrate.open(SubstrateFileName);
+        Substrate.open(_inputs.SubstrateFileName);
         int Substrate_LowY = y_offset;
         int Substrate_HighY = y_offset + ny_local;
         int nxS, nyS, nzS;
@@ -249,7 +245,7 @@ struct CellData {
             // Do not allow simulation if there is inssufficient substrate data in the specified file
             std::string error =
                 "Error: only " + std::to_string(nzS) + " layers of substrate data are present in the file " +
-                SubstrateFileName + " ; at least " + std::to_string(BaseplateSizeZ) +
+                _inputs.SubstrateFileName + " ; at least " + std::to_string(BaseplateSizeZ) +
                 " layers of substrate data are required to simulate the specified solidification problem";
             throw std::runtime_error(error);
         }
@@ -280,8 +276,8 @@ struct CellData {
 
     // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi
     // Tessellation
-    void init_baseplate_grainid(float SubstrateGrainSpacing, int nx, int ny, int ny_local, int y_offset, int id,
-                                double deltax, double RNGSeed, int BaseplateSizeZ) {
+    void init_baseplate_grainid(int nx, int ny, int ny_local, int y_offset, int id, double deltax, double RNGSeed,
+                                int BaseplateSizeZ) {
 
         std::mt19937_64 gen(RNGSeed);
 
@@ -289,7 +285,7 @@ struct CellData {
         // determine the number of baseplate grains
         int BaseplateVolume = nx * ny * BaseplateSizeZ;
         double BaseplateVolume_microns = BaseplateVolume * pow(deltax, 3) * pow(10, 18);
-        double SubstrateMeanGrainVolume_microns = pow(SubstrateGrainSpacing, 3);
+        double SubstrateMeanGrainVolume_microns = pow(_inputs.SubstrateGrainSpacing, 3);
         int NumberOfBaseplateGrains = round(BaseplateVolume_microns / SubstrateMeanGrainVolume_microns);
         // Need at least 1 baseplate grain, cannot have more baseplate grains than cells in the baseplate
         NumberOfBaseplateGrains = std::max(NumberOfBaseplateGrains, 1);
@@ -397,7 +393,7 @@ struct CellData {
     // alongside the edges of partially melted powder particles). These Z coordinates span PowderBottomZ up to but not
     // including PowderTopZ
     void init_powder_grainid(int layernumber, int nx, int ny, int ny_local, int y_offset, int id, double RNGSeed,
-                             double PowderActiveFraction, int PowderBottomZ, int PowderTopZ) {
+                             int PowderBottomZ, int PowderTopZ) {
 
         // On all ranks, generate list of powder grain IDs (starting with NextLayer_FirstEpitaxialGrainID, and shuffle
         // them so that their locations aren't sequential and depend on the RNGSeed (different for each layer)
@@ -407,7 +403,7 @@ struct CellData {
         // TODO: This should be performed on the device, rather than the host
         int PowderLayerHeight = PowderTopZ - PowderBottomZ;
         int PowderLayerCells = nx * ny * PowderLayerHeight;
-        int PowderLayerAssignedCells = round(static_cast<double>(PowderLayerCells) * PowderActiveFraction);
+        int PowderLayerAssignedCells = round(static_cast<double>(PowderLayerCells) * _inputs.PowderActiveFraction);
         std::vector<int> PowderGrainIDs(PowderLayerCells, 0);
         for (int n = 0; n < PowderLayerAssignedCells; n++) {
             PowderGrainIDs[n] = n + NextLayer_FirstEpitaxialGrainID; // assigned a nonzero GrainID
@@ -456,7 +452,7 @@ struct CellData {
     // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
     //*****************************************************************************/
     void init_next_layer(int nextlayernumber, int id, int nx, int ny, int ny_local, int y_offset, int z_layer_bottom,
-                         int DomainSize, Inputs<memory_space> &inputs, double ZMin, double *ZMaxLayer, double deltax,
+                         int DomainSize, double RNGSeed, double ZMin, double *ZMaxLayer, double deltax,
                          view_type_int NumberOfSolidificationEvents) {
 
         // Subviews for the next layer's grain id, layer id, cell type are constructed based on updated layer bound
@@ -469,9 +465,8 @@ struct CellData {
         // including Z = PowderTopZ
         int PowderBottomZ = round((ZMaxLayer[nextlayernumber - 1] - ZMin) / deltax) + 1;
         int PowderTopZ = round((ZMaxLayer[nextlayernumber] - ZMin) / deltax) + 1;
-        if (!(inputs.substrateInputs.BaseplateThroughPowder))
-            init_powder_grainid(nextlayernumber, nx, ny, ny_local, y_offset, id, inputs.RNGSeed,
-                                inputs.substrateInputs.PowderActiveFraction, PowderBottomZ, PowderTopZ);
+        if (!(_inputs.BaseplateThroughPowder))
+            init_powder_grainid(nextlayernumber, nx, ny, ny_local, y_offset, id, RNGSeed, PowderBottomZ, PowderTopZ);
 
         // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
         init_celltype_layerid(nextlayernumber, nx, ny_local, DomainSize, NumberOfSolidificationEvents, id,

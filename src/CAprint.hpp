@@ -40,36 +40,10 @@ void WriteData(std::ofstream &outstream, PrintType PrintValue, bool PrintBinary,
 
 // Struct to hold data printing options and functions (would ideally just store a copy of Inputs.printInputs here)
 struct Print {
-    // Base name of CA output
-    std::string BaseFileName;
-    // Path to CA output
-    std::string PathToOutput;
 
-    // Fields to be printed at start of run: GrainID, LayerID, MeltTimeStep, CritTimeStep, UndercoolingChange (all for
-    // first layer)
-    bool PrintInitGrainID, PrintInitLayerID, PrintInitMeltTimeStep, PrintInitCritTimeStep, PrintInitUndercoolingChange;
-
-    // Fields to be printed at end of run: GrainID, LayerID, GrainMisorientation, UndercoolingCurrent (for whole domain)
-    // and MeltTimeStep, CritTimeStep, UndercoolingChange, CellType (for the final layer)
-    bool PrintFinalGrainID, PrintFinalLayerID, PrintFinalMisorientation, PrintFinalUndercoolingCurrent,
-        PrintFinalMeltTimeStep, PrintFinalCritTimeStep, PrintFinalUndercoolingChange, PrintFinalCellType;
-
-    // Print intermediate output of grain misorientation in time
-    bool PrintTimeSeries;
-    // If printing the time series, should microstructure be printed if unchanged from the previous frame
-    bool PrintIdleTimeSeriesFrames;
-    // If printing the time series, the increment, in time steps, between printing of intermediate output
-    int TimeSeriesInc;
     // If printing the time series, the counter for the number of intermediate files that have been printed for a given
     // layer of a multilayer problem
     int IntermediateFileCounter;
-
-    // Should binary be used for printing vtk data?
-    bool PrintBinary;
-
-    // Should the default RVE data for ExaConstit be printed? If so, with what size?
-    bool PrintDefaultRVE;
-    int RVESize;
 
     // Message sizes and data offsets for data send/recieved to/from other ranks- message size different for different
     // ranks
@@ -77,49 +51,17 @@ struct Print {
     view_type_int_host Recv_y_offset, Recv_ny_local, RBufSize;
     // Y coordinates for a given rank's data being send/loaded into the view of all domain data on rank 0=
     int SendBufStartY, SendBufEndY, SendBufSize;
+    // Holds print options from input file
+    PrintInputs _inputs;
+    // Combined path/file prefix for output files
+    std::string PathBaseFileName;
 
     // Default constructor - options are set in getPrintDataFromFile and copied into this struct
-    Print(Inputs<device_memory_space> &inputs, int nx, int ny, int nz, int ny_local, int y_offset, int np)
+    Print(int nx, int ny, int nz, int ny_local, int y_offset, int np, PrintInputs inputs)
         : Recv_y_offset(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_y_offset"), np))
         , Recv_ny_local(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_ny_local"), np))
-        , RBufSize(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np)) {
-
-        BaseFileName = inputs.printInputs.BaseFileName;
-        PathToOutput = inputs.printInputs.PathToOutput;
-        // Fields to be printed at start of run: GrainID, LayerID, MeltTimeStep, CritTimeStep, UndercoolingChange (all
-        // for first layer)
-        PrintInitGrainID = inputs.printInputs.PrintInitGrainID;
-        PrintInitLayerID = inputs.printInputs.PrintInitLayerID;
-        PrintInitMeltTimeStep = inputs.printInputs.PrintInitMeltTimeStep;
-        PrintInitCritTimeStep = inputs.printInputs.PrintInitCritTimeStep;
-        PrintInitUndercoolingChange = inputs.printInputs.PrintInitUndercoolingChange;
-        // Fields to be printed at end of run: GrainID, LayerID, GrainMisorientation, UndercoolingCurrent (for whole
-        // domain) and MeltTimeStep, CritTimeStep, UndercoolingChange, CellType (for the final layer)
-        PrintFinalGrainID = inputs.printInputs.PrintFinalGrainID;
-        PrintFinalLayerID = inputs.printInputs.PrintFinalLayerID;
-        PrintFinalMisorientation = inputs.printInputs.PrintFinalMisorientation;
-        PrintFinalUndercoolingCurrent = inputs.printInputs.PrintFinalUndercoolingCurrent;
-        PrintFinalMeltTimeStep = inputs.printInputs.PrintFinalMeltTimeStep;
-        PrintFinalCritTimeStep = inputs.printInputs.PrintFinalCritTimeStep;
-        PrintFinalUndercoolingChange = inputs.printInputs.PrintFinalUndercoolingChange;
-        PrintFinalCellType = inputs.printInputs.PrintFinalCellType;
-
-        // Print intermediate output of grain misorientation in time
-        PrintTimeSeries = inputs.printInputs.PrintTimeSeries;
-        // If printing the time series, should microstructure be printed if unchanged from the previous frame
-        PrintIdleTimeSeriesFrames = inputs.printInputs.PrintIdleTimeSeriesFrames;
-        // If printing the time series, the increment, in time steps, between printing of intermediate output
-        TimeSeriesInc = inputs.printInputs.TimeSeriesInc;
-        // If printing the time series, the counter for the number of intermediate files that have been printed for a
-        // given layer of a multilayer problem
-        IntermediateFileCounter = inputs.printInputs.IntermediateFileCounter;
-
-        // Should binary be used for printing vtk data?
-        PrintBinary = inputs.printInputs.PrintBinary;
-
-        // Should the default RVE data for ExaConstit be printed? If so, with what size?
-        PrintDefaultRVE = inputs.printInputs.PrintDefaultRVE;
-        RVESize = inputs.printInputs.RVESize;
+        , RBufSize(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np))
+        , _inputs(inputs) {
 
         // Buffers for sending/receiving data across ranks
         for (int recvrank = 0; recvrank < np; recvrank++) {
@@ -138,6 +80,8 @@ struct Print {
         else
             SendBufEndY = ny_local - 1;
         SendBufSize = nx * (SendBufEndY - SendBufStartY) * nz;
+
+        PathBaseFileName = _inputs.PathToOutput + _inputs.BaseFileName;
     }
 
     // Called on rank 0 to collect view data from other ranks, or on other ranks to send data to rank 0
@@ -212,35 +156,35 @@ struct Print {
                             double XMin, double YMin, double ZMin, ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
                             Temperature<device_memory_space> &temperature) {
 
-        if ((PrintInitGrainID) || (PrintInitLayerID) || (PrintInitMeltTimeStep) || (PrintInitCritTimeStep) ||
-            (PrintInitUndercoolingChange)) {
-            std::string FName = PathToOutput + BaseFileName + "_init.vtk";
+        if ((_inputs.PrintInitGrainID) || (_inputs.PrintInitLayerID) || (_inputs.PrintInitMeltTimeStep) ||
+            (_inputs.PrintInitCritTimeStep) || (_inputs.PrintInitUndercoolingChange)) {
+            std::string FName = PathBaseFileName + "_init.vtk";
             std::ofstream Grainplot;
             if (id == 0) {
                 std::cout << "Printing initial data structures to a vtk file" << std::endl;
                 WriteHeader(Grainplot, FName, nx, ny, nz_layer, deltax, XMin, YMin, ZMin);
             }
-            if (PrintInitGrainID) {
+            if (_inputs.PrintInitGrainID) {
                 auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_INT, GrainID);
                 printViewData(id, Grainplot, nx, ny, nz_layer, "int", "GrainID", GrainID_WholeDomain);
             }
-            if (PrintInitLayerID) {
+            if (_inputs.PrintInitLayerID) {
                 auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_SHORT, LayerID);
                 printViewData(id, Grainplot, nx, ny, nz_layer, "short", "LayerID", LayerID_WholeDomain);
             }
-            if (PrintInitMeltTimeStep) {
+            if (_inputs.PrintInitMeltTimeStep) {
                 ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, DomainSize);
                 auto MeltTimeStep_WholeDomain =
                     collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_INT, MeltTimeStep);
                 printViewData(id, Grainplot, nx, ny, nz_layer, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
-            if (PrintInitCritTimeStep) {
+            if (_inputs.PrintInitCritTimeStep) {
                 ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, DomainSize);
                 auto CritTimeStep_WholeDomain =
                     collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_INT, CritTimeStep);
                 printViewData(id, Grainplot, nx, ny, nz_layer, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
-            if (PrintInitUndercoolingChange) {
+            if (_inputs.PrintInitUndercoolingChange) {
                 ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(2, DomainSize, 0);
                 auto UndercoolingChange_WholeDomain =
                     collectViewData(id, np, nx, ny, nz_layer, ny_local, MPI_FLOAT, UndercoolingChange);
@@ -261,15 +205,40 @@ struct Print {
                                               ViewTypeGrainUnitVector GrainUnitVector, int NGrainOrientations,
                                               int layernumber, int z_layer_bottom) {
 
-        IntermediateFileCounter++;
-        auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, GrainID);
-        auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, CellType);
-        if (id == 0) {
-            std::cout << "Intermediate output on time step " << cycle << std::endl;
-            auto GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
-            printGrainMisorientations(nx, ny, nz, GrainID_WholeDomain, CellType_WholeDomain, GrainUnitVector_Host,
-                                      NGrainOrientations, deltax, XMin, YMin, ZMin, true, layernumber, z_layer_bottom,
-                                      nz_layer);
+        // Check if option is toggled and whether the output should be printed this time step
+        if ((_inputs.PrintTimeSeries) && (cycle % _inputs.TimeSeriesInc == 0)) {
+            IntermediateFileCounter++;
+            auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, GrainID);
+            auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, CellType);
+            if (id == 0) {
+                std::cout << "Intermediate output on time step " << cycle << std::endl;
+                auto GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
+                printGrainMisorientations(nx, ny, nz, GrainID_WholeDomain, CellType_WholeDomain, GrainUnitVector_Host,
+                                          NGrainOrientations, deltax, XMin, YMin, ZMin, true, layernumber,
+                                          z_layer_bottom, nz_layer);
+            }
+        }
+    }
+
+    // Check if intermediate output is to be printed during a series of "skipped" time steps (i.e., time steps where no
+    // melting or solidification occurs). If it should be printed on the time step, call
+    // printIntermediateGrainMisorientation
+    template <typename ViewTypeGrainID, typename ViewTypeCellType, typename ViewTypeGrainUnitVector>
+    void printIdleIntermediateGrainMisorientation(int id, int np, int cycle, int nx, int ny, int nz, int ny_local,
+                                                  int nz_layer, double deltax, double XMin, double YMin, double ZMin,
+                                                  ViewTypeGrainID GrainID, ViewTypeCellType CellType,
+                                                  ViewTypeGrainUnitVector GrainUnitVector, int NGrainOrientations,
+                                                  int layernumber, int z_layer_bottom,
+                                                  unsigned long int GlobalNextMeltTimeStep) {
+
+        if (_inputs.PrintIdleTimeSeriesFrames) {
+            // Print current state of ExaCA simulation (up to and including the current layer's data) during the skipped
+            // time steps, if intermediate output is toggled
+            for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextMeltTimeStep; cycle_jump++) {
+                printIntermediateGrainMisorientation(id, np, cycle_jump, nx, ny, nz, ny_local, nz_layer, deltax, XMin,
+                                                     YMin, ZMin, GrainID, CellType, GrainUnitVector, NGrainOrientations,
+                                                     layernumber, z_layer_bottom);
+            }
         }
     }
 
@@ -283,22 +252,24 @@ struct Print {
         if (id == 0)
             std::cout << "Printing final data structures to vtk files" << std::endl;
 
-        if ((PrintFinalGrainID) || (PrintFinalLayerID) || (PrintFinalMisorientation) || (PrintDefaultRVE)) {
+        if ((_inputs.PrintFinalGrainID) || (_inputs.PrintFinalLayerID) || (_inputs.PrintFinalMisorientation) ||
+            (_inputs.PrintDefaultRVE)) {
 
             // GrainID and LayerID are printed to one vtk file, while Grain misorientation is printed to a separate vtk
             // file GrainID and LayerID are also needed needed if PrintFinalMisorientation = true
-            std::string FName = PathToOutput + BaseFileName + ".vtk";
+            std::string FName = PathBaseFileName + ".vtk";
             std::ofstream Grainplot;
             if (id == 0)
                 WriteHeader(Grainplot, FName, nx, ny, nz, deltax, XMin, YMin, ZMin);
-            if ((PrintFinalGrainID) || (PrintFinalLayerID) || (PrintFinalMisorientation) || (PrintDefaultRVE)) {
+            if ((_inputs.PrintFinalGrainID) || (_inputs.PrintFinalLayerID) || (_inputs.PrintFinalMisorientation) ||
+                (_inputs.PrintDefaultRVE)) {
                 auto GrainID_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, GrainID);
                 auto LayerID_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_SHORT, LayerID);
-                if (PrintFinalGrainID)
+                if (_inputs.PrintFinalGrainID)
                     printViewData(id, Grainplot, nx, ny, nz, "int", "GrainID", GrainID_WholeDomain);
-                if (PrintFinalLayerID)
+                if (_inputs.PrintFinalLayerID)
                     printViewData(id, Grainplot, nx, ny, nz, "short", "LayerID", LayerID_WholeDomain);
-                if ((id == 0) && PrintFinalMisorientation) {
+                if ((id == 0) && _inputs.PrintFinalMisorientation) {
                     auto GrainUnitVector_Host =
                         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
                     // empty view passed as dummy argument (not used in this call to printGrainMisorientation)
@@ -308,7 +279,7 @@ struct Print {
                                               GrainUnitVector_Host, NGrainOrientations, deltax, XMin, YMin, ZMin,
                                               false);
                 }
-                if ((id == 0) && (PrintDefaultRVE))
+                if ((id == 0) && (_inputs.PrintDefaultRVE))
                     printExaConstitDefaultRVE(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain, deltax,
                                               NumberOfLayers);
             }
@@ -316,36 +287,37 @@ struct Print {
                 Grainplot.close();
         }
 
-        if ((PrintFinalMeltTimeStep) || (PrintFinalCritTimeStep) || (PrintFinalUndercoolingChange) ||
-            (PrintFinalCellType) || (PrintFinalUndercoolingCurrent)) {
+        if ((_inputs.PrintFinalMeltTimeStep) || (_inputs.PrintFinalCritTimeStep) ||
+            (_inputs.PrintFinalUndercoolingChange) || (_inputs.PrintFinalCellType) ||
+            (_inputs.PrintFinalUndercoolingCurrent)) {
             // Temperature field data is printed to a separate vtk file
-            std::string FName = PathToOutput + BaseFileName + "_final.vtk";
+            std::string FName = PathBaseFileName + "_final.vtk";
             std::ofstream GrainplotF;
             if (id == 0)
                 WriteHeader(GrainplotF, FName, nx, ny, nz, deltax, XMin, YMin, ZMin);
-            if (PrintFinalMeltTimeStep) {
+            if (_inputs.PrintFinalMeltTimeStep) {
                 ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, DomainSize);
                 auto MeltTimeStep_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, MeltTimeStep);
                 printViewData(id, GrainplotF, nx, ny, nz, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
-            if (PrintFinalCritTimeStep) {
+            if (_inputs.PrintFinalCritTimeStep) {
                 ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, DomainSize);
                 auto CritTimeStep_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, CritTimeStep);
                 printViewData(id, GrainplotF, nx, ny, nz, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
-            if (PrintFinalUndercoolingChange) {
+            if (_inputs.PrintFinalUndercoolingChange) {
                 ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(0, DomainSize, 0);
                 auto UndercoolingChange_WholeDomain =
                     collectViewData(id, np, nx, ny, nz, ny_local, MPI_FLOAT, UndercoolingChange);
                 printViewData(id, GrainplotF, nx, ny, nz, "int", "UndercoolingChange", UndercoolingChange_WholeDomain);
             }
-            if (PrintFinalUndercoolingCurrent) {
+            if (_inputs.PrintFinalUndercoolingCurrent) {
                 auto UndercoolingCurrent_WholeDomain =
                     collectViewData(id, np, nx, ny, nz, ny_local, MPI_FLOAT, temperature.UndercoolingCurrent);
                 printViewData(id, GrainplotF, nx, ny, nz, "float", "UndercoolingFinal",
                               UndercoolingCurrent_WholeDomain);
             }
-            if (PrintFinalCellType) {
+            if (_inputs.PrintFinalCellType) {
                 auto CellType_WholeDomain = collectViewData(id, np, nx, ny, nz, ny_local, MPI_INT, CellType);
                 printViewData(id, GrainplotF, nx, ny, nz, "int", "CellType", CellType_WholeDomain);
             }
@@ -358,13 +330,13 @@ struct Print {
     void WriteHeader(std::ofstream &ParaviewOutputStream, std::string FName, int nx, int ny, int nz, double deltax,
                      double XMin, double YMin, double ZMin) {
 
-        if (PrintBinary)
+        if (_inputs.PrintBinary)
             ParaviewOutputStream.open(FName, std::ios::out | std::ios::binary);
         else
             ParaviewOutputStream.open(FName);
         ParaviewOutputStream << "# vtk DataFile Version 3.0" << std::endl;
         ParaviewOutputStream << "vtk output" << std::endl;
-        if (PrintBinary)
+        if (_inputs.PrintBinary)
             ParaviewOutputStream << "BINARY" << std::endl;
         else
             ParaviewOutputStream << "ASCII" << std::endl;
@@ -390,28 +362,31 @@ struct Print {
                 for (int coord_x = 0; coord_x < nx; coord_x++) {
                     if (DataLabel == "int") {
                         int writeval = static_cast<int>(ViewData_WholeDomain(coord_z, coord_x, coord_y_global));
-                        WriteData(Grainplot, writeval, PrintBinary, true);
+                        WriteData(Grainplot, writeval, _inputs.PrintBinary, true);
                     }
                     else if (DataLabel == "short") {
                         short writeval = static_cast<short>(ViewData_WholeDomain(coord_z, coord_x, coord_y_global));
-                        WriteData(Grainplot, writeval, PrintBinary, true);
+                        WriteData(Grainplot, writeval, _inputs.PrintBinary, true);
                     }
                     else if (DataLabel == "float") {
                         float writeval = static_cast<float>(ViewData_WholeDomain(coord_z, coord_x, coord_y_global));
-                        WriteData(Grainplot, writeval, PrintBinary, true);
+                        WriteData(Grainplot, writeval, _inputs.PrintBinary, true);
                     }
                 }
             }
             // Do not insert newline character if using binary writing, as this will break the binary data read by
             // adding a blank line
-            if (!(PrintBinary))
+            if (!(_inputs.PrintBinary))
                 Grainplot << std::endl;
         }
     }
 
     // Reset the intermediate file counter to 0, performed at the start of a new layer when intermediate output is being
     // printed
-    void resetIntermediateFileCounter() { IntermediateFileCounter = 0; }
+    void resetIntermediateFileCounter() {
+        if (_inputs.PrintTimeSeries)
+            IntermediateFileCounter = 0;
+    }
 
     // On rank 0, print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview
     // file Optionally add layer label/intermediate frame and print -1 for liquid cells if this is being printed as
@@ -427,12 +402,12 @@ struct Print {
         std::string FName;
         int ZPrintSize;
         if (IntermediatePrint) {
-            FName = PathToOutput + BaseFileName + "_layer" + std::to_string(layernumber) + "_" +
+            FName = PathBaseFileName + "_layer" + std::to_string(layernumber) + "_" +
                     std::to_string(IntermediateFileCounter) + ".vtk";
             ZPrintSize = ZBound_Low + nz_layer;
         }
         else {
-            FName = PathToOutput + BaseFileName + "_Misorientations.vtk";
+            FName = PathBaseFileName + "_Misorientations.vtk";
             ZPrintSize = nz;
         }
         std::cout << "Printing Paraview file of grain misorientations for Z coordinates of 0 through " << ZPrintSize - 1
@@ -466,10 +441,10 @@ struct Print {
                         if (CellType_WholeDomain(k, i, j) == Liquid)
                             IntPrintVal = -1;
                     }
-                    WriteData(GrainplotM, IntPrintVal, PrintBinary, true);
+                    WriteData(GrainplotM, IntPrintVal, _inputs.PrintBinary, true);
                 }
             }
-            if (!(PrintBinary))
+            if (!(_inputs.PrintBinary))
                 GrainplotM << std::endl;
         }
         GrainplotM.close();
@@ -484,15 +459,15 @@ struct Print {
                                    ViewTypeInt3DHost GrainID_WholeDomain, double deltax, int NumberOfLayers) {
 
         // Determine the lower and upper Y bounds of the RVE
-        int RVE_XLow = std::floor(nx / 2) - std::floor(RVESize / 2);
-        int RVE_XHigh = RVE_XLow + RVESize - 1;
-        int RVE_YLow = std::floor(ny / 2) - std::floor(RVESize / 2);
-        int RVE_YHigh = RVE_YLow + RVESize - 1;
+        int RVE_XLow = std::floor(nx / 2) - std::floor(_inputs.RVESize / 2);
+        int RVE_XHigh = RVE_XLow + _inputs.RVESize - 1;
+        int RVE_YLow = std::floor(ny / 2) - std::floor(_inputs.RVESize / 2);
+        int RVE_YHigh = RVE_YLow + _inputs.RVESize - 1;
 
         // Make sure the RVE fits in the simulation domain in X and Y
         if ((RVE_XLow < 0) || (RVE_XHigh > nx - 1) || (RVE_YLow < 0) || (RVE_YHigh > ny - 1)) {
             std::cout << "WARNING: Simulation domain is too small to obtain default RVE data (should be at least "
-                      << RVESize << " cells in the X and Y directions" << std::endl;
+                      << _inputs.RVESize << " cells in the X and Y directions" << std::endl;
             if (RVE_XLow < 0)
                 RVE_XLow = 0;
             if (RVE_XHigh > nx - 1)
@@ -520,16 +495,16 @@ struct Print {
         }
 
         // Determine the lower Z bound of the RVE, and make sure the RVE fits in the simulation domain in X and Y
-        int RVE_ZLow = RVE_ZHigh - RVESize + 1;
+        int RVE_ZLow = RVE_ZHigh - _inputs.RVESize + 1;
         if (RVE_ZLow < 0) {
             std::cout << "WARNING: Simulation domain is too small to obtain default RVE data (should be at least "
-                      << RVESize << " cells in the Z direction, more layers are required" << std::endl;
+                      << _inputs.RVESize << " cells in the Z direction, more layers are required" << std::endl;
             RVE_ZLow = 0;
             RVE_ZHigh = nz - 1;
         }
 
         // Print RVE data to file
-        std::string FName = PathToOutput + BaseFileName + "_ExaConstit.csv";
+        std::string FName = PathBaseFileName + "_ExaConstit.csv";
         std::cout << "Default size RVE with X coordinates " << RVE_XLow << "," << RVE_XHigh << "; Y coordinates "
                   << RVE_YLow << "," << RVE_YHigh << "; Z coordinates " << RVE_ZLow << "," << RVE_ZHigh
                   << " being printed to file " << FName << " for ExaConstit" << std::endl;

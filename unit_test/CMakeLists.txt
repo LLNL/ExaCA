@@ -18,6 +18,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Materials/Inconel625_Quad
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Materials/SS316.json
   ${CMAKE_CURRENT_BINARY_DIR}/SS316.json COPYONLY)
 
-ExaCA_add_tests(PACKAGE ExaCA NAMES InterfacialResponse Initialize Temperature Update Print)
+ExaCA_add_tests(PACKAGE ExaCA NAMES InterfacialResponse Initialize Inputs Temperature Update Print)
 
-ExaCA_add_tests(MPI PACKAGE ExaCA NAMES InitializeMPI CellData Nucleation UpdateMPI)
+ExaCA_add_tests(MPI PACKAGE ExaCA NAMES CellData Nucleation UpdateMPI)

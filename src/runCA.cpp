@@ -16,7 +16,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double StartInitTime = MPI_Wtime();
 
     // Read input file
-    Inputs<device_memory_space> inputs(id, InputFile);
+    Inputs inputs(id, InputFile);
 
     // These parameters from the inputs struct will eventually be stored in the grid struct, but for now are temporarily
     // kept in the current scope
@@ -78,23 +78,25 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   << " total cells in the Z direction" << std::endl;
 
     // Temperature fields characterized by data in this structure
-    Temperature<device_memory_space> temperature(DomainSize, NumberOfLayers);
+    Temperature<device_memory_space> temperature(DomainSize, NumberOfLayers, inputs.temperatureInputs);
     // Read temperature data if necessary
     if (inputs.SimulationType == "R")
-        temperature.readTemperatureData(id, deltax, HT_deltax, y_offset, ny_local, YMin, NumberOfLayers, inputs, 0);
+        temperature.readTemperatureData(id, deltax, y_offset, ny_local, YMin, NumberOfLayers, 0);
     // Initialize the temperature fields for the simualtion type of interest
     if ((inputs.SimulationType == "C") || (inputs.SimulationType == "SingleGrain")) {
         if (inputs.temperatureInputs.G == 0)
-            temperature.initialize(id, DomainSize, inputs);
+            temperature.initialize(id, DomainSize, inputs.domainInputs.deltat);
         else
-            temperature.initialize(id, nx, ny_local, nz, deltax, DomainSize, inputs);
+            temperature.initialize(id, inputs.SimulationType, nx, ny_local, nz, deltax, DomainSize,
+                                   inputs.domainInputs.deltat);
     }
     else if (inputs.SimulationType == "S")
         temperature.initialize(id, nx, ny_local, y_offset, deltax, DomainSize, irf.FreezingRange, inputs,
                                NumberOfLayers);
     else if (inputs.SimulationType == "R")
         temperature.initialize(0, id, nx, ny_local, DomainSize, y_offset, deltax, irf.FreezingRange, XMin, YMin,
-                               ZMinLayer, LayerHeight, nz_layer, z_layer_bottom, FinishTimeStep, inputs);
+                               ZMinLayer, LayerHeight, nz_layer, z_layer_bottom, FinishTimeStep,
+                               inputs.domainInputs.deltat);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization" << std::endl;
@@ -131,16 +133,15 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ResetSendBuffers(BufSize, BufferNorthSend, BufferSouthSend, SendSizeNorth, SendSizeSouth);
 
     // Initialize cell types, grain IDs, and layer IDs
-    CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
+    CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
+                                           inputs.substrateInputs);
     if (inputs.SimulationType == "C")
-        cellData.init_substrate(id, inputs.substrateInputs.FractSurfaceSitesActive, ny_local, nx, ny, y_offset,
-                                inputs.RNGSeed);
+        cellData.init_substrate(id, ny_local, nx, ny, y_offset, inputs.RNGSeed);
     else if (inputs.SimulationType == "SingleGrain")
-        cellData.init_substrate(id, inputs.substrateInputs.singleGrainOrientation, nx, ny, nz, ny_local, y_offset,
-                                DomainSize);
+        cellData.init_substrate(id, nx, ny, nz, ny_local, y_offset, DomainSize);
     else
         cellData.init_substrate(nx, ny, nz, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset, z_layer_bottom, id,
-                                inputs, temperature.NumberOfSolidificationEvents);
+                                inputs.RNGSeed, temperature.NumberOfSolidificationEvents);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Grain struct initialized" << std::endl;
@@ -150,11 +151,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
     int EstimatedNuclei_ThisRankThisLayer = inputs.nucleationInputs.NMax * pow(deltax, 3) * DomainSize;
-    Nucleation<device_memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, inputs.nucleationInputs.NMax, deltax);
+    Nucleation<device_memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, deltax, inputs.nucleationInputs);
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
     // successive layer when layer 0 in complete
-    nucleation.placeNuclei(temperature, inputs, 0, nx, ny, nz_layer, ny_local, y_offset, z_layer_bottom, id,
+    nucleation.placeNuclei(temperature, inputs.RNGSeed, 0, nx, ny, nz_layer, ny_local, y_offset, z_layer_bottom, id,
                            AtNorthBoundary, AtSouthBoundary);
 
     // Steering Vector
@@ -164,7 +165,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
 
     // Initialize printing struct from inputs
-    Print print(inputs, nx, ny, nz, ny_local, y_offset, np);
+    Print print(nx, ny, nz, ny_local, y_offset, np, inputs.printInputs);
 
     // If specified, print initial values in some views for debugging purposes
     double InitTime = MPI_Wtime() - StartInitTime;
@@ -183,13 +184,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         // Loop continues until all liquid cells claimed by solid grains
         do {
 
-            // Start of time step - check and see if intermediate system output is to be printed to files
-            if ((print.PrintTimeSeries) && (cycle % print.TimeSeriesInc == 0)) {
-                // Print current state of ExaCA simulation (up to and including the current layer's data)
-                print.printIntermediateGrainMisorientation(
-                    id, np, cycle, nx, ny, nz, ny_local, nz_layer, deltax, XMin, YMin, ZMin, cellData.GrainID_AllLayers,
-                    cellData.CellType_AllLayers, GrainUnitVector, NGrainOrientations, layernumber, z_layer_bottom);
-            }
+            // Start of time step - optional print current state of ExaCA simulation (up to and including the current
+            // layer's data)
+            print.printIntermediateGrainMisorientation(
+                id, np, cycle, nx, ny, nz, ny_local, nz_layer, deltax, XMin, YMin, ZMin, cellData.GrainID_AllLayers,
+                cellData.CellType_AllLayers, GrainUnitVector, NGrainOrientations, layernumber, z_layer_bottom);
             cycle++;
 
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
@@ -266,8 +265,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                           << layernumber + 1 << std::endl;
 
             // Reset intermediate file counter to zero if printing video files
-            if (print.PrintTimeSeries)
-                print.resetIntermediateFileCounter();
+            print.resetIntermediateFileCounter();
 
             // Determine new active cell domain size and offset from bottom of global domain
             z_layer_bottom =
@@ -281,12 +279,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             if (inputs.SimulationType == "R") {
                 // If the next layer's temperature data isn't already stored, it should be read
                 if (inputs.temperatureInputs.LayerwiseTempRead)
-                    temperature.readTemperatureData(id, deltax, HT_deltax, y_offset, ny_local, YMin, NumberOfLayers,
-                                                    inputs, layernumber + 1);
+                    temperature.readTemperatureData(id, deltax, y_offset, ny_local, YMin, NumberOfLayers,
+                                                    layernumber + 1);
                 // Initialize next layer's temperature data
                 temperature.initialize(layernumber + 1, id, nx, ny_local, DomainSize, y_offset, deltax,
                                        irf.FreezingRange, XMin, YMin, ZMinLayer, LayerHeight, nz_layer, z_layer_bottom,
-                                       FinishTimeStep, inputs);
+                                       FinishTimeStep, inputs.domainInputs.deltat);
             }
 
             // Reset initial undercooling/solidification event counter of all cells to zeros for the next layer,
@@ -300,13 +298,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
             cellData.init_next_layer(layernumber + 1, id, nx, ny, ny_local, y_offset, z_layer_bottom, DomainSize,
-                                     inputs, ZMin, ZMaxLayer, deltax, temperature.NumberOfSolidificationEvents);
+                                     inputs.RNGSeed, ZMin, ZMaxLayer, deltax, temperature.NumberOfSolidificationEvents);
 
             // Initialize potential nucleation event data for next layer "layernumber + 1"
             // Views containing nucleation data will be resized to the possible number of nuclei on a given MPI rank for
             // the next layer
             nucleation.resetNucleiCounters(); // start counters at 0
-            nucleation.placeNuclei(temperature, inputs, layernumber + 1, nx, ny, nz_layer, ny_local, y_offset,
+            nucleation.placeNuclei(temperature, inputs.RNGSeed, layernumber + 1, nx, ny, nz_layer, ny_local, y_offset,
                                    z_layer_bottom, id, AtNorthBoundary, AtSouthBoundary);
 
             XSwitch = 0;

@@ -106,10 +106,7 @@ struct PrintInputs {
     int RVESize = 0;
 };
 
-template <typename MemorySpace>
 struct Inputs {
-
-    using memory_space = MemorySpace;
 
     std::string SimulationType = "", MaterialFileName = "", GrainOrientationFile = "";
     double RNGSeed = 0.0;

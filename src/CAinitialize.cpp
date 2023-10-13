@@ -58,7 +58,7 @@ bool checkTemperatureFileFormat(std::string tempfile_thislayer) {
 // data files and parsing the coordinates
 void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XMin, double &XMax, double &YMin,
                    double &YMax, double &ZMin, double &ZMax, double *ZMinLayer, double *ZMaxLayer, int NumberOfLayers,
-                   int LayerHeight, Inputs<device_memory_space> &inputs) {
+                   int LayerHeight, Inputs &inputs) {
 
     if (inputs.SimulationType == "R") {
         // Two passes through reading temperature data files- the first pass only reads the headers to

@@ -153,8 +153,6 @@ void testcalcLayerDomainSize() {
 //---------------------------------------------------------------------------//
 void testFindXYZBounds(bool TestBinaryInputRead) {
 
-    using memory_space = TEST_MEMSPACE;
-
     // Write fake OpenFOAM data - temperature data should be of type double
     double deltax = 1 * pow(10, -6);
     std::string TestFilename = "TestData";
@@ -190,7 +188,7 @@ void testFindXYZBounds(bool TestBinaryInputRead) {
     TestData.close();
 
     // Empty inputs struct with default values - manually set non-default substrateInputs values
-    Inputs<memory_space> inputs;
+    Inputs inputs;
     inputs.SimulationType = "R";
     inputs.temperatureInputs.TempFilesInSeries = 1;
     inputs.temperatureInputs.temp_paths.push_back(TestFilename);

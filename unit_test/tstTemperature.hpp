@@ -30,7 +30,6 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
 
     // Create test data
     double deltax = 1 * pow(10, -6);
-    double HT_deltax = 1 * pow(10, -6);
 
     // Domain size is a 3 by 12 by 3 region
     int nx = 3;
@@ -105,15 +104,26 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
         int y_offset = 3 * id; // each col is separated from the others by 3 cells
         double YMin = 0.0;
         // Empty inputs struct with default values - manually set non-default substrateInputs values
-        Inputs<memory_space> inputs;
+        Inputs inputs;
+        inputs.temperatureInputs.HT_deltax = 1 * pow(10, -6);
         inputs.temperatureInputs.temp_paths.push_back(TestTempFileName1);
         inputs.temperatureInputs.temp_paths.push_back(TestTempFileName2);
         inputs.temperatureInputs.TempFilesInSeries = 2;
         inputs.temperatureInputs.LayerwiseTempRead = LayerwiseTempRead;
 
+        // Ensure that constructor correctly initialized the local values of inputs
+        Temperature<memory_space> temperature(DomainSize, NumberOfLayers, inputs.temperatureInputs);
+        if (LayerwiseTempRead)
+            EXPECT_TRUE(temperature._inputs.LayerwiseTempRead);
+        else
+            EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
+        EXPECT_EQ(inputs.temperatureInputs.TempFilesInSeries, temperature._inputs.TempFilesInSeries);
+        EXPECT_DOUBLE_EQ(inputs.temperatureInputs.HT_deltax, temperature._inputs.HT_deltax);
+        EXPECT_TRUE(temperature._inputs.temp_paths[0] == inputs.temperatureInputs.temp_paths[0]);
+        EXPECT_TRUE(temperature._inputs.temp_paths[1] == inputs.temperatureInputs.temp_paths[1]);
+
         // Read in data to "RawTemperatureData"
-        Temperature<memory_space> temperature(DomainSize, NumberOfLayers);
-        temperature.readTemperatureData(id, deltax, HT_deltax, y_offset, ny_local, YMin, NumberOfLayers, inputs, 0);
+        temperature.readTemperatureData(id, deltax, y_offset, ny_local, YMin, NumberOfLayers, 0);
 
         // Check the results.
         // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr)
@@ -177,7 +187,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     int coord_z_Center = floorf(static_cast<float>(nz) / 2.0);
 
     // Empty inputs struct with default values - manually set non-default substrateInputs values
-    Inputs<memory_space> inputs;
+    Inputs inputs;
     inputs.SimulationType = SimulationType;
     inputs.temperatureInputs.G = G;
     if (SimulationType == "C")
@@ -200,11 +210,20 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     double RNorm = inputs.temperatureInputs.R * deltat;
 
     // Temperature struct
-    Temperature<memory_space> temperature(DomainSize, 1);
+    Temperature<memory_space> temperature(DomainSize, 1, inputs.temperatureInputs);
+    // Test constructor initialization of _inputs
+    // These should've been initialized with default values
+    EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
+    EXPECT_EQ(temperature._inputs.TempFilesInSeries, 0);
+    EXPECT_DOUBLE_EQ(temperature._inputs.HT_deltax, 0.0);
+    // These should have assigned values
+    EXPECT_DOUBLE_EQ(temperature._inputs.R, inputs.temperatureInputs.R);
+    EXPECT_DOUBLE_EQ(temperature._inputs.G, G);
+    EXPECT_DOUBLE_EQ(temperature._inputs.initUndercooling, inputs.temperatureInputs.initUndercooling);
     if (G == 0)
-        temperature.initialize(id, DomainSize, inputs);
+        temperature.initialize(id, DomainSize, deltat);
     else
-        temperature.initialize(id, nx, ny_local, nz, deltax, DomainSize, inputs);
+        temperature.initialize(id, SimulationType, nx, ny_local, nz, deltax, DomainSize, deltat);
 
     // Copy temperature views back to host
     auto NumberOfSolidificationEvents_Host = Kokkos::create_mirror_view_and_copy(

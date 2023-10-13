@@ -46,20 +46,24 @@ struct Nucleation {
     view_type_int_host NucleationTimes_Host;
     // The locations and grain IDs of the potential nuclei in the layer
     view_type_int NucleiLocations, NucleiGrainID;
+    // Nucleation inputs from file
+    NucleationInputs _inputs;
 
     // Constructor - initialize CA views using input for initial guess at number of possible events
     // Default is that no nucleation has occurred to this point, optional input argument to start with the counter at a
     // specific value
-    Nucleation(const int EstimatedNuclei_ThisRankThisLayer, const double NMax, const double deltax,
+    Nucleation(const int EstimatedNuclei_ThisRankThisLayer, const double deltax, NucleationInputs inputs,
                int NumPriorNuclei = 0)
         : NucleationTimes_Host(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
                                                   EstimatedNuclei_ThisRankThisLayer))
         , NucleiLocations(view_type_int(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations"),
                                         EstimatedNuclei_ThisRankThisLayer))
         , NucleiGrainID(view_type_int(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"),
-                                      EstimatedNuclei_ThisRankThisLayer)) {
+                                      EstimatedNuclei_ThisRankThisLayer))
+        , _inputs(inputs) {
+
         Nuclei_WholeDomain = NumPriorNuclei;
-        BulkProb = NMax * deltax * deltax * deltax;
+        BulkProb = _inputs.NMax * deltax * deltax * deltax;
         resetNucleiCounters(); // start counters at 0
     }
 
@@ -75,8 +79,8 @@ struct Nucleation {
     // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur,
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
     template <class... Params>
-    void placeNuclei(Temperature<memory_space> &temperature, Inputs<memory_space> &inputs, int layernumber, int nx,
-                     int ny, int nz_layer, int ny_local, int y_offset, int, int id, bool AtNorthBoundary,
+    void placeNuclei(Temperature<memory_space> &temperature, double RNGSeed, int layernumber, int nx, int ny,
+                     int nz_layer, int ny_local, int y_offset, int, int id, bool AtNorthBoundary,
                      bool AtSouthBoundary) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
@@ -90,13 +94,13 @@ struct Nucleation {
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.LayerTimeTempHistory);
 
         // Use new RNG seed for each layer
-        std::mt19937_64 generator(inputs.RNGSeed + layernumber);
+        std::mt19937_64 generator(RNGSeed + layernumber);
         // Uniform distribution for nuclei location assignment
         std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
         std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
         std::uniform_real_distribution<double> Zdist(-0.49999, nz_layer - 0.5);
         // Gaussian distribution of nucleation undercooling
-        std::normal_distribution<double> Gdistribution(inputs.nucleationInputs.dTN, inputs.nucleationInputs.dTsigma);
+        std::normal_distribution<double> Gdistribution(_inputs.dTN, _inputs.dTsigma);
 
         // Max number of nucleated grains in this layer
         // Use long int in intermediate steps calculating the number of nucleated grains, though the number should be

@@ -18,8 +18,6 @@ namespace Test {
 //---------------------------------------------------------------------------//
 void testPrintExaConstitDefaultRVE() {
 
-    using memory_space = TEST_MEMSPACE;
-
     // Create test grid - set up so that the RVE is 5 cells in X, Y, and Z
     int nx = 10;
     int ny = 10;
@@ -30,13 +28,18 @@ void testPrintExaConstitDefaultRVE() {
     double deltax = 0.0001; // in meters
 
     // Empty inputs struct with default values - manually set non-default substrateInputs values
-    Inputs<memory_space> inputs;
+    Inputs inputs;
     inputs.printInputs.PrintDefaultRVE = true;
     inputs.printInputs.RVESize = 0.0005 / deltax;
     // File name/path for test RVE output
     inputs.printInputs.BaseFileName = "TestRVE";
     // Initialize printing struct from inputs
-    Print print(inputs, nx, ny, nz, ny_local, y_offset, 1);
+    Print print(nx, ny, nz, ny_local, y_offset, 1, inputs.printInputs);
+
+    // Check that inputs in print struct match the initialization from inputs
+    EXPECT_TRUE(print._inputs.PrintDefaultRVE);
+    EXPECT_DOUBLE_EQ(inputs.printInputs.RVESize, print._inputs.RVESize);
+    EXPECT_EQ(inputs.printInputs.BaseFileName, print._inputs.BaseFileName);
 
     // Create test data
     ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), nz, nx, ny);

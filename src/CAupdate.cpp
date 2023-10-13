@@ -534,18 +534,13 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
         unsigned long int GlobalNextMeltTimeStep;
         MPI_Allreduce(&NextMeltTimeStep, &GlobalNextMeltTimeStep, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
         if ((GlobalNextMeltTimeStep - cycle) > 5000) {
-            if (print.PrintIdleTimeSeriesFrames) {
-                // Print any movie frames that occur during the skipped time steps
-                for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextMeltTimeStep; cycle_jump++) {
-                    if (cycle_jump % print.TimeSeriesInc == 0) {
-                        // Print current state of ExaCA simulation (up to and including the current layer's data)
-                        print.printIntermediateGrainMisorientation(id, np, cycle, nx, ny, nz, ny_local, nz_layer,
-                                                                   deltax, XMin, YMin, ZMin, cellData.GrainID_AllLayers,
-                                                                   cellData.CellType_AllLayers, GrainUnitVector,
-                                                                   NGrainOrientations, layernumber, z_layer_bottom);
-                    }
-                }
-            }
+            // Print current grain misorientations (up to and including the current layer's data) for any of the time
+            // steps between now and when melting/solidification occurs again, if the print option for idle frame
+            // printing was toggled
+            print.printIdleIntermediateGrainMisorientation(
+                id, np, cycle, nx, ny, nz, ny_local, nz_layer, deltax, XMin, YMin, ZMin, cellData.GrainID_AllLayers,
+                cellData.CellType_AllLayers, GrainUnitVector, NGrainOrientations, layernumber, z_layer_bottom,
+                GlobalNextMeltTimeStep);
             // Jump to next time step when solidification starts again
             cycle = GlobalNextMeltTimeStep - 1;
             if (id == 0)

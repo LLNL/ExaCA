@@ -68,13 +68,13 @@ void testNucleiInit() {
     // Empty inputs struct with manually set nucleation parameters
     // This nucleation density ensures there will be 4 potential nuclei per MPI rank present
     // without remelting (each cell solidifies once)
-    Inputs<memory_space> inputs;
+    Inputs inputs;
     inputs.nucleationInputs.dTN = 1;
     inputs.nucleationInputs.dTsigma = 0.0001;
     inputs.nucleationInputs.NMax = 0.125;
 
     // Allocate temperature data structures
-    Temperature<memory_space> temperature(DomainSize, NumberOfLayers, 1);
+    Temperature<memory_space> temperature(DomainSize, NumberOfLayers, inputs.temperatureInputs, 1);
     // Resize LayerTimeTempHistory with the known max number of solidification events
     Kokkos::resize(temperature.LayerTimeTempHistory, DomainSize, MaxSolidificationEvents_Count, 3);
     // Initialize MaxSolidificationEvents to 3 for each layer. LayerTimeTempHistory and NumberOfSolidificationEvents are
@@ -130,13 +130,17 @@ void testNucleiInit() {
     // NucleiInit when the number of nuclei per rank is known
     int EstimatedNuclei_ThisRankThisLayer = inputs.nucleationInputs.NMax * pow(deltax, 3) * DomainSize;
     Nucleation<memory_space> nucleation(
-        EstimatedNuclei_ThisRankThisLayer, inputs.nucleationInputs.NMax, deltax,
+        EstimatedNuclei_ThisRankThisLayer, deltax, inputs.nucleationInputs,
         100); // NucleiGrainID should start at -101 - supply optional input arg to constructor
+    // Ensure nucleation inputs in nucleation struct were correctly initialized
+    EXPECT_DOUBLE_EQ(inputs.nucleationInputs.NMax, nucleation._inputs.NMax);
+    EXPECT_DOUBLE_EQ(inputs.nucleationInputs.dTN, nucleation._inputs.dTN);
+    EXPECT_DOUBLE_EQ(inputs.nucleationInputs.dTsigma, nucleation._inputs.dTsigma);
 
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 1 - they will be initialized for each
     // successive layer when layer 1 in complete
-    nucleation.placeNuclei(temperature, inputs, 1, nx, ny, nz_layer, ny_local, y_offset, z_layer_bottom, id,
+    nucleation.placeNuclei(temperature, inputs.RNGSeed, 1, nx, ny, nz_layer, ny_local, y_offset, z_layer_bottom, id,
                            AtNorthBoundary, AtSouthBoundary);
 
     // Copy results back to host to check
@@ -190,9 +194,13 @@ void testNucleateGrain() {
     int DomainSize = nx * ny_local * nz_layer;
     int DomainSize_AllLayers = nx * ny_local * nz;
 
+    // Empty inputs struct
+    Inputs inputs;
+
     // All cells have GrainID of 0, CellType of Liquid - with the exception of the locations where the nucleation events
     // are unable to occur
-    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
+    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
+                                    inputs.substrateInputs);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
     auto CellType = cellData.getCellTypeSubview();
     auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
@@ -201,7 +209,7 @@ void testNucleateGrain() {
 
     // Create test nucleation data - 10 possible events
     int PossibleNuclei = 10;
-    Nucleation<memory_space> nucleation(PossibleNuclei, 1.0, 1.0);
+    Nucleation<memory_space> nucleation(PossibleNuclei, 1.0, inputs.nucleationInputs);
     nucleation.PossibleNuclei = 10;
     view_int_host NucleiLocations_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations_Host"), PossibleNuclei);
     view_int_host NucleiGrainID_Host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"), PossibleNuclei);

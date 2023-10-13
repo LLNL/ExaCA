@@ -9,6 +9,7 @@
 #include "CAcelldata.hpp"
 #include "CAghostnodes.hpp"
 #include "CAinitialize.hpp"
+#include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 #include "runCA.hpp"
@@ -88,8 +89,12 @@ void testGhostNodes1D() {
     NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
+    // Initialize empty inputs struct
+    Inputs inputs;
+
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid
-    CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
+    CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
+                                           inputs.substrateInputs);
     // Subviews are the portion of the domain of interst for the test (i.e., the current layer of the problem, cells
     // located at the top 5 Z coordinates)
     auto CellType = cellData.getCellTypeSubview();
@@ -273,9 +278,12 @@ void testResizeRefillBuffers() {
     int DomainSize_AllLayers = nx * ny_local * nz;
     int NGrainOrientations = 10000;
 
+    // Initialize empty inputs struct
+    Inputs inputs;
     // Allocate device views: entire domain on each rank
     // Default to wall cells (CellType(index) = 0) with GrainID of 0
-    CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
+    CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
+                                           inputs.substrateInputs);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
     auto CellType = cellData.getCellTypeSubview();
     auto GrainID = cellData.getGrainIDSubview();

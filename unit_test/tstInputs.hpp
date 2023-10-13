@@ -10,8 +10,6 @@
 
 #include <gtest/gtest.h>
 
-#include "mpi.h"
-
 #include <fstream>
 #include <string>
 #include <vector>
@@ -78,9 +76,7 @@ void WriteTestData(std::string InputFilename, int PrintVersion) {
     TestDataFile.close();
 }
 
-void testInputReadFromFile(int PrintVersion) {
-
-    using memory_space = TEST_MEMSPACE;
+void testInputs(int PrintVersion) {
 
     int id, np;
     // Get number of processes
@@ -124,7 +120,7 @@ void testInputReadFromFile(int PrintVersion) {
     for (auto FileName : InputFilenames) {
         std::cout << "Reading " << FileName << std::endl;
         // Data printing structure - contains print options (false by default) and functions
-        Inputs<memory_space> inputs(id, FileName);
+        Inputs inputs(id, FileName);
         InterfacialResponseFunction irf(0, inputs.MaterialFileName, inputs.domainInputs.deltat,
                                         inputs.domainInputs.deltax);
         MPI_Barrier(MPI_COMM_WORLD);
@@ -262,9 +258,9 @@ void testInputReadFromFile(int PrintVersion) {
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
-TEST(TEST_CATEGORY, fileread_test) {
+TEST(TEST_CATEGORY, inputs) {
     // input argument: test for two different print versions for last input file
-    testInputReadFromFile(0);
-    testInputReadFromFile(1);
+    testInputs(0);
+    testInputs(1);
 }
 } // end namespace Test

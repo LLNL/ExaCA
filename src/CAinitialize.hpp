@@ -18,11 +18,11 @@
 #include <string>
 #include <vector>
 
-void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, Inputs<device_memory_space> &inputs);
+void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, Inputs &inputs);
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
 void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XMin, double &XMax, double &YMin,
                    double &YMax, double &ZMin, double &ZMax, double *ZMinLayer, double *ZMaxLayer, int NumberOfLayers,
-                   int LayerHeight, Inputs<device_memory_space> &inputs);
+                   int LayerHeight, Inputs &inputs);
 void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &NeighborRank_North,
                          int &NeighborRank_South, int &nx, int &ny, int &nz, int &DomainSize_AllLayers,
                          bool &AtNorthBoundary, bool &AtSouthBoundary);
