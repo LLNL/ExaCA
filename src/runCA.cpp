@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-#include "runCA.hpp"
+#include "ExaCA.hpp"
 
 #include "mpi.h"
 

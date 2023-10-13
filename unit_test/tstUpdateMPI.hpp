@@ -12,7 +12,7 @@
 #include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
-#include "runCA.hpp"
+#include "ExaCA.hpp"
 
 #include <gtest/gtest.h>
 

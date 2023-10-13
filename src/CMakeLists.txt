@@ -14,7 +14,6 @@ set(EXACA_HEADERS
     CAtypes.hpp
     CAupdate.hpp
     ExaCA.hpp
-    runCA.hpp
 )
 set(EXACA_SOURCES
     CAfunctions.cpp
