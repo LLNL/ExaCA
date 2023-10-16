@@ -67,9 +67,10 @@ double getInputDouble(std::string val_input, int factor) {
 // Given a string ("line"), parse at "separator" (commas used by default)
 // Modifies "parsed_line" to hold the separated values
 // expected_num_values may be larger than parsed_line_size, if only a portion of the line is being parsed
-void splitString(std::string line, std::vector<std::string> &parsed_line, int expected_num_values, char separator) {
+void splitString(std::string line, std::vector<std::string> &parsed_line, std::size_t expected_num_values,
+                 char separator) {
     // Make sure the right number of values are present on the line - one more than the number of separators
-    int actual_num_values = std::count(line.begin(), line.end(), separator) + 1;
+    std::size_t actual_num_values = std::count(line.begin(), line.end(), separator) + 1;
     if (expected_num_values != actual_num_values) {
         std::string error = "Error: Expected " + std::to_string(expected_num_values) +
                             " values while reading file; but " + std::to_string(actual_num_values) + " were found";
@@ -87,10 +88,10 @@ void splitString(std::string line, std::vector<std::string> &parsed_line, int ex
 
 // Check to make sure that the 6 expected column names appear in the correct order in the header for this temperature
 // file Return the number of columns present - ignore any columns after the 6 of interest
-int checkForHeaderValues(std::string header_line) {
+std::size_t checkForHeaderValues(std::string header_line) {
 
     // Header values from file - number of commas plus one is the size of the header
-    size_t header_size = static_cast<size_t>(std::count(header_line.begin(), header_line.end(), ',') + 1);
+    size_t header_size = std::count(header_line.begin(), header_line.end(), ',') + 1;
     std::vector<std::string> header_values(header_size, "");
     splitString(header_line, header_values, header_size);
 
@@ -113,7 +114,7 @@ int checkForHeaderValues(std::string header_line) {
                 throw std::runtime_error(ev + " not found in temperature file header");
         }
     }
-    return static_cast<int>(header_size);
+    return header_size;
 }
 
 bool checkFileExists(const std::string path, const int id, const bool error) {
@@ -188,7 +189,7 @@ std::array<double, 6> parseTemperatureCoordinateMinMax(std::string tempfile_this
     std::array<double, 6> XYZMinMax;
     std::ifstream TemperatureFilestream;
     TemperatureFilestream.open(tempfile_thislayer);
-    int vals_per_line;
+    std::size_t vals_per_line;
 
     // Binary temperature data should contain only the six columns of interest
     // Comma-separated double type values may contain additional columns after the 6 used by ExaCA
