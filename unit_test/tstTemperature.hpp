@@ -103,7 +103,7 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
         int ny_local = 3;
         int y_offset = 3 * id; // each col is separated from the others by 3 cells
         double YMin = 0.0;
-        // Empty inputs struct with default values - manually set non-default substrateInputs values
+        // Default inputs struct - manually set non-default substrateInputs values
         Inputs inputs;
         inputs.temperature.HT_deltax = 1 * pow(10, -6);
         inputs.temperature.temp_paths.push_back(TestTempFileName1);
@@ -186,7 +186,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     int DomainSize = nx * ny_local * nz;
     int coord_z_Center = floorf(static_cast<float>(nz) / 2.0);
 
-    // Empty inputs struct with default values - manually set non-default substrateInputs values
+    // default inputs struct - manually set non-default substrateInputs values
     Inputs inputs;
     inputs.SimulationType = SimulationType;
     inputs.temperature.G = G;

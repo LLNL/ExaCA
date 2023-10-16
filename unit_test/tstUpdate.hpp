@@ -37,7 +37,7 @@ void testFillSteeringVector_Remelt() {
     NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
-    // Empty inputs struct
+    // default inputs struct
     Inputs inputs;
     // Initialize cell/temperature structures
     CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,

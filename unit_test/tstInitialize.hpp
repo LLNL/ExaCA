@@ -187,7 +187,7 @@ void testFindXYZBounds(bool TestBinaryInputRead) {
     }
     TestData.close();
 
-    // Empty inputs struct with default values - manually set non-default substrateInputs values
+    // default inputs struct with default values - manually set non-default substrateInputs values
     Inputs inputs;
     inputs.SimulationType = "R";
     inputs.temperature.TempFilesInSeries = 1;

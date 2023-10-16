@@ -65,7 +65,7 @@ void testNucleiInit() {
     int MaxPotentialNuclei_PerPass = 4 * np;
     // A cell can solidify 1-3 times
     int MaxSolidificationEvents_Count = 3;
-    // Empty inputs struct with manually set nucleation parameters
+    // default inputs struct with manually set nucleation parameters
     // This nucleation density ensures there will be 4 potential nuclei per MPI rank present
     // without remelting (each cell solidifies once)
     Inputs inputs;

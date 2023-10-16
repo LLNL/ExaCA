@@ -27,7 +27,7 @@ void testPrintExaConstitDefaultRVE() {
     int NumberOfLayers = 10;
     double deltax = 0.0001; // in meters
 
-    // Empty inputs struct with default values - manually set non-default substrateInputs values
+    // default inputs struct - manually set non-default substrateInputs values
     Inputs inputs;
     inputs.print.PrintDefaultRVE = true;
     inputs.print.RVESize = 0.0005 / deltax;

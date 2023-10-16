@@ -89,7 +89,7 @@ void testGhostNodes1D() {
     NList NeighborX, NeighborY, NeighborZ;
     NeighborListInit(NeighborX, NeighborY, NeighborZ);
 
-    // Initialize empty inputs struct
+    // Initialize default inputs struct
     Inputs inputs;
 
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid

@@ -17,6 +17,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Read input file
     Inputs inputs(id, InputFile);
+    std::string simulation_type = inputs.SimulationType;
 
     // These parameters from the inputs struct will eventually be stored in the grid struct, but for now are temporarily
     // kept in the current scope
@@ -59,7 +60,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                   LayerHeight, inputs);
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
-    if ((inputs.SimulationType == "R") || (inputs.SimulationType == "S"))
+    if ((simulation_type == "R") || (simulation_type == "S"))
         checkPowderOverflow(nx, ny, LayerHeight, NumberOfLayers, inputs);
 
     // Decompose the domain into subdomains on each MPI rank: Calculate ny_local and y_offset for each rank, where
@@ -80,20 +81,20 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Temperature fields characterized by data in this structure
     Temperature<device_memory_space> temperature(DomainSize, NumberOfLayers, inputs.temperature);
     // Read temperature data if necessary
-    if (inputs.SimulationType == "R")
+    if (simulation_type == "R")
         temperature.readTemperatureData(id, deltax, y_offset, ny_local, YMin, NumberOfLayers, 0);
     // Initialize the temperature fields for the simualtion type of interest
-    if ((inputs.SimulationType == "C") || (inputs.SimulationType == "SingleGrain")) {
+    if ((simulation_type == "C") || (simulation_type == "SingleGrain")) {
         if (inputs.temperature.G == 0)
             temperature.initialize(id, DomainSize, inputs.domain.deltat);
         else
             temperature.initialize(id, inputs.SimulationType, nx, ny_local, nz, deltax, DomainSize,
                                    inputs.domain.deltat);
     }
-    else if (inputs.SimulationType == "S")
+    else if (simulation_type == "S")
         temperature.initialize(id, nx, ny_local, y_offset, deltax, DomainSize, irf.FreezingRange, inputs,
                                NumberOfLayers);
-    else if (inputs.SimulationType == "R")
+    else if (simulation_type == "R")
         temperature.initialize(0, id, nx, ny_local, DomainSize, y_offset, deltax, irf.FreezingRange, XMin, YMin,
                                ZMinLayer, LayerHeight, nz_layer, z_layer_bottom, FinishTimeStep, inputs.domain.deltat);
     MPI_Barrier(MPI_COMM_WORLD);
@@ -134,9 +135,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Initialize cell types, grain IDs, and layer IDs
     CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
                                            inputs.substrate);
-    if (inputs.SimulationType == "C")
+    if (simulation_type == "C")
         cellData.init_substrate(id, ny_local, nx, ny, y_offset, inputs.RNGSeed);
-    else if (inputs.SimulationType == "SingleGrain")
+    else if (simulation_type == "SingleGrain")
         cellData.init_substrate(id, nx, ny, nz, ny_local, y_offset, DomainSize);
     else
         cellData.init_substrate(nx, ny, nz, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset, z_layer_bottom, id,
@@ -206,7 +207,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // FillSteeringVector_NoRemelt (a simplified version of FillSteeringVector_Remelt
             StartCreateSVTime = MPI_Wtime();
 
-            if ((inputs.SimulationType == "C") || (inputs.SimulationType == "SingleGrain"))
+            if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
                 FillSteeringVector_NoRemelt(cycle, DomainSize, temperature, cellData, SteeringVector, numSteer,
                                             numSteer_Host);
             else
@@ -245,13 +246,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
-            if ((cycle % 1000 == 0) && (inputs.SimulationType != "SingleGrain")) {
+            if ((cycle % 1000 == 0) && (simulation_type != "SingleGrain")) {
                 IntermediateOutputAndCheck(id, np, cycle, ny_local, DomainSize, nx, ny, nz, nz_layer, z_layer_bottom,
                                            deltax, XMin, YMin, ZMin, nucleation.SuccessfulNucleationCounter, XSwitch,
                                            cellData, temperature, inputs.SimulationType, layernumber,
                                            NGrainOrientations, GrainUnitVector, print);
             }
-            else if (inputs.SimulationType == "SingleGrain") {
+            else if (simulation_type == "SingleGrain") {
                 IntermediateOutputAndCheck(id, cycle, ny_local, y_offset, DomainSize, nx, ny, nz, XSwitch,
                                            cellData.CellType_AllLayers);
             }
@@ -275,7 +276,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             DomainSize = calcLayerDomainSize(nx, ny_local, nz_layer);
             // Determine the bounds of the next layer: Z coordinates span z_layer_bottom-z_layer_top, inclusive
             // For simulation type R, need to initialize new temperature field data for layer "layernumber + 1"
-            if (inputs.SimulationType == "R") {
+            if (simulation_type == "R") {
                 // If the next layer's temperature data isn't already stored, it should be read
                 if (inputs.temperature.LayerwiseTempRead)
                     temperature.readTemperatureData(id, deltax, y_offset, ny_local, YMin, NumberOfLayers,

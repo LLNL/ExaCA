@@ -51,7 +51,7 @@ void testCellDataInit_SingleGrain() {
     DomainDecomposition(id, np, ny_local, y_offset, NeighborRank_North, NeighborRank_South, nx, ny, nz, DomainSize,
                         AtNorthBoundary, AtSouthBoundary);
 
-    // Empty inputs struct
+    // default inputs struct
     Inputs inputs;
 
     // Cell data struct

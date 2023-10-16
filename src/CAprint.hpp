@@ -38,7 +38,7 @@ void WriteData(std::ofstream &outstream, PrintType PrintValue, bool PrintBinary,
         outstream << PrintValue << " ";
 }
 
-// Struct to hold data printing options and functions (would ideally just store a copy of Inputs.printInputs here)
+// Struct to hold data printing options and functions
 struct Print {
 
     // If printing the time series, the counter for the number of intermediate files that have been printed for a given
