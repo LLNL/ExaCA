@@ -55,6 +55,14 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
                 SendSizeNorth(0) = OldBufSize;
                 SendSizeSouth(0) = OldBufSize;
             });
+        // Set -1 values for the new (currently empty) positions in the resized buffer
+        Kokkos::parallel_for(
+            "InitNewBufCapacity", Kokkos::RangePolicy<>(OldBufSize, NewBufSize), KOKKOS_LAMBDA(const int &BufPosition) {
+                for (int BufComp = 0; BufComp < 8; BufComp++) {
+                    BufferNorthSend(BufPosition, BufComp) = -1.0;
+                    BufferSouthSend(BufPosition, BufComp) = -1.0;
+                }
+            });
     }
     else
         NewBufSize = OldBufSize;
