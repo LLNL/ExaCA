@@ -183,7 +183,8 @@ struct Temperature {
         auto MaxSolidificationEvents_local = MaxSolidificationEvents;
         auto NumberOfSolidificationEvents_local = NumberOfSolidificationEvents;
         auto UndercoolingCurrent_local = UndercoolingCurrent;
-
+        double initUndercooling_local = _inputs.initUndercooling;
+        double R_local = _inputs.R;
         // Uniform undercooling field
         Kokkos::parallel_for(
             "TempInitUniform", DomainSize, KOKKOS_LAMBDA(const int &index) {
@@ -192,12 +193,12 @@ struct Temperature {
                 // Cells reach liquidus at a time dependent on their Z coordinate
                 LayerTimeTempHistory_local(index, 0, 1) = -1;
                 // Cells cool at a constant rate
-                LayerTimeTempHistory_local(index, 0, 2) = _inputs.R * deltat;
+                LayerTimeTempHistory_local(index, 0, 2) = R_local * deltat;
                 // All cells solidify once
                 MaxSolidificationEvents_local(0) = 1;
                 NumberOfSolidificationEvents_local(index) = 1;
                 // All cells at init undercooling
-                UndercoolingCurrent_local(index) = _inputs.initUndercooling;
+                UndercoolingCurrent_local(index) = initUndercooling_local;
             });
         if (id == 0)
             std::cout << "Undercooling field initialized to = " << _inputs.initUndercooling << " K for all cells"
