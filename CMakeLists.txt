@@ -12,6 +12,11 @@ if(NOT NLOHMANN_JSON_FOUND)
   # Using most recent release here
   FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
   FetchContent_MakeAvailable(json)
+  # Needs to be installed only in this case.
+  install(TARGETS nlohmann_json
+    EXPORT ExaCA_Targets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 find_package(Git)

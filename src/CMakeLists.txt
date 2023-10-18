@@ -7,7 +7,9 @@ install(FILES ${EXACA_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/CAconfig.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-add_library(ExaCA STATIC ${EXACA_SOURCES} ${EXACA_HEADERS})
+add_library(ExaCA ${EXACA_SOURCES})
+add_library(ExaCA::ExaCA ALIAS ExaCA)
+
 target_link_libraries(ExaCA PUBLIC
     MPI::MPI_CXX
     Kokkos::kokkos
@@ -24,7 +26,10 @@ install(TARGETS ExaCA
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-add_library(ExaCA::ExaCA ALIAS ExaCA)
+install(EXPORT ExaCA_Targets
+  FILE ExaCA_Targets.cmake
+  NAMESPACE ExaCA::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ExaCA)
 
 add_executable(ExaCA-Kokkos main.cpp)
 target_link_libraries(ExaCA-Kokkos ExaCA)
