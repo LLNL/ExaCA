@@ -1,28 +1,7 @@
 configure_file(CAconfig.hpp.cmakein CAconfig.hpp)
 
-set(EXACA_HEADERS
-    CAfunctions.hpp
-    CAghostnodes.hpp
-    CAinitialize.hpp
-    CAinterfacialresponse.hpp
-    CAnucleation.hpp
-    CAparsefiles.hpp
-    CAprint.hpp
-    CAtemperature.hpp
-    CAtypes.hpp
-    CAupdate.hpp
-    ExaCA.hpp
-    runCA.hpp
-)
-set(EXACA_SOURCES
-    CAfunctions.cpp
-    CAghostnodes.cpp
-    CAinitialize.cpp
-    CAparsefiles.cpp
-    CAprint.cpp
-    CAupdate.cpp
-    runCA.cpp
-)
+file(GLOB EXACA_HEADERS GLOB *.hpp)
+file(GLOB EXACA_SOURCES GLOB *.cpp)
 
 install(FILES ${EXACA_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
