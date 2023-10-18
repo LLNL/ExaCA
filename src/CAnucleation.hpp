@@ -27,6 +27,9 @@ struct Nucleation {
     using view_type_int = Kokkos::View<int *, memory_space>;
     using view_type_int_host = typename view_type_int::HostMirror;
 
+    // Using the default exec space for this memory space.
+    using execution_space = typename memory_space::execution_space;
+
     // Four counters tracked here:
     // 1. Nuclei_WholeDomain - tracks all nuclei (regardless of whether an event would be possible based on the layer ID
     // and cell type), used for Grain ID assignment to ensure that no Grain ID get reused - same on all MPI ranks
@@ -276,9 +279,11 @@ struct Nucleation {
                 int NucleationThisDT = 0; // return number of successful event from parallel_reduce
                 auto NucleiLocations_local = NucleiLocations;
                 auto NucleiGrainID_local = NucleiGrainID;
+
                 // Launch kokkos kernel - check if the corresponding CA cell location is liquid
+                auto policy = Kokkos::RangePolicy<execution_space>(FirstEvent, LastEvent);
                 Kokkos::parallel_reduce(
-                    "NucleiUpdateLoop", Kokkos::RangePolicy<>(FirstEvent, LastEvent),
+                    "NucleiUpdateLoop", policy,
                     KOKKOS_LAMBDA(const int NucleationCounter_Device, int &update) {
                         int NucleationEventLocation = NucleiLocations_local(NucleationCounter_Device);
                         int update_val =

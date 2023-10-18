@@ -31,6 +31,9 @@ struct Temperature {
     using view_type_double_host = typename view_type_double::HostMirror;
     using view_type_float_3d_host = typename view_type_float_3d::HostMirror;
 
+    // Using the default exec space for this memory space.
+    using execution_space = typename memory_space::execution_space;
+
     // Maximum number of times each CA cell in a given layer undergoes solidification
     view_type_int MaxSolidificationEvents;
     // For each cell in the current layer (index 1), and each time solidification happens (index 2), hold the values
@@ -179,6 +182,8 @@ struct Temperature {
         // Initialize temperature field in Z direction with thermal gradient G set in input file
         // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
         // (with custom InitUndercooling value) for single grain solidification
+
+        // Local copies for lambda capture.
         auto LayerTimeTempHistory_local = LayerTimeTempHistory;
         auto MaxSolidificationEvents_local = MaxSolidificationEvents;
         auto NumberOfSolidificationEvents_local = NumberOfSolidificationEvents;
@@ -186,8 +191,9 @@ struct Temperature {
         double initUndercooling_local = _inputs.initUndercooling;
         double R_local = _inputs.R;
         // Uniform undercooling field
+        auto policy = Kokkos::RangePolicy<execution_space>(0, DomainSize);
         Kokkos::parallel_for(
-            "TempInitUniform", DomainSize, KOKKOS_LAMBDA(const int &index) {
+            "TempInitUniform", policy, KOKKOS_LAMBDA(const int &index) {
                 // All cells past melting time step and liquidus time step
                 LayerTimeTempHistory_local(index, 0, 0) = -1;
                 // Cells reach liquidus at a time dependent on their Z coordinate
@@ -219,6 +225,7 @@ struct Temperature {
             locationOfInitUndercooling = floorf(static_cast<float>(nz) / 2.0);
         int locationOfLiquidus = locationOfInitUndercooling + round(_inputs.initUndercooling / (_inputs.G * deltax));
 
+        // Local copies for lambda capture.
         auto LayerTimeTempHistory_local = LayerTimeTempHistory;
         auto MaxSolidificationEvents_local = MaxSolidificationEvents;
         auto NumberOfSolidificationEvents_local = NumberOfSolidificationEvents;
@@ -226,8 +233,10 @@ struct Temperature {
         double initUndercooling_local = _inputs.initUndercooling;
         double G_local = _inputs.G;
         double R_local = _inputs.R;
+
+        auto policy = Kokkos::RangePolicy<execution_space>(0, DomainSize);
         Kokkos::parallel_for(
-            "TempInitG", DomainSize, KOKKOS_LAMBDA(const int &index) {
+            "TempInitG", policy, KOKKOS_LAMBDA(const int &index) {
                 int coord_z = getCoordZ(index, nx, ny_local);
                 // Negative distFromLiquidus values for cells below the liquidus
                 int distFromLiquidus = coord_z - locationOfLiquidus;
@@ -684,10 +693,14 @@ struct Temperature {
                                                 const int DefaultVal = -1) {
         ExtractedViewDataType ExtractedData(Kokkos::ViewAllocateWithoutInitializing("ExtractedData"), DomainSize);
         using extracted_value_type = typename ExtractedViewDataType::value_type;
+
+        // Local copies for lambda capture.
         auto LayerTimeTempHistory_local = LayerTimeTempHistory;
         auto NumberOfSolidificationEvents_local = NumberOfSolidificationEvents;
+
+        auto policy = Kokkos::RangePolicy<execution_space>(0, DomainSize);
         Kokkos::parallel_for(
-            "Extract_tm_tl_cr_data", DomainSize, KOKKOS_LAMBDA(const int &index) {
+            "Extract_tm_tl_cr_data", policy, KOKKOS_LAMBDA(const int &index) {
                 int NumSolidificationEvents_ThisCell = NumberOfSolidificationEvents_local(index);
                 // If this cell doesn't undergo solidification at all, print -1
                 if (NumSolidificationEvents_ThisCell == 0)
