@@ -1,14 +1,11 @@
-set(EXAGA_HEADERS
-    GAutils.hpp
-    GArepresentativeregion.hpp
-)
-set(EXAGA_SOURCES
-    GAutils.cpp
-)
+file(GLOB EXAGA_HEADERS GLOB *.hpp)
+file(GLOB EXAGA_SOURCES GLOB *.cpp)
 
 install(FILES ${EXAGA_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-add_library(ExaGA STATIC ${EXAGA_SOURCES} ${EXAGA_HEADERS})
+add_library(ExaGA ${EXAGA_SOURCES})
+add_library(ExaCA::ExaGA ALIAS ExaGA)
+
 target_link_libraries(ExaGA PUBLIC ExaCA)
 
 target_include_directories(ExaGA PUBLIC
@@ -20,9 +17,3 @@ install(TARGETS ExaGA
   EXPORT ExaGA_Targets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-add_library(ExaCA::ExaGA ALIAS ExaGA)
-
-add_executable(grain_analysis runGA.cpp)
-target_link_libraries(grain_analysis ExaGA)
-install(TARGETS grain_analysis DESTINATION ${CMAKE_INSTALL_BINDIR})
