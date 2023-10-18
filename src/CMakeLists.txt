@@ -30,7 +30,3 @@ install(EXPORT ExaCA_Targets
   FILE ExaCA_Targets.cmake
   NAMESPACE ExaCA::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ExaCA)
-
-add_executable(ExaCA-Kokkos main.cpp)
-target_link_libraries(ExaCA-Kokkos ExaCA)
-install(TARGETS ExaCA-Kokkos DESTINATION ${CMAKE_INSTALL_BINDIR})

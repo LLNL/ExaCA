@@ -17,7 +17,3 @@ install(TARGETS ExaGA
   EXPORT ExaGA_Targets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-add_executable(grain_analysis runGA.cpp)
-target_link_libraries(grain_analysis ExaGA)
-install(TARGETS grain_analysis DESTINATION ${CMAKE_INSTALL_BINDIR})
