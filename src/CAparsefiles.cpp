@@ -91,7 +91,7 @@ void splitString(std::string line, std::vector<std::string> &parsed_line, std::s
 std::size_t checkForHeaderValues(std::string header_line) {
 
     // Header values from file - number of commas plus one is the size of the header
-    size_t header_size = std::count(header_line.begin(), header_line.end(), ',') + 1;
+    std::size_t header_size = std::count(header_line.begin(), header_line.end(), ',') + 1;
     std::vector<std::string> header_values(header_size, "");
     splitString(header_line, header_values, header_size);
 
