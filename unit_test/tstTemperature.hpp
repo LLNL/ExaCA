@@ -30,8 +30,7 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
 
     // Create test data
     double deltax = 1 * pow(10, -6);
-    double HT_deltax = 1 * pow(10, -6);
-    int HTtoCAratio;
+
     // Domain size is a 3 by 12 by 3 region
     int nx = 3;
     int ny = 12;
@@ -104,15 +103,27 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
         int ny_local = 3;
         int y_offset = 3 * id; // each col is separated from the others by 3 cells
         double YMin = 0.0;
-        std::vector<std::string> temp_paths(2);
-        temp_paths[0] = TestTempFileName1;
-        temp_paths[1] = TestTempFileName2;
-        int TempFilesInSeries = 2;
+        // Default inputs struct - manually set non-default substrateInputs values
+        Inputs inputs;
+        inputs.temperature.HT_deltax = 1 * pow(10, -6);
+        inputs.temperature.temp_paths.push_back(TestTempFileName1);
+        inputs.temperature.temp_paths.push_back(TestTempFileName2);
+        inputs.temperature.TempFilesInSeries = 2;
+        inputs.temperature.LayerwiseTempRead = LayerwiseTempRead;
+
+        // Ensure that constructor correctly initialized the local values of inputs
+        Temperature<memory_space> temperature(DomainSize, NumberOfLayers, inputs.temperature);
+        if (LayerwiseTempRead)
+            EXPECT_TRUE(temperature._inputs.LayerwiseTempRead);
+        else
+            EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
+        EXPECT_EQ(inputs.temperature.TempFilesInSeries, temperature._inputs.TempFilesInSeries);
+        EXPECT_DOUBLE_EQ(inputs.temperature.HT_deltax, temperature._inputs.HT_deltax);
+        EXPECT_TRUE(temperature._inputs.temp_paths[0] == inputs.temperature.temp_paths[0]);
+        EXPECT_TRUE(temperature._inputs.temp_paths[1] == inputs.temperature.temp_paths[1]);
 
         // Read in data to "RawTemperatureData"
-        Temperature<memory_space> temperature(DomainSize, NumberOfLayers);
-        temperature.readTemperatureData(id, deltax, HT_deltax, HTtoCAratio, y_offset, ny_local, YMin, temp_paths,
-                                        NumberOfLayers, TempFilesInSeries, LayerwiseTempRead, 0);
+        temperature.readTemperatureData(id, deltax, y_offset, ny_local, YMin, NumberOfLayers, 0);
 
         // Check the results.
         // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr)
@@ -123,10 +134,8 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
         if (LayerwiseTempRead)
             NumTempPointsMultiplier = 1;
         else
-            NumTempPointsMultiplier = std::min(NumberOfLayers, TempFilesInSeries);
+            NumTempPointsMultiplier = std::min(NumberOfLayers, inputs.temperature.TempFilesInSeries);
         EXPECT_EQ(NumberOfTemperatureDataPoints, 54 * NumTempPointsMultiplier);
-        // Ratio of HT cell size and CA cell size should be 1
-        EXPECT_EQ(HTtoCAratio, 1);
         int NumberOfCellsPerRank = 9;
         // Does each rank have the right temperature data values?
         for (int layercounter = 0; layercounter < NumTempPointsMultiplier; layercounter++) {
@@ -176,11 +185,15 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     int nz = 6; // (Front is at Z = 0 for directional growth, single grain seed at Z = 2 for singlegrain problem)
     int DomainSize = nx * ny_local * nz;
     int coord_z_Center = floorf(static_cast<float>(nz) / 2.0);
-    double initUndercooling;
+
+    // default inputs struct - manually set non-default substrateInputs values
+    Inputs inputs;
+    inputs.SimulationType = SimulationType;
+    inputs.temperature.G = G;
     if (SimulationType == "C")
-        initUndercooling = 0.0;
+        inputs.temperature.initUndercooling = 0.0;
     else
-        initUndercooling = 2.0;
+        inputs.temperature.initUndercooling = 2.0;
 
     // For problems with non-zero thermal gradient, 1 K difference between each cell and its neighbor in Z
     double deltax;
@@ -188,19 +201,29 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
         deltax = 1 * pow(10, -6);
     else
         deltax = 1.0 / G;
+    inputs.domain.deltax = deltax;
     double GNorm = G * deltax;
     // Cells cool at rate of 1 K per time step
-    double R = 1000000;
+    inputs.temperature.R = 1000000;
     double deltat = 1 * pow(10, -6);
-    double RNorm = R * deltat;
+    inputs.domain.deltat = deltat;
+    double RNorm = inputs.temperature.R * deltat;
 
     // Temperature struct
-    Temperature<memory_space> temperature(DomainSize, 1);
+    Temperature<memory_space> temperature(DomainSize, 1, inputs.temperature);
+    // Test constructor initialization of _inputs
+    // These should've been initialized with default values
+    EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
+    EXPECT_EQ(temperature._inputs.TempFilesInSeries, 0);
+    EXPECT_DOUBLE_EQ(temperature._inputs.HT_deltax, 0.0);
+    // These should have assigned values
+    EXPECT_DOUBLE_EQ(temperature._inputs.R, inputs.temperature.R);
+    EXPECT_DOUBLE_EQ(temperature._inputs.G, G);
+    EXPECT_DOUBLE_EQ(temperature._inputs.initUndercooling, inputs.temperature.initUndercooling);
     if (G == 0)
-        temperature.initialize(R, id, deltat, DomainSize, initUndercooling);
+        temperature.initialize(id, DomainSize, deltat);
     else
-        temperature.initialize(SimulationType, G, R, id, nx, ny_local, nz, deltax, deltat, DomainSize,
-                               initUndercooling);
+        temperature.initialize(id, SimulationType, nx, ny_local, nz, deltax, DomainSize, deltat);
 
     // Copy temperature views back to host
     auto NumberOfSolidificationEvents_Host = Kokkos::create_mirror_view_and_copy(
@@ -219,7 +242,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     if (SimulationType == "C")
         locationOfLiquidus = 0;
     else
-        locationOfLiquidus = coord_z_Center + round(initUndercooling / GNorm);
+        locationOfLiquidus = coord_z_Center + round(inputs.temperature.initUndercooling / GNorm);
     EXPECT_EQ(MaxSolidificationEvents_Host(0), 1);
     for (int coord_z = 0; coord_z < nz; coord_z++) {
         for (int coord_x = 0; coord_x < nx; coord_x++) {
@@ -235,7 +258,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
                 // UndercoolingCurrent should be zero for cells if a positive G is given, or initUndercooling if being
                 // initialized with a uniform undercooling field (all cells initially below liquidus)
                 if (G == 0) {
-                    EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(index), initUndercooling);
+                    EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(index), inputs.temperature.initUndercooling);
                     EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 1), -1);
                 }
                 else {
@@ -246,7 +269,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
                         // the liquidus and the thermal gradient
                         EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 1), -1);
                         EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(index),
-                                        initUndercooling - distFromLiquidus * (G * deltax));
+                                        inputs.temperature.initUndercooling - distFromLiquidus * (G * deltax));
                     }
                     else {
                         // Cell has not yet reached the nonzero liquidus time yet (or reaches it at time = 0), either

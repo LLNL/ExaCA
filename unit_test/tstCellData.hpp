@@ -8,7 +8,7 @@
 #include "CAcelldata.hpp"
 #include "CAfunctions.hpp"
 #include "CAinitialize.hpp"
-#include "CAnucleation.hpp"
+#include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 
@@ -34,8 +34,6 @@ void testCellDataInit_SingleGrain() {
     // Get individual process ID
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
-    int singleGrainOrientation = 0;
-
     // Let overall domain be 5 cells in X and Z, 50 cells in Y
     // This should in turn place the single grain in the cell at X = Y = 2 and Z = 24 (domain center)
     // Domain for each rank
@@ -53,11 +51,17 @@ void testCellDataInit_SingleGrain() {
     DomainDecomposition(id, np, ny_local, y_offset, NeighborRank_North, NeighborRank_South, nx, ny, nz, DomainSize,
                         AtNorthBoundary, AtSouthBoundary);
 
+    // default inputs struct
+    Inputs inputs;
+
     // Cell data struct
-    CellData<memory_space> cellData(DomainSize, DomainSize, nx, ny_local, 0);
+    CellData<memory_space> cellData(DomainSize, DomainSize, nx, ny_local, 0, inputs.substrate);
+
+    // Check that default substrate single grain orientation was set
+    EXPECT_DOUBLE_EQ(inputs.substrate.singleGrainOrientation, cellData._inputs.singleGrainOrientation);
 
     // Init grain
-    cellData.init_substrate(id, singleGrainOrientation, nx, ny, nz, ny_local, y_offset, DomainSize);
+    cellData.init_substrate(id, nx, ny, nz, ny_local, y_offset, DomainSize);
 
     // Copy cell type and grain ID back to host to check if the values match - only 1 cell should've been assigned type
     // active and GrainID = 1 (though it may be duplicated in the ghost nodes of other ranks)
@@ -69,7 +73,7 @@ void testCellDataInit_SingleGrain() {
                 int coord_y_global = coord_y + y_offset;
                 int coord_1d = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
                 if ((coord_z == expectedGrainZ) && (coord_x == expectedGrainX) && (coord_y_global == expectedGrainY)) {
-                    EXPECT_EQ(GrainID_Host(coord_1d), singleGrainOrientation + 1);
+                    EXPECT_EQ(GrainID_Host(coord_1d), cellData._inputs.singleGrainOrientation + 1);
                     EXPECT_EQ(CellType_Host(coord_1d), FutureActive);
                 }
                 else {
@@ -107,10 +111,16 @@ void testCellDataInit_ConstrainedGrowth() {
     int DomainSize = nx * ny_local * nz_layer;
     int DomainSize_AllLayers = nx * ny_local * nz;
 
-    double FractSurfaceSitesActive = 0.5; // Each rank will have 2 active cells each, on average
-    double RNGSeed = 0.0;
-    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
-    cellData.init_substrate(id, FractSurfaceSitesActive, ny_local, nx, ny, y_offset, RNGSeed);
+    // Empty inputs struct
+    Inputs inputs;
+    // Set fract surface cells active to 0.5
+    inputs.substrate.FractSurfaceSitesActive = 0.5;
+    // Construct celldata struct
+    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom, inputs.substrate);
+    // Check appropriate initialization of celldata input
+    EXPECT_DOUBLE_EQ(inputs.substrate.FractSurfaceSitesActive, cellData._inputs.FractSurfaceSitesActive);
+    // Initialize substrate grains
+    cellData.init_substrate(id, ny_local, nx, ny, y_offset, inputs.RNGSeed);
     // Copy CellType, GrainID views to host to check values
     auto CellType_AllLayers_Host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
@@ -175,15 +185,16 @@ void testCellDataInit(bool PowderFirstLayer) {
     // If there is a powder layer, the baseplate should be Z = 0 through 1 w/ powder for the top row of cells, otherwise
     // it should be 0 through 2
     // If there is no powder layer, the baseplate should be Z = 0 through 2 with no powder
-    double BaseplateTopZ;
+    // Empty inputs struct with default values - manually set non-default substrate values
+    Inputs inputs;
     int BaseplateSize, ExpectedNumPowderGrainsPerLayer;
     if (PowderFirstLayer) {
-        BaseplateTopZ = deltax;
+        inputs.substrate.BaseplateTopZ = deltax;
         BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax));
         ExpectedNumPowderGrainsPerLayer = nx * ny_local * np;
     }
     else {
-        BaseplateTopZ = 2 * deltax;
+        inputs.substrate.BaseplateTopZ = 2 * deltax;
         BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax) + 1);
         ExpectedNumPowderGrainsPerLayer = 0;
     }
@@ -195,15 +206,11 @@ void testCellDataInit(bool PowderFirstLayer) {
     // cells (Z > 2) are outside the first layer of the domain and are not assigned Grain IDs with the rest of the
     // baseplate. This grain spacing ensures that there will be 1 grain per number of MPI ranks present (larger when
     // powder layer is present as the baseplate will only have a third as many cells)
-    double SubstrateGrainSpacing;
     if (PowderFirstLayer)
-        SubstrateGrainSpacing = 2.62;
+        inputs.substrate.SubstrateGrainSpacing = 2.62;
     else
-        SubstrateGrainSpacing = 3.0;
-    double RNGSeed = 0.0;
-
-    // Used if Powderfirstlayer = true
-    double PowderActiveFraction = 1.0;
+        inputs.substrate.SubstrateGrainSpacing = 3.0;
+    inputs.RNGSeed = 0.0;
 
     // unused views in constructor
     NList NeighborX, NeighborY, NeighborZ;
@@ -230,10 +237,16 @@ void testCellDataInit(bool PowderFirstLayer) {
     Kokkos::fence();
 
     // Call constructor
-    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom);
-    cellData.init_substrate("", false, false, nx, ny, nz, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset,
-                            z_layer_bottom, id, RNGSeed, SubstrateGrainSpacing, PowderActiveFraction,
-                            NumberOfSolidificationEvents, BaseplateTopZ);
+    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom, inputs.substrate);
+    // Check that substrate inputs were copied from inputs struct correctly
+    EXPECT_DOUBLE_EQ(inputs.substrate.BaseplateTopZ, cellData._inputs.BaseplateTopZ);
+    EXPECT_DOUBLE_EQ(inputs.substrate.SubstrateGrainSpacing, cellData._inputs.SubstrateGrainSpacing);
+    EXPECT_FALSE(cellData._inputs.UseSubstrateFile);
+    EXPECT_FALSE(cellData._inputs.BaseplateThroughPowder);
+    EXPECT_DOUBLE_EQ(cellData._inputs.PowderActiveFraction, 1.0);
+    // Initialize baseplate grain structure
+    cellData.init_substrate(nx, ny, nz, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset, z_layer_bottom, id,
+                            inputs.RNGSeed, NumberOfSolidificationEvents);
 
     // Copy GrainID results back to host to check first layer's initialization
     auto GrainID_AllLayers_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
@@ -278,8 +291,8 @@ void testCellDataInit(bool PowderFirstLayer) {
     z_layer_bottom = 1;
     // Initialize the next layer using the same time-temperature history - powder should span cells at Z = 3
     ExpectedNumPowderGrainsPerLayer = nx * ny_local * np;
-    cellData.init_next_layer(1, id, nx, ny, ny_local, y_offset, z_layer_bottom, DomainSize, false, ZMin, ZMaxLayer,
-                             deltax, RNGSeed, PowderActiveFraction, NumberOfSolidificationEvents);
+    cellData.init_next_layer(1, id, nx, ny, ny_local, y_offset, z_layer_bottom, DomainSize, inputs.RNGSeed, ZMin,
+                             ZMaxLayer, deltax, NumberOfSolidificationEvents);
 
     // Copy all grain IDs for all layers back to the host to check that they match
     // and that the powder layer was initialized correctly

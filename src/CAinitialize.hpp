@@ -6,31 +6,23 @@
 #ifndef EXACA_INIT_HPP
 #define EXACA_INIT_HPP
 
+#include "CAinputs.hpp"
 #include "CAprint.hpp"
 #include "CAtypes.hpp"
+
 #include <Kokkos_Core.hpp>
 
 #include <nlohmann/json.hpp>
 
+#include <iostream>
 #include <string>
 #include <vector>
 
-void InputReadFromFile(int id, std::string InputFile, std::string &SimulationType, double &deltax, double &NMax,
-                       double &dTN, double &dTsigma, std::string &GrainOrientationFile, int &TempFilesInSeries,
-                       std::vector<std::string> &temp_paths, double &HT_deltax, double &deltat, int &NumberOfLayers,
-                       int &LayerHeight, std::string &MaterialFileName, std::string &SubstrateFileName,
-                       float &SubstrateGrainSpacing, bool &UseSubstrateFile, double &G, double &R, int &nx, int &ny,
-                       int &nz, double &FractSurfaceSitesActive, int &NSpotsX, int &NSpotsY, int &SpotOffset,
-                       int &SpotRadius, double &RNGSeed, bool &BaseplateThroughPowder, double &PowderActiveFraction,
-                       bool &LayerwiseTempRead, double &BaseplateTopZ, Print &print, double &InitUndercooling,
-                       int &SingleGrainOrientation);
-void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, bool BaseplateThroughPowder,
-                         double PowderDensity);
+void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, Inputs &inputs);
 void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
-void FindXYZBounds(std::string SimulationType, int id, double &deltax, int &nx, int &ny, int &nz,
-                   std::vector<std::string> &temp_paths, double &XMin, double &XMax, double &YMin, double &YMax,
-                   double &ZMin, double &ZMax, int &LayerHeight, int NumberOfLayers, int TempFilesInSeries,
-                   double *ZMinLayer, double *ZMaxLayer, int SpotRadius);
+void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XMin, double &XMax, double &YMin,
+                   double &YMax, double &ZMin, double &ZMax, double *ZMinLayer, double *ZMaxLayer, int NumberOfLayers,
+                   int LayerHeight, Inputs &inputs);
 void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &NeighborRank_North,
                          int &NeighborRank_South, int &nx, int &ny, int &nz, int &DomainSize_AllLayers,
                          bool &AtNorthBoundary, bool &AtSouthBoundary);

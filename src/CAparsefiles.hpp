@@ -6,6 +6,8 @@
 #ifndef EXACA_PARSE_HPP
 #define EXACA_PARSE_HPP
 
+#include "CAconfig.hpp"
+#include "CAfunctions.hpp"
 #include "CAtypes.hpp"
 
 #include <nlohmann/json.hpp>

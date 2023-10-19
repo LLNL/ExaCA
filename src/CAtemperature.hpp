@@ -6,7 +6,7 @@
 #ifndef EXACA_TEMPS_HPP
 #define EXACA_TEMPS_HPP
 
-#include "CAconfig.hpp"
+#include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
@@ -49,11 +49,14 @@ struct Temperature {
     // These contain "NumberOfLayers" values corresponding to the location within "RawTemperatureData" of the first data
     // element in each temperature file, if used
     view_type_int_host FirstValue, LastValue;
+    // Temperature field inputs from file
+    TemperatureInputs _inputs;
 
     // Constructor creates views with size based on the grid inputs - each cell assumed to solidify once by default,
     // LayerTimeTempHistory modified to account for multiple events if needed UndercoolingCurrent and
     // SolidificationEventCounter are default initialized to zeros
-    Temperature(const int DomainSize, const int NumberOfLayers, const int EstNumTemperatureDataPoints = 1000000)
+    Temperature(const int DomainSize, const int NumberOfLayers, TemperatureInputs inputs,
+                const int EstNumTemperatureDataPoints = 1000000)
         : MaxSolidificationEvents(
               view_type_int(Kokkos::ViewAllocateWithoutInitializing("NumberOfLayers"), NumberOfLayers))
         , LayerTimeTempHistory(
@@ -65,7 +68,8 @@ struct Temperature {
         , RawTemperatureData(view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("RawTemperatureData"),
                                                    EstNumTemperatureDataPoints))
         , FirstValue(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("FirstValue"), NumberOfLayers))
-        , LastValue(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("LastValue"), NumberOfLayers)) {}
+        , LastValue(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("LastValue"), NumberOfLayers))
+        , _inputs(inputs) {}
 
     // Check if the temperature data is in ASCII or binary format
     bool checkTemperatureFileFormat(std::string tempfile_thislayer) {
@@ -80,25 +84,24 @@ struct Temperature {
 
     // Read in temperature data from files, stored in the host view "RawData", with the appropriate MPI ranks storing
     // the appropriate data
-    void readTemperatureData(int id, double &deltax, double HT_deltax, int &HTtoCAratio, int y_offset, int ny_local,
-                             double YMin, std::vector<std::string> &temp_paths, int NumberOfLayers,
-                             int TempFilesInSeries, bool LayerwiseTempRead, int layernumber) {
+    void readTemperatureData(int id, double &deltax, int y_offset, int ny_local, double YMin, int NumberOfLayers,
+                             int layernumber) {
 
-        double HTtoCAratio_unrounded = HT_deltax / deltax;
+        double HTtoCAratio_unrounded = _inputs.HT_deltax / deltax;
         double HTtoCAratio_floor = floor(HTtoCAratio_unrounded);
         if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.0005) && (id == 0)) {
             std::string error = "Error: Temperature data point spacing not evenly divisible by CA cell size";
             throw std::runtime_error(error);
         }
         else if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.000001) && (id == 0)) {
-            std::cout << "Note: Adjusting cell size from " << deltax << " to " << HT_deltax / HTtoCAratio_floor
+            std::cout << "Note: Adjusting cell size from " << deltax << " to " << _inputs.HT_deltax / HTtoCAratio_floor
                       << " to "
                          "ensure even divisibility of CA cell size into temperature data spacing"
                       << std::endl;
         }
         // Adjust deltax to exact value based on temperature data spacing and ratio between heat transport/CA cell sizes
-        deltax = HT_deltax / HTtoCAratio_floor;
-        HTtoCAratio = round(HT_deltax / deltax); // OpenFOAM/CA cell size ratio
+        deltax = _inputs.HT_deltax / HTtoCAratio_floor;
+        int HTtoCAratio = round(_inputs.HT_deltax / deltax); // OpenFOAM/CA cell size ratio
         // If HTtoCAratio > 1, an interpolation of input temperature data is needed
         // The Y bounds are the region (for this MPI rank) of the physical domain that needs to be
         // read extends past the actual spatial extent of the local domain for purposes of interpolating
@@ -120,24 +123,24 @@ struct Temperature {
         int NumberOfTemperatureDataPoints = 0;
         // Second pass through the files - ignore header line
         int FirstLayerToRead, LastLayerToRead;
-        if (LayerwiseTempRead) {
+        if (_inputs.LayerwiseTempRead) {
             FirstLayerToRead = layernumber;
             LastLayerToRead = layernumber;
         }
         else {
             FirstLayerToRead = 0;
-            LastLayerToRead = std::min(NumberOfLayers, TempFilesInSeries) - 1;
+            LastLayerToRead = std::min(NumberOfLayers, _inputs.TempFilesInSeries) - 1;
         }
         // Which temperature files should be read? Just the one file for layer "layernumber", or all of them?
         for (int LayerReadCount = FirstLayerToRead; LayerReadCount <= LastLayerToRead; LayerReadCount++) {
 
             std::string tempfile_thislayer;
-            if (LayerwiseTempRead) {
-                int LayerInSeries = layernumber % TempFilesInSeries;
-                tempfile_thislayer = temp_paths[LayerInSeries];
+            if (_inputs.LayerwiseTempRead) {
+                int LayerInSeries = layernumber % _inputs.TempFilesInSeries;
+                tempfile_thislayer = _inputs.temp_paths[LayerInSeries];
             }
             else
-                tempfile_thislayer = temp_paths[LayerReadCount];
+                tempfile_thislayer = _inputs.temp_paths[LayerReadCount];
 
             FirstValue(LayerReadCount) = NumberOfTemperatureDataPoints;
             // Read and parse temperature file for either binary or ASCII, storing the appropriate values on each MPI
@@ -149,10 +152,11 @@ struct Temperature {
         } // End loop over all files read for all layers
         Kokkos::resize(RawTemperatureData, NumberOfTemperatureDataPoints);
         // Determine start values for each layer's data within "RawData", if all layers were read
-        if (!(LayerwiseTempRead)) {
-            if (NumberOfLayers > TempFilesInSeries) {
-                for (int LayerReadCount = TempFilesInSeries; LayerReadCount < NumberOfLayers; LayerReadCount++) {
-                    if (TempFilesInSeries == 1) {
+        if (!(_inputs.LayerwiseTempRead)) {
+            if (NumberOfLayers > _inputs.TempFilesInSeries) {
+                for (int LayerReadCount = _inputs.TempFilesInSeries; LayerReadCount < NumberOfLayers;
+                     LayerReadCount++) {
+                    if (_inputs.TempFilesInSeries == 1) {
                         // Since all layers have the same temperature data, each layer's "ZMinLayer" is just
                         // translated from that of the first layer
                         FirstValue(LayerReadCount) = FirstValue(LayerReadCount - 1);
@@ -160,7 +164,7 @@ struct Temperature {
                     }
                     else {
                         // All layers have different temperature data but in a repeating pattern
-                        int RepeatedFile = (LayerReadCount) % TempFilesInSeries;
+                        int RepeatedFile = (LayerReadCount) % _inputs.TempFilesInSeries;
                         FirstValue(LayerReadCount) = FirstValue(RepeatedFile);
                         LastValue(LayerReadCount) = LastValue(RepeatedFile);
                     }
@@ -170,7 +174,7 @@ struct Temperature {
     }
 
     // Initialize temperature data without a thermal gradient for constrained/single grain problem types
-    void initialize(double R, int id, double deltat, int DomainSize, double initUndercooling) {
+    void initialize(int id, int DomainSize, double deltat) {
 
         // Initialize temperature field in Z direction with thermal gradient G set in input file
         // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
@@ -179,7 +183,8 @@ struct Temperature {
         auto MaxSolidificationEvents_local = MaxSolidificationEvents;
         auto NumberOfSolidificationEvents_local = NumberOfSolidificationEvents;
         auto UndercoolingCurrent_local = UndercoolingCurrent;
-
+        double initUndercooling_local = _inputs.initUndercooling;
+        double R_local = _inputs.R;
         // Uniform undercooling field
         Kokkos::parallel_for(
             "TempInitUniform", DomainSize, KOKKOS_LAMBDA(const int &index) {
@@ -188,20 +193,21 @@ struct Temperature {
                 // Cells reach liquidus at a time dependent on their Z coordinate
                 LayerTimeTempHistory_local(index, 0, 1) = -1;
                 // Cells cool at a constant rate
-                LayerTimeTempHistory_local(index, 0, 2) = R * deltat;
+                LayerTimeTempHistory_local(index, 0, 2) = R_local * deltat;
                 // All cells solidify once
                 MaxSolidificationEvents_local(0) = 1;
                 NumberOfSolidificationEvents_local(index) = 1;
                 // All cells at init undercooling
-                UndercoolingCurrent_local(index) = initUndercooling;
+                UndercoolingCurrent_local(index) = initUndercooling_local;
             });
         if (id == 0)
-            std::cout << "Undercooling field initialized to = " << initUndercooling << " K for all cells" << std::endl;
+            std::cout << "Undercooling field initialized to = " << _inputs.initUndercooling << " K for all cells"
+                      << std::endl;
     }
 
     // Initialize temperature data with a thermal gradient in Z for constrained/single grain problem types
-    void initialize(std::string SimulationType, double G, double R, int id, int nx, int ny_local, int nz, double deltax,
-                    double deltat, int DomainSize, double initUndercooling) {
+    void initialize(int id, std::string SimulationType, int nx, int ny_local, int nz, double deltax, int DomainSize,
+                    double deltat) {
 
         // Initialize temperature field in Z direction with thermal gradient G set in input file
         // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
@@ -211,12 +217,15 @@ struct Temperature {
             locationOfInitUndercooling = 0;
         else
             locationOfInitUndercooling = floorf(static_cast<float>(nz) / 2.0);
-        int locationOfLiquidus = locationOfInitUndercooling + round(initUndercooling / (G * deltax));
+        int locationOfLiquidus = locationOfInitUndercooling + round(_inputs.initUndercooling / (_inputs.G * deltax));
 
         auto LayerTimeTempHistory_local = LayerTimeTempHistory;
         auto MaxSolidificationEvents_local = MaxSolidificationEvents;
         auto NumberOfSolidificationEvents_local = NumberOfSolidificationEvents;
         auto UndercoolingCurrent_local = UndercoolingCurrent;
+        double initUndercooling_local = _inputs.initUndercooling;
+        double G_local = _inputs.G;
+        double R_local = _inputs.R;
         Kokkos::parallel_for(
             "TempInitG", DomainSize, KOKKOS_LAMBDA(const int &index) {
                 int coord_z = getCoordZ(index, nx, ny_local);
@@ -230,20 +239,20 @@ struct Temperature {
                 // current undercooling as default zeros and set liquidus time step
                 if (distFromLiquidus < 0) {
                     LayerTimeTempHistory_local(index, 0, 1) = -1;
-                    UndercoolingCurrent_local(index) = initUndercooling - distFromLiquidus * (G * deltax);
+                    UndercoolingCurrent_local(index) = initUndercooling_local - distFromLiquidus * (G_local * deltax);
                 }
                 else
-                    LayerTimeTempHistory_local(index, 0, 1) = distFromLiquidus * G * deltax / (R * deltat);
+                    LayerTimeTempHistory_local(index, 0, 1) = distFromLiquidus * G_local * deltax / (R_local * deltat);
                 ;
                 // Cells cool at a constant rate
-                LayerTimeTempHistory_local(index, 0, 2) = R * deltat;
+                LayerTimeTempHistory_local(index, 0, 2) = R_local * deltat;
                 // All cells solidify once
                 MaxSolidificationEvents_local(0) = 1;
                 NumberOfSolidificationEvents_local(index) = 1;
             });
         if (id == 0)
-            std::cout << "Temperature field initialized for unidirectional solidification with G = " << G << " K/m"
-                      << std::endl;
+            std::cout << "Temperature field initialized for unidirectional solidification with G = " << G_local
+                      << " K/m" << std::endl;
     }
 
     // For an overlapping spot melt pattern, determine max number of times a cell will melt/solidify as part of a layer
@@ -284,18 +293,18 @@ struct Temperature {
     // Initialize temperature data for an array of overlapping spot melts. As every layer is the same, this only needs
     // to be done at the start of the simulation
     // TODO: This can be performed on the device as the dirS problem is
-    void initialize(double G, double R, int id, int nx, int ny_local, int y_offset, double deltax, double deltat,
-                    int DomainSize, double FreezingRange, int NSpotsX, int NSpotsY, int SpotRadius, int SpotOffset,
-                    int NumberOfLayers) {
+    void initialize(int id, int nx, int ny_local, int y_offset, double deltax, int DomainSize, double FreezingRange,
+                    Inputs &inputs, int NumberOfLayers) {
 
-        int NumberOfSpots = NSpotsX * NSpotsY;
+        int NumberOfSpots = inputs.domain.NSpotsX * inputs.domain.NSpotsY;
 
         // Temporary host view for the maximum number of times a cell in a given layer will solidify (same for every
         // layer)
         view_type_int_host MaxSolidificationEvents_Host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
         int MaxNumSolidificationEvents =
-            calcMaxSolidificationEvents(nx, ny_local, NumberOfSpots, NSpotsX, SpotRadius, SpotOffset, y_offset);
+            calcMaxSolidificationEvents(nx, ny_local, NumberOfSpots, inputs.domain.NSpotsX, inputs.domain.SpotRadius,
+                                        inputs.domain.SpotOffset, y_offset);
         for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++)
             MaxSolidificationEvents_Host(layernumber) = MaxNumSolidificationEvents;
 
@@ -311,8 +320,9 @@ struct Temperature {
         // Spots cool at constant rate R, spot thermal gradient = G
         // Time between "start" of next spot is the time it takes for the previous spot
         // to have entirely gone below the solidus temperature
-        float IsothermVelocity = (R / G) * deltat / deltax;                                  // in cells per time step
-        int TimeBetweenSpots = SpotRadius / IsothermVelocity + (FreezingRange / R) / deltat; // in time steps
+        float IsothermVelocity = (_inputs.R / _inputs.G) * inputs.domain.deltat / deltax; // in cells per time step
+        int TimeBetweenSpots = inputs.domain.SpotRadius / IsothermVelocity +
+                               (FreezingRange / _inputs.R) / inputs.domain.deltat; // in time steps
 
         if (id == 0)
             std::cout << "Initializing temperature field for " << NumberOfSpots
@@ -323,29 +333,31 @@ struct Temperature {
             if (id == 0)
                 std::cout << "Initializing spot " << n << std::endl;
             // Initialize LayerTimeTempHistory data values for this spot/this layer - relative to the layer bottom
-            int XSpotPos = SpotRadius + (n % NSpotsX) * SpotOffset;
-            int YSpotPos = SpotRadius + (n / NSpotsX) * SpotOffset;
-            for (int coord_z = 0; coord_z <= SpotRadius; coord_z++) {
+            int XSpotPos = inputs.domain.SpotRadius + (n % inputs.domain.NSpotsX) * inputs.domain.SpotOffset;
+            int YSpotPos = inputs.domain.SpotRadius + (n / inputs.domain.NSpotsX) * inputs.domain.SpotOffset;
+            for (int coord_z = 0; coord_z <= inputs.domain.SpotRadius; coord_z++) {
                 // Distance of this cell from the spot center
-                float DistZ = (float)(SpotRadius - coord_z);
+                float DistZ = (float)(inputs.domain.SpotRadius - coord_z);
                 for (int coord_x = 0; coord_x < nx; coord_x++) {
                     float DistX = (float)(XSpotPos - coord_x);
                     for (int coord_y = 0; coord_y < ny_local; coord_y++) {
                         int coord_y_global = coord_y + y_offset;
                         float DistY = (float)(YSpotPos - coord_y_global);
                         float TotDist = sqrt(DistX * DistX + DistY * DistY + DistZ * DistZ);
-                        if (TotDist <= SpotRadius) {
+                        if (TotDist <= inputs.domain.SpotRadius) {
                             int index = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
                             // Melt time
                             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 0) =
                                 1 + TimeBetweenSpots * n;
                             // Liquidus time
-                            int LiquidusTime = round((static_cast<float>(SpotRadius) - TotDist) / IsothermVelocity) +
-                                               TimeBetweenSpots * n;
+                            int LiquidusTime =
+                                round((static_cast<float>(inputs.domain.SpotRadius) - TotDist) / IsothermVelocity) +
+                                TimeBetweenSpots * n;
                             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 1) =
                                 1 + LiquidusTime;
                             // Cooling rate
-                            LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 2) = R * deltat;
+                            LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 2) =
+                                _inputs.R * inputs.domain.deltat;
                             NumberOfSolidificationEvents_Host(index)++;
                         }
                     }
@@ -366,21 +378,20 @@ struct Temperature {
 
     // Calculate the number of times that a cell in layer "layernumber" undergoes melting/solidification, and store in
     // MaxSolidificationEvents_Host
-    void calcMaxSolidificationEvents(int id, int layernumber, int TempFilesInSeries,
-                                     ViewI_H MaxSolidificationEvents_Host, int StartRange, int EndRange, double XMin,
-                                     double YMin, double deltax, double *ZMinLayer, int LayerHeight, int nx,
-                                     int ny_local, int y_offset, int DomainSize) {
+    void calcMaxSolidificationEvents(int id, int layernumber, ViewI_H MaxSolidificationEvents_Host, int StartRange,
+                                     int EndRange, double XMin, double YMin, double deltax, double *ZMinLayer,
+                                     int LayerHeight, int nx, int ny_local, int y_offset, int DomainSize) {
 
-        if (layernumber > TempFilesInSeries) {
+        if (layernumber > _inputs.TempFilesInSeries) {
             // Use the value from a previously checked layer, since the time-temperature history is reused
-            if (TempFilesInSeries == 1) {
+            if (_inputs.TempFilesInSeries == 1) {
                 // All layers have the same temperature data, MaxSolidificationEvents for this layer is the same as the
                 // last
                 MaxSolidificationEvents_Host(layernumber) = MaxSolidificationEvents_Host(layernumber - 1);
             }
             else {
                 // All layers have different temperature data but in a repeating pattern
-                int RepeatedFile = layernumber % TempFilesInSeries;
+                int RepeatedFile = layernumber % _inputs.TempFilesInSeries;
                 MaxSolidificationEvents_Host(layernumber) = MaxSolidificationEvents_Host(RepeatedFile);
             }
         }
@@ -451,8 +462,8 @@ struct Temperature {
     // Initialize temperature fields for layer "layernumber" in case where temperature data comes from file(s)
     // TODO: This can be performed on the device as the dirS problem is
     void initialize(int layernumber, int id, int nx, int ny_local, int DomainSize, int y_offset, double deltax,
-                    double deltat, double FreezingRange, double XMin, double YMin, double *ZMinLayer, int LayerHeight,
-                    int nz_layer, int z_layer_bottom, int *FinishTimeStep, int TempFilesInSeries) {
+                    double FreezingRange, double XMin, double YMin, double *ZMinLayer, int LayerHeight, int nz_layer,
+                    int z_layer_bottom, int *FinishTimeStep, double deltat) {
 
         // Data was already read into the "RawTemperatureData" data structure
         // Determine which section of "RawTemperatureData" is relevant for this layer of the overall domain
@@ -463,9 +474,8 @@ struct Temperature {
         // layer)
         view_type_int_host MaxSolidificationEvents_Host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
-        calcMaxSolidificationEvents(id, layernumber, TempFilesInSeries, MaxSolidificationEvents_Host, StartRange,
-                                    EndRange, XMin, YMin, deltax, ZMinLayer, LayerHeight, nx, ny_local, y_offset,
-                                    DomainSize);
+        calcMaxSolidificationEvents(id, layernumber, MaxSolidificationEvents_Host, StartRange, EndRange, XMin, YMin,
+                                    deltax, ZMinLayer, LayerHeight, nx, ny_local, y_offset, DomainSize);
         int MaxNumSolidificationEvents = MaxSolidificationEvents_Host(0);
 
         // Resize LayerTimeTempHistory now that the max number of solidification events is known for this layer

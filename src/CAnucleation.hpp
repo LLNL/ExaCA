@@ -7,7 +7,6 @@
 #define EXACA_NUCLEATION_HPP
 
 #include "CAcelldata.hpp"
-#include "CAconfig.hpp"
 #include "CAtemperature.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
@@ -47,20 +46,24 @@ struct Nucleation {
     view_type_int_host NucleationTimes_Host;
     // The locations and grain IDs of the potential nuclei in the layer
     view_type_int NucleiLocations, NucleiGrainID;
+    // Nucleation inputs from file
+    NucleationInputs _inputs;
 
     // Constructor - initialize CA views using input for initial guess at number of possible events
     // Default is that no nucleation has occurred to this point, optional input argument to start with the counter at a
     // specific value
-    Nucleation(const int EstimatedNuclei_ThisRankThisLayer, const double NMax, const double deltax,
+    Nucleation(const int EstimatedNuclei_ThisRankThisLayer, const double deltax, NucleationInputs inputs,
                int NumPriorNuclei = 0)
         : NucleationTimes_Host(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
                                                   EstimatedNuclei_ThisRankThisLayer))
         , NucleiLocations(view_type_int(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations"),
                                         EstimatedNuclei_ThisRankThisLayer))
         , NucleiGrainID(view_type_int(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"),
-                                      EstimatedNuclei_ThisRankThisLayer)) {
+                                      EstimatedNuclei_ThisRankThisLayer))
+        , _inputs(inputs) {
+
         Nuclei_WholeDomain = NumPriorNuclei;
-        BulkProb = NMax * deltax * deltax * deltax;
+        BulkProb = _inputs.NMax * deltax * deltax * deltax;
         resetNucleiCounters(); // start counters at 0
     }
 
@@ -77,8 +80,8 @@ struct Nucleation {
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
     template <class... Params>
     void placeNuclei(Temperature<memory_space> &temperature, double RNGSeed, int layernumber, int nx, int ny,
-                     int nz_layer, double dTN, double dTsigma, int ny_local, int y_offset, int, int id,
-                     bool AtNorthBoundary, bool AtSouthBoundary) {
+                     int nz_layer, int ny_local, int y_offset, int, int id, bool AtNorthBoundary,
+                     bool AtSouthBoundary) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
@@ -97,7 +100,7 @@ struct Nucleation {
         std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
         std::uniform_real_distribution<double> Zdist(-0.49999, nz_layer - 0.5);
         // Gaussian distribution of nucleation undercooling
-        std::normal_distribution<double> Gdistribution(dTN, dTsigma);
+        std::normal_distribution<double> Gdistribution(_inputs.dTN, _inputs.dTsigma);
 
         // Max number of nucleated grains in this layer
         // Use long int in intermediate steps calculating the number of nucleated grains, though the number should be

@@ -5,9 +5,6 @@
 
 #include "CAparsefiles.hpp"
 
-#include "CAconfig.hpp"
-#include "CAfunctions.hpp"
-
 #include "mpi.h"
 
 #include <nlohmann/json.hpp>

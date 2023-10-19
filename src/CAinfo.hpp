@@ -3,11 +3,16 @@
 //
 // SPDX-License-Identifier: MIT
 
-#ifndef EXACA_RUN_HPP
-#define EXACA_RUN_HPP
+#ifndef EXACA_INFO_HPP
+#define EXACA_INFO_HPP
+
+#include "CAconfig.hpp"
 
 #include <string>
 
-void RunProgram_Reduced(int id, int np, std::string InputFile);
+// Functions for printing for ExaCA/Kokkos version
+std::string version();
+std::string gitCommitHash();
+std::string kokkosVersion();
 
 #endif
