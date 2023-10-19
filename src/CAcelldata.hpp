@@ -170,6 +170,44 @@ struct CellData {
                     GrainID_AllLayers_local(index) = ActCellData(n, 2); // assign GrainID > 0 to epitaxial seeds
                 }
             });
+        // Option to fill empty sites at bottom surface with the grain ID of the nearest grain
+        if (_inputs.FillBottomSurface) {
+            auto md_policy =
+                Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<2, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
+                    {0, 0}, {nx, ny_local});
+            // For cells that are not associated with grain centers, optionally assign them the GrainID of the nearest
+            // grain center
+            Kokkos::parallel_for(
+                "BaseplateGen", md_policy, KOKKOS_LAMBDA(const int coord_x, const int coord_y) {
+                    int index_AllLayers = get1Dindex(coord_x, coord_y, 0, nx, ny_local);
+                    if (GrainID_AllLayers_local(index_AllLayers) == 0) {
+                        // This cell needs to be assigned a GrainID value
+                        // Check each possible baseplate grain center to find the closest one
+                        float MinDistanceToThisGrain = nx * ny;
+                        int MinDistanceToThisGrain_GrainID = 0;
+                        for (int n = 0; n < SubstrateActCells; n++) {
+                            // Substrate grain center at coord_x_grain, coord_y_grain - how far is the cell at i,
+                            // j+y_offset?
+                            int coord_y_grain_global = ActCellData(n, 1);
+                            int coord_x_grain = ActCellData(n, 0);
+                            int coord_y_global = coord_y + y_offset;
+                            float DistanceToThisGrainX = coord_x - coord_x_grain;
+                            float DistanceToThisGrainY = coord_y_global - coord_y_grain_global;
+                            float DistanceToThisGrain = sqrtf(DistanceToThisGrainX * DistanceToThisGrainX +
+                                                              DistanceToThisGrainY * DistanceToThisGrainY);
+                            if (DistanceToThisGrain < MinDistanceToThisGrain) {
+                                // This is the closest grain center to cell at "CAGridLocation" - update values
+                                MinDistanceToThisGrain = DistanceToThisGrain;
+                                MinDistanceToThisGrain_GrainID = ActCellData(n, 2);
+                            }
+                        }
+                        // GrainID associated with the closest baseplate grain center
+                        GrainID_AllLayers_local(index_AllLayers) = MinDistanceToThisGrain_GrainID;
+                        // These cells are also future active cells
+                        CellType_AllLayers_local(index_AllLayers) = FutureActive;
+                    }
+                });
+        }
         if (id == 0)
             std::cout << "Number of substrate active cells across all ranks: " << SubstrateActCells << std::endl;
     }

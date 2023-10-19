@@ -99,6 +99,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |GrainLocationsX | C           | List of grain locations in X on the bottom surface of the domain (see note (b))
 |GrainLocationsY | C           | List of grain locations in Y on the bottom surface of the domain (see note (b))
 |GrainIDs | C           | GrainID values for each grain in (X,Y) (see note (b))
+|FillBottomSurface | C  | Optionally assign all cells on the bottom surface the grain ID of the closest grain (defaults to false)
 |MeanSize      | S, R                     | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
 |SubstrateFilename |  S, R                | Path to and filename for substrate data (see note (a))
 |PowderDensity | S, R                     | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))

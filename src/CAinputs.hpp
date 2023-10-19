@@ -54,6 +54,7 @@ struct SubstrateInputs {
     double FractSurfaceSitesActive = 0.0;
     std::vector<int> GrainLocationsX, GrainLocationsY, GrainIDs;
     bool CustomGrainLocationsIDs = false;
+    bool FillBottomSurface = false;
     // problem type SingleGrain only
     int singleGrainOrientation = 0;
     // problem types S and R only
@@ -282,6 +283,8 @@ struct Inputs {
                 throw std::runtime_error(
                     "Error: either FractionSurfaceSitesActive or lists of GrainLocationsX/GrainLocationsY/GrainIDs are "
                     "required to initialize this problem type");
+            if (inputdata["Substrate"].contains("FillBottomSurface"))
+                substrate.FillBottomSurface = inputdata["Substrate"]["FillBottomSurface"];
         }
         else if (SimulationType == "SingleGrain") {
             // Orientation of the single grain at the domain center

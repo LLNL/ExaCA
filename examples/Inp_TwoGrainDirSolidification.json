@@ -23,7 +23,8 @@
    "Substrate": {
       "GrainLocationsX": [100, 100],
       "GrainLocationsY": [50, 150],
-      "GrainIDs": [25, 9936]
+      "GrainIDs": [25, 9936],
+      "FillBottomSurface": false
    },
    "Printing": {
       "PathToOutput": "./",
