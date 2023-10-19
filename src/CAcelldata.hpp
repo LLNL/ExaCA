@@ -33,6 +33,9 @@ struct CellData {
     using view_type_short = Kokkos::View<short *, memory_space>;
     using view_type_float = Kokkos::View<float *, memory_space>;
 
+    // Using the default exec space for this memory space.
+    using execution_space = typename memory_space::execution_space;
+
     int NextLayer_FirstEpitaxialGrainID, BottomOfCurrentLayer, TopOfCurrentLayer;
     std::pair<int, int> LayerRange;
     view_type_int GrainID_AllLayers, CellType_AllLayers;
@@ -64,11 +67,14 @@ struct CellData {
         int grainLocationY = floorf(static_cast<float>(ny) / 2.0);
         int grainLocationZ = floorf(static_cast<float>(nz) / 2.0);
 
+        // Local copies for lambda capture.
         auto CellType_AllLayers_local = CellType_AllLayers;
         auto GrainID_AllLayers_local = GrainID_AllLayers;
         int singleGrainOrientation_local = _inputs.singleGrainOrientation;
+
+        auto policy = Kokkos::RangePolicy<execution_space>(0, DomainSize);
         Kokkos::parallel_for(
-            "SingleGrainInit", DomainSize, KOKKOS_LAMBDA(const int &index) {
+            "SingleGrainInit", policy, KOKKOS_LAMBDA(const int &index) {
                 int coord_x = getCoordX(index, nx, ny_local);
                 int coord_y = getCoordY(index, nx, ny_local);
                 int coord_z = getCoordZ(index, nx, ny_local);
@@ -125,12 +131,15 @@ struct CellData {
         // All cells have LayerID = 0 as this is not a multilayer problem
         Kokkos::deep_copy(CellType_AllLayers, Liquid);
         Kokkos::deep_copy(LayerID_AllLayers, 0);
+
+        // Local copies for lambda capture.
         auto CellType_AllLayers_local = CellType_AllLayers;
         auto GrainID_AllLayers_local = GrainID_AllLayers;
 
         // Determine which grains/active cells belong to which MPI ranks
+        auto policy = Kokkos::RangePolicy<execution_space>(0, SubstrateActCells);
         Kokkos::parallel_for(
-            "ConstrainedGrainInit", SubstrateActCells, KOKKOS_LAMBDA(const int &n) {
+            "ConstrainedGrainInit", policy, KOKKOS_LAMBDA(const int &n) {
                 // What are the X and Y coordinates of this active cell relative to the X and Y bounds of this rank?
                 if ((ActCellY_Device(n) >= y_offset) && (ActCellY_Device(n) < y_offset + ny_local)) {
                     // Convert X and Y coordinates to values relative to this MPI rank's grid (Z = 0 for these active
@@ -330,11 +339,14 @@ struct CellData {
             std::cout << "Number of baseplate grains: " << NumberOfBaseplateGrains << std::endl;
         }
 
+        // Local copies for lambda capture.
+        auto GrainID_AllLayers_local = GrainID_AllLayers;
+
         // First, assign cells that are associated with grain centers the appropriate non-zero GrainID values (assumes
         // GrainID values were initialized to zeros)
-        auto GrainID_AllLayers_local = GrainID_AllLayers;
+        auto policy = Kokkos::RangePolicy<execution_space>(0, NumberOfBaseplateGrains);
         Kokkos::parallel_for(
-            "BaseplateInit", NumberOfBaseplateGrains, KOKKOS_LAMBDA(const int &n) {
+            "BaseplateInit", policy, KOKKOS_LAMBDA(const int &n) {
                 int BaseplateGrainLoc = BaseplateGrainLocations_Device(n);
                 // x, y, z associated with baseplate grain "n", at 1D coordinate "BaseplateGrainLoc"
                 int coord_z_AllLayers = getCoordZ(BaseplateGrainLoc, nx, ny);
@@ -348,11 +360,14 @@ struct CellData {
                 }
             });
         Kokkos::fence();
+
+        auto md_policy =
+            Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
+                {0, 0, 0}, {BaseplateSizeZ, nx, ny_local});
+
         // For cells that are not associated with grain centers, assign them the GrainID of the nearest grain center
         Kokkos::parallel_for(
-            "BaseplateGen",
-            Kokkos::MDRangePolicy<Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-                {0, 0, 0}, {BaseplateSizeZ, nx, ny_local}),
+            "BaseplateGen", md_policy,
             KOKKOS_LAMBDA(const int coord_z_AllLayers, const int coord_x, const int coord_y) {
                 int index_AllLayers = get1Dindex(coord_x, coord_y, coord_z_AllLayers, nx, ny_local);
                 if (GrainID_AllLayers_local(index_AllLayers) == 0) {
@@ -425,9 +440,10 @@ struct CellData {
                       << " cells assigned new grain ID values, ranging from " << NextLayer_FirstEpitaxialGrainID
                       << " through " << NextLayer_FirstEpitaxialGrainID + PowderLayerAssignedCells - 1 << std::endl;
         auto GrainID_AllLayers_local = GrainID_AllLayers;
+
+        auto policy = Kokkos::RangePolicy<execution_space>(PowderStart, PowderEnd);
         Kokkos::parallel_for(
-            "PowderGrainInit", Kokkos::RangePolicy<>(PowderStart, PowderEnd),
-            KOKKOS_LAMBDA(const int &index_global_AllLayers) {
+            "PowderGrainInit", policy, KOKKOS_LAMBDA(const int &index_global_AllLayers) {
                 int coord_z_AllLayers = getCoordZ(index_global_AllLayers, nx, ny);
                 int coord_y_global = getCoordY(index_global_AllLayers, nx, ny);
                 int coord_y = coord_y_global - y_offset;
@@ -480,10 +496,14 @@ struct CellData {
                                view_type_int NumberOfSolidificationEvents, int id, int z_layer_bottom) {
 
         int MeltPoolCellCount;
+        // Local copies for lambda capture.
         auto CellType_AllLayers_local = CellType_AllLayers;
         auto LayerID_AllLayers_local = LayerID_AllLayers;
+
+        auto policy = Kokkos::RangePolicy<execution_space>(0, DomainSize);
+
         Kokkos::parallel_reduce(
-            "CellTypeInitSolidRM", DomainSize,
+            "CellTypeInitSolidRM", policy,
             KOKKOS_LAMBDA(const int &index, int &local_count) {
                 int index_AllLayers = index + z_layer_bottom * nx * ny_local;
                 if (NumberOfSolidificationEvents(index) > 0) {
