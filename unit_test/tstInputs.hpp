@@ -149,7 +149,6 @@ void testInputs(int PrintVersion) {
             EXPECT_FALSE(inputs.print.PrintIdleTimeSeriesFrames);
             EXPECT_DOUBLE_EQ(inputs.temperature.G, 500000.0);
             EXPECT_DOUBLE_EQ(inputs.temperature.R, 300000.0);
-            EXPECT_DOUBLE_EQ(inputs.temperature.initUndercooling, 0.0);
             // compare with float to avoid floating point error with irrational number
             float deltat_comp = static_cast<float>(inputs.domain.deltat);
             EXPECT_FLOAT_EQ(deltat_comp, pow(10, -6) / 15.0);
@@ -160,6 +159,7 @@ void testInputs(int PrintVersion) {
                 EXPECT_DOUBLE_EQ(inputs.substrate.FractSurfaceSitesActive, 0.08);
                 EXPECT_TRUE(inputs.print.BaseFileName == "TestProblemDirS");
                 EXPECT_FALSE(inputs.substrate.CustomGrainLocationsIDs);
+                EXPECT_DOUBLE_EQ(inputs.temperature.initUndercooling, 0.0);
             }
             else {
                 EXPECT_EQ(inputs.substrate.GrainLocationsX[0], 100);
@@ -170,6 +170,7 @@ void testInputs(int PrintVersion) {
                 EXPECT_EQ(inputs.substrate.GrainIDs[1], 9936);
                 EXPECT_TRUE(inputs.print.BaseFileName == "TestProblemTwoGrainDirS");
                 EXPECT_TRUE(inputs.substrate.CustomGrainLocationsIDs);
+                EXPECT_DOUBLE_EQ(inputs.temperature.initUndercooling, 10.0);
             }
             EXPECT_TRUE(inputs.print.PrintInitCritTimeStep);
             EXPECT_FALSE(inputs.print.PrintInitGrainID);

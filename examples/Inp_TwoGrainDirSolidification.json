@@ -16,6 +16,7 @@
       "StDev": 0.5
    },
    "TemperatureData": {
+      "InitUndercooling": 10,
       "G": 500000,
       "R": 300000
    },

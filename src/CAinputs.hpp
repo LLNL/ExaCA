@@ -239,7 +239,11 @@ struct Inputs {
             // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
             temperature.G = inputdata["TemperatureData"]["G"];
             temperature.R = inputdata["TemperatureData"]["R"];
+            // Optional initial undercooling for problem type C (required for type SingleGrain). Defaults to 0 for
+            // problem type C if not given
             if (SimulationType == "SingleGrain")
+                temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
+            else if ((SimulationType == "C") && (inputdata["TemperatureData"].contains("InitUndercooling")))
                 temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
         }
 
