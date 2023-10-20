@@ -43,7 +43,7 @@ struct Print {
 
     // If printing the time series, the counter for the number of intermediate files that have been printed for a given
     // layer of a multilayer problem
-    int IntermediateFileCounter;
+    int IntermediateFileCounter = 0;
 
     // Message sizes and data offsets for data send/recieved to/from other ranks- message size different for different
     // ranks
