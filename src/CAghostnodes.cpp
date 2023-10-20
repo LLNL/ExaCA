@@ -32,7 +32,7 @@ void ResetSendBuffers(int BufSize, Buffer2D BufferNorthSend, Buffer2D BufferSout
 // if necessary, returning the new buffer size
 int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                   Buffer2D &BufferSouthRecv, ViewI SendSizeNorth, ViewI SendSizeSouth, ViewI_H SendSizeNorth_Host,
-                  ViewI_H SendSizeSouth_Host, int OldBufSize, int NumCellsBufferPadding) {
+                  ViewI_H SendSizeSouth_Host, int OldBufSize, int BufComponents, int NumCellsBufferPadding) {
 
     int NewBufSize;
     SendSizeNorth_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), SendSizeNorth);
@@ -44,10 +44,10 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
         // Increase buffer size to fit all data
         // Add numcells_buffer_padding (defaults to 25) cells as additional padding
         NewBufSize = max_count_global + NumCellsBufferPadding;
-        Kokkos::resize(BufferNorthSend, NewBufSize, 8);
-        Kokkos::resize(BufferSouthSend, NewBufSize, 8);
-        Kokkos::resize(BufferNorthRecv, NewBufSize, 8);
-        Kokkos::resize(BufferSouthRecv, NewBufSize, 8);
+        Kokkos::resize(BufferNorthSend, NewBufSize, BufComponents);
+        Kokkos::resize(BufferSouthSend, NewBufSize, BufComponents);
+        Kokkos::resize(BufferNorthRecv, NewBufSize, BufComponents);
+        Kokkos::resize(BufferSouthRecv, NewBufSize, BufComponents);
         // Reset count variables on device to the old buffer size
         Kokkos::parallel_for(
             "ResetCounts", 1, KOKKOS_LAMBDA(const int &) {
@@ -57,7 +57,7 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
         // Set -1 values for the new (currently empty) positions in the resized buffer
         Kokkos::parallel_for(
             "InitNewBufCapacity", Kokkos::RangePolicy<>(OldBufSize, NewBufSize), KOKKOS_LAMBDA(const int &BufPosition) {
-                for (int BufComp = 0; BufComp < 8; BufComp++) {
+                for (int BufComp = 0; BufComp < BufComponents; BufComp++) {
                     BufferNorthSend(BufPosition, BufComp) = -1.0;
                     BufferSouthSend(BufPosition, BufComp) = -1.0;
                 }
@@ -70,11 +70,11 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
 
 // Reset the buffer sizes to a set value (defaulting to 25, which was the initial size) preserving the existing values
 void ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
-                         Buffer2D &BufferSouthRecv, int NewBufSize) {
-    Kokkos::resize(BufferNorthSend, NewBufSize, 8);
-    Kokkos::resize(BufferSouthSend, NewBufSize, 8);
-    Kokkos::resize(BufferNorthRecv, NewBufSize, 8);
-    Kokkos::resize(BufferSouthRecv, NewBufSize, 8);
+                         Buffer2D &BufferSouthRecv, int NewBufSize, int BufComponents) {
+    Kokkos::resize(BufferNorthSend, NewBufSize, BufComponents);
+    Kokkos::resize(BufferSouthSend, NewBufSize, BufComponents);
+    Kokkos::resize(BufferNorthRecv, NewBufSize, BufComponents);
+    Kokkos::resize(BufferSouthRecv, NewBufSize, BufComponents);
 }
 
 // Refill the buffers as necessary starting from the old count size, using the data from cells marked with type
@@ -164,18 +164,22 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                   NList NeighborX, NList NeighborY, NList NeighborZ, CellData<device_memory_space> &cellData,
                   ViewF DOCenter, ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength,
                   int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
-                  Buffer2D BufferSouthRecv, int BufSize, ViewI SendSizeNorth, ViewI SendSizeSouth) {
+                  Buffer2D BufferSouthRecv, int BufSize, ViewI SendSizeNorth, ViewI SendSizeSouth, int BufComponents) {
 
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), 8 * BufSize, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD, &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), 8 * BufSize, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD, &SendRequests[1]);
+    MPI_Isend(BufferSouthSend.data(), BufComponents * BufSize, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &SendRequests[0]);
+    MPI_Isend(BufferNorthSend.data(), BufComponents * BufSize, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &SendRequests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), 8 * BufSize, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD, &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), 8 * BufSize, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD, &RecvRequests[1]);
+    MPI_Irecv(BufferSouthRecv.data(), BufComponents * BufSize, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+              &RecvRequests[0]);
+    MPI_Irecv(BufferNorthRecv.data(), BufComponents * BufSize, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+              &RecvRequests[1]);
 
     // unpack in any order
     bool unpack_complete = false;

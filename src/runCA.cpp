@@ -120,10 +120,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Buffers for ghost node data (fixed size)
     int BufSizeInitialEstimate = 25;
     int BufSize = BufSizeInitialEstimate; // set to initial estimate
-    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, 8);
-    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, 8);
-    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
-    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, 8);
+    int BufComponents = 8;
+    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, BufComponents);
+    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, BufComponents);
+    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, BufComponents);
+    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, BufComponents);
     ViewI SendSizeSouth(Kokkos::ViewAllocateWithoutInitializing("SendSizeSouth"), 1);
     ViewI SendSizeNorth(Kokkos::ViewAllocateWithoutInitializing("SendSizeNorth"), 1);
     ViewI_H SendSizeSouth_Host(Kokkos::ViewAllocateWithoutInitializing("SendSizeSouth_Host"), 1);
@@ -225,7 +226,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
             int OldBufSize = BufSize;
             BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
+                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, BufComponents);
             if (OldBufSize != BufSize) {
                 if (id == 0)
                     std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
@@ -242,7 +243,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 GhostNodes1D(cycle, id, NeighborRank_North, NeighborRank_South, nx, ny_local, y_offset, NeighborX,
                              NeighborY, NeighborZ, cellData, DOCenter, GrainUnitVector, DiagonalLength,
                              CritDiagonalLength, NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv,
-                             BufferSouthRecv, BufSize, SendSizeNorth, SendSizeSouth);
+                             BufferSouthRecv, BufSize, SendSizeNorth, SendSizeSouth, BufComponents);
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 

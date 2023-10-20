@@ -60,9 +60,9 @@ void ResetSendBuffers(int BufSize, Buffer2D BufferNorthSend, Buffer2D BufferSout
                       ViewI SendSizeSouth);
 int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                   Buffer2D &BufferSouthRecv, ViewI SendSizeNorth, ViewI SendSizeSouth, ViewI_H SendSizeNorth_Host,
-                  ViewI_H SendSizeSouth_Host, int OldBufSize, int NumCellsBufferPadding = 25);
+                  ViewI_H SendSizeSouth_Host, int OldBufSize, int BufComponents, int NumCellsBufferPadding = 25);
 void ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
-                         Buffer2D &BufferSouthRecv, int NewBufSize);
+                         Buffer2D &BufferSouthRecv, int NewBufSize, int BufComponents);
 void RefillBuffers(int nx, int nz_layer, int ny_local, CellData<device_memory_space> &cellData,
                    Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
                    bool AtNorthBoundary, bool AtSouthBoundary, ViewF DOCenter, ViewF DiagonalLength,
@@ -71,6 +71,6 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                   NList NeighborX, NList NeighborY, NList NeighborZ, CellData<device_memory_space> &cellData,
                   ViewF DOCenter, ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength,
                   int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
-                  Buffer2D BufferSouthRecv, int BufSize, ViewI SendSizeNorth, ViewI SendSizeSouth);
+                  Buffer2D BufferSouthRecv, int BufSize, ViewI SendSizeNorth, ViewI SendSizeSouth, int BufComponents);
 
 #endif
