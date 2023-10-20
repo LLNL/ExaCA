@@ -161,18 +161,18 @@ void testGhostNodes1D() {
 
     // Buffer size large enough to hold all data
     int BufSize = nx * nz_layer;
-
+    int BufComponents = 8;
     // Send/recv buffers for ghost node data should be initialized with -1s in the first index as placeholders for empty
     // positions in the buffer
-    Buffer2D BufferSouthSend("BufferSouthSend", BufSize, 8);
-    Buffer2D BufferNorthSend("BufferNorthSend", BufSize, 8);
+    Buffer2D BufferSouthSend("BufferSouthSend", BufSize, BufComponents);
+    Buffer2D BufferNorthSend("BufferNorthSend", BufSize, BufComponents);
     Kokkos::parallel_for(
         "BufferReset", BufSize, KOKKOS_LAMBDA(const int &i) {
             BufferNorthSend(i, 0) = -1.0;
             BufferSouthSend(i, 0) = -1.0;
         });
-    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
-    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, 8);
+    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, BufComponents);
+    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, BufComponents);
     // Init to zero
     ViewI SendSizeSouth("SendSizeSouth", 1);
     ViewI SendSizeNorth("SendSizeNorth", 1);
@@ -199,7 +199,7 @@ void testGhostNodes1D() {
     GhostNodes1D(0, id, NeighborRank_North, NeighborRank_South, nx, ny_local, y_offset, NeighborX, NeighborY, NeighborZ,
                  cellData, DOCenter, GrainUnitVector, DiagonalLength, CritDiagonalLength, NGrainOrientations,
                  BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize, SendSizeNorth,
-                 SendSizeSouth);
+                 SendSizeSouth, BufComponents);
 
     // Copy CellType, GrainID, DiagonalLength, DOCenter, CritDiagonalLength views to host to check values
     CellType = cellData.getCellTypeSubview();
@@ -294,10 +294,11 @@ void testResizeRefillBuffers() {
 
     // Create send/receive buffers with a buffer size too small to hold all of the active cell data
     int BufSize = 1;
-    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, 8);
-    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, 8);
-    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
-    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, 8);
+    int BufComponents = 8;
+    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, BufComponents);
+    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, BufComponents);
+    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, BufComponents);
+    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, BufComponents);
     // Init counts to 0 on device
     ViewI SendSizeSouth("SendSizeSouth", 1);
     ViewI SendSizeNorth("SendSizeNorth", 1);
@@ -414,7 +415,7 @@ void testResizeRefillBuffers() {
     // Attempt to resize buffers and load the remaining data
     int OldBufSize = BufSize;
     BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                            SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize);
+                            SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, BufComponents);
     if (OldBufSize != BufSize)
         RefillBuffers(nx, nz_layer, ny_local, cellData, BufferNorthSend, BufferSouthSend, SendSizeNorth, SendSizeSouth,
                       AtNorthBoundary, AtSouthBoundary, DOCenter, DiagonalLength, NGrainOrientations, BufSize);
@@ -470,15 +471,16 @@ void testResetBufferCapacity() {
 
     // Init buffers to large size
     int BufSize = 50;
-    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, 8);
-    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, 8);
-    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, 8);
-    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, 8);
+    int BufComponents = 8;
+    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, BufComponents);
+    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, BufComponents);
+    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, BufComponents);
+    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, BufComponents);
 
     // Fill buffers with test data
     Kokkos::parallel_for(
         "InitBuffers", BufSize, KOKKOS_LAMBDA(const int &i) {
-            for (int j = 0; j < 8; j++) {
+            for (int j = 0; j < BufComponents; j++) {
                 BufferSouthSend(i, j) = i + j;
                 BufferNorthSend(i, j) = i + j;
                 BufferSouthRecv(i, j) = i;
@@ -488,7 +490,7 @@ void testResetBufferCapacity() {
 
     // Reduce size back to the default of 25
     BufSize = 25;
-    ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize);
+    ResetBufferCapacity(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, BufSize, BufComponents);
 
     // Copy buffers back to host
     Buffer2D_H BufferNorthSend_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), BufferNorthSend);
