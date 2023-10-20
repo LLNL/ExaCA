@@ -94,9 +94,6 @@ struct PrintInputs {
     bool PrintIdleTimeSeriesFrames = false;
     // If printing the time series, the increment, in time steps, between printing of intermediate output
     int TimeSeriesInc = 1;
-    // If printing the time series, the counter for the number of intermediate files that have been printed for a
-    // given layer of a multilayer problem
-    int IntermediateFileCounter = 0;
 
     // Should binary be used for printing vtk data?
     bool PrintBinary = false;
