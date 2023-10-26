@@ -7,6 +7,7 @@
 #define EXACA_NUCLEATION_HPP
 
 #include "CAcelldata.hpp"
+#include "CAgrid.hpp"
 #include "CAtemperature.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
@@ -82,9 +83,7 @@ struct Nucleation {
     // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur,
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
     template <class... Params>
-    void placeNuclei(Temperature<memory_space> &temperature, double RNGSeed, int layernumber, int nx, int ny,
-                     int nz_layer, int ny_local, int y_offset, int, int id, bool AtNorthBoundary,
-                     bool AtSouthBoundary) {
+    void placeNuclei(Temperature<memory_space> &temperature, double RNGSeed, int layernumber, Grid &grid, int id) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
@@ -99,9 +98,9 @@ struct Nucleation {
         // Use new RNG seed for each layer
         std::mt19937_64 generator(RNGSeed + layernumber);
         // Uniform distribution for nuclei location assignment
-        std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
-        std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
-        std::uniform_real_distribution<double> Zdist(-0.49999, nz_layer - 0.5);
+        std::uniform_real_distribution<double> Xdist(-0.49999, grid.nx - 0.5);
+        std::uniform_real_distribution<double> Ydist(-0.49999, grid.ny - 0.5);
+        std::uniform_real_distribution<double> Zdist(-0.49999, grid.nz_layer - 0.5);
         // Gaussian distribution of nucleation undercooling
         std::normal_distribution<double> Gdistribution(_inputs.dTN, _inputs.dTsigma);
 
@@ -109,7 +108,7 @@ struct Nucleation {
         // Use long int in intermediate steps calculating the number of nucleated grains, though the number should be
         // small enough to be stored as an int
         long int Cells_ThisLayer_long =
-            static_cast<long int>(nx) * static_cast<long int>(ny) * static_cast<long int>(nz_layer);
+            static_cast<long int>(grid.nx) * static_cast<long int>(grid.ny) * static_cast<long int>(grid.nz_layer);
         long int Nuclei_ThisLayerSingle_long =
             std::lround(BulkProb * Cells_ThisLayer_long); // equivalent to Nuclei_ThisLayer if no remelting
         // Multiplier for the number of nucleation events per layer, based on the number of solidification events
@@ -170,12 +169,12 @@ struct Nucleation {
         for (int meltevent = 0; meltevent < NucleiMultiplier; meltevent++) {
             for (int n = 0; n < Nuclei_ThisLayerSingle; n++) {
                 int NEvent = meltevent * Nuclei_ThisLayerSingle + n;
-                if (((NucleiY(NEvent) > y_offset) || (AtSouthBoundary)) &&
-                    ((NucleiY(NEvent) < y_offset + ny_local - 1) || (AtNorthBoundary))) {
+                if (((NucleiY(NEvent) > grid.y_offset) || (grid.AtSouthBoundary)) &&
+                    ((NucleiY(NEvent) < grid.y_offset + grid.ny_local - 1) || (grid.AtNorthBoundary))) {
                     // Convert 3D location (using global X and Y coordinates) into a 1D location (using local X and Y
                     // coordinates) for the possible nucleation event, both as relative to the bottom of this layer
                     int NucleiLocation_ThisLayer =
-                        get1Dindex(NucleiX(NEvent), NucleiY(NEvent) - y_offset, NucleiZ(NEvent), nx, ny_local);
+                        grid.get1Dindex(NucleiX(NEvent), NucleiY(NEvent) - grid.y_offset, NucleiZ(NEvent));
                     // Criteria for placing a nucleus - whether or not this nuclei is associated with a solidification
                     // event
                     if (meltevent < NumberOfSolidificationEvents_Host(NucleiLocation_ThisLayer)) {
@@ -251,11 +250,11 @@ struct Nucleation {
 
     // Compute velocity from local undercooling.
     // functional form is assumed to be cubic if not explicitly given in input file
-    void nucleate_grain(int cycle, CellData<memory_space> &cellData, int, int, int, view_type_int SteeringVector,
+    void nucleate_grain(int cycle, Grid &grid, CellData<memory_space> &cellData, view_type_int SteeringVector,
                         view_type_int numSteer_G) {
 
-        auto CellType = cellData.getCellTypeSubview();
-        auto GrainID = cellData.getGrainIDSubview();
+        auto CellType = cellData.getCellTypeSubview(grid);
+        auto GrainID = cellData.getGrainIDSubview(grid);
 
         // Is there nucleation left in this layer to check?
         if (NucleationCounter < PossibleNuclei) {

@@ -16,16 +16,16 @@ using std::min;
 //*****************************************************************************/
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step
-void FillSteeringVector_NoRemelt(int cycle, int DomainSize, Temperature<device_memory_space> &temperature,
+void FillSteeringVector_NoRemelt(int cycle, Grid &grid, Temperature<device_memory_space> &temperature,
                                  CellData<device_memory_space> &cellData, ViewI SteeringVector, ViewI numSteer,
                                  ViewI_H numSteer_Host) {
 
     // Cells associated with this layer that are not solid type but have passed the liquidus (crit time step) have their
     // undercooling values updated Cells that meet the aforementioned criteria and are active type should be added to
     // the steering vector
-    auto CellType = cellData.getCellTypeSubview();
+    auto CellType = cellData.getCellTypeSubview(grid);
     Kokkos::parallel_for(
-        "FillSV", DomainSize, KOKKOS_LAMBDA(const int &index) {
+        "FillSV", grid.DomainSize, KOKKOS_LAMBDA(const int &index) {
             int cellType = CellType(index);
             int isNotSolid = (cellType != Solid);
             int CritTimeStep = temperature.LayerTimeTempHistory(index, 0, 1);
@@ -44,15 +44,14 @@ void FillSteeringVector_NoRemelt(int cycle, int DomainSize, Temperature<device_m
 //*****************************************************************************/
 // Determine which cells are associated with the "steering vector" of cells that are either active, or becoming active
 // this time step - version with remelting
-void FillSteeringVector_Remelt(int cycle, int DomainSize, int nx, int ny_local, NList NeighborX, NList NeighborY,
-                               NList NeighborZ, Temperature<device_memory_space> &temperature,
-                               CellData<device_memory_space> &cellData, int nz_layer, ViewI SteeringVector,
-                               ViewI numSteer, ViewI_H numSteer_Host) {
+void FillSteeringVector_Remelt(int cycle, Grid &grid, Temperature<device_memory_space> &temperature,
+                               CellData<device_memory_space> &cellData, ViewI SteeringVector, ViewI numSteer,
+                               ViewI_H numSteer_Host) {
 
-    auto CellType = cellData.getCellTypeSubview();
-    auto GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview(grid);
+    auto GrainID = cellData.getGrainIDSubview(grid);
     Kokkos::parallel_for(
-        "FillSV_RM", DomainSize, KOKKOS_LAMBDA(const int &index) {
+        "FillSV_RM", grid.DomainSize, KOKKOS_LAMBDA(const int &index) {
             int cellType = CellType(index);
             // Only iterate over cells that are not Solid type
             if (cellType != Solid) {
@@ -75,19 +74,19 @@ void FillSteeringVector_Remelt(int cycle, int DomainSize, int nx, int ny_local, 
                     // cooling down These are converted to the temporary FutureLiquid state, to be later iterated over
                     // and loaded into the steering vector as necessary Get the x, y, z coordinates of the cell on this
                     // MPI rank
-                    int coord_x = getCoordX(index, nx, ny_local);
-                    int coord_y = getCoordY(index, nx, ny_local);
-                    int coord_z = getCoordZ(index, nx, ny_local);
+                    int coord_x = grid.getCoordX(index);
+                    int coord_y = grid.getCoordY(index);
+                    int coord_z = grid.getCoordZ(index);
                     for (int l = 0; l < 26; l++) {
                         // "l" correpsponds to the specific neighboring cell
                         // Local coordinates of adjacent cell center
-                        int neighbor_coord_x = coord_x + NeighborX[l];
-                        int neighbor_coord_y = coord_y + NeighborY[l];
-                        int neighbor_coord_z = coord_z + NeighborZ[l];
-                        if ((neighbor_coord_x >= 0) && (neighbor_coord_x < nx) && (neighbor_coord_y >= 0) &&
-                            (neighbor_coord_y < ny_local) && (neighbor_coord_z < nz_layer) && (neighbor_coord_z >= 0)) {
-                            int neighbor_index =
-                                get1Dindex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z, nx, ny_local);
+                        int neighbor_coord_x = coord_x + grid.NeighborX[l];
+                        int neighbor_coord_y = coord_y + grid.NeighborY[l];
+                        int neighbor_coord_z = coord_z + grid.NeighborZ[l];
+                        if ((neighbor_coord_x >= 0) && (neighbor_coord_x < grid.nx) && (neighbor_coord_y >= 0) &&
+                            (neighbor_coord_y < grid.ny_local) && (neighbor_coord_z < grid.nz_layer) &&
+                            (neighbor_coord_z >= 0)) {
+                            int neighbor_index = grid.get1Dindex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
                             if (CellType(neighbor_index) == Active) {
                                 // Mark adjacent active cells to this as cells that should be converted into liquid, as
                                 // they are more likely heating than cooling
@@ -107,22 +106,22 @@ void FillSteeringVector_Remelt(int cycle, int DomainSize, int nx, int ny_local, 
                 }
                 else if ((atCritTime) && (cellType == Liquid) && (GrainID(index) != 0)) {
                     // Get the x, y, z coordinates of the cell on this MPI rank
-                    int coord_x = getCoordX(index, nx, ny_local);
-                    int coord_y = getCoordY(index, nx, ny_local);
-                    int coord_z = getCoordZ(index, nx, ny_local);
+                    int coord_x = grid.getCoordX(index);
+                    int coord_y = grid.getCoordY(index);
+                    int coord_z = grid.getCoordZ(index);
                     // If this cell has cooled to the liquidus temperature, borders at least one solid/tempsolid cell,
                     // and is part of a grain, it should become active. This only needs to be checked on the time step
                     // where the cell reaches the liquidus, not every time step beyond this
                     for (int l = 0; l < 26; l++) {
                         // "l" correpsponds to the specific neighboring cell
                         // Local coordinates of adjacent cell center
-                        int neighbor_coord_x = coord_x + NeighborX[l];
-                        int neighbor_coord_y = coord_y + NeighborY[l];
-                        int neighbor_coord_z = coord_z + NeighborZ[l];
-                        if ((neighbor_coord_x >= 0) && (neighbor_coord_x < nx) && (neighbor_coord_y >= 0) &&
-                            (neighbor_coord_y < ny_local) && (neighbor_coord_z < nz_layer) && (neighbor_coord_z >= 0)) {
-                            int neighbor_index =
-                                get1Dindex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z, nx, ny_local);
+                        int neighbor_coord_x = coord_x + grid.NeighborX[l];
+                        int neighbor_coord_y = coord_y + grid.NeighborY[l];
+                        int neighbor_coord_z = coord_z + grid.NeighborZ[l];
+                        if ((neighbor_coord_x >= 0) && (neighbor_coord_x < grid.nx) && (neighbor_coord_y >= 0) &&
+                            (neighbor_coord_y < grid.ny_local) && (neighbor_coord_z < grid.nz_layer) &&
+                            (neighbor_coord_z >= 0)) {
+                            int neighbor_index = grid.get1Dindex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
                             if ((CellType(neighbor_index) == TempSolid) || (CellType(neighbor_index) == Solid) ||
                                 (coord_z == 0)) {
                                 // Cell activation to be performed as part of steering vector
@@ -142,26 +141,24 @@ void FillSteeringVector_Remelt(int cycle, int DomainSize, int nx, int ny_local, 
 }
 
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunction irf, int y_offset, NList NeighborX,
-                 NList NeighborY, NList NeighborZ, ViewF GrainUnitVector, ViewF CritDiagonalLength,
-                 ViewF DiagonalLength, CellData<device_memory_space> &cellData,
+void CellCapture(int, int np, int, Grid &grid, InterfacialResponseFunction irf, ViewF GrainUnitVector,
+                 ViewF CritDiagonalLength, ViewF DiagonalLength, CellData<device_memory_space> &cellData,
                  Temperature<device_memory_space> &temperature, ViewF DOCenter, int NGrainOrientations,
                  Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
-                 int nz_layer, ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, bool AtNorthBoundary,
-                 bool AtSouthBoundary, int &BufSize) {
+                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, int &BufSize) {
 
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
-    auto CellType = cellData.getCellTypeSubview();
-    auto GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview(grid);
+    auto GrainID = cellData.getGrainIDSubview(grid);
     Kokkos::parallel_for(
         "CellCapture", numSteer_Host(0), KOKKOS_LAMBDA(const int &num) {
             numSteer(0) = 0;
             int index = SteeringVector(num);
             // Get the x, y, z coordinates of the cell on this MPI rank
-            int coord_x = getCoordX(index, nx, ny_local);
-            int coord_y = getCoordY(index, nx, ny_local);
-            int coord_z = getCoordZ(index, nx, ny_local);
+            int coord_x = grid.getCoordX(index);
+            int coord_y = grid.getCoordY(index);
+            int coord_z = grid.getCoordZ(index);
             // Cells of interest for the CA - active cells and future active/liquid cells
             if (CellType(index) == Active) {
                 // Update local diagonal length of active cell
@@ -175,14 +172,14 @@ void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunc
                 // Which neighbors should be iterated over?
                 for (int l = 0; l < 26; l++) {
                     // Local coordinates of adjacent cell center
-                    int neighbor_coord_x = coord_x + NeighborX[l];
-                    int neighbor_coord_y = coord_y + NeighborY[l];
-                    int neighbor_coord_z = coord_z + NeighborZ[l];
+                    int neighbor_coord_x = coord_x + grid.NeighborX[l];
+                    int neighbor_coord_y = coord_y + grid.NeighborY[l];
+                    int neighbor_coord_z = coord_z + grid.NeighborZ[l];
                     // Check if neighbor is in bounds
-                    if ((neighbor_coord_x >= 0) && (neighbor_coord_x < nx) && (neighbor_coord_y >= 0) &&
-                        (neighbor_coord_y < ny_local) && (neighbor_coord_z < nz_layer) && (neighbor_coord_z >= 0)) {
-                        int neighbor_index =
-                            get1Dindex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z, nx, ny_local);
+                    if ((neighbor_coord_x >= 0) && (neighbor_coord_x < grid.nx) && (neighbor_coord_y >= 0) &&
+                        (neighbor_coord_y < grid.ny_local) && (neighbor_coord_z < grid.nz_layer) &&
+                        (neighbor_coord_z >= 0)) {
+                        int neighbor_index = grid.get1Dindex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
                         if (CellType(neighbor_index) == Liquid)
                             DeactivateCell = false;
                         // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
@@ -217,9 +214,9 @@ void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunc
                                 // (xp,yp,zp) are the global coordinates of the new cell's center
                                 // Note that the Y coordinate is relative to the domain origin to keep the coordinate
                                 // system continuous across ranks
-                                float xp = coord_x + NeighborX[l] + 0.5;
-                                float yp = coord_y + y_offset + NeighborY[l] + 0.5;
-                                float zp = coord_z + NeighborZ[l] + 0.5;
+                                float xp = coord_x + grid.NeighborX[l] + 0.5;
+                                float yp = coord_y + grid.y_offset + grid.NeighborY[l] + 0.5;
+                                float zp = coord_z + grid.NeighborZ[l] + 0.5;
 
                                 // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image
                                 // of the center of the new cell
@@ -372,8 +369,9 @@ void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunc
 
                                 // Get new critical diagonal length values for the newly activated cell (at array
                                 // position "neighbor_index")
-                                calcCritDiagonalLength(neighbor_index, xp, yp, zp, cx, cy, cz, NeighborX, NeighborY,
-                                                       NeighborZ, MyOrientation, GrainUnitVector, CritDiagonalLength);
+                                calcCritDiagonalLength(neighbor_index, xp, yp, zp, cx, cy, cz, grid.NeighborX,
+                                                       grid.NeighborY, grid.NeighborZ, MyOrientation, GrainUnitVector,
+                                                       CritDiagonalLength);
 
                                 if (np > 1) {
                                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting this
@@ -387,9 +385,9 @@ void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunc
                                     // Data loaded into the ghost nodes is for the cell that was just captured
                                     bool DataFitsInBuffer = loadghostnodes(
                                         GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth,
-                                        SendSizeSouth, ny_local, neighbor_coord_x, neighbor_coord_y, neighbor_coord_z,
-                                        AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
-                                        NGrainOrientations, BufSize);
+                                        SendSizeSouth, grid.ny_local, neighbor_coord_x, neighbor_coord_y,
+                                        neighbor_coord_z, grid.AtNorthBoundary, grid.AtSouthBoundary, BufferSouthSend,
+                                        BufferNorthSend, NGrainOrientations, BufSize);
                                     if (!(DataFitsInBuffer)) {
                                         // This cell's data did not fit in the buffer with current size BufSize - mark
                                         // with temporary type
@@ -433,19 +431,19 @@ void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunc
                 int MyGrainID = GrainID(index);    // GrainID was assigned as part of Nucleation
 
                 // Initialize new octahedron
-                createNewOctahedron(index, DiagonalLength, DOCenter, coord_x, coord_y, y_offset, coord_z);
+                createNewOctahedron(index, DiagonalLength, DOCenter, coord_x, coord_y, grid.y_offset, coord_z);
                 // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative GrainID
                 // values)
                 int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
                 // Octahedron center is at (cx, cy, cz) - note that the Y coordinate is relative to the domain origin to
                 // keep the coordinate system continuous across ranks
                 float cx = coord_x + 0.5;
-                float cy = coord_y + y_offset + 0.5;
+                float cy = coord_y + grid.y_offset + 0.5;
                 float cz = coord_z + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring liquid
                 // cell. Octahedron center and cell center overlap for octahedra created as part of a new grain
-                calcCritDiagonalLength(index, cx, cy, cz, cx, cy, cz, NeighborX, NeighborY, NeighborZ, MyOrientation,
-                                       GrainUnitVector, CritDiagonalLength);
+                calcCritDiagonalLength(index, cx, cy, cz, cx, cy, cz, grid.NeighborX, grid.NeighborY, grid.NeighborZ,
+                                       MyOrientation, GrainUnitVector, CritDiagonalLength);
                 if (np > 1) {
                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting this change if the
                     // slowdown is minor
@@ -455,10 +453,10 @@ void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunc
                     float GhostDOCZ = cz;
                     float GhostDL = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    bool DataFitsInBuffer =
-                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                                       ny_local, coord_x, coord_y, coord_z, AtNorthBoundary, AtSouthBoundary,
-                                       BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
+                    bool DataFitsInBuffer = loadghostnodes(
+                        GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth, grid.ny_local,
+                        coord_x, coord_y, coord_z, grid.AtNorthBoundary, grid.AtSouthBoundary, BufferSouthSend,
+                        BufferNorthSend, NGrainOrientations, BufSize);
                     if (!(DataFitsInBuffer)) {
                         // This cell's data did not fit in the buffer with current size BufSize - mark with temporary
                         // type
@@ -479,9 +477,10 @@ void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunc
                 // bordering of a cell above the liquidus. This information may need to be sent to other MPI ranks
                 // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
                 // length
-                bool DataFitsInBuffer = loadghostnodes(
-                    -1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, ny_local, coord_x, coord_y, coord_z,
-                    AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
+                bool DataFitsInBuffer =
+                    loadghostnodes(-1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, grid.ny_local, coord_x,
+                                   coord_y, coord_z, grid.AtNorthBoundary, grid.AtSouthBoundary, BufferSouthSend,
+                                   BufferNorthSend, NGrainOrientations, BufSize);
                 if (!(DataFitsInBuffer)) {
                     // This cell's data did not fit in the buffer with current size BufSize - mark with temporary
                     // type
@@ -501,12 +500,10 @@ void CellCapture(int, int np, int, int nx, int ny_local, InterfacialResponseFunc
 // The cells of interest are active cells, and the view checked for future work is
 // MeltTimeStep Print intermediate output during this jump if PrintIdleMovieFrames = true
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
-                  Temperature<device_memory_space> &temperature, int DomainSize, int ny_local, int z_layer_bottom,
-                  CellData<device_memory_space> &cellData, int id, int layernumber, int np, int nx, int ny,
-                  ViewF GrainUnitVector, Print print, int NGrainOrientations, int nz_layer, int nz, double deltax,
-                  double XMin, double YMin, double ZMin) {
+                  Temperature<device_memory_space> &temperature, Grid &grid, CellData<device_memory_space> &cellData,
+                  int id, int layernumber, int np, ViewF GrainUnitVector, Print print, int NGrainOrientations) {
 
-    auto CellType = cellData.getCellTypeSubview();
+    auto CellType = cellData.getCellTypeSubview(grid);
     MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
     if (RemainingCellsOfInterest == 0) {
         // If this rank still has cells that will later undergo transformation (LocalIncompleteCells > 0), check when
@@ -515,7 +512,7 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
         unsigned long int NextMeltTimeStep;
         if (LocalTempSolidCells > 0) {
             Kokkos::parallel_reduce(
-                "CheckNextTSForWork", DomainSize,
+                "CheckNextTSForWork", grid.DomainSize,
                 KOKKOS_LAMBDA(const int &index, unsigned long int &tempv) {
                     // criteria for a cell to be associated with future work
                     if (CellType(index) == TempSolid) {
@@ -537,10 +534,9 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
             // Print current grain misorientations (up to and including the current layer's data) for any of the time
             // steps between now and when melting/solidification occurs again, if the print option for idle frame
             // printing was toggled
-            print.printIdleIntermediateGrainMisorientation(
-                id, np, cycle, nx, ny, nz, ny_local, nz_layer, deltax, XMin, YMin, ZMin, cellData.GrainID_AllLayers,
-                cellData.CellType_AllLayers, GrainUnitVector, NGrainOrientations, layernumber, z_layer_bottom,
-                GlobalNextMeltTimeStep);
+            print.printIdleIntermediateGrainMisorientation(id, np, cycle, grid, cellData.GrainID_AllLayers,
+                                                           cellData.CellType_AllLayers, GrainUnitVector,
+                                                           NGrainOrientations, layernumber, GlobalNextMeltTimeStep);
             // Jump to next time step when solidification starts again
             cycle = GlobalNextMeltTimeStep - 1;
             if (id == 0)
@@ -552,22 +548,21 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
 //*****************************************************************************/
 // Prints intermediate code output to stdout (intermediate output collected and printed is different than without
 // remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
-void IntermediateOutputAndCheck(int id, int np, int &cycle, int ny_local, int DomainSize, int nx, int ny, int nz,
-                                int nz_layer, int z_layer_bottom, double deltax, double XMin, double YMin, double ZMin,
-                                int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<device_memory_space> &cellData,
-                                Temperature<device_memory_space> &temperature, std::string SimulationType,
-                                int layernumber, int NGrainOrientations, ViewF GrainUnitVector, Print print) {
+void IntermediateOutputAndCheck(int id, int np, int &cycle, Grid &grid, int SuccessfulNucEvents_ThisRank, int &XSwitch,
+                                CellData<device_memory_space> &cellData, Temperature<device_memory_space> &temperature,
+                                std::string SimulationType, int layernumber, int NGrainOrientations,
+                                ViewF GrainUnitVector, Print print) {
 
-    auto CellType = cellData.getCellTypeSubview();
-    auto GrainID = cellData.getGrainIDSubview();
-    auto LayerID = cellData.getLayerIDSubview();
+    auto CellType = cellData.getCellTypeSubview(grid);
+    auto GrainID = cellData.getGrainIDSubview(grid);
+    auto LayerID = cellData.getLayerIDSubview(grid);
     unsigned long int LocalSuperheatedCells;
     unsigned long int LocalUndercooledCells;
     unsigned long int LocalActiveCells;
     unsigned long int LocalTempSolidCells;
     unsigned long int LocalFinishedSolidCells;
     Kokkos::parallel_reduce(
-        "IntermediateOutput", DomainSize,
+        "IntermediateOutput", grid.DomainSize,
         KOKKOS_LAMBDA(const int &index, unsigned long int &sum_superheated, unsigned long int &sum_undercooled,
                       unsigned long int &sum_active, unsigned long int &sum_temp_solid,
                       unsigned long int &sum_finished_solid) {
@@ -612,23 +607,21 @@ void IntermediateOutputAndCheck(int id, int np, int &cycle, int ny_local, int Do
     // Cells of interest are those currently undergoing a melting-solidification cycle
     unsigned long int RemainingCellsOfInterest = GlobalActiveCells + GlobalSuperheatedCells + GlobalUndercooledCells;
     if ((XSwitch == 0) && ((SimulationType == "R") || (SimulationType == "S")))
-        JumpTimeStep(cycle, RemainingCellsOfInterest, LocalTempSolidCells, temperature, DomainSize, ny_local,
-                     z_layer_bottom, cellData, id, layernumber, np, nx, ny, GrainUnitVector, print, NGrainOrientations,
-                     nz_layer, nz, deltax, XMin, YMin, ZMin);
+        JumpTimeStep(cycle, RemainingCellsOfInterest, LocalTempSolidCells, temperature, grid, cellData, id, layernumber,
+                     np, GrainUnitVector, print, NGrainOrientations);
 }
 
 //*****************************************************************************/
 // Prints intermediate code output to stdout and checks to see the single grain simulation end condition (the grain has
 // reached a domain edge) has been satisfied
-void IntermediateOutputAndCheck(int id, int cycle, int ny_local, int y_offset, int DomainSize, int nx, int ny, int nz,
-                                int &XSwitch, ViewI CellType_AllLayers) {
+void IntermediateOutputAndCheck(int id, int cycle, Grid &grid, int &XSwitch, ViewI CellType_AllLayers) {
 
     unsigned long int LocalLiquidCells, LocalActiveCells, LocalSolidCells;
     ViewB2D EdgesReached(Kokkos::ViewAllocateWithoutInitializing("EdgesReached"), 3, 2); // init to false
     Kokkos::deep_copy(EdgesReached, false);
 
     Kokkos::parallel_reduce(
-        "IntermediateOutput", DomainSize,
+        "IntermediateOutput", grid.DomainSize,
         KOKKOS_LAMBDA(const int &index, unsigned long int &sum_liquid, unsigned long int &sum_active,
                       unsigned long int &sum_solid) {
             if (CellType_AllLayers(index) == Liquid)
@@ -636,21 +629,21 @@ void IntermediateOutputAndCheck(int id, int cycle, int ny_local, int y_offset, i
             else if (CellType_AllLayers(index) == Active) {
                 sum_active += 1;
                 // Did this cell reach a domain edge?
-                int coord_x = getCoordX(index, nx, ny_local);
-                int coord_y = getCoordY(index, nx, ny_local);
-                int coord_z = getCoordZ(index, nx, ny_local);
-                int coord_y_global = coord_y + y_offset;
+                int coord_x = grid.getCoordX(index);
+                int coord_y = grid.getCoordY(index);
+                int coord_z = grid.getCoordZ(index);
+                int coord_y_global = coord_y + grid.y_offset;
                 if (coord_x == 0)
                     EdgesReached(0, 0) = true;
-                if (coord_x == nx - 1)
+                if (coord_x == grid.nx - 1)
                     EdgesReached(0, 1) = true;
                 if (coord_y_global == 0)
                     EdgesReached(1, 0) = true;
-                if (coord_y_global == ny - 1)
+                if (coord_y_global == grid.ny - 1)
                     EdgesReached(1, 1) = true;
                 if (coord_z == 0)
                     EdgesReached(2, 0) = true;
-                if (coord_z == nz - 1)
+                if (coord_z == grid.nz - 1)
                     EdgesReached(2, 1) = true;
             }
             else if (CellType_AllLayers(index) == Solid)

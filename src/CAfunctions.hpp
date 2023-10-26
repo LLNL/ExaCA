@@ -108,40 +108,7 @@ KOKKOS_INLINE_FUNCTION int getGrainID(int NGrainOrientations, int MyGrainOrienta
         MyGrainID = -MyGrainID;
     return MyGrainID;
 }
-// Get the 1D cell coordinate from the x, y, and z cell positions
-KOKKOS_INLINE_FUNCTION int get1Dindex(const int coord_x, const int coord_y_local, const int coord_z, const int nx,
-                                      const int ny_local) {
-    int index = coord_z * nx * ny_local + coord_x * ny_local + coord_y_local;
-    return index;
-}
-// TODO: There is probably some creative way to combine these functions and return one object containing the x, y, and z
-// positions Get the z cell position of the cell from the 1D cell coordinate
-KOKKOS_INLINE_FUNCTION int getCoordZ(const int index, const int nx, const int ny) {
-    int coord_z = index / (nx * ny);
-    return coord_z;
-}
-// Get the y cell position of the cell from the 1D cell coordinate
-KOKKOS_INLINE_FUNCTION int getCoordY(const int index, const int nx, const int ny) {
-    int Rem = index % (nx * ny);
-    int coord_y = Rem % ny;
-    return coord_y;
-}
-// Get the x cell position of the cell from the 1D cell coordinate
-KOKKOS_INLINE_FUNCTION int getCoordX(const int index, const int nx, const int ny) {
-    int Rem = index % (nx * ny);
-    int coord_x = Rem / ny;
-    return coord_x;
-}
-
 //*****************************************************************************/
-int get_nylocal(int p, int ny, int np);
-int get_yoffset(int p, int ny, int np);
-void AddGhostNodes(int NeighborRank_North, int NeighborRank_South, int &ny_local, int &y_offset);
-double MaxVal(double TestVec3[6], int NVals);
-void InitialDecomposition(int id, int np, int &NeighborRank_North, int &NeighborRank_South, bool &AtNorthBoundary,
-                          bool &AtSouthBoundary);
 ViewF_H MisorientationCalc(int NumberOfOrientations, ViewF_H GrainUnitVector, int dir);
-float calcVolFractionNucleated(int id, int nx, int ny_local, int DomainSize, ViewS LayerID, ViewI GrainID,
-                               bool AtNorthBoundary, bool AtSouthBoundary);
 
 #endif

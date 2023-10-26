@@ -8,6 +8,7 @@
 
 #include "CAcelldata.hpp"
 #include "CAfunctions.hpp"
+#include "CAgrid.hpp"
 #include "CAtypes.hpp"
 
 #include <Kokkos_Core.hpp>
@@ -63,14 +64,12 @@ int ResizeBuffers(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D
                   ViewI_H SendSizeSouth_Host, int OldBufSize, int BufComponents, int NumCellsBufferPadding = 25);
 void ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, Buffer2D &BufferNorthRecv,
                          Buffer2D &BufferSouthRecv, int NewBufSize, int BufComponents);
-void RefillBuffers(int nx, int nz_layer, int ny_local, CellData<device_memory_space> &cellData,
-                   Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
-                   bool AtNorthBoundary, bool AtSouthBoundary, ViewF DOCenter, ViewF DiagonalLength,
-                   int NGrainOrientations, int BufSize);
-void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int ny_local, int y_offset,
-                  NList NeighborX, NList NeighborY, NList NeighborZ, CellData<device_memory_space> &cellData,
-                  ViewF DOCenter, ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength,
-                  int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
-                  Buffer2D BufferSouthRecv, int BufSize, ViewI SendSizeNorth, ViewI SendSizeSouth, int BufComponents);
+void RefillBuffers(Grid &grid, CellData<device_memory_space> &cellData, Buffer2D BufferNorthSend,
+                   Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth, ViewF DOCenter,
+                   ViewF DiagonalLength, int NGrainOrientations, int BufSize);
+void GhostNodes1D(int, int, Grid &grid, CellData<device_memory_space> &cellData, ViewF DOCenter, ViewF GrainUnitVector,
+                  ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend,
+                  Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSize,
+                  ViewI SendSizeNorth, ViewI SendSizeSouth, int BufComponents);
 
 #endif

@@ -79,18 +79,17 @@ void ResetBufferCapacity(Buffer2D &BufferNorthSend, Buffer2D &BufferSouthSend, B
 
 // Refill the buffers as necessary starting from the old count size, using the data from cells marked with type
 // ActiveFailedBufferLoad
-void RefillBuffers(int nx, int nz_layer, int ny_local, CellData<device_memory_space> &cellData,
-                   Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
-                   bool AtNorthBoundary, bool AtSouthBoundary, ViewF DOCenter, ViewF DiagonalLength,
-                   int NGrainOrientations, int BufSize) {
+void RefillBuffers(Grid &grid, CellData<device_memory_space> &cellData, Buffer2D BufferNorthSend,
+                   Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth, ViewF DOCenter,
+                   ViewF DiagonalLength, int NGrainOrientations, int BufSize) {
 
-    auto CellType = cellData.getCellTypeSubview();
-    auto GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview(grid);
+    auto GrainID = cellData.getGrainIDSubview(grid);
     Kokkos::parallel_for(
-        "FillSendBuffersOverflow", nx, KOKKOS_LAMBDA(const int &coord_x) {
-            for (int coord_z = 0; coord_z < nz_layer; coord_z++) {
-                int CellCoordinateSouth = get1Dindex(coord_x, 1, coord_z, nx, ny_local);
-                int CellCoordinateNorth = get1Dindex(coord_x, ny_local - 2, coord_z, nx, ny_local);
+        "FillSendBuffersOverflow", grid.nx, KOKKOS_LAMBDA(const int &coord_x) {
+            for (int coord_z = 0; coord_z < grid.nz_layer; coord_z++) {
+                int CellCoordinateSouth = grid.get1Dindex(coord_x, 1, coord_z);
+                int CellCoordinateNorth = grid.get1Dindex(coord_x, grid.ny_local - 2, coord_z);
                 if (CellType(CellCoordinateSouth) == ActiveFailedBufferLoad) {
                     int GhostGID = GrainID(CellCoordinateSouth);
                     float GhostDOCX = DOCenter(3 * CellCoordinateSouth);
@@ -101,8 +100,8 @@ void RefillBuffers(int nx, int nz_layer, int ny_local, CellData<device_memory_sp
                     // Data loaded into the ghost nodes is for the cell that was just captured
                     bool DataFitsInBuffer =
                         loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                                       ny_local, coord_x, 1, coord_z, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                       BufferNorthSend, NGrainOrientations, BufSize);
+                                       grid.ny_local, coord_x, 1, coord_z, grid.AtNorthBoundary, grid.AtSouthBoundary,
+                                       BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
                     CellType(CellCoordinateSouth) = Active;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(DataFitsInBuffer))
@@ -113,9 +112,9 @@ void RefillBuffers(int nx, int nz_layer, int ny_local, CellData<device_memory_sp
                     // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
                     // length
                     bool DataFitsInBuffer =
-                        loadghostnodes(-1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, ny_local, coord_x, 1,
-                                       coord_z, AtNorthBoundary, AtSouthBoundary, BufferSouthSend, BufferNorthSend,
-                                       NGrainOrientations, BufSize);
+                        loadghostnodes(-1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, grid.ny_local, coord_x,
+                                       1, coord_z, grid.AtNorthBoundary, grid.AtSouthBoundary, BufferSouthSend,
+                                       BufferNorthSend, NGrainOrientations, BufSize);
                     CellType(CellCoordinateSouth) = Liquid;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(DataFitsInBuffer))
@@ -130,10 +129,10 @@ void RefillBuffers(int nx, int nz_layer, int ny_local, CellData<device_memory_sp
                     float GhostDL = DiagonalLength(CellCoordinateNorth);
                     // Collect data for the ghost nodes, if necessary
                     // Data loaded into the ghost nodes is for the cell that was just captured
-                    bool DataFitsInBuffer =
-                        loadghostnodes(GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth,
-                                       ny_local, coord_x, ny_local - 2, coord_z, AtNorthBoundary, AtSouthBoundary,
-                                       BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
+                    bool DataFitsInBuffer = loadghostnodes(
+                        GhostGID, GhostDOCX, GhostDOCY, GhostDOCZ, GhostDL, SendSizeNorth, SendSizeSouth, grid.ny_local,
+                        coord_x, grid.ny_local - 2, coord_z, grid.AtNorthBoundary, grid.AtSouthBoundary,
+                        BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
                     CellType(CellCoordinateNorth) = Active;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(DataFitsInBuffer))
@@ -144,9 +143,9 @@ void RefillBuffers(int nx, int nz_layer, int ny_local, CellData<device_memory_sp
                     // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
                     // length
                     bool DataFitsInBuffer =
-                        loadghostnodes(-1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, ny_local, coord_x,
-                                       ny_local - 2, coord_z, AtNorthBoundary, AtSouthBoundary, BufferSouthSend,
-                                       BufferNorthSend, NGrainOrientations, BufSize);
+                        loadghostnodes(-1, -1.0, -1.0, -1.0, 0.0, SendSizeNorth, SendSizeSouth, grid.ny_local, coord_x,
+                                       grid.ny_local - 2, coord_z, grid.AtNorthBoundary, grid.AtSouthBoundary,
+                                       BufferSouthSend, BufferNorthSend, NGrainOrientations, BufSize);
                     CellType(CellCoordinateNorth) = Liquid;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(DataFitsInBuffer))
@@ -160,31 +159,30 @@ void RefillBuffers(int nx, int nz_layer, int ny_local, CellData<device_memory_sp
 
 //*****************************************************************************/
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int nx, int ny_local, int y_offset,
-                  NList NeighborX, NList NeighborY, NList NeighborZ, CellData<device_memory_space> &cellData,
-                  ViewF DOCenter, ViewF GrainUnitVector, ViewF DiagonalLength, ViewF CritDiagonalLength,
-                  int NGrainOrientations, Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv,
-                  Buffer2D BufferSouthRecv, int BufSize, ViewI SendSizeNorth, ViewI SendSizeSouth, int BufComponents) {
+void GhostNodes1D(int, int, Grid &grid, CellData<device_memory_space> &cellData, ViewF DOCenter, ViewF GrainUnitVector,
+                  ViewF DiagonalLength, ViewF CritDiagonalLength, int NGrainOrientations, Buffer2D BufferNorthSend,
+                  Buffer2D BufferSouthSend, Buffer2D BufferNorthRecv, Buffer2D BufferSouthRecv, int BufSize,
+                  ViewI SendSizeNorth, ViewI SendSizeSouth, int BufComponents) {
 
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
-    MPI_Isend(BufferSouthSend.data(), BufComponents * BufSize, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferSouthSend.data(), BufComponents * BufSize, MPI_FLOAT, grid.NeighborRank_South, 0, MPI_COMM_WORLD,
               &SendRequests[0]);
-    MPI_Isend(BufferNorthSend.data(), BufComponents * BufSize, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Isend(BufferNorthSend.data(), BufComponents * BufSize, MPI_FLOAT, grid.NeighborRank_North, 0, MPI_COMM_WORLD,
               &SendRequests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
-    MPI_Irecv(BufferSouthRecv.data(), BufComponents * BufSize, MPI_FLOAT, NeighborRank_South, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferSouthRecv.data(), BufComponents * BufSize, MPI_FLOAT, grid.NeighborRank_South, 0, MPI_COMM_WORLD,
               &RecvRequests[0]);
-    MPI_Irecv(BufferNorthRecv.data(), BufComponents * BufSize, MPI_FLOAT, NeighborRank_North, 0, MPI_COMM_WORLD,
+    MPI_Irecv(BufferNorthRecv.data(), BufComponents * BufSize, MPI_FLOAT, grid.NeighborRank_North, 0, MPI_COMM_WORLD,
               &RecvRequests[1]);
 
     // unpack in any order
     bool unpack_complete = false;
-    auto CellType = cellData.getCellTypeSubview();
-    auto GrainID = cellData.getGrainIDSubview();
+    auto CellType = cellData.getCellTypeSubview(grid);
+    auto GrainID = cellData.getGrainIDSubview(grid);
     while (!unpack_complete) {
         // Get the next buffer to unpack from rank "unpack_index"
         int unpack_index = MPI_UNDEFINED;
@@ -203,12 +201,12 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                     // Which rank was the data received from? Is there valid data at this position in the buffer (i.e.,
                     // not set to -1.0)?
                     if ((unpack_index == 0) && (BufferSouthRecv(BufPosition, 0) != -1.0) &&
-                        (NeighborRank_South != MPI_PROC_NULL)) {
+                        (grid.NeighborRank_South != MPI_PROC_NULL)) {
                         // Data receieved from South
                         coord_x = static_cast<int>(BufferSouthRecv(BufPosition, 0));
                         coord_y = 0;
                         coord_z = static_cast<int>(BufferSouthRecv(BufPosition, 1));
-                        index = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
+                        index = grid.get1Dindex(coord_x, coord_y, coord_z);
                         // Two possibilities: buffer data with non-zero diagonal length was loaded, and a liquid cell
                         // may have to be updated to active - or zero diagonal length data was loaded, and an active
                         // cell may have to be updated to liquid
@@ -227,12 +225,12 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         }
                     }
                     else if ((unpack_index == 1) && (BufferNorthRecv(BufPosition, 0) != -1.0) &&
-                             (NeighborRank_North != MPI_PROC_NULL)) {
+                             (grid.NeighborRank_North != MPI_PROC_NULL)) {
                         // Data received from North
                         coord_x = static_cast<int>(BufferNorthRecv(BufPosition, 0));
-                        coord_y = ny_local - 1;
+                        coord_y = grid.ny_local - 1;
                         coord_z = static_cast<int>(BufferNorthRecv(BufPosition, 1));
-                        index = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
+                        index = grid.get1Dindex(coord_x, coord_y, coord_z);
                         // Two possibilities: buffer data with non-zero diagonal length was loaded, and a liquid cell
                         // may have to be updated to active - or zero diagonal length data was loaded, and an active
                         // cell may have to be updated to liquid
@@ -261,12 +259,13 @@ void GhostNodes1D(int, int, int NeighborRank_North, int NeighborRank_South, int 
                         // Cell center - note that the Y coordinate is relative to the domain origin to keep the
                         // coordinate system continuous across ranks
                         double xp = coord_x + 0.5;
-                        double yp = coord_y + y_offset + 0.5;
+                        double yp = coord_y + grid.y_offset + 0.5;
                         double zp = coord_z + 0.5;
                         // Calculate critical values at which this active cell leads to the activation of a neighboring
                         // liquid cell
-                        calcCritDiagonalLength(index, xp, yp, zp, DOCenterX, DOCenterY, DOCenterZ, NeighborX, NeighborY,
-                                               NeighborZ, MyOrientation, GrainUnitVector, CritDiagonalLength);
+                        calcCritDiagonalLength(index, xp, yp, zp, DOCenterX, DOCenterY, DOCenterZ, grid.NeighborX,
+                                               grid.NeighborY, grid.NeighborZ, MyOrientation, GrainUnitVector,
+                                               CritDiagonalLength);
                         CellType(index) = Active;
                     }
                 });

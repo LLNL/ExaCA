@@ -8,6 +8,7 @@
 
 #include "CAfunctions.hpp"
 #include "CAghostnodes.hpp"
+#include "CAgrid.hpp"
 #include "CAinfo.hpp"
 #include "CAinitialize.hpp"
 #include "CAinputs.hpp"

@@ -181,6 +181,17 @@ std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fiel
     return PrintFields_given;
 }
 
+// Check if the temperature data is in ASCII or binary format
+bool checkTemperatureFileFormat(std::string tempfile_thislayer) {
+    bool BinaryInputData;
+    std::size_t found = tempfile_thislayer.find(".catemp");
+    if (found == std::string::npos)
+        BinaryInputData = false;
+    else
+        BinaryInputData = true;
+    return BinaryInputData;
+}
+
 // Read x, y, z coordinates in tempfile_thislayer (temperature file in either an ASCII or binary format) and return the
 // min and max values
 std::array<double, 6> parseTemperatureCoordinateMinMax(std::string tempfile_thislayer, bool BinaryInputData) {
