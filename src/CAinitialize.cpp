@@ -29,21 +29,3 @@ void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, In
                                      "overflow when assigning powder layer GrainID");
     }
 }
-
-//*****************************************************************************/
-void ZeroResetViews(int LocalActiveDomainSize, ViewF &DiagonalLength, ViewF &CritDiagonalLength, ViewF &DOCenter,
-                    ViewI &SteeringVector) {
-
-    // Realloc steering vector as LocalActiveDomainSize may have changed (old values aren't needed)
-    Kokkos::realloc(SteeringVector, LocalActiveDomainSize);
-
-    // Realloc active cell data structure and halo regions on device (old values not needed)
-    Kokkos::realloc(DiagonalLength, LocalActiveDomainSize);
-    Kokkos::realloc(DOCenter, 3 * LocalActiveDomainSize);
-    Kokkos::realloc(CritDiagonalLength, 26 * LocalActiveDomainSize);
-
-    // Reset active cell data structures on device
-    Kokkos::deep_copy(DiagonalLength, 0);
-    Kokkos::deep_copy(DOCenter, 0);
-    Kokkos::deep_copy(CritDiagonalLength, 0);
-}

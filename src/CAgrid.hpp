@@ -44,9 +44,6 @@ struct Grid {
     int z_layer_bottom, z_layer_top, nz_layer, DomainSize, BottomOfCurrentLayer, TopOfCurrentLayer;
     std::pair<int, int> LayerRange;
 
-    // Neighbor lists
-    NList NeighborX, NeighborY, NeighborZ;
-
     // TODO: No longer used, should be removed
     int HTtoCAratio;
 
@@ -121,9 +118,6 @@ struct Grid {
             std::cout << "================================================================" << std::endl;
         }
 
-        // Set cell X, Y, and Z direction neighbors
-        neighbor_list_init();
-
         // Decompose the domain into subdomains on each MPI rank: Calculate ny_local and y_offset for each rank, where
         // each subdomain contains "ny_local" in Y, offset from the full domain origin by "y_offset" cells in Y
         // (previously "DomainDecomposition" in CAinitialize.cpp) First, compare total MPI ranks to total Y cells.
@@ -148,7 +142,7 @@ struct Grid {
 
         // Add halo regions with a width of 1 in +/- Y if this MPI rank is not as a domain boundary in said direction
         add_halo();
-            std::cout << "Rank " << id << " spans Y = " << y_offset << " through " << y_offset + ny_local - 1 << std::endl;
+        std::cout << "Rank " << id << " spans Y = " << y_offset << " through " << y_offset + ny_local - 1 << std::endl;
 
         // Bounds of layer 0: Z coordinates span z_layer_bottom-z_layer_top, inclusive (functions previously in
         // CAinitialize.cpp and CAcelldata.hpp)
@@ -258,18 +252,6 @@ struct Grid {
         nx = round((XMax - XMin) / deltax) + 1;
         ny = round((YMax - YMin) / deltax) + 1;
         nz = round((ZMax - ZMin) / deltax) + 1;
-    }
-
-    // Intialize neighbor list structures (NeighborX, NeighborY, NeighborZ)
-    void neighbor_list_init() {
-
-        // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
-        // Neighbors 0 through 8 are in the -Y direction
-        // Neighbors 9 through 16 are in the XY plane with cell X
-        // Neighbors 17 through 25 are in the +Y direction
-        NeighborX = {0, 1, -1, 0, 0, -1, 1, -1, 1, 0, 0, 1, -1, 1, -1, 1, -1, 0, 1, -1, 0, 0, 1, -1, 1, -1};
-        NeighborY = {-1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-        NeighborZ = {0, 0, 0, 1, -1, 1, 1, -1, -1, 1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, -1};
     }
 
     int getDomainSize_AllLayers() {
@@ -495,7 +477,8 @@ struct Grid {
         int coord_x = Rem / ny_local;
         return coord_x;
     }
-    // Get the z cell position of the cell from the 1D cell coordinate with respect to the overall simulation domain (all MPI ranks)
+    // Get the z cell position of the cell from the 1D cell coordinate with respect to the overall simulation domain
+    // (all MPI ranks)
     KOKKOS_INLINE_FUNCTION
     int getCoordZ_global(const int index) const {
         int coord_z = index / (nx * ny);

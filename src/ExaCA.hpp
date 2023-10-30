@@ -7,11 +7,11 @@
 #define EXACA_HPP
 
 #include "CAfunctions.hpp"
-#include "CAghostnodes.hpp"
 #include "CAgrid.hpp"
 #include "CAinfo.hpp"
 #include "CAinitialize.hpp"
 #include "CAinputs.hpp"
+#include "CAinterface.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAnucleation.hpp"
 #include "CAparsefiles.hpp"

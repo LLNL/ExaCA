@@ -8,6 +8,7 @@
 
 #include "CAcelldata.hpp"
 #include "CAgrid.hpp"
+#include "CAinterface.hpp"
 #include "CAtemperature.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
@@ -250,8 +251,7 @@ struct Nucleation {
 
     // Compute velocity from local undercooling.
     // functional form is assumed to be cubic if not explicitly given in input file
-    void nucleate_grain(int cycle, Grid &grid, CellData<memory_space> &cellData, view_type_int SteeringVector,
-                        view_type_int numSteer_G) {
+    void nucleate_grain(int cycle, Grid &grid, CellData<memory_space> &cellData, Interface<memory_space> interface) {
 
         auto CellType = cellData.getCellTypeSubview(grid);
         auto GrainID = cellData.getGrainIDSubview(grid);
@@ -295,7 +295,8 @@ struct Nucleation {
                             // exchange is successful (cell was liquid) Add future active cell location to steering
                             // vector and change cell type, assign new Grain ID
                             GrainID(NucleationEventLocation) = NucleiGrainID_local(NucleationCounter_Device);
-                            SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = NucleationEventLocation;
+                            interface.SteeringVector(Kokkos::atomic_fetch_add(&interface.numSteer(0), 1)) =
+                                NucleationEventLocation;
                             // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
                             // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)
                             update++;

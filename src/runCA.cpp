@@ -64,28 +64,12 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (id == 0)
         std::cout << "Done with orientation initialization " << std::endl;
 
-    // Variables characterizing the active cell region within each rank's grid
-    // DiagonalLengths should be initialized to 0, DOCenter/CritDiagonalLength do not need initialization
-    // TODO: Interface parameters/views (active cells and buffers) to be part of a new struct
-    ViewF DiagonalLength("DiagonalLength", grid.DomainSize);
-    ViewF DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * grid.DomainSize);
-    ViewF CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 26 * grid.DomainSize);
-
-    // Buffers for ghost node data (fixed size)
-    int BufSizeInitialEstimate = 25;
-    int BufSize = BufSizeInitialEstimate; // set to initial estimate
-    int BufComponents = 8;
-    Buffer2D BufferSouthSend(Kokkos::ViewAllocateWithoutInitializing("BufferSouthSend"), BufSize, BufComponents);
-    Buffer2D BufferNorthSend(Kokkos::ViewAllocateWithoutInitializing("BufferNorthSend"), BufSize, BufComponents);
-    Buffer2D BufferSouthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferSouthRecv"), BufSize, BufComponents);
-    Buffer2D BufferNorthRecv(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"), BufSize, BufComponents);
-    ViewI SendSizeSouth(Kokkos::ViewAllocateWithoutInitializing("SendSizeSouth"), 1);
-    ViewI SendSizeNorth(Kokkos::ViewAllocateWithoutInitializing("SendSizeNorth"), 1);
-    ViewI_H SendSizeSouth_Host(Kokkos::ViewAllocateWithoutInitializing("SendSizeSouth_Host"), 1);
-    ViewI_H SendSizeNorth_Host(Kokkos::ViewAllocateWithoutInitializing("SendSizeNorth_Host"), 1);
-    // Send/recv buffers for ghost node data should be initialized with -1s in the first index as placeholders for empty
-    // positions in the buffer, and with send size counts of 0
-    ResetSendBuffers(BufSize, BufferNorthSend, BufferSouthSend, SendSizeNorth, SendSizeSouth);
+    // Variables characterizing the active cell region within each rank's grid, including buffers for ghost node data
+    // (fixed size) and the steering vector/steering vector size on host/device
+    Interface<device_memory_space> interface(grid.DomainSize);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "Done with interface struct initialization " << std::endl;
 
     // Initialize cell types, grain IDs, and layer IDs
     CellData<device_memory_space> cellData(grid.DomainSize_AllLayers, inputs.substrate);
@@ -109,12 +93,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
     // successive layer when layer 0 in complete
     nucleation.placeNuclei(temperature, inputs.RNGSeed, 0, grid, id);
-
-    // Steering Vector TODO: part of interface struct in the future
-    ViewI SteeringVector(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), grid.DomainSize);
-    ViewI_H numSteer_Host(Kokkos::ViewAllocateWithoutInitializing("SteeringVectorSize"), 1);
-    numSteer_Host(0) = 0;
-    ViewI numSteer = Kokkos::create_mirror_view_and_copy(device_memory_space(), numSteer_Host);
 
     // Initialize printing struct from inputs
     Print print(grid, np, inputs.print);
@@ -146,7 +124,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Cells with a successful nucleation event are marked and added to a steering vector, later dealt with in
             // CellCapture
             StartNuclTime = MPI_Wtime();
-            nucleation.nucleate_grain(cycle, grid, cellData, SteeringVector, numSteer);
+            nucleation.nucleate_grain(cycle, grid, cellData, interface);
             NuclTime += MPI_Wtime() - StartNuclTime;
 
             // Update cells on GPU - new active cells, solidification of old active cells
@@ -159,37 +137,23 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             StartCreateSVTime = MPI_Wtime();
 
             if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
-                FillSteeringVector_NoRemelt(cycle, grid, temperature, cellData, SteeringVector, numSteer,
-                                            numSteer_Host);
+                interface.fill_steering_vector_no_remelt(cycle, grid, temperature, cellData);
             else
-                FillSteeringVector_Remelt(cycle, grid, temperature, cellData, SteeringVector, numSteer, numSteer_Host);
+                interface.fill_steering_vector_remelt(cycle, grid, temperature, cellData);
             CreateSVTime += MPI_Wtime() - StartCreateSVTime;
 
             StartCaptureTime = MPI_Wtime();
-            CellCapture(id, np, cycle, grid, irf, GrainUnitVector, CritDiagonalLength, DiagonalLength, cellData,
-                        temperature, DOCenter, NGrainOrientations, BufferNorthSend, BufferSouthSend, SendSizeNorth,
-                        SendSizeSouth, SteeringVector, numSteer, numSteer_Host, BufSize);
-            // Count the number of cells' in halo regions where the data did not fit into the send buffers
-            // Reduce across all ranks, as the same BufSize should be maintained across all ranks
-            // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
-            int OldBufSize = BufSize;
-            BufSize = ResizeBuffers(BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv, SendSizeNorth,
-                                    SendSizeSouth, SendSizeNorth_Host, SendSizeSouth_Host, OldBufSize, BufComponents);
-            if (OldBufSize != BufSize) {
-                if (id == 0)
-                    std::cout << "Resized number of cells stored in send/recv buffers from " << OldBufSize << " to "
-                              << BufSize << std::endl;
-                RefillBuffers(grid, cellData, BufferNorthSend, BufferSouthSend, SendSizeNorth, SendSizeSouth, DOCenter,
-                              DiagonalLength, NGrainOrientations, BufSize);
-            }
+            // Cell capture and checking of the MPI buffers to ensure that all appropriate interface updates in the halo
+            // regions were recorded
+            interface.cell_capture(id, np, cycle, grid, irf, GrainUnitVector, cellData, temperature,
+                                   NGrainOrientations);
+            interface.check_buffers(id, grid, cellData, NGrainOrientations);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
                 // Update ghost nodes
                 StartGhostTime = MPI_Wtime();
-                GhostNodes1D(cycle, id, grid, cellData, DOCenter, GrainUnitVector, DiagonalLength, CritDiagonalLength,
-                             NGrainOrientations, BufferNorthSend, BufferSouthSend, BufferNorthRecv, BufferSouthRecv,
-                             BufSize, SendSizeNorth, SendSizeSouth, BufComponents);
+                interface.halo_update(cycle, id, grid, cellData, NGrainOrientations, GrainUnitVector);
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
@@ -233,8 +197,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             // Resize and zero all view data relating to the active region from the last layer, in preparation for the
             // next layer
-            // TODO: part of the interface struct in the future
-            ZeroResetViews(grid.DomainSize, DiagonalLength, CritDiagonalLength, DOCenter, SteeringVector);
+            interface.init_next_layer(grid.DomainSize);
             MPI_Barrier(MPI_COMM_WORLD);
 
             // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem

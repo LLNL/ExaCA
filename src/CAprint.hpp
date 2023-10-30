@@ -184,8 +184,10 @@ struct Print {
             }
             if (_inputs.PrintInitUndercoolingChange) {
                 ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(2, grid.DomainSize, 0);
-                auto UndercoolingChange_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
-                printViewData(id, Grainplot, grid, grid.nz_layer, "float", "UndercoolingChange", UndercoolingChange_WholeDomain);
+                auto UndercoolingChange_WholeDomain =
+                    collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
+                printViewData(id, Grainplot, grid, grid.nz_layer, "float", "UndercoolingChange",
+                              UndercoolingChange_WholeDomain);
             }
             if (id == 0)
                 Grainplot.close();
@@ -294,13 +296,16 @@ struct Print {
             }
             if (_inputs.PrintFinalUndercoolingChange) {
                 ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(0, grid.DomainSize, 0);
-                auto UndercoolingChange_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
-                printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "UndercoolingChange", UndercoolingChange_WholeDomain);
+                auto UndercoolingChange_WholeDomain =
+                    collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
+                printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "UndercoolingChange",
+                              UndercoolingChange_WholeDomain);
             }
             if (_inputs.PrintFinalUndercoolingCurrent) {
                 auto UndercoolingCurrent_WholeDomain =
                     collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, temperature.UndercoolingCurrent);
-                printViewData(id, GrainplotF, grid, grid.nz_layer, "float", "UndercoolingFinal", UndercoolingCurrent_WholeDomain);
+                printViewData(id, GrainplotF, grid, grid.nz_layer, "float", "UndercoolingFinal",
+                              UndercoolingCurrent_WholeDomain);
             }
             if (_inputs.PrintFinalCellType) {
                 auto CellType_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, CellType);
@@ -333,8 +338,8 @@ struct Print {
 
     // Called on rank 0 to write view data to the vtk file
     template <typename Print3DViewType>
-    void printViewData(int id, std::ofstream &Grainplot, Grid &grid, int ZPrintSize, std::string DataLabel, std::string VarNameLabel,
-                       Print3DViewType ViewData_WholeDomain) {
+    void printViewData(int id, std::ofstream &Grainplot, Grid &grid, int ZPrintSize, std::string DataLabel,
+                       std::string VarNameLabel, Print3DViewType ViewData_WholeDomain) {
         if (id != 0)
             return;
 

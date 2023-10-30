@@ -8,7 +8,6 @@
 
 #include "CAcelldata.hpp"
 #include "CAfunctions.hpp"
-#include "CAghostnodes.hpp"
 #include "CAgrid.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAprint.hpp"
@@ -19,17 +18,6 @@
 
 #include <string>
 
-void FillSteeringVector_NoRemelt(int cycle, Grid &grid, Temperature<device_memory_space> &temperature,
-                                 CellData<device_memory_space> &cellData, ViewI SteeringVector, ViewI numSteer,
-                                 ViewI_H numSteer_Host);
-void FillSteeringVector_Remelt(int cycle, Grid &grid, Temperature<device_memory_space> &temperature,
-                               CellData<device_memory_space> &cellData, ViewI SteeringVector, ViewI numSteer,
-                               ViewI_H numSteer_Host);
-void CellCapture(int, int np, int, Grid &grid, InterfacialResponseFunction irf, ViewF GrainUnitVector,
-                 ViewF CritDiagonalLength, ViewF DiagonalLength, CellData<device_memory_space> &cellData,
-                 Temperature<device_memory_space> &temperature, ViewF DOCenter, int NGrainOrientations,
-                 Buffer2D BufferNorthSend, Buffer2D BufferSouthSend, ViewI SendSizeNorth, ViewI SendSizeSouth,
-                 ViewI SteeringVector, ViewI numSteer, ViewI_H numSteer_Host, int &BufSize);
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
                   Temperature<device_memory_space> &temperature, Grid &grid, CellData<device_memory_space> &cellData,
                   int id, int layernumber, int np, ViewF GrainUnitVector, Print print, int NGrainOrientations);

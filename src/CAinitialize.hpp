@@ -19,8 +19,6 @@
 #include <vector>
 
 void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, Inputs &inputs);
-void ZeroResetViews(int LocalActiveDomainSize, ViewF &DiagonalLength, ViewF &CritDiagonalLength, ViewF &DOCenter,
-                    ViewI &SteeringVector);
 //*****************************************************************************/
 // Initialize grain orientations and unit vectors
 template <typename ViewTypeFloat>
