@@ -52,6 +52,14 @@ struct Grid {
     // Temperature inputs from file
     TemperatureInputs _t_inputs;
 
+    // Creates grid struct with uninitialized values, used in unit tests
+    Grid(int NumberOfLayers_temp = 1)
+        : ZMinLayer(ViewD_H(Kokkos::ViewAllocateWithoutInitializing("ZMinLayer"), NumberOfLayers_temp))
+        , ZMaxLayer(ViewD_H(Kokkos::ViewAllocateWithoutInitializing("ZMaxLayer"), NumberOfLayers_temp)) {
+        NumberOfLayers = NumberOfLayers_temp;
+    };
+
+    // Constructor for grid used in ExaCA
     Grid(std::string SimulationType, const int id, const int np, const int NumberOfLayers_temp, DomainInputs inputs,
          TemperatureInputs t_inputs)
         : ZMinLayer(ViewD_H(Kokkos::ViewAllocateWithoutInitializing("ZMinLayer"), NumberOfLayers_temp))

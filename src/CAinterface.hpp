@@ -12,6 +12,7 @@
 #include "CAgrid.hpp"
 #include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
+#include "CAtemperature.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
 
@@ -53,7 +54,7 @@ struct Interface {
     neighbor_list_type NeighborX, NeighborY, NeighborZ;
 
     // Constructor for views and view bounds for current layer
-    // Use default initialization to 0 for numSteer_host and numSteer
+    // Use default initialization to 0 for numSteer_host and numSteer and buffer counts
     Interface(int DomainSize, int BufSizeInitialEstimate = 25, int BufComponents_temp = 8)
         : DiagonalLength(view_type_float(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), DomainSize))
         , DOCenter(view_type_float(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * DomainSize))
@@ -67,12 +68,12 @@ struct Interface {
                                            BufSizeInitialEstimate, BufComponents_temp))
         , BufferNorthRecv(view_type_buffer(Kokkos::ViewAllocateWithoutInitializing("BufferNorthRecv"),
                                            BufSizeInitialEstimate, BufComponents_temp))
-        , SendSizeSouth(view_type_int(Kokkos::ViewAllocateWithoutInitializing("SendSizeSouth"), 1))
-        , SendSizeNorth(view_type_int(Kokkos::ViewAllocateWithoutInitializing("SendSizeNorth"), 1))
+        , SendSizeSouth(view_type_int("SendSizeSouth", 1))
+        , SendSizeNorth(view_type_int("SendSizeNorth", 1))
         , SteeringVector(view_type_int(Kokkos::ViewAllocateWithoutInitializing("SteeringVector"), DomainSize))
         , numSteer(view_type_int("SteeringVectorSize", 1))
-        , SendSizeSouth_Host(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("SendSizeSouth_Host"), 1))
-        , SendSizeNorth_Host(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("SendSizeNorth_Host"), 1))
+        , SendSizeSouth_Host(view_type_int_host("SendSizeSouth_Host", 1))
+        , SendSizeNorth_Host(view_type_int_host("SendSizeNorth_Host", 1))
         , numSteer_Host(view_type_int_host("SteeringVectorSize_Host", 1)) {
 
         // Set initial buffer size to the estimate

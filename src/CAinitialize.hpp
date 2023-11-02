@@ -18,8 +18,8 @@
 #include <string>
 #include <vector>
 
-void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, Inputs &inputs);
 //*****************************************************************************/
+// TODO: Turn into an orientation struct used by ExaCA and the analysis routine
 // Initialize grain orientations and unit vectors
 template <typename ViewTypeFloat>
 void OrientationInit(int, int &NGrainOrientations, ViewTypeFloat &GrainOrientationData,

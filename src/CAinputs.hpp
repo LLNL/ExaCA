@@ -451,6 +451,24 @@ struct Inputs {
             std::cout << "Successfully parsed data printing options from input file" << std::endl;
     }
 
+    // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
+    // TODO: Expand check that inputs are valid for the problem type
+    void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers) {
+        // Check to make sure powder grain density is compatible with the number of powder sites
+        // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur
+        // when assigning powder layer GrainIDs
+        if (!(substrate.BaseplateThroughPowder)) {
+            long int NumCellsPowderLayers =
+                (long int)(nx) * (long int)(ny) * (long int)(LayerHeight) * (long int)(NumberOfLayers - 1);
+            long int NumAssignedCellsPowderLayers =
+                std::lround(round(static_cast<double>(NumCellsPowderLayers) * substrate.PowderActiveFraction));
+            if (NumAssignedCellsPowderLayers > INT_MAX)
+                throw std::runtime_error(
+                    "Error: A smaller value for powder density is required to avoid potential integer "
+                    "overflow when assigning powder layer GrainID");
+        }
+    }
+
     // Print a log file for this ExaCA run in json file format, containing information about the run parameters used
     // from the input file as well as the decomposition scheme
     // Note: Passing external values for inputs like deltax that will later be stored in the grid class, with the grid

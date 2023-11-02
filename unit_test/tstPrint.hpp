@@ -5,8 +5,11 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "CAgrid.hpp"
 #include "CAprint.hpp"
 #include "CAtypes.hpp"
+
+#include "mpi.h"
 
 #include <gtest/gtest.h>
 
@@ -19,22 +22,23 @@ namespace Test {
 void testPrintExaConstitDefaultRVE() {
 
     // Create test grid - set up so that the RVE is 5 cells in X, Y, and Z
-    int nx = 10;
-    int ny = 10;
-    int ny_local = 10;
-    int y_offset = 0;
-    int nz = 10;
-    int NumberOfLayers = 10;
-    double deltax = 0.0001; // in meters
+    int NumberOfLayers_temp = 10;
+    Grid grid(NumberOfLayers_temp);
+    grid.nx = 10;
+    grid.ny = 10;
+    grid.ny_local = 10;
+    grid.y_offset = 0;
+    grid.nz = 10;
+    grid.deltax = 0.0001; // in meters
 
     // default inputs struct - manually set non-default substrateInputs values
     Inputs inputs;
     inputs.print.PrintDefaultRVE = true;
-    inputs.print.RVESize = 0.0005 / deltax;
+    inputs.print.RVESize = 0.0005 / grid.deltax;
     // File name/path for test RVE output
     inputs.print.BaseFileName = "TestRVE";
     // Initialize printing struct from inputs
-    Print print(nx, ny, nz, ny_local, y_offset, 1, inputs.print);
+    Print print(grid, 1, inputs.print);
 
     // Check that inputs in print struct match the initialization from inputs
     EXPECT_TRUE(print._inputs.PrintDefaultRVE);
@@ -42,11 +46,13 @@ void testPrintExaConstitDefaultRVE() {
     EXPECT_EQ(inputs.print.BaseFileName, print._inputs.BaseFileName);
 
     // Create test data
-    ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), nz, nx, ny);
-    ViewI3D_H LayerID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("LayerID_WholeDomain"), nz, nx, ny);
-    for (int k = 0; k < nz; k++) {
-        for (int j = 0; j < ny; j++) {
-            for (int i = 0; i < nx; i++) {
+    ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), grid.nz, grid.nx,
+                                  grid.ny);
+    ViewS3D_H LayerID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("LayerID_WholeDomain"), grid.nz, grid.nx,
+                                  grid.ny);
+    for (int k = 0; k < grid.nz; k++) {
+        for (int j = 0; j < grid.ny; j++) {
+            for (int i = 0; i < grid.nx; i++) {
                 LayerID_WholeDomain(k, i, j) = k;
                 GrainID_WholeDomain(k, i, j) = i + j;
             }
@@ -54,7 +60,7 @@ void testPrintExaConstitDefaultRVE() {
     }
 
     // Print RVE
-    print.printExaConstitDefaultRVE(nx, ny, nz, LayerID_WholeDomain, GrainID_WholeDomain, deltax, NumberOfLayers);
+    print.printExaConstitDefaultRVE(grid, LayerID_WholeDomain, GrainID_WholeDomain);
 
     // Check printed RVE
     std::ifstream GrainplotE;

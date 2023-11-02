@@ -479,27 +479,32 @@ struct CellData {
                       << grid.nx * grid.ny * PowderLayerHeight << " cells)" << std::endl;
 
         int PowderStart = grid.nx * grid.ny * PowderBottomZ;
-        int PowderEnd = grid.nx * grid.ny * PowderTopZ;
         if (id == 0)
             std::cout << "Powder layer has " << PowderLayerAssignedCells
                       << " cells assigned new grain ID values, ranging from " << NextLayer_FirstEpitaxialGrainID
                       << " through " << NextLayer_FirstEpitaxialGrainID + PowderLayerAssignedCells - 1 << std::endl;
-        auto GrainID_AllLayers_local = GrainID_AllLayers;
 
-        auto policy = Kokkos::RangePolicy<execution_space>(PowderStart, PowderEnd);
+        // Iterate over all cells in the powder layer, on each rank loading the powder grain ID data for local cell
+        // locations
+        auto GrainID_AllLayers_local = GrainID_AllLayers;
+        auto powder_policy =
+            Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
+                {PowderBottomZ, 0, 0}, {PowderTopZ, grid.nx, grid.ny});
         Kokkos::parallel_for(
-            "PowderGrainInit", policy, KOKKOS_LAMBDA(const int &index_global_AllLayers) {
-                int coord_z_AllLayers = grid.getCoordZ(index_global_AllLayers);
-                int coord_y_global = grid.getCoordY(index_global_AllLayers);
-                int coord_y = coord_y_global - grid.y_offset;
-                int coord_x = grid.getCoordX(index_global_AllLayers);
-                int index_AllLayers = grid.get1Dindex(coord_x, coord_y, coord_z_AllLayers);
+            "PowderGrainInit", powder_policy,
+            KOKKOS_LAMBDA(const int coord_z_AllLayers, const int coord_x, const int coord_y_global) {
                 // Is this powder coordinate in X and Y in bounds for this rank? Is the grain id of this site unassigned
                 // (wasn't captured during solidification of the previous layer)?
-                if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local) &&
-                    (GrainID_AllLayers_local(index_AllLayers) == 0))
-                    GrainID_AllLayers_local(index_AllLayers) =
-                        PowderGrainIDs_Device(index_global_AllLayers - PowderStart);
+                if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
+                    int coord_y = coord_y_global - grid.y_offset;
+                    int index_AllLayers = grid.get1Dindex(coord_x, coord_y, coord_z_AllLayers);
+                    if (GrainID_AllLayers_local(index_AllLayers) == 0) {
+                        int index_AllRanksAllLayers =
+                            coord_z_AllLayers * grid.nx * grid.ny + coord_x * grid.ny + coord_y_global;
+                        GrainID_AllLayers_local(index_AllLayers) =
+                            PowderGrainIDs_Device(index_AllRanksAllLayers - PowderStart);
+                    }
+                }
             });
         Kokkos::fence();
 

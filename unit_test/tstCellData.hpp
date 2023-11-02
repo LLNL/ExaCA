@@ -7,6 +7,7 @@
 
 #include "CAcelldata.hpp"
 #include "CAfunctions.hpp"
+#include "CAgrid.hpp"
 #include "CAinitialize.hpp"
 #include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
@@ -34,44 +35,38 @@ void testCellDataInit_SingleGrain() {
     // Get individual process ID
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
+    // Default initialized inputs
+    Inputs inputs;
     // Let overall domain be 5 cells in X and Z, 50 cells in Y
     // This should in turn place the single grain in the cell at X = Y = 2 and Z = 24 (domain center)
     // Domain for each rank
-    int nx = 5;
-    int ny = 50;
-    int nz = 5;
-    int expectedGrainX = floorf(static_cast<float>(nx) / 2.0);
-    int expectedGrainY = floorf(static_cast<float>(ny) / 2.0);
-    int expectedGrainZ = floorf(static_cast<float>(nz) / 2.0);
+    inputs.domain.nx = 5;
+    inputs.domain.ny = 50;
+    inputs.domain.nz = 5;
+    int expectedGrainX = floorf(static_cast<float>(inputs.domain.nx) / 2.0);
+    int expectedGrainY = floorf(static_cast<float>(inputs.domain.ny) / 2.0);
+    int expectedGrainZ = floorf(static_cast<float>(inputs.domain.nz) / 2.0);
 
-    // Decompose domain
-    int y_offset, ny_local, NeighborRank_North, NeighborRank_South;
-    int DomainSize;
-    bool AtNorthBoundary, AtSouthBoundary;
-    DomainDecomposition(id, np, ny_local, y_offset, NeighborRank_North, NeighborRank_South, nx, ny, nz, DomainSize,
-                        AtNorthBoundary, AtSouthBoundary);
-
-    // default inputs struct
-    Inputs inputs;
+    // Set up grid and decompose domain
+    Grid grid("SingleGrain", id, np, 1, inputs.domain, inputs.temperature);
 
     // Cell data struct
-    CellData<memory_space> cellData(DomainSize, DomainSize, nx, ny_local, 0, inputs.substrate);
+    CellData<memory_space> cellData(grid.DomainSize, inputs.substrate);
 
     // Check that default substrate single grain orientation was set
     EXPECT_DOUBLE_EQ(inputs.substrate.singleGrainOrientation, cellData._inputs.singleGrainOrientation);
 
     // Init grain
-    cellData.init_substrate(id, nx, ny, nz, ny_local, y_offset, DomainSize);
-
+    cellData.init_substrate(id, grid);
     // Copy cell type and grain ID back to host to check if the values match - only 1 cell should've been assigned type
     // active and GrainID = 1 (though it may be duplicated in the ghost nodes of other ranks)
     auto GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
     auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
-    for (int coord_z = 0; coord_z < nz; coord_z++) {
-        for (int coord_x = 0; coord_x < nx; coord_x++) {
-            for (int coord_y = 0; coord_y < ny_local; coord_y++) {
-                int coord_y_global = coord_y + y_offset;
-                int coord_1d = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
+    for (int coord_z = 0; coord_z < grid.nz; coord_z++) {
+        for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
+            for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
+                int coord_y_global = coord_y + grid.y_offset;
+                int coord_1d = grid.get1Dindex(coord_x, coord_y, coord_z);
                 if ((coord_z == expectedGrainZ) && (coord_x == expectedGrainX) && (coord_y_global == expectedGrainY)) {
                     EXPECT_EQ(GrainID_Host(coord_1d), cellData._inputs.singleGrainOrientation + 1);
                     EXPECT_EQ(CellType_Host(coord_1d), FutureActive);
@@ -85,7 +80,7 @@ void testCellDataInit_SingleGrain() {
     }
 }
 
-void testCellDataInit_ConstrainedGrowth() {
+void testCellDataInit_ConstrainedGrowthMultiGrain() {
 
     using memory_space = TEST_MEMSPACE;
 
@@ -95,38 +90,38 @@ void testCellDataInit_ConstrainedGrowth() {
     // Get individual process ID
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
+    // Empty inputs and grid struct
+    Inputs inputs;
+    Grid grid;
     // Create test data
-    int nz = 2;
-    int z_layer_bottom = 0;
-    int nz_layer = 2;
-    int nx = 1;
-    double deltax = 1 * pow(10, -6);
-    double *ZMaxLayer = new double[1];
-    ZMaxLayer[0] = (nz - 1) * deltax;
+    grid.nz = 2;
+    grid.z_layer_bottom = 0;
+    grid.nz_layer = 2;
+    grid.nx = 1;
+    grid.deltax = 1 * pow(10, -6);
+    grid.ZMaxLayer(0) = (grid.nz - 1) * grid.deltax;
     // Domain size in Y depends on the number of ranks - each rank has 4 cells in Y
     // Each rank is assigned a different portion of the domain in Y
-    int ny = 4 * np;
-    int ny_local = 4;
-    int y_offset = 4 * id;
-    int DomainSize = nx * ny_local * nz_layer;
-    int DomainSize_AllLayers = nx * ny_local * nz;
+    grid.ny = 4 * np;
+    grid.ny_local = 4;
+    grid.y_offset = 4 * id;
+    grid.DomainSize = grid.nx * grid.ny_local * grid.nz_layer;
+    grid.DomainSize_AllLayers = grid.nx * grid.ny_local * grid.nz;
 
-    // Empty inputs struct
-    Inputs inputs;
     // Set fract surface cells active to 0.5
     inputs.substrate.FractSurfaceSitesActive = 0.5;
     // Construct celldata struct
-    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom, inputs.substrate);
+    CellData<memory_space> cellData(grid.DomainSize, inputs.substrate);
     // Check appropriate initialization of celldata input
     EXPECT_DOUBLE_EQ(inputs.substrate.FractSurfaceSitesActive, cellData._inputs.FractSurfaceSitesActive);
     // Initialize substrate grains
-    cellData.init_substrate(id, ny_local, nx, ny, y_offset, inputs.RNGSeed);
+    cellData.init_substrate(id, grid, inputs.RNGSeed);
     // Copy CellType, GrainID views to host to check values
     auto CellType_AllLayers_Host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
     auto GrainID_AllLayers_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
-    for (int index = 0; index < DomainSize; index++) {
-        if (index >= nx * ny_local) {
+    for (int index = 0; index < grid.DomainSize; index++) {
+        if (index >= grid.nx * grid.ny_local) {
             // Not at bottom surface - should be liquid cells with GrainID still equal to 0
             EXPECT_EQ(GrainID_AllLayers_Host(index), 0);
             EXPECT_EQ(CellType_AllLayers_Host(index), Liquid);
@@ -158,25 +153,16 @@ void testCellDataInit_ConstrainedGrowthTwoGrain() {
 
     // Inputs struct data from TwoGrainDirS example
     Inputs inputs(id, "Inp_TwoGrainDirSolidification.json");
-    int nx = inputs.domain.nx;
-    int ny = inputs.domain.ny;
-    int nz = inputs.domain.nz;
-    int z_layer_bottom = 0;
 
-    // TODO: Replace with grid struct in future
     // Domain size in Y depends on the number of ranks - each rank has 4 cells in Y
     // Each rank is assigned a different portion of the domain in Y
-    int ny_local, y_offset, DomainSize_AllLayers, NeighborRank_North, NeighborRank_South;
-    bool AtNorthBoundary, AtSouthBoundary;
-    DomainDecomposition(id, np, ny_local, y_offset, NeighborRank_North, NeighborRank_South, nx, ny, nz,
-                        DomainSize_AllLayers, AtNorthBoundary, AtSouthBoundary);
-    int DomainSize = DomainSize_AllLayers;
+    Grid grid("C", id, np, 1, inputs.domain, inputs.temperature);
 
     // Construct celldata struct
-    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom, inputs.substrate);
+    CellData<memory_space> cellData(grid.DomainSize_AllLayers, inputs.substrate);
 
     // Place substrate grains
-    cellData.init_substrate(id, ny_local, nx, ny, y_offset, 0.0);
+    cellData.init_substrate(id, grid, 0.0);
 
     // Copy CellType, GrainID views to host to check values
     auto CellType_AllLayers_Host =
@@ -184,10 +170,10 @@ void testCellDataInit_ConstrainedGrowthTwoGrain() {
     auto GrainID_AllLayers_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
     // Bottom surface (Z = 0): Check that the two FutureActive cells are in the right locations on the bottom surface,
     // and have the right grain IDs. Otherwise, cells are liquid and have GrainID still equal to 0
-    for (int coord_x = 0; coord_x < nx; coord_x++) {
-        for (int coord_y_local = 0; coord_y_local < ny_local; coord_y_local++) {
-            int index = get1Dindex(coord_x, coord_y_local, 0, nx, ny_local);
-            int coord_y_global = coord_y_local + y_offset;
+    for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
+        for (int coord_y_local = 0; coord_y_local < grid.ny_local; coord_y_local++) {
+            int index = grid.get1Dindex(coord_x, coord_y_local, 0);
+            int coord_y_global = coord_y_local + grid.y_offset;
             if ((coord_x == 100) && (coord_y_global == 50)) {
                 EXPECT_EQ(GrainID_AllLayers_Host(index), 25);
                 EXPECT_EQ(CellType_AllLayers_Host(index), FutureActive);
@@ -203,66 +189,67 @@ void testCellDataInit_ConstrainedGrowthTwoGrain() {
         }
     }
     // Cells at Z > 0: should be liquid cells with GrainID still equal to 0
-    for (int index = nx * ny; index < DomainSize; index++) {
+    for (int index = grid.nx * grid.ny; index < grid.DomainSize; index++) {
         EXPECT_EQ(GrainID_AllLayers_Host(index), 0);
         EXPECT_EQ(CellType_AllLayers_Host(index), Liquid);
     }
 }
 
+// Tests substrate init for baseplate and init_next_layer
 void testCellDataInit(bool PowderFirstLayer) {
 
     using memory_space = TEST_MEMSPACE;
     using view_int = Kokkos::View<int *, memory_space>;
-    using view_float = Kokkos::View<float *, memory_space>;
 
     int id, np;
     // Get number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &np);
     // Get individual process ID
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    // Empty inputs and grid struct for initialization of a problem with 3 layers
+    Inputs inputs;
+    Grid grid(3);
+
     // Create test data - 3 layers, starting on layer 0
-    double deltax = 1 * pow(10, -6);
-    int nz = 5;
-    double ZMinLayer[3];
-    double ZMaxLayer[3];
+    grid.deltax = 1 * pow(10, -6);
+    grid.nz = 5;
 
     // First layer: Z = 0 through 2
-    int nz_layer = 3;
-    int z_layer_bottom = 0;
-    ZMinLayer[0] = 0;
-    ZMaxLayer[0] = 2 * deltax;
-    double ZMin = ZMinLayer[0];
+    grid.nz_layer = 3;
+    grid.z_layer_bottom = 0;
+    grid.ZMinLayer(0) = 0;
+    grid.ZMaxLayer(0) = 2 * grid.deltax;
+    grid.ZMin = grid.ZMinLayer(0);
     // Second layer: Z = 1 through 3
-    ZMinLayer[1] = 1 * deltax;
-    ZMaxLayer[1] = 3 * deltax;
+    grid.ZMinLayer(1) = 1 * grid.deltax;
+    grid.ZMaxLayer(1) = 3 * grid.deltax;
     // Third layer: Z = 2 through 4
-    ZMinLayer[2] = 2 * deltax;
-    ZMaxLayer[2] = 4 * deltax;
+    grid.ZMinLayer(2) = 2 * grid.deltax;
+    grid.ZMaxLayer(2) = 4 * grid.deltax;
 
-    int nx = 3;
+    grid.nx = 3;
     // Each rank is assigned a different portion of the domain in Y
-    int ny = 3 * np;
-    int ny_local = 3;
-    int y_offset = 3 * id;
+    grid.ny = 3 * np;
+    grid.ny_local = 3;
+    grid.y_offset = 3 * id;
+    grid.DomainSize = grid.nx * grid.ny_local * grid.nz_layer;
+    grid.DomainSize_AllLayers = grid.nx * grid.ny_local * grid.nz;
 
     // If there is a powder layer, the baseplate should be Z = 0 through 1 w/ powder for the top row of cells, otherwise
     // it should be 0 through 2
     // If there is no powder layer, the baseplate should be Z = 0 through 2 with no powder
-    // Empty inputs struct with default values - manually set non-default substrate values
-    Inputs inputs;
+    // Manually set non-default substrate values from inputs
     int BaseplateSize, ExpectedNumPowderGrainsPerLayer;
     if (PowderFirstLayer) {
-        inputs.substrate.BaseplateTopZ = deltax;
-        BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax));
-        ExpectedNumPowderGrainsPerLayer = nx * ny_local * np;
+        inputs.substrate.BaseplateTopZ = grid.deltax;
+        BaseplateSize = grid.nx * grid.ny_local * (round((grid.ZMaxLayer(0) - grid.ZMin) / grid.deltax));
+        ExpectedNumPowderGrainsPerLayer = grid.nx * grid.ny_local * np;
     }
     else {
-        inputs.substrate.BaseplateTopZ = 2 * deltax;
-        BaseplateSize = nx * ny_local * (round((ZMaxLayer[0] - ZMin) / deltax) + 1);
+        inputs.substrate.BaseplateTopZ = 2 * grid.deltax;
+        BaseplateSize = grid.nx * grid.ny_local * (round((grid.ZMaxLayer(0) - grid.ZMin) / grid.deltax) + 1);
         ExpectedNumPowderGrainsPerLayer = 0;
     }
-    int DomainSize = nx * ny_local * nz_layer;
-    int DomainSize_AllLayers = nx * ny_local * nz;
     // There are 45 * np total cells in this domain (nx * ny * nz)
     // Each rank has 45 cells - the bottom 27 cells are assigned baseplate Grain ID values, unless the powder layer of
     // height 1 is used, in which case only the bottom 18 cells should be assigned baseplate Grain ID values. The top
@@ -275,21 +262,13 @@ void testCellDataInit(bool PowderFirstLayer) {
         inputs.substrate.SubstrateGrainSpacing = 3.0;
     inputs.RNGSeed = 0.0;
 
-    // unused views in constructor
-    NList NeighborX, NeighborY, NeighborZ;
-    NeighborListInit(NeighborX, NeighborY, NeighborZ);
-    view_float GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 0);
-    view_float DiagonalLength(Kokkos::ViewAllocateWithoutInitializing("DiagonalLength"), 0);
-    view_float DOCenter(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 0);
-    view_float CritDiagonalLength(Kokkos::ViewAllocateWithoutInitializing("CritDiagonalLength"), 0);
-
     // Create dummy temperature data
     view_int NumberOfSolidificationEvents(Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents"),
-                                          DomainSize);
+                                          grid.DomainSize);
     Kokkos::parallel_for(
-        "InitTestTemperatureData", DomainSize, KOKKOS_LAMBDA(const int &index) {
-            int coord_x = getCoordX(index, nx, ny_local);
-            int coord_y = getCoordY(index, nx, ny_local);
+        "InitTestTemperatureData", grid.DomainSize, KOKKOS_LAMBDA(const int &index) {
+            int coord_x = grid.getCoordX(index);
+            int coord_y = grid.getCoordY(index);
             // Assign some of these a value of 0 (these will be solid cells), and others a positive value
             // (these will be tempsolid cells)
             if (coord_x + coord_y % 2 == 0)
@@ -300,7 +279,7 @@ void testCellDataInit(bool PowderFirstLayer) {
     Kokkos::fence();
 
     // Call constructor
-    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom, inputs.substrate);
+    CellData<memory_space> cellData(grid.DomainSize_AllLayers, inputs.substrate);
     // Check that substrate inputs were copied from inputs struct correctly
     EXPECT_DOUBLE_EQ(inputs.substrate.BaseplateTopZ, cellData._inputs.BaseplateTopZ);
     EXPECT_DOUBLE_EQ(inputs.substrate.SubstrateGrainSpacing, cellData._inputs.SubstrateGrainSpacing);
@@ -308,8 +287,7 @@ void testCellDataInit(bool PowderFirstLayer) {
     EXPECT_FALSE(cellData._inputs.BaseplateThroughPowder);
     EXPECT_DOUBLE_EQ(cellData._inputs.PowderActiveFraction, 1.0);
     // Initialize baseplate grain structure
-    cellData.init_substrate(nx, ny, nz, DomainSize, ZMaxLayer, ZMin, deltax, ny_local, y_offset, z_layer_bottom, id,
-                            inputs.RNGSeed, NumberOfSolidificationEvents);
+    cellData.init_substrate(id, grid, inputs.RNGSeed, NumberOfSolidificationEvents);
 
     // Copy GrainID results back to host to check first layer's initialization
     auto GrainID_AllLayers_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
@@ -325,8 +303,8 @@ void testCellDataInit(bool PowderFirstLayer) {
         // NextLayer_FirstEpitaxialGrainID
         EXPECT_EQ(cellData.NextLayer_FirstEpitaxialGrainID, np + 1 + ExpectedNumPowderGrainsPerLayer);
         // Powder should only exist at cells corresponding to Z = 2
-        int BottomPowderLayer = nx * ny_local * 2;
-        int TopPowderLayer = nx * ny_local * 3;
+        int BottomPowderLayer = grid.nx * grid.ny_local * 2;
+        int TopPowderLayer = grid.nx * grid.ny_local * 3;
         for (int i = BottomPowderLayer; i < TopPowderLayer; i++) {
             EXPECT_GT(GrainID_AllLayers_H(i), 0);
             EXPECT_LT(GrainID_AllLayers_H(i), cellData.NextLayer_FirstEpitaxialGrainID);
@@ -341,9 +319,9 @@ void testCellDataInit(bool PowderFirstLayer) {
     // Copy cell types back to host to check
     auto CellType_AllLayers_Host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
-    for (int index = 0; index < DomainSize; index++) {
-        int coord_x = getCoordX(index, nx, ny_local);
-        int coord_y = getCoordY(index, nx, ny_local);
+    for (int index = 0; index < grid.DomainSize; index++) {
+        int coord_x = grid.getCoordX(index);
+        int coord_y = grid.getCoordY(index);
         // Cells with no associated solidification events should be solid, others TempSolid
         if (coord_x + coord_y % 2 == 0)
             EXPECT_EQ(CellType_AllLayers_Host(index), Solid);
@@ -351,11 +329,10 @@ void testCellDataInit(bool PowderFirstLayer) {
             EXPECT_EQ(CellType_AllLayers_Host(index), TempSolid);
     }
     int PreviousLayer_FirstEpitaxialGrainID = cellData.NextLayer_FirstEpitaxialGrainID;
-    z_layer_bottom = 1;
     // Initialize the next layer using the same time-temperature history - powder should span cells at Z = 3
-    ExpectedNumPowderGrainsPerLayer = nx * ny_local * np;
-    cellData.init_next_layer(1, id, nx, ny, ny_local, y_offset, z_layer_bottom, DomainSize, inputs.RNGSeed, ZMin,
-                             ZMaxLayer, deltax, NumberOfSolidificationEvents);
+    ExpectedNumPowderGrainsPerLayer = grid.nx * grid.ny_local * np;
+    grid.init_next_layer(id, "R", 1, inputs.domain.SpotRadius);
+    cellData.init_next_layer(1, id, grid, inputs.RNGSeed, NumberOfSolidificationEvents);
 
     // Copy all grain IDs for all layers back to the host to check that they match
     // and that the powder layer was initialized correctly
@@ -367,27 +344,27 @@ void testCellDataInit(bool PowderFirstLayer) {
 
     // Powder grains should have unique Grain ID values between PreviousLayer_FirstEpitaxialGrainID and
     // NextLayer_FirstEpitaxialGrainID - 1
-    int BottomPowderLayer = nx * ny_local * 3;
-    int TopPowderLayer = nx * ny_local * 4;
+    int BottomPowderLayer = grid.nx * grid.ny_local * 3;
+    int TopPowderLayer = grid.nx * grid.ny_local * 4;
     for (int index_AllLayers = BottomPowderLayer; index_AllLayers < TopPowderLayer; index_AllLayers++) {
         EXPECT_GT(GrainID_AllLayers_H(index_AllLayers), PreviousLayer_FirstEpitaxialGrainID - 1);
         EXPECT_LT(GrainID_AllLayers_H(index_AllLayers), cellData.NextLayer_FirstEpitaxialGrainID);
     }
 
     // Subview grain IDs should match the grain IDs overall
-    auto GrainID = cellData.getGrainIDSubview();
+    auto GrainID = cellData.getGrainIDSubview(grid);
     auto GrainID_H = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
-    for (int index = 0; index < DomainSize; index++) {
-        int index_AllLayers = index + z_layer_bottom * nx * ny_local;
+    for (int index = 0; index < grid.DomainSize; index++) {
+        int index_AllLayers = index + grid.z_layer_bottom * grid.nx * grid.ny_local;
         EXPECT_EQ(GrainID_H(index), GrainID_AllLayers_H(index_AllLayers));
     }
 
     // Copy cell types back to host to check - should be the same as the previous layer as the same time-temperature
     // history was used
     CellType_AllLayers_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
-    for (int index = 0; index < DomainSize; index++) {
-        int coord_x = getCoordX(index, nx, ny_local);
-        int coord_y = getCoordY(index, nx, ny_local);
+    for (int index = 0; index < grid.DomainSize; index++) {
+        int coord_x = grid.getCoordX(index);
+        int coord_y = grid.getCoordY(index);
         // Cells with no associated solidification events should be solid, others TempSolid
         if (coord_x + coord_y % 2 == 0)
             EXPECT_EQ(CellType_AllLayers_Host(index), Solid);
@@ -395,15 +372,73 @@ void testCellDataInit(bool PowderFirstLayer) {
             EXPECT_EQ(CellType_AllLayers_Host(index), TempSolid);
     }
 }
+
+void testcalcVolFractionNucleated() {
+
+    using memory_space = TEST_MEMSPACE;
+    using execution_space = typename memory_space::execution_space;
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    // Empty inputs struct
+    Inputs inputs;
+    // Empty grid struct to be filled manually
+    Grid grid;
+    // Get neighbor rank process IDs
+    if (id == np - 1)
+        grid.AtNorthBoundary = true;
+    else
+        grid.AtNorthBoundary = false;
+    if (id == 0)
+        grid.AtSouthBoundary = true;
+    else
+        grid.AtSouthBoundary = false;
+
+    // Simulation domain
+    grid.nx = 3;
+    grid.ny_local = 3;
+    grid.nz = 3;
+    grid.DomainSize = grid.nx * grid.ny_local * grid.nz;
+    grid.DomainSize_AllLayers = grid.DomainSize;
+    // Let all cells except those at Z = 0 have undergone solidification
+    // Let the cells at Z = 1 consist of positive grain IDs, and those at Z = 2 of negative grain IDs
+    CellData<memory_space> cellData(grid.DomainSize_AllLayers, inputs.substrate);
+    ViewI_H GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID"), grid.DomainSize_AllLayers);
+    ViewS_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID"), grid.DomainSize_AllLayers);
+    auto md_policy =
+        Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
+            {0, 0, 0}, {grid.nz, grid.nx, grid.ny_local});
+    Kokkos::parallel_for(
+        "VolFractNucleatedInit", md_policy, KOKKOS_LAMBDA(const int coord_z, const int coord_x, const int coord_y) {
+            int index = grid.get1Dindex(coord_x, coord_y, coord_z);
+            if (coord_z == 0)
+                cellData.LayerID_AllLayers(index) = -1;
+            else
+                cellData.LayerID_AllLayers(index) = 0;
+            if (coord_z == 2)
+                cellData.GrainID_AllLayers(index) = -1;
+            else
+                cellData.GrainID_AllLayers(index) = 1;
+        });
+    // Perform calculation and compare to expected value (half of the solidified portion of the domain should consist of
+    // nucleated grains, regardless of the number of MPI ranks used)
+    float VolFractionNucleated = cellData.calcVolFractionNucleated(id, grid);
+    EXPECT_FLOAT_EQ(VolFractionNucleated, 0.5);
+}
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, cell_init_tests) {
     testCellDataInit_SingleGrain();
-    testCellDataInit_ConstrainedGrowth();
+    testCellDataInit_ConstrainedGrowthMultiGrain();
     testCellDataInit_ConstrainedGrowthTwoGrain();
     // For non-constrained solidification problems, test w/ and w/o space left for powder layer
     testCellDataInit(true);
     testCellDataInit(false);
+    testcalcVolFractionNucleated();
 }
 } // end namespace Test

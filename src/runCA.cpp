@@ -29,9 +29,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     InterfacialResponseFunction irf(id, inputs.MaterialFileName, inputs.domain.deltat, grid.deltax);
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
-    // TODO: Move to input struct and expand to check that inputs are valid for the problem type
     if ((simulation_type == "R") || (simulation_type == "S"))
-        checkPowderOverflow(grid.nx, grid.ny, grid.LayerHeight, grid.NumberOfLayers, inputs);
+        inputs.checkPowderOverflow(grid.nx, grid.ny, grid.LayerHeight, grid.NumberOfLayers);
 
     // Temperature fields characterized by data in this structure
     Temperature<device_memory_space> temperature(grid.DomainSize, grid.NumberOfLayers, inputs.temperature);
