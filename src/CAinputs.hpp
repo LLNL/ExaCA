@@ -257,12 +257,14 @@ struct Inputs {
             bool contains_GrainIDs = inputdata["Substrate"].contains("GrainIDs");
             bool contains_CustomGrainInitInfo =
                 contains_GrainLocationsX && contains_GrainLocationsY && contains_GrainIDs;
-            if ((contains_FractionSurfaceSitesActive) &&
-                (contains_GrainLocationsX || contains_GrainLocationsY || contains_GrainIDs))
-                throw std::runtime_error(
-                    "Error: Cannot have input FractionSurfaceSitesActive if grain locations and IDs are given");
-            if (contains_FractionSurfaceSitesActive)
-                substrate.FractSurfaceSitesActive = inputdata["Substrate"]["FractionSurfaceSitesActive"];
+            if (contains_FractionSurfaceSitesActive) {
+                if ((id == 0) && (contains_CustomGrainInitInfo))
+                    std::cout << "Warning: FractionSurfaceSitesActive will be ignored as explicit grain locations and "
+                                 "IDs are given in the input file"
+                              << std::endl;
+                else
+                    substrate.FractSurfaceSitesActive = inputdata["Substrate"]["FractionSurfaceSitesActive"];
+            }
             else if (contains_CustomGrainInitInfo) {
                 // Ensure the number of grains is consistent
                 std::size_t numGrains = inputdata["Substrate"]["GrainLocationsX"].size();
