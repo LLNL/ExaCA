@@ -187,8 +187,8 @@ void testInputs(int PrintVersion) {
             EXPECT_EQ(inputs.domain.LayerHeight, 20);
             EXPECT_FALSE(inputs.substrate.UseSubstrateFile);
             EXPECT_FALSE(inputs.substrate.BaseplateThroughPowder);
-            // Option defaults to 0.0
-            EXPECT_DOUBLE_EQ(inputs.substrate.BaseplateTopZ, 0.0);
+            // For spot melt array, this is the top of first layer
+            EXPECT_DOUBLE_EQ(inputs.substrate.BaseplateTopZ, inputs.domain.deltax * inputs.domain.SpotRadius);
             EXPECT_FLOAT_EQ(inputs.substrate.SubstrateGrainSpacing, 25.0);
             EXPECT_TRUE(inputs.print.BaseFileName == "TestProblemSpot");
             EXPECT_TRUE(inputs.print.PrintInitCritTimeStep);

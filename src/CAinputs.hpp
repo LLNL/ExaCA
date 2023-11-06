@@ -286,6 +286,10 @@ struct Inputs {
             // file)
             if (inputdata["Substrate"].contains("BaseplateTopZ"))
                 substrate.BaseplateTopZ = inputdata["Substrate"]["BaseplateTopZ"];
+            else if (SimulationType == "S") {
+                // Baseplate top if not otherwise given for spot array problem is at the top of the first layer
+                substrate.BaseplateTopZ = domain.deltax * domain.SpotRadius;
+            }
             if ((substrate.BaseplateThroughPowder) && (inputdata["Substrate"].contains("PowderDensity")))
                 throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers is "
                                          "toggled, a powder layer density cannot be given");
