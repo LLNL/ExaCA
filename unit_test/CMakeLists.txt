@@ -7,6 +7,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SmallDirSolidificatio
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_SmallDirSolidification.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_DirSolidification.json
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_DirSolidification.json COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_TwoGrainDirSolidification.json
+  ${CMAKE_CURRENT_BINARY_DIR}/Inp_TwoGrainDirSolidification.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SpotMelt.json
   ${CMAKE_CURRENT_BINARY_DIR}/Inp_SpotMelt.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Inp_SmallEquiaxedGrain.json

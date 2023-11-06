@@ -146,6 +146,69 @@ void testCellDataInit_ConstrainedGrowth() {
     }
 }
 
+void testCellDataInit_ConstrainedGrowthTwoGrain() {
+
+    using memory_space = TEST_MEMSPACE;
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    // Inputs struct data from TwoGrainDirS example
+    Inputs inputs(id, "Inp_TwoGrainDirSolidification.json");
+    int nx = inputs.domain.nx;
+    int ny = inputs.domain.ny;
+    int nz = inputs.domain.nz;
+    int z_layer_bottom = 0;
+
+    // TODO: Replace with grid struct in future
+    // Domain size in Y depends on the number of ranks - each rank has 4 cells in Y
+    // Each rank is assigned a different portion of the domain in Y
+    int ny_local, y_offset, DomainSize_AllLayers, NeighborRank_North, NeighborRank_South;
+    bool AtNorthBoundary, AtSouthBoundary;
+    DomainDecomposition(id, np, ny_local, y_offset, NeighborRank_North, NeighborRank_South, nx, ny, nz,
+                        DomainSize_AllLayers, AtNorthBoundary, AtSouthBoundary);
+    int DomainSize = DomainSize_AllLayers;
+
+    // Construct celldata struct
+    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom, inputs.substrate);
+
+    // Place substrate grains
+    cellData.init_substrate(id, ny_local, nx, ny, y_offset, 0.0);
+
+    // Copy CellType, GrainID views to host to check values
+    auto CellType_AllLayers_Host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType_AllLayers);
+    auto GrainID_AllLayers_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.GrainID_AllLayers);
+    // Bottom surface (Z = 0): Check that the two FutureActive cells are in the right locations on the bottom surface,
+    // and have the right grain IDs. Otherwise, cells are liquid and have GrainID still equal to 0
+    for (int coord_x = 0; coord_x < nx; coord_x++) {
+        for (int coord_y_local = 0; coord_y_local < ny_local; coord_y_local++) {
+            int index = get1Dindex(coord_x, coord_y_local, 0, nx, ny_local);
+            int coord_y_global = coord_y_local + y_offset;
+            if ((coord_x == 100) && (coord_y_global == 50)) {
+                EXPECT_EQ(GrainID_AllLayers_Host(index), 25);
+                EXPECT_EQ(CellType_AllLayers_Host(index), FutureActive);
+            }
+            else if ((coord_x == 100) && (coord_y_global == 150)) {
+                EXPECT_EQ(GrainID_AllLayers_Host(index), 9936);
+                EXPECT_EQ(CellType_AllLayers_Host(index), FutureActive);
+            }
+            else {
+                EXPECT_EQ(GrainID_AllLayers_Host(index), 0);
+                EXPECT_EQ(CellType_AllLayers_Host(index), Liquid);
+            }
+        }
+    }
+    // Cells at Z > 0: should be liquid cells with GrainID still equal to 0
+    for (int index = nx * ny; index < DomainSize; index++) {
+        EXPECT_EQ(GrainID_AllLayers_Host(index), 0);
+        EXPECT_EQ(CellType_AllLayers_Host(index), Liquid);
+    }
+}
+
 void testCellDataInit(bool PowderFirstLayer) {
 
     using memory_space = TEST_MEMSPACE;
@@ -338,6 +401,7 @@ void testCellDataInit(bool PowderFirstLayer) {
 TEST(TEST_CATEGORY, cell_init_tests) {
     testCellDataInit_SingleGrain();
     testCellDataInit_ConstrainedGrowth();
+    testCellDataInit_ConstrainedGrowthTwoGrain();
     // For non-constrained solidification problems, test w/ and w/o space left for powder layer
     testCellDataInit(true);
     testCellDataInit(false);

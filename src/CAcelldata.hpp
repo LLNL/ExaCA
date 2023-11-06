@@ -29,6 +29,7 @@ struct CellData {
     using memory_space = MemorySpace;
     using view_type_int = Kokkos::View<int *, memory_space>;
     using view_type_int_host = typename view_type_int::HostMirror;
+    using view_type_int_2d_host = Kokkos::View<int **, layout, Kokkos::HostSpace>;
     using view_type_int_unmanaged = Kokkos::View<int *, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
     using view_type_short = Kokkos::View<short *, memory_space>;
     using view_type_float = Kokkos::View<float *, memory_space>;
@@ -92,40 +93,56 @@ struct CellData {
                       << ", Z = " << grainLocationZ << std::endl;
     }
 
+    // Get the X, Y coordinates and grain ID values for grains at the bottom surface for problem type C
+    view_type_int_2d_host getSurfaceActiveCellData(int &SubstrateActCells, int nx, int ny, double RNGSeed) {
+        // First get number of substrate grains
+        if (_inputs.CustomGrainLocationsIDs)
+            SubstrateActCells = _inputs.GrainLocationsX.size();
+        else
+            SubstrateActCells = std::round(_inputs.FractSurfaceSitesActive * nx * ny);
+        // View for storing surface grain locations and IDs
+        view_type_int_2d_host ActCellData_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellData_Host"),
+                                               SubstrateActCells, 3);
+        if (_inputs.CustomGrainLocationsIDs) {
+            // Values were already given in the inputs struct, copy these to the view
+            for (int n = 0; n < SubstrateActCells; n++) {
+                ActCellData_Host(n, 0) = _inputs.GrainLocationsX[n];
+                ActCellData_Host(n, 1) = _inputs.GrainLocationsY[n];
+                ActCellData_Host(n, 2) = _inputs.GrainIDs[n];
+            }
+        }
+        else {
+            // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
+            // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered
+            // between X = -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5
+            std::mt19937_64 gen(RNGSeed);
+            std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
+            std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
+            // Randomly locate substrate grain seeds for cells in the interior of this subdomain (at the k = 0 bottom
+            // surface)
+            for (int n = 0; n < SubstrateActCells; n++) {
+                double XLocation = Xdist(gen);
+                double YLocation = Ydist(gen);
+                // Randomly select integer coordinates between 0 and nx-1 or ny-1
+                ActCellData_Host(n, 0) = round(XLocation);
+                ActCellData_Host(n, 1) = round(YLocation);
+                ActCellData_Host(n, 2) = n + 1; // grain ID for epitaxial seeds must be > 0
+            }
+        }
+        return ActCellData_Host;
+    }
+
     // Initializes cell types and epitaxial Grain ID values where substrate grains are future active cells on the bottom
     // surface of the constrained domain
     void init_substrate(int id, int ny_local, int nx, int ny, int y_offset, double RNGSeed) {
 
-        // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
-        // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered between
-        // X = -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5
-        std::mt19937_64 gen(RNGSeed);
-        std::uniform_real_distribution<double> Xdist(-0.49999, nx - 0.5);
-        std::uniform_real_distribution<double> Ydist(-0.49999, ny - 0.5);
-
-        // Determine number of active cells from the fraction of sites active and the number of sites on the bottom
-        // domain surface
-        int SubstrateActCells = std::round(_inputs.FractSurfaceSitesActive * nx * ny);
-
-        // On all ranks, generate active site locations - same list on every rank
-        // TODO: Generate random numbers on GPU, instead of using host view and copying over - ensure that locations are
-        // in the same order every time based on the RNGSeed
-        view_type_int_host ActCellX_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellX_Host"), SubstrateActCells);
-        view_type_int_host ActCellY_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellY_Host"), SubstrateActCells);
-
-        // Randomly locate substrate grain seeds for cells in the interior of this subdomain (at the k = 0 bottom
-        // surface)
-        for (int n = 0; n < SubstrateActCells; n++) {
-            double XLocation = Xdist(gen);
-            double YLocation = Ydist(gen);
-            // Randomly select integer coordinates between 0 and nx-1 or ny-1
-            ActCellX_Host(n) = round(XLocation);
-            ActCellY_Host(n) = round(YLocation);
-        }
-
-        // Copy views of substrate grain locations back to the device
-        auto ActCellX_Device = Kokkos::create_mirror_view_and_copy(memory_space(), ActCellX_Host);
-        auto ActCellY_Device = Kokkos::create_mirror_view_and_copy(memory_space(), ActCellY_Host);
+        // Fill the view of cell X, Y, and ID values, updating the number of substrate active cells appropriately
+        // TODO: Could generate random numbers on GPU, instead of using host view and copying over - but would also need
+        // inputs struct to store device data for grain locations in X, Y, and GrainIDs
+        int SubstrateActCells;
+        view_type_int_2d_host ActCellData_Host = getSurfaceActiveCellData(SubstrateActCells, nx, ny, RNGSeed);
+        // Copy views of substrate grain locations and IDs back to the device
+        auto ActCellData = Kokkos::create_mirror_view_and_copy(memory_space(), ActCellData_Host);
 
         // Start with all cells as liquid prior to locating substrate grain seeds
         // All cells have LayerID = 0 as this is not a multilayer problem
@@ -141,18 +158,56 @@ struct CellData {
         Kokkos::parallel_for(
             "ConstrainedGrainInit", policy, KOKKOS_LAMBDA(const int &n) {
                 // What are the X and Y coordinates of this active cell relative to the X and Y bounds of this rank?
-                if ((ActCellY_Device(n) >= y_offset) && (ActCellY_Device(n) < y_offset + ny_local)) {
+                if ((ActCellData(n, 1) >= y_offset) && (ActCellData(n, 1) < y_offset + ny_local)) {
                     // Convert X and Y coordinates to values relative to this MPI rank's grid (Z = 0 for these active
                     // cells, at bottom surface) GrainIDs come from the position on the list of substrate active cells
                     // to avoid reusing the same value
-                    int coord_x = ActCellX_Device(n);
-                    int coord_y = ActCellY_Device(n) - y_offset;
+                    int coord_x = ActCellData(n, 0);
+                    int coord_y = ActCellData(n, 1) - y_offset;
                     int coord_z = 0;
                     int index = get1Dindex(coord_x, coord_y, coord_z, nx, ny_local);
                     CellType_AllLayers_local(index) = FutureActive;
-                    GrainID_AllLayers_local(index) = n + 1; // assign GrainID > 0 to epitaxial seeds
+                    GrainID_AllLayers_local(index) = ActCellData(n, 2); // assign GrainID > 0 to epitaxial seeds
                 }
             });
+        // Option to fill empty sites at bottom surface with the grain ID of the nearest grain
+        if (_inputs.FillBottomSurface) {
+            auto md_policy =
+                Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<2, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
+                    {0, 0}, {nx, ny_local});
+            // For cells that are not associated with grain centers, optionally assign them the GrainID of the nearest
+            // grain center
+            Kokkos::parallel_for(
+                "BaseplateGen", md_policy, KOKKOS_LAMBDA(const int coord_x, const int coord_y) {
+                    int index_AllLayers = get1Dindex(coord_x, coord_y, 0, nx, ny_local);
+                    if (GrainID_AllLayers_local(index_AllLayers) == 0) {
+                        // This cell needs to be assigned a GrainID value
+                        // Check each possible baseplate grain center to find the closest one
+                        float MinDistanceToThisGrain = nx * ny;
+                        int MinDistanceToThisGrain_GrainID = 0;
+                        for (int n = 0; n < SubstrateActCells; n++) {
+                            // Substrate grain center at coord_x_grain, coord_y_grain - how far is the cell at i,
+                            // j+y_offset?
+                            int coord_y_grain_global = ActCellData(n, 1);
+                            int coord_x_grain = ActCellData(n, 0);
+                            int coord_y_global = coord_y + y_offset;
+                            float DistanceToThisGrainX = coord_x - coord_x_grain;
+                            float DistanceToThisGrainY = coord_y_global - coord_y_grain_global;
+                            float DistanceToThisGrain = sqrtf(DistanceToThisGrainX * DistanceToThisGrainX +
+                                                              DistanceToThisGrainY * DistanceToThisGrainY);
+                            if (DistanceToThisGrain < MinDistanceToThisGrain) {
+                                // This is the closest grain center to cell at "CAGridLocation" - update values
+                                MinDistanceToThisGrain = DistanceToThisGrain;
+                                MinDistanceToThisGrain_GrainID = ActCellData(n, 2);
+                            }
+                        }
+                        // GrainID associated with the closest baseplate grain center
+                        GrainID_AllLayers_local(index_AllLayers) = MinDistanceToThisGrain_GrainID;
+                        // These cells are also future active cells
+                        CellType_AllLayers_local(index_AllLayers) = FutureActive;
+                    }
+                });
+        }
         if (id == 0)
             std::cout << "Number of substrate active cells across all ranks: " << SubstrateActCells << std::endl;
     }

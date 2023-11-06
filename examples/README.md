@@ -90,12 +90,16 @@ The .json files in the examples subdirectory are provided on the command line to
 |HeatTransferCellSize |  R               | By default, equal to deltax, and cannot be used if remelting is considered. deltax must divide evenly into HTdeltax
 |LayerwiseTempRead | R                   | If set to Y, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to N, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. This option is only applicable to simulations with remelting; simulations without remelting (and simulations where this input is not given) default to N. Setting this to Y is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
 |TemperatureFiles | R                    | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than numberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, layerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
-|InitUndercooling | N/A               | SingleGrain      | Undercooling at the location of the seeded grain 
+|InitUndercooling | C, SingleGrain       | For SingleGrain, this is the undercooling at the location of the seeded grain. For problem type C, this is an optional argument (defaulting to zero) for the initial undercooling at the domain's bottom surface
 
 ## Substrate inputs
 | Input        | Relevant problem type(s))| Details |
 |--------------| -------------------------|---------|
-|FractionSurfaceSitesActive | C           | What fraction of cells at the bottom surface of the domain are the source of a grain?
+|FractionSurfaceSitesActive | C           | What fraction of cells at the bottom surface of the domain are the source of a grain? (see note (b))
+|GrainLocationsX | C           | List of grain locations in X on the bottom surface of the domain (see note (b))
+|GrainLocationsY | C           | List of grain locations in Y on the bottom surface of the domain (see note (b))
+|GrainIDs | C           | GrainID values for each grain in (X,Y) (see note (b))
+|FillBottomSurface | C  | Optionally assign all cells on the bottom surface the grain ID of the closest grain (defaults to false)
 |MeanSize      | S, R                     | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
 |SubstrateFilename |  S, R                | Path to and filename for substrate data (see note (a))
 |PowderDensity | S, R                     | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))
@@ -104,6 +108,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
 
 (a) One of these inputs must be provided, but not both
+(b) If GrainLocationsX, GrainLocationsY, and GrainIDs are provided, FractionSurfaceSitesActive should not be given. Conversely, if FractionSurfaceSitesActive is not given, each of GrainLocationsX, GrainLocationsY, and GrainIDs must be provided
 
 ## Printing inputs
 | Input        | Relevant problem type(s))| Details |

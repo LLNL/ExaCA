@@ -89,8 +89,9 @@ void testInputs(int PrintVersion) {
     // Since no temperature files exist in the repo, and there is no ability to write temperature files to a different
     // directory ( would need examples/Temperatures) using the C++11 standard, dummy input files are written and parsed
     // to test an example problem that uses temperature data from a file.
-    std::vector<std::string> InputFilenames = {"Inp_DirSolidification", "Inp_SpotMelt", "Inp_TemperatureTest"};
-    for (int n = 0; n < 3; n++) {
+    std::vector<std::string> InputFilenames = {"Inp_DirSolidification", "Inp_SpotMelt", "Inp_TemperatureTest",
+                                               "Inp_TwoGrainDirSolidification"};
+    for (int n = 0; n < 4; n++) {
         InputFilenames[n] += ".json";
     }
     std::vector<std::string> TemperatureFNames = {"1DummyTemperature.txt", "2DummyTemperature.txt"};
@@ -127,9 +128,12 @@ void testInputs(int PrintVersion) {
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
         // InputReadFromFile
-        // These should be the same for all 3 test problems
+        // These should be the same for all test problems (except the 4th one, which has 0 nucleation density)
         EXPECT_DOUBLE_EQ(inputs.domain.deltax, 1.0 * pow(10, -6));
-        EXPECT_DOUBLE_EQ(inputs.nucleation.NMax, 1.0 * pow(10, 13));
+        if (FileName == InputFilenames[3])
+            EXPECT_DOUBLE_EQ(inputs.nucleation.NMax, 0.0);
+        else
+            EXPECT_DOUBLE_EQ(inputs.nucleation.NMax, 1.0 * pow(10, 13));
         EXPECT_DOUBLE_EQ(inputs.nucleation.dTN, 5.0);
         EXPECT_DOUBLE_EQ(inputs.nucleation.dTsigma, 0.5);
         EXPECT_DOUBLE_EQ(irf.A, -0.00000010302 * inputs.domain.deltat / inputs.domain.deltax);
@@ -139,21 +143,35 @@ void testInputs(int PrintVersion) {
         EXPECT_DOUBLE_EQ(irf.FreezingRange, 210);
 
         // These are different for all 3 test problems
-        if (FileName == InputFilenames[0]) {
+        if ((FileName == InputFilenames[0]) || (FileName == InputFilenames[3])) {
             EXPECT_TRUE(inputs.print.PrintTimeSeries);
             EXPECT_EQ(inputs.print.TimeSeriesInc, 5250);
             EXPECT_FALSE(inputs.print.PrintIdleTimeSeriesFrames);
             EXPECT_DOUBLE_EQ(inputs.temperature.G, 500000.0);
             EXPECT_DOUBLE_EQ(inputs.temperature.R, 300000.0);
-            EXPECT_DOUBLE_EQ(inputs.temperature.initUndercooling, 0.0);
             // compare with float to avoid floating point error with irrational number
             float deltat_comp = static_cast<float>(inputs.domain.deltat);
             EXPECT_FLOAT_EQ(deltat_comp, pow(10, -6) / 15.0);
             EXPECT_EQ(inputs.domain.nx, 200);
             EXPECT_EQ(inputs.domain.ny, 200);
             EXPECT_EQ(inputs.domain.nz, 200);
-            EXPECT_DOUBLE_EQ(inputs.substrate.FractSurfaceSitesActive, 0.08);
-            EXPECT_TRUE(inputs.print.BaseFileName == "TestProblemDirS");
+            if (FileName == InputFilenames[0]) {
+                EXPECT_DOUBLE_EQ(inputs.substrate.FractSurfaceSitesActive, 0.08);
+                EXPECT_TRUE(inputs.print.BaseFileName == "TestProblemDirS");
+                EXPECT_FALSE(inputs.substrate.CustomGrainLocationsIDs);
+                EXPECT_DOUBLE_EQ(inputs.temperature.initUndercooling, 0.0);
+            }
+            else {
+                EXPECT_EQ(inputs.substrate.GrainLocationsX[0], 100);
+                EXPECT_EQ(inputs.substrate.GrainLocationsY[0], 50);
+                EXPECT_EQ(inputs.substrate.GrainIDs[0], 25);
+                EXPECT_EQ(inputs.substrate.GrainLocationsX[1], 100);
+                EXPECT_EQ(inputs.substrate.GrainLocationsY[1], 150);
+                EXPECT_EQ(inputs.substrate.GrainIDs[1], 9936);
+                EXPECT_TRUE(inputs.print.BaseFileName == "TestProblemTwoGrainDirS");
+                EXPECT_TRUE(inputs.substrate.CustomGrainLocationsIDs);
+                EXPECT_DOUBLE_EQ(inputs.temperature.initUndercooling, 10.0);
+            }
             EXPECT_TRUE(inputs.print.PrintInitCritTimeStep);
             EXPECT_FALSE(inputs.print.PrintInitGrainID);
             EXPECT_FALSE(inputs.print.PrintInitLayerID);

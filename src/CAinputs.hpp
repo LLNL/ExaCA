@@ -50,8 +50,11 @@ struct TemperatureInputs {
 };
 
 struct SubstrateInputs {
-    // problem type C only
+    // problem type C only - one of these two inputs will be given
     double FractSurfaceSitesActive = 0.0;
+    std::vector<int> GrainLocationsX, GrainLocationsY, GrainIDs;
+    bool CustomGrainLocationsIDs = false;
+    bool FillBottomSurface = false;
     // problem type SingleGrain only
     int singleGrainOrientation = 0;
     // problem types S and R only
@@ -237,14 +240,53 @@ struct Inputs {
             // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
             temperature.G = inputdata["TemperatureData"]["G"];
             temperature.R = inputdata["TemperatureData"]["R"];
+            // Optional initial undercooling for problem type C (required for type SingleGrain). Defaults to 0 for
+            // problem type C if not given
             if (SimulationType == "SingleGrain")
+                temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
+            else if ((SimulationType == "C") && (inputdata["TemperatureData"].contains("InitUndercooling")))
                 temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
         }
 
         // Substrate inputs:
         if (SimulationType == "C") {
-            // Fraction of sites at bottom surface active
-            substrate.FractSurfaceSitesActive = inputdata["Substrate"]["FractionSurfaceSitesActive"];
+            // Must contain FractionSurfaceSitesActive OR all of GrainLocationsX/GrainLocationsY/GrainIDs, not both
+            bool contains_FractionSurfaceSitesActive = inputdata["Substrate"].contains("FractionSurfaceSitesActive");
+            bool contains_GrainLocationsX = inputdata["Substrate"].contains("GrainLocationsX");
+            bool contains_GrainLocationsY = inputdata["Substrate"].contains("GrainLocationsY");
+            bool contains_GrainIDs = inputdata["Substrate"].contains("GrainIDs");
+            bool contains_CustomGrainInitInfo =
+                contains_GrainLocationsX && contains_GrainLocationsY && contains_GrainIDs;
+            if (contains_FractionSurfaceSitesActive) {
+                if ((id == 0) && (contains_CustomGrainInitInfo))
+                    std::cout << "Warning: FractionSurfaceSitesActive will be ignored as explicit grain locations and "
+                                 "IDs are given in the input file"
+                              << std::endl;
+                else
+                    substrate.FractSurfaceSitesActive = inputdata["Substrate"]["FractionSurfaceSitesActive"];
+            }
+            else if (contains_CustomGrainInitInfo) {
+                // Ensure the number of grains is consistent
+                std::size_t numGrains = inputdata["Substrate"]["GrainLocationsX"].size();
+                if ((inputdata["Substrate"]["GrainLocationsY"].size() != numGrains) ||
+                    (inputdata["Substrate"]["GrainIDs"].size() != numGrains))
+                    throw std::runtime_error(
+                        "Error: GrainLocationsX, GrainLocationsY, and GrainIDs must be the same size");
+                else {
+                    for (std::size_t graincount = 0; graincount < numGrains; graincount++) {
+                        substrate.GrainLocationsX.push_back(inputdata["Substrate"]["GrainLocationsX"][graincount]);
+                        substrate.GrainLocationsY.push_back(inputdata["Substrate"]["GrainLocationsY"][graincount]);
+                        substrate.GrainIDs.push_back(inputdata["Substrate"]["GrainIDs"][graincount]);
+                    }
+                    substrate.CustomGrainLocationsIDs = true;
+                }
+            }
+            else
+                throw std::runtime_error(
+                    "Error: either FractionSurfaceSitesActive or lists of GrainLocationsX/GrainLocationsY/GrainIDs are "
+                    "required to initialize this problem type");
+            if (inputdata["Substrate"].contains("FillBottomSurface"))
+                substrate.FillBottomSurface = inputdata["Substrate"]["FillBottomSurface"];
         }
         else if (SimulationType == "SingleGrain") {
             // Orientation of the single grain at the domain center
@@ -309,8 +351,11 @@ struct Inputs {
                 std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << temperature.G
                           << " K/m and a cooling rate of " << temperature.R << " K/s" << std::endl;
                 std::cout << "The time step is " << domain.deltat * pow(10, 6) << " microseconds" << std::endl;
-                std::cout << "The fraction of CA cells at the bottom surface that are active is "
-                          << substrate.FractSurfaceSitesActive << std::endl;
+                if (substrate.CustomGrainLocationsIDs)
+                    std::cout << "Input grain locations and ID values will be used at the bottom surface" << std::endl;
+                else
+                    std::cout << "The fraction of CA cells at the bottom surface that are active is "
+                              << substrate.FractSurfaceSitesActive << std::endl;
             }
             else if (SimulationType == "S") {
                 std::cout << "CA Simulation using a radial, fixed thermal gradient of " << temperature.G
