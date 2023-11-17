@@ -35,11 +35,6 @@ jobs:
             backend: 'OPENMP'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
-          - distro: 'ubuntu:latest'
-            cxx: 'g++'
-            backend: 'OPENMP'
-            cmake_build_type: 'Debug'
-            kokkos_ver: '3.4.01'
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
