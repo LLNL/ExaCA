@@ -311,7 +311,7 @@ struct Print {
             }
             if (_inputs.PrintFinalUndercoolingCurrent) {
                 auto UndercoolingCurrent_WholeDomain =
-                    collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, temperature.UndercoolingCurrent);
+                    collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, temperature.UndercoolingCurrent_AllLayers);
                 printViewData(id, GrainplotF, grid, grid.nz_layer, "float", "UndercoolingFinal",
                               UndercoolingCurrent_WholeDomain);
             }

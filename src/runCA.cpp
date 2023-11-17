@@ -34,7 +34,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         inputs.checkPowderOverflow(grid.nx, grid.ny, grid.layer_height, grid.number_of_layers);
 
     // Temperature fields characterized by data in this structure
-    Temperature<memory_space> temperature(grid.domain_size, grid.number_of_layers, inputs.temperature);
+    Temperature<memory_space> temperature(grid, inputs.temperature);
     // Read temperature data if necessary
     if (simulation_type == "R")
         temperature.readTemperatureData(id, grid, 0);
@@ -189,10 +189,9 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 temperature.initialize(layernumber + 1, id, grid, irf.FreezingRange, inputs.domain.deltat);
             }
 
-            // Reset initial undercooling/solidification event counter of all cells to zeros for the next layer,
-            // resizing the views to the number of cells associated with the next layer
-            temperature.reset_layer_events_undercooling(grid.domain_size);
-
+            // Reset solidification event counter of all cells to zeros for the next layer, resizing to number of cells
+            // associated with the next layer, and get the subview for undercooling
+            temperature.reset_layer_events_undercooling(grid);
             // Resize and zero all view data relating to the active region from the last layer, in preparation for the
             // next layer
             interface.init_next_layer(grid.domain_size);

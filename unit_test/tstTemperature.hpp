@@ -48,6 +48,8 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     grid.ny = 12;
     grid.nz = 3;
     grid.domain_size = grid.nx * grid.ny * grid.nz;
+    grid.domain_size_all_layers = grid.domain_size;
+    grid.layer_range = std::make_pair(0, grid.domain_size);
     // Write fake OpenFOAM data - only rank 0. Temperature data should be of type double
     // Write two files, one or both of which should be read
     std::string TestTempFileName1 = "TestData1";
@@ -122,7 +124,7 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     inputs.temperature.LayerwiseTempRead = LayerwiseTempRead;
 
     // Ensure that constructor correctly initialized the local values of inputs
-    Temperature<memory_space> temperature(grid.domain_size, NumberOfLayers, inputs.temperature);
+    Temperature<memory_space> temperature(grid, inputs.temperature);
     if (LayerwiseTempRead)
         EXPECT_TRUE(temperature._inputs.LayerwiseTempRead);
     else
@@ -192,6 +194,9 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     grid.ny_local = 5;
     grid.nz = 6; // (Front is at Z = 0 for directional growth, single grain seed at Z = 2 for singlegrain problem)
     grid.domain_size = grid.nx * grid.ny_local * grid.nz;
+    grid.domain_size_all_layers = grid.domain_size;
+    grid.number_of_layers = 1;
+    grid.layer_range = std::make_pair(0, grid.domain_size);
     int coord_z_Center = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
 
     // default inputs struct - manually set non-default substrateInputs values
@@ -217,7 +222,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     double RNorm = inputs.temperature.R * deltat;
 
     // Temperature struct
-    Temperature<memory_space> temperature(grid.domain_size, 1, inputs.temperature);
+    Temperature<memory_space> temperature(grid, inputs.temperature);
     // Test constructor initialization of _inputs
     // These should've been initialized with default values
     EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
