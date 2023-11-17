@@ -26,12 +26,12 @@ jobs:
         kokkos_ver: ['3.4.01']
         include:
           - distro: 'fedora:intel'
-            cxx: 'icpc'
+            cxx: 'icpx'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
           - distro: 'fedora:intel'
-            cxx: 'icpc'
+            cxx: 'icpx'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
             kokkos_ver: '3.4.01'
