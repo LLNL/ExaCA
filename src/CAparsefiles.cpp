@@ -64,7 +64,7 @@ double getInputDouble(std::string val_input, int factor) {
 // Given a string ("line"), parse at "separator" (commas used by default)
 // Modifies "parsed_line" to hold the separated values
 // expected_num_values may be larger than parsed_line_size, if only a portion of the line is being parsed
-void splitString(std::string line, std::vector<std::string> &parsed_line, std::size_t expected_num_values,
+void splitString(const std::string line, std::vector<std::string> &parsed_line, std::size_t expected_num_values,
                  char separator) {
     // Make sure the right number of values are present on the line - one more than the number of separators
     std::size_t actual_num_values = std::count(line.begin(), line.end(), separator) + 1;
@@ -75,12 +75,14 @@ void splitString(std::string line, std::vector<std::string> &parsed_line, std::s
     }
     // Separate the line into its components, now that the number of values has been checked
     std::size_t parsed_line_size = parsed_line.size();
+    // Make a copy that we can modify
+    std::string line_copy = line;
     for (std::size_t n = 0; n < parsed_line_size - 1; n++) {
-        std::size_t pos = line.find(separator);
-        parsed_line[n] = line.substr(0, pos);
-        line = line.substr(pos + 1, std::string::npos);
+        std::size_t pos = line_copy.find(separator);
+        parsed_line[n] = line_copy.substr(0, pos);
+        line_copy = line_copy.substr(pos + 1, std::string::npos);
     }
-    parsed_line[parsed_line_size - 1] = line;
+    parsed_line[parsed_line_size - 1] = line_copy;
 }
 
 // Check to make sure that the 6 expected column names appear in the correct order in the header for this temperature
