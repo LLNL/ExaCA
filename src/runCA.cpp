@@ -63,13 +63,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (id == 0)
         std::cout << "Done with orientation initialization " << std::endl;
 
-    // Variables characterizing the active cell region within each rank's grid, including buffers for ghost node data
-    // (fixed size) and the steering vector/steering vector size on host/device
-    Interface<device_memory_space> interface(grid.DomainSize);
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "Done with interface struct initialization " << std::endl;
-
     // Initialize cell types, grain IDs, and layer IDs
     CellData<device_memory_space> cellData(grid.DomainSize_AllLayers, inputs.substrate);
     if (simulation_type == "C")
@@ -81,6 +74,13 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Grain struct initialized" << std::endl;
+
+    // Variables characterizing the active cell region within each rank's grid, including buffers for ghost node data
+    // (fixed size) and the steering vector/steering vector size on host/device
+    Interface<device_memory_space> interface(np, grid, irf, cellData, temperature, GrainUnitVector, NGrainOrientations);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (id == 0)
+        std::cout << "Done with interface struct initialization " << std::endl;
 
     // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
@@ -136,16 +136,15 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             StartCreateSVTime = MPI_Wtime();
 
             if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
-                interface.fill_steering_vector_no_remelt(cycle, grid, temperature, cellData);
+                interface.fill_steering_vector_no_remelt(cycle);
             else
-                interface.fill_steering_vector_remelt(cycle, grid, temperature, cellData);
+                interface.fill_steering_vector_remelt(cycle);
             CreateSVTime += MPI_Wtime() - StartCreateSVTime;
 
             StartCaptureTime = MPI_Wtime();
             // Cell capture and checking of the MPI buffers to ensure that all appropriate interface updates in the halo
             // regions were recorded
-            interface.cell_capture(id, np, cycle, grid, irf, GrainUnitVector, cellData, temperature,
-                                   NGrainOrientations);
+            interface.cell_capture();
             interface.check_buffers(id, grid, cellData, NGrainOrientations);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 

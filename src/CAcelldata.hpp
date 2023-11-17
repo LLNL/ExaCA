@@ -608,9 +608,9 @@ struct CellData {
 
     // Take a view consisting of data for all layers, and return a subview of the same type consisting of just the cells
     // corresponding to the current layer of a multilayer problem
-    auto getGrainIDSubview(Grid &grid) { return Kokkos::subview(GrainID_AllLayers, grid.LayerRange); }
-    auto getLayerIDSubview(Grid &grid) { return Kokkos::subview(LayerID_AllLayers, grid.LayerRange); }
-    auto getCellTypeSubview(Grid &grid) { return Kokkos::subview(CellType_AllLayers, grid.LayerRange); }
+    auto getGrainIDSubview(const Grid &grid) const { return Kokkos::subview(GrainID_AllLayers, grid.LayerRange); }
+    auto getLayerIDSubview(const Grid &grid) const { return Kokkos::subview(LayerID_AllLayers, grid.LayerRange); }
+    auto getCellTypeSubview(const Grid &grid) const { return Kokkos::subview(CellType_AllLayers, grid.LayerRange); }
 };
 
 #endif
