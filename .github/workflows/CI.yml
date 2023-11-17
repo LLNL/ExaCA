@@ -24,20 +24,46 @@ jobs:
         backend: ['SERIAL', 'OPENMP']
         cmake_build_type: ['Debug', 'Release']
         kokkos_ver: ['3.4.01']
+        json: ['Internal']
         include:
           - distro: 'fedora:intel'
             cxx: 'icpx'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
             kokkos_ver: '3.7.02'
+            json: External
           - distro: 'fedora:intel'
             cxx: 'icpx'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
             kokkos_ver: '3.7.02'
+            json: External
+          - distro: 'ubuntu:latest'
+            cxx: 'g++'
+            backend: 'SERIAL'
+            cmake_build_type: 'Debug'
+            kokkos_ver: '3.4.01'
+            json: External
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
+      - name: Checkout json
+        if: ${{ matrix.json == 'External' }}
+        uses: actions/checkout@v3
+        with:
+          repository: nlohmann/json
+          ref: v3.11.2
+          path: json
+      - name: Build json
+        if: ${{ matrix.json == 'External' }}
+        working-directory: json
+        run: |
+          cmake -B build \
+            -DCMAKE_INSTALL_PREFIX=$HOME/json \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DJSON_BuildTests=OFF
+          cmake --build build --parallel 2
+          cmake --install build
       - name: Checkout kokkos
         uses: actions/checkout@v3
         with:
@@ -61,7 +87,7 @@ jobs:
         run: |
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/exaca \
-            -D CMAKE_PREFIX_PATH="$HOME/kokkos" \
+            -D CMAKE_PREFIX_PATH="$HOME/kokkos;$HOME/json" \
             -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror" \
