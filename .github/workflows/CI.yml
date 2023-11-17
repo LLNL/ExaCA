@@ -38,11 +38,6 @@ jobs:
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
-      - name: Get trail license
-        if: ${{ matrix.cxx == 'icpc' }}
-        run: |
-          mkdir ~/Licenses
-          curl https://dynamicinstaller.intel.com/api/v2/license > ~/Licenses/intel.lic
       - name: Checkout kokkos
         uses: actions/checkout@v3
         with:
