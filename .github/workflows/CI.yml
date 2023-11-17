@@ -29,12 +29,12 @@ jobs:
             cxx: 'icpx'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
-            kokkos_ver: '3.4.01'
+            kokkos_ver: '3.7.02'
           - distro: 'fedora:intel'
             cxx: 'icpx'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
-            kokkos_ver: '3.4.01'
+            kokkos_ver: '3.7.02'
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
