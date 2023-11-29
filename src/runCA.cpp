@@ -77,7 +77,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Variables characterizing the active cell region within each rank's grid, including buffers for ghost node data
     // (fixed size) and the steering vector/steering vector size on host/device
-    Interface<device_memory_space> interface(np, grid, irf, cellData, temperature, GrainUnitVector, NGrainOrientations);
+    Interface<device_memory_space> interface(grid.DomainSize);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with interface struct initialization " << std::endl;
@@ -136,22 +136,22 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             StartCreateSVTime = MPI_Wtime();
 
             if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
-                interface.fill_steering_vector_no_remelt(cycle);
+                fill_steering_vector_no_remelt(cycle, grid, cellData, temperature, interface);
             else
-                interface.fill_steering_vector_remelt(cycle);
+                fill_steering_vector_remelt(cycle, grid, cellData, temperature, interface);
             CreateSVTime += MPI_Wtime() - StartCreateSVTime;
 
             StartCaptureTime = MPI_Wtime();
             // Cell capture and checking of the MPI buffers to ensure that all appropriate interface updates in the halo
             // regions were recorded
-            interface.cell_capture();
-            interface.check_buffers(id, grid, cellData, NGrainOrientations);
+            cell_capture(cycle, np, grid, irf, cellData, temperature, interface, GrainUnitVector, NGrainOrientations);
+            check_buffers(id, grid, cellData, interface, NGrainOrientations);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
                 // Update ghost nodes
                 StartGhostTime = MPI_Wtime();
-                interface.halo_update(cycle, id, grid, cellData, NGrainOrientations, GrainUnitVector);
+                halo_update(cycle, id, grid, cellData, interface, NGrainOrientations, GrainUnitVector);
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
