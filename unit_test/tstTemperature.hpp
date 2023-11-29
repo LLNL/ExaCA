@@ -61,55 +61,58 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
         TestTempFileName1 = TestTempFileName1 + ".txt";
         TestTempFileName2 = TestTempFileName2 + ".txt";
     }
-    std::ofstream TestDataFile1;
-    if (TestBinaryInputRead)
-        TestDataFile1.open(TestTempFileName1, std::ios::out | std::ios::binary);
-    else {
-        TestDataFile1.open(TestTempFileName1);
-        TestDataFile1 << "x, y, z, tm, tl, cr" << std::endl;
-    }
-    for (int j = 0; j < grid.ny; j++) {
-        for (int i = 0; i < grid.nx; i++) {
-            if (TestBinaryInputRead) {
-                WriteData(TestDataFile1, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
-                WriteData(TestDataFile1, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
-                WriteData(TestDataFile1, static_cast<double>(0.0), TestBinaryInputRead);
-                WriteData(TestDataFile1, static_cast<double>(i * j), TestBinaryInputRead);
-                WriteData(TestDataFile1, static_cast<double>(i * j + i), TestBinaryInputRead);
-                WriteData(TestDataFile1, static_cast<double>(i * j + j), TestBinaryInputRead);
-            }
-            else
-                TestDataFile1 << i * grid.deltax << "," << j * grid.deltax << "," << 0.0 << ","
-                              << static_cast<double>(i * j) << "," << static_cast<double>(i * j + i) << ","
-                              << static_cast<double>(i * j + j) << std::endl;
+    if (id == 0) {
+        std::ofstream TestDataFile1;
+        if (TestBinaryInputRead)
+            TestDataFile1.open(TestTempFileName1, std::ios::out | std::ios::binary);
+        else {
+            TestDataFile1.open(TestTempFileName1);
+            TestDataFile1 << "x, y, z, tm, tl, cr" << std::endl;
         }
-    }
-    TestDataFile1.close();
+        for (int j = 0; j < grid.ny; j++) {
+            for (int i = 0; i < grid.nx; i++) {
+                if (TestBinaryInputRead) {
+                    WriteData(TestDataFile1, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
+                    WriteData(TestDataFile1, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
+                    WriteData(TestDataFile1, static_cast<double>(0.0), TestBinaryInputRead);
+                    WriteData(TestDataFile1, static_cast<double>(i * j), TestBinaryInputRead);
+                    WriteData(TestDataFile1, static_cast<double>(i * j + i), TestBinaryInputRead);
+                    WriteData(TestDataFile1, static_cast<double>(i * j + j), TestBinaryInputRead);
+                }
+                else
+                    TestDataFile1 << i * grid.deltax << "," << j * grid.deltax << "," << 0.0 << ","
+                                  << static_cast<double>(i * j) << "," << static_cast<double>(i * j + i) << ","
+                                  << static_cast<double>(i * j + j) << std::endl;
+            }
+        }
+        TestDataFile1.close();
 
-    std::ofstream TestDataFile2;
-    if (TestBinaryInputRead)
-        TestDataFile2.open(TestTempFileName2, std::ios::out | std::ios::binary);
-    else {
-        TestDataFile2.open(TestTempFileName2);
-        TestDataFile2 << "x, y, z, tm, tl, cr" << std::endl;
-    }
-    for (int j = 0; j < grid.ny; j++) {
-        for (int i = 0; i < grid.nx; i++) {
-            if (TestBinaryInputRead) {
-                WriteData(TestDataFile2, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
-                WriteData(TestDataFile2, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
-                WriteData(TestDataFile2, static_cast<double>(grid.deltax), TestBinaryInputRead);
-                WriteData(TestDataFile2, static_cast<double>(i * j), TestBinaryInputRead);
-                WriteData(TestDataFile2, static_cast<double>(i * j + i), TestBinaryInputRead);
-                WriteData(TestDataFile2, static_cast<double>(i * j + j), TestBinaryInputRead);
-            }
-            else
-                TestDataFile2 << i * grid.deltax << "," << j * grid.deltax << "," << grid.deltax << ","
-                              << static_cast<double>(i * j) << "," << static_cast<double>(i * j + i) << ","
-                              << static_cast<double>(i * j + j) << std::endl;
+        std::ofstream TestDataFile2;
+        if (TestBinaryInputRead)
+            TestDataFile2.open(TestTempFileName2, std::ios::out | std::ios::binary);
+        else {
+            TestDataFile2.open(TestTempFileName2);
+            TestDataFile2 << "x, y, z, tm, tl, cr" << std::endl;
         }
+        for (int j = 0; j < grid.ny; j++) {
+            for (int i = 0; i < grid.nx; i++) {
+                if (TestBinaryInputRead) {
+                    WriteData(TestDataFile2, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
+                    WriteData(TestDataFile2, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
+                    WriteData(TestDataFile2, static_cast<double>(grid.deltax), TestBinaryInputRead);
+                    WriteData(TestDataFile2, static_cast<double>(i * j), TestBinaryInputRead);
+                    WriteData(TestDataFile2, static_cast<double>(i * j + i), TestBinaryInputRead);
+                    WriteData(TestDataFile2, static_cast<double>(i * j + j), TestBinaryInputRead);
+                }
+                else
+                    TestDataFile2 << i * grid.deltax << "," << j * grid.deltax << "," << grid.deltax << ","
+                                  << static_cast<double>(i * j) << "," << static_cast<double>(i * j + i) << ","
+                                  << static_cast<double>(i * j + j) << std::endl;
+            }
+        }
+        TestDataFile2.close();
     }
-    TestDataFile2.close();
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // Test each 12 by 3 subdomain (this test uses MPI - each rank has its own subdomain)
     // Default inputs struct - manually set non-default substrateInputs values
