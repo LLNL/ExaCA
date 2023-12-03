@@ -58,7 +58,7 @@ struct Print {
     std::string PathBaseFileName;
 
     // Default constructor - options are set in getPrintDataFromFile and copied into this struct
-    Print(Grid &grid, int np, PrintInputs inputs)
+    Print(const Grid &grid, int np, PrintInputs inputs)
         : Recv_y_offset(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_y_offset"), np))
         , Recv_ny_local(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_ny_local"), np))
         , RBufSize(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np))
@@ -66,8 +66,8 @@ struct Print {
 
         // Buffers for sending/receiving data across ranks
         for (int recvrank = 0; recvrank < np; recvrank++) {
-            Recv_y_offset(recvrank) = grid.get_yoffset(recvrank, np);
-            Recv_ny_local(recvrank) = grid.get_nylocal(recvrank, np);
+            Recv_y_offset(recvrank) = grid.get_y_offset(recvrank, np);
+            Recv_ny_local(recvrank) = grid.get_ny_local(recvrank, np);
             RBufSize(recvrank) = grid.nx * Recv_ny_local(recvrank) * grid.nz;
         }
 
@@ -88,7 +88,7 @@ struct Print {
     // Called on rank 0 to collect view data from other ranks, or on other ranks to send data to rank 0
     // MPI datatype corresponding to the view data
     template <typename Collect1DViewTypeDevice>
-    auto collectViewData(int id, int np, Grid &grid, int ZPrintSize, MPI_Datatype msg_type,
+    auto collectViewData(int id, int np, const Grid &grid, int ZPrintSize, MPI_Datatype msg_type,
                          Collect1DViewTypeDevice ViewDataThisRank_Device) {
         // View (int or float extracted from 1D View) for 3D data (no initial size, only given size/filled on rank 0)
         using value_type = typename Collect1DViewTypeDevice::value_type;
@@ -107,7 +107,7 @@ struct Print {
             for (int coord_z = 0; coord_z < ZPrintSize; coord_z++) {
                 for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
                     for (int coord_y_local = 0; coord_y_local < grid.ny_local; coord_y_local++) {
-                        int index = grid.get1Dindex(coord_x, coord_y_local, coord_z);
+                        int index = grid.get_1D_index(coord_x, coord_y_local, coord_z);
                         ViewData_WholeDomain(coord_z, coord_x, coord_y_local) = ViewDataThisRank(index);
                     }
                 }
@@ -139,7 +139,7 @@ struct Print {
             for (int coord_z = 0; coord_z < ZPrintSize; coord_z++) {
                 for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
                     for (int coord_y_local = SendBufStartY; coord_y_local < SendBufEndY; coord_y_local++) {
-                        int index = grid.get1Dindex(coord_x, coord_y_local, coord_z);
+                        int index = grid.get_1D_index(coord_x, coord_y_local, coord_z);
                         SendBuf(DataCounter) = ViewDataThisRank(index);
                         DataCounter++;
                     }
@@ -153,7 +153,7 @@ struct Print {
     // Called on rank 0, prints initial values of selected data structures to Paraview files for cells between the
     // overall simulation bottom and the top of the first layer
     template <typename ViewTypeGrainID, typename ViewTypeLayerID>
-    void printInitExaCAData(int id, int np, Grid &grid, ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
+    void printInitExaCAData(int id, int np, const Grid &grid, ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
                             Temperature<device_memory_space> &temperature) {
 
         if ((_inputs.PrintInitGrainID) || (_inputs.PrintInitLayerID) || (_inputs.PrintInitMeltTimeStep) ||
@@ -173,17 +173,17 @@ struct Print {
                 printViewData(id, Grainplot, grid, grid.nz_layer, "short", "LayerID", LayerID_WholeDomain);
             }
             if (_inputs.PrintInitMeltTimeStep) {
-                ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, grid.DomainSize);
+                ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, grid.domain_size);
                 auto MeltTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, MeltTimeStep);
                 printViewData(id, Grainplot, grid, grid.nz_layer, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (_inputs.PrintInitCritTimeStep) {
-                ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, grid.DomainSize);
+                ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, grid.domain_size);
                 auto CritTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, CritTimeStep);
                 printViewData(id, Grainplot, grid, grid.nz_layer, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (_inputs.PrintInitUndercoolingChange) {
-                ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(2, grid.DomainSize, 0);
+                ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(2, grid.domain_size, 0);
                 auto UndercoolingChange_WholeDomain =
                     collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
                 printViewData(id, Grainplot, grid, grid.nz_layer, "float", "UndercoolingChange",
@@ -197,9 +197,10 @@ struct Print {
     // Called on rank 0, prints intermediate values of grain misorientation for all layers up to current layer, also
     // marking which cells are liquid
     template <typename ViewTypeGrainID, typename ViewTypeCellType, typename ViewTypeGrainUnitVector>
-    void printIntermediateGrainMisorientation(int id, int np, int cycle, Grid &grid, ViewTypeGrainID GrainID,
-                                              ViewTypeCellType CellType, ViewTypeGrainUnitVector GrainUnitVector,
-                                              int NGrainOrientations, int layernumber) {
+    void printIntermediateGrainMisorientation(const int id, const int np, const int cycle, const Grid &grid,
+                                              ViewTypeGrainID GrainID, ViewTypeCellType CellType,
+                                              ViewTypeGrainUnitVector GrainUnitVector, int NGrainOrientations,
+                                              int layernumber) {
 
         // Check if option is toggled and whether the output should be printed this time step
         if ((_inputs.PrintTimeSeries) && (cycle % _inputs.TimeSeriesInc == 0)) {
@@ -219,7 +220,7 @@ struct Print {
     // melting or solidification occurs). If it should be printed on the time step, call
     // printIntermediateGrainMisorientation
     template <typename ViewTypeGrainID, typename ViewTypeCellType, typename ViewTypeGrainUnitVector>
-    void printIdleIntermediateGrainMisorientation(int id, int np, int cycle, Grid &grid, ViewTypeGrainID GrainID,
+    void printIdleIntermediateGrainMisorientation(int id, int np, int cycle, const Grid &grid, ViewTypeGrainID GrainID,
                                                   ViewTypeCellType CellType, ViewTypeGrainUnitVector GrainUnitVector,
                                                   int NGrainOrientations, int layernumber,
                                                   unsigned long int GlobalNextMeltTimeStep) {
@@ -236,7 +237,7 @@ struct Print {
 
     // Prints final values of selected data structures to Paraview files
     template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCell, typename ViewTypeGrainUnit>
-    void printFinalExaCAData(int id, int np, Grid &grid, ViewTypeLayerID LayerID, ViewTypeCell CellType,
+    void printFinalExaCAData(int id, int np, const Grid &grid, ViewTypeLayerID LayerID, ViewTypeCell CellType,
                              ViewTypeGrainID GrainID, Temperature<device_memory_space> &temperature,
                              ViewTypeGrainUnit GrainUnitVector, int NGrainOrientations) {
 
@@ -285,17 +286,17 @@ struct Print {
             if (id == 0)
                 WriteHeader(GrainplotF, FName, grid, grid.nz_layer);
             if (_inputs.PrintFinalMeltTimeStep) {
-                ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, grid.DomainSize);
+                ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, grid.domain_size);
                 auto MeltTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, MeltTimeStep);
                 printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (_inputs.PrintFinalCritTimeStep) {
-                ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, grid.DomainSize);
+                ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, grid.domain_size);
                 auto CritTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, CritTimeStep);
                 printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (_inputs.PrintFinalUndercoolingChange) {
-                ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(0, grid.DomainSize, 0);
+                ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(0, grid.domain_size, 0);
                 auto UndercoolingChange_WholeDomain =
                     collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
                 printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "UndercoolingChange",
@@ -317,7 +318,7 @@ struct Print {
     }
 
     // Print Paraview file header data on rank 0, for either binary or ASCII output
-    void WriteHeader(std::ofstream &ParaviewOutputStream, std::string FName, Grid &grid, int ZPrintSize) {
+    void WriteHeader(std::ofstream &ParaviewOutputStream, std::string FName, const Grid &grid, int ZPrintSize) {
 
         if (_inputs.PrintBinary)
             ParaviewOutputStream.open(FName, std::ios::out | std::ios::binary);
@@ -331,14 +332,14 @@ struct Print {
             ParaviewOutputStream << "ASCII" << std::endl;
         ParaviewOutputStream << "DATASET STRUCTURED_POINTS" << std::endl;
         ParaviewOutputStream << "DIMENSIONS " << grid.nx << " " << grid.ny << " " << ZPrintSize << std::endl;
-        ParaviewOutputStream << "ORIGIN " << grid.XMin << " " << grid.YMin << " " << grid.ZMin << std::endl;
+        ParaviewOutputStream << "ORIGIN " << grid.x_min << " " << grid.y_min << " " << grid.z_min << std::endl;
         ParaviewOutputStream << "SPACING " << grid.deltax << " " << grid.deltax << " " << grid.deltax << std::endl;
         ParaviewOutputStream << std::fixed << "POINT_DATA " << grid.nx * grid.ny * ZPrintSize << std::endl;
     }
 
     // Called on rank 0 to write view data to the vtk file
     template <typename Print3DViewType>
-    void printViewData(int id, std::ofstream &Grainplot, Grid &grid, int ZPrintSize, std::string DataLabel,
+    void printViewData(int id, std::ofstream &Grainplot, const Grid &grid, int ZPrintSize, std::string DataLabel,
                        std::string VarNameLabel, Print3DViewType ViewData_WholeDomain) {
         if (id != 0)
             return;
@@ -381,7 +382,7 @@ struct Print {
     // file Optionally add layer label/intermediate frame and print -1 for liquid cells if this is being printed as
     // intermediate output
     template <typename ViewTypeInt3DHost, typename ViewTypeFloat>
-    void printGrainMisorientations(Grid &grid, ViewTypeInt3DHost GrainID_WholeDomain,
+    void printGrainMisorientations(const Grid &grid, ViewTypeInt3DHost GrainID_WholeDomain,
                                    ViewTypeInt3DHost CellType_WholeDomain, ViewTypeFloat GrainUnitVector,
                                    int NGrainOrientations, bool IntermediatePrint, int layernumber = 0,
                                    int ZBound_Low_print = 0, int nz_layer_print = 0) {
@@ -444,7 +445,7 @@ struct Print {
     // top of the domain while not including the final layer's microstructure. If an RVE size was not specified in the
     // input file, the default size is 0.5 by 0.5 by 0.5 mm
     template <typename ViewTypeShort3DHost, typename ViewTypeInt3DHost>
-    void printExaConstitDefaultRVE(Grid &grid, ViewTypeShort3DHost LayerID_WholeDomain,
+    void printExaConstitDefaultRVE(const Grid &grid, ViewTypeShort3DHost LayerID_WholeDomain,
                                    ViewTypeInt3DHost GrainID_WholeDomain) {
 
         // Determine the lower and upper Y bounds of the RVE
@@ -474,7 +475,7 @@ struct Print {
             [&] {
                 for (int j = RVE_YLow; j <= RVE_YHigh; j++) {
                     for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
-                        if (LayerID_WholeDomain(k, i, j) == (grid.NumberOfLayers - 1))
+                        if (LayerID_WholeDomain(k, i, j) == (grid.number_of_layers - 1))
                             return; // check next lowest value for k
                     }
                 }

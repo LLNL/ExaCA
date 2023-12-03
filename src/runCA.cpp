@@ -30,10 +30,10 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
     if ((simulation_type == "R") || (simulation_type == "S"))
-        inputs.checkPowderOverflow(grid.nx, grid.ny, grid.LayerHeight, grid.NumberOfLayers);
+        inputs.checkPowderOverflow(grid.nx, grid.ny, grid.layer_height, grid.number_of_layers);
 
     // Temperature fields characterized by data in this structure
-    Temperature<device_memory_space> temperature(grid.DomainSize, grid.NumberOfLayers, inputs.temperature);
+    Temperature<device_memory_space> temperature(grid.domain_size, grid.number_of_layers, inputs.temperature);
     // Read temperature data if necessary
     if (simulation_type == "R")
         temperature.readTemperatureData(id, grid, 0);
@@ -64,7 +64,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         std::cout << "Done with orientation initialization " << std::endl;
 
     // Initialize cell types, grain IDs, and layer IDs
-    CellData<device_memory_space> cellData(grid.DomainSize_AllLayers, inputs.substrate);
+    CellData<device_memory_space> cellData(grid.domain_size_all_layers, inputs.substrate);
     if (simulation_type == "C")
         cellData.init_substrate(id, grid, inputs.RNGSeed);
     else if (simulation_type == "SingleGrain")
@@ -77,7 +77,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Variables characterizing the active cell region within each rank's grid, including buffers for ghost node data
     // (fixed size) and the steering vector/steering vector size on host/device
-    Interface<device_memory_space> interface(grid.DomainSize);
+    Interface<device_memory_space> interface(grid.domain_size);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with interface struct initialization " << std::endl;
@@ -86,7 +86,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
     // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
-    int EstimatedNuclei_ThisRankThisLayer = inputs.nucleation.NMax * pow(grid.deltax, 3) * grid.DomainSize;
+    int EstimatedNuclei_ThisRankThisLayer = inputs.nucleation.NMax * pow(grid.deltax, 3) * grid.domain_size;
     Nucleation<device_memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, grid.deltax, inputs.nucleation);
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
@@ -104,7 +104,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Barrier(MPI_COMM_WORLD);
     int cycle = 0;
     double StartRunTime = MPI_Wtime();
-    for (int layernumber = 0; layernumber < grid.NumberOfLayers; layernumber++) {
+    for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
 
         int XSwitch = 0;
         double LayerTime1 = MPI_Wtime();
@@ -165,7 +165,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             }
 
         } while (XSwitch == 0);
-        if (layernumber != grid.NumberOfLayers - 1) {
+        if (layernumber != grid.number_of_layers - 1) {
             MPI_Barrier(MPI_COMM_WORLD);
             if (id == 0)
                 std::cout << "Layer " << layernumber << " finished solidification; initializing layer "
@@ -191,11 +191,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             // Reset initial undercooling/solidification event counter of all cells to zeros for the next layer,
             // resizing the views to the number of cells associated with the next layer
-            temperature.reset_layer_events_undercooling(grid.DomainSize);
+            temperature.reset_layer_events_undercooling(grid.domain_size);
 
             // Resize and zero all view data relating to the active region from the last layer, in preparation for the
             // next layer
-            interface.init_next_layer(grid.DomainSize);
+            interface.init_next_layer(grid.domain_size);
             MPI_Barrier(MPI_COMM_WORLD);
 
             // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
@@ -254,10 +254,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Print the log file with JSON format, timing information to the console
     inputs.PrintExaCALog(id, np, InputFile, grid.ny_local, grid.y_offset, irf, grid.deltax, grid.HT_deltax,
-                         grid.NumberOfLayers, grid.LayerHeight, grid.nx, grid.ny, grid.nz, InitTime, RunTime, OutTime,
-                         cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime,
-                         CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, grid.XMin,
-                         grid.XMax, grid.YMin, grid.YMax, grid.ZMin, grid.ZMax, VolFractionNucleated);
+                         grid.number_of_layers, grid.layer_height, grid.nx, grid.ny, grid.nz, InitTime, RunTime,
+                         OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime,
+                         CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime,
+                         OutMinTime, grid.x_min, grid.x_max, grid.y_min, grid.y_max, grid.z_min, grid.z_max,
+                         VolFractionNucleated);
     if (id == 0)
         PrintExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
                          CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,

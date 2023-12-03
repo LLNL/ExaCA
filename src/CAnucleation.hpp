@@ -170,12 +170,12 @@ struct Nucleation {
         for (int meltevent = 0; meltevent < NucleiMultiplier; meltevent++) {
             for (int n = 0; n < Nuclei_ThisLayerSingle; n++) {
                 int NEvent = meltevent * Nuclei_ThisLayerSingle + n;
-                if (((NucleiY(NEvent) > grid.y_offset) || (grid.AtSouthBoundary)) &&
-                    ((NucleiY(NEvent) < grid.y_offset + grid.ny_local - 1) || (grid.AtNorthBoundary))) {
+                if (((NucleiY(NEvent) > grid.y_offset) || (grid.at_south_boundary)) &&
+                    ((NucleiY(NEvent) < grid.y_offset + grid.ny_local - 1) || (grid.at_north_boundary))) {
                     // Convert 3D location (using global X and Y coordinates) into a 1D location (using local X and Y
                     // coordinates) for the possible nucleation event, both as relative to the bottom of this layer
                     int NucleiLocation_ThisLayer =
-                        grid.get1Dindex(NucleiX(NEvent), NucleiY(NEvent) - grid.y_offset, NucleiZ(NEvent));
+                        grid.get_1D_index(NucleiX(NEvent), NucleiY(NEvent) - grid.y_offset, NucleiZ(NEvent));
                     // Criteria for placing a nucleus - whether or not this nuclei is associated with a solidification
                     // event
                     if (meltevent < NumberOfSolidificationEvents_Host(NucleiLocation_ThisLayer)) {
@@ -295,7 +295,7 @@ struct Nucleation {
                             // exchange is successful (cell was liquid) Add future active cell location to steering
                             // vector and change cell type, assign new Grain ID
                             GrainID(NucleationEventLocation) = NucleiGrainID_local(NucleationCounter_Device);
-                            interface.SteeringVector(Kokkos::atomic_fetch_add(&interface.numSteer(0), 1)) =
+                            interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) =
                                 NucleationEventLocation;
                             // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
                             // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)

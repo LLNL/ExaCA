@@ -19,28 +19,30 @@
 
 #include <string>
 
-void fill_steering_vector_no_remelt(int cycle, Grid &grid, CellData<device_memory_space> &cellData,
+void fill_steering_vector_no_remelt(const int cycle, const Grid &grid, CellData<device_memory_space> &cellData,
                                     Temperature<device_memory_space> &temperature,
                                     Interface<device_memory_space> &interface);
-void fill_steering_vector_remelt(int cycle, Grid &grid, CellData<device_memory_space> &cellData,
+void fill_steering_vector_remelt(const int cycle, const Grid &grid, CellData<device_memory_space> &cellData,
                                  Temperature<device_memory_space> &temperature,
                                  Interface<device_memory_space> &interface);
-void cell_capture(int, int np, Grid &grid, InterfacialResponseFunction &irf, CellData<device_memory_space> &cellData,
-                  Temperature<device_memory_space> &temperature, Interface<device_memory_space> &interface,
-                  ViewF GrainUnitVector, int NGrainOrientations);
-void check_buffers(int id, Grid &grid, CellData<device_memory_space> &cellData,
-                   Interface<device_memory_space> &interface, int NGrainOrientations);
-void refill_buffers(Grid &grid, CellData<device_memory_space> &cellData, Interface<device_memory_space> &interface,
-                    int NGrainOrientations);
-void halo_update(int, int, Grid &grid, CellData<device_memory_space> &cellData,
-                 Interface<device_memory_space> &interface, int NGrainOrientations, ViewF GrainUnitVector);
+void cell_capture(const int, const int np, const Grid &grid, const InterfacialResponseFunction &irf,
+                  CellData<device_memory_space> &cellData, Temperature<device_memory_space> &temperature,
+                  Interface<device_memory_space> &interface, const ViewF GrainUnitVector, const int NGrainOrientations);
+void check_buffers(const int id, const Grid &grid, CellData<device_memory_space> &cellData,
+                   Interface<device_memory_space> &interface, const int NGrainOrientations);
+void refill_buffers(const Grid &grid, CellData<device_memory_space> &cellData,
+                    Interface<device_memory_space> &interface, const int NGrainOrientations);
+void halo_update(const int, const int, const Grid &grid, CellData<device_memory_space> &cellData,
+                 Interface<device_memory_space> &interface, const int NGrainOrientations, const ViewF GrainUnitVector);
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
-                  Temperature<device_memory_space> &temperature, Grid &grid, CellData<device_memory_space> &cellData,
-                  int id, int layernumber, int np, ViewF GrainUnitVector, Print print, int NGrainOrientations);
-void IntermediateOutputAndCheck(int id, int np, int &cycle, Grid &grid, int SuccessfulNucEvents_ThisRank, int &XSwitch,
-                                CellData<device_memory_space> &cellData, Temperature<device_memory_space> &temperature,
-                                std::string SimulationType, int layernumber, int NGrainOrientations,
-                                ViewF GrainUnitVector, Print print);
-void IntermediateOutputAndCheck(int id, int cycle, Grid &grid, int &XSwitch, ViewI CellType_AllLayers);
+                  Temperature<device_memory_space> &temperature, const Grid &grid,
+                  CellData<device_memory_space> &cellData, const int id, const int layernumber, const int np,
+                  const ViewF GrainUnitVector, Print print, const int NGrainOrientations);
+void IntermediateOutputAndCheck(const int id, const int np, int &cycle, const Grid &grid,
+                                int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<device_memory_space> &cellData,
+                                Temperature<device_memory_space> &temperature, std::string SimulationType,
+                                const int layernumber, const int NGrainOrientations, const ViewF GrainUnitVector,
+                                Print print);
+void IntermediateOutputAndCheck(const int id, int cycle, const Grid &grid, int &XSwitch, ViewI CellType_AllLayers);
 
 #endif

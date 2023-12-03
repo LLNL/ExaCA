@@ -50,8 +50,8 @@ struct Temperature {
     // Store data as double - needed for small time steps to resolve local differences in solidification conditions
     // Each data point has 6 values (X, Y, Z coordinates, melting time, liquidus time, and cooling rate)
     view_type_double_host RawTemperatureData;
-    // These contain "NumberOfLayers" values corresponding to the location within "RawTemperatureData" of the first data
-    // element in each temperature file, if used
+    // These contain "number_of_layers" values corresponding to the location within "RawTemperatureData" of the first
+    // data element in each temperature file, if used
     view_type_int_host FirstValue, LastValue;
     // Temperature field inputs from file
     TemperatureInputs _inputs;
@@ -59,25 +59,25 @@ struct Temperature {
     // Constructor creates views with size based on the grid inputs - each cell assumed to solidify once by default,
     // LayerTimeTempHistory modified to account for multiple events if needed UndercoolingCurrent and
     // SolidificationEventCounter are default initialized to zeros
-    Temperature(const int DomainSize, const int NumberOfLayers, TemperatureInputs inputs,
+    Temperature(const int domain_size, const int number_of_layers, TemperatureInputs inputs,
                 const int EstNumTemperatureDataPoints = 1000000)
         : MaxSolidificationEvents(
-              view_type_int(Kokkos::ViewAllocateWithoutInitializing("NumberOfLayers"), NumberOfLayers))
+              view_type_int(Kokkos::ViewAllocateWithoutInitializing("number_of_layers"), number_of_layers))
         , LayerTimeTempHistory(
-              view_type_float_3d(Kokkos::ViewAllocateWithoutInitializing("LayerTimeTempHistory"), DomainSize, 1, 3))
+              view_type_float_3d(Kokkos::ViewAllocateWithoutInitializing("LayerTimeTempHistory"), domain_size, 1, 3))
         , NumberOfSolidificationEvents(
-              view_type_int(Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents"), DomainSize))
-        , SolidificationEventCounter(view_type_int("SolidificationEventCounter", DomainSize))
-        , UndercoolingCurrent(view_type_float("UndercoolingCurrent", DomainSize))
+              view_type_int(Kokkos::ViewAllocateWithoutInitializing("NumberOfSolidificationEvents"), domain_size))
+        , SolidificationEventCounter(view_type_int("SolidificationEventCounter", domain_size))
+        , UndercoolingCurrent(view_type_float("UndercoolingCurrent", domain_size))
         , RawTemperatureData(view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("RawTemperatureData"),
                                                    EstNumTemperatureDataPoints))
-        , FirstValue(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("FirstValue"), NumberOfLayers))
-        , LastValue(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("LastValue"), NumberOfLayers))
+        , FirstValue(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("FirstValue"), number_of_layers))
+        , LastValue(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("LastValue"), number_of_layers))
         , _inputs(inputs) {}
 
     // Read in temperature data from files, stored in the host view "RawData", with the appropriate MPI ranks storing
     // the appropriate data
-    void readTemperatureData(int id, Grid &grid, int layernumber) {
+    void readTemperatureData(int id, const Grid &grid, int layernumber) {
 
         // If HTtoCAratio > 1, an interpolation of input temperature data is needed
         // The Y bounds are the region (for this MPI rank) of the physical domain that needs to be
@@ -107,7 +107,7 @@ struct Temperature {
         }
         else {
             FirstLayerToRead = 0;
-            LastLayerToRead = std::min(grid.NumberOfLayers, _inputs.TempFilesInSeries) - 1;
+            LastLayerToRead = std::min(grid.number_of_layers, _inputs.TempFilesInSeries) - 1;
         }
         // Which temperature files should be read? Just the one file for layer "layernumber", or all of them?
         for (int LayerReadCount = FirstLayerToRead; LayerReadCount <= LastLayerToRead; LayerReadCount++) {
@@ -124,15 +124,15 @@ struct Temperature {
             // Read and parse temperature file for either binary or ASCII, storing the appropriate values on each MPI
             // rank within RawData and incrementing NumberOfTemperatureDataPoints appropriately
             bool BinaryInputData = checkTemperatureFileFormat(tempfile_thislayer);
-            parseTemperatureData(tempfile_thislayer, grid.YMin, grid.deltax, LowerYBound, UpperYBound,
+            parseTemperatureData(tempfile_thislayer, grid.y_min, grid.deltax, LowerYBound, UpperYBound,
                                  NumberOfTemperatureDataPoints, BinaryInputData, RawTemperatureData);
             LastValue(LayerReadCount) = NumberOfTemperatureDataPoints;
         } // End loop over all files read for all layers
         Kokkos::resize(RawTemperatureData, NumberOfTemperatureDataPoints);
         // Determine start values for each layer's data within "RawData", if all layers were read
         if (!(_inputs.LayerwiseTempRead)) {
-            if (grid.NumberOfLayers > _inputs.TempFilesInSeries) {
-                for (int LayerReadCount = _inputs.TempFilesInSeries; LayerReadCount < grid.NumberOfLayers;
+            if (grid.number_of_layers > _inputs.TempFilesInSeries) {
+                for (int LayerReadCount = _inputs.TempFilesInSeries; LayerReadCount < grid.number_of_layers;
                      LayerReadCount++) {
                     if (_inputs.TempFilesInSeries == 1) {
                         // Since all layers have the same temperature data, each layer's "ZMinLayer" is just
@@ -152,7 +152,7 @@ struct Temperature {
     }
 
     // Initialize temperature data without a thermal gradient for constrained/single grain problem types
-    void initialize(int id, Grid &grid, double deltat) {
+    void initialize(int id, const Grid &grid, double deltat) {
 
         // Initialize temperature field in Z direction with thermal gradient G set in input file
         // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
@@ -166,7 +166,7 @@ struct Temperature {
         double initUndercooling_local = _inputs.initUndercooling;
         double R_local = _inputs.R;
         // Uniform undercooling field
-        auto policy = Kokkos::RangePolicy<execution_space>(0, grid.DomainSize);
+        auto policy = Kokkos::RangePolicy<execution_space>(0, grid.domain_size);
         Kokkos::parallel_for(
             "TempInitUniform", policy, KOKKOS_LAMBDA(const int &index) {
                 // All cells past melting time step and liquidus time step
@@ -187,7 +187,7 @@ struct Temperature {
     }
 
     // Initialize temperature data with a thermal gradient in Z for constrained/single grain problem types
-    void initialize(int id, std::string SimulationType, Grid &grid, double deltat) {
+    void initialize(int id, std::string SimulationType, const Grid &grid, double deltat) {
 
         // Initialize temperature field in Z direction with thermal gradient G set in input file
         // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
@@ -208,10 +208,10 @@ struct Temperature {
         double G_local = _inputs.G;
         double R_local = _inputs.R;
 
-        auto policy = Kokkos::RangePolicy<execution_space>(0, grid.DomainSize);
+        auto policy = Kokkos::RangePolicy<execution_space>(0, grid.domain_size);
         Kokkos::parallel_for(
             "TempInitG", policy, KOKKOS_LAMBDA(const int &index) {
-                int coord_z = grid.getCoordZ(index);
+                int coord_z = grid.get_coord_Z(index);
                 // Negative distFromLiquidus values for cells below the liquidus
                 int distFromLiquidus = coord_z - locationOfLiquidus;
                 // All cells past melting time step
@@ -240,7 +240,7 @@ struct Temperature {
     }
 
     // For an overlapping spot melt pattern, determine max number of times a cell will melt/solidify as part of a layer
-    int calcMaxSolidificationEvents(Grid &grid, int NumberOfSpots, int NSpotsX, int SpotRadius, int SpotOffset) {
+    int calcMaxSolidificationEvents(const Grid &grid, int NumberOfSpots, int NSpotsX, int SpotRadius, int SpotOffset) {
 
         ViewI2D_H MaxSolidificationEvents_Temp("SEvents_Temp", grid.nx, grid.ny_local);
         for (int n = 0; n < NumberOfSpots; n++) {
@@ -276,7 +276,7 @@ struct Temperature {
     // Initialize temperature data for an array of overlapping spot melts. As every layer is the same, this only needs
     // to be done at the start of the simulation
     // TODO: This can be performed on the device as the dirS problem is
-    void initialize(int id, Grid &grid, double FreezingRange, Inputs &inputs) {
+    void initialize(int id, const Grid &grid, double FreezingRange, Inputs &inputs) {
 
         int NumberOfSpots = inputs.domain.NSpotsX * inputs.domain.NSpotsY;
 
@@ -286,16 +286,16 @@ struct Temperature {
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
         int MaxNumSolidificationEvents = calcMaxSolidificationEvents(
             grid, NumberOfSpots, inputs.domain.NSpotsX, inputs.domain.SpotRadius, inputs.domain.SpotOffset);
-        for (int layernumber = 0; layernumber < grid.NumberOfLayers; layernumber++)
+        for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++)
             MaxSolidificationEvents_Host(layernumber) = MaxNumSolidificationEvents;
 
         // Resize LayerTimeTempHistory now that the max number of solidification events is known
-        Kokkos::resize(LayerTimeTempHistory, grid.DomainSize, MaxNumSolidificationEvents, 3);
+        Kokkos::resize(LayerTimeTempHistory, grid.domain_size, MaxNumSolidificationEvents, 3);
 
         // Temporary host views filled with data and copied to the device. Initialize to zeros
-        view_type_float_3d_host LayerTimeTempHistory_Host("TimeTempHistory_H", grid.DomainSize,
+        view_type_float_3d_host LayerTimeTempHistory_Host("TimeTempHistory_H", grid.domain_size,
                                                           MaxNumSolidificationEvents, 3);
-        view_type_int_host NumberOfSolidificationEvents_Host("NumSEvents_H", grid.DomainSize);
+        view_type_int_host NumberOfSolidificationEvents_Host("NumSEvents_H", grid.domain_size);
 
         // Outer edges of spots are initialized at the liquidus temperature
         // Spots cool at constant rate R, spot thermal gradient = G
@@ -326,7 +326,7 @@ struct Temperature {
                         float DistY = (float)(YSpotPos - coord_y_global);
                         float TotDist = sqrt(DistX * DistX + DistY * DistY + DistZ * DistZ);
                         if (TotDist <= inputs.domain.SpotRadius) {
-                            int index = grid.get1Dindex(coord_x, coord_y, coord_z);
+                            int index = grid.get_1D_index(coord_x, coord_y, coord_z);
                             // Melt time
                             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 0) =
                                 1 + TimeBetweenSpots * n;
@@ -360,7 +360,7 @@ struct Temperature {
     // Calculate the number of times that a cell in layer "layernumber" undergoes melting/solidification, and store in
     // MaxSolidificationEvents_Host
     void calcMaxSolidificationEvents(int id, int layernumber, ViewI_H MaxSolidificationEvents_Host, int StartRange,
-                                     int EndRange, Grid &grid) {
+                                     int EndRange, const Grid &grid) {
 
         if (layernumber > _inputs.TempFilesInSeries) {
             // Use the value from a previously checked layer, since the time-temperature history is reused
@@ -378,21 +378,21 @@ struct Temperature {
         else {
             // Need to calculate MaxSolidificationEvents(layernumber) from the values in RawData
             // Init to 0
-            view_type_int_host TempMeltCount("TempMeltCount", grid.DomainSize);
+            view_type_int_host TempMeltCount("TempMeltCount", grid.domain_size);
 
             for (int i = StartRange; i < EndRange; i += 6) {
 
                 // Get the integer X, Y, Z coordinates associated with this data point, with the Y coordinate based on
                 // local MPI rank's grid
-                int coord_x = getTempCoordX(i, grid.XMin, grid.deltax);
-                int coord_y = getTempCoordY(i, grid.YMin, grid.deltax, grid.y_offset);
-                int coord_z = getTempCoordZ(i, grid.deltax, grid.LayerHeight, layernumber, grid.ZMinLayer);
+                int coord_x = getTempCoordX(i, grid.x_min, grid.deltax);
+                int coord_y = getTempCoordY(i, grid.y_min, grid.deltax, grid.y_offset);
+                int coord_z = getTempCoordZ(i, grid.deltax, grid.layer_height, layernumber, grid.z_min_layer);
                 // Convert to 1D coordinate in the current layer's domain
-                int index = grid.get1Dindex(coord_x, coord_y, coord_z);
+                int index = grid.get_1D_index(coord_x, coord_y, coord_z);
                 TempMeltCount(index)++;
             }
             int MaxCount = 0;
-            for (int i = 0; i < grid.DomainSize; i++) {
+            for (int i = 0; i < grid.domain_size; i++) {
                 if (TempMeltCount(i) > MaxCount)
                     MaxCount = TempMeltCount(i);
             }
@@ -441,7 +441,8 @@ struct Temperature {
 
     // Initialize temperature fields for layer "layernumber" in case where temperature data comes from file(s)
     // TODO: This can be performed on the device as the dirS problem is
-    void initialize(int layernumber, int id, Grid &grid, double FreezingRange, int *FinishTimeStep, double deltat) {
+    void initialize(int layernumber, int id, const Grid &grid, double FreezingRange, int *FinishTimeStep,
+                    double deltat) {
 
         // Data was already read into the "RawTemperatureData" data structure
         // Determine which section of "RawTemperatureData" is relevant for this layer of the overall domain
@@ -456,13 +457,13 @@ struct Temperature {
         int MaxNumSolidificationEvents = MaxSolidificationEvents_Host(0);
 
         // Resize LayerTimeTempHistory now that the max number of solidification events is known for this layer
-        Kokkos::resize(LayerTimeTempHistory, grid.DomainSize, MaxNumSolidificationEvents, 3);
+        Kokkos::resize(LayerTimeTempHistory, grid.domain_size, MaxNumSolidificationEvents, 3);
 
         // These views are initialized to zeros on the host, filled with data, and then copied to the device for layer
         // "layernumber"
-        view_type_float_3d_host LayerTimeTempHistory_Host("TimeTempHistory_H", grid.DomainSize,
+        view_type_float_3d_host LayerTimeTempHistory_Host("TimeTempHistory_H", grid.domain_size,
                                                           MaxNumSolidificationEvents, 3);
-        view_type_int_host NumberOfSolidificationEvents_Host("NumSEvents_H", grid.DomainSize);
+        view_type_int_host NumberOfSolidificationEvents_Host("NumSEvents_H", grid.domain_size);
 
         double LargestTime = 0;
         double LargestTime_Global = 0;
@@ -476,15 +477,15 @@ struct Temperature {
             // values
             // coord_y is relative to ths MPI rank's grid, while coord_y_global is relative to the overall simulation
             // domain
-            int coord_x = getTempCoordX(i, grid.XMin, grid.deltax);
-            int coord_y = getTempCoordY(i, grid.YMin, grid.deltax, grid.y_offset);
-            int coord_z = getTempCoordZ(i, grid.deltax, grid.LayerHeight, layernumber, grid.ZMinLayer);
+            int coord_x = getTempCoordX(i, grid.x_min, grid.deltax);
+            int coord_y = getTempCoordY(i, grid.y_min, grid.deltax, grid.y_offset);
+            int coord_z = getTempCoordZ(i, grid.deltax, grid.layer_height, layernumber, grid.z_min_layer);
             double TMelting = getTempCoordTM(i);
             double TLiquidus = getTempCoordTL(i);
             double CoolingRate = getTempCoordCR(i);
 
             // 1D cell coordinate on this MPI rank's domain
-            int index = grid.get1Dindex(coord_x, coord_y, coord_z);
+            int index = grid.get_1D_index(coord_x, coord_y, coord_z);
             // Store TM, TL, CR values for this solidification event in LayerTimeTempHistory
             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 0) =
                 round(TMelting / deltat) + 1;
@@ -511,7 +512,7 @@ struct Temperature {
 
         // Reorder solidification events in LayerTimeTempHistory(location,event number,component) so that they are in
         // order based on the melting time values (component = 0)
-        for (int index = 0; index < grid.DomainSize; index++) {
+        for (int index = 0; index < grid.domain_size; index++) {
             int NSolidificationEvents_cell = NumberOfSolidificationEvents_Host(index);
             if (NSolidificationEvents_cell > 0) {
                 for (int i = 0; i < NSolidificationEvents_cell - 1; i++) {
@@ -534,7 +535,7 @@ struct Temperature {
         }
         // If a cell melts twice before reaching the liquidus temperature, this is a double counted solidification
         // event and should be removed
-        for (int index = 0; index < grid.DomainSize; index++) {
+        for (int index = 0; index < grid.domain_size; index++) {
             int NSolidificationEvents_cell = NumberOfSolidificationEvents_Host(index);
             if (NSolidificationEvents_cell > 1) {
                 for (int i = 0; i < NSolidificationEvents_cell - 1; i++) {
@@ -603,9 +604,9 @@ struct Temperature {
 
     // Reset solidification event counter and the undercooling to zero for all cells, resizing for the number of cells
     // associated with the next layer's domain
-    void reset_layer_events_undercooling(const int DomainSize) {
-        Kokkos::realloc(UndercoolingCurrent, DomainSize);
-        Kokkos::realloc(SolidificationEventCounter, DomainSize);
+    void reset_layer_events_undercooling(const int domain_size) {
+        Kokkos::realloc(UndercoolingCurrent, domain_size);
+        Kokkos::realloc(SolidificationEventCounter, domain_size);
         Kokkos::deep_copy(UndercoolingCurrent, 0.0);
         Kokkos::deep_copy(SolidificationEventCounter, 0);
     }
@@ -657,16 +658,16 @@ struct Temperature {
     // NumSolidificationEvents is different for each cell) If the cell does not undergo solidification, either print -1
     // or the specified default value
     template <typename ExtractedViewDataType>
-    ExtractedViewDataType extract_tm_tl_cr_data(const int extracted_val, const int DomainSize,
+    ExtractedViewDataType extract_tm_tl_cr_data(const int extracted_val, const int domain_size,
                                                 const int DefaultVal = -1) {
-        ExtractedViewDataType ExtractedData(Kokkos::ViewAllocateWithoutInitializing("ExtractedData"), DomainSize);
+        ExtractedViewDataType ExtractedData(Kokkos::ViewAllocateWithoutInitializing("ExtractedData"), domain_size);
         using extracted_value_type = typename ExtractedViewDataType::value_type;
 
         // Local copies for lambda capture.
         auto LayerTimeTempHistory_local = LayerTimeTempHistory;
         auto NumberOfSolidificationEvents_local = NumberOfSolidificationEvents;
 
-        auto policy = Kokkos::RangePolicy<execution_space>(0, DomainSize);
+        auto policy = Kokkos::RangePolicy<execution_space>(0, domain_size);
         Kokkos::parallel_for(
             "Extract_tm_tl_cr_data", policy, KOKKOS_LAMBDA(const int &index) {
                 int NumSolidificationEvents_ThisCell = NumberOfSolidificationEvents_local(index);

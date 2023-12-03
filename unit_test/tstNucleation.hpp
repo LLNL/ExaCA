@@ -52,19 +52,19 @@ void testNucleiInit() {
     grid.ny_local = 2;
     grid.y_offset = 2 * id;
     grid.deltax = 1;
-    grid.DomainSize = grid.nx * grid.ny_local * grid.nz_layer;
-    grid.BottomOfCurrentLayer = grid.getBottomOfCurrentLayer();
-    grid.TopOfCurrentLayer = grid.getTopOfCurrentLayer();
-    grid.LayerRange = std::make_pair(grid.BottomOfCurrentLayer, grid.TopOfCurrentLayer);
+    grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
+    grid.bottom_of_current_layer = grid.get_bottom_of_current_layer();
+    grid.top_of_current_layer = grid.get_top_of_current_layer();
+    grid.layer_range = std::make_pair(grid.bottom_of_current_layer, grid.top_of_current_layer);
     // MPI rank locations relative to the global grid
     if (id == 0)
-        grid.AtSouthBoundary = true;
+        grid.at_south_boundary = true;
     else
-        grid.AtSouthBoundary = false;
+        grid.at_south_boundary = false;
     if (id == np - 1)
-        grid.AtNorthBoundary = true;
+        grid.at_north_boundary = true;
     else
-        grid.AtNorthBoundary = false;
+        grid.at_north_boundary = false;
 
     // There are 40 * np total cells in this domain (nx * ny * nz)
     // Each rank has 40 cells - the top 32 cells are part of the active layer and are candidates for nucleation
@@ -80,13 +80,13 @@ void testNucleiInit() {
     inputs.nucleation.NMax = 0.125;
 
     // Allocate temperature data structures
-    Temperature<memory_space> temperature(grid.DomainSize, grid.NumberOfLayers, inputs.temperature, 1);
+    Temperature<memory_space> temperature(grid.domain_size, grid.number_of_layers, inputs.temperature, 1);
     // Resize LayerTimeTempHistory with the known max number of solidification events
-    Kokkos::resize(temperature.LayerTimeTempHistory, grid.DomainSize, MaxSolidificationEvents_Count, 3);
+    Kokkos::resize(temperature.LayerTimeTempHistory, grid.domain_size, MaxSolidificationEvents_Count, 3);
     // Initialize MaxSolidificationEvents to 3 for each layer. LayerTimeTempHistory and NumberOfSolidificationEvents are
     // initialized for each cell on the host and copied to the device
     ViewI_H MaxSolidificationEvents_Host(Kokkos::ViewAllocateWithoutInitializing("MaxSolidificationEvents_Host"),
-                                         grid.NumberOfLayers);
+                                         grid.number_of_layers);
     MaxSolidificationEvents_Host(0) = MaxSolidificationEvents_Count;
     MaxSolidificationEvents_Host(1) = MaxSolidificationEvents_Count;
     // Cells solidify 1, 2, or 3 times, depending on their X coordinate
@@ -94,7 +94,7 @@ void testNucleiInit() {
         "NumSolidificationEventsInit", grid.nz_layer, KOKKOS_LAMBDA(const int &coord_z) {
             for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
                 for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
-                    int index = grid.get1Dindex(coord_x, coord_y, coord_z);
+                    int index = grid.get_1D_index(coord_x, coord_y, coord_z);
                     if (coord_x < grid.nx / 2 - 1)
                         temperature.NumberOfSolidificationEvents(index) = 3;
                     else if (coord_x < grid.nx / 2)
@@ -110,15 +110,15 @@ void testNucleiInit() {
             for (int coord_z = 0; coord_z < grid.nz_layer; coord_z++) {
                 for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
                     for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
-                        int index = grid.get1Dindex(coord_x, coord_y, coord_z);
+                        int index = grid.get_1D_index(coord_x, coord_y, coord_z);
                         int coord_z_AllLayers = coord_z + grid.z_layer_bottom;
                         if (n < temperature.NumberOfSolidificationEvents(index)) {
                             // melting time step depends on solidification event number
                             temperature.LayerTimeTempHistory(index, n, 0) =
-                                coord_z_AllLayers + coord_y + grid.y_offset + (grid.DomainSize * n);
+                                coord_z_AllLayers + coord_y + grid.y_offset + (grid.domain_size * n);
                             // liquidus time stemp depends on solidification event number
                             temperature.LayerTimeTempHistory(index, n, 1) =
-                                coord_z_AllLayers + coord_y + grid.y_offset + 1 + (grid.DomainSize * n);
+                                coord_z_AllLayers + coord_y + grid.y_offset + 1 + (grid.domain_size * n);
                             // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep value
                             temperature.LayerTimeTempHistory(index, n, 2) = 1.2;
                         }
@@ -134,7 +134,7 @@ void testNucleiInit() {
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
     // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
-    int EstimatedNuclei_ThisRankThisLayer = inputs.nucleation.NMax * pow(grid.deltax, 3) * grid.DomainSize;
+    int EstimatedNuclei_ThisRankThisLayer = inputs.nucleation.NMax * pow(grid.deltax, 3) * grid.domain_size;
     Nucleation<memory_space> nucleation(
         EstimatedNuclei_ThisRankThisLayer, grid.deltax, inputs.nucleation,
         100); // NucleiGrainID should start at -101 - supply optional input arg to constructor
@@ -166,14 +166,14 @@ void testNucleiInit() {
         // Are the correct undercooling values associated with the correct cell locations?
         // Cell location is a local position (relative to the bottom of the layer)
         int index = NucleiLocation_Host(n);
-        int coord_z = grid.getCoordZ(index);
-        int coord_y = grid.getCoordY(index);
+        int coord_z = grid.get_coord_Z(index);
+        int coord_y = grid.get_coord_Y(index);
         int coord_z_AllLayers = coord_z + grid.z_layer_bottom;
         // Expected nucleation time with remelting can be one of 3 possibilities, depending on the associated
         // solidification event
         int Expected_NucleationTimeNoRM = coord_z_AllLayers + coord_y + grid.y_offset + 2;
-        int AssociatedSEvent = nucleation.NucleationTimes_Host(n) / grid.DomainSize;
-        int Expected_NucleationTimeRM = Expected_NucleationTimeNoRM + AssociatedSEvent * grid.DomainSize;
+        int AssociatedSEvent = nucleation.NucleationTimes_Host(n) / grid.domain_size;
+        int Expected_NucleationTimeRM = Expected_NucleationTimeNoRM + AssociatedSEvent * grid.domain_size;
         EXPECT_EQ(nucleation.NucleationTimes_Host(n), Expected_NucleationTimeRM);
 
         // Are the nucleation events in order of the time steps at which they may occur?
@@ -201,15 +201,15 @@ void testNucleateGrain() {
     grid.z_layer_bottom = 2;
     grid.nz_layer = 3;
     grid.deltax = 1.0;
-    grid.DomainSize = grid.nx * grid.ny_local * grid.nz_layer;
-    grid.DomainSize_AllLayers = grid.nx * grid.ny_local * grid.nz;
-    grid.BottomOfCurrentLayer = grid.getBottomOfCurrentLayer();
-    grid.TopOfCurrentLayer = grid.getTopOfCurrentLayer();
-    grid.LayerRange = std::make_pair(grid.BottomOfCurrentLayer, grid.TopOfCurrentLayer);
+    grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
+    grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
+    grid.bottom_of_current_layer = grid.get_bottom_of_current_layer();
+    grid.top_of_current_layer = grid.get_top_of_current_layer();
+    grid.layer_range = std::make_pair(grid.bottom_of_current_layer, grid.top_of_current_layer);
 
     // All cells have GrainID of 0, CellType of Liquid - with the exception of the locations where the nucleation events
     // are unable to occur
-    CellData<memory_space> cellData(grid.DomainSize_AllLayers, inputs.substrate);
+    CellData<memory_space> cellData(grid.domain_size_all_layers, inputs.substrate);
     Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
     auto CellType = cellData.getCellTypeSubview(grid);
     auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
@@ -261,7 +261,7 @@ void testNucleateGrain() {
     nucleation.NucleiGrainID = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), NucleiGrainID_Host);
 
     // Interface struct
-    Interface<memory_space> interface(grid.DomainSize);
+    Interface<memory_space> interface(grid.domain_size);
     // Take enough time steps such that every nucleation event has a chance to occur
     for (int cycle = 0; cycle < 10; cycle++) {
         nucleation.nucleate_grain(cycle, grid, cellData, interface);
@@ -270,8 +270,9 @@ void testNucleateGrain() {
     // Copy CellType, SteeringVector, numSteer, GrainID back to host to check nucleation results
     CellType = cellData.getCellTypeSubview(grid);
     CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
-    auto SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.SteeringVector);
-    auto numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.numSteer);
+    auto steering_vector_host_local =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.steering_vector);
+    auto num_steer_host_local = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.num_steer);
     GrainID = cellData.getGrainIDSubview(grid);
     GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
@@ -279,7 +280,7 @@ void testNucleateGrain() {
     EXPECT_EQ(nucleation.NucleationCounter, 10);
     // Check that 7 of the 10 nucleation events were successful
     EXPECT_EQ(nucleation.SuccessfulNucleationCounter, 7);
-    EXPECT_EQ(numSteer_Host(0), 7);
+    EXPECT_EQ(num_steer_host_local(0), 7);
 
     // Ensure that the 3 events that should not have occurred, did not occur
     // These cells should be untouched - active type, and same GrainID they was initialized with
@@ -302,7 +303,7 @@ void testNucleateGrain() {
         EXPECT_EQ(GrainID_Host(index), SuccessfulNuc_GrainIDs[nevent]);
         bool OnSteeringVector = false;
         for (int svloc = 0; svloc < 7; svloc++) {
-            if (SteeringVector_Host(svloc) == index) {
+            if (steering_vector_host_local(svloc) == index) {
                 OnSteeringVector = true;
                 break;
             }

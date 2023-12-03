@@ -40,7 +40,7 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     Grid grid(NumberOfLayers);
     grid.ny_local = 3;
     grid.y_offset = 3 * id; // each col is separated from the others by 3 cells
-    grid.YMin = 0.0;
+    grid.y_min = 0.0;
     grid.deltax = 1 * pow(10, -6);
     grid.HTtoCAratio = 1;
 
@@ -48,7 +48,7 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     grid.nx = 3;
     grid.ny = 12;
     grid.nz = 3;
-    grid.DomainSize = grid.nx * grid.ny * grid.nz;
+    grid.domain_size = grid.nx * grid.ny * grid.nz;
     // Write fake OpenFOAM data - only rank 0. Temperature data should be of type double
     // Write two files, one or both of which should be read
     std::string TestTempFileName1 = "TestData1";
@@ -124,7 +124,7 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     inputs.temperature.LayerwiseTempRead = LayerwiseTempRead;
 
     // Ensure that constructor correctly initialized the local values of inputs
-    Temperature<memory_space> temperature(grid.DomainSize, NumberOfLayers, inputs.temperature);
+    Temperature<memory_space> temperature(grid.domain_size, NumberOfLayers, inputs.temperature);
     if (LayerwiseTempRead)
         EXPECT_TRUE(temperature._inputs.LayerwiseTempRead);
     else
@@ -194,7 +194,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     grid.nx = 2;
     grid.ny_local = 5;
     grid.nz = 6; // (Front is at Z = 0 for directional growth, single grain seed at Z = 2 for singlegrain problem)
-    grid.DomainSize = grid.nx * grid.ny_local * grid.nz;
+    grid.domain_size = grid.nx * grid.ny_local * grid.nz;
     int coord_z_Center = floorf(static_cast<float>(grid.nz) / 2.0);
 
     // default inputs struct - manually set non-default substrateInputs values
@@ -220,7 +220,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     double RNorm = inputs.temperature.R * deltat;
 
     // Temperature struct
-    Temperature<memory_space> temperature(grid.DomainSize, 1, inputs.temperature);
+    Temperature<memory_space> temperature(grid.domain_size, 1, inputs.temperature);
     // Test constructor initialization of _inputs
     // These should've been initialized with default values
     EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
@@ -257,7 +257,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     for (int coord_z = 0; coord_z < grid.nz; coord_z++) {
         for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
             for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
-                int index = grid.get1Dindex(coord_x, coord_y, coord_z);
+                int index = grid.get_1D_index(coord_x, coord_y, coord_z);
                 // Each cell solidifies once, and counter should start at 0, associated with the zeroth layer
                 // MeltTimeStep should be -1 for all cells
                 // Cells cool at 1 K per time step
