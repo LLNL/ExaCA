@@ -26,13 +26,13 @@ jobs:
         kokkos_ver: ['3.4.01']
         json: ['Internal']
         include:
-          - distro: 'fedora:intel'
+          - distro: 'ubuntu:intel'
             cxx: 'icpx'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
             kokkos_ver: '3.7.02'
             json: External
-          - distro: 'fedora:intel'
+          - distro: 'ubuntu:intel'
             cxx: 'icpx'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
