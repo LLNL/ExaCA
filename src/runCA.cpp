@@ -145,7 +145,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Cell capture and checking of the MPI buffers to ensure that all appropriate interface updates in the halo
             // regions were recorded
             cell_capture(cycle, np, grid, irf, cellData, temperature, interface, GrainUnitVector, NGrainOrientations);
-            check_buffers(id, grid, cellData, interface, NGrainOrientations);
+            check_buffers(id, cycle, grid, cellData, interface, NGrainOrientations);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {

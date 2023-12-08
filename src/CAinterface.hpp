@@ -38,8 +38,8 @@ struct Interface {
     // Using the default exec space for this memory space.
     using execution_space = typename memory_space::execution_space;
 
-    // Size of send/recv buffers before and after the potential resize
-    int old_buf_size, buf_size, buf_components;
+    // Size of send/recv buffers
+    int buf_size, buf_components;
     view_type_float diagonal_length, octahedron_center, crit_diagonal_length;
     view_type_buffer buffer_south_send, buffer_north_send, buffer_south_recv, buffer_north_recv;
     view_type_int send_size_south, send_size_north, steering_vector, num_steer;
@@ -77,7 +77,6 @@ struct Interface {
 
         // Set initial buffer size to the estimate
         buf_size = buf_size_initial_estimate;
-        old_buf_size = buf_size;
         // Set number of components in the buffer
         buf_components = buf_components_temp;
         // Send/recv buffers for ghost node data should be initialized with -1s in the first index as placeholders for
@@ -119,11 +118,11 @@ struct Interface {
         neighbor_z = {0, 0, 0, 1, -1, 1, 1, -1, -1, 1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, -1};
     }
 
-    // Count the number of cells' in halo regions where the data did not fit into the send buffers, and resize the
-    // buffers if necessary, returning the new buffer size
-    int resize_buffers(int num_cells_buffer_padding = 25) {
+    // buffers if necessary, returning the new buffer size. Return true if the buffers were resized
+    int resize_buffers(const int id, const int cycle, int num_cells_buffer_padding = 25) {
 
-        int new_buf_size;
+        bool resize_performed = false;
+        int old_buf_size = buf_size;
         send_size_north_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), send_size_north);
         send_size_south_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), send_size_south);
         int max_count_local = max(send_size_north_host(0), send_size_south_host(0));
@@ -132,7 +131,7 @@ struct Interface {
         if (max_count_global > old_buf_size) {
             // Increase buffer size to fit all data
             // Add numcells_buffer_padding (defaults to 25) cells as additional padding
-            new_buf_size = max_count_global + num_cells_buffer_padding;
+            int new_buf_size = max_count_global + num_cells_buffer_padding;
             Kokkos::resize(buffer_north_send, new_buf_size, buf_components);
             Kokkos::resize(buffer_south_send, new_buf_size, buf_components);
             Kokkos::resize(buffer_north_recv, new_buf_size, buf_components);
@@ -158,10 +157,12 @@ struct Interface {
                         buffer_south_send_local(buf_position, buf_comp) = -1.0;
                     }
                 });
+            buf_size = new_buf_size;
+            resize_performed = true;
+            if (id == 0)
+                std::cout << "On time step " << cycle << ", resized the send/recv buffers to " << buf_size << std::endl;
         }
-        else
-            new_buf_size = old_buf_size;
-        return new_buf_size;
+        return resize_performed;
     }
 
     // Resize and reinitialize structs governing the active cells before the next layer of a multilayer problem

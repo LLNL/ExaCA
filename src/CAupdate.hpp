@@ -28,7 +28,7 @@ void fill_steering_vector_remelt(const int cycle, const Grid &grid, CellData<dev
 void cell_capture(const int, const int np, const Grid &grid, const InterfacialResponseFunction &irf,
                   CellData<device_memory_space> &cellData, Temperature<device_memory_space> &temperature,
                   Interface<device_memory_space> &interface, const ViewF GrainUnitVector, const int NGrainOrientations);
-void check_buffers(const int id, const Grid &grid, CellData<device_memory_space> &cellData,
+void check_buffers(const int id, const int cycle, const Grid &grid, CellData<device_memory_space> &cellData,
                    Interface<device_memory_space> &interface, const int NGrainOrientations);
 void refill_buffers(const Grid &grid, CellData<device_memory_space> &cellData,
                     Interface<device_memory_space> &interface, const int NGrainOrientations);

@@ -497,19 +497,14 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
 }
 
 // Check buffers for overflow and resize/refill as necessary
-void check_buffers(const int id, const Grid &grid, CellData<device_memory_space> &cellData,
+void check_buffers(const int id, const int cycle, const Grid &grid, CellData<device_memory_space> &cellData,
                    Interface<device_memory_space> &interface, const int n_grain_orientations) {
     // Count the number of cells' in halo regions where the data did not fit into the send buffers
     // Reduce across all ranks, as the same buf_size should be maintained across all ranks
     // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
-    int old_buf_size = interface.buf_size;
-    int buf_size_local = interface.resize_buffers();
-    if (old_buf_size != buf_size_local) {
-        if (id == 0)
-            std::cout << "Resized number of cells stored in send/recv buffers from " << old_buf_size << " to "
-                      << buf_size_local << std::endl;
+    bool resize_performed = interface.resize_buffers(id, cycle);
+    if (resize_performed)
         refill_buffers(grid, cellData, interface, n_grain_orientations);
-    }
 }
 
 // Refill the buffers as necessary starting from the old count size, using the data from cells marked with type
