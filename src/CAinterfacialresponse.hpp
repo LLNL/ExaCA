@@ -35,7 +35,6 @@ struct InterfacialResponseFunction {
         power = 2,
     };
     int function = cubic;
-    std::string functionform = "cubic";
 
     // Constructor
     InterfacialResponseFunction(int id, std::string MaterialFile, const double deltat, const double deltax) {
@@ -52,7 +51,7 @@ struct InterfacialResponseFunction {
         A = data["coefficients"]["A"];
         B = data["coefficients"]["B"];
         C = data["coefficients"]["C"];
-        functionform = data["function"];
+        std::string functionform = data["function"];
         if (functionform == "cubic") {
             D = data["coefficients"]["D"];
             function = cubic;
@@ -109,12 +108,24 @@ struct InterfacialResponseFunction {
         return max(0.0, V);
     }
 
+    std::string function_name() {
+        // Not storing string due to Cuda warnings when constructing on device.
+        if (function == cubic)
+            return "cubic";
+        else if (function == quadratic)
+            return "quadratic";
+        else if (function == power)
+            return "power";
+
+        // Should never make it here
+        return "none";
+    }
     // json format for interfacial response function printing
     std::string print() {
         std::stringstream out;
         out << "   \"InterfacialResponse\": {" << std::endl;
         out << "       \"Function\": "
-            << "\"" << functionform << "\"," << std::endl;
+            << "\"" << function_name() << "\"," << std::endl;
         out << "       \"A\": " << (A) << "," << std::endl;
         out << "       \"B\": " << (B) << "," << std::endl;
         out << "       \"C\": " << (C) << "," << std::endl;
