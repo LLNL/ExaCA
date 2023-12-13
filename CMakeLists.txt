@@ -6,6 +6,10 @@ include(GNUInstallDirs)
 
 find_package(Kokkos 3.2 REQUIRED)
 find_package(MPI REQUIRED)
+
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
+  cmake_policy(SET CMP0135 NEW)
+endif()
 find_package(nlohmann_json 3.10.0 QUIET)
 if(NOT NLOHMANN_JSON_FOUND)
   include(FetchContent)
