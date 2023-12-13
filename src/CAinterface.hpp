@@ -108,13 +108,11 @@ struct Interface {
     // Intialize neighbor list structures (neighbor_x, neighbor_y, neighbor_z)
     void neighbor_list_init() {
 
-        // Assignment of neighbors around a cell "X" is as follows (in order of closest to furthest from cell "X")
-        // Neighbors 0 through 8 are in the -Y direction
-        // Neighbors 9 through 16 are in the XY plane with cell X
-        // Neighbors 17 through 25 are in the +Y direction
-        neighbor_x = {0, 1, -1, 0, 0, -1, 1, -1, 1, 0, 0, 1, -1, 1, -1, 1, -1, 0, 1, -1, 0, 0, 1, -1, 1, -1};
-        neighbor_y = {-1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-        neighbor_z = {0, 0, 0, 1, -1, 1, 1, -1, -1, 1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, -1};
+        // Neighbors 0 through 5 are nearest neighbors, 6 through 17 are second nearest neighbors, and 18 through 25 are
+        // third nearest neighbors
+        neighbor_x = {1, 0, 0, -1, 0, 0, 1, 1, 0, -1, -1, 0, -1, -1, 0, 1, 1, 0, 1, -1, 1, 1, -1, -1, 1, -1};
+        neighbor_y = {0, 1, 0, 0, -1, 0, 1, 0, 1, -1, 0, -1, 1, 0, -1, -1, 0, 1, 1, 1, -1, 1, -1, 1, -1, -1};
+        neighbor_z = {0, 0, 1, 0, 0, -1, 0, 1, 1, 0, -1, -1, 0, 1, 1, 0, -1, -1, 1, 1, 1, -1, 1, -1, -1, -1};
     }
 
     // buffers if necessary, returning the new buffer size. Return true if the buffers were resized
