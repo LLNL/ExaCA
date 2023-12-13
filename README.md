@@ -34,13 +34,15 @@ ExaCA has been tested with Serial, OpenMP, Pthreads, CUDA, and HIP backends.
 
 First, if Kokkos is not already built on your system, build Kokkos:
 ```
+# Change this path to desired Kokkos installation location
+export KOKKOS_INSTALL_DIR=`pwd`/install/kokkos
 # Change this path to Kokkos source
 cd ./kokkos
 # Configure Kokkos
 cmake \
   -B build \
   -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_INSTALL_PREFIX=install \
+  -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR \
   -D Kokkos_ENABLE_OPENMP=ON
 # Build Kokkos
 cmake --build build
@@ -52,8 +54,10 @@ Note that there are other host backends available. The Kokkos architecture flag 
 
 Then build ExaCA, including the path to the Kokkos build:
 ```
-# Change this path to desired Kokkos installation location
-export KOKKOS_INSTALL_DIR=./kokkos/build/install
+# Change this path to desired ExaCA installation location
+export EXACA_INSTALL_DIR=`pwd`/install/exaca
+# Change this path to Kokkos installation location
+export KOKKOS_INSTALL_DIR=`pwd`/install/kokkos
 
 # Change this path to ExaCA source
 # Configure ExaCA
@@ -62,7 +66,7 @@ cmake \
   -B build \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR \
-  -D CMAKE_INSTALL_PREFIX=install
+  -D CMAKE_INSTALL_PREFIX=$EXACA_INSTALL_DIR
 # Build ExaCA
 cmake --build build
 # Install ExaCA
@@ -79,7 +83,7 @@ git clone https://github.com/nlohmann/json
 And then build the json library (header only):
 ```
 # Change this path to desired JSON installation location
-export JSON_INSTALL_DIR=./json/build/install
+export JSON_INSTALL_DIR=`pwd`/install/json
 
 cd json
 # Configure json
@@ -101,6 +105,8 @@ Then add this install path to the ExaCA configuration (example above) together w
 
 If running on NVIDIA GPUs, build Kokkos with additional inputs:
 ```
+# Change this path to desired Kokkos installation location
+export KOKKOS_INSTALL_DIR=`pwd`/install/kokkos
 # Change this path to Kokkos source
 cd ./kokkos
 # Check the GPU architecture flag matches the hardware
@@ -108,7 +114,7 @@ cd ./kokkos
 cmake \
   -B build \
   -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_INSTALL_PREFIX=install \
+  -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR \
   -D Kokkos_ENABLE_CUDA=ON \
   -D Kokkos_ENABLE_CUDA_LAMBDA=ON \
   -D Kokkos_ARCH_VOLTA70=ON
@@ -142,8 +148,10 @@ cd ../
 ```
 And build ExaCA, where the only difference from above is the `hipcc` compiler:
 ```
-# Change this path to Kokkos installation
-export KOKKOS_INSTALL_DIR=./kokkos/build/install
+# Change this path to desired ExaCA installation location
+export EXACA_INSTALL_DIR=`pwd`/install/exaca
+# Change this path to Kokkos installation location
+export KOKKOS_INSTALL_DIR=`pwd`/install/kokkos
 
 cd ./ExaCA
 # Configure ExaCA
@@ -152,7 +160,7 @@ cmake \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_CXX_COMPILER=hipcc \
   -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL_DIR" \
-  -D CMAKE_INSTALL_PREFIX=install
+  -D CMAKE_INSTALL_PREFIX=$EXACA_INSTALL_DIR
 # Build ExaCA
 cmake --build build
 # Install ExaCA
