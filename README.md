@@ -52,7 +52,7 @@ Note that there are other host backends available. The Kokkos architecture flag 
 
 Then build ExaCA, including the path to the Kokkos build:
 ```
-# Change this path to Kokkos installation
+# Change this path to desired Kokkos installation location
 export KOKKOS_INSTALL_DIR=./kokkos/build/install
 
 # Change this path to ExaCA source
@@ -67,6 +67,30 @@ cmake \
 make install
 cd ../..
 ```
+
+### Build with external JSON
+If a custom build of the json library used for input files is needed (the automatic download does not work on some systems), first clone:
+```
+git clone https://github.com/nlohmann/json
+```
+
+And then build the json library (header only):
+```
+# Change this path to desired JSON installation location
+export JSON_INSTALL_DIR=./json/build/install
+
+cd json
+mkdir build
+cd build
+cmake \
+    -D CMAKE_BUILD_TYPE="Release" \
+    -D CMAKE_INSTALL_PREFIX=$JSON_INSTALL_DIR \
+    -D JSON_BuildTests=OFF \
+    ..
+make install
+```
+Then add this install path to the ExaCA configuration (example above) together with the path to Kokkos `-D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR;$JSON_INSTALL_DIR` and build ExaCA.
+
 
 ### Build CUDA
 
