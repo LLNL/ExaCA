@@ -12,7 +12,6 @@
 #include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtemperature.hpp"
-#include "CAtypes.hpp"
 #include "mpi.h"
 
 #include <Kokkos_Core.hpp>
