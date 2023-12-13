@@ -392,7 +392,7 @@ struct Grid {
             // lower bound of domain is based on the data read from the file(s)
             z_layer_bottom_local = round((z_min_layer[layernumber] - z_min) / deltax);
         }
-        if (z_layer_bottom == -1)
+        if (z_layer_bottom_local == -1)
             throw std::runtime_error("Error: ZBound_Low went uninitialized, problem type must be C, S, or R");
         return z_layer_bottom_local;
     }
@@ -415,7 +415,7 @@ struct Grid {
             // overall domain - this should be fixed in the future for edge cases where this isn't true)
             z_layer_top_local = round((z_max_layer[layernumber] - z_min) / deltax);
         }
-        if (z_layer_top == -1)
+        if (z_layer_top_local == -1)
             throw std::runtime_error(
                 "Error: ZBound_High went uninitialized, problem type must be SingleGrain, C, S, or R");
         return z_layer_top_local;
