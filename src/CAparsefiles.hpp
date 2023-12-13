@@ -58,6 +58,9 @@ ReadType ParseASCIIData(std::istringstream &ss) {
     ss >> readValue;
     return readValue;
 }
+// Check if the temperature data is in ASCII or binary format
+bool checkTemperatureFileFormat(std::string tempfile_thislayer);
+
 std::array<double, 6> parseTemperatureCoordinateMinMax(std::string tempfile_thislayer, bool BinaryInputData);
 // Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header line -
 // or a binary string of double precision values), storing the x, y, z, tm, tl, cr values in the RawData vector. Each

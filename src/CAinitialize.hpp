@@ -18,25 +18,8 @@
 #include <string>
 #include <vector>
 
-void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers, Inputs &inputs);
-void NeighborListInit(NList &NeighborX, NList &NeighborY, NList &NeighborZ);
-void FindXYZBounds(int id, double &deltax, int &nx, int &ny, int &nz, double &XMin, double &XMax, double &YMin,
-                   double &YMax, double &ZMin, double &ZMax, double *ZMinLayer, double *ZMaxLayer, int NumberOfLayers,
-                   int LayerHeight, Inputs &inputs);
-void DomainDecomposition(int id, int np, int &MyYSlices, int &MyYOffset, int &NeighborRank_North,
-                         int &NeighborRank_South, int &nx, int &ny, int &nz, int &DomainSize_AllLayers,
-                         bool &AtNorthBoundary, bool &AtSouthBoundary);
-int calc_z_layer_bottom(std::string SimulationType, int LayerHeight, int layernumber, double *ZMinLayer, double ZMin,
-                        double deltax);
-int calc_z_layer_top(std::string SimulationType, int SpotRadius, int LayerHeight, int layernumber, double ZMin,
-                     double deltax, int nz, double *ZMaxLayer);
-int calc_nz_layer(int z_layer_bottom, int z_layer_top, int id, int layernumber);
-int calcLayerDomainSize(int nx, int ny_local, int nz_layer);
-void ZeroResetViews(int LocalActiveDomainSize, ViewF &DiagonalLength, ViewF &CritDiagonalLength, ViewF &DOCenter,
-                    ViewI &SteeringVector);
-// Check if the temperature data is in ASCII or binary format
-bool checkTemperatureFileFormat(std::string tempfile_thislayer);
 //*****************************************************************************/
+// TODO: Turn into an orientation struct used by ExaCA and the analysis routine
 // Initialize grain orientations and unit vectors
 template <typename ViewTypeFloat>
 void OrientationInit(int, int &NGrainOrientations, ViewTypeFloat &GrainOrientationData,

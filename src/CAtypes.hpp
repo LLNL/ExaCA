@@ -48,6 +48,4 @@ typedef Kokkos::View<int ***, layout, Kokkos::HostSpace> ViewI3D_H;
 typedef Kokkos::View<float **, layout, Kokkos::HostSpace> Buffer2D_H;
 typedef Kokkos::View<bool **, layout, Kokkos::HostSpace> ViewB2D_H;
 
-typedef Kokkos::Array<int, 26> NList;
-
 #endif
