@@ -9,7 +9,6 @@
 #include "CAgrid.hpp"
 #include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
-#include "CAtypes.hpp"
 #include "mpi.h"
 
 #include <Kokkos_Core.hpp>
@@ -242,7 +241,7 @@ struct Temperature {
     // For an overlapping spot melt pattern, determine max number of times a cell will melt/solidify as part of a layer
     int calcMaxSolidificationEvents(const Grid &grid, int NumberOfSpots, int NSpotsX, int SpotRadius, int SpotOffset) {
 
-        ViewI2D_H MaxSolidificationEvents_Temp("SEvents_Temp", grid.nx, grid.ny_local);
+        Kokkos::View<int **, Kokkos::HostSpace> MaxSolidificationEvents_Temp("SEvents_Temp", grid.nx, grid.ny_local);
         for (int n = 0; n < NumberOfSpots; n++) {
             int XSpotPos = SpotRadius + (n % NSpotsX) * SpotOffset;
             int YSpotPos = SpotRadius + (n / NSpotsX) * SpotOffset;
@@ -359,8 +358,8 @@ struct Temperature {
 
     // Calculate the number of times that a cell in layer "layernumber" undergoes melting/solidification, and store in
     // MaxSolidificationEvents_Host
-    void calcMaxSolidificationEvents(int id, int layernumber, ViewI_H MaxSolidificationEvents_Host, int StartRange,
-                                     int EndRange, const Grid &grid) {
+    void calcMaxSolidificationEvents(int id, int layernumber, view_type_int_host MaxSolidificationEvents_Host,
+                                     int StartRange, int EndRange, const Grid &grid) {
 
         if (layernumber > _inputs.TempFilesInSeries) {
             // Use the value from a previously checked layer, since the time-temperature history is reused
@@ -418,7 +417,7 @@ struct Temperature {
         return y_coord;
     }
     // Read data from storage, and calculate the normalized z value of the data point
-    int getTempCoordZ(int i, double deltax, int LayerHeight, int LayerCounter, ViewD_H ZMinLayer) {
+    int getTempCoordZ(int i, double deltax, int LayerHeight, int LayerCounter, view_type_double_host ZMinLayer) {
         int z_coord =
             round((RawTemperatureData(i + 2) + deltax * LayerHeight * LayerCounter - ZMinLayer[LayerCounter]) / deltax);
         return z_coord;

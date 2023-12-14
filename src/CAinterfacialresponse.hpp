@@ -7,7 +7,6 @@
 #define EXACA_IRF_HPP
 
 #include "CAparsefiles.hpp"
-#include "CAtypes.hpp"
 
 #include <Kokkos_Core.hpp>
 

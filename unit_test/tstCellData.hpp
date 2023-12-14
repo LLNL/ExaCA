@@ -407,8 +407,10 @@ void testcalcVolFractionNucleated() {
     // Let all cells except those at Z = 0 have undergone solidification
     // Let the cells at Z = 1 consist of positive grain IDs, and those at Z = 2 of negative grain IDs
     CellData<memory_space> cellData(grid.domain_size_all_layers, inputs.substrate);
-    ViewI_H GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID"), grid.domain_size_all_layers);
-    ViewS_H LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID"), grid.domain_size_all_layers);
+    Kokkos::View<int *, memory_space> GrainID_Host(Kokkos::ViewAllocateWithoutInitializing("GrainID"),
+                                                   grid.domain_size_all_layers);
+    Kokkos::View<short *, memory_space> LayerID_Host(Kokkos::ViewAllocateWithoutInitializing("LayerID"),
+                                                     grid.domain_size_all_layers);
     auto md_policy =
         Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
             {0, 0, 0}, {grid.nz, grid.nx, grid.ny_local});

@@ -83,6 +83,8 @@ void testReadWrite(bool PrintReadBinary) {
 // TODO: Relocate to future tstOrientation.hpp
 void testOrientationInit_Vectors() {
 
+    using memory_space = TEST_MEMSPACE;
+
     int id;
     // Get individual process ID
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
@@ -92,13 +94,14 @@ void testOrientationInit_Vectors() {
     std::string GrainOrientationFile = checkFileInstalled("GrainOrientationVectors.csv", id);
 
     // View for storing orientation data
-    ViewF GrainOrientationData(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData"), 0);
+    Kokkos::View<float *, memory_space> GrainOrientationData(
+        Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData"), 0);
 
     // Call OrientationInit - without optional final argument
     OrientationInit(id, NGrainOrientations, GrainOrientationData, GrainOrientationFile);
 
     // Copy orientation data back to the host
-    ViewF_H GrainOrientationData_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainOrientationData);
+    auto GrainOrientationData_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainOrientationData);
 
     // Check results
     EXPECT_EQ(NGrainOrientations, 10000);
@@ -113,6 +116,8 @@ void testOrientationInit_Vectors() {
 
 void testOrientationInit_Angles() {
 
+    using memory_space = TEST_MEMSPACE;
+
     int id;
     // Get individual process ID
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
@@ -122,13 +127,14 @@ void testOrientationInit_Angles() {
     std::string GrainOrientationFile = checkFileInstalled("GrainOrientationEulerAnglesBungeZXZ.csv", id);
 
     // View for storing orientation data
-    ViewF GrainOrientationData(Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData"), 0);
+    Kokkos::View<float *, memory_space> GrainOrientationData(
+        Kokkos::ViewAllocateWithoutInitializing("GrainOrientationData"), 0);
 
     // Call OrientationInit - with optional final argument
     OrientationInit(id, NGrainOrientations, GrainOrientationData, GrainOrientationFile, ValsPerLine);
 
     // Copy orientation data back to the host
-    ViewF_H GrainOrientationData_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainOrientationData);
+    auto GrainOrientationData_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainOrientationData);
 
     // Check results
     EXPECT_EQ(NGrainOrientations, 10000);

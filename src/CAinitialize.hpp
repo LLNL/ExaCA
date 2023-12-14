@@ -8,7 +8,6 @@
 
 #include "CAinputs.hpp"
 #include "CAprint.hpp"
-#include "CAtypes.hpp"
 
 #include <Kokkos_Core.hpp>
 

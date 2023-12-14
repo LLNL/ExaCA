@@ -152,10 +152,12 @@ struct Print {
 
     // Called on rank 0, prints initial values of selected data structures to Paraview files for cells between the
     // overall simulation bottom and the top of the first layer
-    template <typename ViewTypeGrainID, typename ViewTypeLayerID>
+    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename TemperatureMemory>
     void printInitExaCAData(int id, int np, const Grid &grid, ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
-                            Temperature<device_memory_space> &temperature) {
+                            Temperature<TemperatureMemory> &temperature) {
 
+        using view_int = Kokkos::View<int *, TemperatureMemory>;
+        using view_float = Kokkos::View<float *, TemperatureMemory>;
         if ((_inputs.PrintInitGrainID) || (_inputs.PrintInitLayerID) || (_inputs.PrintInitMeltTimeStep) ||
             (_inputs.PrintInitCritTimeStep) || (_inputs.PrintInitUndercoolingChange)) {
             std::string FName = PathBaseFileName + "_init.vtk";
@@ -173,17 +175,18 @@ struct Print {
                 printViewData(id, Grainplot, grid, grid.nz_layer, "short", "LayerID", LayerID_WholeDomain);
             }
             if (_inputs.PrintInitMeltTimeStep) {
-                ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, grid.domain_size);
+                auto MeltTimeStep = temperature.template extract_tm_tl_cr_data<view_int>(0, grid.domain_size);
                 auto MeltTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, MeltTimeStep);
                 printViewData(id, Grainplot, grid, grid.nz_layer, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (_inputs.PrintInitCritTimeStep) {
-                ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, grid.domain_size);
+                auto CritTimeStep = temperature.template extract_tm_tl_cr_data<view_int>(1, grid.domain_size);
                 auto CritTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, CritTimeStep);
                 printViewData(id, Grainplot, grid, grid.nz_layer, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (_inputs.PrintInitUndercoolingChange) {
-                ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(2, grid.domain_size, 0);
+                auto UndercoolingChange =
+                    temperature.template extract_tm_tl_cr_data<view_float>(2, grid.domain_size, 0);
                 auto UndercoolingChange_WholeDomain =
                     collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
                 printViewData(id, Grainplot, grid, grid.nz_layer, "float", "UndercoolingChange",
@@ -236,10 +239,14 @@ struct Print {
     }
 
     // Prints final values of selected data structures to Paraview files
-    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCell, typename ViewTypeGrainUnit>
+    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCell, typename ViewTypeGrainUnit,
+              typename TemperatureMemory>
     void printFinalExaCAData(int id, int np, const Grid &grid, ViewTypeLayerID LayerID, ViewTypeCell CellType,
-                             ViewTypeGrainID GrainID, Temperature<device_memory_space> &temperature,
+                             ViewTypeGrainID GrainID, Temperature<TemperatureMemory> &temperature,
                              ViewTypeGrainUnit GrainUnitVector, int NGrainOrientations) {
+
+        using view_int = Kokkos::View<int *, TemperatureMemory>;
+        using view_float = Kokkos::View<float *, TemperatureMemory>;
 
         if (id == 0)
             std::cout << "Printing final data structures to vtk files" << std::endl;
@@ -286,17 +293,18 @@ struct Print {
             if (id == 0)
                 WriteHeader(GrainplotF, FName, grid, grid.nz_layer);
             if (_inputs.PrintFinalMeltTimeStep) {
-                ViewI MeltTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(0, grid.domain_size);
+                auto MeltTimeStep = temperature.template extract_tm_tl_cr_data<view_int>(0, grid.domain_size);
                 auto MeltTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, MeltTimeStep);
                 printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
             }
             if (_inputs.PrintFinalCritTimeStep) {
-                ViewI CritTimeStep = temperature.extract_tm_tl_cr_data<ViewI>(1, grid.domain_size);
+                auto CritTimeStep = temperature.template extract_tm_tl_cr_data<view_int>(1, grid.domain_size);
                 auto CritTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, CritTimeStep);
                 printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "CritTimeStep", CritTimeStep_WholeDomain);
             }
             if (_inputs.PrintFinalUndercoolingChange) {
-                ViewF UndercoolingChange = temperature.extract_tm_tl_cr_data<ViewF>(0, grid.domain_size, 0);
+                auto UndercoolingChange =
+                    temperature.template extract_tm_tl_cr_data<view_float>(0, grid.domain_size, 0);
                 auto UndercoolingChange_WholeDomain =
                     collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
                 printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "UndercoolingChange",

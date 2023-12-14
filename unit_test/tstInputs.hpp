@@ -6,7 +6,6 @@
 #include <Kokkos_Core.hpp>
 
 #include "CAinputs.hpp"
-#include "CAtypes.hpp"
 
 #include <gtest/gtest.h>
 

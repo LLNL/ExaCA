@@ -11,6 +11,10 @@
 #include <vector>
 
 void RunProgram_Reduced(int id, int np, std::string InputFile) {
+
+    // Run on the default space.
+    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
+
     double NuclTime = 0.0, CreateSVTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
     double StartNuclTime, StartCreateSVTime, StartCaptureTime, StartGhostTime;
     double StartInitTime = MPI_Wtime();
@@ -33,7 +37,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         inputs.checkPowderOverflow(grid.nx, grid.ny, grid.layer_height, grid.number_of_layers);
 
     // Temperature fields characterized by data in this structure
-    Temperature<device_memory_space> temperature(grid.domain_size, grid.number_of_layers, inputs.temperature);
+    Temperature<memory_space> temperature(grid.domain_size, grid.number_of_layers, inputs.temperature);
     // Read temperature data if necessary
     if (simulation_type == "R")
         temperature.readTemperatureData(id, grid, 0);
@@ -54,7 +58,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     int NGrainOrientations = 0; // Number of grain orientations considered in the simulation
     // No initialize size yet, will be resized in OrientationInit
-    ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 0);
+    Kokkos::View<float *, memory_space> GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 0);
 
     // Initialize grain orientations
     // TODO: Orientation data to be part of a new struct
@@ -64,7 +68,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         std::cout << "Done with orientation initialization " << std::endl;
 
     // Initialize cell types, grain IDs, and layer IDs
-    CellData<device_memory_space> cellData(grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> cellData(grid.domain_size_all_layers, inputs.substrate);
     if (simulation_type == "C")
         cellData.init_substrate(id, grid, inputs.RNGSeed);
     else if (simulation_type == "SingleGrain")
@@ -77,7 +81,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     // Variables characterizing the active cell region within each rank's grid, including buffers for ghost node data
     // (fixed size) and the steering vector/steering vector size on host/device
-    Interface<device_memory_space> interface(grid.domain_size);
+    Interface<memory_space> interface(grid.domain_size);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with interface struct initialization " << std::endl;
@@ -87,7 +91,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
     int EstimatedNuclei_ThisRankThisLayer = inputs.nucleation.NMax * pow(grid.deltax, 3) * grid.domain_size;
-    Nucleation<device_memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, grid.deltax, inputs.nucleation);
+    Nucleation<memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, grid.deltax, inputs.nucleation);
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
     // successive layer when layer 0 in complete

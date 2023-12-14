@@ -10,7 +10,6 @@
 #include "CAgrid.hpp"
 #include "CAinterface.hpp"
 #include "CAtemperature.hpp"
-#include "CAtypes.hpp"
 #include "mpi.h"
 
 #include <Kokkos_Core.hpp>

@@ -8,7 +8,6 @@
 
 #include "CAinfo.hpp"
 #include "CAinterfacialresponse.hpp"
-#include "CAtypes.hpp"
 
 #include "mpi.h"
 
