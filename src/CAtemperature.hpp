@@ -454,7 +454,7 @@ struct Temperature {
         view_type_int_host MaxSolidificationEvents_Host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), MaxSolidificationEvents);
         calcMaxSolidificationEvents(id, layernumber, MaxSolidificationEvents_Host, StartRange, EndRange, grid);
-        int MaxNumSolidificationEvents = MaxSolidificationEvents_Host(0);
+        int MaxNumSolidificationEvents = MaxSolidificationEvents_Host(layernumber);
 
         // Resize LayerTimeTempHistory now that the max number of solidification events is known for this layer
         Kokkos::resize(LayerTimeTempHistory, grid.domain_size, MaxNumSolidificationEvents, 3);
