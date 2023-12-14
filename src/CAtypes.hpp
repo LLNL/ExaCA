@@ -22,12 +22,4 @@ enum TypeNames {
     LiquidFailedBufferLoad = 10
 };
 
-typedef Kokkos::View<float *> ViewF;
-using exe_space = Kokkos::DefaultExecutionSpace::execution_space;
-typedef typename exe_space::array_layout layout;
-typedef Kokkos::View<float *, layout, Kokkos::HostSpace> ViewF_H;
-typedef Kokkos::View<short ***, layout, Kokkos::HostSpace> ViewS3D_H;
-typedef Kokkos::View<int *, layout, Kokkos::HostSpace> ViewI_H;
-typedef Kokkos::View<int ***, layout, Kokkos::HostSpace> ViewI3D_H;
-
 #endif

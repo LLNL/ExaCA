@@ -24,6 +24,7 @@ int main(int argc, char *argv[]) {
     // Initialize Kokkos
     Kokkos::initialize();
     {
+        using memory_space = typename Kokkos::DefaultExecutionSpace::memory_space;
         // Read command line input to obtain name of analysis file
         std::string AnalysisFile;
         if (argc < 2) {
@@ -44,8 +45,10 @@ int main(int argc, char *argv[]) {
                      RGBFilename, false);
 
         // Allocate memory blocks for GrainID and LayerID data
-        ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
-        ViewS3D_H LayerID(Kokkos::ViewAllocateWithoutInitializing("LayerID"), nz, nx, ny);
+        Kokkos::View<int ***, Kokkos::HostSpace> GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx,
+                                                         ny);
+        Kokkos::View<short ***, Kokkos::HostSpace> LayerID(Kokkos::ViewAllocateWithoutInitializing("LayerID"), nz, nx,
+                                                           ny);
 
         // Fill arrays with data from paraview file
         InitializeData(MicrostructureFile, nx, ny, nz, GrainID, LayerID);
@@ -53,17 +56,20 @@ int main(int argc, char *argv[]) {
         // Grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
         // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
         int NumberOfOrientations = 0;
-        ViewF GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 9 * NumberOfOrientations);
-        ViewF GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"), 3 * NumberOfOrientations);
-        ViewF GrainRGBValues(Kokkos::ViewAllocateWithoutInitializing("GrainRGBValues"), 3 * NumberOfOrientations);
+        using view_float = Kokkos::View<float *, memory_space>;
+        view_float GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"),
+                                   9 * NumberOfOrientations);
+        view_float GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"),
+                                    3 * NumberOfOrientations);
+        view_float GrainRGBValues(Kokkos::ViewAllocateWithoutInitializing("GrainRGBValues"), 3 * NumberOfOrientations);
 
         // Initialize, then copy back to host
         OrientationInit(0, NumberOfOrientations, GrainUnitVector, RotationFilename, 9);
-        ViewF_H GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
+        auto GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
         OrientationInit(0, NumberOfOrientations, GrainEulerAngles, EulerAnglesFilename, 3);
-        ViewF_H GrainEulerAngles_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainEulerAngles);
+        auto GrainEulerAngles_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainEulerAngles);
         OrientationInit(0, NumberOfOrientations, GrainRGBValues, RGBFilename, 3);
-        ViewF_H GrainRGBValues_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainRGBValues);
+        auto GrainRGBValues_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainRGBValues);
 
         // Representative region creation
         std::ifstream AnalysisDataStream(AnalysisFile);
@@ -156,8 +162,7 @@ int main(int argc, char *argv[]) {
 
             // Pole figure print a file named "[BaseFileNameThisRegion]_PoleFigureData.txt"
             if (representativeRegion.PrintPoleFigureYN) {
-                ViewI_H GOHistogram =
-                    representativeRegion.getOrientationHistogram(NumberOfOrientations, GrainID, LayerID);
+                auto GOHistogram = representativeRegion.getOrientationHistogram(NumberOfOrientations, GrainID, LayerID);
                 representativeRegion.writePoleFigure(BaseFileNameThisRegion, NumberOfOrientations,
                                                      GrainEulerAngles_Host, GOHistogram);
             }
