@@ -242,7 +242,7 @@ struct Temperature {
                 for (int j = 0; j < grid.ny_local; j++) {
                     int YGlobal = j + grid.y_offset;
                     float DistY = (float)(YSpotPos - YGlobal);
-                    float TotDist = sqrt(DistX * DistX + DistY * DistY);
+                    float TotDist = Kokkos::sqrt(DistX * DistX + DistY * DistY);
                     if (TotDist <= SpotRadius) {
                         MaxSolidificationEvents_Temp(i, j)++;
                     }

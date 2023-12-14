@@ -122,7 +122,7 @@ struct Interface {
         int old_buf_size = buf_size;
         send_size_north_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), send_size_north);
         send_size_south_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), send_size_south);
-        int max_count_local = max(send_size_north_host(0), send_size_south_host(0));
+        int max_count_local = Kokkos::max(send_size_north_host(0), send_size_south_host(0));
         int max_count_global;
         MPI_Allreduce(&max_count_local, &max_count_global, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
         if (max_count_global > old_buf_size) {

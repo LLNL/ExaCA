@@ -189,8 +189,8 @@ struct CellData {
                             int coord_y_global = coord_y + grid.y_offset;
                             float DistanceToThisGrainX = coord_x - coord_x_grain;
                             float DistanceToThisGrainY = coord_y_global - coord_y_grain_global;
-                            float DistanceToThisGrain = sqrtf(DistanceToThisGrainX * DistanceToThisGrainX +
-                                                              DistanceToThisGrainY * DistanceToThisGrainY);
+                            float DistanceToThisGrain = Kokkos::sqrt(DistanceToThisGrainX * DistanceToThisGrainX +
+                                                                     DistanceToThisGrainY * DistanceToThisGrainY);
                             if (DistanceToThisGrain < MinDistanceToThisGrain) {
                                 // This is the closest grain center to cell at "CAGridLocation" - update values
                                 MinDistanceToThisGrain = DistanceToThisGrain;
@@ -431,9 +431,8 @@ struct CellData {
                         float DistanceToThisGrainX = coord_x - coord_x_grain;
                         float DistanceToThisGrainY = coord_y_global - coord_y_grain_global;
                         float DistanceToThisGrainZ = coord_z_grain_AllLayers - coord_z_AllLayers;
-                        float DistanceToThisGrain = sqrtf(DistanceToThisGrainX * DistanceToThisGrainX +
-                                                          DistanceToThisGrainY * DistanceToThisGrainY +
-                                                          DistanceToThisGrainZ * DistanceToThisGrainZ);
+                        float DistanceToThisGrain =
+                            Kokkos::hypot(DistanceToThisGrainX, DistanceToThisGrainY, DistanceToThisGrainZ);
                         if (DistanceToThisGrain < MinDistanceToThisGrain) {
                             // This is the closest grain center to cell at "CAGridLocation" - update values
                             MinDistanceToThisGrain = DistanceToThisGrain;

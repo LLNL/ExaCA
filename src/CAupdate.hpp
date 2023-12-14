@@ -16,12 +16,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#include <cmath>
 #include <string>
-
-// Using for compatibility with device math functions.
-using std::max;
-using std::min;
 
 // For the case where all cells solidify once, determine which cells are associated with the "steering vector" of
 // cells that are either active, or becoming active this time step
@@ -176,9 +171,10 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
             if (CellType(index) == Active) {
                 // Update local diagonal length of active cell
                 double LocU = temperature.UndercoolingCurrent(index);
-                LocU = min(210.0, LocU);
+                LocU = Kokkos::fmin(210.0, LocU);
                 double V = irf.compute(LocU);
-                interface.diagonal_length(index) += min(0.045, V); // Max amount the diagonal can grow per time step
+                // Max amount the diagonal can grow per time step
+                interface.diagonal_length(index) += Kokkos::fmin(0.045, V);
                 // Cycle through all neigboring cells on this processor to see if they have been captured
                 // Cells in ghost nodes cannot capture cells on other processors
                 bool DeactivateCell = true; // switch that becomes false if the cell has at least 1 liquid type neighbor
@@ -238,7 +234,7 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                 float z0 = zp - czold;
 
                                 // mag0 is the magnitude of (x0,y0,z0)
-                                float mag0 = sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
+                                float mag0 = Kokkos::sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
 
                                 // Calculate unit vectors for the octahedron that intersect the new cell center
                                 float Angle1 = (GrainUnitVector(9 * MyOrientation) * x0 +
@@ -276,7 +272,7 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                 UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
                                 UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
                                 UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                                float NDem = sqrtf(UU[0] * UU[0] + UU[1] * UU[1] + UU[2] * UU[2]);
+                                float NDem = Kokkos::hypot(UU[0], UU[1], UU[2]);
                                 float Norm[3];
                                 Norm[0] = UU[0] / NDem;
                                 Norm[1] = UU[1] / NDem;
@@ -304,15 +300,12 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                 // Determine which of the 3 corners of the capturing face is closest to the captured
                                 // cell center
                                 float DistToCorner[3];
-                                DistToCorner[0] = sqrtf(((TriangleX[0] - xp) * (TriangleX[0] - xp)) +
-                                                        ((TriangleY[0] - yp) * (TriangleY[0] - yp)) +
-                                                        ((TriangleZ[0] - zp) * (TriangleZ[0] - zp)));
-                                DistToCorner[1] = sqrtf(((TriangleX[1] - xp) * (TriangleX[1] - xp)) +
-                                                        ((TriangleY[1] - yp) * (TriangleY[1] - yp)) +
-                                                        ((TriangleZ[1] - zp) * (TriangleZ[1] - zp)));
-                                DistToCorner[2] = sqrtf(((TriangleX[2] - xp) * (TriangleX[2] - xp)) +
-                                                        ((TriangleY[2] - yp) * (TriangleY[2] - yp)) +
-                                                        ((TriangleZ[2] - zp) * (TriangleZ[2] - zp)));
+                                DistToCorner[0] =
+                                    Kokkos::hypot(TriangleX[0] - xp, TriangleY[0] - yp, TriangleZ[0] - zp);
+                                DistToCorner[1] =
+                                    Kokkos::hypot(TriangleX[1] - xp, TriangleY[1] - yp, TriangleZ[1] - zp);
+                                DistToCorner[2] =
+                                    Kokkos::hypot(TriangleX[2] - xp, TriangleY[2] - yp, TriangleZ[2] - zp);
 
                                 int x, y, z;
                                 x = (DistToCorner[0] < DistToCorner[1]);
@@ -332,14 +325,10 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                 float y2 = TriangleY[(idx + 2) % 3];
                                 float z2 = TriangleZ[(idx + 2) % 3];
 
-                                float D1 =
-                                    sqrtf(((xp - x2) * (xp - x2)) + ((yp - y2) * (yp - y2)) + ((zp - z2) * (zp - z2)));
-                                float D2 =
-                                    sqrtf(((xc - x2) * (xc - x2)) + ((yc - y2) * (yc - y2)) + ((zc - z2) * (zc - z2)));
-                                float D3 =
-                                    sqrtf(((xp - x1) * (xp - x1)) + ((yp - y1) * (yp - y1)) + ((zp - z1) * (zp - z1)));
-                                float D4 =
-                                    sqrtf(((xc - x1) * (xc - x1)) + ((yc - y1) * (yc - y1)) + ((zc - z1) * (zc - z1)));
+                                float D1 = Kokkos::hypot(xp - x2, yp - y2, zp - z2);
+                                float D2 = Kokkos::hypot(xc - x2, yc - y2, zc - z2);
+                                float D3 = Kokkos::hypot(xp - x1, yp - y1, zp - z1);
+                                float D4 = Kokkos::hypot(xc - x1, yc - y1, zc - z1);
 
                                 float I1 = 0;
                                 float I2 = D2;
@@ -355,9 +344,12 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                          (D3 * D4);
                                     J2 = D4 - J1;
                                 }
-                                float L12 = 0.5 * (fmin(I1, sqrtf(3.0)) + fmin(I2, sqrtf(3.0)));
-                                float L13 = 0.5 * (fmin(J1, sqrtf(3.0)) + fmin(J2, sqrtf(3.0)));
-                                float NewODiagL = sqrtf(2.0) * fmax(L12, L13); // half diagonal length of new octahedron
+                                float L12 =
+                                    0.5 * (Kokkos::fmin(I1, Kokkos::sqrt(3.0f)) + Kokkos::fmin(I2, Kokkos::sqrt(3.0f)));
+                                float L13 =
+                                    0.5 * (Kokkos::fmin(J1, Kokkos::sqrt(3.0f)) + Kokkos::fmin(J2, Kokkos::sqrt(3.0f)));
+                                // half diagonal length of new octahedron
+                                float NewODiagL = Kokkos::sqrt(2.0f) * Kokkos::fmax(L12, L13);
 
                                 interface.diagonal_length(neighbor_index) = NewODiagL;
                                 // Calculate coordinates of new decentered octahedron center
@@ -366,8 +358,8 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                 CaptDiag[1] = yc - cyold;
                                 CaptDiag[2] = zc - czold;
 
-                                float CaptDiagMagnitude = sqrt(CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] +
-                                                               CaptDiag[2] * CaptDiag[2]);
+                                float CaptDiagMagnitude = Kokkos::sqrt(
+                                    CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] + CaptDiag[2] * CaptDiag[2]);
                                 float CaptDiagUV[3];
                                 CaptDiagUV[0] = CaptDiag[0] / CaptDiagMagnitude;
                                 CaptDiagUV[1] = CaptDiag[1] / CaptDiagMagnitude;
