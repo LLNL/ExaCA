@@ -7,10 +7,10 @@
 #define EXACA_UPDATE_HPP
 
 #include "CAcelldata.hpp"
-#include "CAfunctions.hpp"
 #include "CAgrid.hpp"
 #include "CAinterface.hpp"
 #include "CAinterfacialresponse.hpp"
+#include "CAorientation.hpp"
 #include "CAprint.hpp"
 #include "CAtemperature.hpp"
 
@@ -147,11 +147,10 @@ void fill_steering_vector_remelt(const int cycle, const Grid &grid, CellData<Mem
 }
 
 // Decentered octahedron algorithm for the capture of new interface cells by grains
-template <typename MemorySpace, typename ViewTypeFloat>
+template <typename MemorySpace>
 void cell_capture(const int, const int np, const Grid &grid, const InterfacialResponseFunction &irf,
                   CellData<MemorySpace> &cellData, Temperature<MemorySpace> &temperature,
-                  Interface<MemorySpace> &interface, const ViewTypeFloat GrainUnitVector,
-                  const int NGrainOrientations) {
+                  Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
 
     // Get subviews for this layer
     auto CellType = cellData.getCellTypeSubview(grid);
@@ -210,7 +209,7 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                             // TemporaryUpdate)
                             if (OldCellTypeValue == Liquid) {
                                 int h = GrainID(index);
-                                int MyOrientation = getGrainOrientation(h, NGrainOrientations);
+                                int my_orientation = get_grain_orientation(h, orientation.n_grain_orientations);
 
                                 // The new cell is captured by this cell's growing octahedron (Grain "h")
                                 GrainID(neighbor_index) = h;
@@ -237,29 +236,40 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                 float mag0 = Kokkos::sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
 
                                 // Calculate unit vectors for the octahedron that intersect the new cell center
-                                float Angle1 = (GrainUnitVector(9 * MyOrientation) * x0 +
-                                                GrainUnitVector(9 * MyOrientation + 1) * y0 +
-                                                GrainUnitVector(9 * MyOrientation + 2) * z0) /
-                                               mag0;
-                                float Angle2 = (GrainUnitVector(9 * MyOrientation + 3) * x0 +
-                                                GrainUnitVector(9 * MyOrientation + 4) * y0 +
-                                                GrainUnitVector(9 * MyOrientation + 5) * z0) /
-                                               mag0;
-                                float Angle3 = (GrainUnitVector(9 * MyOrientation + 6) * x0 +
-                                                GrainUnitVector(9 * MyOrientation + 7) * y0 +
-                                                GrainUnitVector(9 * MyOrientation + 8) * z0) /
-                                               mag0;
-                                float Diag1X = GrainUnitVector(9 * MyOrientation) * (2 * (Angle1 < 0) - 1);
-                                float Diag1Y = GrainUnitVector(9 * MyOrientation + 1) * (2 * (Angle1 < 0) - 1);
-                                float Diag1Z = GrainUnitVector(9 * MyOrientation + 2) * (2 * (Angle1 < 0) - 1);
+                                // TODO: Potential inline function in orientation struct that returns Diag1, Diag2, or
+                                // Diag3
+                                float angle_1 = (orientation.grain_unit_vector(9 * my_orientation) * x0 +
+                                                 orientation.grain_unit_vector(9 * my_orientation + 1) * y0 +
+                                                 orientation.grain_unit_vector(9 * my_orientation + 2) * z0) /
+                                                mag0;
+                                float angle_2 = (orientation.grain_unit_vector(9 * my_orientation + 3) * x0 +
+                                                 orientation.grain_unit_vector(9 * my_orientation + 4) * y0 +
+                                                 orientation.grain_unit_vector(9 * my_orientation + 5) * z0) /
+                                                mag0;
+                                float angle_3 = (orientation.grain_unit_vector(9 * my_orientation + 6) * x0 +
+                                                 orientation.grain_unit_vector(9 * my_orientation + 7) * y0 +
+                                                 orientation.grain_unit_vector(9 * my_orientation + 8) * z0) /
+                                                mag0;
+                                float Diag1X =
+                                    orientation.grain_unit_vector(9 * my_orientation) * (2 * (angle_1 < 0) - 1);
+                                float Diag1Y =
+                                    orientation.grain_unit_vector(9 * my_orientation + 1) * (2 * (angle_1 < 0) - 1);
+                                float Diag1Z =
+                                    orientation.grain_unit_vector(9 * my_orientation + 2) * (2 * (angle_1 < 0) - 1);
 
-                                float Diag2X = GrainUnitVector(9 * MyOrientation + 3) * (2 * (Angle2 < 0) - 1);
-                                float Diag2Y = GrainUnitVector(9 * MyOrientation + 4) * (2 * (Angle2 < 0) - 1);
-                                float Diag2Z = GrainUnitVector(9 * MyOrientation + 5) * (2 * (Angle2 < 0) - 1);
+                                float Diag2X =
+                                    orientation.grain_unit_vector(9 * my_orientation + 3) * (2 * (angle_2 < 0) - 1);
+                                float Diag2Y =
+                                    orientation.grain_unit_vector(9 * my_orientation + 4) * (2 * (angle_2 < 0) - 1);
+                                float Diag2Z =
+                                    orientation.grain_unit_vector(9 * my_orientation + 5) * (2 * (angle_2 < 0) - 1);
 
-                                float Diag3X = GrainUnitVector(9 * MyOrientation + 6) * (2 * (Angle3 < 0) - 1);
-                                float Diag3Y = GrainUnitVector(9 * MyOrientation + 7) * (2 * (Angle3 < 0) - 1);
-                                float Diag3Z = GrainUnitVector(9 * MyOrientation + 8) * (2 * (Angle3 < 0) - 1);
+                                float Diag3X =
+                                    orientation.grain_unit_vector(9 * my_orientation + 6) * (2 * (angle_3 < 0) - 1);
+                                float Diag3Y =
+                                    orientation.grain_unit_vector(9 * my_orientation + 7) * (2 * (angle_3 < 0) - 1);
+                                float Diag3Z =
+                                    orientation.grain_unit_vector(9 * my_orientation + 8) * (2 * (angle_3 < 0) - 1);
 
                                 float U1[3], U2[3];
                                 U1[0] = Diag2X - Diag1X;
@@ -376,7 +386,7 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                 // Get new critical diagonal length values for the newly activated cell (at array
                                 // position "neighbor_index")
                                 interface.calc_crit_diagonal_length(neighbor_index, xp, yp, zp, cx, cy, cz,
-                                                                    MyOrientation, GrainUnitVector);
+                                                                    my_orientation, orientation.grain_unit_vector);
 
                                 if (np > 1) {
                                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting
@@ -392,7 +402,7 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                         ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y,
                                         ghost_octahedron_center_z, ghost_diagonal_length, grid.ny_local,
                                         neighbor_coord_x, neighbor_coord_y, neighbor_coord_z, grid.at_north_boundary,
-                                        grid.at_south_boundary, NGrainOrientations);
+                                        grid.at_south_boundary, orientation.n_grain_orientations);
                                     if (!(data_fits_in_buffer)) {
                                         // This cell's data did not fit in the buffer with current size buf_size -
                                         // mark with temporary type
@@ -439,7 +449,7 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                 interface.create_new_octahedron(index, coord_x, coord_y, grid.y_offset, coord_z);
                 // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative
                 // GrainID values)
-                int MyOrientation = getGrainOrientation(MyGrainID, NGrainOrientations);
+                int my_orientation = get_grain_orientation(MyGrainID, orientation.n_grain_orientations);
                 // Octahedron center is at (cx, cy, cz) - note that the Y coordinate is relative to the domain
                 // origin to keep the coordinate system continuous across ranks
                 float cx = coord_x + 0.5;
@@ -448,7 +458,8 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                 // Calculate critical values at which this active cell leads to the activation of a neighboring
                 // liquid cell. Octahedron center and cell center overlap for octahedra created as part of a new
                 // grain
-                interface.calc_crit_diagonal_length(index, cx, cy, cz, cx, cy, cz, MyOrientation, GrainUnitVector);
+                interface.calc_crit_diagonal_length(index, cx, cy, cz, cx, cy, cz, my_orientation,
+                                                    orientation.grain_unit_vector);
                 if (np > 1) {
                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting this change if the
                     // slowdown is minor
@@ -461,7 +472,7 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                     bool data_fits_in_buffer = interface.load_ghost_nodes(
                         ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y, ghost_octahedron_center_z,
                         ghost_diagonal_length, grid.ny_local, coord_x, coord_y, coord_z, grid.at_north_boundary,
-                        grid.at_south_boundary, NGrainOrientations);
+                        grid.at_south_boundary, orientation.n_grain_orientations);
                     if (!(data_fits_in_buffer)) {
                         // This cell's data did not fit in the buffer with current size buf_size - mark with
                         // temporary type
@@ -482,9 +493,9 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                 // bordering of a cell above the liquidus. This information may need to be sent to other MPI ranks
                 // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
                 // length
-                bool data_fits_in_buffer =
-                    interface.load_ghost_nodes(-1, -1.0, -1.0, -1.0, 0.0, grid.ny_local, coord_x, coord_y, coord_z,
-                                               grid.at_north_boundary, grid.at_south_boundary, NGrainOrientations);
+                bool data_fits_in_buffer = interface.load_ghost_nodes(
+                    -1, -1.0, -1.0, -1.0, 0.0, grid.ny_local, coord_x, coord_y, coord_z, grid.at_north_boundary,
+                    grid.at_south_boundary, orientation.n_grain_orientations);
                 if (!(data_fits_in_buffer)) {
                     // This cell's data did not fit in the buffer with current size buf_size - mark with temporary
                     // type
@@ -590,13 +601,9 @@ void refill_buffers(const Grid &grid, CellData<MemorySpace> &cellData, Interface
 }
 
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
-template <typename MemorySpace, typename ViewTypeFloat>
+template <typename MemorySpace>
 void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &cellData,
-                 Interface<MemorySpace> &interface, const int n_grain_orientations,
-                 const ViewTypeFloat GrainUnitVector) {
-
-    // This is a bit strict - they just need to be compatible.
-    static_assert(std::is_same<MemorySpace, typename ViewTypeFloat::memory_space>::value, "Memory spaces must match.");
+                 Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
 
     std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
     std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
@@ -647,9 +654,9 @@ void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &
                         // active cell may have to be updated to liquid
                         if (CellType(index) == Liquid) {
                             Place = true;
-                            int MyGrainOrientation = static_cast<int>(interface.buffer_south_recv(buf_position, 2));
-                            int MyGrainNumber = static_cast<int>(interface.buffer_south_recv(buf_position, 3));
-                            new_grain_id = getGrainID(n_grain_orientations, MyGrainOrientation, MyGrainNumber);
+                            int my_grain_orientation = static_cast<int>(interface.buffer_south_recv(buf_position, 2));
+                            int my_grain_number = static_cast<int>(interface.buffer_south_recv(buf_position, 3));
+                            new_grain_id = orientation.get_grain_id(my_grain_orientation, my_grain_number);
                             new_octahedron_center_x = interface.buffer_south_recv(buf_position, 4);
                             new_octahedron_center_y = interface.buffer_south_recv(buf_position, 5);
                             new_octahedron_center_z = interface.buffer_south_recv(buf_position, 6);
@@ -671,9 +678,9 @@ void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &
                         // active cell may have to be updated to liquid
                         if (CellType(index) == Liquid) {
                             Place = true;
-                            int MyGrainOrientation = static_cast<int>(interface.buffer_north_recv(buf_position, 2));
-                            int MyGrainNumber = static_cast<int>(interface.buffer_north_recv(buf_position, 3));
-                            new_grain_id = getGrainID(n_grain_orientations, MyGrainOrientation, MyGrainNumber);
+                            int my_grain_orientation = static_cast<int>(interface.buffer_north_recv(buf_position, 2));
+                            int my_grain_number = static_cast<int>(interface.buffer_north_recv(buf_position, 3));
+                            new_grain_id = orientation.get_grain_id(my_grain_orientation, my_grain_number);
                             new_octahedron_center_x = interface.buffer_north_recv(buf_position, 4);
                             new_octahedron_center_y = interface.buffer_north_recv(buf_position, 5);
                             new_octahedron_center_z = interface.buffer_north_recv(buf_position, 6);
@@ -689,7 +696,7 @@ void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &
                         interface.octahedron_center(3 * index) = new_octahedron_center_x;
                         interface.octahedron_center(3 * index + 1) = new_octahedron_center_y;
                         interface.octahedron_center(3 * index + 2) = new_octahedron_center_z;
-                        int MyOrientation = getGrainOrientation(GrainID(index), n_grain_orientations);
+                        int my_orientation = get_grain_orientation(GrainID(index), orientation.n_grain_orientations);
                         interface.diagonal_length(index) = static_cast<float>(new_diagonal_length);
                         // Cell center - note that the Y coordinate is relative to the domain origin to keep the
                         // coordinate system continuous across ranks
@@ -700,7 +707,7 @@ void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &
                         // neighboring liquid cell
                         interface.calc_crit_diagonal_length(index, xp, yp, zp, new_octahedron_center_x,
                                                             new_octahedron_center_y, new_octahedron_center_z,
-                                                            MyOrientation, GrainUnitVector);
+                                                            my_orientation, orientation.grain_unit_vector);
                         CellType(index) = Active;
                     }
                 });
@@ -717,11 +724,11 @@ void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &
 // Jump to the next time step with work to be done, if nothing left to do in the near future
 // The cells of interest are active cells, and the view checked for future work is
 // MeltTimeStep Print intermediate output during this jump if PrintIdleMovieFrames = true
-template <typename MemorySpace, typename ViewTypeFloat>
+template <typename MemorySpace>
 void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
                   Temperature<MemorySpace> &temperature, const Grid &grid, CellData<MemorySpace> &cellData,
-                  const int id, const int layernumber, const int np, const ViewTypeFloat GrainUnitVector, Print print,
-                  const int NGrainOrientations) {
+                  const int id, const int layernumber, const int np, Orientation<MemorySpace> &orientation,
+                  Print print) {
 
     auto CellType = cellData.getCellTypeSubview(grid);
     MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
@@ -755,8 +762,8 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
             // steps between now and when melting/solidification occurs again, if the print option for idle frame
             // printing was toggled
             print.printIdleIntermediateGrainMisorientation(id, np, cycle, grid, cellData.GrainID_AllLayers,
-                                                           cellData.CellType_AllLayers, GrainUnitVector,
-                                                           NGrainOrientations, layernumber, GlobalNextMeltTimeStep);
+                                                           cellData.CellType_AllLayers, orientation, layernumber,
+                                                           GlobalNextMeltTimeStep);
             // Jump to next time step when solidification starts again
             cycle = GlobalNextMeltTimeStep - 1;
             if (id == 0)
@@ -768,12 +775,11 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
 //*****************************************************************************/
 // Prints intermediate code output to stdout (intermediate output collected and printed is different than without
 // remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
-template <typename MemorySpace, typename ViewTypeFloat>
+template <typename MemorySpace>
 void IntermediateOutputAndCheck(const int id, const int np, int &cycle, const Grid &grid,
                                 int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<MemorySpace> &cellData,
                                 Temperature<MemorySpace> &temperature, std::string SimulationType,
-                                const int layernumber, const int NGrainOrientations,
-                                const ViewTypeFloat GrainUnitVector, Print print) {
+                                const int layernumber, Orientation<MemorySpace> &orientation, Print print) {
 
     auto CellType = cellData.getCellTypeSubview(grid);
     auto GrainID = cellData.getGrainIDSubview(grid);
@@ -830,7 +836,7 @@ void IntermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
     unsigned long int RemainingCellsOfInterest = GlobalActiveCells + GlobalSuperheatedCells + GlobalUndercooledCells;
     if ((XSwitch == 0) && ((SimulationType == "R") || (SimulationType == "S")))
         JumpTimeStep(cycle, RemainingCellsOfInterest, LocalTempSolidCells, temperature, grid, cellData, id, layernumber,
-                     np, GrainUnitVector, print, NGrainOrientations);
+                     np, orientation, print);
 }
 
 //*****************************************************************************/

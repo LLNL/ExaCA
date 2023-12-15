@@ -7,6 +7,8 @@
 #define GA_REPREGION_HPP
 
 #include "CAconfig.hpp"
+#include "CAorientation.hpp"
+#include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 #include "GAutils.hpp"
 
@@ -441,9 +443,8 @@ struct RepresentativeRegion {
     }
 
     // Calculate misorientation relative to the specified cardinal direction for each grain and store in the vector
-    template <typename ViewTypeFloatHost>
-    std::vector<float> getGrainMisorientation(std::string Direction, ViewTypeFloatHost GrainUnitVector,
-                                              int NumberOfOrientations) {
+    template <typename MemorySpace>
+    std::vector<float> getGrainMisorientation(std::string Direction, Orientation<MemorySpace> &orientation) {
 
         std::vector<float> GrainMisorientationVector(NumberOfGrains);
         int direction;
@@ -456,11 +457,11 @@ struct RepresentativeRegion {
         else
             throw std::runtime_error(
                 "Error: invalid direction specified in calcGrainMisorientation: should be X, Y, or Z");
-        auto GrainMisorientation = MisorientationCalc(NumberOfOrientations, GrainUnitVector, direction);
+        auto grain_misorientation = orientation.misorientation_calc(direction);
         for (int n = 0; n < NumberOfGrains; n++) {
-            int MyOrientation = getGrainOrientation(UniqueGrainIDVector[n], NumberOfOrientations);
-            float MyMisorientation = GrainMisorientation(MyOrientation);
-            GrainMisorientationVector[n] = MyMisorientation;
+            int my_orientation = get_grain_orientation(UniqueGrainIDVector[n], orientation.n_grain_orientations);
+            float my_misorientation = grain_misorientation(my_orientation);
+            GrainMisorientationVector[n] = my_misorientation;
         }
         return GrainMisorientationVector;
     }
@@ -468,16 +469,16 @@ struct RepresentativeRegion {
     // Create a histogram of orientations for texture determination, using the GrainID values in the volume bounded by
     // [XMin,XMax], [YMin,YMax], [ZMin,ZMax] and excluding and cells that did not undergo melting (GrainID = -1)
     template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
-    auto getOrientationHistogram(int NumberOfOrientations, ViewTypeInt3dHost GrainID, ViewTypeShort3dHost LayerID) {
+    auto getOrientationHistogram(int n_grain_orientations, ViewTypeInt3dHost GrainID, ViewTypeShort3dHost LayerID) {
 
         // Init histogram values to zero
         using int_type = typename ViewTypeInt3dHost::value_type;
-        Kokkos::View<int_type *, Kokkos::HostSpace> GOHistogram("GOHistogram", NumberOfOrientations);
+        Kokkos::View<int_type *, Kokkos::HostSpace> GOHistogram("GOHistogram", n_grain_orientations);
         for (int k = zBounds_Cells[0]; k <= zBounds_Cells[1]; k++) {
             for (int j = yBounds_Cells[0]; j <= yBounds_Cells[1]; j++) {
                 for (int i = xBounds_Cells[0]; i <= xBounds_Cells[1]; i++) {
                     if (LayerID(k, i, j) != -1) {
-                        int GOVal = getGrainOrientation(GrainID(k, i, j), NumberOfOrientations);
+                        int GOVal = get_grain_orientation(GrainID(k, i, j), n_grain_orientations);
                         GOHistogram(GOVal)++;
                     }
                 }
@@ -722,10 +723,11 @@ struct RepresentativeRegion {
     }
 
     // Write pole figure data for this region to a file to be read by MTEX
-    template <typename ViewTypeFloatHost, typename ViewTypeIntHost>
-    void writePoleFigure(std::string BaseFileNameThisRegion, int NumberOfOrientations,
-                         ViewTypeFloatHost GrainEulerAngles, ViewTypeIntHost GOHistogram) {
+    template <typename MemorySpace, typename ViewTypeIntHost>
+    void writePoleFigure(std::string BaseFileNameThisRegion, Orientation<MemorySpace> &orientation,
+                         ViewTypeIntHost GOHistogram) {
 
+        auto grain_bunge_euler_host = orientation.get_euler_angles();
         // Using new format, write pole figure data to "Filename"
         std::string Filename = BaseFileNameThisRegion + "_PoleFigureData.txt";
         std::ofstream GrainplotPF;
@@ -735,9 +737,9 @@ struct RepresentativeRegion {
         GrainplotPF << "% specimen symmetry: \"43\"" << std::endl;
         GrainplotPF << "% phi1    Phi     phi2    value" << std::endl;
         GrainplotPF << std::fixed << std::setprecision(6);
-        for (int i = 0; i < NumberOfOrientations; i++) {
-            GrainplotPF << GrainEulerAngles(3 * i) << " " << GrainEulerAngles(3 * i + 1) << " "
-                        << GrainEulerAngles(3 * i + 2) << " " << (float)(GOHistogram(i)) << std::endl;
+        for (int i = 0; i < orientation.n_grain_orientations; i++) {
+            GrainplotPF << grain_bunge_euler_host(3 * i) << " " << grain_bunge_euler_host(3 * i + 1) << " "
+                        << grain_bunge_euler_host(3 * i + 2) << " " << (float)(GOHistogram(i)) << std::endl;
         }
         GrainplotPF.close();
     }
@@ -755,20 +757,21 @@ struct RepresentativeRegion {
 
     // Determine the R, G, or B value for this grain orientation for the IPF-Z inverse pole figure colormap (Color = 0
     // for R, 1 for G, 2 for B)
-    template <typename ViewTypeFloatHost>
-    std::vector<float> getIPFZColor(int Color, int NumberOfOrientations, ViewTypeFloatHost GrainRGBValues) {
+    template <typename MemorySpace>
+    std::vector<float> getIPFZColor(int color, Orientation<MemorySpace> &orientation) {
         std::vector<float> IPFZColor(NumberOfGrains);
+        auto grain_rgb_ipfz_host = orientation.get_rgb_ipfz();
         for (int n = 0; n < NumberOfGrains; n++) {
-            int MyOrientation = getGrainOrientation(UniqueGrainIDVector[n], NumberOfOrientations);
-            IPFZColor[n] = GrainRGBValues(3 * MyOrientation + Color);
+            int my_orientation = get_grain_orientation(UniqueGrainIDVector[n], orientation.n_grain_orientations);
+            IPFZColor[n] = grain_rgb_ipfz_host(3 * my_orientation + color);
         }
         return IPFZColor;
     }
 
     // Print data to be read by MTEX to plot the cross-section using the inverse pole figure colormap
-    template <typename ViewTypeInt3dHost, typename ViewTypeFloatHost>
+    template <typename ViewTypeInt3dHost, typename MemorySpace>
     void writeIPFColoredCrossSection(std::string BaseFileNameThisRegion, ViewTypeInt3dHost GrainID,
-                                     ViewTypeFloatHost GrainEulerAngles, double deltax, int NumberOfOrientations) {
+                                     Orientation<MemorySpace> &orientation, double deltax) {
 
         // What portion of the area is to be printed?
         int Index1Low, Index1High, Index2Low, Index2High, CrossSectionOutOfPlaneLocation;
@@ -797,6 +800,8 @@ struct RepresentativeRegion {
             throw std::runtime_error(
                 "Error: Invalid plane type in writeIPFColoredCrossSection: should be XY, XZ, or YZ");
 
+        auto grain_bunge_euler_host = orientation.get_euler_angles();
+
         std::string FNameIPF = BaseFileNameThisRegion + "_IPFCrossSectionData.txt";
         std::ofstream GrainplotIPF;
         GrainplotIPF.open(FNameIPF);
@@ -824,16 +829,17 @@ struct RepresentativeRegion {
                     throw std::runtime_error("Error: Unknown regionOrientation input for WriteIPFColoredCrossSection: "
                                              "should be XY, YZ, or XZ");
                 // What orientation does this grain id correspond to? Should be between 0 and NumberOfOrientations-1
-                int GOVal = (abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % NumberOfOrientations;
+                int GOVal = (abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % orientation.n_grain_orientations;
                 // The grain structure is phase "1" - any unindexed points with GOVal = -1 (which are possible from
                 // regions that didn't undergo melting) are assigned phase "0"
                 if (GOVal == -1)
                     GrainplotIPF << "0 0 0 0 " << Index1 * deltax * Kokkos::pow(10, 6) << " "
                                  << Index2 * deltax * Kokkos::pow(10, 6) << std::endl;
                 else
-                    GrainplotIPF << GrainEulerAngles(3 * GOVal) << " " << GrainEulerAngles(3 * GOVal + 1) << " "
-                                 << GrainEulerAngles(3 * GOVal + 2) << " 1 " << Index1 * deltax * Kokkos::pow(10, 6)
-                                 << " " << Index2 * deltax * Kokkos::pow(10, 6) << std::endl;
+                    GrainplotIPF << grain_bunge_euler_host(3 * GOVal) << " " << grain_bunge_euler_host(3 * GOVal + 1)
+                                 << " " << grain_bunge_euler_host(3 * GOVal + 2) << " 1 "
+                                 << Index1 * deltax * pow(10, 6) << " " << Index2 * deltax * Kokkos::pow(10, 6)
+                                 << std::endl;
             }
         }
         GrainplotIPF.close();

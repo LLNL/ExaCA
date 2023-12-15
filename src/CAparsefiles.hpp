@@ -7,7 +7,8 @@
 #define EXACA_PARSE_HPP
 
 #include "CAconfig.hpp"
-#include "CAfunctions.hpp"
+
+#include <Kokkos_Core.hpp>
 
 #include <nlohmann/json.hpp>
 

@@ -6,14 +6,13 @@
 #ifndef EXACA_HPP
 #define EXACA_HPP
 
-#include "CAfunctions.hpp"
 #include "CAgrid.hpp"
 #include "CAinfo.hpp"
-#include "CAinitialize.hpp"
 #include "CAinputs.hpp"
 #include "CAinterface.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAnucleation.hpp"
+#include "CAorientation.hpp"
 #include "CAparsefiles.hpp"
 #include "CAprint.hpp"
 #include "CAtemperature.hpp"

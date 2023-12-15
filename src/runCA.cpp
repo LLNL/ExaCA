@@ -53,13 +53,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (id == 0)
         std::cout << "Done with temperature field initialization" << std::endl;
 
-    int NGrainOrientations = 0; // Number of grain orientations considered in the simulation
-    // No initialize size yet, will be resized in OrientationInit
-    Kokkos::View<float *, memory_space> GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"), 0);
-
     // Initialize grain orientations
-    // TODO: Orientation data to be part of a new struct
-    OrientationInit(id, NGrainOrientations, GrainUnitVector, inputs.GrainOrientationFile);
+    Orientation<memory_space> orientation(inputs.GrainOrientationFile, false);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with orientation initialization " << std::endl;
@@ -116,8 +111,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Start of time step - optional print current state of ExaCA simulation (up to and including the current
             // layer's data)
             print.printIntermediateGrainMisorientation(id, np, cycle, grid, cellData.GrainID_AllLayers,
-                                                       cellData.CellType_AllLayers, GrainUnitVector, NGrainOrientations,
-                                                       layernumber);
+                                                       cellData.CellType_AllLayers, orientation, layernumber);
             cycle++;
 
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
@@ -145,21 +139,21 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             StartCaptureTime = MPI_Wtime();
             // Cell capture and checking of the MPI buffers to ensure that all appropriate interface updates in the halo
             // regions were recorded
-            cell_capture(cycle, np, grid, irf, cellData, temperature, interface, GrainUnitVector, NGrainOrientations);
-            check_buffers(id, cycle, grid, cellData, interface, NGrainOrientations);
+            cell_capture(cycle, np, grid, irf, cellData, temperature, interface, orientation);
+            check_buffers(id, cycle, grid, cellData, interface, orientation.n_grain_orientations);
             CaptureTime += MPI_Wtime() - StartCaptureTime;
 
             if (np > 1) {
                 // Update ghost nodes
                 StartGhostTime = MPI_Wtime();
-                halo_update(cycle, id, grid, cellData, interface, NGrainOrientations, GrainUnitVector);
+                halo_update(cycle, id, grid, cellData, interface, orientation);
                 GhostTime += MPI_Wtime() - StartGhostTime;
             }
 
             if ((cycle % 1000 == 0) && (simulation_type != "SingleGrain")) {
                 IntermediateOutputAndCheck(id, np, cycle, grid, nucleation.SuccessfulNucleationCounter, XSwitch,
-                                           cellData, temperature, inputs.SimulationType, layernumber,
-                                           NGrainOrientations, GrainUnitVector, print);
+                                           cellData, temperature, inputs.SimulationType, layernumber, orientation,
+                                           print);
             }
             else if (simulation_type == "SingleGrain") {
                 IntermediateOutputAndCheck(id, cycle, grid, XSwitch, cellData.CellType_AllLayers);
@@ -230,7 +224,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Barrier(MPI_COMM_WORLD);
     // Collect and print specified final fields to output files
     print.printFinalExaCAData(id, np, grid, cellData.LayerID_AllLayers, cellData.CellType_AllLayers,
-                              cellData.GrainID_AllLayers, temperature, GrainUnitVector, NGrainOrientations);
+                              cellData.GrainID_AllLayers, temperature, orientation);
 
     // Calculate volume fraction of solidified domain consisting of nucleated grains
     float VolFractionNucleated = cellData.calcVolFractionNucleated(id, grid);

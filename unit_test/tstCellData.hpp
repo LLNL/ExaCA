@@ -6,9 +6,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "CAcelldata.hpp"
-#include "CAfunctions.hpp"
 #include "CAgrid.hpp"
-#include "CAinitialize.hpp"
 #include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"

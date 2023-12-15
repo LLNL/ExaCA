@@ -5,7 +5,6 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "CAfunctions.hpp"
 #include "CAgrid.hpp"
 #include "CAparsefiles.hpp"
 #include "CAprint.hpp"

@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+#include "CAorientation.hpp"
 #include "CAparsefiles.hpp"
 #include "GArepresentativeregion.hpp"
 #include "GAutils.hpp"
@@ -37,12 +38,11 @@ int main(int argc, char *argv[]) {
         std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile
                   << " and the options specified in " << AnalysisFile << std::endl;
 
-        std::string RotationFilename, EulerAnglesFilename, RGBFilename;
+        std::string grain_unit_vector_file;
         double deltax;
         int nx, ny, nz, NumberOfLayers;
         std::vector<double> XYZBounds(6);
-        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, RotationFilename, EulerAnglesFilename,
-                     RGBFilename, false);
+        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, grain_unit_vector_file, false);
 
         // Allocate memory blocks for GrainID and LayerID data
         Kokkos::View<int ***, Kokkos::HostSpace> GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx,
@@ -55,21 +55,7 @@ int main(int argc, char *argv[]) {
 
         // Grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
         // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
-        int NumberOfOrientations = 0;
-        using view_float = Kokkos::View<float *, memory_space>;
-        view_float GrainUnitVector(Kokkos::ViewAllocateWithoutInitializing("GrainUnitVector"),
-                                   9 * NumberOfOrientations);
-        view_float GrainEulerAngles(Kokkos::ViewAllocateWithoutInitializing("GrainEulerAngles"),
-                                    3 * NumberOfOrientations);
-        view_float GrainRGBValues(Kokkos::ViewAllocateWithoutInitializing("GrainRGBValues"), 3 * NumberOfOrientations);
-
-        // Initialize, then copy back to host
-        OrientationInit(0, NumberOfOrientations, GrainUnitVector, RotationFilename, 9);
-        auto GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
-        OrientationInit(0, NumberOfOrientations, GrainEulerAngles, EulerAnglesFilename, 3);
-        auto GrainEulerAngles_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainEulerAngles);
-        OrientationInit(0, NumberOfOrientations, GrainRGBValues, RGBFilename, 3);
-        auto GrainRGBValues_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainRGBValues);
+        Orientation<memory_space> orientation(grain_unit_vector_file, true);
 
         // Representative region creation
         std::ifstream AnalysisDataStream(AnalysisFile);
@@ -96,11 +82,11 @@ int main(int argc, char *argv[]) {
 
             // Calculate and if specified, print misorientation data
             std::vector<float> GrainMisorientationXVector =
-                representativeRegion.getGrainMisorientation("X", GrainUnitVector_Host, NumberOfOrientations);
+                representativeRegion.getGrainMisorientation("X", orientation);
             std::vector<float> GrainMisorientationYVector =
-                representativeRegion.getGrainMisorientation("Y", GrainUnitVector_Host, NumberOfOrientations);
+                representativeRegion.getGrainMisorientation("Y", orientation);
             std::vector<float> GrainMisorientationZVector =
-                representativeRegion.getGrainMisorientation("Z", GrainUnitVector_Host, NumberOfOrientations);
+                representativeRegion.getGrainMisorientation("Z", orientation);
             if (representativeRegion.AnalysisOptions_StatsYN[1])
                 representativeRegion.printMeanMisorientations(QoIs, GrainMisorientationXVector,
                                                               GrainMisorientationYVector, GrainMisorientationZVector);
@@ -132,12 +118,9 @@ int main(int argc, char *argv[]) {
                 representativeRegion.printMeanExtent(QoIs, "Z");
 
             // Determine IPF-Z color of each grain relative to each direction: 0 (red), 1 (green), 2 (blue)
-            std::vector<float> GrainRed =
-                representativeRegion.getIPFZColor(0, NumberOfOrientations, GrainRGBValues_Host);
-            std::vector<float> GrainGreen =
-                representativeRegion.getIPFZColor(1, NumberOfOrientations, GrainRGBValues_Host);
-            std::vector<float> GrainBlue =
-                representativeRegion.getIPFZColor(1, NumberOfOrientations, GrainRGBValues_Host);
+            std::vector<float> GrainRed = representativeRegion.getIPFZColor(0, orientation);
+            std::vector<float> GrainGreen = representativeRegion.getIPFZColor(1, orientation);
+            std::vector<float> GrainBlue = representativeRegion.getIPFZColor(2, orientation);
 
             // Write grain area data as a function of Z location in the representative volume if the options are
             // toggled, writing to files
@@ -162,15 +145,14 @@ int main(int argc, char *argv[]) {
 
             // Pole figure print a file named "[BaseFileNameThisRegion]_PoleFigureData.txt"
             if (representativeRegion.PrintPoleFigureYN) {
-                auto GOHistogram = representativeRegion.getOrientationHistogram(NumberOfOrientations, GrainID, LayerID);
-                representativeRegion.writePoleFigure(BaseFileNameThisRegion, NumberOfOrientations,
-                                                     GrainEulerAngles_Host, GOHistogram);
+                auto GOHistogram =
+                    representativeRegion.getOrientationHistogram(orientation.n_grain_orientations, GrainID, LayerID);
+                representativeRegion.writePoleFigure(BaseFileNameThisRegion, orientation, GOHistogram);
             }
 
             // IPF map for area print a file named "[BaseFileNameThisRegion]_IPFCrossSectionData.txt"
             if (representativeRegion.PrintInversePoleFigureMapYN) {
-                representativeRegion.writeIPFColoredCrossSection(BaseFileNameThisRegion, GrainID, GrainEulerAngles_Host,
-                                                                 deltax, NumberOfOrientations);
+                representativeRegion.writeIPFColoredCrossSection(BaseFileNameThisRegion, GrainID, orientation, deltax);
             }
             std::cout << "Finished analysis for region " << RegionName << std::endl;
         } // end loop over all representative regions in analysis file
