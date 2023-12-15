@@ -243,9 +243,9 @@ struct Grid {
         // (all header lines from all files have been read)
         // CA cells in each direction span from the lower to the higher bound of the temperature data - without wall
         // cells or padding around the simulation edges
-        nx = round((x_max - x_min) / deltax) + 1;
-        ny = round((y_max - y_min) / deltax) + 1;
-        nz = round((z_max - z_min) / deltax) + 1;
+        nx = Kokkos::round((x_max - x_min) / deltax) + 1;
+        ny = Kokkos::round((y_max - y_min) / deltax) + 1;
+        nz = Kokkos::round((z_max - z_min) / deltax) + 1;
     }
 
     int get_domain_size_all_layers() {
@@ -375,7 +375,7 @@ struct Grid {
         }
         else if (SimulationType == "R") {
             // lower bound of domain is based on the data read from the file(s)
-            z_layer_bottom_local = round((z_min_layer[layernumber] - z_min) / deltax);
+            z_layer_bottom_local = Kokkos::round((z_min_layer[layernumber] - z_min) / deltax);
         }
         if (z_layer_bottom_local == -1)
             throw std::runtime_error("Error: ZBound_Low went uninitialized, problem type must be C, S, or R");
@@ -398,7 +398,7 @@ struct Grid {
         else if (SimulationType == "R") {
             // Top of layer comes from the layer's file data (implicitly assumes bottom of layer 0 is the bottom of the
             // overall domain - this should be fixed in the future for edge cases where this isn't true)
-            z_layer_top_local = round((z_max_layer[layernumber] - z_min) / deltax);
+            z_layer_top_local = Kokkos::round((z_max_layer[layernumber] - z_min) / deltax);
         }
         if (z_layer_top_local == -1)
             throw std::runtime_error(

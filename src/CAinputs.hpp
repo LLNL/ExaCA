@@ -427,7 +427,7 @@ struct Inputs {
                 print.PrintTimeSeries = true;
                 // Increment is given in microseconds, convert to seconds
                 TimeSeriesFrameInc_time = TimeSeriesFrameInc_time * pow(10, -6);
-                print.TimeSeriesInc = round(TimeSeriesFrameInc_time / deltat);
+                print.TimeSeriesInc = Kokkos::round(TimeSeriesFrameInc_time / deltat);
                 // Should the intermediate output be printed even if the simulation was unchanged from the previous
                 // output step?
                 print.PrintIdleTimeSeriesFrames = inputdata["Printing"]["PrintIntermediateOutput"]["PrintIdleFrames"];
@@ -451,7 +451,7 @@ struct Inputs {
             long int NumCellsPowderLayers =
                 (long int)(nx) * (long int)(ny) * (long int)(LayerHeight) * (long int)(NumberOfLayers - 1);
             long int NumAssignedCellsPowderLayers =
-                std::lround(round(static_cast<double>(NumCellsPowderLayers) * substrate.PowderActiveFraction));
+                std::lround(Kokkos::round(static_cast<double>(NumCellsPowderLayers) * substrate.PowderActiveFraction));
             if (NumAssignedCellsPowderLayers > INT_MAX)
                 throw std::runtime_error(
                     "Error: A smaller value for powder density is required to avoid potential integer "

@@ -19,7 +19,6 @@
 
 #include <nlohmann/json.hpp>
 
-#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <sstream>

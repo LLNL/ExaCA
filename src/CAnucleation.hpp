@@ -15,7 +15,6 @@
 #include <Kokkos_Core.hpp>
 
 #include <algorithm>
-#include <cmath>
 #include <random>
 #include <string>
 #include <vector>
@@ -140,9 +139,9 @@ struct Nucleation {
                 double NucleiY_unrounded = Ydist(generator);
                 double NucleiZ_unrounded = Zdist(generator);
                 // Round these coordinates so they're associated with a specific cell on the grid
-                NucleiX(NEvent) = std::round(NucleiX_unrounded);
-                NucleiY(NEvent) = std::round(NucleiY_unrounded);
-                NucleiZ(NEvent) = std::round(NucleiZ_unrounded);
+                NucleiX(NEvent) = Kokkos::round(NucleiX_unrounded);
+                NucleiY(NEvent) = Kokkos::round(NucleiY_unrounded);
+                NucleiZ(NEvent) = Kokkos::round(NucleiZ_unrounded);
                 // Assign each nuclei a Grain ID (negative values used for nucleated grains) and an undercooling
                 NucleiGrainID_WholeDomain_V[NEvent] = -(Nuclei_WholeDomain + NEvent + 1); // avoid using grain ID 0
                 NucleiUndercooling_WholeDomain_V[NEvent] = Gdistribution(generator);
@@ -187,11 +186,12 @@ struct Nucleation {
                             LayerTimeTempHistory_Host(NucleiLocation_ThisLayer, meltevent, 1);
                         float UndercoolingChange_ThisEvent =
                             LayerTimeTempHistory_Host(NucleiLocation_ThisLayer, meltevent, 2);
-                        float TimeToNucUnd = round(CritTimeStep_ThisEvent + NucleiUndercooling_WholeDomain_V[NEvent] /
-                                                                                UndercoolingChange_ThisEvent);
+                        float TimeToNucUnd =
+                            Kokkos::round(CritTimeStep_ThisEvent +
+                                          NucleiUndercooling_WholeDomain_V[NEvent] / UndercoolingChange_ThisEvent);
                         if (CritTimeStep_ThisEvent > TimeToNucUnd)
                             TimeToNucUnd = CritTimeStep_ThisEvent;
-                        NucleationTimes_MyRank_V[PossibleNuclei] = round(TimeToNucUnd);
+                        NucleationTimes_MyRank_V[PossibleNuclei] = Kokkos::round(TimeToNucUnd);
                         // Assign this cell the potential nucleated grain ID
                         NucleiGrainID_MyRank_V[PossibleNuclei] = NucleiGrainID_WholeDomain_V[NEvent];
                         // Increment counter on this MPI rank

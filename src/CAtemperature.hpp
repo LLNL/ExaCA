@@ -187,9 +187,9 @@ struct Temperature {
         if (SimulationType == "C")
             locationOfInitUndercooling = 0;
         else
-            locationOfInitUndercooling = floorf(static_cast<float>(grid.nz) / 2.0);
+            locationOfInitUndercooling = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
         int locationOfLiquidus =
-            locationOfInitUndercooling + round(_inputs.initUndercooling / (_inputs.G * grid.deltax));
+            locationOfInitUndercooling + Kokkos::round(_inputs.initUndercooling / (_inputs.G * grid.deltax));
         // Local copies for lambda capture.
         auto LayerTimeTempHistory_local = LayerTimeTempHistory;
         auto MaxSolidificationEvents_local = MaxSolidificationEvents;
@@ -315,16 +315,16 @@ struct Temperature {
                     for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
                         int coord_y_global = coord_y + grid.y_offset;
                         float DistY = (float)(YSpotPos - coord_y_global);
-                        float TotDist = sqrt(DistX * DistX + DistY * DistY + DistZ * DistZ);
+                        float TotDist = Kokkos::hypot(DistX, DistY, DistZ);
                         if (TotDist <= inputs.domain.SpotRadius) {
                             int index = grid.get_1D_index(coord_x, coord_y, coord_z);
                             // Melt time
                             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 0) =
                                 1 + TimeBetweenSpots * n;
                             // Liquidus time
-                            int LiquidusTime =
-                                round((static_cast<float>(inputs.domain.SpotRadius) - TotDist) / IsothermVelocity) +
-                                TimeBetweenSpots * n;
+                            int LiquidusTime = Kokkos::round((static_cast<float>(inputs.domain.SpotRadius) - TotDist) /
+                                                             IsothermVelocity) +
+                                               TimeBetweenSpots * n;
                             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 1) =
                                 1 + LiquidusTime;
                             // Cooling rate
@@ -398,20 +398,20 @@ struct Temperature {
 
     // Read data from storage, and calculate the normalized x value of the data point
     int getTempCoordX(int i, double XMin, double deltax) {
-        int x_coord = round((RawTemperatureData(i) - XMin) / deltax);
+        int x_coord = Kokkos::round((RawTemperatureData(i) - XMin) / deltax);
         return x_coord;
     }
     // Read data from storage, and calculate the normalized y value of the data point. If the optional offset argument
     // is given, the return value is calculated relative to the edge of the MPI rank's local simulation domain (which is
     // offset by y_offset cells from the global domain edge)
     int getTempCoordY(int i, double YMin, double deltax, int y_offset = 0) {
-        int y_coord = round((RawTemperatureData(i + 1) - YMin) / deltax) - y_offset;
+        int y_coord = Kokkos::round((RawTemperatureData(i + 1) - YMin) / deltax) - y_offset;
         return y_coord;
     }
     // Read data from storage, and calculate the normalized z value of the data point
     int getTempCoordZ(int i, double deltax, int LayerHeight, int LayerCounter, view_type_double_host ZMinLayer) {
-        int z_coord =
-            round((RawTemperatureData(i + 2) + deltax * LayerHeight * LayerCounter - ZMinLayer[LayerCounter]) / deltax);
+        int z_coord = Kokkos::round(
+            (RawTemperatureData(i + 2) + deltax * LayerHeight * LayerCounter - ZMinLayer[LayerCounter]) / deltax);
         return z_coord;
     }
     // Read data from storage, obtain melting time
@@ -478,9 +478,9 @@ struct Temperature {
             int index = grid.get_1D_index(coord_x, coord_y, coord_z);
             // Store TM, TL, CR values for this solidification event in LayerTimeTempHistory
             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 0) =
-                round(TMelting / deltat) + 1;
+                Kokkos::round(TMelting / deltat) + 1;
             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 1) =
-                round(TLiquidus / deltat) + 1;
+                Kokkos::round(TLiquidus / deltat) + 1;
             LayerTimeTempHistory_Host(index, NumberOfSolidificationEvents_Host(index), 2) =
                 std::abs(CoolingRate) * deltat;
             // Increment number of solidification events for this cell
@@ -494,7 +494,7 @@ struct Temperature {
         if (id == 0)
             std::cout << " Layer " << layernumber
                       << " time step where all cells are cooled below solidus for the final time is "
-                      << round((LargestTime_Global) / deltat) << " (or " << LargestTime_Global << " seconds)"
+                      << Kokkos::round((LargestTime_Global) / deltat) << " (or " << LargestTime_Global << " seconds)"
                       << std::endl;
         if (id == 0)
             std::cout << "Layer " << layernumber << " temperatures read" << std::endl;

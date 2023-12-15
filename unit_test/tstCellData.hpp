@@ -43,9 +43,9 @@ void testCellDataInit_SingleGrain() {
     inputs.domain.nx = 5;
     inputs.domain.ny = 50;
     inputs.domain.nz = 5;
-    int expectedGrainX = floorf(static_cast<float>(inputs.domain.nx) / 2.0);
-    int expectedGrainY = floorf(static_cast<float>(inputs.domain.ny) / 2.0);
-    int expectedGrainZ = floorf(static_cast<float>(inputs.domain.nz) / 2.0);
+    int expectedGrainX = Kokkos::floorf(static_cast<float>(inputs.domain.nx) / 2.0);
+    int expectedGrainY = Kokkos::floorf(static_cast<float>(inputs.domain.ny) / 2.0);
+    int expectedGrainZ = Kokkos::floorf(static_cast<float>(inputs.domain.nz) / 2.0);
 
     // Set up grid and decompose domain
     Grid grid("SingleGrain", id, np, 1, inputs.domain, inputs.temperature);

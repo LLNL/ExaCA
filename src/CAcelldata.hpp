@@ -60,9 +60,9 @@ struct CellData {
     void init_substrate(int id, const Grid &grid) {
 
         // Location of the single grain
-        int grainLocationX = floorf(static_cast<float>(grid.nx) / 2.0);
-        int grainLocationY = floorf(static_cast<float>(grid.ny) / 2.0);
-        int grainLocationZ = floorf(static_cast<float>(grid.nz) / 2.0);
+        int grainLocationX = Kokkos::floorf(static_cast<float>(grid.nx) / 2.0);
+        int grainLocationY = Kokkos::floorf(static_cast<float>(grid.ny) / 2.0);
+        int grainLocationZ = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
 
         // Local copies for lambda capture.
         auto CellType_AllLayers_local = CellType_AllLayers;
@@ -95,7 +95,7 @@ struct CellData {
         if (_inputs.CustomGrainLocationsIDs)
             SubstrateActCells = _inputs.GrainLocationsX.size();
         else
-            SubstrateActCells = std::round(_inputs.FractSurfaceSitesActive * nx * ny);
+            SubstrateActCells = Kokkos::round(_inputs.FractSurfaceSitesActive * nx * ny);
         // View for storing surface grain locations and IDs
         view_type_int_2d_host ActCellData_Host(Kokkos::ViewAllocateWithoutInitializing("ActCellData_Host"),
                                                SubstrateActCells, 3);
@@ -120,8 +120,8 @@ struct CellData {
                 double XLocation = Xdist(gen);
                 double YLocation = Ydist(gen);
                 // Randomly select integer coordinates between 0 and nx-1 or ny-1
-                ActCellData_Host(n, 0) = round(XLocation);
-                ActCellData_Host(n, 1) = round(YLocation);
+                ActCellData_Host(n, 0) = Kokkos::round(XLocation);
+                ActCellData_Host(n, 1) = Kokkos::round(YLocation);
                 ActCellData_Host(n, 2) = n + 1; // grain ID for epitaxial seeds must be > 0
             }
         }
@@ -221,8 +221,8 @@ struct CellData {
 
         // Powder layer extends from Z = PowderBottomZ up to but not including Z = PowderTopZ
         // Bottom of layer is the next coordinate up from the baseplate
-        int PowderBottomZ = round((_inputs.BaseplateTopZ - grid.z_min) / grid.deltax) + 1;
-        int PowderTopZ = round((grid.z_max_layer[0] - grid.z_min) / grid.deltax) + 1;
+        int PowderBottomZ = Kokkos::round((_inputs.BaseplateTopZ - grid.z_min) / grid.deltax) + 1;
+        int PowderTopZ = Kokkos::round((grid.z_max_layer[0] - grid.z_min) / grid.deltax) + 1;
         // Generate powder grain structure grain IDs for top of layer 0 if needed (i.e, if the powder layer height is
         // more than zero cells)
         if (PowderTopZ > PowderBottomZ)
@@ -246,8 +246,8 @@ struct CellData {
         if (_inputs.BaseplateThroughPowder)
             BaseplateSizeZ = grid.nz;
         else {
-            BaseplateSizeZ = round((_inputs.BaseplateTopZ - grid.z_min) / grid.deltax) + 1;
-            int MaxBaseplateSizeZ = round((grid.z_max_layer[0] - grid.z_min) / grid.deltax) + 1;
+            BaseplateSizeZ = Kokkos::round((_inputs.BaseplateTopZ - grid.z_min) / grid.deltax) + 1;
+            int MaxBaseplateSizeZ = Kokkos::round((grid.z_max_layer[0] - grid.z_min) / grid.deltax) + 1;
             if (BaseplateSizeZ > MaxBaseplateSizeZ) {
                 BaseplateSizeZ = MaxBaseplateSizeZ;
                 if (id == 0)
@@ -340,9 +340,9 @@ struct CellData {
         // Based on the baseplate volume (convert to cubic microns to match units) and the substrate grain spacing,
         // determine the number of baseplate grains
         int BaseplateVolume = grid.nx * grid.ny * BaseplateSizeZ;
-        double BaseplateVolume_microns = BaseplateVolume * pow(grid.deltax, 3) * pow(10, 18);
-        double SubstrateMeanGrainVolume_microns = pow(_inputs.SubstrateGrainSpacing, 3);
-        int NumberOfBaseplateGrains = round(BaseplateVolume_microns / SubstrateMeanGrainVolume_microns);
+        double BaseplateVolume_microns = BaseplateVolume * Kokkos::pow(grid.deltax, 3) * Kokkos::pow(10, 18);
+        double SubstrateMeanGrainVolume_microns = Kokkos::pow(_inputs.SubstrateGrainSpacing, 3);
+        int NumberOfBaseplateGrains = Kokkos::round(BaseplateVolume_microns / SubstrateMeanGrainVolume_microns);
         // Need at least 1 baseplate grain, cannot have more baseplate grains than cells in the baseplate
         NumberOfBaseplateGrains = std::max(NumberOfBaseplateGrains, 1);
         NumberOfBaseplateGrains = std::min(NumberOfBaseplateGrains, grid.nx * grid.ny * BaseplateSizeZ);
@@ -464,7 +464,8 @@ struct CellData {
         // TODO: This should be performed on the device, rather than the host
         int PowderLayerHeight = PowderTopZ - PowderBottomZ;
         int PowderLayerCells = grid.nx * grid.ny * PowderLayerHeight;
-        int PowderLayerAssignedCells = round(static_cast<double>(PowderLayerCells) * _inputs.PowderActiveFraction);
+        int PowderLayerAssignedCells =
+            Kokkos::round(static_cast<double>(PowderLayerCells) * _inputs.PowderActiveFraction);
         std::vector<int> PowderGrainIDs(PowderLayerCells, 0);
         for (int n = 0; n < PowderLayerAssignedCells; n++) {
             PowderGrainIDs[n] = n + NextLayer_FirstEpitaxialGrainID; // assigned a nonzero GrainID
@@ -525,8 +526,8 @@ struct CellData {
         // z_layer_bottom
         // Powder layer extends from Z = PowderBottomZ (1 cell above the top of the previous layer) up to but not
         // including Z = PowderTopZ
-        int PowderBottomZ = round((grid.z_max_layer[nextlayernumber - 1] - grid.z_min) / grid.deltax) + 1;
-        int PowderTopZ = round((grid.z_max_layer[nextlayernumber] - grid.z_min) / grid.deltax) + 1;
+        int PowderBottomZ = Kokkos::round((grid.z_max_layer[nextlayernumber - 1] - grid.z_min) / grid.deltax) + 1;
+        int PowderTopZ = Kokkos::round((grid.z_max_layer[nextlayernumber] - grid.z_min) / grid.deltax) + 1;
         if (!(_inputs.BaseplateThroughPowder))
             init_powder_grainid(nextlayernumber, id, RNGSeed, grid, PowderBottomZ, PowderTopZ);
 

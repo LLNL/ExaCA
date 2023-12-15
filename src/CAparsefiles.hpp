@@ -81,7 +81,7 @@ void parseTemperatureData(std::string tempfile_thislayer, double YMin, double de
                 break;
             // Check the y value from ParsedLine, to check if this point is stored on this rank
             // Check the CA grid positions of the data point to see which rank(s) should store it
-            int YInt = round((YTemperaturePoint - YMin) / deltax);
+            int YInt = Kokkos::round((YTemperaturePoint - YMin) / deltax);
             if ((YInt >= LowerYBound) && (YInt <= UpperYBound)) {
                 // This data point is inside the bounds of interest for this MPI rank
                 // Store the x and y values in RawData
@@ -123,7 +123,7 @@ void parseTemperatureData(std::string tempfile_thislayer, double YMin, double de
             // Check the y value from ParsedLine, to check if this point is stored on this rank
             double YTemperaturePoint = getInputDouble(ParsedLine[1]);
             // Check the CA grid positions of the data point to see which rank(s) should store it
-            int YInt = round((YTemperaturePoint - YMin) / deltax);
+            int YInt = Kokkos::round((YTemperaturePoint - YMin) / deltax);
             if ((YInt >= LowerYBound) && (YInt <= UpperYBound)) {
                 // This data point is inside the bounds of interest for this MPI rank: Store the x, z, tm, tl, and cr
                 // vals inside of RawData, incrementing with each value added
