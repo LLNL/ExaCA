@@ -11,7 +11,7 @@
 #include "GAutils.hpp"
 
 #include <Kokkos_Core.hpp>
-#include <cmath>
+
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -296,15 +296,15 @@ struct RepresentativeRegion {
                            (zBounds_Cells[1] - zBounds_Cells[0] + 1);
         if (regionType == "length") {
             regionSize_Meters = regionSize_Cells * deltax;
-            regionSize_Microns = regionSize_Meters * pow(10, 6);
+            regionSize_Microns = regionSize_Meters * Kokkos::pow(10, 6);
         }
         else if (regionType == "area") {
-            regionSize_Meters = regionSize_Cells * pow(deltax, 2);
-            regionSize_Microns = regionSize_Meters * pow(10, 12);
+            regionSize_Meters = regionSize_Cells * Kokkos::pow(deltax, 2);
+            regionSize_Microns = regionSize_Meters * Kokkos::pow(10, 12);
         }
         else if (regionType == "volume") {
-            regionSize_Meters = regionSize_Cells * pow(deltax, 3);
-            regionSize_Microns = regionSize_Meters * pow(10, 18);
+            regionSize_Meters = regionSize_Cells * Kokkos::pow(deltax, 3);
+            regionSize_Microns = regionSize_Meters * Kokkos::pow(10, 18);
         }
         else
             throw std::runtime_error("Error: Invalid region type in GetRegionSize during region construction");
@@ -634,7 +634,7 @@ struct RepresentativeRegion {
             ARSum += GrainAspectRatios[n];
             VolWtARSum += GrainAspectRatios[n] * GrainSizeVector_Microns[n];
         }
-        double RepresentativeRegionSize_Microns = regionSize_Meters * pow(10, 18);
+        double RepresentativeRegionSize_Microns = regionSize_Meters * Kokkos::pow(10, 18);
         std::string temp;
         temp = "-- The mean grain aspect ratio (Z direction to transverse) is " +
                std::to_string(DivideCast<float>(ARSum, NumberOfGrains)) + "\n";
@@ -688,7 +688,7 @@ struct RepresentativeRegion {
             int NumberOfGrains_Area = UniqueGrainIDVector_Area.size();
             double MeanGrainAreaThisLayer = DivideCast<double>(LayerArea, NumberOfGrains_Area);
             if (PrintUnweightedAreas)
-                Grainplot1 << zBounds_Meters[0] * pow(10, 6) + convertToMicrons(deltax, "length") << ","
+                Grainplot1 << zBounds_Meters[0] * Kokkos::pow(10, 6) + convertToMicrons(deltax, "length") << ","
                            << MeanGrainAreaThisLayer * convertToMicrons(deltax, "area") << std::endl;
             if ((PrintWeightedAreas) && (k % 5 == 0)) {
                 std::vector<float> GrainSizeVector_Microns_Area(NumberOfGrains_Area);
@@ -702,8 +702,8 @@ struct RepresentativeRegion {
                 for (int n = 0; n < NumberOfGrains_Area; n++)
                     AreaXArea += GrainSizeVector_Microns_Area[n] * GrainSizeVector_Microns_Area[n];
                 double WeightedArea = DivideCast<double>(AreaXArea, LayerArea);
-                Grainplot2 << zBounds_Meters[0] * pow(10, 6) + convertToMicrons(deltax, "length") << "," << WeightedArea
-                           << std::endl;
+                Grainplot2 << zBounds_Meters[0] * Kokkos::pow(10, 6) + convertToMicrons(deltax, "length") << ","
+                           << WeightedArea << std::endl;
                 if (k == zBounds_Cells[1])
                     std::cout
                         << "[Note: this will no longer be printed in a future release] The mean weighted grain area "
@@ -828,12 +828,12 @@ struct RepresentativeRegion {
                 // The grain structure is phase "1" - any unindexed points with GOVal = -1 (which are possible from
                 // regions that didn't undergo melting) are assigned phase "0"
                 if (GOVal == -1)
-                    GrainplotIPF << "0 0 0 0 " << Index1 * deltax * pow(10, 6) << " " << Index2 * deltax * pow(10, 6)
-                                 << std::endl;
+                    GrainplotIPF << "0 0 0 0 " << Index1 * deltax * Kokkos::pow(10, 6) << " "
+                                 << Index2 * deltax * Kokkos::pow(10, 6) << std::endl;
                 else
                     GrainplotIPF << GrainEulerAngles(3 * GOVal) << " " << GrainEulerAngles(3 * GOVal + 1) << " "
-                                 << GrainEulerAngles(3 * GOVal + 2) << " 1 " << Index1 * deltax * pow(10, 6) << " "
-                                 << Index2 * deltax * pow(10, 6) << std::endl;
+                                 << GrainEulerAngles(3 * GOVal + 2) << " 1 " << Index1 * deltax * Kokkos::pow(10, 6)
+                                 << " " << Index2 * deltax * Kokkos::pow(10, 6) << std::endl;
             }
         }
         GrainplotIPF.close();

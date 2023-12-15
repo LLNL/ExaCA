@@ -14,7 +14,6 @@
 #include <nlohmann/json.hpp>
 #endif
 
-#include <cmath>
 #include <cstddef>
 #include <fstream>
 #include <iostream>

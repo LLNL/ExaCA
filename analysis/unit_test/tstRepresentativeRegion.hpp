@@ -9,7 +9,6 @@
 
 #include <gtest/gtest.h>
 
-#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -75,8 +74,8 @@ void testConstructRepresentativeRegion_Volume() {
     const int nx = 20;
     const int ny = 30;
     const int nz = 40;
-    double deltax = 1.25 * pow(10, -6);
-    double XMin = -1 * pow(10, -6);
+    double deltax = 1.25 * Kokkos::pow(10, -6);
+    double XMin = -1 * Kokkos::pow(10, -6);
     double YMin = 0;
     double ZMin = 0;
     double XMax = XMin + (nx - 1) * deltax;
@@ -103,7 +102,7 @@ void testConstructRepresentativeRegion_Volume() {
         (representativeRegion.xBounds_Meters[1] - representativeRegion.xBounds_Meters[0] + deltax) *
         (representativeRegion.yBounds_Meters[1] - representativeRegion.yBounds_Meters[0] + deltax) *
         (representativeRegion.zBounds_Meters[1] - representativeRegion.zBounds_Meters[0] + deltax);
-    double ExpectedRegionSize_Microns = ExpectedRegionSize_Meters * pow(10, 18);
+    double ExpectedRegionSize_Microns = ExpectedRegionSize_Meters * Kokkos::pow(10, 18);
     EXPECT_DOUBLE_EQ(representativeRegion.regionSize_Microns, ExpectedRegionSize_Microns);
     EXPECT_DOUBLE_EQ(representativeRegion.regionSize_Meters, ExpectedRegionSize_Meters);
     EXPECT_EQ(representativeRegion.xBounds_Cells[0], 0);
@@ -147,7 +146,7 @@ void testConstructRepresentativeRegion_Area() {
     const int nx = 10;
     const int ny = 20;
     const int nz = 20;
-    double deltax = 1.25 * pow(10, -6);
+    double deltax = 1.25 * Kokkos::pow(10, -6);
     double XMin = 0;
     double YMin = 0;
     double ZMin = 0;
@@ -179,8 +178,8 @@ void testConstructRepresentativeRegion_Area() {
     EXPECT_EQ(representativeRegion.zBounds_Cells[1], 4);
     int ExpectedRegionSize_Cells = 200;
     EXPECT_EQ(representativeRegion.regionSize_Cells, ExpectedRegionSize_Cells);
-    double ExpectedRegionSize_Meters = ExpectedRegionSize_Cells * pow(deltax, 2);
-    double ExpectedRegionSize_Microns = ExpectedRegionSize_Meters * pow(10, 12);
+    double ExpectedRegionSize_Meters = ExpectedRegionSize_Cells * Kokkos::pow(deltax, 2);
+    double ExpectedRegionSize_Microns = ExpectedRegionSize_Meters * Kokkos::pow(10, 12);
     EXPECT_DOUBLE_EQ(representativeRegion.regionSize_Microns, ExpectedRegionSize_Microns);
     EXPECT_DOUBLE_EQ(representativeRegion.regionSize_Meters, ExpectedRegionSize_Meters);
     EXPECT_TRUE(representativeRegion.AnalysisOptions_StatsYN[0]);
@@ -213,7 +212,7 @@ void testCollectGrainStats() {
     const int nx = 5;  // Representative region spans 0-4 (entire domain in X)
     const int ny = 11; // Representative region spans 1-10 (one less than domain size in Y)
     const int nz = 12; // Representative region spans 0-9 (two less than domain size in Z)
-    const double deltax = 1.25 * pow(10, -6);
+    const double deltax = 1.25 * Kokkos::pow(10, -6);
     std::vector<double> XYZBounds = {0.0, 0.0, 0.0, nx * deltax, ny * deltax, nz * deltax};
 
     // View for storing grain ID data
@@ -247,7 +246,8 @@ void testCollectGrainStats() {
 
     // Check against expected grain sizes, in cubic microns (each grain spans 50 cells)
     for (int n = 0; n < representativeRegion.NumberOfGrains; n++) {
-        EXPECT_FLOAT_EQ(representativeRegion.GrainSizeVector_Microns[n], 50 * pow(deltax, 3) * pow(10, 18));
+        EXPECT_FLOAT_EQ(representativeRegion.GrainSizeVector_Microns[n],
+                        50 * Kokkos::pow(deltax, 3) * Kokkos::pow(10, 18));
     }
 
     // Obtain the grain extents
@@ -263,9 +263,9 @@ void testCollectGrainStats() {
     // Check grain extents
     for (int n = 0; n < representativeRegion.NumberOfGrains; n++) {
         // Expected value should be in microns
-        EXPECT_FLOAT_EQ(GrainExtentX[n], nx * deltax * pow(10, 6));
-        EXPECT_FLOAT_EQ(GrainExtentY[n], (ny - 1) * deltax * pow(10, 6));
-        EXPECT_FLOAT_EQ(GrainExtentZ[n], deltax * pow(10, 6));
+        EXPECT_FLOAT_EQ(GrainExtentX[n], nx * deltax * Kokkos::pow(10, 6));
+        EXPECT_FLOAT_EQ(GrainExtentY[n], (ny - 1) * deltax * Kokkos::pow(10, 6));
+        EXPECT_FLOAT_EQ(GrainExtentZ[n], deltax * Kokkos::pow(10, 6));
     }
 }
 //---------------------------------------------------------------------------//
