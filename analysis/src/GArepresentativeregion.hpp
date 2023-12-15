@@ -79,8 +79,9 @@ struct RepresentativeRegion {
     std::vector<float> GrainSizeVector_Microns;
 
     // Constructor
+    template <typename ViewTypeInt3dHost>
     RepresentativeRegion(nlohmann::json AnalysisData, std::string RegionName, int nx, int ny, int nz, double deltax,
-                         std::vector<double> XYZBounds, ViewI3D_H GrainID) {
+                         std::vector<double> XYZBounds, ViewTypeInt3dHost GrainID) {
 
         // Data for the specific region of interest
         regionName = RegionName;
@@ -326,7 +327,8 @@ struct RepresentativeRegion {
     // Subroutines starting with "calc" calculate the quantity specified but do not return it
 
     // Get the list of Grain IDs associated with the representative region
-    std::vector<int> getGrainIDVector(ViewI3D_H GrainID) {
+    template <typename ViewTypeInt3dHost>
+    std::vector<int> getGrainIDVector(ViewTypeInt3dHost GrainID) {
 
         std::vector<int> GrainIDVector(regionSize_Cells);
         int count = 0;
@@ -372,7 +374,9 @@ struct RepresentativeRegion {
     // Given the 3D grain structure "GrainID", determine the extent in the direction specified of each of the
     // "NumberOfGrains" unique grains from the volume bounded by [XLow, XHigh], [YLow, YHigh], [ZLow, ZHigh]. Extent is
     // calculated in microns
-    void calcGrainExtent(std::vector<float> &GrainExtent, ViewI3D_H GrainID, std::string Direction, double deltax) {
+    template <typename ViewTypeInt3dHost>
+    void calcGrainExtent(std::vector<float> &GrainExtent, ViewTypeInt3dHost GrainID, std::string Direction,
+                         double deltax) {
 
         for (int n = 0; n < NumberOfGrains; n++) {
             int ThisGrainID = UniqueGrainIDVector[n];
@@ -400,7 +404,8 @@ struct RepresentativeRegion {
         }
     }
 
-    void calcNecessaryGrainExtents(ViewI3D_H GrainID, double deltax) {
+    template <typename ViewTypeInt3dHost>
+    void calcNecessaryGrainExtents(ViewTypeInt3dHost GrainID, double deltax) {
         // For the analysis options:
         // If StatsYN[3] or PerGrainStatsYN[5] is toggled, all grain extents are needed. If StatsYN[4] or
         // PerGrainStatsYN[2] is toggled, X extents are needed. If StatsYN[5] or PerGrainStatsYN[3] is toggled, Y
@@ -436,7 +441,8 @@ struct RepresentativeRegion {
     }
 
     // Calculate misorientation relative to the specified cardinal direction for each grain and store in the vector
-    std::vector<float> getGrainMisorientation(std::string Direction, ViewF_H GrainUnitVector,
+    template <typename ViewTypeFloatHost>
+    std::vector<float> getGrainMisorientation(std::string Direction, ViewTypeFloatHost GrainUnitVector,
                                               int NumberOfOrientations) {
 
         std::vector<float> GrainMisorientationVector(NumberOfGrains);
@@ -450,7 +456,7 @@ struct RepresentativeRegion {
         else
             throw std::runtime_error(
                 "Error: invalid direction specified in calcGrainMisorientation: should be X, Y, or Z");
-        ViewF_H GrainMisorientation = MisorientationCalc(NumberOfOrientations, GrainUnitVector, direction);
+        auto GrainMisorientation = MisorientationCalc(NumberOfOrientations, GrainUnitVector, direction);
         for (int n = 0; n < NumberOfGrains; n++) {
             int MyOrientation = getGrainOrientation(UniqueGrainIDVector[n], NumberOfOrientations);
             float MyMisorientation = GrainMisorientation(MyOrientation);
@@ -461,10 +467,12 @@ struct RepresentativeRegion {
 
     // Create a histogram of orientations for texture determination, using the GrainID values in the volume bounded by
     // [XMin,XMax], [YMin,YMax], [ZMin,ZMax] and excluding and cells that did not undergo melting (GrainID = -1)
-    ViewI_H getOrientationHistogram(int NumberOfOrientations, ViewI3D_H GrainID, ViewS3D_H LayerID) {
+    template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
+    auto getOrientationHistogram(int NumberOfOrientations, ViewTypeInt3dHost GrainID, ViewTypeShort3dHost LayerID) {
 
         // Init histogram values to zero
-        ViewI_H GOHistogram("GOHistogram", NumberOfOrientations);
+        using int_type = typename ViewTypeInt3dHost::value_type;
+        Kokkos::View<int_type *, Kokkos::HostSpace> GOHistogram("GOHistogram", NumberOfOrientations);
         for (int k = zBounds_Cells[0]; k <= zBounds_Cells[1]; k++) {
             for (int j = yBounds_Cells[0]; j <= yBounds_Cells[1]; j++) {
                 for (int i = xBounds_Cells[0]; i <= xBounds_Cells[1]; i++) {
@@ -531,7 +539,8 @@ struct RepresentativeRegion {
 
     // Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
     // grains to the console/QoIs file
-    void printGrainTypeFractions(std::ofstream &QoIs, ViewI3D_H GrainID, ViewS3D_H LayerID) {
+    template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
+    void printGrainTypeFractions(std::ofstream &QoIs, ViewTypeInt3dHost GrainID, ViewTypeShort3dHost LayerID) {
 
         int NumberOfUnmeltedCells = 0;
         int NumberOfNucleatedGrainCells = 0;
@@ -636,7 +645,8 @@ struct RepresentativeRegion {
 
     // Write unweighted and/or weighted grain areas as a function of build height to file(s)
     // TODO: Remove weighted grain area calculations from the next release
-    void writeAreaSeries(std::string BaseFileName, double deltax, ViewI3D_H GrainID) {
+    template <typename ViewTypeInt3dHost>
+    void writeAreaSeries(std::string BaseFileName, double deltax, ViewTypeInt3dHost GrainID) {
 
         bool PrintUnweightedAreas = AnalysisOptions_LayerwiseStatsYN[0];
         bool PrintWeightedAreas = AnalysisOptions_LayerwiseStatsYN[1];
@@ -712,8 +722,9 @@ struct RepresentativeRegion {
     }
 
     // Write pole figure data for this region to a file to be read by MTEX
-    void writePoleFigure(std::string BaseFileNameThisRegion, int NumberOfOrientations, ViewF_H GrainEulerAngles,
-                         ViewI_H GOHistogram) {
+    template <typename ViewTypeFloatHost, typename ViewTypeIntHost>
+    void writePoleFigure(std::string BaseFileNameThisRegion, int NumberOfOrientations,
+                         ViewTypeFloatHost GrainEulerAngles, ViewTypeIntHost GOHistogram) {
 
         // Using new format, write pole figure data to "Filename"
         std::string Filename = BaseFileNameThisRegion + "_PoleFigureData.txt";
@@ -744,7 +755,8 @@ struct RepresentativeRegion {
 
     // Determine the R, G, or B value for this grain orientation for the IPF-Z inverse pole figure colormap (Color = 0
     // for R, 1 for G, 2 for B)
-    std::vector<float> getIPFZColor(int Color, int NumberOfOrientations, ViewF_H GrainRGBValues) {
+    template <typename ViewTypeFloatHost>
+    std::vector<float> getIPFZColor(int Color, int NumberOfOrientations, ViewTypeFloatHost GrainRGBValues) {
         std::vector<float> IPFZColor(NumberOfGrains);
         for (int n = 0; n < NumberOfGrains; n++) {
             int MyOrientation = getGrainOrientation(UniqueGrainIDVector[n], NumberOfOrientations);
@@ -754,8 +766,9 @@ struct RepresentativeRegion {
     }
 
     // Print data to be read by MTEX to plot the cross-section using the inverse pole figure colormap
-    void writeIPFColoredCrossSection(std::string BaseFileNameThisRegion, ViewI3D_H GrainID, ViewF_H GrainEulerAngles,
-                                     double deltax, int NumberOfOrientations) {
+    template <typename ViewTypeInt3dHost, typename ViewTypeFloatHost>
+    void writeIPFColoredCrossSection(std::string BaseFileNameThisRegion, ViewTypeInt3dHost GrainID,
+                                     ViewTypeFloatHost GrainEulerAngles, double deltax, int NumberOfOrientations) {
 
         // What portion of the area is to be printed?
         int Index1Low, Index1High, Index2Low, Index2High, CrossSectionOutOfPlaneLocation;
@@ -827,7 +840,8 @@ struct RepresentativeRegion {
     }
 
     // Write data for the specified RVE for ExaConstit
-    void writeExaConstitRVE(std::string BaseFileNameThisRegion, double deltax, ViewI3D_H GrainID) {
+    template <typename ViewTypeInt3dHost>
+    void writeExaConstitRVE(std::string BaseFileNameThisRegion, double deltax, ViewTypeInt3dHost GrainID) {
 
         int XLow = xBounds_Cells[0];
         int XHigh = xBounds_Cells[1];

@@ -85,8 +85,8 @@ void testNucleiInit() {
     Kokkos::resize(temperature.LayerTimeTempHistory, grid.domain_size, MaxSolidificationEvents_Count, 3);
     // Initialize MaxSolidificationEvents to 3 for each layer. LayerTimeTempHistory and NumberOfSolidificationEvents are
     // initialized for each cell on the host and copied to the device
-    ViewI_H MaxSolidificationEvents_Host(Kokkos::ViewAllocateWithoutInitializing("MaxSolidificationEvents_Host"),
-                                         grid.number_of_layers);
+    Kokkos::View<int *, Kokkos::HostSpace> MaxSolidificationEvents_Host(
+        Kokkos::ViewAllocateWithoutInitializing("MaxSolidificationEvents_Host"), grid.number_of_layers);
     MaxSolidificationEvents_Host(0) = MaxSolidificationEvents_Count;
     MaxSolidificationEvents_Host(1) = MaxSolidificationEvents_Count;
     // Cells solidify 1, 2, or 3 times, depending on their X coordinate

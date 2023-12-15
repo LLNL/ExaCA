@@ -22,30 +22,4 @@ enum TypeNames {
     LiquidFailedBufferLoad = 10
 };
 
-// Use Kokkos::DefaultExecutionSpace
-typedef Kokkos::View<float *> ViewF;
-typedef Kokkos::View<int *> ViewI;
-typedef Kokkos::View<short *> ViewS;
-typedef Kokkos::View<int **> ViewI2D;
-typedef Kokkos::View<int *, Kokkos::MemoryTraits<Kokkos::Atomic>> View_a;
-typedef Kokkos::View<float **> Buffer2D;
-typedef Kokkos::View<float *> TestView;
-typedef Kokkos::View<float ***> ViewF3D;
-typedef Kokkos::View<bool **> ViewB2D;
-
-using exe_space = Kokkos::DefaultExecutionSpace::execution_space;
-using device_memory_space = Kokkos::DefaultExecutionSpace::memory_space;
-typedef typename exe_space::array_layout layout;
-typedef Kokkos::View<double *, layout, Kokkos::HostSpace> ViewD_H;
-typedef Kokkos::View<float *, layout, Kokkos::HostSpace> ViewF_H;
-typedef Kokkos::View<float **, layout, Kokkos::HostSpace> ViewF2D_H;
-typedef Kokkos::View<float ***, layout, Kokkos::HostSpace> ViewF3D_H;
-typedef Kokkos::View<short ***, layout, Kokkos::HostSpace> ViewS3D_H;
-typedef Kokkos::View<short *, layout, Kokkos::HostSpace> ViewS_H;
-typedef Kokkos::View<int *, layout, Kokkos::HostSpace> ViewI_H;
-typedef Kokkos::View<int **, layout, Kokkos::HostSpace> ViewI2D_H;
-typedef Kokkos::View<int ***, layout, Kokkos::HostSpace> ViewI3D_H;
-typedef Kokkos::View<float **, layout, Kokkos::HostSpace> Buffer2D_H;
-typedef Kokkos::View<bool **, layout, Kokkos::HostSpace> ViewB2D_H;
-
 #endif

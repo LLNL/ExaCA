@@ -88,7 +88,7 @@ void testHaloUpdate() {
     OrientationInit(id, NGrainOrientations, GrainUnitVector, GrainOrientationFile);
 
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid
-    CellData<device_memory_space> cellData(grid.DomainSize_AllLayers, inputs.substrate);
+    CellData<memory_space> cellData(grid.DomainSize_AllLayers, inputs.substrate);
 
     // Subviews are the portion of the domain of interst for the test (i.e., the current layer of the problem, cells
     // located at the top 5 Z coordinates)
@@ -158,8 +158,8 @@ void testHaloUpdate() {
     }
 
     // Copy view data to the device
-    CellType = Kokkos::create_mirror_view_and_copy(device_memory_space(), CellType_Host);
-    GrainID = Kokkos::create_mirror_view_and_copy(device_memory_space(), GrainID_Host);
+    CellType = Kokkos::create_mirror_view_and_copy(memory_space(), CellType_Host);
+    GrainID = Kokkos::create_mirror_view_and_copy(memory_space(), GrainID_Host);
     interface.DiagonalLength = Kokkos::create_mirror_view_and_copy(memory_space(), DiagonalLength_Host);
     interface.CritDiagonalLength = Kokkos::create_mirror_view_and_copy(memory_space(), CritDiagonalLength_Host);
     interface.DOCenter = Kokkos::create_mirror_view_and_copy(memory_space(), DOCenter_Host);
@@ -512,11 +512,10 @@ void testFillSteeringVector_Remelt() {
     Inputs inputs;
 
     // Initialize cell/temperature structures
-    CellData<device_memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom,
-                                           inputs.substrate);
+    CellData<memory_space> cellData(DomainSize_AllLayers, DomainSize, nx, ny_local, z_layer_bottom, inputs.substrate);
     auto CellType = cellData.getCellTypeSubview();
     auto GrainID = cellData.getGrainIDSubview();
-    Temperature<device_memory_space> temperature(grid.DomainSize, 1, inputs.temperature);
+    Temperature<memory_space> temperature(grid.DomainSize, 1, inputs.temperature);
 
     // Fill temperature structure
     Kokkos::parallel_for(
@@ -557,7 +556,8 @@ void testFillSteeringVector_Remelt() {
     // Copy CellType, SteeringVector, numSteer, UndercoolingCurrent, Buffers back to host to check steering vector
     // construction results
     CellType = cellData.getCellTypeSubview();
-    ViewI_H CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    Kokkos::View<int *, memory_space> CellType_Host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
     auto SteeringVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.SteeringVector);
     auto numSteer_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.numSteer);
     ViewF_H UndercoolingCurrent_Host =

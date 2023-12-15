@@ -7,7 +7,6 @@
 
 #include "CAgrid.hpp"
 #include "CAprint.hpp"
-#include "CAtypes.hpp"
 
 #include "mpi.h"
 
@@ -46,10 +45,10 @@ void testPrintExaConstitDefaultRVE() {
     EXPECT_EQ(inputs.print.BaseFileName, print._inputs.BaseFileName);
 
     // Create test data
-    ViewI3D_H GrainID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), grid.nz, grid.nx,
-                                  grid.ny);
-    ViewS3D_H LayerID_WholeDomain(Kokkos::ViewAllocateWithoutInitializing("LayerID_WholeDomain"), grid.nz, grid.nx,
-                                  grid.ny);
+    Kokkos::View<int ***, Kokkos::HostSpace> GrainID_WholeDomain(
+        Kokkos::ViewAllocateWithoutInitializing("GrainID_WholeDomain"), grid.nz, grid.nx, grid.ny);
+    Kokkos::View<short ***, Kokkos::HostSpace> LayerID_WholeDomain(
+        Kokkos::ViewAllocateWithoutInitializing("LayerID_WholeDomain"), grid.nz, grid.nx, grid.ny);
     for (int k = 0; k < grid.nz; k++) {
         for (int j = 0; j < grid.ny; j++) {
             for (int i = 0; i < grid.nx; i++) {

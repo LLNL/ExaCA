@@ -8,7 +8,6 @@
 
 #include "CAconfig.hpp"
 #include "CAfunctions.hpp"
-#include "CAtypes.hpp"
 
 #include <nlohmann/json.hpp>
 

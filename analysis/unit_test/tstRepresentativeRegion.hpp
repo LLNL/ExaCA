@@ -84,7 +84,7 @@ void testConstructRepresentativeRegion_Volume() {
     double ZMax = ZMin + (nz - 1) * deltax;
     std::vector<double> XYZBounds = {XMin, YMin, ZMin, XMax, YMax, ZMax};
     // View for storing grain ID data
-    ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
+    Kokkos::View<int ***, Kokkos::HostSpace> GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
 
     // Construct region
     RepresentativeRegion representativeRegion(AnalysisData, "RepresentativeVolume", nx, ny, nz, deltax, XYZBounds,
@@ -156,7 +156,7 @@ void testConstructRepresentativeRegion_Area() {
     double ZMax = ZMin + (nz - 1) * deltax;
     std::vector<double> XYZBounds = {XMin, YMin, ZMin, XMax, YMax, ZMax};
     // View for storing grain ID data
-    ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
+    Kokkos::View<int ***, Kokkos::HostSpace> GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
 
     // Construct region
     RepresentativeRegion representativeRegion(AnalysisData, "RepresentativeArea", nx, ny, nz, deltax, XYZBounds,
@@ -217,7 +217,7 @@ void testCollectGrainStats() {
     std::vector<double> XYZBounds = {0.0, 0.0, 0.0, nx * deltax, ny * deltax, nz * deltax};
 
     // View for storing grain ID data
-    ViewI3D_H GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
+    Kokkos::View<int ***, Kokkos::HostSpace> GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
     // Assign grain ID using the Z coordinate
     for (int k = 0; k < nz; k++) {
         for (int i = 0; i < nx; i++) {

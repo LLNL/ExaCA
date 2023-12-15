@@ -8,7 +8,7 @@
 
 #include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
-#include "CAtypes.hpp"
+
 #include "mpi.h"
 
 #include <Kokkos_Core.hpp>
@@ -36,7 +36,8 @@ struct Grid {
     bool at_north_boundary, at_south_boundary;
 
     // Multilayer problem information
-    ViewD_H z_min_layer, z_max_layer;
+    using view_type_double_host = Kokkos::View<double *, Kokkos::HostSpace>;
+    view_type_double_host z_min_layer, z_max_layer;
     int number_of_layers, layer_height;
     double HT_deltax;
 
@@ -54,16 +55,20 @@ struct Grid {
 
     // Creates grid struct with uninitialized values, used in unit tests
     Grid(int number_of_layers_temp = 1)
-        : z_min_layer(ViewD_H(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), number_of_layers_temp))
-        , z_max_layer(ViewD_H(Kokkos::ViewAllocateWithoutInitializing("z_max_layer"), number_of_layers_temp)) {
+        : z_min_layer(
+              view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), number_of_layers_temp))
+        , z_max_layer(
+              view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_max_layer"), number_of_layers_temp)) {
         number_of_layers = number_of_layers_temp;
     };
 
     // Constructor for grid used in ExaCA
     Grid(const std::string SimulationType, const int id, const int np, const int number_of_layers_temp,
          DomainInputs inputs, TemperatureInputs t_inputs)
-        : z_min_layer(ViewD_H(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), number_of_layers_temp))
-        , z_max_layer(ViewD_H(Kokkos::ViewAllocateWithoutInitializing("z_max_layer"), number_of_layers_temp))
+        : z_min_layer(
+              view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), number_of_layers_temp))
+        , z_max_layer(
+              view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_max_layer"), number_of_layers_temp))
         , _inputs(inputs)
         , _t_inputs(t_inputs) {
 
