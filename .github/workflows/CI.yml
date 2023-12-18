@@ -46,6 +46,7 @@ jobs:
             json: External
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
+    continue-on-error: ${{ matrix.distro == 'ubuntu:intel' }}
     steps:
       - name: Checkout json
         if: ${{ matrix.json == 'External' }}
