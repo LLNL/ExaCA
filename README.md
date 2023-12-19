@@ -1,38 +1,46 @@
 # ExaCA
 ## An exascale-capable cellular automaton for nucleation and grain growth
 ExaCA is a cellular automata (CA) code for grain growth under additive
-manufacturing conditions by ExaAM within the Exascale Computing Project.
+manufacturing conditions, created by ExaAM within the Exascale Computing Project.
 
 ## Build
-ExaCA-Kokkos uses Kokkos and MPI for parallelism.
+ExaCA-Kokkos uses Kokkos and MPI for parallelism and JSON for input files.
 
 ### Dependencies
 
 |Dependency | Version | Required | Details|
 |---------- | ------- |--------  |------- |
 |[CMake](https://cmake.org/download/)       | 3.11+    | Yes      | Build system
-|[Kokkos](https://github.com/kokkos/kokkos) | 3.2+    | Yes      | Provides portable on-node parallelism.
-|MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Message Passing Interface
-|[nlohmann_json](https://github.com/nlohmann/json) | 3.10+| Yes       | Input parsing
+|[Kokkos](https://github.com/kokkos/kokkos) | 3.2+    | Yes      | Portable on-node parallelism
+|MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Multi-node parallelism
+|[json](https://github.com/nlohmann/json) | 3.10+| Yes       | Input parsing
 |[GoogleTest](https://github.com/google/googletest) | 1.10+   | No       | Unit test framework
 |CUDA       | 9+      | No       | Programming model for NVIDIA GPUs
 |HIP        | 3.5+    | No       | Programming model for AMD GPUs
 
-Kokkos and MPI are available on many systems; if not, obtain the desired
-versions:
+CMake must be available to build ExaCA and Kokkos. The underlying parallel programming models and MPI are available on most systems and can generally be found automatically by CMake. Note these dependencies must all be installed first, if not available. Kokkos is also available on many systems; if not, obtain the desired version:
 ```
 git clone https://github.com/kokkos/kokkos.git --branch 3.4.00
+```
+
+### Obtaining ExaCA
+
+ExaCA is available on GitHub, by default starting from the current `master` branch:
+```
+git clone https://github.com/LLNL/ExaCA.git
 ```
 
 ### Backend options
 Note that ExaCA runs with the default enabled Kokkos backend
  (see https://github.com/kokkos/kokkos/wiki/Initialization).
 
-ExaCA has been tested with Serial, OpenMP, Pthreads, CUDA, and HIP backends.
+ExaCA has been tested with the Serial, OpenMP, Threads, CUDA, and HIP backends.
 
-### Build CPU
+### Building Kokkos
 
-First, if Kokkos is not already built on your system, build Kokkos:
+#### Host build
+
+If Kokkos is not already installed on your system, configure, build, and install Kokkos:
 ```
 # Change this path to desired Kokkos installation location
 export KOKKOS_INSTALL_DIR=`pwd`/install/kokkos
@@ -50,9 +58,55 @@ cmake --build build
 cmake --install build
 cd ../
 ```
-Note that there are other host backends available. The Kokkos architecture flag must match the hardware you run on and will improve performance, if used (e.g. -DKokkos_ARCH_POWER9=ON).
+Note that there are other host backends available. Kokkos architecture flags can also be set to improve performance and must match the hardware you run on (e.g. -DKokkos_ARCH_POWER9=ON); see [Kokkos architecture flag details](https://kokkos.github.io/kokkos-core-wiki/keywords.html#architecture-keywords).
 
-Then build ExaCA, including the path to the Kokkos build:
+#### CUDA build
+
+Similar to the CPU build above, Kokkos can instead be configured and built for NVIDIA GPUs:
+```
+# Change this path to desired Kokkos installation location
+export KOKKOS_INSTALL_DIR=`pwd`/install/kokkos
+# Change this path to Kokkos source
+cd ./kokkos
+# Check the GPU architecture flag matches the hardware
+# Configure Kokkos
+cmake \
+  -B build \
+  -D CMAKE_BUILD_TYPE="Release" \
+  -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR \
+  -D Kokkos_ENABLE_CUDA=ON \
+  -D Kokkos_ENABLE_CUDA_LAMBDA=ON \
+  -D Kokkos_ARCH_VOLTA70=ON
+# Build Kokkos
+cmake --build build
+# Install Kokkos
+cmake --install build
+cd ../
+```
+Note the two flags needed for the `Kokkos::Cuda` backend. The Kokkos architecture flag must match the hardware you run on. Kokkos will automatically redirect the (default) host compiler to `nvcc` in the example above. By default, the host will use `Kokkos::Serial`; other parallel host backends can also be used, e.g. by adding `-D Kokkos_ENABLE_OPENMP` as was done above.
+
+#### HIP Build
+To build Kokkos for HIP the `hipcc` compiler must be explicitly passed, along with architecture and backend flags analogous to the previous examples:
+```
+cd ./kokkos
+# Configure Kokkos
+cmake \
+  -B build \
+  -D CMAKE_BUILD_TYPE="Release" \
+  -D CMAKE_CXX_COMPILER=hipcc \
+  -D CMAKE_INSTALL_PREFIX=install \
+  -D Kokkos_ENABLE_HIP=ON \
+  -D Kokkos_ARCH_VEGA908=ON
+# Build Kokkos
+cmake --build build
+# Install Kokkos
+cmake --install build
+cd ../
+```
+-------
+### Build ExaCA
+
+Once Kokkos and MPI are installed, ExaCA can be built:
 ```
 # Change this path to desired ExaCA installation location
 export EXACA_INSTALL_DIR=`pwd`/install/exaca
@@ -74,8 +128,10 @@ cmake --install build
 cd ../
 ```
 
-### Build with external JSON
-If a custom build of the json library used for input files is needed (the automatic download does not work on some systems), first clone:
+Kokkos will forward the compilation flags and details to ExaCA automatically.
+
+### Building with external JSON
+By default, ExaCA will download the JSON library dependency used for input files. This automatic download does not work on all systems; a separate build of this library can be done instead. As with the dependencies described above, first obtain the source:
 ```
 git clone https://github.com/nlohmann/json
 ```
@@ -101,82 +157,15 @@ cd ../
 Then add this install path to the ExaCA configuration (example above) together with the path to Kokkos `-D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR;$JSON_INSTALL_DIR` and build ExaCA.
 
 
-### Build CUDA
+## Testing ExaCA
 
-If running on NVIDIA GPUs, build Kokkos with additional inputs:
-```
-# Change this path to desired Kokkos installation location
-export KOKKOS_INSTALL_DIR=`pwd`/install/kokkos
-# Change this path to Kokkos source
-cd ./kokkos
-# Check the GPU architecture flag matches the hardware
-# Configure Kokkos
-cmake \
-  -B build \
-  -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR \
-  -D Kokkos_ENABLE_CUDA=ON \
-  -D Kokkos_ENABLE_CUDA_LAMBDA=ON \
-  -D Kokkos_ARCH_VOLTA70=ON
-# Build Kokkos
-cmake --build build
-# Install Kokkos
-cmake --install build
-cd ../
-```
-Note the two flags needed for the `Kokkos::Cuda` backend. The Kokkos architecture flag must match the hardware you run on and will improve performance. By default, the host will use `Kokkos::Serial`; other parallel host backends can also be used, e.g. by adding `-D Kokkos_ENABLE_OPENMP`.
+Unit tests can be run if the `ExaCA_ENABLE_TESTING` CMake option is enabled in the build and if the GoogleTest framework is available on the system or built locally with the install path passed to ExaCA (see the previous section describing the JSON build and pointing ExaCA to the installation).
 
-Building ExaCA with Kokkos CUDA is identical to the OpenMP example above (Kokkos automatically uses `nvcc` internally as needed).
+After building, tests can be run with `cmake --build build --target test` from the source directory (presuming `build/` is the relative location of the build folder). Tests are automatically generated for all enabled Kokkos backend.
 
-### Build HIP
-Again, first build Kokkos, this time with the `hipcc` compiler:
-```
-cd ./kokkos
-# Configure Kokkos
-cmake \
-  -B build \
-  -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_CXX_COMPILER=hipcc \
-  -D CMAKE_INSTALL_PREFIX=install \
-  -D Kokkos_ENABLE_HIP=ON \
-  -D Kokkos_ARCH_VEGA908=ON
-# Build Kokkos
-cmake --build build
-# Install Kokkos
-cmake --install build
-cd ../
-```
-And build ExaCA, where the only difference from above is the `hipcc` compiler:
-```
-# Change this path to desired ExaCA installation location
-export EXACA_INSTALL_DIR=`pwd`/install/exaca
-# Change this path to Kokkos installation location
-export KOKKOS_INSTALL_DIR=`pwd`/install/kokkos
+## Running ExaCA
 
-cd ./ExaCA
-# Configure ExaCA
-cmake \
-  -B build \
-  -D CMAKE_BUILD_TYPE="Release" \
-  -D CMAKE_CXX_COMPILER=hipcc \
-  -D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL_DIR" \
-  -D CMAKE_INSTALL_PREFIX=$EXACA_INSTALL_DIR
-# Build ExaCA
-cmake --build build
-# Install ExaCA
-cmake --install build
-cd ../
-```
-
-## Test
-
-Unit tests can be run if the `ExaCA_ENABLE_TESTING` CMake option is enabled by
-running `ctest` in the build directory (this requires the GoogleTest
-framework). Tests are automatically generated for the enabled Kokkos backend.
-
-## Run
-
-ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - A separate README file located in the `examples/` directory goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
+ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - a separate README file located in the `examples/` directory goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
  * `Inp_DirSolidification.json`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
  * `Inp_SmallDirSolidification.json`: a smaller and simpler version of the previous
  * `Inp_SpotMelt.json`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate
