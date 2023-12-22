@@ -78,17 +78,9 @@ struct Temperature {
     // the appropriate data
     void readTemperatureData(int id, const Grid &grid, int layernumber) {
 
-        // If HTtoCAratio > 1, an interpolation of input temperature data is needed
-        // The Y bounds are the region (for this MPI rank) of the physical domain that needs to be
-        // read extends past the actual spatial extent of the local domain for purposes of interpolating
-        // from HT_deltax to deltax
-        int LowerYBound = grid.y_offset - (grid.y_offset % grid.HTtoCAratio);
-        int UpperYBound;
-        if (grid.HTtoCAratio == 1)
-            UpperYBound = grid.y_offset + grid.ny_local - 1;
-        else
-            UpperYBound = grid.y_offset + grid.ny_local - 1 + grid.HTtoCAratio -
-                          (grid.y_offset + grid.ny_local - 1) % grid.HTtoCAratio;
+        // Y coordinates of this rank's data, inclusive and including ghost nodes
+        int LowerYBound = grid.y_offset;
+        int UpperYBound = grid.y_offset + grid.ny_local - 1;
 
         std::cout << "On MPI rank " << id << ", the Y bounds (in cells) are [" << LowerYBound << "," << UpperYBound
                   << "]" << std::endl;
@@ -440,8 +432,7 @@ struct Temperature {
 
     // Initialize temperature fields for layer "layernumber" in case where temperature data comes from file(s)
     // TODO: This can be performed on the device as the dirS problem is
-    void initialize(int layernumber, int id, const Grid &grid, double FreezingRange, int *FinishTimeStep,
-                    double deltat) {
+    void initialize(int layernumber, int id, const Grid &grid, double FreezingRange, double deltat) {
 
         // Data was already read into the "RawTemperatureData" data structure
         // Determine which section of "RawTemperatureData" is relevant for this layer of the overall domain
@@ -501,10 +492,9 @@ struct Temperature {
         }
         MPI_Allreduce(&LargestTime, &LargestTime_Global, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
         if (id == 0)
-            std::cout << "Largest time globally for layer " << layernumber << " is " << LargestTime_Global << std::endl;
-        FinishTimeStep[layernumber] = round((LargestTime_Global) / deltat);
-        if (id == 0)
-            std::cout << " Layer " << layernumber << " FINISH TIME STEP IS " << FinishTimeStep[layernumber]
+            std::cout << " Layer " << layernumber
+                      << " time step where all cells are cooled below solidus for the final time is "
+                      << round((LargestTime_Global) / deltat) << " (or " << LargestTime_Global << " seconds)"
                       << std::endl;
         if (id == 0)
             std::cout << "Layer " << layernumber << " temperatures read" << std::endl;

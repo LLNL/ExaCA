@@ -23,9 +23,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     Inputs inputs(id, InputFile);
     std::string simulation_type = inputs.SimulationType;
 
-    //  Final time step at which solidification is expected TODO: may not be needed
-    int *FinishTimeStep = new int[inputs.domain.NumberOfLayers];
-
     // Setup local and global grids, decomposing domain
     Grid grid(simulation_type, id, np, inputs.domain.NumberOfLayers, inputs.domain, inputs.temperature);
 
@@ -51,7 +48,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     else if (simulation_type == "S")
         temperature.initialize(id, grid, irf.FreezingRange, inputs);
     else if (simulation_type == "R")
-        temperature.initialize(0, id, grid, irf.FreezingRange, FinishTimeStep, inputs.domain.deltat);
+        temperature.initialize(0, id, grid, irf.FreezingRange, inputs.domain.deltat);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization" << std::endl;
@@ -189,8 +186,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                 if (inputs.temperature.LayerwiseTempRead)
                     temperature.readTemperatureData(id, grid, layernumber + 1);
                 // Initialize next layer's temperature data
-                temperature.initialize(layernumber + 1, id, grid, irf.FreezingRange, FinishTimeStep,
-                                       inputs.domain.deltat);
+                temperature.initialize(layernumber + 1, id, grid, irf.FreezingRange, inputs.domain.deltat);
             }
 
             // Reset initial undercooling/solidification event counter of all cells to zeros for the next layer,
@@ -257,12 +253,11 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
     // Print the log file with JSON format, timing information to the console
-    inputs.PrintExaCALog(id, np, InputFile, grid.ny_local, grid.y_offset, irf, grid.deltax, grid.HT_deltax,
-                         grid.number_of_layers, grid.layer_height, grid.nx, grid.ny, grid.nz, InitTime, RunTime,
-                         OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime,
-                         CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime,
-                         OutMinTime, grid.x_min, grid.x_max, grid.y_min, grid.y_max, grid.z_min, grid.z_max,
-                         VolFractionNucleated);
+    inputs.PrintExaCALog(id, np, InputFile, grid.ny_local, grid.y_offset, irf, grid.deltax, grid.number_of_layers,
+                         grid.layer_height, grid.nx, grid.ny, grid.nz, InitTime, RunTime, OutTime, cycle, InitMaxTime,
+                         InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
+                         CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, grid.x_min, grid.x_max,
+                         grid.y_min, grid.y_max, grid.z_min, grid.z_max, VolFractionNucleated);
     if (id == 0)
         PrintExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
                          CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
