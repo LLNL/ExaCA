@@ -165,15 +165,14 @@ struct Orientation {
         return grain_misorientation;
     }
 
+    // Return host copies of grain euler angles
     view_type_float_host get_grain_bunge_euler_host() {
         return Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grain_bunge_euler);
     }
-
+    // Return host copies of IPF-Z RGB values
     view_type_float_host get_grain_rgb_ipfz_host() {
         return Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grain_rgb_ipfz);
     }
-
-    // Return host copies of grain euler angles and RGB values
 
     // Get the grain ID from the repeat number of a grain from a given grain ID and the number of possible orientations
     KOKKOS_INLINE_FUNCTION int get_grain_id(const int my_grain_orientation, const int my_grain_number) const {
