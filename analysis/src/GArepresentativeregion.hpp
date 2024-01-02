@@ -727,7 +727,7 @@ struct RepresentativeRegion {
     void writePoleFigure(std::string BaseFileNameThisRegion, Orientation<MemorySpace> &orientation,
                          ViewTypeIntHost GOHistogram) {
 
-        auto grain_bunge_euler_host = orientation.get_euler_angles();
+        auto grain_bunge_euler_host = orientation.get_grain_bunge_euler_host();
         // Using new format, write pole figure data to "Filename"
         std::string Filename = BaseFileNameThisRegion + "_PoleFigureData.txt";
         std::ofstream GrainplotPF;
@@ -760,7 +760,7 @@ struct RepresentativeRegion {
     template <typename MemorySpace>
     std::vector<float> getIPFZColor(int color, Orientation<MemorySpace> &orientation) {
         std::vector<float> IPFZColor(NumberOfGrains);
-        auto grain_rgb_ipfz_host = orientation.get_rgb_ipfz();
+        auto grain_rgb_ipfz_host = orientation.get_grain_rgb_ipfz_host();
         for (int n = 0; n < NumberOfGrains; n++) {
             int my_orientation = get_grain_orientation(UniqueGrainIDVector[n], orientation.n_grain_orientations);
             IPFZColor[n] = grain_rgb_ipfz_host(3 * my_orientation + color);
@@ -800,7 +800,7 @@ struct RepresentativeRegion {
             throw std::runtime_error(
                 "Error: Invalid plane type in writeIPFColoredCrossSection: should be XY, XZ, or YZ");
 
-        auto grain_bunge_euler_host = orientation.get_euler_angles();
+        auto grain_bunge_euler_host = orientation.get_grain_bunge_euler_host();
 
         std::string FNameIPF = BaseFileNameThisRegion + "_IPFCrossSectionData.txt";
         std::ofstream GrainplotIPF;

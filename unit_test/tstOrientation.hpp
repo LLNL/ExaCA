@@ -54,7 +54,7 @@ void testOrientationInit_Angles() {
 
     // Check first two orientations (first 6 values in the file)
     std::vector<float> expected_euler_angles = {9.99854, 29.62172, 22.91854, 311.08350, 47.68814, 72.02547};
-    auto grain_bunge_euler_host = orientation.get_euler_angles();
+    auto grain_bunge_euler_host = orientation.get_grain_bunge_euler_host();
     for (int n = 0; n < 6; n++) {
         EXPECT_FLOAT_EQ(grain_bunge_euler_host(n), expected_euler_angles[n]);
     }

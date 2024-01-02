@@ -31,7 +31,7 @@ struct Orientation {
     // orientation), or RGB values (3 vals per orientation) Host copy of grain_unit_vector maintained as it will be
     // needed for all intermediate output steps (host copies of other representations only used in analysis script,
     // obtained via member functions)
-    int n_grain_orientations = -1;
+    int n_grain_orientations;
     view_type_float grain_unit_vector, grain_bunge_euler, grain_rgb_ipfz;
     view_type_float_host grain_unit_vector_host;
 
@@ -43,7 +43,7 @@ struct Orientation {
               view_type_float_host(Kokkos::ViewAllocateWithoutInitializing("grain_unit_vector_host"), 1)) {
 
         // Get unit vectors from the grain orientations file (9 vals per line)
-        view_type_float_host grain_unit_vector_host_ = get_orientations_from_file(grain_unit_vector_file, 9);
+        view_type_float_host grain_unit_vector_host_ = get_orientations_from_file(grain_unit_vector_file, 9, false);
         // Resize device view now that n_grain_orientations is known and copy unit vector data from host
         // Also maintain host copy of grain_unit_vector
         Kokkos::realloc(grain_unit_vector, 9 * n_grain_orientations);
@@ -63,22 +63,25 @@ struct Orientation {
 
     // Get grain orientations from the specified file and the number of grain orientations and return a host view
     // containing the data
-    view_type_float_host get_orientations_from_file(const std::string orientation_file, const int vals_per_line) {
+    view_type_float_host get_orientations_from_file(const std::string orientation_file, const int vals_per_line,
+                                                    const bool check_n_orientations) {
 
         // Read file of grain orientations
         std::ifstream orientation_input_stream;
         orientation_input_stream.open(orientation_file);
 
-        // Line 1 is the number of orientation values to read (if not specified already, is -1. Otherwise, check to
-        // ensure it matches the value from the other files)
+        // Line 1 is the number of orientation values to read (if check_n_orientations is false, store this value as
+        // n_orientations in the struct. Otherwise, read this value and check that it matches n_orientations)
         std::string n_grain_orientations_read;
         getline(orientation_input_stream, n_grain_orientations_read);
-        int n_grain_orientations_temp = getInputInt(n_grain_orientations_read);
-        if (n_grain_orientations == -1)
-            n_grain_orientations = n_grain_orientations_temp;
-        else if (n_grain_orientations != n_grain_orientations_temp)
-            throw std::runtime_error(
-                "Error: The number of orientations given on the first line of all orientation files must match");
+        if (check_n_orientations) {
+            int n_grain_orientations_check = getInputInt(n_grain_orientations_read);
+            if (n_grain_orientations != n_grain_orientations_check)
+                throw std::runtime_error(
+                    "Error: The number of orientations given on the first line of all orientation files must match");
+        }
+        else
+            n_grain_orientations = getInputInt(n_grain_orientations_read);
 
         // Resize view for storing grain orientations read from file based on the known value for n_grain_orientations
         view_type_float_host orientation_data_host(Kokkos::ViewAllocateWithoutInitializing("orientation_data_host"),
@@ -130,8 +133,8 @@ struct Orientation {
         checkFileNotEmpty(rgb_filename);
 
         // Read and store additional orientation data in the appropriate views
-        view_type_float_host grain_bunge_euler_host = get_orientations_from_file(euler_angles_filename, 3);
-        view_type_float_host grain_rgb_ipfz_host = get_orientations_from_file(rgb_filename, 3);
+        view_type_float_host grain_bunge_euler_host = get_orientations_from_file(euler_angles_filename, 3, true);
+        view_type_float_host grain_rgb_ipfz_host = get_orientations_from_file(rgb_filename, 3, true);
 
         // Resize device views and copy data from host
         Kokkos::realloc(grain_bunge_euler, 3 * n_grain_orientations);
@@ -162,11 +165,11 @@ struct Orientation {
         return grain_misorientation;
     }
 
-    view_type_float_host get_euler_angles() {
+    view_type_float_host get_grain_bunge_euler_host() {
         return Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grain_bunge_euler);
     }
 
-    view_type_float_host get_rgb_ipfz() {
+    view_type_float_host get_grain_rgb_ipfz_host() {
         return Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grain_rgb_ipfz);
     }
 
