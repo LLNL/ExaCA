@@ -125,7 +125,8 @@ jobs:
       matrix:
         cxx: ['hipcc']
         cmake_build_type: ['Release']
-        kokkos_ver: ['4.0.01']
+        # Using >4.0 because of kokkos build error without available device
+        kokkos_ver: ['4.2.00']
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/rocm:latest
     steps:
