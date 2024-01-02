@@ -233,7 +233,6 @@ void testInputs(int PrintVersion) {
             EXPECT_DOUBLE_EQ(inputs.substrate.PowderActiveFraction, 0.001);
             // -0.00625 was input
             EXPECT_DOUBLE_EQ(inputs.substrate.BaseplateTopZ, -0.00625);
-            EXPECT_DOUBLE_EQ(inputs.temperature.HT_deltax, inputs.domain.deltax);
             EXPECT_TRUE(inputs.print.BaseFileName == "Test");
             EXPECT_TRUE(inputs.temperature.temp_paths[0] == ".//1DummyTemperature.txt");
             EXPECT_TRUE(inputs.temperature.temp_paths[1] == ".//2DummyTemperature.txt");

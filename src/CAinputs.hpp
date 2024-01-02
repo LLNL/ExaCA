@@ -40,7 +40,6 @@ struct TemperatureInputs {
     // Used for problem type R (by default, all temperature files read during init)
     bool LayerwiseTempRead = false;
     int TempFilesInSeries = 0;
-    double HT_deltax = 0.0;
     std::vector<std::string> temp_paths;
     // Use for problem types other than R (no temperature files to read) - default to no initial undercooling at
     // solidification front
@@ -210,18 +209,10 @@ struct Inputs {
 
         // Temperature inputs:
         if (SimulationType == "R") {
-            // Temperature data resolution - default to using CA cell size if the assumed temperature data resolution if
-            // not given
-            if (inputdata["TemperatureData"].contains("HeatTransferCellSize")) {
-                temperature.HT_deltax = inputdata["TemperatureData"]["HeatTransferCellSize"];
-                // Value is given in micrometers, convert to meters
-                temperature.HT_deltax = temperature.HT_deltax * pow(10, -6);
-            }
-            else
-                temperature.HT_deltax = domain.deltax;
-            if (temperature.HT_deltax != domain.deltax)
-                throw std::runtime_error(
-                    "Error: CA cell size and input temperature data resolution must be equivalent");
+            if ((inputdata["TemperatureData"].contains("HeatTransferCellSize")) && (id == 0))
+                std::cout << "Note: Heat transport data cell size is no longer an input used in ExaCA, temperature "
+                             "data must be at the same resolution as the CA cell size"
+                          << std::endl;
             // Read all temperature files at once (default), or one at a time?
             if (inputdata["TemperatureData"].contains("LayerwiseTempRead")) {
                 temperature.LayerwiseTempRead = inputdata["TemperatureData"]["LayerwiseTempRead"];
@@ -473,12 +464,12 @@ struct Inputs {
     // Note: Passing external values for inputs like deltax that will later be stored in the grid class, with the grid
     // class passed to this function
     void PrintExaCALog(int id, int np, std::string InputFile, int ny_local, int y_offset,
-                       InterfacialResponseFunction irf, double deltax, double HT_deltax, int NumberOfLayers,
-                       int LayerHeight, int nx, int ny, int nz, double InitTime, double RunTime, double OutTime,
-                       int cycle, double InitMaxTime, double InitMinTime, double NuclMaxTime, double NuclMinTime,
-                       double CreateSVMinTime, double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime,
-                       double GhostMaxTime, double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin,
-                       double XMax, double YMin, double YMax, double ZMin, double ZMax, float VolFractionNucleated) {
+                       InterfacialResponseFunction irf, double deltax, int NumberOfLayers, int LayerHeight, int nx,
+                       int ny, int nz, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
+                       double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
+                       double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
+                       double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin, double XMax, double YMin,
+                       double YMax, double ZMin, double ZMax, float VolFractionNucleated) {
 
         int *ny_local_allranks = new int[np];
         int *y_offset_allranks = new int[np];
@@ -536,8 +527,7 @@ struct Inputs {
                 for (int i = 0; i < temperature.TempFilesInSeries - 1; i++) {
                     ExaCALog << "\"" << temperature.temp_paths[i] << "\", ";
                 }
-                ExaCALog << "\"" << temperature.temp_paths[temperature.TempFilesInSeries - 1] << "\"]," << std::endl;
-                ExaCALog << "       \"HeatTransferCellSize\": " << HT_deltax << std::endl;
+                ExaCALog << "\"" << temperature.temp_paths[temperature.TempFilesInSeries - 1] << "\"]" << std::endl;
             }
             else {
                 ExaCALog << "      \"G\": " << temperature.G << "," << std::endl;

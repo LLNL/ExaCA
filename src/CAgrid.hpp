@@ -45,9 +45,6 @@ struct Grid {
     int z_layer_bottom, z_layer_top, nz_layer, domain_size, bottom_of_current_layer, top_of_current_layer;
     std::pair<int, int> layer_range;
 
-    // TODO: No longer used, should be removed
-    int HTtoCAratio;
-
     // Domain inputs from file
     DomainInputs _inputs;
     // Temperature inputs from file
@@ -75,7 +72,6 @@ struct Grid {
         // Copy from inputs structs
         deltax = _inputs.deltax;
         layer_height = _inputs.LayerHeight;
-        HT_deltax = _t_inputs.HT_deltax;
         layer_height = _inputs.LayerHeight;
         number_of_layers = number_of_layers_temp;
 
@@ -86,22 +82,6 @@ struct Grid {
             // For simulations using input temperature data with remelting: even if only LayerwiseTempRead is true, all
             // files need to be read to determine the domain bounds
             find_xyz_bounds(id);
-            double HTtoCAratio_unrounded = HT_deltax / deltax;
-            double HTtoCAratio_floor = floor(HTtoCAratio_unrounded);
-            if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.0005) && (id == 0)) {
-                std::string error = "Error: Temperature data point spacing not evenly divisible by CA cell size";
-                throw std::runtime_error(error);
-            }
-            else if (((HTtoCAratio_unrounded - HTtoCAratio_floor) > 0.000001) && (id == 0)) {
-                std::cout << "Note: Adjusting cell size from " << deltax << " to " << HT_deltax / HTtoCAratio_floor
-                          << " to "
-                             "ensure even divisibility of CA cell size into temperature data spacing"
-                          << std::endl;
-            }
-            // Adjust deltax to exact value based on temperature data spacing and ratio between heat transport/CA cell
-            // sizes
-            deltax = HT_deltax / HTtoCAratio_floor;
-            HTtoCAratio = round(HT_deltax / deltax); // OpenFOAM/CA cell size ratio
         }
         else {
             // Copy inputs from inputs struct into grid struct

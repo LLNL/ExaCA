@@ -42,7 +42,6 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     grid.y_offset = 3 * id; // each col is separated from the others by 3 cells
     grid.y_min = 0.0;
     grid.deltax = 1 * pow(10, -6);
-    grid.HTtoCAratio = 1;
 
     // Domain size is a 3 by 12 by 3 region
     grid.nx = 3;
@@ -117,7 +116,6 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     // Test each 12 by 3 subdomain (this test uses MPI - each rank has its own subdomain)
     // Default inputs struct - manually set non-default substrateInputs values
     Inputs inputs;
-    inputs.temperature.HT_deltax = 1 * pow(10, -6);
     inputs.temperature.temp_paths.push_back(TestTempFileName1);
     inputs.temperature.temp_paths.push_back(TestTempFileName2);
     inputs.temperature.TempFilesInSeries = 2;
@@ -130,7 +128,6 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     else
         EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
     EXPECT_EQ(inputs.temperature.TempFilesInSeries, temperature._inputs.TempFilesInSeries);
-    EXPECT_DOUBLE_EQ(inputs.temperature.HT_deltax, temperature._inputs.HT_deltax);
     EXPECT_TRUE(temperature._inputs.temp_paths[0] == inputs.temperature.temp_paths[0]);
     EXPECT_TRUE(temperature._inputs.temp_paths[1] == inputs.temperature.temp_paths[1]);
 
@@ -225,7 +222,6 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     // These should've been initialized with default values
     EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
     EXPECT_EQ(temperature._inputs.TempFilesInSeries, 0);
-    EXPECT_DOUBLE_EQ(temperature._inputs.HT_deltax, 0.0);
     // These should have assigned values
     EXPECT_DOUBLE_EQ(temperature._inputs.R, inputs.temperature.R);
     EXPECT_DOUBLE_EQ(temperature._inputs.G, G);
