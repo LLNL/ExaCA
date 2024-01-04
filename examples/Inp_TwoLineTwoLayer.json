@@ -29,7 +29,7 @@
       "PrintBinary": false,
       "PrintExaConstitSize": 0,
       "PrintFieldsInit": [],
-      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
+      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation", "UndercoolingCurrent"],
       "PrintIntermediateOutput": {
           "Frequency": 0,
           "PrintIdleFrames": false

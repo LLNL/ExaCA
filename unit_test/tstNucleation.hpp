@@ -51,8 +51,10 @@ void testNucleiInit() {
     grid.ny = 2 * np;
     grid.ny_local = 2;
     grid.y_offset = 2 * id;
+    grid.nz = 6;
     grid.deltax = 1;
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
+    grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
     grid.bottom_of_current_layer = grid.get_bottom_of_current_layer();
     grid.top_of_current_layer = grid.get_top_of_current_layer();
     grid.layer_range = std::make_pair(grid.bottom_of_current_layer, grid.top_of_current_layer);
@@ -80,7 +82,7 @@ void testNucleiInit() {
     inputs.nucleation.NMax = 0.125;
 
     // Allocate temperature data structures
-    Temperature<memory_space> temperature(grid.domain_size, grid.number_of_layers, inputs.temperature, 1);
+    Temperature<memory_space> temperature(grid, inputs.temperature);
     // Resize LayerTimeTempHistory with the known max number of solidification events
     Kokkos::resize(temperature.LayerTimeTempHistory, grid.domain_size, MaxSolidificationEvents_Count, 3);
     // Initialize MaxSolidificationEvents to 3 for each layer. LayerTimeTempHistory and NumberOfSolidificationEvents are
