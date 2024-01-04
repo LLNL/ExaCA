@@ -6,10 +6,10 @@
 #ifndef EXACA_PRINT_HPP
 #define EXACA_PRINT_HPP
 
-#include "CAfunctions.hpp"
 #include "CAgrid.hpp"
 #include "CAinputs.hpp"
 #include "CAinterfacialresponse.hpp"
+#include "CAorientation.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtemperature.hpp"
 #include "CAtypes.hpp"
@@ -48,6 +48,7 @@ struct Print {
     // Message sizes and data offsets for data send/recieved to/from other ranks- message size different for different
     // ranks
     using view_type_int_host = Kokkos::View<int *, Kokkos::HostSpace>;
+    using view_type_float_host = Kokkos::View<float *, Kokkos::HostSpace>;
     view_type_int_host Recv_y_offset, Recv_ny_local, RBufSize;
     // Y coordinates for a given rank's data being send/loaded into the view of all domain data on rank 0=
     int SendBufStartY, SendBufEndY, SendBufSize;
@@ -198,11 +199,10 @@ struct Print {
 
     // Called on rank 0, prints intermediate values of grain misorientation for all layers up to current layer, also
     // marking which cells are liquid
-    template <typename ViewTypeGrainID, typename ViewTypeCellType, typename ViewTypeGrainUnitVector>
+    template <typename ViewTypeGrainID, typename ViewTypeCellType, typename OrientationMemory>
     void printIntermediateGrainMisorientation(const int id, const int np, const int cycle, const Grid &grid,
                                               ViewTypeGrainID GrainID, ViewTypeCellType CellType,
-                                              ViewTypeGrainUnitVector GrainUnitVector, int NGrainOrientations,
-                                              int layernumber) {
+                                              Orientation<OrientationMemory> &orientation, int layernumber) {
 
         // Check if option is toggled and whether the output should be printed this time step
         if ((_inputs.PrintTimeSeries) && (cycle % _inputs.TimeSeriesInc == 0)) {
@@ -211,9 +211,8 @@ struct Print {
             auto CellType_WholeDomain = collectViewData(id, np, grid, grid.nz, MPI_INT, CellType);
             if (id == 0) {
                 std::cout << "Intermediate output on time step " << cycle << std::endl;
-                auto GrainUnitVector_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
-                printGrainMisorientations(grid, GrainID_WholeDomain, CellType_WholeDomain, GrainUnitVector_Host,
-                                          NGrainOrientations, true, layernumber, grid.z_layer_bottom, grid.nz_layer);
+                printGrainMisorientations(grid, GrainID_WholeDomain, CellType_WholeDomain, orientation, true,
+                                          layernumber, grid.z_layer_bottom, grid.nz_layer);
             }
         }
     }
@@ -221,28 +220,28 @@ struct Print {
     // Check if intermediate output is to be printed during a series of "skipped" time steps (i.e., time steps where no
     // melting or solidification occurs). If it should be printed on the time step, call
     // printIntermediateGrainMisorientation
-    template <typename ViewTypeGrainID, typename ViewTypeCellType, typename ViewTypeGrainUnitVector>
+    template <typename ViewTypeGrainID, typename ViewTypeCellType, typename OrientationMemory>
     void printIdleIntermediateGrainMisorientation(int id, int np, int cycle, const Grid &grid, ViewTypeGrainID GrainID,
-                                                  ViewTypeCellType CellType, ViewTypeGrainUnitVector GrainUnitVector,
-                                                  int NGrainOrientations, int layernumber,
+                                                  ViewTypeCellType CellType,
+                                                  Orientation<OrientationMemory> &orientation, int layernumber,
                                                   unsigned long int GlobalNextMeltTimeStep) {
 
         if (_inputs.PrintIdleTimeSeriesFrames) {
             // Print current state of ExaCA simulation (up to and including the current layer's data) during the skipped
             // time steps, if intermediate output is toggled
             for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextMeltTimeStep; cycle_jump++) {
-                printIntermediateGrainMisorientation(id, np, cycle_jump, grid, GrainID, CellType, GrainUnitVector,
-                                                     NGrainOrientations, layernumber);
+                printIntermediateGrainMisorientation(id, np, cycle_jump, grid, GrainID, CellType, orientation,
+                                                     layernumber);
             }
         }
     }
 
     // Prints final values of selected data structures to Paraview files
-    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCell, typename ViewTypeGrainUnit,
-              typename TemperatureMemory>
+    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCell, typename TemperatureMemory,
+              typename OrientationMemory>
     void printFinalExaCAData(int id, int np, const Grid &grid, ViewTypeLayerID LayerID, ViewTypeCell CellType,
                              ViewTypeGrainID GrainID, Temperature<TemperatureMemory> &temperature,
-                             ViewTypeGrainUnit GrainUnitVector, int NGrainOrientations) {
+                             Orientation<OrientationMemory> &orientation) {
 
         using view_int = Kokkos::View<int *, TemperatureMemory>;
         using view_float = Kokkos::View<float *, TemperatureMemory>;
@@ -268,13 +267,11 @@ struct Print {
                 if (_inputs.PrintFinalLayerID)
                     printViewData(id, Grainplot, grid, grid.nz, "short", "LayerID", LayerID_WholeDomain);
                 if ((id == 0) && _inputs.PrintFinalMisorientation) {
-                    auto GrainUnitVector_Host =
-                        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainUnitVector);
+
                     // empty view passed as dummy argument (not used in this call to printGrainMisorientation)
                     Kokkos::View<int ***, Kokkos::HostSpace> CellType_WholeDomain(
                         Kokkos::ViewAllocateWithoutInitializing("ViewData_WholeDomain"), 0, 0, 0);
-                    printGrainMisorientations(grid, GrainID_WholeDomain, CellType_WholeDomain, GrainUnitVector_Host,
-                                              NGrainOrientations, false);
+                    printGrainMisorientations(grid, GrainID_WholeDomain, CellType_WholeDomain, orientation, false);
                 }
                 if ((id == 0) && (_inputs.PrintDefaultRVE))
                     printExaConstitDefaultRVE(grid, LayerID_WholeDomain, GrainID_WholeDomain);
@@ -388,11 +385,11 @@ struct Print {
     // On rank 0, print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview
     // file Optionally add layer label/intermediate frame and print -1 for liquid cells if this is being printed as
     // intermediate output
-    template <typename ViewTypeInt3DHost, typename ViewTypeFloat>
+    template <typename ViewTypeInt3DHost, typename OrientationMemory>
     void printGrainMisorientations(const Grid &grid, ViewTypeInt3DHost GrainID_WholeDomain,
-                                   ViewTypeInt3DHost CellType_WholeDomain, ViewTypeFloat GrainUnitVector,
-                                   int NGrainOrientations, bool IntermediatePrint, int layernumber = 0,
-                                   int ZBound_Low_print = 0, int nz_layer_print = 0) {
+                                   ViewTypeInt3DHost CellType_WholeDomain, Orientation<OrientationMemory> &orientation,
+                                   bool IntermediatePrint, int layernumber = 0, int ZBound_Low_print = 0,
+                                   int nz_layer_print = 0) {
 
         // Print grain orientations to file - either all layers, or if in an intermediate state, the layers up to the
         // current one
@@ -415,7 +412,7 @@ struct Print {
         GrainplotM << "LOOKUP_TABLE default" << std::endl;
 
         // Get grain <100> misorientation relative to the Z direction for each orientation
-        auto GrainMisorientation = MisorientationCalc(NGrainOrientations, GrainUnitVector, 2);
+        auto grain_misorientation = orientation.misorientation_calc(2);
         // For cells that are currently liquid (possible only for intermediate state print, as the final state will only
         // have solid cells), -1 is printed as the misorienatation. Misorientations for grains from the baseplate or
         // powder layer are between 0-62 (degrees, rounded to nearest integer), and cells that are associated with
@@ -428,11 +425,12 @@ struct Print {
                     if (GrainID_WholeDomain(k, i, j) == 0)
                         IntPrintVal = 200;
                     else {
-                        int MyOrientation = getGrainOrientation(GrainID_WholeDomain(k, i, j), NGrainOrientations);
+                        int my_orientation =
+                            get_grain_orientation(GrainID_WholeDomain(k, i, j), orientation.n_grain_orientations);
                         if (GrainID_WholeDomain(k, i, j) < 0)
-                            IntPrintVal = static_cast<short>(std::round(GrainMisorientation(MyOrientation)) + 100);
+                            IntPrintVal = static_cast<short>(std::round(grain_misorientation(my_orientation)) + 100);
                         else
-                            IntPrintVal = static_cast<short>(std::round(GrainMisorientation(MyOrientation)));
+                            IntPrintVal = static_cast<short>(std::round(grain_misorientation(my_orientation)));
                     }
                     if (IntermediatePrint) {
                         if (CellType_WholeDomain(k, i, j) == Liquid)

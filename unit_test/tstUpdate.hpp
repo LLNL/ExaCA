@@ -7,7 +7,6 @@
 #include <nlohmann/json.hpp>
 
 #include "CAcelldata.hpp"
-#include "CAinitialize.hpp"
 #include "CAinputs.hpp"
 #include "CAinterface.hpp"
 #include "CAparsefiles.hpp"

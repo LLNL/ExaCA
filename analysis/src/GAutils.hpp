@@ -6,13 +6,11 @@
 #ifndef GA_UTIL_HPP
 #define GA_UTIL_HPP
 
-#include "ExaCA.hpp"
+#include "CAparsefiles.hpp"
 
 #include <Kokkos_Core.hpp>
 
-#ifdef ExaCA_ENABLE_JSON
 #include <nlohmann/json.hpp>
-#endif
 
 #include <cstddef>
 #include <fstream>
@@ -24,16 +22,9 @@
 
 // These are used in reading/parsing ExaCA microstructure data
 void ParseLogFile(std::string LogFile, int &nx, int &ny, int &nz, double &deltax, int &NumberOfLayers,
-                  std::vector<double> &XYZBounds, std::string &RotationFilename, std::string &EulerAnglesFilename,
-                  std::string &RGBFilename, bool OrientationFilesInInput);
-void CheckInputFiles(std::string &LogFile, std::string MicrostructureFile, std::string &RotationFilename,
-                     std::string &RGBFilename, std::string &EulerAnglesFilename);
+                  std::vector<double> &XYZBounds, std::string &RotationFilename, bool OrientationFilesInInput);
 double convertToMicrons(double deltax, std::string RegionType);
 double convertToCells(double deltax, std::string RegionType);
-std::vector<float> getGrainMisorientation(std::string Direction,
-                                          Kokkos::View<float *, Kokkos::HostSpace> GrainUnitVector,
-                                          std::vector<int> UniqueGrainIDVector, int NumberOfOrientations,
-                                          int NumberOfGrains);
 void dual_print(std::string temp, std::ostream &stream1, std::ostream &stream2);
 template <typename ReturnType, typename FirstType, typename SecondType>
 ReturnType DivideCast(FirstType Int1, SecondType Int2) {

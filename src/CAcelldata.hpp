@@ -7,7 +7,6 @@
 #define EXACA_CELLDATA_HPP
 
 #include "CAconfig.hpp"
-#include "CAfunctions.hpp"
 #include "CAgrid.hpp"
 #include "CAinputs.hpp"
 #include "CAparsefiles.hpp"
