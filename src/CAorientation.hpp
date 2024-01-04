@@ -147,7 +147,8 @@ struct Orientation {
         for (int n = 0; n < n_grain_orientations; n++) {
             float misorientation_angle_min = 62.7;
             for (int ll = 0; ll < 3; ll++) {
-                float misorientation = std::abs((180 / M_PI) * acos(grain_unit_vector_host(9 * n + 3 * ll + dir)));
+                float misorientation =
+                    Kokkos::abs((180 / M_PI) * Kokkos::acos(grain_unit_vector_host(9 * n + 3 * ll + dir)));
                 if (misorientation < misorientation_angle_min) {
                     misorientation_angle_min = misorientation;
                 }
@@ -159,7 +160,7 @@ struct Orientation {
 
     // Get the grain ID from the repeat number of a grain from a given grain ID and the number of possible orientations
     KOKKOS_INLINE_FUNCTION int get_grain_id(const int my_grain_orientation, const int my_grain_number) const {
-        int my_grain_id = n_grain_orientations * (abs(my_grain_number) - 1) + my_grain_orientation;
+        int my_grain_id = n_grain_orientations * (Kokkos::abs(my_grain_number) - 1) + my_grain_orientation;
         if (my_grain_number < 0)
             my_grain_id = -my_grain_id;
         return my_grain_id;
@@ -177,7 +178,7 @@ KOKKOS_INLINE_FUNCTION int get_grain_orientation(const int my_grain_id, const in
     if (my_grain_id == 0)
         my_orientation = 0;
     else {
-        my_orientation = (abs(my_grain_id) - 1) % n_grain_orientations;
+        my_orientation = (Kokkos::abs(my_grain_id) - 1) % n_grain_orientations;
         if (!(start_at_zero))
             my_orientation++;
     }
@@ -187,7 +188,7 @@ KOKKOS_INLINE_FUNCTION int get_grain_orientation(const int my_grain_id, const in
 // Get the repeat number for the orientation of a grain with a given grain ID
 // 1, 2, 3... or -1, -2, -3...
 KOKKOS_INLINE_FUNCTION int get_grain_number(int my_grain_id, int n_grain_orientations) {
-    int my_grain_number = (abs(my_grain_id) - 1) / n_grain_orientations + 1;
+    int my_grain_number = (Kokkos::abs(my_grain_id) - 1) / n_grain_orientations + 1;
     if (my_grain_id < 0)
         my_grain_number = -my_grain_number;
     return my_grain_number;
