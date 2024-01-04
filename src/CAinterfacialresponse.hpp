@@ -17,9 +17,6 @@
 #include <string>
 #include <vector>
 
-// Using for compatibility with device math functions.
-using std::max;
-
 // Interfacial repsonse function with various functional forms.
 struct InterfacialResponseFunction {
 
@@ -99,12 +96,12 @@ struct InterfacialResponseFunction {
     double compute(const double LocU) const {
         double V;
         if (function == quadratic)
-            V = A * pow(LocU, 2.0) + B * LocU + C;
+            V = A * Kokkos::pow(LocU, 2.0) + B * LocU + C;
         else if (function == power)
-            V = A * pow(LocU, B) + C;
+            V = A * Kokkos::pow(LocU, B) + C;
         else
-            V = A * pow(LocU, 3.0) + B * pow(LocU, 2.0) + C * LocU + D;
-        return max(0.0, V);
+            V = A * Kokkos::pow(LocU, 3.0) + B * Kokkos::pow(LocU, 2.0) + C * LocU + D;
+        return Kokkos::fmax(0.0, V);
     }
 
     std::string function_name() {

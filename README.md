@@ -11,7 +11,7 @@ ExaCA-Kokkos uses Kokkos and MPI for parallelism and JSON for input files.
 |Dependency | Version | Required | Details|
 |---------- | ------- |--------  |------- |
 |[CMake](https://cmake.org/download/)       | 3.11+    | Yes      | Build system
-|[Kokkos](https://github.com/kokkos/kokkos) | 3.2+    | Yes      | Portable on-node parallelism
+|[Kokkos](https://github.com/kokkos/kokkos) | 4.0+    | Yes      | Portable on-node parallelism
 |MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Multi-node parallelism
 |[json](https://github.com/nlohmann/json) | 3.10+| Yes       | Input parsing
 |[GoogleTest](https://github.com/google/googletest) | 1.10+   | No       | Unit test framework
@@ -20,7 +20,7 @@ ExaCA-Kokkos uses Kokkos and MPI for parallelism and JSON for input files.
 
 CMake must be available to build ExaCA and Kokkos. The underlying parallel programming models and MPI are available on most systems and can generally be found automatically by CMake. Note these dependencies must all be installed first, if not available. Kokkos is also available on many systems; if not, obtain the desired version:
 ```
-git clone https://github.com/kokkos/kokkos.git --branch 3.4.00
+git clone https://github.com/kokkos/kokkos.git --branch 4.0.00
 ```
 
 ### Obtaining ExaCA

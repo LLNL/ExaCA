@@ -7,7 +7,6 @@
 #include "CAfunctions.hpp"
 #include "CAparsefiles.hpp"
 
-#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -106,11 +105,11 @@ void ReadIgnoreASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz
 double convertToMicrons(double deltax, std::string RegionType) {
     double CellToSizeScaling;
     if (RegionType == "volume")
-        CellToSizeScaling = pow(deltax, 3) * pow(10, 18);
+        CellToSizeScaling = Kokkos::pow(deltax, 3) * Kokkos::pow(10, 18);
     else if (RegionType == "area")
-        CellToSizeScaling = pow(deltax, 2) * pow(10, 12);
+        CellToSizeScaling = Kokkos::pow(deltax, 2) * Kokkos::pow(10, 12);
     else if (RegionType == "length")
-        CellToSizeScaling = deltax * pow(10, 6);
+        CellToSizeScaling = deltax * Kokkos::pow(10, 6);
     else
         throw std::runtime_error("Error: unknown region type");
     return CellToSizeScaling;
@@ -120,11 +119,11 @@ double convertToMicrons(double deltax, std::string RegionType) {
 double convertToCells(double deltax, std::string RegionType) {
     double SizeToCellScaling;
     if (RegionType == "volume")
-        SizeToCellScaling = 1.0 / (pow(deltax, 3) * pow(10, 18));
+        SizeToCellScaling = 1.0 / (pow(deltax, 3) * Kokkos::pow(10, 18));
     else if (RegionType == "area")
-        SizeToCellScaling = 1.0 / (pow(deltax, 2) * pow(10, 12));
+        SizeToCellScaling = 1.0 / (pow(deltax, 2) * Kokkos::pow(10, 12));
     else if (RegionType == "length")
-        SizeToCellScaling = 1.0 / (deltax * pow(10, 6));
+        SizeToCellScaling = 1.0 / (deltax * Kokkos::pow(10, 6));
     else
         throw std::runtime_error("Error: unknown region type");
     return SizeToCellScaling;

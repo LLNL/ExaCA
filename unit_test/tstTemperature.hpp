@@ -192,7 +192,7 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     grid.ny_local = 5;
     grid.nz = 6; // (Front is at Z = 0 for directional growth, single grain seed at Z = 2 for singlegrain problem)
     grid.domain_size = grid.nx * grid.ny_local * grid.nz;
-    int coord_z_Center = floorf(static_cast<float>(grid.nz) / 2.0);
+    int coord_z_Center = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
 
     // default inputs struct - manually set non-default substrateInputs values
     Inputs inputs;

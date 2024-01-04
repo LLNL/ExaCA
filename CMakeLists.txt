@@ -4,7 +4,7 @@ project(ExaCA LANGUAGES CXX VERSION 1.2.0)
 
 include(GNUInstallDirs)
 
-find_package(Kokkos 3.2 REQUIRED)
+find_package(Kokkos 4.0 REQUIRED)
 find_package(MPI REQUIRED)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
