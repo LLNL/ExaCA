@@ -826,7 +826,7 @@ struct RepresentativeRegion {
                     throw std::runtime_error("Error: Unknown regionOrientation input for WriteIPFColoredCrossSection: "
                                              "should be XY, YZ, or XZ");
                 // What orientation does this grain id correspond to? Should be between 0 and NumberOfOrientations-1
-                int GOVal = (abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % orientation.n_grain_orientations;
+                int GOVal = (Kokkos::abs(GrainID(ZLoc, XLoc, YLoc)) - 1) % orientation.n_grain_orientations;
                 // The grain structure is phase "1" - any unindexed points with GOVal = -1 (which are possible from
                 // regions that didn't undergo melting) are assigned phase "0"
                 if (GOVal == -1)
@@ -836,7 +836,7 @@ struct RepresentativeRegion {
                     GrainplotIPF << orientation.grain_bunge_euler_host(3 * GOVal) << " "
                                  << orientation.grain_bunge_euler_host(3 * GOVal + 1) << " "
                                  << orientation.grain_bunge_euler_host(3 * GOVal + 2) << " 1 "
-                                 << Index1 * deltax * pow(10, 6) << " " << Index2 * deltax * Kokkos::pow(10, 6)
+                                 << Index1 * deltax * Kokkos::pow(10, 6) << " " << Index2 * deltax * Kokkos::pow(10, 6)
                                  << std::endl;
             }
         }
