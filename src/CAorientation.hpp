@@ -43,13 +43,10 @@ struct Orientation {
               view_type_float_host(Kokkos::ViewAllocateWithoutInitializing("grain_unit_vector_host"), 1)) {
 
         // Get unit vectors from the grain orientations file (9 vals per line)
-        view_type_float_host grain_unit_vector_host_ = get_orientations_from_file(grain_unit_vector_file, 9, false);
+        grain_unit_vector_host = get_orientations_from_file(grain_unit_vector_file, 9, false);
         // Resize device view now that n_grain_orientations is known and copy unit vector data from host
         // Also maintain host copy of grain_unit_vector
-        Kokkos::realloc(grain_unit_vector, 9 * n_grain_orientations);
-        Kokkos::realloc(grain_unit_vector_host, 9 * n_grain_orientations);
-        grain_unit_vector = Kokkos::create_mirror_view_and_copy(memory_space(), grain_unit_vector_host_);
-        grain_unit_vector_host = grain_unit_vector_host_;
+        grain_unit_vector = Kokkos::create_mirror_view_and_copy(memory_space(), grain_unit_vector_host);
 
         // If needed, repeat this process for Euler and RGB representation of the orientations
         if (InitEulerRGBVals) {
@@ -136,9 +133,7 @@ struct Orientation {
         view_type_float_host grain_bunge_euler_host = get_orientations_from_file(euler_angles_filename, 3, true);
         view_type_float_host grain_rgb_ipfz_host = get_orientations_from_file(rgb_filename, 3, true);
 
-        // Resize device views and copy data from host
-        Kokkos::realloc(grain_bunge_euler, 3 * n_grain_orientations);
-        Kokkos::realloc(grain_rgb_ipfz, 3 * n_grain_orientations);
+        // Copy data from host
         grain_bunge_euler = Kokkos::create_mirror_view_and_copy(memory_space(), grain_bunge_euler_host);
         grain_rgb_ipfz = Kokkos::create_mirror_view_and_copy(memory_space(), grain_rgb_ipfz_host);
     }
