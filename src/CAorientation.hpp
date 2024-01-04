@@ -28,25 +28,23 @@ struct Orientation {
     using execution_space = typename memory_space::execution_space;
 
     // Grain orientation data views - either rotation matrices (9 vals per orientation), Euler angles (3 vals per
-    // orientation), or RGB values (3 vals per orientation) Host copy of grain_unit_vector maintained as it will be
-    // needed for all intermediate output steps (host copies of other representations only used in analysis script,
-    // obtained via member functions)
+    // orientation), or RGB values (3 vals per orientation). Unit vectors are stored on the device and no host copy is
+    // maintained in the struct, Euler and RGB representations are only used on the host and no device copy is
+    // maintained
     int n_grain_orientations;
-    view_type_float grain_unit_vector, grain_bunge_euler, grain_rgb_ipfz;
-    view_type_float_host grain_unit_vector_host;
+    view_type_float grain_unit_vector;
+    view_type_float_host grain_bunge_euler_host, grain_rgb_ipfz_host;
 
     Orientation(const std::string grain_unit_vector_file, const bool InitEulerRGBVals)
         : grain_unit_vector(view_type_float(Kokkos::ViewAllocateWithoutInitializing("grain_unit_vector"), 1))
-        , grain_bunge_euler(view_type_float(Kokkos::ViewAllocateWithoutInitializing("grain_bunge_euler"), 1))
-        , grain_rgb_ipfz(view_type_float(Kokkos::ViewAllocateWithoutInitializing("grain_rgb_ipfz"), 1))
-        , grain_unit_vector_host(
-              view_type_float_host(Kokkos::ViewAllocateWithoutInitializing("grain_unit_vector_host"), 1)) {
+        , grain_bunge_euler_host(
+              view_type_float_host(Kokkos::ViewAllocateWithoutInitializing("grain_bunge_euler_host"), 1))
+        , grain_rgb_ipfz_host(view_type_float_host(Kokkos::ViewAllocateWithoutInitializing("grain_rgb_ipfz_host"), 1)) {
 
-        // Get unit vectors from the grain orientations file (9 vals per line)
-        grain_unit_vector_host = get_orientations_from_file(grain_unit_vector_file, 9, false);
-        // Resize device view now that n_grain_orientations is known and copy unit vector data from host
-        // Also maintain host copy of grain_unit_vector
-        grain_unit_vector = Kokkos::create_mirror_view_and_copy(memory_space(), grain_unit_vector_host);
+        // Get unit vectors from the grain orientations file (9 vals per line) and store in temporary host view
+        view_type_float_host grain_unit_vector_host_ = get_orientations_from_file(grain_unit_vector_file, 9, false);
+        // Copy unit vector data from temporary host view
+        grain_unit_vector = Kokkos::create_mirror_view_and_copy(memory_space(), grain_unit_vector_host_);
 
         // If needed, repeat this process for Euler and RGB representation of the orientations
         if (InitEulerRGBVals) {
@@ -130,12 +128,8 @@ struct Orientation {
         checkFileNotEmpty(rgb_filename);
 
         // Read and store additional orientation data in the appropriate views
-        view_type_float_host grain_bunge_euler_host = get_orientations_from_file(euler_angles_filename, 3, true);
-        view_type_float_host grain_rgb_ipfz_host = get_orientations_from_file(rgb_filename, 3, true);
-
-        // Copy data from host
-        grain_bunge_euler = Kokkos::create_mirror_view_and_copy(memory_space(), grain_bunge_euler_host);
-        grain_rgb_ipfz = Kokkos::create_mirror_view_and_copy(memory_space(), grain_rgb_ipfz_host);
+        grain_bunge_euler_host = get_orientations_from_file(euler_angles_filename, 3, true);
+        grain_rgb_ipfz_host = get_orientations_from_file(rgb_filename, 3, true);
     }
 
     // Create a view of size "NumberOfOrientations" of the misorientation of each possible grain orientation with the X,
@@ -144,6 +138,9 @@ struct Orientation {
 
         view_type_float_host grain_misorientation(Kokkos::ViewAllocateWithoutInitializing("GrainMisorientation"),
                                                   n_grain_orientations);
+        view_type_float_host grain_unit_vector_host =
+            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grain_unit_vector);
+
         // Find the smallest possible misorientation between the specified direction, and this grain orientations' 6
         // possible 001 directions (where 62.7 degrees is the largest possible misorientation between two 001 directions
         // for a cubic crystal system)
@@ -158,15 +155,6 @@ struct Orientation {
             grain_misorientation(n) = misorientation_angle_min;
         }
         return grain_misorientation;
-    }
-
-    // Return host copies of grain euler angles
-    view_type_float_host get_grain_bunge_euler_host() {
-        return Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grain_bunge_euler);
-    }
-    // Return host copies of IPF-Z RGB values
-    view_type_float_host get_grain_rgb_ipfz_host() {
-        return Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grain_rgb_ipfz);
     }
 
     // Get the grain ID from the repeat number of a grain from a given grain ID and the number of possible orientations
