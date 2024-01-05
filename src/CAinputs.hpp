@@ -107,7 +107,7 @@ struct PrintInputs {
 struct Inputs {
 
     std::string SimulationType = "", MaterialFileName = "", GrainOrientationFile = "";
-    double RNGSeed = 0.0;
+    unsigned long RNGSeed = 0.0;
     DomainInputs domain;
     NucleationInputs nucleation;
     TemperatureInputs temperature;

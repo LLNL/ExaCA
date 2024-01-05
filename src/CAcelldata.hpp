@@ -89,7 +89,7 @@ struct CellData {
     }
 
     // Get the X, Y coordinates and grain ID values for grains at the bottom surface for problem type C
-    view_type_int_2d_host getSurfaceActiveCellData(int &SubstrateActCells, int nx, int ny, double RNGSeed) {
+    view_type_int_2d_host getSurfaceActiveCellData(int &SubstrateActCells, int nx, int ny, unsigned long RNGSeed) {
         // First get number of substrate grains
         if (_inputs.CustomGrainLocationsIDs)
             SubstrateActCells = _inputs.GrainLocationsX.size();
@@ -129,7 +129,7 @@ struct CellData {
 
     // Initializes cell types and epitaxial Grain ID values where substrate grains are future active cells on the bottom
     // surface of the constrained domain
-    void init_substrate(int id, const Grid &grid, double RNGSeed) {
+    void init_substrate(int id, const Grid &grid, unsigned long RNGSeed) {
 
         // Fill the view of cell X, Y, and ID values, updating the number of substrate active cells appropriately
         // TODO: Could generate random numbers on GPU, instead of using host view and copying over - but would also need
@@ -207,7 +207,7 @@ struct CellData {
             std::cout << "Number of substrate active cells across all ranks: " << SubstrateActCells << std::endl;
     }
 
-    void init_substrate(int id, const Grid &grid, double RNGSeed, view_type_int NumberOfSolidificationEvents) {
+    void init_substrate(int id, const Grid &grid, unsigned long RNGSeed, view_type_int NumberOfSolidificationEvents) {
 
         // Determine the number of cells in the Z direction that are part of the baseplate
         int BaseplateSizeZ = get_baseplate_size_z(id, grid);
@@ -332,7 +332,7 @@ struct CellData {
 
     // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi
     // Tessellation
-    void init_baseplate_grainid(int id, const Grid &grid, double RNGSeed, int BaseplateSizeZ) {
+    void init_baseplate_grainid(int id, const Grid &grid, unsigned long RNGSeed, int BaseplateSizeZ) {
 
         std::mt19937_64 gen(RNGSeed);
 
@@ -452,12 +452,12 @@ struct CellData {
     // Each layer's top Z coordinates are seeded with CA-cell sized substrate grains (emulating bulk nucleation
     // alongside the edges of partially melted powder particles). These Z coordinates span PowderBottomZ up to but not
     // including PowderTopZ
-    void init_powder_grainid(int layernumber, int id, double RNGSeed, const Grid &grid, int PowderBottomZ,
+    void init_powder_grainid(int layernumber, int id, unsigned long RNGSeed, const Grid &grid, int PowderBottomZ,
                              int PowderTopZ) {
 
         // On all ranks, generate list of powder grain IDs (starting with NextLayer_FirstEpitaxialGrainID, and shuffle
         // them so that their locations aren't sequential and depend on the RNGSeed (different for each layer)
-        std::mt19937_64 gen(RNGSeed + layernumber);
+        std::mt19937_64 gen(RNGSeed + static_cast<unsigned long>(layernumber));
         std::uniform_real_distribution<double> dis(0.0, 1.0);
 
         // TODO: This should be performed on the device, rather than the host
@@ -518,7 +518,7 @@ struct CellData {
 
     // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
     //*****************************************************************************/
-    void init_next_layer(int nextlayernumber, int id, const Grid &grid, double RNGSeed,
+    void init_next_layer(int nextlayernumber, int id, const Grid &grid, unsigned long RNGSeed,
                          view_type_int NumberOfSolidificationEvents) {
 
         // Subviews for the next layer's grain id, layer id, cell type are constructed based on updated layer bound
