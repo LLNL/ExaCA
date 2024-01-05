@@ -13,14 +13,24 @@
 #include <string>
 #include <vector>
 
+#include <unit_test_cmd_line.hpp>
+
 namespace Test {
-//---------------------------------------------------------------------------//
-// file_read_tests
-//---------------------------------------------------------------------------//
-void WriteTestData(std::string InputFilename, int PrintVersion) {
+
+auto getFilePath(std::string folder, std::string file_name) {
+    auto file_path = file_name;
+    if (!folder.empty())
+        file_path = folder + "/" + file_name;
+    std::cout << file_path << std::endl;
+    return file_path;
+}
+
+void WriteTestData(std::string folder, std::string file_name, int PrintVersion) {
 
     std::ofstream TestDataFile;
-    TestDataFile.open(InputFilename);
+    auto file_path = getFilePath(folder, file_name);
+    TestDataFile.open(file_path);
+
     // Write required inputs to all files
     TestDataFile << "{" << std::endl;
     TestDataFile << "   \"SimulationType\": \"R\"," << std::endl;
@@ -39,11 +49,11 @@ void WriteTestData(std::string InputFilename, int PrintVersion) {
     TestDataFile << "      \"StDev\": 0.5" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"TemperatureData\": {" << std::endl;
-    TestDataFile << "      \"TemperatureFiles\": [\".//1DummyTemperature.txt\",\".//2DummyTemperature.txt\"]"
-                 << std::endl;
+    TestDataFile << "      \"TemperatureFiles\": [\"" << folder << "/1DummyTemperature.txt\",\"" << folder
+                 << "/2DummyTemperature.txt\"]" << std::endl;
     TestDataFile << "   }," << std::endl;
     TestDataFile << "   \"Substrate\": {" << std::endl;
-    TestDataFile << "      \"SubstrateFilename\": \"DummySubstrate.txt\"," << std::endl;
+    TestDataFile << "      \"SubstrateFilename\": \"" << folder << "DummySubstrate.txt\"," << std::endl;
     TestDataFile << "      \"PowderDensity\": 1000," << std::endl;
     TestDataFile << "      \"BaseplateTopZ\": -0.00625" << std::endl;
     TestDataFile << "   }," << std::endl;
@@ -75,7 +85,10 @@ void WriteTestData(std::string InputFilename, int PrintVersion) {
     TestDataFile.close();
 }
 
-void testInputs(int PrintVersion) {
+//---------------------------------------------------------------------------//
+// file_read_tests
+//---------------------------------------------------------------------------//
+void testInputs(int PrintVersion, std::string folder) {
 
     int id, np;
     // Get number of processes
@@ -97,12 +110,14 @@ void testInputs(int PrintVersion) {
 
     // On rank 0, write dummy input files for using read temperature data (InputFilenames[2] and [3])
     if (id == 0) {
-        WriteTestData(InputFilenames[2], PrintVersion);
+        WriteTestData(folder, InputFilenames[2], PrintVersion);
 
         // Create test temperature files "1DummyTemperature.txt", "2DummyTemperature.txt"
         std::ofstream TestTemp1, TestTemp2;
-        TestTemp1.open(TemperatureFNames[0]);
-        TestTemp2.open(TemperatureFNames[1]);
+        auto temp1_path = getFilePath(folder, TemperatureFNames[0]);
+        auto temp2_path = getFilePath(folder, TemperatureFNames[1]);
+        TestTemp1.open(temp1_path);
+        TestTemp2.open(temp2_path);
         TestTemp1 << "X" << std::endl;
         TestTemp2 << "X" << std::endl;
         TestTemp1.close();
@@ -110,7 +125,8 @@ void testInputs(int PrintVersion) {
 
         // Create test substrate file "DummySubstrate.txt"
         std::ofstream TestSub;
-        TestSub.open("DummySubstrate.txt");
+        auto sub_path = getFilePath(folder, "DummySubstrate.txt");
+        TestSub.open(sub_path);
         TestSub << "X" << std::endl;
         TestSub.close();
     }
@@ -119,8 +135,11 @@ void testInputs(int PrintVersion) {
     // Read and parse each input file
     for (auto FileName : InputFilenames) {
         std::cout << "Reading " << FileName << std::endl;
+
+        auto file_path = getFilePath(folder, FileName);
+
         // Data printing structure - contains print options (false by default) and functions
-        Inputs inputs(id, FileName);
+        Inputs inputs(id, file_path);
         InterfacialResponseFunction irf(0, inputs.MaterialFileName, inputs.domain.deltat, inputs.domain.deltax);
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -234,8 +253,8 @@ void testInputs(int PrintVersion) {
             // -0.00625 was input
             EXPECT_DOUBLE_EQ(inputs.substrate.BaseplateTopZ, -0.00625);
             EXPECT_TRUE(inputs.print.BaseFileName == "Test");
-            EXPECT_TRUE(inputs.temperature.temp_paths[0] == ".//1DummyTemperature.txt");
-            EXPECT_TRUE(inputs.temperature.temp_paths[1] == ".//2DummyTemperature.txt");
+            EXPECT_TRUE(inputs.temperature.temp_paths[0] == folder + "/1DummyTemperature.txt");
+            EXPECT_TRUE(inputs.temperature.temp_paths[1] == folder + "/2DummyTemperature.txt");
             if (PrintVersion == 0) {
                 EXPECT_TRUE(inputs.print.PrintInitCritTimeStep);
                 EXPECT_TRUE(inputs.print.PrintInitMeltTimeStep);
@@ -275,7 +294,7 @@ void testInputs(int PrintVersion) {
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, inputs) {
     // input argument: test for two different print versions for last input file
-    testInputs(0);
-    testInputs(1);
+    testInputs(0, ExaCAUnitTestingInput::command_line_arg);
+    testInputs(1, ExaCAUnitTestingInput::command_line_arg);
 }
 } // end namespace Test
