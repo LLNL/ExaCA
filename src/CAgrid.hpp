@@ -114,9 +114,8 @@ struct Grid {
         // Decompose the domain into subdomains on each MPI rank: Calculate ny_local and y_offset for each rank, where
         // each subdomain contains "ny_local" in Y, offset from the full domain origin by "y_offset" cells in Y
         // (previously "DomainDecomposition" in CAinitialize.cpp) First, compare total MPI ranks to total Y cells.
-        if (np > ny)
-            throw std::runtime_error(
-                "Error: Cannot run with more MPI ranks than cells in Y (decomposition direction).");
+        if (np > static_cast<double>(ny) / 2.0)
+            throw std::runtime_error("Error: Must have at least 2 cells in Y (decomposition direction) per MPI rank.");
 
         // The following was previously performed in "DomainDecomposition" in CAinitialize.cpp:
         // Domain size across all ranks and all layers
