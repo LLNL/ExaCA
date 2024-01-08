@@ -241,10 +241,10 @@ struct Temperature {
             int XSpotPos = SpotRadius + (n % NSpotsX) * SpotOffset;
             int YSpotPos = SpotRadius + (n / NSpotsX) * SpotOffset;
             for (int i = 0; i < grid.nx; i++) {
-                float DistX = (float)(XSpotPos - i);
+                float DistX = static_cast<float>(XSpotPos - i);
                 for (int j = 0; j < grid.ny_local; j++) {
                     int YGlobal = j + grid.y_offset;
-                    float DistY = (float)(YSpotPos - YGlobal);
+                    float DistY = static_cast<float>(YSpotPos - YGlobal);
                     float TotDist = Kokkos::sqrt(DistX * DistX + DistY * DistY);
                     if (TotDist <= SpotRadius) {
                         MaxSolidificationEvents_Temp(i, j)++;
@@ -312,12 +312,12 @@ struct Temperature {
             int YSpotPos = inputs.domain.SpotRadius + (n / inputs.domain.NSpotsX) * inputs.domain.SpotOffset;
             for (int coord_z = 0; coord_z <= inputs.domain.SpotRadius; coord_z++) {
                 // Distance of this cell from the spot center
-                float DistZ = (float)(inputs.domain.SpotRadius - coord_z);
+                float DistZ = static_cast<float>(inputs.domain.SpotRadius - coord_z);
                 for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
-                    float DistX = (float)(XSpotPos - coord_x);
+                    float DistX = static_cast<float>(XSpotPos - coord_x);
                     for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
                         int coord_y_global = coord_y + grid.y_offset;
-                        float DistY = (float)(YSpotPos - coord_y_global);
+                        float DistY = static_cast<float>(YSpotPos - coord_y_global);
                         float TotDist = Kokkos::hypot(DistX, DistY, DistZ);
                         if (TotDist <= inputs.domain.SpotRadius) {
                             int index = grid.get_1D_index(coord_x, coord_y, coord_z);

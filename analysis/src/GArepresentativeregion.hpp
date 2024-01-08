@@ -739,7 +739,8 @@ struct RepresentativeRegion {
         for (int i = 0; i < orientation.n_grain_orientations; i++) {
             GrainplotPF << orientation.grain_bunge_euler_host(3 * i) << " "
                         << orientation.grain_bunge_euler_host(3 * i + 1) << " "
-                        << orientation.grain_bunge_euler_host(3 * i + 2) << " " << (float)(GOHistogram(i)) << std::endl;
+                        << orientation.grain_bunge_euler_host(3 * i + 2) << " " << static_cast<float>(GOHistogram(i))
+                        << std::endl;
         }
         GrainplotPF.close();
     }
