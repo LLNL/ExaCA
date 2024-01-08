@@ -2,7 +2,7 @@
    "SimulationType": "C",
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
-   "RandomSeed": 0.0,
+   "RandomSeed": 0,
    "Domain": {
        "CellSize": 1,
        "TimeStep": 0.0666667,

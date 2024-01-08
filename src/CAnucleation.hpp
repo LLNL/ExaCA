@@ -82,7 +82,8 @@ struct Nucleation {
     // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur,
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
     template <class... Params>
-    void placeNuclei(Temperature<memory_space> &temperature, double RNGSeed, int layernumber, Grid &grid, int id) {
+    void placeNuclei(Temperature<memory_space> &temperature, unsigned long RNGSeed, int layernumber, Grid &grid,
+                     int id) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
@@ -95,7 +96,7 @@ struct Nucleation {
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.LayerTimeTempHistory);
 
         // Use new RNG seed for each layer
-        std::mt19937_64 generator(RNGSeed + layernumber);
+        std::mt19937_64 generator(RNGSeed + static_cast<unsigned long>(layernumber));
         // Uniform distribution for nuclei location assignment
         std::uniform_real_distribution<double> Xdist(-0.49999, grid.nx - 0.5);
         std::uniform_real_distribution<double> Ydist(-0.49999, grid.ny - 0.5);
