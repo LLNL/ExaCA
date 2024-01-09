@@ -71,30 +71,50 @@ struct PrintInputs {
     std::string BaseFileName = "";
     // Path to CA output
     std::string PathToOutput = "";
-    // Fields to be printed at start of run: GrainID, LayerID, MeltTimeStep, CritTimeStep, UndercoolingChange (all
-    // for first layer)
-    bool PrintInitGrainID = false;
-    bool PrintInitLayerID = false;
-    bool PrintInitMeltTimeStep = false;
-    bool PrintInitCritTimeStep = false;
-    bool PrintInitUndercoolingChange = false;
-    // Fields to be printed at end of run: GrainID, LayerID, GrainMisorientation, UndercoolingCurrent (for whole
-    // domain) and MeltTimeStep, CritTimeStep, UndercoolingChange, CellType (for the final layer)
-    bool PrintFinalGrainID = false;
-    bool PrintFinalLayerID = false;
-    bool PrintFinalMisorientation = false;
-    bool PrintFinalUndercoolingCurrent = false;
-    bool PrintFinalMeltTimeStep = false;
-    bool PrintFinalCritTimeStep = false;
-    bool PrintFinalUndercoolingChange = false;
-    bool PrintFinalCellType = false;
-
-    // Print intermediate output of grain misorientation in time
-    bool PrintTimeSeries = false;
-    // If printing the time series, should microstructure be printed if unchanged from the previous frame
-    bool PrintIdleTimeSeriesFrames = false;
-    // If printing the time series, the increment, in time steps, between printing of intermediate output
-    int TimeSeriesInc = 1;
+    // Names of output fields that can be printed to files during or at the end of a simulation
+    std::vector<std::string> Fieldnames_key = {"GrainID",
+                                               "LayerID",
+                                               "GrainMisorientation",
+                                               "UndercoolingCurrent",
+                                               "MeltTimeStep",
+                                               "CritTimeStep",
+                                               "UndercoolingChange",
+                                               "CellType",
+                                               "DiagonalLength",
+                                               "SolidificationEventCounter",
+                                               "NumberOfSolidificationEvents"};
+    // Fields to be printed during a given layer
+    bool intralayer = false;
+    int intralayer_increment = 1;
+    bool intralayer_idle_frames = false;
+    bool intralayer_grain_id = false;
+    bool intralayer_layer_id = false;
+    bool intralayer_grain_misorientation = false;
+    bool intralayer_undercooling_current = false;
+    bool intralayer_melt_time_step = false;
+    bool intralayer_crit_time_step = false;
+    bool intralayer_undercooling_change = false;
+    bool intralayer_cell_type = false;
+    bool intralayer_diagonal_length = false;
+    bool intralayer_solidification_event_counter = false;
+    bool intralayer_number_of_solidification_events = false;
+    // Fields to be printed at end of a layer
+    bool interlayer_full = false;
+    bool interlayer_current = false;
+    bool interlayer_grain_id = false;
+    bool interlayer_layer_id = false;
+    bool interlayer_grain_misorientation = false;
+    bool interlayer_undercooling_current = false;
+    bool interlayer_melt_time_step = false;
+    bool interlayer_crit_time_step = false;
+    bool interlayer_undercooling_change = false;
+    bool interlayer_cell_type = false;
+    bool interlayer_diagonal_length = false;
+    bool interlayer_solidification_event_counter = false;
+    bool interlayer_number_of_solidification_events = false;
+    // List of layers following which the interlayer fields should be printed (will always include final layer of
+    // simulation)
+    std::vector<int> print_layer_number;
 
     // Should binary be used for printing vtk data?
     bool PrintBinary = false;
@@ -366,6 +386,92 @@ struct Inputs {
         }
     }
 
+    // Using the old print inputs, read the input data file and initialize appropriate variables to non-default values
+    // if necessary
+    void getPrintDataFromInputFile_Old(nlohmann::json inputdata, int id, double deltat) {
+        // Which fields should be printed at the start and end of the simulation?
+        std::vector<std::string> InitFieldnames_key = {"GrainID", "LayerID", "MeltTimeStep", "CritTimeStep",
+                                                       "UndercoolingChange"};
+        std::vector<bool> PrintFieldsInit = getPrintFieldValues_Old(inputdata, "PrintFieldsInit", InitFieldnames_key);
+        if (PrintFieldsInit[0])
+            print.intralayer_grain_id = true;
+        if (PrintFieldsInit[1])
+            print.intralayer_layer_id = true;
+        if (PrintFieldsInit[2])
+            print.intralayer_melt_time_step = true;
+        if (PrintFieldsInit[3])
+            print.intralayer_crit_time_step = true;
+        if (PrintFieldsInit[4])
+            print.intralayer_undercooling_change = true;
+        int num_print_intralayer_inputs = PrintFieldsInit.size();
+        // True if any fields are printed
+        for (int n = 0; n < num_print_intralayer_inputs; n++) {
+            if (PrintFieldsInit[n])
+                print.intralayer = true;
+        }
+
+        std::vector<std::string> FinalFieldnames_key = {
+            "GrainID",      "LayerID",      "GrainMisorientation", "UndercoolingCurrent",
+            "MeltTimeStep", "CritTimeStep", "UndercoolingChange",  "CellType"};
+        std::vector<bool> PrintFieldsFinal =
+            getPrintFieldValues_Old(inputdata, "PrintFieldsFinal", FinalFieldnames_key);
+        if (PrintFieldsFinal[0])
+            print.interlayer_grain_id = true;
+        if (PrintFieldsFinal[1])
+            print.interlayer_layer_id = true;
+        if (PrintFieldsFinal[2])
+            print.interlayer_grain_misorientation = true;
+        if (PrintFieldsFinal[3])
+            print.interlayer_undercooling_current = true;
+        if (PrintFieldsFinal[4])
+            print.interlayer_melt_time_step = true;
+        if (PrintFieldsFinal[5])
+            print.interlayer_crit_time_step = true;
+        if (PrintFieldsFinal[6])
+            print.interlayer_undercooling_change = true;
+        if (PrintFieldsFinal[7])
+            print.interlayer_cell_type = true;
+        // Print fields final - only after last layer of simulation. Set increment to the number of layers
+        print.print_layer_number.push_back(domain.NumberOfLayers - 1);
+        if ((print.interlayer_grain_id) || (print.interlayer_layer_id))
+            print.interlayer_full = true;
+        for (int n = 3; n < 7; n++) {
+            if (PrintFieldsInit[n])
+                print.interlayer_current = true;
+        }
+
+        // Should intermediate output be printed?
+        if (inputdata["Printing"].contains("PrintIntermediateOutput")) {
+            // An increment of 0 will set the intermediate file printing to false
+            double TimeSeriesFrameInc_time = inputdata["Printing"]["PrintIntermediateOutput"]["Frequency"];
+            if (TimeSeriesFrameInc_time != 0) {
+                print.intralayer = true;
+                // Increment is given in microseconds, convert to seconds
+                TimeSeriesFrameInc_time = TimeSeriesFrameInc_time * pow(10, -6);
+                print.intralayer_increment = Kokkos::round(TimeSeriesFrameInc_time / deltat);
+                // Should the intermediate output be printed even if the simulation was unchanged from the previous
+                // output step?
+                print.intralayer_idle_frames = inputdata["Printing"]["PrintIntermediateOutput"]["PrintIdleFrames"];
+                if (id == 0)
+                    std::cout << "Intermediate output for movie frames will be printed every "
+                              << print.intralayer_increment << " time steps (or every "
+                              << print.intralayer_increment * deltat << " microseconds)" << std::endl;
+            }
+            else if (print.intralayer) {
+                // Intermediate output should not be printed - but initial fields should, set intralayer increment to
+                // large number so only the first frame will be printed
+                print.intralayer = true;
+                print.intralayer_increment = INT_MAX;
+            }
+        }
+        else if (print.intralayer) {
+            // Intermediate output should not be printed - but initial fields should, set intralayer increment to large
+            // number so only the first frame will be printed
+            print.intralayer = true;
+            print.intralayer_increment = INT_MAX;
+        }
+    }
+
     // Read the input data file and initialize appropriate variables to non-default values if necessary
     void getPrintDataFromInputFile(nlohmann::json inputdata, int id, double deltat) {
         // Path to output data
@@ -383,58 +489,115 @@ struct Inputs {
                 print.PrintDefaultRVE = true;
         }
 
-        // Which fields should be printed at the start and end of the simulation?
-        std::vector<std::string> InitFieldnames_key = {"GrainID", "LayerID", "MeltTimeStep", "CritTimeStep",
-                                                       "UndercoolingChange"};
-        std::vector<bool> PrintFieldsInit = getPrintFieldValues(inputdata, "PrintFieldsInit", InitFieldnames_key);
-        if (PrintFieldsInit[0])
-            print.PrintInitGrainID = true;
-        if (PrintFieldsInit[1])
-            print.PrintInitLayerID = true;
-        if (PrintFieldsInit[2])
-            print.PrintInitMeltTimeStep = true;
-        if (PrintFieldsInit[3])
-            print.PrintInitCritTimeStep = true;
-        if (PrintFieldsInit[4])
-            print.PrintInitUndercoolingChange = true;
+        if ((inputdata["Printing"].contains("PrintFieldsInit")) ||
+            (inputdata["Printing"].contains("PrintIntermediateOutput")) ||
+            (inputdata["Printing"].contains("PrintIntermediateOutput"))) {
+            if (id == 0)
+                std::cout << "Warning: Old print input format detected; compatibility with this will be removed in a "
+                             "future release. See examples/README for updated format"
+                          << std::endl;
+            getPrintDataFromInputFile_Old(inputdata, id, deltat);
+        }
+        else {
+            if (inputdata["Printing"].contains("Intralayer")) {
+                // Fields to be printed during a simulation or during a layer of a simulation - if increment
+                print.intralayer = true;
+                if (inputdata["Printing"]["Intralayer"]["Increment"] == 0) {
+                    // Files only printed for the initial state of a given layer
+                    print.intralayer_increment = INT_MAX;
+                }
+                else {
+                    // Files to be printed at some interval during each layer
+                    print.intralayer_increment = inputdata["Printing"]["Intralayer"]["Increment"];
+                    print.intralayer_idle_frames = inputdata["Printing"]["Intralayer"]["PrintIdleFrames"];
+                }
+                // Which fields should be printed during the layers?
+                std::vector<bool> print_fields_intralayer =
+                    getPrintFieldValues(inputdata, "Intralayer", print.Fieldnames_key);
+                if (print_fields_intralayer[0])
+                    print.intralayer_grain_id = true;
+                if (print_fields_intralayer[1])
+                    print.intralayer_layer_id = true;
+                if (print_fields_intralayer[2])
+                    print.intralayer_grain_misorientation = true;
+                if (print_fields_intralayer[3])
+                    print.intralayer_undercooling_current = true;
+                if (print_fields_intralayer[4])
+                    print.intralayer_melt_time_step = true;
+                if (print_fields_intralayer[5])
+                    print.intralayer_crit_time_step = true;
+                if (print_fields_intralayer[6])
+                    print.intralayer_undercooling_change = true;
+                if (print_fields_intralayer[7])
+                    print.intralayer_cell_type = true;
+                if (print_fields_intralayer[8])
+                    print.intralayer_diagonal_length = true;
+                if (print_fields_intralayer[9])
+                    print.intralayer_solidification_event_counter = true;
+                if (print_fields_intralayer[10])
+                    print.intralayer_number_of_solidification_events = true;
+                // True if any fields are printed
+                int num_print_intralayer_inputs = print_fields_intralayer.size();
+                for (int n = 0; n < num_print_intralayer_inputs; n++) {
+                    if (print_fields_intralayer[n])
+                        print.intralayer = true;
+                }
+            }
+            // List of layers following which interlayer data should be printed (will always print after last layer by
+            // default)
+            if (inputdata["Printing"]["Interlayer"].contains("Layers")) {
+                int num_print_layers = inputdata["Printing"]["Interlayer"]["Layers"].size();
+                for (int n = 0; n < num_print_layers; n++) {
+                    int print_layer_val = inputdata["Printing"]["Interlayer"]["Layers"][n];
+                    if (print_layer_val >= domain.NumberOfLayers) {
+                        if (id == 0)
+                            std::cout << "Note: adjusting layer value of " << print_layer_val << " to "
+                                      << domain.NumberOfLayers - 1
+                                      << " as the simulation only contains layers 0 through " << domain.NumberOfLayers
+                                      << std::endl;
+                        print_layer_val = domain.NumberOfLayers - 1;
+                    }
+                    print.print_layer_number.push_back(print_layer_val);
+                }
+                // Make sure files print after last layer, even if it wasn't listed
+                if (print.print_layer_number[num_print_layers - 1] != domain.NumberOfLayers - 1)
+                    print.print_layer_number.push_back(domain.NumberOfLayers - 1);
+            }
+            else
+                print.print_layer_number.push_back(domain.NumberOfLayers - 1);
 
-        std::vector<std::string> FinalFieldnames_key = {
-            "GrainID",      "LayerID",      "GrainMisorientation", "UndercoolingCurrent",
-            "MeltTimeStep", "CritTimeStep", "UndercoolingChange",  "CellType"};
-        std::vector<bool> PrintFieldsFinal = getPrintFieldValues(inputdata, "PrintFieldsFinal", FinalFieldnames_key);
-        if (PrintFieldsFinal[0])
-            print.PrintFinalGrainID = true;
-        if (PrintFieldsFinal[1])
-            print.PrintFinalLayerID = true;
-        if (PrintFieldsFinal[2])
-            print.PrintFinalMisorientation = true;
-        if (PrintFieldsFinal[3])
-            print.PrintFinalUndercoolingCurrent = true;
-        if (PrintFieldsFinal[4])
-            print.PrintFinalMeltTimeStep = true;
-        if (PrintFieldsFinal[5])
-            print.PrintFinalCritTimeStep = true;
-        if (PrintFieldsFinal[6])
-            print.PrintFinalUndercoolingChange = true;
-        if (PrintFieldsFinal[7])
-            print.PrintFinalCellType = true;
-
-        // Should intermediate output be printed?
-        if (inputdata["Printing"].contains("PrintIntermediateOutput")) {
-            // An increment of 0 will set the intermediate file printing to false
-            double TimeSeriesFrameInc_time = inputdata["Printing"]["PrintIntermediateOutput"]["Frequency"];
-            if (TimeSeriesFrameInc_time != 0) {
-                print.PrintTimeSeries = true;
-                // Increment is given in microseconds, convert to seconds
-                TimeSeriesFrameInc_time = TimeSeriesFrameInc_time * pow(10, -6);
-                print.TimeSeriesInc = Kokkos::round(TimeSeriesFrameInc_time / deltat);
-                // Should the intermediate output be printed even if the simulation was unchanged from the previous
-                // output step?
-                print.PrintIdleTimeSeriesFrames = inputdata["Printing"]["PrintIntermediateOutput"]["PrintIdleFrames"];
-                if (id == 0)
-                    std::cout << "Intermediate output for movie frames will be printed every " << print.TimeSeriesInc
-                              << " time steps (or every " << print.TimeSeriesInc * deltat << " microseconds)"
-                              << std::endl;
+            // Which fields should be printed during the layers?
+            std::vector<bool> print_fields_interlayer =
+                getPrintFieldValues(inputdata, "Interlayer", print.Fieldnames_key);
+            if (print_fields_interlayer[0])
+                print.interlayer_grain_id = true;
+            if (print_fields_interlayer[1])
+                print.interlayer_layer_id = true;
+            if (print_fields_interlayer[2])
+                print.interlayer_grain_misorientation = true;
+            if (print_fields_interlayer[3])
+                print.interlayer_undercooling_current = true;
+            if (print_fields_interlayer[4])
+                print.interlayer_melt_time_step = true;
+            if (print_fields_interlayer[5])
+                print.interlayer_crit_time_step = true;
+            if (print_fields_interlayer[6])
+                print.interlayer_undercooling_change = true;
+            if (print_fields_interlayer[7])
+                print.interlayer_cell_type = true;
+            if (print_fields_interlayer[8])
+                print.interlayer_diagonal_length = true;
+            if (print_fields_interlayer[9])
+                print.interlayer_solidification_event_counter = true;
+            if (print_fields_interlayer[10])
+                print.interlayer_number_of_solidification_events = true;
+            if ((print.interlayer_grain_id) || (print.interlayer_layer_id) || (print.interlayer_undercooling_current))
+                print.interlayer_full = true;
+            // First 4 inputs are full domain inputs - check if any of the others were toggled
+            int num_interlayer_current_inputs = print_fields_interlayer.size();
+            for (int n = 4; n < num_interlayer_current_inputs; n++) {
+                if (print_fields_interlayer[n])
+                    print.interlayer_current = true;
             }
         }
         if (id == 0)

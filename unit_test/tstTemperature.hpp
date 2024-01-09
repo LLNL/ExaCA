@@ -72,12 +72,12 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
         for (int j = 0; j < grid.ny; j++) {
             for (int i = 0; i < grid.nx; i++) {
                 if (TestBinaryInputRead) {
-                    WriteData(TestDataFile1, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
-                    WriteData(TestDataFile1, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
-                    WriteData(TestDataFile1, static_cast<double>(0.0), TestBinaryInputRead);
-                    WriteData(TestDataFile1, static_cast<double>(i * j), TestBinaryInputRead);
-                    WriteData(TestDataFile1, static_cast<double>(i * j + i), TestBinaryInputRead);
-                    WriteData(TestDataFile1, static_cast<double>(i * j + j), TestBinaryInputRead);
+                    writeData(TestDataFile1, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
+                    writeData(TestDataFile1, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
+                    writeData(TestDataFile1, static_cast<double>(0.0), TestBinaryInputRead);
+                    writeData(TestDataFile1, static_cast<double>(i * j), TestBinaryInputRead);
+                    writeData(TestDataFile1, static_cast<double>(i * j + i), TestBinaryInputRead);
+                    writeData(TestDataFile1, static_cast<double>(i * j + j), TestBinaryInputRead);
                 }
                 else
                     TestDataFile1 << i * grid.deltax << "," << j * grid.deltax << "," << 0.0 << ","
@@ -97,12 +97,12 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
         for (int j = 0; j < grid.ny; j++) {
             for (int i = 0; i < grid.nx; i++) {
                 if (TestBinaryInputRead) {
-                    WriteData(TestDataFile2, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
-                    WriteData(TestDataFile2, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
-                    WriteData(TestDataFile2, static_cast<double>(grid.deltax), TestBinaryInputRead);
-                    WriteData(TestDataFile2, static_cast<double>(i * j), TestBinaryInputRead);
-                    WriteData(TestDataFile2, static_cast<double>(i * j + i), TestBinaryInputRead);
-                    WriteData(TestDataFile2, static_cast<double>(i * j + j), TestBinaryInputRead);
+                    writeData(TestDataFile2, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
+                    writeData(TestDataFile2, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
+                    writeData(TestDataFile2, static_cast<double>(grid.deltax), TestBinaryInputRead);
+                    writeData(TestDataFile2, static_cast<double>(i * j), TestBinaryInputRead);
+                    writeData(TestDataFile2, static_cast<double>(i * j + i), TestBinaryInputRead);
+                    writeData(TestDataFile2, static_cast<double>(i * j + j), TestBinaryInputRead);
                 }
                 else
                     TestDataFile2 << i * grid.deltax << "," << j * grid.deltax << "," << grid.deltax << ","

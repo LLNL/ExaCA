@@ -39,18 +39,17 @@ struct CellData {
     using execution_space = typename memory_space::execution_space;
 
     int NextLayer_FirstEpitaxialGrainID;
-    view_type_int GrainID_AllLayers, CellType_AllLayers;
+    view_type_int GrainID_AllLayers, CellType;
     view_type_short LayerID_AllLayers;
     // Substrate inputs from file
     SubstrateInputs _inputs;
 
     // Constructor for views and view bounds for current layer
-    // TODO: CellType is only needed for the current layer, and LayerID is only needed for all layers/no subview is
-    // needed. Leaving them as-is for now each with the "AllLayers" and "Current layer/subview slice" to minimize
-    // changes to the rest of the code to accomodate. GrainID is initialized to zeros, while others are not initialized
-    CellData(int domain_size_all_layers, SubstrateInputs inputs)
+    // GrainID is initialized to zeros, while others are not initialized
+    // CellType only exists for the current layer of a multilayer problem
+    CellData(const int domain_size, const int domain_size_all_layers, SubstrateInputs inputs)
         : GrainID_AllLayers(view_type_int("GrainID", domain_size_all_layers))
-        , CellType_AllLayers(view_type_int(Kokkos::ViewAllocateWithoutInitializing("CellType"), domain_size_all_layers))
+        , CellType(view_type_int(Kokkos::ViewAllocateWithoutInitializing("CellType"), domain_size))
         , LayerID_AllLayers(view_type_short(Kokkos::ViewAllocateWithoutInitializing("LayerID"), domain_size_all_layers))
         , _inputs(inputs) {}
 
@@ -64,7 +63,7 @@ struct CellData {
         int grainLocationZ = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
 
         // Local copies for lambda capture.
-        auto CellType_AllLayers_local = CellType_AllLayers;
+        auto CellType_local = CellType;
         auto GrainID_AllLayers_local = GrainID_AllLayers;
         int singleGrainOrientation_local = _inputs.singleGrainOrientation;
 
@@ -76,11 +75,11 @@ struct CellData {
                 int coord_z = grid.get_coord_Z(index);
                 int coord_y_global = coord_y + grid.y_offset;
                 if ((coord_x == grainLocationX) && (coord_y_global == grainLocationY) && (coord_z == grainLocationZ)) {
-                    CellType_AllLayers_local(index) = FutureActive;
+                    CellType_local(index) = FutureActive;
                     GrainID_AllLayers_local(index) = singleGrainOrientation_local + 1;
                 }
                 else
-                    CellType_AllLayers_local(index) = Liquid;
+                    CellType_local(index) = Liquid;
             });
         if ((grainLocationY >= grid.y_offset) && (grainLocationY < grid.y_offset + grid.ny_local))
             std::cout << "Rank " << id << " initialized a grain with orientation " << singleGrainOrientation_local
@@ -141,11 +140,11 @@ struct CellData {
 
         // Start with all cells as liquid prior to locating substrate grain seeds
         // All cells have LayerID = 0 as this is not a multilayer problem
-        Kokkos::deep_copy(CellType_AllLayers, Liquid);
+        Kokkos::deep_copy(CellType, Liquid);
         Kokkos::deep_copy(LayerID_AllLayers, 0);
 
         // Local copies for lambda capture.
-        auto CellType_AllLayers_local = CellType_AllLayers;
+        auto CellType_local = CellType;
         auto GrainID_AllLayers_local = GrainID_AllLayers;
 
         // Determine which grains/active cells belong to which MPI ranks
@@ -161,7 +160,7 @@ struct CellData {
                     int coord_y = ActCellData(n, 1) - grid.y_offset;
                     int coord_z = 0;
                     int index = grid.get_1D_index(coord_x, coord_y, coord_z);
-                    CellType_AllLayers_local(index) = FutureActive;
+                    CellType_local(index) = FutureActive;
                     GrainID_AllLayers_local(index) = ActCellData(n, 2); // assign GrainID > 0 to epitaxial seeds
                 }
             });
@@ -199,7 +198,9 @@ struct CellData {
                         // GrainID associated with the closest baseplate grain center
                         GrainID_AllLayers_local(index_AllLayers) = MinDistanceToThisGrain_GrainID;
                         // These cells are also future active cells
-                        CellType_AllLayers_local(index_AllLayers) = FutureActive;
+                        // For directional solidification, only one "layer" so index for all layers can be used here to
+                        // index CellType
+                        CellType_local(index_AllLayers) = FutureActive;
                     }
                 });
         }
@@ -541,7 +542,7 @@ struct CellData {
 
         int MeltPoolCellCount;
         // Local copies for lambda capture.
-        auto CellType_AllLayers_local = CellType_AllLayers;
+        auto CellType_local = CellType;
         auto LayerID_AllLayers_local = LayerID_AllLayers;
 
         auto policy = Kokkos::RangePolicy<execution_space>(0, grid.domain_size);
@@ -551,12 +552,12 @@ struct CellData {
             KOKKOS_LAMBDA(const int &index, int &local_count) {
                 int index_AllLayers = index + grid.z_layer_bottom * grid.nx * grid.ny_local;
                 if (NumberOfSolidificationEvents(index) > 0) {
-                    CellType_AllLayers_local(index_AllLayers) = TempSolid;
+                    CellType_local(index) = TempSolid;
                     LayerID_AllLayers_local(index_AllLayers) = layernumber;
                     local_count++;
                 }
                 else
-                    CellType_AllLayers_local(index_AllLayers) = Solid;
+                    CellType_local(index) = Solid;
             },
             MeltPoolCellCount);
         int TotalMeltPoolCellCount;
@@ -611,7 +612,6 @@ struct CellData {
     // corresponding to the current layer of a multilayer problem
     auto getGrainIDSubview(const Grid &grid) const { return Kokkos::subview(GrainID_AllLayers, grid.layer_range); }
     auto getLayerIDSubview(const Grid &grid) const { return Kokkos::subview(LayerID_AllLayers, grid.layer_range); }
-    auto getCellTypeSubview(const Grid &grid) const { return Kokkos::subview(CellType_AllLayers, grid.layer_range); }
 };
 
 #endif

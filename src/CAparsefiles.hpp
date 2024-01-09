@@ -28,6 +28,8 @@ std::size_t checkForHeaderValues(std::string header_line);
 bool checkFileExists(const std::string path, const int id, const bool error = true);
 std::string checkFileInstalled(const std::string name, const int id);
 void checkFileNotEmpty(std::string testfilename);
+std::vector<bool> getPrintFieldValues_Old(nlohmann::json inputdata, std::string Fieldtype,
+                                          std::vector<std::string> Fieldnames_key);
 std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fieldtype,
                                       std::vector<std::string> Fieldnames_key);
 // Swaps bits for a variable of type SwapType

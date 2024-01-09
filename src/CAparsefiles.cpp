@@ -162,11 +162,12 @@ void checkFileNotEmpty(std::string testfilename) {
     testfilestream.close();
 }
 
+// TODO: Old version, remove when old print options parsing format compatibility is no longer needed
 // Check the field names from the given input (Fieldtype = PrintFieldsInit or PrintFieldsFinal) against the possible
 // fieldnames listed in Fieldnames_key. Fill the vector PrintFields_given with true or false values depending on whether
 // the corresponding field name from Fieldnames_key appeared in the input or not
-std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fieldtype,
-                                      std::vector<std::string> Fieldnames_key) {
+std::vector<bool> getPrintFieldValues_Old(nlohmann::json inputdata, std::string Fieldtype,
+                                          std::vector<std::string> Fieldnames_key) {
     int NumFields_key = Fieldnames_key.size();
     int NumFields_given = inputdata["Printing"][Fieldtype].size();
     std::vector<bool> PrintFields_given(NumFields_key, false);
@@ -174,6 +175,21 @@ std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fiel
     for (int field_given = 0; field_given < NumFields_given; field_given++) {
         for (int field_key = 0; field_key < NumFields_key; field_key++) {
             if (inputdata["Printing"][Fieldtype][field_given] == Fieldnames_key[field_key])
+                PrintFields_given[field_key] = true;
+        }
+    }
+    return PrintFields_given;
+}
+// Updated version, where fields are organized into intralayer and interlayer
+std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fieldtype,
+                                      std::vector<std::string> Fieldnames_key) {
+    int NumFields_key = Fieldnames_key.size();
+    int NumFields_given = inputdata["Printing"][Fieldtype]["Fields"].size();
+    std::vector<bool> PrintFields_given(NumFields_key, false);
+    // Check each given field against each possible input field name
+    for (int field_given = 0; field_given < NumFields_given; field_given++) {
+        for (int field_key = 0; field_key < NumFields_key; field_key++) {
+            if (inputdata["Printing"][Fieldtype]["Fields"][field_given] == Fieldnames_key[field_key])
                 PrintFields_given[field_key] = true;
         }
     }

@@ -40,8 +40,8 @@ void testReadWrite(bool PrintReadBinary) {
     }
     for (int n = 0; n < 5; n++) {
         // Write to files
-        WriteData(TestIntData, IntData[n], PrintReadBinary, true);
-        WriteData(TestFloatData, FloatData[n], PrintReadBinary, true);
+        writeData(TestIntData, IntData[n], PrintReadBinary, true);
+        writeData(TestFloatData, FloatData[n], PrintReadBinary, true);
     }
     TestIntData.close();
     TestFloatData.close();

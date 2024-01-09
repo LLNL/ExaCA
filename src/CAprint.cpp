@@ -7,28 +7,33 @@
 #include "mpi.h"
 
 // Print timing info to console
-void PrintExaCATiming(int np, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
-                      double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
-                      double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
-                      double GhostMinTime, double OutMaxTime, double OutMinTime) {
+void PrintExaCATiming(const int np, const double init_time, const double run_time, const double out_time,
+                      const int cycle, const double init_max_time, const double init_min_time,
+                      const double nucl_max_time, const double nucl_min_time, const double create_sv_min_time,
+                      const double create_sv_max_time, const double capture_max_time, const double capture_min_time,
+                      const double ghost_max_time, const double ghost_min_time, const double out_max_time,
+                      const double out_min_time) {
 
     std::cout << "===================================================================================" << std::endl;
     std::cout << "Having run with = " << np << " processors" << std::endl;
     std::cout << "Output written at cycle = " << cycle << std::endl;
-    std::cout << "Total time = " << InitTime + RunTime + OutTime << std::endl;
-    std::cout << "Time spent initializing data = " << InitTime << " s" << std::endl;
-    std::cout << "Time spent performing CA calculations = " << RunTime << " s" << std::endl;
-    std::cout << "Time spent collecting and printing output data = " << OutTime << " s\n" << std::endl;
+    std::cout << "Total time = " << init_time + run_time + out_time << std::endl;
+    std::cout << "Time spent initializing data = " << init_time << " s" << std::endl;
+    std::cout << "Time spent performing CA calculations = " << run_time << " s" << std::endl;
+    std::cout << "Time spent collecting and printing output data = " << out_time << " s\n" << std::endl;
 
-    std::cout << "Max/min rank time initializing data  = " << InitMaxTime << " / " << InitMinTime << " s" << std::endl;
-    std::cout << "Max/min rank time in CA nucleation   = " << NuclMaxTime << " / " << NuclMinTime << " s" << std::endl;
-    std::cout << "Max/min rank time in CA steering vector creation = " << CreateSVMaxTime << " / " << CreateSVMinTime
-              << " s" << std::endl;
-    std::cout << "Max/min rank time in CA cell capture = " << CaptureMaxTime << " / " << CaptureMinTime << " s"
+    std::cout << "Max/min rank time initializing data  = " << init_max_time << " / " << init_min_time << " s"
               << std::endl;
-    std::cout << "Max/min rank time in CA ghosting     = " << GhostMaxTime << " / " << GhostMinTime << " s"
+    std::cout << "Max/min rank time in CA nucleation   = " << nucl_max_time << " / " << nucl_min_time << " s"
               << std::endl;
-    std::cout << "Max/min rank time exporting data     = " << OutMaxTime << " / " << OutMinTime << " s\n" << std::endl;
+    std::cout << "Max/min rank time in CA steering vector creation = " << create_sv_max_time << " / "
+              << create_sv_min_time << " s" << std::endl;
+    std::cout << "Max/min rank time in CA cell capture = " << capture_max_time << " / " << capture_min_time << " s"
+              << std::endl;
+    std::cout << "Max/min rank time in CA ghosting     = " << ghost_max_time << " / " << ghost_min_time << " s"
+              << std::endl;
+    std::cout << "Max/min rank time exporting data     = " << out_max_time << " / " << out_min_time << " s\n"
+              << std::endl;
 
     std::cout << "===================================================================================" << std::endl;
 }

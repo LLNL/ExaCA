@@ -6,8 +6,10 @@
 #ifndef EXACA_PRINT_HPP
 #define EXACA_PRINT_HPP
 
+#include "CAcelldata.hpp"
 #include "CAgrid.hpp"
 #include "CAinputs.hpp"
+#include "CAinterface.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAorientation.hpp"
 #include "CAparsefiles.hpp"
@@ -27,106 +29,113 @@
 
 // Write data of type PrintType as ascii or binary, with option to convert between big and small endian binary
 template <typename PrintType>
-void WriteData(std::ofstream &outstream, PrintType PrintValue, bool PrintBinary, bool SwapEndianYN = false) {
-    if (PrintBinary) {
-        if (SwapEndianYN)
-            SwapEndian(PrintValue);
-        int varSize = sizeof(PrintType);
-        outstream.write((char *)&PrintValue, varSize);
+void writeData(std::ofstream &outstream, PrintType print_value, bool print_binary, bool swap_endian_YN = false) {
+    if (print_binary) {
+        if (swap_endian_YN)
+            SwapEndian(print_value);
+        int var_size = sizeof(PrintType);
+        outstream.write((char *)&print_value, var_size);
     }
     else
-        outstream << PrintValue << " ";
+        outstream << print_value << " ";
 }
 
 // Struct to hold data printing options and functions
 struct Print {
 
-    // If printing the time series, the counter for the number of intermediate files that have been printed for a given
-    // layer of a multilayer problem
-    int IntermediateFileCounter = 0;
+    // If printing data at the end of layers, the counter for the number of intermediate files that have been printed
+    int interlayer_file_count = 0;
 
     // Message sizes and data offsets for data send/recieved to/from other ranks- message size different for different
     // ranks
     using view_type_int_host = Kokkos::View<int *, Kokkos::HostSpace>;
     using view_type_float_host = Kokkos::View<float *, Kokkos::HostSpace>;
-    view_type_int_host Recv_y_offset, Recv_ny_local, RBufSize;
+    view_type_int_host recv_y_offset, recv_ny_local, recv_buf_size;
     // Y coordinates for a given rank's data being send/loaded into the view of all domain data on rank 0=
-    int SendBufStartY, SendBufEndY, SendBufSize;
+    int send_buf_start_y, send_buf_end_y, send_buf_size;
     // Holds print options from input file
     PrintInputs _inputs;
     // Combined path/file prefix for output files
-    std::string PathBaseFileName;
+    std::string path_base_filename;
 
     // Default constructor - options are set in getPrintDataFromFile and copied into this struct
-    Print(const Grid &grid, int np, PrintInputs inputs)
-        : Recv_y_offset(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_y_offset"), np))
-        , Recv_ny_local(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_ny_local"), np))
-        , RBufSize(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np))
+    Print(const Grid &grid, const int np, PrintInputs inputs)
+        : recv_y_offset(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_y_offset"), np))
+        , recv_ny_local(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("Recv_ny_local"), np))
+        , recv_buf_size(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("RBufSize"), np))
         , _inputs(inputs) {
 
         // Buffers for sending/receiving data across ranks
         for (int recvrank = 0; recvrank < np; recvrank++) {
-            Recv_y_offset(recvrank) = grid.get_y_offset(recvrank, np);
-            Recv_ny_local(recvrank) = grid.get_ny_local(recvrank, np);
-            RBufSize(recvrank) = grid.nx * Recv_ny_local(recvrank) * grid.nz;
+            recv_y_offset(recvrank) = grid.get_y_offset(recvrank, np);
+            recv_ny_local(recvrank) = grid.get_ny_local(recvrank, np);
+            recv_buf_size(recvrank) = grid.nx * recv_ny_local(recvrank) * grid.nz;
         }
 
         // Y coordinates for a given rank's data being send/loaded into the view of all domain data on rank 0
         if (grid.y_offset == 0)
-            SendBufStartY = 0;
+            send_buf_start_y = 0;
         else
-            SendBufStartY = 1;
+            send_buf_start_y = 1;
         if (grid.ny_local + grid.y_offset == grid.ny)
-            SendBufEndY = grid.ny_local;
+            send_buf_end_y = grid.ny_local;
         else
-            SendBufEndY = grid.ny_local - 1;
-        SendBufSize = grid.nx * (SendBufEndY - SendBufStartY) * grid.nz;
+            send_buf_end_y = grid.ny_local - 1;
+        send_buf_size = grid.nx * (send_buf_end_y - send_buf_start_y) * grid.nz;
 
-        PathBaseFileName = _inputs.PathToOutput + _inputs.BaseFileName;
+        path_base_filename = _inputs.PathToOutput + _inputs.BaseFileName;
     }
 
     // Called on rank 0 to collect view data from other ranks, or on other ranks to send data to rank 0
     // MPI datatype corresponding to the view data
     template <typename Collect1DViewTypeDevice>
-    auto collectViewData(int id, int np, const Grid &grid, int ZPrintSize, MPI_Datatype msg_type,
-                         Collect1DViewTypeDevice ViewDataThisRank_Device) {
+    auto collectViewData(int id, int np, const Grid &grid, const bool current_layer_only, MPI_Datatype msg_type,
+                         Collect1DViewTypeDevice view_data_this_rank_device) {
+
+        // Either collect data from all Z coordinates, or just the ones associated with the current layer of a problem
+        int z_print_size;
+        if (current_layer_only)
+            z_print_size = grid.nz_layer;
+        else
+            z_print_size = grid.nz;
+
         // View (int or float extracted from 1D View) for 3D data (no initial size, only given size/filled on rank 0)
         using value_type = typename Collect1DViewTypeDevice::value_type;
-        Kokkos::View<value_type ***, Kokkos::HostSpace> ViewData_WholeDomain(
-            Kokkos::ViewAllocateWithoutInitializing(ViewDataThisRank_Device.label() + "_WholeDomain"), 0, 0, 0);
+        Kokkos::View<value_type ***, Kokkos::HostSpace> view_data_whole_domain(
+            Kokkos::ViewAllocateWithoutInitializing(view_data_this_rank_device.label() + "_WholeDomain"), 0, 0, 0);
 
         // Get the host view type
         using host_view_type = typename Collect1DViewTypeDevice::HostMirror;
 
         // Copy view data of interest host
-        auto ViewDataThisRank = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ViewDataThisRank_Device);
+        auto view_data_this_rank = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), view_data_this_rank_device);
         if (id == 0) {
             // View (short, int, or float) for 3D data given a size
-            Kokkos::resize(ViewData_WholeDomain, ZPrintSize, grid.nx, grid.ny);
+            Kokkos::resize(view_data_whole_domain, z_print_size, grid.nx, grid.ny);
             // Place rank 0 data into view for whole domain
-            for (int coord_z = 0; coord_z < ZPrintSize; coord_z++) {
+            for (int coord_z = 0; coord_z < z_print_size; coord_z++) {
                 for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
                     for (int coord_y_local = 0; coord_y_local < grid.ny_local; coord_y_local++) {
                         int index = grid.get_1D_index(coord_x, coord_y_local, coord_z);
-                        ViewData_WholeDomain(coord_z, coord_x, coord_y_local) = ViewDataThisRank(index);
+                        view_data_whole_domain(coord_z, coord_x, coord_y_local) = view_data_this_rank(index);
                     }
                 }
             }
 
             // Recieve values from other ranks - message size different for different ranks
             for (int recvrank = 1; recvrank < np; recvrank++) {
-                int RecvBufSize_ThisRank = RBufSize(recvrank);
-                host_view_type RecvBufData(Kokkos::ViewAllocateWithoutInitializing("RecvBufData"),
-                                           RecvBufSize_ThisRank);
-                MPI_Recv(RecvBufData.data(), RecvBufSize_ThisRank, msg_type, recvrank, 0, MPI_COMM_WORLD,
+                int recv_buf_size_this_rank = recv_buf_size(recvrank);
+                host_view_type recv_buf(Kokkos::ViewAllocateWithoutInitializing("RecvBufData"),
+                                        recv_buf_size_this_rank);
+                MPI_Recv(recv_buf.data(), recv_buf_size_this_rank, msg_type, recvrank, 0, MPI_COMM_WORLD,
                          MPI_STATUS_IGNORE);
-                int DataCounter = 0;
-                for (int coord_z = 0; coord_z < ZPrintSize; coord_z++) {
+                int data_counter = 0;
+                for (int coord_z = 0; coord_z < z_print_size; coord_z++) {
                     for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
-                        for (int coord_y_local = 0; coord_y_local < Recv_ny_local(recvrank); coord_y_local++) {
-                            int coord_y_global = coord_y_local + Recv_y_offset(recvrank);
-                            ViewData_WholeDomain(coord_z, coord_x, coord_y_global) = RecvBufData(DataCounter);
-                            DataCounter++;
+                        for (int coord_y_local = 0; coord_y_local < recv_ny_local(recvrank); coord_y_local++) {
+                            int coord_y_global = coord_y_local + recv_y_offset(recvrank);
+                            view_data_whole_domain(coord_z, coord_x, coord_y_global) = recv_buf(data_counter);
+                            data_counter++;
                         }
                     }
                 }
@@ -134,282 +143,381 @@ struct Print {
         }
         else {
             // Send non-ghost node data to rank 0
-            int DataCounter = 0;
-            host_view_type SendBuf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), SendBufSize);
-            for (int coord_z = 0; coord_z < ZPrintSize; coord_z++) {
+            int data_counter = 0;
+            host_view_type send_buf(Kokkos::ViewAllocateWithoutInitializing("SendBuf"), send_buf_size);
+            for (int coord_z = 0; coord_z < z_print_size; coord_z++) {
                 for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
-                    for (int coord_y_local = SendBufStartY; coord_y_local < SendBufEndY; coord_y_local++) {
+                    for (int coord_y_local = send_buf_start_y; coord_y_local < send_buf_end_y; coord_y_local++) {
                         int index = grid.get_1D_index(coord_x, coord_y_local, coord_z);
-                        SendBuf(DataCounter) = ViewDataThisRank(index);
-                        DataCounter++;
+                        send_buf(data_counter) = view_data_this_rank(index);
+                        data_counter++;
                     }
                 }
             }
-            MPI_Send(SendBuf.data(), SendBufSize, msg_type, 0, 0, MPI_COMM_WORLD);
+            MPI_Send(send_buf.data(), send_buf_size, msg_type, 0, 0, MPI_COMM_WORLD);
         }
-        return ViewData_WholeDomain;
+        return view_data_whole_domain;
     }
 
-    // Called on rank 0, prints initial values of selected data structures to Paraview files for cells between the
-    // overall simulation bottom and the top of the first layer
-    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename TemperatureMemory>
-    void printInitExaCAData(int id, int np, const Grid &grid, ViewTypeGrainID GrainID, ViewTypeLayerID LayerID,
-                            Temperature<TemperatureMemory> &temperature) {
+    // Called on rank 0, prints current values of selected data structures to Paraview files
+    // For intralayer print (current_layer_only = true):
+    // Creates a file "Basefilename_layer[layernumber]_[time].vtk" containing the portions of data structures
+    // corresponding to the current layer of a multilayer simulation The exception to this is for print
+    // GrainMisorientation, where data for all layer up to the current layer are printed to a separate file
+    // "Basefilename_layer[layernumber]_[time]_Misorientations.vtk"
+    template <typename MemorySpace>
+    void printIntralayer(const int id, const int np, const int layernumber, const double deltat, const int cycle,
+                         const Grid &grid, CellData<MemorySpace> &cellData, Temperature<MemorySpace> &temperature,
+                         Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
 
-        using view_int = Kokkos::View<int *, TemperatureMemory>;
-        using view_float = Kokkos::View<float *, TemperatureMemory>;
-        if ((_inputs.PrintInitGrainID) || (_inputs.PrintInitLayerID) || (_inputs.PrintInitMeltTimeStep) ||
-            (_inputs.PrintInitCritTimeStep) || (_inputs.PrintInitUndercoolingChange)) {
-            std::string FName = PathBaseFileName + "_init.vtk";
-            std::ofstream Grainplot;
+        using view_type_float = Kokkos::View<float *, MemorySpace>;
+        using view_type_int = Kokkos::View<int *, MemorySpace>;
+        if ((_inputs.intralayer) && (cycle % _inputs.intralayer_increment == 0)) {
+            // Current time in microseconds
+            double current_time = static_cast<double>(cycle) * deltat * Kokkos::pow(10, 6);
+            std::string vtk_filename_current_layer_base =
+                path_base_filename + "_layer" + std::to_string(layernumber) + "_" + std::to_string(current_time);
+            std::string vtk_filename_current_layer = vtk_filename_current_layer_base + ".vtk";
+            std::ofstream intralayer_ofstream;
             if (id == 0) {
-                std::cout << "Printing initial data structures to a vtk file" << std::endl;
-                WriteHeader(Grainplot, FName, grid, grid.nz_layer);
+                std::cout << "Printing data structures for current layer of the simulation to file "
+                          << vtk_filename_current_layer << std::endl;
+                // Write header for printing current layer's data to file
+                writeHeader(intralayer_ofstream, vtk_filename_current_layer, grid, true);
             }
-            if (_inputs.PrintInitGrainID) {
-                auto GrainID_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, GrainID);
-                printViewData(id, Grainplot, grid, grid.nz_layer, "int", "GrainID", GrainID_WholeDomain);
+            // Print current layer vtk data (Z coordinates of overall domain spanning layer_range_z)
+            if (_inputs.intralayer_grain_id) {
+                auto grain_id_current_layer = cellData.getGrainIDSubview(grid);
+                auto grain_id_whole_domain = collectViewData(id, np, grid, true, MPI_INT, grain_id_current_layer);
+                printViewData(id, intralayer_ofstream, grid, true, "int", "GrainID", grain_id_whole_domain);
             }
-            if (_inputs.PrintInitLayerID) {
-                auto LayerID_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_SHORT, LayerID);
-                printViewData(id, Grainplot, grid, grid.nz_layer, "short", "LayerID", LayerID_WholeDomain);
+            if (_inputs.intralayer_layer_id) {
+                auto layer_id_current_layer = cellData.getLayerIDSubview(grid);
+                auto layer_id_whole_domain = collectViewData(id, np, grid, true, MPI_SHORT, layer_id_current_layer);
+                printViewData(id, intralayer_ofstream, grid, true, "short", "LayerID", layer_id_whole_domain);
             }
-            if (_inputs.PrintInitMeltTimeStep) {
-                auto MeltTimeStep = temperature.template extract_tm_tl_cr_data<view_int>(0, grid.domain_size);
-                auto MeltTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, MeltTimeStep);
-                printViewData(id, Grainplot, grid, grid.nz_layer, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
+            if (_inputs.intralayer_undercooling_current) {
+                auto undercooling_current_layer =
+                    Kokkos::subview(temperature.UndercoolingCurrent_AllLayers, grid.layer_range);
+                auto undercooling_whole_domain =
+                    collectViewData(id, np, grid, true, MPI_FLOAT, undercooling_current_layer);
+                printViewData(id, intralayer_ofstream, grid, true, "float", "UndercoolingCurrent",
+                              undercooling_whole_domain);
             }
-            if (_inputs.PrintInitCritTimeStep) {
-                auto CritTimeStep = temperature.template extract_tm_tl_cr_data<view_int>(1, grid.domain_size);
-                auto CritTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, CritTimeStep);
-                printViewData(id, Grainplot, grid, grid.nz_layer, "int", "CritTimeStep", CritTimeStep_WholeDomain);
+            if (_inputs.intralayer_melt_time_step) {
+                auto melt_time_step = temperature.template extract_tm_tl_cr_data<view_type_int>(0, grid.domain_size);
+                auto melt_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, melt_time_step);
+                printViewData(id, intralayer_ofstream, grid, true, "int", "MeltTimeStep", melt_time_step_whole_domain);
             }
-            if (_inputs.PrintInitUndercoolingChange) {
-                auto UndercoolingChange =
-                    temperature.template extract_tm_tl_cr_data<view_float>(2, grid.domain_size, 0);
-                auto UndercoolingChange_WholeDomain =
-                    collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
-                printViewData(id, Grainplot, grid, grid.nz_layer, "float", "UndercoolingChange",
-                              UndercoolingChange_WholeDomain);
+            if (_inputs.intralayer_crit_time_step) {
+                auto crit_time_step = temperature.template extract_tm_tl_cr_data<view_type_int>(1, grid.domain_size);
+                auto crit_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, crit_time_step);
+                printViewData(id, intralayer_ofstream, grid, true, "int", "CritTimeStep", crit_time_step_whole_domain);
+            }
+            if (_inputs.intralayer_undercooling_change) {
+                auto undercooling_change =
+                    temperature.template extract_tm_tl_cr_data<view_type_float>(2, grid.domain_size, 0);
+                auto undercooling_change_whole_domain =
+                    collectViewData(id, np, grid, true, MPI_FLOAT, undercooling_change);
+                printViewData(id, intralayer_ofstream, grid, true, "float", "UndercoolingChange",
+                              undercooling_change_whole_domain);
+            }
+            if (_inputs.intralayer_cell_type) {
+                auto cell_type_whole_domain = collectViewData(id, np, grid, true, MPI_INT, cellData.CellType);
+                printViewData(id, intralayer_ofstream, grid, true, "int", "CellType", cell_type_whole_domain);
+            }
+            if (_inputs.intralayer_diagonal_length) {
+                auto diagonal_length_whole_domain =
+                    collectViewData(id, np, grid, true, MPI_FLOAT, interface.diagonal_length);
+                printViewData(id, intralayer_ofstream, grid, true, "float", "DiagonalLength",
+                              diagonal_length_whole_domain);
+            }
+            if (_inputs.intralayer_solidification_event_counter) {
+                auto solidification_event_counter_whole_domain =
+                    collectViewData(id, np, grid, true, MPI_INT, temperature.SolidificationEventCounter);
+                printViewData(id, intralayer_ofstream, grid, true, "int", "SolidificationEventCounter",
+                              solidification_event_counter_whole_domain);
+            }
+            if (_inputs.intralayer_number_of_solidification_events) {
+                auto number_of_solidification_events_whole_domain =
+                    collectViewData(id, np, grid, true, MPI_INT, temperature.NumberOfSolidificationEvents);
+                printViewData(id, intralayer_ofstream, grid, true, "int", "NumberOfSolidificationEvents",
+                              number_of_solidification_events_whole_domain);
             }
             if (id == 0)
-                Grainplot.close();
-        }
-    }
+                intralayer_ofstream.close();
 
-    // Called on rank 0, prints intermediate values of grain misorientation for all layers up to current layer, also
-    // marking which cells are liquid
-    template <typename ViewTypeGrainID, typename ViewTypeCellType, typename OrientationMemory>
-    void printIntermediateGrainMisorientation(const int id, const int np, const int cycle, const Grid &grid,
-                                              ViewTypeGrainID GrainID, ViewTypeCellType CellType,
-                                              Orientation<OrientationMemory> &orientation, int layernumber) {
-
-        // Check if option is toggled and whether the output should be printed this time step
-        if ((_inputs.PrintTimeSeries) && (cycle % _inputs.TimeSeriesInc == 0)) {
-            IntermediateFileCounter++;
-            auto GrainID_WholeDomain = collectViewData(id, np, grid, grid.nz, MPI_INT, GrainID);
-            auto CellType_WholeDomain = collectViewData(id, np, grid, grid.nz, MPI_INT, CellType);
-            if (id == 0) {
-                std::cout << "Intermediate output on time step " << cycle << std::endl;
-                printGrainMisorientations(grid, GrainID_WholeDomain, CellType_WholeDomain, orientation, true,
-                                          layernumber, grid.z_layer_bottom, grid.nz_layer);
+            // If necessary, collect/print GrainMisorientation field to separate file
+            if (_inputs.intralayer_grain_misorientation) {
+                // Get GrainID data for all layers
+                auto grain_id_all_layers_whole_domain =
+                    collectViewData(id, np, grid, false, MPI_INT, cellData.GrainID_AllLayers);
+                // Get CellType data for current layer
+                auto cell_type_whole_domain = collectViewData(id, np, grid, true, MPI_INT, cellData.CellType);
+                if (id == 0) {
+                    // Print GrainMisorientation for all layers up to the current layer
+                    std::string misorientations_filename = vtk_filename_current_layer_base + "_Misorientations.vtk";
+                    std::cout << "Printing file of grain misorientations " << misorientations_filename << std::endl;
+                    printGrainMisorientations(misorientations_filename, grid, grain_id_all_layers_whole_domain,
+                                              cell_type_whole_domain, orientation);
+                }
             }
         }
+        else
+            return;
+    }
+
+    // Called on rank 0, prints current values of selected data structures to Paraview files
+    // Creates a file "Basefilename_layer[layernumber].vtk" (the exception being the final layer, named
+    // "Basefilename.vtk") containing data for the whole simulation domain. Creates a second file
+    // "Basefilename_layer[layernumber]_layeronly.vtk" (the exception being the final layer, named
+    // "Basefilename_layeronly.vtk") containing data from the layer of the simulation domain that just completed. The
+    // grain misorientations, if desired, will print to an additional file "Basefilename_Misorientations.vtk" for the
+    // full simulation domain
+    template <typename MemorySpace>
+    void printInterlayer(const int id, const int np, const int layernumber, const Grid &grid,
+                         CellData<MemorySpace> &cellData, Temperature<MemorySpace> &temperature,
+                         Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
+
+        using view_type_float = Kokkos::View<float *, MemorySpace>;
+        using view_type_int = Kokkos::View<int *, MemorySpace>;
+        if (layernumber == _inputs.print_layer_number[interlayer_file_count]) {
+            std::string vtk_filename_base;
+            if (layernumber != grid.number_of_layers - 1)
+                vtk_filename_base = path_base_filename + "_layer" + std::to_string(layernumber);
+            else
+                vtk_filename_base = path_base_filename;
+
+            // Collect GrainID data for whole domain (nearly always needed for vtk file print of final output of a
+            // layer)
+            auto grain_id_all_layers_whole_domain =
+                collectViewData(id, np, grid, false, MPI_INT, cellData.GrainID_AllLayers);
+
+            // Views where data should be printed for all layers up to and including the current one: GrainID, LayerID,
+            // UndercoolingCurrent (and GrainMisorientation, but that is printed to a separate file
+            if (_inputs.interlayer_full) {
+                std::string vtk_filename_all_layers = vtk_filename_base + ".vtk";
+                std::ofstream interlayer_all_layers_ofstream;
+                if (id == 0) {
+                    std::cout << "Printing data structures for all layers of the simulation to file "
+                              << vtk_filename_all_layers << std::endl;
+                    // Write header for printing full domain data to file
+                    writeHeader(interlayer_all_layers_ofstream, vtk_filename_all_layers, grid, false);
+                }
+                // Get GrainID data for all layers
+                if (_inputs.interlayer_grain_id)
+                    printViewData(id, interlayer_all_layers_ofstream, grid, false, "int", "GrainID",
+                                  grain_id_all_layers_whole_domain);
+                if (_inputs.interlayer_layer_id) {
+                    auto layer_id_all_layers_whole_domain =
+                        collectViewData(id, np, grid, false, MPI_SHORT, cellData.LayerID_AllLayers);
+                    printViewData(id, interlayer_all_layers_ofstream, grid, false, "short", "LayerID",
+                                  layer_id_all_layers_whole_domain);
+                }
+                if (_inputs.interlayer_undercooling_current) {
+                    auto undercooling_all_layers_whole_domain =
+                        collectViewData(id, np, grid, false, MPI_FLOAT, temperature.UndercoolingCurrent_AllLayers);
+                    printViewData(id, interlayer_all_layers_ofstream, grid, false, "float", "UndercoolingCurrent",
+                                  undercooling_all_layers_whole_domain);
+                }
+                interlayer_all_layers_ofstream.close();
+            }
+
+            // Views where data should be printed only for the layer of the problem that just finished
+            if (_inputs.interlayer_current) {
+                std::string vtk_filename_current_layer = vtk_filename_base + "_layeronly.vtk";
+                std::ofstream currentlayer_ofstream;
+                if (id == 0) {
+                    std::cout << "Printing data structures for current layer of the simulation to file "
+                              << vtk_filename_current_layer << std::endl;
+                    // Write header for printing current layer's data to file
+                    writeHeader(currentlayer_ofstream, vtk_filename_current_layer, grid, true);
+                }
+                if (_inputs.interlayer_melt_time_step) {
+                    auto melt_time_step =
+                        temperature.template extract_tm_tl_cr_data<view_type_int>(0, grid.domain_size);
+                    auto melt_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, melt_time_step);
+                    printViewData(id, currentlayer_ofstream, grid, true, "int", "MeltTimeStep",
+                                  melt_time_step_whole_domain);
+                }
+                if (_inputs.interlayer_crit_time_step) {
+                    auto crit_time_step =
+                        temperature.template extract_tm_tl_cr_data<view_type_int>(1, grid.domain_size);
+                    auto crit_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, crit_time_step);
+                    printViewData(id, currentlayer_ofstream, grid, true, "int", "CritTimeStep",
+                                  crit_time_step_whole_domain);
+                }
+                if (_inputs.interlayer_undercooling_change) {
+                    auto undercooling_change =
+                        temperature.template extract_tm_tl_cr_data<view_type_float>(2, grid.domain_size, 0);
+                    auto undercooling_change_whole_domain =
+                        collectViewData(id, np, grid, true, MPI_FLOAT, undercooling_change);
+                    printViewData(id, currentlayer_ofstream, grid, true, "float", "UndercoolingChange",
+                                  undercooling_change_whole_domain);
+                }
+                if (_inputs.interlayer_cell_type) {
+                    auto cell_type_whole_domain = collectViewData(id, np, grid, true, MPI_INT, cellData.CellType);
+                    printViewData(id, currentlayer_ofstream, grid, true, "int", "CellType", cell_type_whole_domain);
+                }
+                if (_inputs.interlayer_diagonal_length) {
+                    auto diagonal_length_whole_domain =
+                        collectViewData(id, np, grid, true, MPI_FLOAT, interface.diagonal_length);
+                    printViewData(id, currentlayer_ofstream, grid, true, "float", "DiagonalLength",
+                                  diagonal_length_whole_domain);
+                }
+                if (_inputs.interlayer_solidification_event_counter) {
+                    auto solidification_event_counter_whole_domain =
+                        collectViewData(id, np, grid, true, MPI_INT, temperature.SolidificationEventCounter);
+                    printViewData(id, currentlayer_ofstream, grid, true, "int", "SolidificationEventCounter",
+                                  solidification_event_counter_whole_domain);
+                }
+                if (_inputs.interlayer_number_of_solidification_events) {
+                    auto number_of_solidification_events_whole_domain =
+                        collectViewData(id, np, grid, true, MPI_INT, temperature.NumberOfSolidificationEvents);
+                    printViewData(id, currentlayer_ofstream, grid, true, "int", "NumberOfSolidificationEvents",
+                                  number_of_solidification_events_whole_domain);
+                }
+                if (id == 0)
+                    currentlayer_ofstream.close();
+            }
+
+            // If necessary, collect/print GrainMisorientation field to separate file
+            if (_inputs.interlayer_grain_misorientation) {
+                // Get CellType data for current layer
+                auto cell_type_whole_domain = collectViewData(id, np, grid, true, MPI_INT, cellData.CellType);
+                if (id == 0) {
+                    // Print GrainMisorientation for all layers up to the current layer
+                    std::string misorientations_filename = vtk_filename_base + "_Misorientations.vtk";
+                    std::cout << "Printing file of grain misorientations " << misorientations_filename << std::endl;
+                    printGrainMisorientations(misorientations_filename, grid, grain_id_all_layers_whole_domain,
+                                              cell_type_whole_domain, orientation);
+                }
+            }
+
+            // If necessary, print RVE data for ExaConstit input
+            if (_inputs.PrintDefaultRVE) {
+                auto layer_id_all_layers_whole_domain =
+                    collectViewData(id, np, grid, false, MPI_SHORT, cellData.LayerID_AllLayers);
+                if (id == 0)
+                    printExaConstitDefaultRVE(grid, layer_id_all_layers_whole_domain, grain_id_all_layers_whole_domain);
+            }
+            // Update file counter
+            interlayer_file_count++;
+        }
+        else
+            return;
     }
 
     // Check if intermediate output is to be printed during a series of "skipped" time steps (i.e., time steps where no
     // melting or solidification occurs). If it should be printed on the time step, call
     // printIntermediateGrainMisorientation
-    template <typename ViewTypeGrainID, typename ViewTypeCellType, typename OrientationMemory>
-    void printIdleIntermediateGrainMisorientation(int id, int np, int cycle, const Grid &grid, ViewTypeGrainID GrainID,
-                                                  ViewTypeCellType CellType,
-                                                  Orientation<OrientationMemory> &orientation, int layernumber,
-                                                  unsigned long int GlobalNextMeltTimeStep) {
+    template <typename MemorySpace>
+    void printIdleIntralayer(const int id, const int np, const int layernumber, const int deltat, const int cycle,
+                             const Grid &grid, CellData<MemorySpace> &cellData, Temperature<MemorySpace> &temperature,
+                             Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation,
+                             const unsigned long int global_next_melt_time_step) {
 
-        if (_inputs.PrintIdleTimeSeriesFrames) {
+        if (_inputs.intralayer_idle_frames) {
             // Print current state of ExaCA simulation (up to and including the current layer's data) during the skipped
             // time steps, if intermediate output is toggled
-            for (unsigned long int cycle_jump = cycle + 1; cycle_jump < GlobalNextMeltTimeStep; cycle_jump++) {
-                printIntermediateGrainMisorientation(id, np, cycle_jump, grid, GrainID, CellType, orientation,
-                                                     layernumber);
+            for (unsigned long int cycle_jump = cycle + 1; cycle_jump < global_next_melt_time_step; cycle_jump++) {
+                printIntralayer(id, np, layernumber, deltat, cycle_jump, grid, cellData, temperature, interface,
+                                orientation);
             }
-        }
-    }
-
-    // Prints final values of selected data structures to Paraview files
-    template <typename ViewTypeGrainID, typename ViewTypeLayerID, typename ViewTypeCell, typename TemperatureMemory,
-              typename OrientationMemory>
-    void printFinalExaCAData(int id, int np, const Grid &grid, ViewTypeLayerID LayerID, ViewTypeCell CellType,
-                             ViewTypeGrainID GrainID, Temperature<TemperatureMemory> &temperature,
-                             Orientation<OrientationMemory> &orientation) {
-
-        using view_int = Kokkos::View<int *, TemperatureMemory>;
-        using view_float = Kokkos::View<float *, TemperatureMemory>;
-
-        if (id == 0)
-            std::cout << "Printing final data structures to vtk files" << std::endl;
-
-        if ((_inputs.PrintFinalGrainID) || (_inputs.PrintFinalLayerID) || (_inputs.PrintFinalMisorientation) ||
-            (_inputs.PrintDefaultRVE)) {
-
-            // GrainID and LayerID are printed to one vtk file, while Grain misorientation is printed to a separate vtk
-            // file GrainID and LayerID are also needed needed if PrintFinalMisorientation = true
-            std::string FName = PathBaseFileName + ".vtk";
-            std::ofstream Grainplot;
-            if (id == 0)
-                WriteHeader(Grainplot, FName, grid, grid.nz);
-            if ((_inputs.PrintFinalGrainID) || (_inputs.PrintFinalLayerID) || (_inputs.PrintFinalMisorientation) ||
-                (_inputs.PrintDefaultRVE)) {
-                auto GrainID_WholeDomain = collectViewData(id, np, grid, grid.nz, MPI_INT, GrainID);
-                auto LayerID_WholeDomain = collectViewData(id, np, grid, grid.nz, MPI_SHORT, LayerID);
-                if (_inputs.PrintFinalGrainID)
-                    printViewData(id, Grainplot, grid, grid.nz, "int", "GrainID", GrainID_WholeDomain);
-                if (_inputs.PrintFinalLayerID)
-                    printViewData(id, Grainplot, grid, grid.nz, "short", "LayerID", LayerID_WholeDomain);
-                if ((id == 0) && _inputs.PrintFinalMisorientation) {
-
-                    // empty view passed as dummy argument (not used in this call to printGrainMisorientation)
-                    Kokkos::View<int ***, Kokkos::HostSpace> CellType_WholeDomain(
-                        Kokkos::ViewAllocateWithoutInitializing("ViewData_WholeDomain"), 0, 0, 0);
-                    printGrainMisorientations(grid, GrainID_WholeDomain, CellType_WholeDomain, orientation, false);
-                }
-                if ((id == 0) && (_inputs.PrintDefaultRVE))
-                    printExaConstitDefaultRVE(grid, LayerID_WholeDomain, GrainID_WholeDomain);
-            }
-            if (id == 0)
-                Grainplot.close();
-        }
-
-        if ((_inputs.PrintFinalMeltTimeStep) || (_inputs.PrintFinalCritTimeStep) ||
-            (_inputs.PrintFinalUndercoolingChange) || (_inputs.PrintFinalCellType) ||
-            (_inputs.PrintFinalUndercoolingCurrent)) {
-            // Temperature field data is printed to a separate vtk file
-            std::string FName = PathBaseFileName + "_final.vtk";
-            std::ofstream GrainplotF;
-            if (id == 0)
-                WriteHeader(GrainplotF, FName, grid, grid.nz_layer);
-            if (_inputs.PrintFinalMeltTimeStep) {
-                auto MeltTimeStep = temperature.template extract_tm_tl_cr_data<view_int>(0, grid.domain_size);
-                auto MeltTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, MeltTimeStep);
-                printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "MeltTimeStep", MeltTimeStep_WholeDomain);
-            }
-            if (_inputs.PrintFinalCritTimeStep) {
-                auto CritTimeStep = temperature.template extract_tm_tl_cr_data<view_int>(1, grid.domain_size);
-                auto CritTimeStep_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, CritTimeStep);
-                printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "CritTimeStep", CritTimeStep_WholeDomain);
-            }
-            if (_inputs.PrintFinalUndercoolingChange) {
-                auto UndercoolingChange =
-                    temperature.template extract_tm_tl_cr_data<view_float>(0, grid.domain_size, 0);
-                auto UndercoolingChange_WholeDomain =
-                    collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, UndercoolingChange);
-                printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "UndercoolingChange",
-                              UndercoolingChange_WholeDomain);
-            }
-            if (_inputs.PrintFinalUndercoolingCurrent) {
-                auto UndercoolingCurrent_WholeDomain =
-                    collectViewData(id, np, grid, grid.nz_layer, MPI_FLOAT, temperature.UndercoolingCurrent_AllLayers);
-                printViewData(id, GrainplotF, grid, grid.nz_layer, "float", "UndercoolingFinal",
-                              UndercoolingCurrent_WholeDomain);
-            }
-            if (_inputs.PrintFinalCellType) {
-                auto CellType_WholeDomain = collectViewData(id, np, grid, grid.nz_layer, MPI_INT, CellType);
-                printViewData(id, GrainplotF, grid, grid.nz_layer, "int", "CellType", CellType_WholeDomain);
-            }
-            if (id == 0)
-                GrainplotF.close();
         }
     }
 
     // Print Paraview file header data on rank 0, for either binary or ASCII output
-    void WriteHeader(std::ofstream &ParaviewOutputStream, std::string FName, const Grid &grid, int ZPrintSize) {
+    // current_layer_only = true: Printing only data for the Z coordinates corresponding to the current layer of a
+    // multilayer problem current_layer_only = false: Printing data up to and including the top of the current layer of
+    // a multilayer problem. This will be the top of the overall simulation domain if this was the final layer
+    void writeHeader(std::ofstream &output_fstream, std::string filename, const Grid &grid,
+                     const bool current_layer_only) {
+
+        int z_print_size;
+        float z_print_origin;
+        if (current_layer_only) {
+            z_print_size = grid.nz_layer;
+            z_print_origin = grid.z_min + grid.z_layer_bottom * grid.deltax;
+        }
+        else {
+            z_print_size = grid.z_layer_bottom + grid.nz_layer;
+            z_print_origin = grid.z_min;
+        }
 
         if (_inputs.PrintBinary)
-            ParaviewOutputStream.open(FName, std::ios::out | std::ios::binary);
+            output_fstream.open(filename, std::ios::out | std::ios::binary);
         else
-            ParaviewOutputStream.open(FName);
-        ParaviewOutputStream << "# vtk DataFile Version 3.0" << std::endl;
-        ParaviewOutputStream << "vtk output" << std::endl;
+            output_fstream.open(filename);
+        output_fstream << "# vtk DataFile Version 3.0" << std::endl;
+        output_fstream << "vtk output" << std::endl;
         if (_inputs.PrintBinary)
-            ParaviewOutputStream << "BINARY" << std::endl;
+            output_fstream << "BINARY" << std::endl;
         else
-            ParaviewOutputStream << "ASCII" << std::endl;
-        ParaviewOutputStream << "DATASET STRUCTURED_POINTS" << std::endl;
-        ParaviewOutputStream << "DIMENSIONS " << grid.nx << " " << grid.ny << " " << ZPrintSize << std::endl;
-        ParaviewOutputStream << "ORIGIN " << grid.x_min << " " << grid.y_min << " " << grid.z_min << std::endl;
-        ParaviewOutputStream << "SPACING " << grid.deltax << " " << grid.deltax << " " << grid.deltax << std::endl;
-        ParaviewOutputStream << std::fixed << "POINT_DATA " << grid.nx * grid.ny * ZPrintSize << std::endl;
+            output_fstream << "ASCII" << std::endl;
+        output_fstream << "DATASET STRUCTURED_POINTS" << std::endl;
+        output_fstream << "DIMENSIONS " << grid.nx << " " << grid.ny << " " << z_print_size << std::endl;
+        output_fstream << "ORIGIN " << grid.x_min << " " << grid.y_min << " " << z_print_origin << std::endl;
+        output_fstream << "SPACING " << grid.deltax << " " << grid.deltax << " " << grid.deltax << std::endl;
+        output_fstream << std::fixed << "POINT_DATA " << grid.nx * grid.ny * z_print_size << std::endl;
     }
 
     // Called on rank 0 to write view data to the vtk file
     template <typename Print3DViewType>
-    void printViewData(int id, std::ofstream &Grainplot, const Grid &grid, int ZPrintSize, std::string DataLabel,
-                       std::string VarNameLabel, Print3DViewType ViewData_WholeDomain) {
+    void printViewData(const int id, std::ofstream &output_fstream, const Grid &grid, const bool current_layer_only,
+                       std::string data_label, std::string var_name_label, Print3DViewType view_data_whole_domain) {
         if (id != 0)
             return;
 
+        // Printing the z coordinates spanning the current layer, or from the overall simulation bottom (k = 0) through
+        // the top of the current layer
+        int z_start = 0;
+        int z_end;
+        if (current_layer_only)
+            z_end = grid.nz_layer;
+        else
+            z_end = grid.z_layer_bottom + grid.nz_layer;
         // Print data to the vtk file - casting to the appropriate type if necessary
-        Grainplot << "SCALARS " << VarNameLabel << " " << DataLabel << " 1" << std::endl;
-        Grainplot << "LOOKUP_TABLE default" << std::endl;
-        for (int coord_z = 0; coord_z < ZPrintSize; coord_z++) {
+        output_fstream << "SCALARS " << var_name_label << " " << data_label << " 1" << std::endl;
+        output_fstream << "LOOKUP_TABLE default" << std::endl;
+        for (int coord_z = z_start; coord_z < z_end; coord_z++) {
             for (int coord_y_global = 0; coord_y_global < grid.ny; coord_y_global++) {
                 for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
-                    if (DataLabel == "int") {
-                        int writeval = static_cast<int>(ViewData_WholeDomain(coord_z, coord_x, coord_y_global));
-                        WriteData(Grainplot, writeval, _inputs.PrintBinary, true);
+                    if (data_label == "int") {
+                        int writeval = static_cast<int>(view_data_whole_domain(coord_z, coord_x, coord_y_global));
+                        writeData(output_fstream, writeval, _inputs.PrintBinary, true);
                     }
-                    else if (DataLabel == "short") {
-                        short writeval = static_cast<short>(ViewData_WholeDomain(coord_z, coord_x, coord_y_global));
-                        WriteData(Grainplot, writeval, _inputs.PrintBinary, true);
+                    else if (data_label == "short") {
+                        short writeval = static_cast<short>(view_data_whole_domain(coord_z, coord_x, coord_y_global));
+                        writeData(output_fstream, writeval, _inputs.PrintBinary, true);
                     }
-                    else if (DataLabel == "float") {
-                        float writeval = static_cast<float>(ViewData_WholeDomain(coord_z, coord_x, coord_y_global));
-                        WriteData(Grainplot, writeval, _inputs.PrintBinary, true);
+                    else if (data_label == "float") {
+                        float writeval = static_cast<float>(view_data_whole_domain(coord_z, coord_x, coord_y_global));
+                        writeData(output_fstream, writeval, _inputs.PrintBinary, true);
                     }
                 }
             }
             // Do not insert newline character if using binary writing, as this will break the binary data read by
             // adding a blank line
             if (!(_inputs.PrintBinary))
-                Grainplot << std::endl;
+                output_fstream << std::endl;
         }
-    }
-
-    // Reset the intermediate file counter to 0, performed at the start of a new layer when intermediate output is being
-    // printed
-    void resetIntermediateFileCounter() {
-        if (_inputs.PrintTimeSeries)
-            IntermediateFileCounter = 0;
     }
 
     // On rank 0, print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview
-    // file Optionally add layer label/intermediate frame and print -1 for liquid cells if this is being printed as
-    // intermediate output
+    // file. If printing an intermediate state, print -1 for cells that are liquid
     template <typename ViewTypeInt3DHost, typename OrientationMemory>
-    void printGrainMisorientations(const Grid &grid, ViewTypeInt3DHost GrainID_WholeDomain,
-                                   ViewTypeInt3DHost CellType_WholeDomain, Orientation<OrientationMemory> &orientation,
-                                   bool IntermediatePrint, int layernumber = 0, int ZBound_Low_print = 0,
-                                   int nz_layer_print = 0) {
+    void printGrainMisorientations(const std::string misorientations_filename, const Grid &grid,
+                                   ViewTypeInt3DHost grain_id_whole_domain, ViewTypeInt3DHost cell_type_whole_domain,
+                                   Orientation<OrientationMemory> &orientation) {
 
-        // Print grain orientations to file - either all layers, or if in an intermediate state, the layers up to the
-        // current one
-        std::string FName;
-        int ZPrintSize;
-        if (IntermediatePrint) {
-            FName = PathBaseFileName + "_layer" + std::to_string(layernumber) + "_" +
-                    std::to_string(IntermediateFileCounter) + ".vtk";
-            ZPrintSize = ZBound_Low_print + nz_layer_print;
-        }
-        else {
-            FName = PathBaseFileName + "_Misorientations.vtk";
-            ZPrintSize = grid.nz;
-        }
-        std::cout << "Printing Paraview file of grain misorientations for Z coordinates of 0 through " << ZPrintSize - 1
-                  << std::endl;
-        std::ofstream GrainplotM;
-        WriteHeader(GrainplotM, FName, grid, ZPrintSize);
-        GrainplotM << "SCALARS Angle_z short 1" << std::endl;
-        GrainplotM << "LOOKUP_TABLE default" << std::endl;
+        // Print grain orientations to file - either all layers (print_region = 2), or if in an intermediate state, the
+        // layers up to the current one (print_region = 1) z_end will equal grid.nz if this is the final layer
+        int z_end = grid.z_layer_bottom + grid.nz_layer;
+        std::ofstream misorientations_ofstream;
+        writeHeader(misorientations_ofstream, misorientations_filename, grid, false);
+        misorientations_ofstream << "SCALARS Angle_z short 1" << std::endl;
+        misorientations_ofstream << "LOOKUP_TABLE default" << std::endl;
 
         // Get grain <100> misorientation relative to the Z direction for each orientation
         auto grain_misorientation = orientation.misorientation_calc(2);
@@ -418,31 +526,53 @@ struct Print {
         // powder layer are between 0-62 (degrees, rounded to nearest integer), and cells that are associated with
         // nucleated grains are assigned values between 100-162 to differentiate them. Additionally, 200 is printed as
         // the misorientation for cells in the powder layer that have not been assigned a grain ID.
-        for (int k = 0; k < ZPrintSize; k++) {
+        // For prior layers, cell type check is unnecessary as these regions have all solidified
+        for (int k = 0; k < grid.z_layer_bottom; k++) {
             for (int j = 0; j < grid.ny; j++) {
                 for (int i = 0; i < grid.nx; i++) {
-                    short IntPrintVal;
-                    if (GrainID_WholeDomain(k, i, j) == 0)
-                        IntPrintVal = 200;
+                    short int_print_val;
+                    if (grain_id_whole_domain(k, i, j) == 0)
+                        int_print_val = 200;
                     else {
                         int my_orientation =
-                            get_grain_orientation(GrainID_WholeDomain(k, i, j), orientation.n_grain_orientations);
-                        if (GrainID_WholeDomain(k, i, j) < 0)
-                            IntPrintVal = static_cast<short>(std::round(grain_misorientation(my_orientation)) + 100);
+                            get_grain_orientation(grain_id_whole_domain(k, i, j), orientation.n_grain_orientations);
+                        if (grain_id_whole_domain(k, i, j) < 0)
+                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation)) + 100);
                         else
-                            IntPrintVal = static_cast<short>(std::round(grain_misorientation(my_orientation)));
+                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation)));
                     }
-                    if (IntermediatePrint) {
-                        if (CellType_WholeDomain(k, i, j) == Liquid)
-                            IntPrintVal = -1;
-                    }
-                    WriteData(GrainplotM, IntPrintVal, _inputs.PrintBinary, true);
+                    writeData(misorientations_ofstream, int_print_val, _inputs.PrintBinary, true);
                 }
             }
             if (!(_inputs.PrintBinary))
-                GrainplotM << std::endl;
+                misorientations_ofstream << std::endl;
         }
-        GrainplotM.close();
+        // For current layer, check cell types to see if -1 should be printed (if this is a print following a layer, all
+        // cells will be solid and no -1s should be written)
+        for (int k = grid.z_layer_bottom; k < z_end; k++) {
+            for (int j = 0; j < grid.ny; j++) {
+                for (int i = 0; i < grid.nx; i++) {
+                    short int_print_val;
+                    if (grain_id_whole_domain(k, i, j) == 0)
+                        int_print_val = 200;
+                    else {
+                        int my_orientation =
+                            get_grain_orientation(grain_id_whole_domain(k, i, j), orientation.n_grain_orientations);
+                        if (grain_id_whole_domain(k, i, j) < 0)
+                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation)) + 100);
+                        else
+                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation)));
+                    }
+                    // Offset in Z as cell type values only exist for current layer
+                    if (cell_type_whole_domain(k - grid.z_layer_bottom, i, j) == Liquid)
+                        int_print_val = -1;
+                    writeData(misorientations_ofstream, int_print_val, _inputs.PrintBinary, true);
+                }
+            }
+            if (!(_inputs.PrintBinary))
+                misorientations_ofstream << std::endl;
+        }
+        misorientations_ofstream.close();
     }
 
     // Print a representative volume element (RVE) from this multilayer simulation from the "default" location in the
@@ -450,78 +580,82 @@ struct Print {
     // top of the domain while not including the final layer's microstructure. If an RVE size was not specified in the
     // input file, the default size is 0.5 by 0.5 by 0.5 mm
     template <typename ViewTypeShort3DHost, typename ViewTypeInt3DHost>
-    void printExaConstitDefaultRVE(const Grid &grid, ViewTypeShort3DHost LayerID_WholeDomain,
-                                   ViewTypeInt3DHost GrainID_WholeDomain) {
+    void printExaConstitDefaultRVE(const Grid &grid, ViewTypeShort3DHost layer_id_whole_domain,
+                                   ViewTypeInt3DHost grain_id_whole_domain) {
 
         // Determine the lower and upper Y bounds of the RVE
-        int RVE_XLow = std::floor(grid.nx / 2) - std::floor(_inputs.RVESize / 2);
-        int RVE_XHigh = RVE_XLow + _inputs.RVESize - 1;
-        int RVE_YLow = std::floor(grid.ny / 2) - std::floor(_inputs.RVESize / 2);
-        int RVE_YHigh = RVE_YLow + _inputs.RVESize - 1;
+        int rve_xlow = std::floor(grid.nx / 2) - std::floor(_inputs.RVESize / 2);
+        int rve_xhigh = rve_xlow + _inputs.RVESize - 1;
+        int rve_ylow = std::floor(grid.ny / 2) - std::floor(_inputs.RVESize / 2);
+        int rve_yhigh = rve_ylow + _inputs.RVESize - 1;
 
         // Make sure the RVE fits in the simulation domain in X and Y
-        if ((RVE_XLow < 0) || (RVE_XHigh > grid.nx - 1) || (RVE_YLow < 0) || (RVE_YHigh > grid.ny - 1)) {
+        if ((rve_xlow < 0) || (rve_xhigh > grid.nx - 1) || (rve_ylow < 0) || (rve_yhigh > grid.ny - 1)) {
             std::cout << "WARNING: Simulation domain is too small to obtain default RVE data (should be at least "
                       << _inputs.RVESize << " cells in the X and Y directions" << std::endl;
-            if (RVE_XLow < 0)
-                RVE_XLow = 0;
-            if (RVE_XHigh > grid.nx - 1)
-                RVE_XHigh = grid.nx - 1;
-            if (RVE_YLow < 0)
-                RVE_YLow = 0;
-            if (RVE_YHigh > grid.ny - 1)
-                RVE_YHigh = grid.ny - 1;
+            if (rve_xlow < 0)
+                rve_xlow = 0;
+            if (rve_xhigh > grid.nx - 1)
+                rve_xhigh = grid.nx - 1;
+            if (rve_ylow < 0)
+                rve_ylow = 0;
+            if (rve_yhigh > grid.ny - 1)
+                rve_yhigh = grid.ny - 1;
         }
 
         // Determine the upper Z bound of the RVE - largest Z for which all cells in the RVE do not contain LayerID
         // values of the last layer
-        int RVE_ZHigh = grid.nz - 1;
+        int rve_zhigh = grid.nz - 1;
         for (int k = grid.nz - 1; k >= 0; k--) {
             [&] {
-                for (int j = RVE_YLow; j <= RVE_YHigh; j++) {
-                    for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
-                        if (LayerID_WholeDomain(k, i, j) == (grid.number_of_layers - 1))
+                for (int j = rve_ylow; j <= rve_yhigh; j++) {
+                    for (int i = rve_xlow; i <= rve_xhigh; i++) {
+                        if (layer_id_whole_domain(k, i, j) == (grid.number_of_layers - 1))
                             return; // check next lowest value for k
                     }
                 }
-                RVE_ZHigh = k;
+                rve_zhigh = k;
                 k = 0; // leave loop
             }();
         }
 
         // Determine the lower Z bound of the RVE, and make sure the RVE fits in the simulation domain in X and Y
-        int RVE_ZLow = RVE_ZHigh - _inputs.RVESize + 1;
-        if (RVE_ZLow < 0) {
+        int rve_zlow = rve_zhigh - _inputs.RVESize + 1;
+        if (rve_zlow < 0) {
             std::cout << "WARNING: Simulation domain is too small to obtain default RVE data (should be at least "
                       << _inputs.RVESize << " cells in the Z direction, more layers are required" << std::endl;
-            RVE_ZLow = 0;
-            RVE_ZHigh = grid.nz - 1;
+            rve_zlow = 0;
+            rve_zhigh = grid.nz - 1;
         }
 
         // Print RVE data to file
-        std::string FName = PathBaseFileName + "_ExaConstit.csv";
-        std::cout << "Default size RVE with X coordinates " << RVE_XLow << "," << RVE_XHigh << "; Y coordinates "
-                  << RVE_YLow << "," << RVE_YHigh << "; Z coordinates " << RVE_ZLow << "," << RVE_ZHigh
-                  << " being printed to file " << FName << " for ExaConstit" << std::endl;
-        std::ofstream GrainplotE;
-        GrainplotE.open(FName);
-        GrainplotE << "Coordinates are in CA units, 1 cell = " << grid.deltax << " m. Data is cell-centered. Origin at "
-                   << RVE_XLow << "," << RVE_YLow << "," << RVE_ZLow << " , domain size is " << RVE_XHigh - RVE_XLow + 1
-                   << " by " << RVE_YHigh - RVE_YLow + 1 << " by " << RVE_ZHigh - RVE_ZLow + 1 << " cells" << std::endl;
-        GrainplotE << "X coord, Y coord, Z coord, Grain ID" << std::endl;
-        for (int k = RVE_ZLow; k <= RVE_ZHigh; k++) {
-            for (int j = RVE_YLow; j <= RVE_YHigh; j++) {
-                for (int i = RVE_XLow; i <= RVE_XHigh; i++) {
-                    GrainplotE << i << "," << j << "," << k << "," << GrainID_WholeDomain(k, i, j) << std::endl;
+        std::string filename = path_base_filename + "_ExaConstit.csv";
+        std::cout << "Default size RVE with X coordinates " << rve_xlow << "," << rve_xhigh << "; Y coordinates "
+                  << rve_ylow << "," << rve_yhigh << "; Z coordinates " << rve_zlow << "," << rve_zhigh
+                  << " being printed to file " << filename << " for ExaConstit" << std::endl;
+        std::ofstream exaconstit_ofstream;
+        exaconstit_ofstream.open(filename);
+        exaconstit_ofstream << "Coordinates are in CA units, 1 cell = " << grid.deltax
+                            << " m. Data is cell-centered. Origin at " << rve_xlow << "," << rve_ylow << "," << rve_zlow
+                            << " , domain size is " << rve_xhigh - rve_xlow + 1 << " by " << rve_yhigh - rve_ylow + 1
+                            << " by " << rve_zhigh - rve_zlow + 1 << " cells" << std::endl;
+        exaconstit_ofstream << "X coord, Y coord, Z coord, Grain ID" << std::endl;
+        for (int k = rve_zlow; k <= rve_zhigh; k++) {
+            for (int j = rve_ylow; j <= rve_yhigh; j++) {
+                for (int i = rve_xlow; i <= rve_xhigh; i++) {
+                    exaconstit_ofstream << i << "," << j << "," << k << "," << grain_id_whole_domain(k, i, j)
+                                        << std::endl;
                 }
             }
         }
-        GrainplotE.close();
+        exaconstit_ofstream.close();
     }
 };
 
-void PrintExaCATiming(int np, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
-                      double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
-                      double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
-                      double GhostMinTime, double OutMaxTime, double OutMinTime);
+void PrintExaCATiming(const int np, const double init_time, const double run_time, const double out_time,
+                      const int cycle, const double init_max_time, const double init_min_time,
+                      const double nucl_max_time, const double nucl_min_time, const double create_sv_min_time,
+                      const double create_sv_max_time, const double capture_max_time, const double capture_min_time,
+                      const double ghost_max_time, const double ghost_min_time, const double out_max_time,
+                      const double out_min_time);
 #endif

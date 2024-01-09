@@ -22,11 +22,8 @@
       "OutputFile": "TestProblemEquiaxedGrain",
       "PrintBinary": false,
       "PrintExaConstitSize": 0,
-      "PrintFieldsInit": [],
-      "PrintFieldsFinal": ["GrainID"],
-      "PrintIntermediateOutput": {
-          "Frequency": 0,
-          "PrintIdleFrames": false
+      "Interlayer": {
+          "Fields": ["GrainID"]
       }
    }
 }
