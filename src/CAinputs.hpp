@@ -440,6 +440,12 @@ struct Inputs {
                 print.interlayer_current = true;
         }
 
+        // Initial fields should be printed, set intralayer increment to large number so only the first frame will be
+        // printed (this is overwritten if PrintIntermediateOutput and a Frequency are toggled)
+        if (print.intralayer) {
+            print.intralayer = true;
+            print.intralayer_increment = INT_MAX;
+        }
         // Should intermediate output be printed?
         if (inputdata["Printing"].contains("PrintIntermediateOutput")) {
             // An increment of 0 will set the intermediate file printing to false
@@ -448,6 +454,7 @@ struct Inputs {
                 print.intralayer = true;
                 // Increment is given in microseconds, convert to seconds
                 TimeSeriesFrameInc_time = TimeSeriesFrameInc_time * pow(10, -6);
+                // Overwrite INT_MAX value for intralayer_increment if PrintInitFields was toggled
                 print.intralayer_increment = Kokkos::round(TimeSeriesFrameInc_time / deltat);
                 // Should the intermediate output be printed even if the simulation was unchanged from the previous
                 // output step?
@@ -457,18 +464,6 @@ struct Inputs {
                               << print.intralayer_increment << " time steps (or every "
                               << print.intralayer_increment * deltat << " microseconds)" << std::endl;
             }
-            else if (print.intralayer) {
-                // Intermediate output should not be printed - but initial fields should, set intralayer increment to
-                // large number so only the first frame will be printed
-                print.intralayer = true;
-                print.intralayer_increment = INT_MAX;
-            }
-        }
-        else if (print.intralayer) {
-            // Intermediate output should not be printed - but initial fields should, set intralayer increment to large
-            // number so only the first frame will be printed
-            print.intralayer = true;
-            print.intralayer_increment = INT_MAX;
         }
     }
 
