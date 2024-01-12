@@ -145,92 +145,70 @@ struct Temperature {
         }
     }
 
-    // Initialize temperature data without a thermal gradient for constrained/single grain problem types
-    void initialize(int id, const Grid &grid, double deltat) {
+    // Initialize temperature data with a fixed thermal gradient in Z (can also be zero) for constrained/single grain
+    // problem types
+    void initialize(const int id, const std::string SimulationType, const Grid &grid, const double deltat) {
 
         // Initialize temperature field in Z direction with thermal gradient G set in input file
         // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
         // (with custom InitUndercooling value) for single grain solidification
-
-        // Local copies for lambda capture.
-        auto LayerTimeTempHistory_local = LayerTimeTempHistory;
-        auto MaxSolidificationEvents_local = MaxSolidificationEvents;
-        auto NumberOfSolidificationEvents_local = NumberOfSolidificationEvents;
-        auto UndercoolingCurrent_local = UndercoolingCurrent;
-        double initUndercooling_local = _inputs.initUndercooling;
-        double R_local = _inputs.R;
-        // Uniform undercooling field
-        auto policy = Kokkos::RangePolicy<execution_space>(0, grid.domain_size);
-        Kokkos::parallel_for(
-            "TempInitUniform", policy, KOKKOS_LAMBDA(const int &index) {
-                // All cells past melting time step and liquidus time step
-                LayerTimeTempHistory_local(index, 0, 0) = -1;
-                // Cells reach liquidus at a time dependent on their Z coordinate
-                LayerTimeTempHistory_local(index, 0, 1) = -1;
-                // Cells cool at a constant rate
-                LayerTimeTempHistory_local(index, 0, 2) = R_local * deltat;
-                // All cells solidify once
-                MaxSolidificationEvents_local(0) = 1;
-                NumberOfSolidificationEvents_local(index) = 1;
-                // All cells at init undercooling
-                UndercoolingCurrent_local(index) = initUndercooling_local;
-            });
-        if (id == 0)
-            std::cout << "Undercooling field initialized to = " << _inputs.initUndercooling << " K for all cells"
-                      << std::endl;
-    }
-
-    // Initialize temperature data with a thermal gradient in Z for constrained/single grain problem types
-    void initialize(int id, std::string SimulationType, const Grid &grid, double deltat) {
-
-        // Initialize temperature field in Z direction with thermal gradient G set in input file
-        // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
-        // (with custom InitUndercooling value) for single grain solidification
-        int locationOfInitUndercooling;
+        int location_init_undercooling, location_liquidus_isotherm;
         if (SimulationType == "C")
-            locationOfInitUndercooling = 0;
+            location_init_undercooling = 0;
         else
-            locationOfInitUndercooling = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
-        int locationOfLiquidus =
-            locationOfInitUndercooling + Kokkos::round(_inputs.initUndercooling / (_inputs.G * grid.deltax));
+            location_init_undercooling = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
+
+        // If thermal gradient is 0, liquidus isotherm does not exist - initialize to nz to avoid divide by zero error
+        // and ensure all cells are initialized as undercooled (i.e., at Z coordinates less than nz)
+        if (_inputs.G == 0)
+            location_liquidus_isotherm = grid.nz;
+        else
+            location_liquidus_isotherm =
+                location_init_undercooling + Kokkos::round(_inputs.initUndercooling / (_inputs.G * grid.deltax));
+
         // Local copies for lambda capture.
-        auto LayerTimeTempHistory_local = LayerTimeTempHistory;
-        auto MaxSolidificationEvents_local = MaxSolidificationEvents;
-        auto NumberOfSolidificationEvents_local = NumberOfSolidificationEvents;
-        auto UndercoolingCurrent_local = UndercoolingCurrent;
-        double initUndercooling_local = _inputs.initUndercooling;
+        auto layer_time_temp_history_local = LayerTimeTempHistory;
+        auto max_solidification_events_local = MaxSolidificationEvents;
+        auto number_solidification_events_local = NumberOfSolidificationEvents;
+        auto undercooling_current_local = UndercoolingCurrent;
+        double init_undercooling_local = _inputs.initUndercooling;
         double G_local = _inputs.G;
         double R_local = _inputs.R;
-
         auto policy = Kokkos::RangePolicy<execution_space>(0, grid.domain_size);
         Kokkos::parallel_for(
             "TempInitG", policy, KOKKOS_LAMBDA(const int &index) {
-                int coord_z = grid.get_coord_Z(index);
-                // Negative distFromLiquidus values for cells below the liquidus
-                int distFromLiquidus = coord_z - locationOfLiquidus;
                 // All cells past melting time step
-                LayerTimeTempHistory_local(index, 0, 0) = -1;
+                layer_time_temp_history_local(index, 0, 0) = -1;
+                // Negative dist_from_liquidus and dist_from_init_undercooling values for cells below the liquidus
+                // isotherm
+                int coord_z = grid.get_coord_Z(index);
+                int dist_from_liquidus = coord_z - location_liquidus_isotherm;
                 // Cells reach liquidus at a time dependent on their Z coordinate
                 // Cells with negative liquidus time values are already undercooled, should have positive undercooling
-                // and negative liquidus time step Cells with positive liquidus time values are not yet tracked - leave
-                // current undercooling as default zeros and set liquidus time step
-                if (distFromLiquidus < 0) {
-                    LayerTimeTempHistory_local(index, 0, 1) = -1;
-                    UndercoolingCurrent_local(index) =
-                        initUndercooling_local - distFromLiquidus * (G_local * grid.deltax);
+                // and negative liquidus time step
+                if (dist_from_liquidus < 0) {
+                    layer_time_temp_history_local(index, 0, 1) = -1;
+                    int dist_from_init_undercooling = coord_z - location_init_undercooling;
+                    undercooling_current_local(index) =
+                        init_undercooling_local - dist_from_init_undercooling * G_local * grid.deltax;
                 }
-                else
-                    LayerTimeTempHistory_local(index, 0, 1) =
-                        distFromLiquidus * G_local * grid.deltax / (R_local * deltat);
+                else {
+                    // Cells with positive liquidus time values are not yet tracked - leave current undercooling as
+                    // default zeros and set liquidus time step. R_local will never be zero here, as all cells at a
+                    // fixed undercooling must be below the liquidus (distFromLiquidus < 0)
+                    layer_time_temp_history_local(index, 0, 1) =
+                        dist_from_liquidus * G_local * grid.deltax / (R_local * deltat);
+                }
                 // Cells cool at a constant rate
-                LayerTimeTempHistory_local(index, 0, 2) = R_local * deltat;
+                layer_time_temp_history_local(index, 0, 2) = R_local * deltat;
                 // All cells solidify once
-                MaxSolidificationEvents_local(0) = 1;
-                NumberOfSolidificationEvents_local(index) = 1;
+                max_solidification_events_local(0) = 1;
+                number_solidification_events_local(index) = 1;
             });
         if (id == 0)
             std::cout << "Temperature field initialized for unidirectional solidification with G = " << G_local
-                      << " K/m" << std::endl;
+                      << " K/m, initial undercooling at Z = " << location_init_undercooling << " of "
+                      << _inputs.initUndercooling << " K below the liquidus" << std::endl;
     }
 
     // For an overlapping spot melt pattern, determine max number of times a cell will melt/solidify as part of a layer

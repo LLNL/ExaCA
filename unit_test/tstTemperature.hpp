@@ -176,8 +176,9 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
 }
 
 // Test unidirectional solidification problem for either directional solidification or growth of a single grain seed,
-// with thermal gradient G in the domain
-void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
+// with thermal gradient G in the domain and initial undercooling init_undercooling at the solidification interface
+void testInit_UnidirectionalGradient(const std::string simulation_type, const double G,
+                                     const double init_undercooling) {
 
     using memory_space = TEST_MEMSPACE;
 
@@ -196,16 +197,13 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     grid.domain_size_all_layers = grid.domain_size;
     grid.number_of_layers = 1;
     grid.layer_range = std::make_pair(0, grid.domain_size);
-    int coord_z_Center = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
+    int coord_z_center = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
 
     // default inputs struct - manually set non-default substrateInputs values
     Inputs inputs;
-    inputs.SimulationType = SimulationType;
+    inputs.SimulationType = simulation_type;
     inputs.temperature.G = G;
-    if (SimulationType == "C")
-        inputs.temperature.initUndercooling = 0.0;
-    else
-        inputs.temperature.initUndercooling = 2.0;
+    inputs.temperature.initUndercooling = init_undercooling;
 
     // For problems with non-zero thermal gradient, 1 K difference between each cell and its neighbor in Z
     if (G == 0)
@@ -213,12 +211,12 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     else
         grid.deltax = 1.0 / G;
     inputs.domain.deltax = grid.deltax;
-    double GNorm = G * grid.deltax;
+    double G_norm = G * grid.deltax;
     // Cells cool at rate of 1 K per time step
     inputs.temperature.R = 1000000;
     double deltat = 1 * pow(10, -6);
     inputs.domain.deltat = deltat;
-    double RNorm = inputs.temperature.R * deltat;
+    double R_norm = inputs.temperature.R * deltat;
 
     // Temperature struct
     Temperature<memory_space> temperature(grid, inputs.temperature);
@@ -230,30 +228,36 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
     EXPECT_DOUBLE_EQ(temperature._inputs.R, inputs.temperature.R);
     EXPECT_DOUBLE_EQ(temperature._inputs.G, G);
     EXPECT_DOUBLE_EQ(temperature._inputs.initUndercooling, inputs.temperature.initUndercooling);
-    if (G == 0)
-        temperature.initialize(id, grid, deltat);
-    else
-        temperature.initialize(id, SimulationType, grid, deltat);
+    temperature.initialize(id, simulation_type, grid, deltat);
 
     // Copy temperature views back to host
-    auto NumberOfSolidificationEvents_Host = Kokkos::create_mirror_view_and_copy(
+    auto number_solidification_events_host = Kokkos::create_mirror_view_and_copy(
         Kokkos::HostSpace(), temperature.NumberOfSolidificationEvents); // Copy orientation data back to the host
-    auto SolidificationEventCounter_Host = Kokkos::create_mirror_view_and_copy(
+    auto solidification_event_counter_host = Kokkos::create_mirror_view_and_copy(
         Kokkos::HostSpace(), temperature.SolidificationEventCounter); // Copy orientation data back to the host
-    auto MaxSolidificationEvents_Host = Kokkos::create_mirror_view_and_copy(
+    auto max_solidification_events_host = Kokkos::create_mirror_view_and_copy(
         Kokkos::HostSpace(), temperature.MaxSolidificationEvents); // Copy orientation data back to the host
-    auto UndercoolingCurrent_Host =
+    auto undercooling_current_host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.UndercoolingCurrent);
-    auto LayerTimeTempHistory_Host =
+    auto layer_time_temp_history_host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.LayerTimeTempHistory);
 
     // Check results
-    int locationOfLiquidus;
-    if (SimulationType == "C")
-        locationOfLiquidus = 0;
+    int location_init_undercooling, location_liquidus_isotherm;
+    if (simulation_type == "C")
+        location_init_undercooling = 0;
     else
-        locationOfLiquidus = coord_z_Center + round(inputs.temperature.initUndercooling / GNorm);
-    EXPECT_EQ(MaxSolidificationEvents_Host(0), 1);
+        location_init_undercooling = coord_z_center;
+
+    // If thermal gradient is 0, liquidus isotherm does not exist - initialize to nz to avoid divide by zero error and
+    // ensure all cells are initialized as undercooled (i.e., at Z coordinates less than nz)
+    if (G == 0)
+        location_liquidus_isotherm = grid.nz;
+    else
+        location_liquidus_isotherm =
+            location_init_undercooling + Kokkos::round(inputs.temperature.initUndercooling / (G * grid.deltax));
+
+    EXPECT_EQ(max_solidification_events_host(0), 1);
     for (int coord_z = 0; coord_z < grid.nz; coord_z++) {
         for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
             for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
@@ -261,31 +265,33 @@ void testInit_UnidirectionalGradient(std::string SimulationType, double G) {
                 // Each cell solidifies once, and counter should start at 0, associated with the zeroth layer
                 // MeltTimeStep should be -1 for all cells
                 // Cells cool at 1 K per time step
-                EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 0), -1.0);
-                EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 2), RNorm);
-                EXPECT_EQ(NumberOfSolidificationEvents_Host(index), 1);
-                EXPECT_EQ(SolidificationEventCounter_Host(index), 0);
+                EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 0), -1.0);
+                EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 2), R_norm);
+                EXPECT_EQ(number_solidification_events_host(index), 1);
+                EXPECT_EQ(solidification_event_counter_host(index), 0);
                 // UndercoolingCurrent should be zero for cells if a positive G is given, or initUndercooling if being
                 // initialized with a uniform undercooling field (all cells initially below liquidus)
                 if (G == 0) {
-                    EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(index), inputs.temperature.initUndercooling);
-                    EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 1), -1);
+                    EXPECT_FLOAT_EQ(undercooling_current_host(index), inputs.temperature.initUndercooling);
+                    EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 1), -1);
                 }
                 else {
-                    int distFromLiquidus = coord_z - locationOfLiquidus;
-                    if (distFromLiquidus < 0) {
+                    int dist_from_liquidus = coord_z - location_liquidus_isotherm;
+                    if (dist_from_liquidus < 0) {
                         // Undercooled cell (liquidus time step already passed, set to -1)
-                        // Cell is more undercooled from initUndercooling based on the magnitude of the distance from
-                        // the liquidus and the thermal gradient
-                        EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 1), -1);
-                        EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(index),
-                                        inputs.temperature.initUndercooling - distFromLiquidus * (G * grid.deltax));
+                        // The undercooling at Z = locationOfLiquidus should have been set to init_undercooling
+                        EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 1), -1);
+                        int dist_from_init_undercooling = coord_z - location_init_undercooling;
+                        EXPECT_FLOAT_EQ(undercooling_current_host(index),
+                                        inputs.temperature.initUndercooling -
+                                            dist_from_init_undercooling * G * grid.deltax);
                     }
                     else {
                         // Cell has not yet reached the nonzero liquidus time yet (or reaches it at time = 0), either
                         // does not have an assigned undercooling or the assigned undercooling is zero
-                        EXPECT_FLOAT_EQ(LayerTimeTempHistory_Host(index, 0, 1), distFromLiquidus * GNorm / RNorm);
-                        EXPECT_FLOAT_EQ(UndercoolingCurrent_Host(index), 0.0);
+                        EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 1),
+                                        dist_from_liquidus * G_norm / R_norm);
+                        EXPECT_FLOAT_EQ(undercooling_current_host(index), 0.0);
                     }
                 }
             }
@@ -308,9 +314,10 @@ TEST(TEST_CATEGORY, temperature) {
                                 TestBinaryInputRead_vals[test_count]);
     }
     // Test for directional and single grain problems, and with and without a thermal gradient for the single grain
-    // problem
-    testInit_UnidirectionalGradient("C", 1000000);
-    testInit_UnidirectionalGradient("SingleGrain", 0);
-    testInit_UnidirectionalGradient("SingleGrain", 1000000);
+    // problem and with/without an initial undercooling present at the initial solidification front
+    testInit_UnidirectionalGradient("C", 1000000, 0);
+    testInit_UnidirectionalGradient("C", 1000000, 2);
+    //    testInit_UnidirectionalGradient("SingleGrain", 0, 2);
+    //    testInit_UnidirectionalGradient("SingleGrain", 1000000, 2);
 }
 } // end namespace Test

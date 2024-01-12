@@ -39,12 +39,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if (simulation_type == "R")
         temperature.readTemperatureData(id, grid, 0);
     // Initialize the temperature fields for the simualtion type of interest
-    if ((simulation_type == "C") || (simulation_type == "SingleGrain")) {
-        if (inputs.temperature.G == 0)
-            temperature.initialize(id, grid, inputs.domain.deltat);
-        else
-            temperature.initialize(id, simulation_type, grid, inputs.domain.deltat);
-    }
+    if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
+        temperature.initialize(id, simulation_type, grid, inputs.domain.deltat);
     else if (simulation_type == "S")
         temperature.initialize(id, grid, irf.FreezingRange, inputs);
     else if (simulation_type == "R")
