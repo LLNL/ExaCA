@@ -231,11 +231,30 @@ struct Inputs {
             temperature.G = inputdata["TemperatureData"]["G"];
             temperature.R = inputdata["TemperatureData"]["R"];
             // Optional initial undercooling for problem type C (required for type SingleGrain). Defaults to 0 for
-            // problem type C if not given
+            // problem type C if not given, should be a positive number
+            if (inputdata["TemperatureData"].contains("InitUndercooling"))
+                if (inputdata["TemperatureData"]["InitUndercooling"] < 0)
+                    throw std::runtime_error("Error: optional temperature data argument InitUndercooling should be "
+                                             "greater than or equal to zero");
             if (SimulationType == "SingleGrain")
                 temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
             else if ((SimulationType == "C") && (inputdata["TemperatureData"].contains("InitUndercooling")))
                 temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
+            if ((temperature.G > 0) && (Kokkos::fabs(temperature.R) < 0.000001)) {
+                // Throw error for edge case where the cooling rate is 0, but cells in the domain would be initialized
+                // above the liquidus temperature (i.e., cells that would never solidify)
+                int location_init_undercooling;
+                if (SimulationType == "C")
+                    location_init_undercooling = 0;
+                else
+                    location_init_undercooling = Kokkos::floorf(static_cast<float>(domain.nz) / 2.0);
+                int location_liquidus_isotherm =
+                    location_init_undercooling +
+                    Kokkos::round(temperature.initUndercooling / (temperature.G * domain.deltax));
+                if ((temperature.R == 0) && (location_liquidus_isotherm <= domain.nz - 1))
+                    throw std::runtime_error("Error: Domain will not fully solidify based on the size in Z, initial "
+                                             "undercooling, thermal gradient, and cooling rate in the input file");
+            }
         }
 
         // Substrate inputs:
