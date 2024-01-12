@@ -7,7 +7,7 @@
 #include "mpi.h"
 
 // Print timing info to console
-void PrintExaCATiming(const int np, const double init_time, const double run_time, const double out_time,
+void printExaCATiming(const int np, const double init_time, const double run_time, const double out_time,
                       const int cycle, const double init_max_time, const double init_min_time,
                       const double nucl_max_time, const double nucl_min_time, const double create_sv_min_time,
                       const double create_sv_max_time, const double capture_max_time, const double capture_min_time,

@@ -250,7 +250,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                          CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, grid.x_min, grid.x_max,
                          grid.y_min, grid.y_max, grid.z_min, grid.z_max, VolFractionNucleated);
     if (id == 0)
-        PrintExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
+        printExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
                          CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
                          OutMaxTime, OutMinTime);
 }

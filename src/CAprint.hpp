@@ -159,7 +159,7 @@ struct Print {
         return view_data_whole_domain;
     }
 
-    // Called on rank 0, prints current values of selected data structures to Paraview files
+    // Called on rank 0, prints current values of selected data structures to vtk files
     // For intralayer print (current_layer_only = true):
     // Creates a file "Basefilename_layer[layernumber]_[time].vtk" containing the portions of data structures
     // corresponding to the current layer of a multilayer simulation The exception to this is for print
@@ -267,7 +267,7 @@ struct Print {
             return;
     }
 
-    // Called on rank 0, prints current values of selected data structures to Paraview files
+    // Called on rank 0, prints current values of selected data structures to vtk files
     // Creates a file "Basefilename_layer[layernumber].vtk" (the exception being the final layer, named
     // "Basefilename.vtk") containing data for the whole simulation domain. Creates a second file
     // "Basefilename_layer[layernumber]_layeronly.vtk" (the exception being the final layer, named
@@ -427,7 +427,7 @@ struct Print {
         }
     }
 
-    // Print Paraview file header data on rank 0, for either binary or ASCII output
+    // Print vtk file header data on rank 0, for either binary or ASCII output
     // current_layer_only = true: Printing only data for the Z coordinates corresponding to the current layer of a
     // multilayer problem current_layer_only = false: Printing data up to and including the top of the current layer of
     // a multilayer problem. This will be the top of the overall simulation domain if this was the final layer
@@ -504,7 +504,7 @@ struct Print {
         }
     }
 
-    // On rank 0, print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a paraview
+    // On rank 0, print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a vtk
     // file. If printing an intermediate state, print -1 for cells that are liquid
     template <typename ViewTypeInt3DHost, typename OrientationMemory>
     void printGrainMisorientations(const std::string misorientations_filename, const Grid &grid,
@@ -652,7 +652,7 @@ struct Print {
     }
 };
 
-void PrintExaCATiming(const int np, const double init_time, const double run_time, const double out_time,
+void printExaCATiming(const int np, const double init_time, const double run_time, const double out_time,
                       const int cycle, const double init_max_time, const double init_min_time,
                       const double nucl_max_time, const double nucl_min_time, const double create_sv_min_time,
                       const double create_sv_max_time, const double capture_max_time, const double capture_min_time,
