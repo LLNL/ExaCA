@@ -546,6 +546,10 @@ struct Inputs {
             // List of layers following which interlayer data should be printed (will always print after last layer by
             // default)
             if (inputdata["Printing"]["Interlayer"].contains("Layers")) {
+                if ((id == 0) && (inputdata["Printing"]["Interlayer"].contains("Increment")))
+                    std::cout << "Warning: A list of layers to print and a layer increment were both present in the "
+                                 "input file print options, the layer increment will be ignored"
+                              << std::endl;
                 int num_print_layers = inputdata["Printing"]["Interlayer"]["Layers"].size();
                 for (int n = 0; n < num_print_layers; n++) {
                     int print_layer_val = inputdata["Printing"]["Interlayer"]["Layers"][n];
@@ -562,6 +566,13 @@ struct Inputs {
                 // Make sure files print after last layer, even if it wasn't listed
                 if (print.print_layer_number[num_print_layers - 1] != domain.NumberOfLayers - 1)
                     print.print_layer_number.push_back(domain.NumberOfLayers - 1);
+            }
+            else if (inputdata["Printing"]["Interlayer"].contains("Increment")) {
+                // Print layer numbers starting at 0 and at interlayer_increment, always including the last layer
+                int interlayer_increment = inputdata["Printing"]["Interlayer"]["Increment"];
+                for (int n = 0; n < domain.NumberOfLayers - 1; n += interlayer_increment)
+                    print.print_layer_number.push_back(n);
+                print.print_layer_number.push_back(domain.NumberOfLayers - 1);
             }
             else
                 print.print_layer_number.push_back(domain.NumberOfLayers - 1);
