@@ -317,7 +317,7 @@ TEST(TEST_CATEGORY, temperature) {
     // problem and with/without an initial undercooling present at the initial solidification front
     testInit_UnidirectionalGradient("C", 1000000, 0);
     testInit_UnidirectionalGradient("C", 1000000, 2);
-    //    testInit_UnidirectionalGradient("SingleGrain", 0, 2);
-    //    testInit_UnidirectionalGradient("SingleGrain", 1000000, 2);
+    testInit_UnidirectionalGradient("SingleGrain", 0, 2);
+    testInit_UnidirectionalGradient("SingleGrain", 1000000, 2);
 }
 } // end namespace Test

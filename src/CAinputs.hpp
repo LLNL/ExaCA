@@ -234,13 +234,13 @@ struct Inputs {
             // problem type C if not given, should be a positive number
             if (inputdata["TemperatureData"].contains("InitUndercooling"))
                 if (inputdata["TemperatureData"]["InitUndercooling"] < 0)
-                    throw std::runtime_error("Error: optional temperature data argument `InitUndercooling` should be "
+                    throw std::runtime_error("Error: optional temperature data argument InitUndercooling should be "
                                              "greater than or equal to zero");
             if (SimulationType == "SingleGrain")
                 temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
             else if ((SimulationType == "C") && (inputdata["TemperatureData"].contains("InitUndercooling")))
                 temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
-            if ((temperature.G > 0) && (temperature.R == 0)) {
+            if ((temperature.G > 0) && (fabs(temperature.R) < 0.000001)) {
                 // Throw error for edge case where the cooling rate is 0, but cells in the domain would be initialized
                 // above the liquidus temperature (i.e., cells that would never solidify)
                 int location_init_undercooling;
