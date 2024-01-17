@@ -28,10 +28,9 @@ std::size_t checkForHeaderValues(std::string header_line);
 bool checkFileExists(const std::string path, const int id, const bool error = true);
 std::string checkFileInstalled(const std::string name, const int id);
 void checkFileNotEmpty(std::string testfilename);
-std::vector<bool> getPrintFieldValues_Old(nlohmann::json inputdata, std::string Fieldtype,
-                                          std::vector<std::string> Fieldnames_key);
-std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fieldtype,
-                                      std::vector<std::string> Fieldnames_key);
+bool checkTemperatureFileFormat(std::string tempfile_thislayer);
+std::size_t checkForHeaderValues(std::string header_line);
+
 // Swaps bits for a variable of type SwapType
 template <typename SwapType>
 void SwapEndian(SwapType &var) {
@@ -60,86 +59,57 @@ ReadType ParseASCIIData(std::istringstream &ss) {
     ss >> readValue;
     return readValue;
 }
-// Check if the temperature data is in ASCII or binary format
-bool checkTemperatureFileFormat(std::string tempfile_thislayer);
 
-std::array<double, 6> parseTemperatureCoordinateMinMax(std::string tempfile_thislayer, bool BinaryInputData);
-// Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header line -
-// or a binary string of double precision values), storing the x, y, z, tm, tl, cr values in the RawData vector. Each
-// rank only contains the points corresponding to cells within the associated Y bounds. NumberOfTemperatureDataPoints is
-// incremented on each rank as data is added to RawData
-template <typename view_type_double_host>
-void parseTemperatureData(std::string tempfile_thislayer, double YMin, double deltax, int LowerYBound, int UpperYBound,
-                          int &NumberOfTemperatureDataPoints, bool BinaryInputData,
-                          view_type_double_host &RawTemperatureData) {
-
-    std::ifstream TemperatureFilestream;
-    TemperatureFilestream.open(tempfile_thislayer);
-    if (BinaryInputData) {
-        while (!TemperatureFilestream.eof()) {
-            double XTemperaturePoint = ReadBinaryData<double>(TemperatureFilestream);
-            double YTemperaturePoint = ReadBinaryData<double>(TemperatureFilestream);
-            // If no data was extracted from the stream, the end of the file was reached
-            if (!(TemperatureFilestream))
-                break;
-            // Check the y value from ParsedLine, to check if this point is stored on this rank
-            // Check the CA grid positions of the data point to see which rank(s) should store it
-            int YInt = Kokkos::round((YTemperaturePoint - YMin) / deltax);
-            if ((YInt >= LowerYBound) && (YInt <= UpperYBound)) {
-                // This data point is inside the bounds of interest for this MPI rank
-                // Store the x and y values in RawData
-                RawTemperatureData(NumberOfTemperatureDataPoints) = XTemperaturePoint;
-                NumberOfTemperatureDataPoints++;
-                RawTemperatureData(NumberOfTemperatureDataPoints) = YTemperaturePoint;
-                NumberOfTemperatureDataPoints++;
-                // Parse the remaining 4 components (z, tm, tl, cr) from the line and store in RawData
-                for (int component = 2; component < 6; component++) {
-                    RawTemperatureData(NumberOfTemperatureDataPoints) = ReadBinaryData<double>(TemperatureFilestream);
-                    NumberOfTemperatureDataPoints++;
-                }
-                int RawTemperatureData_extent = RawTemperatureData.extent(0);
-                // Adjust size of RawData if it is near full
-                if (NumberOfTemperatureDataPoints >= RawTemperatureData_extent - 6) {
-                    Kokkos::resize(RawTemperatureData, RawTemperatureData_extent + 1000000);
-                }
-            }
-            else {
-                // This data point is inside the bounds of interest for this MPI rank
-                // ignore the z, tm, tl, cr values associated with it
-                unsigned char temp[4 * sizeof(double)];
-                TemperatureFilestream.read(reinterpret_cast<char *>(temp), 4 * sizeof(double));
+// Reads portion of a paraview file and places data in the appropriate data structure
+// ASCII data at each Z value is separated by a newline
+template <typename read_view_type_3d_host>
+read_view_type_3d_host ReadASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz, std::string label) {
+    read_view_type_3d_host FieldOfInterest(Kokkos::ViewAllocateWithoutInitializing(label), nz, nx, ny);
+    using value_type = typename read_view_type_3d_host::value_type;
+    for (int k = 0; k < nz; k++) {
+        // Get line from file
+        std::string line;
+        getline(InputDataStream, line);
+        // Parse string at spaces
+        std::istringstream ss(line);
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
+                FieldOfInterest(k, i, j) = ParseASCIIData<value_type>(ss);
             }
         }
     }
-    else {
-        // Get number of columns in this temperature file
-        std::string HeaderLine;
-        getline(TemperatureFilestream, HeaderLine);
-        int vals_per_line = checkForHeaderValues(HeaderLine);
-        while (!TemperatureFilestream.eof()) {
-            std::vector<std::string> ParsedLine(6); // Each line has an x, y, z, tm, tl, cr
-            std::string ReadLine;
-            if (!getline(TemperatureFilestream, ReadLine))
-                break;
-            // Only parse the first 6 columns of the temperature data
-            splitString(ReadLine, ParsedLine, vals_per_line);
-            // Check the y value from ParsedLine, to check if this point is stored on this rank
-            double YTemperaturePoint = getInputDouble(ParsedLine[1]);
-            // Check the CA grid positions of the data point to see which rank(s) should store it
-            int YInt = Kokkos::round((YTemperaturePoint - YMin) / deltax);
-            if ((YInt >= LowerYBound) && (YInt <= UpperYBound)) {
-                // This data point is inside the bounds of interest for this MPI rank: Store the x, z, tm, tl, and cr
-                // vals inside of RawData, incrementing with each value added
-                for (int component = 0; component < 6; component++) {
-                    RawTemperatureData(NumberOfTemperatureDataPoints) = getInputDouble(ParsedLine[component]);
-                    NumberOfTemperatureDataPoints++;
-                }
-                // Adjust size of RawData if it is near full
-                int RawTemperatureData_extent = RawTemperatureData.extent(0);
-                // Adjust size of RawData if it is near full
-                if (NumberOfTemperatureDataPoints >= RawTemperatureData_extent - 6) {
-                    Kokkos::resize(RawTemperatureData, RawTemperatureData_extent + 1000000);
-                }
+    return FieldOfInterest;
+}
+
+// Reads binary string of type read_datatype from a paraview file, converts field to the appropriate type to match
+// read_view_type_3d_host (i.e, value_type), and place data in the appropriate data structure Each field consists of a
+// single binary string (no newlines) Store converted values in view - LayerID data is a short int, GrainID data is an
+// int In some older vtk files, LayerID may have been stored as an int and should be converted
+template <typename read_view_type_3d_host, typename read_datatype>
+read_view_type_3d_host ReadBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz, std::string label) {
+    read_view_type_3d_host FieldOfInterest(Kokkos::ViewAllocateWithoutInitializing(label), nz, nx, ny);
+    using value_type = typename read_view_type_3d_host::value_type;
+    for (int k = 0; k < nz; k++) {
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
+                read_datatype parsed_value = ReadBinaryData<read_datatype>(InputDataStream, true);
+                FieldOfInterest(k, i, j) = static_cast<value_type>(parsed_value);
+            }
+        }
+    }
+    return FieldOfInterest;
+}
+
+void ReadIgnoreASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz);
+
+// Reads and discards binary string of type read_datatype from a paraview file
+template <typename read_datatype>
+void ReadIgnoreBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz) {
+    unsigned char temp[sizeof(read_datatype)];
+    for (int k = 0; k < nz; k++) {
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
+                InputDataStream.read(reinterpret_cast<char *>(temp), sizeof(read_datatype));
             }
         }
     }

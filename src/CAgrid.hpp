@@ -151,6 +151,89 @@ struct Grid {
                       << " total cells in the Z direction" << std::endl;
     };
 
+    // Read x, y, z coordinates in tempfile_thislayer (temperature file in either an ASCII or binary format) and return
+    // the min and max values. This is not used by the temperature struct (no temperature info is parsed or stored), and
+    // is only used to find the bounds of the simulation domain
+    std::array<double, 6> parseTemperatureCoordinateMinMax(std::string tempfile_thislayer, bool BinaryInputData) {
+
+        std::array<double, 6> XYZMinMax;
+        std::ifstream TemperatureFilestream;
+        TemperatureFilestream.open(tempfile_thislayer);
+        std::size_t vals_per_line;
+
+        // Binary temperature data should contain only the six columns of interest
+        // Comma-separated double type values may contain additional columns after the 6 used by ExaCA
+        if (BinaryInputData)
+            vals_per_line = 6;
+        else {
+            // Read the header line data
+            // Make sure the first line contains all required column names: x, y, z, tm, tl, cr
+            std::string HeaderLine;
+            getline(TemperatureFilestream, HeaderLine);
+            vals_per_line = checkForHeaderValues(HeaderLine);
+        }
+
+        // Units are assumed to be in meters, meters, seconds, seconds, and K/second
+        int XYZPointCount_Estimate = 1000000;
+        std::vector<double> XCoordinates(XYZPointCount_Estimate), YCoordinates(XYZPointCount_Estimate),
+            ZCoordinates(XYZPointCount_Estimate);
+        long unsigned int XYZPointCounter = 0;
+        if (BinaryInputData) {
+            while (!TemperatureFilestream.eof()) {
+                // Get x from the binary string, or, if no data is left, exit the file read
+                double XValue = ReadBinaryData<double>(TemperatureFilestream);
+                if (!(TemperatureFilestream))
+                    break;
+                // Store the x value that was read, and parse the y and z values
+                XCoordinates[XYZPointCounter] = XValue;
+                YCoordinates[XYZPointCounter] = ReadBinaryData<double>(TemperatureFilestream);
+                ZCoordinates[XYZPointCounter] = ReadBinaryData<double>(TemperatureFilestream);
+                // Ignore the tm, tl, cr values associated with this x, y, z
+                unsigned char temp[3 * sizeof(double)];
+                TemperatureFilestream.read(reinterpret_cast<char *>(temp), 3 * sizeof(double));
+                XYZPointCounter++;
+                if (XYZPointCounter == XCoordinates.size()) {
+                    XCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                    YCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                    ZCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                }
+            }
+        }
+        else {
+            while (!TemperatureFilestream.eof()) {
+                std::vector<std::string> ParsedLine(3); // Get x, y, z - ignore tm, tl, cr
+                std::string ReadLine;
+                if (!getline(TemperatureFilestream, ReadLine))
+                    break;
+                splitString(ReadLine, ParsedLine, vals_per_line);
+                // Only get x, y, and z values from ParsedLine
+                XCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[0]);
+                YCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[1]);
+                ZCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[2]);
+                XYZPointCounter++;
+                if (XYZPointCounter == XCoordinates.size()) {
+                    XCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                    YCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                    ZCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                }
+            }
+        }
+
+        XCoordinates.resize(XYZPointCounter);
+        YCoordinates.resize(XYZPointCounter);
+        ZCoordinates.resize(XYZPointCounter);
+        TemperatureFilestream.close();
+
+        // Min/max x, y, and z coordinates from this layer's data
+        XYZMinMax[0] = *min_element(XCoordinates.begin(), XCoordinates.end());
+        XYZMinMax[1] = *max_element(XCoordinates.begin(), XCoordinates.end());
+        XYZMinMax[2] = *min_element(YCoordinates.begin(), YCoordinates.end());
+        XYZMinMax[3] = *max_element(YCoordinates.begin(), YCoordinates.end());
+        XYZMinMax[4] = *min_element(ZCoordinates.begin(), ZCoordinates.end());
+        XYZMinMax[5] = *max_element(ZCoordinates.begin(), ZCoordinates.end());
+        return XYZMinMax;
+    }
+
     // For simulation type R, obtain the physical XYZ bounds of the domain by reading temperature data files and parsing
     // the coordinates. Previously in CAinitialize.cpp
     void find_xyz_bounds(const int id) {
