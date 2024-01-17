@@ -253,7 +253,6 @@ struct Nucleation {
     // functional form is assumed to be cubic if not explicitly given in input file
     void nucleate_grain(int cycle, Grid &grid, CellData<memory_space> &cellData, Interface<memory_space> interface) {
 
-        auto CellType = cellData.getCellTypeSubview(grid);
         auto GrainID = cellData.getGrainIDSubview(grid);
 
         // Is there nucleation left in this layer to check?
@@ -288,8 +287,8 @@ struct Nucleation {
                         int update_val =
                             FutureActive; // added to steering vector to become a new active cell as part of cellcapture
                         int old_val = Liquid;
-                        int OldCellTypeValue =
-                            Kokkos::atomic_compare_exchange(&CellType(NucleationEventLocation), old_val, update_val);
+                        int OldCellTypeValue = Kokkos::atomic_compare_exchange(
+                            &cellData.CellType(NucleationEventLocation), old_val, update_val);
                         if (OldCellTypeValue == Liquid) {
                             // Successful nucleation event - atomic update of cell type, proceeded if the atomic
                             // exchange is successful (cell was liquid) Add future active cell location to steering

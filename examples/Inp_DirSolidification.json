@@ -27,11 +27,13 @@
       "OutputFile": "TestProblemDirS",
       "PrintBinary": false,
       "PrintExaConstitSize": 0,
-      "PrintFieldsInit": ["CritTimeStep"],
-      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
-      "PrintIntermediateOutput": {
-          "Frequency": 350,
+      "Intralayer": {
+          "Increment": 5250,
+          "Fields": ["GrainMisorientation"],
           "PrintIdleFrames": false
+      },
+      "Interlayer": {
+          "Fields": ["GrainID", "LayerID", "GrainMisorientation"]
       }
    }
 }

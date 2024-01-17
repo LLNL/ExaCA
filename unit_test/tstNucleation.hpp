@@ -210,10 +210,9 @@ void testNucleateGrain() {
 
     // All cells have GrainID of 0, CellType of Liquid - with the exception of the locations where the nucleation events
     // are unable to occur
-    CellData<memory_space> cellData(grid.domain_size_all_layers, inputs.substrate);
-    Kokkos::deep_copy(cellData.CellType_AllLayers, Liquid);
-    auto CellType = cellData.getCellTypeSubview(grid);
-    auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    CellData<memory_space> cellData(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    Kokkos::deep_copy(cellData.CellType, Liquid);
+    auto CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType);
     auto GrainID = cellData.getGrainIDSubview(grid);
     auto GrainID_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), GrainID);
 
@@ -256,7 +255,7 @@ void testNucleateGrain() {
     GrainID_Host(UnsuccessfulLocB) = 3;
 
     // Copy host views to device
-    CellType = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), CellType_Host);
+    cellData.CellType = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), CellType_Host);
     GrainID = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), GrainID_Host);
     nucleation.NucleiLocations = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), NucleiLocations_Host);
     nucleation.NucleiGrainID = Kokkos::create_mirror_view_and_copy(TEST_MEMSPACE(), NucleiGrainID_Host);
@@ -269,8 +268,7 @@ void testNucleateGrain() {
     }
 
     // Copy CellType, SteeringVector, numSteer, GrainID back to host to check nucleation results
-    CellType = cellData.getCellTypeSubview(grid);
-    CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), CellType);
+    CellType_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cellData.CellType);
     auto steering_vector_host_local =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.steering_vector);
     auto num_steer_host_local = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.num_steer);

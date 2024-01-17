@@ -56,7 +56,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
         std::cout << "Done with orientation initialization " << std::endl;
 
     // Initialize cell types, grain IDs, and layer IDs
-    CellData<memory_space> cellData(grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> cellData(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
     if (simulation_type == "C")
         cellData.init_substrate(id, grid, inputs.RNGSeed);
     else if (simulation_type == "SingleGrain")
@@ -92,7 +92,6 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double InitTime = MPI_Wtime() - StartInitTime;
     if (id == 0)
         std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
-    print.printInitExaCAData(id, np, grid, cellData.GrainID_AllLayers, cellData.LayerID_AllLayers, temperature);
     MPI_Barrier(MPI_COMM_WORLD);
     int cycle = 0;
     double StartRunTime = MPI_Wtime();
@@ -106,8 +105,8 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
             // Start of time step - optional print current state of ExaCA simulation (up to and including the current
             // layer's data)
-            print.printIntermediateGrainMisorientation(id, np, cycle, grid, cellData.GrainID_AllLayers,
-                                                       cellData.CellType_AllLayers, orientation, layernumber);
+            print.printIntralayer(id, np, layernumber, inputs.domain.deltat, cycle, grid, cellData, temperature,
+                                  interface, orientation);
             cycle++;
 
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
@@ -149,21 +148,21 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             if ((cycle % 1000 == 0) && (simulation_type != "SingleGrain")) {
                 IntermediateOutputAndCheck(id, np, cycle, grid, nucleation.SuccessfulNucleationCounter, XSwitch,
                                            cellData, temperature, inputs.SimulationType, layernumber, orientation,
-                                           print);
+                                           print, inputs.domain.deltat, interface);
             }
             else if (simulation_type == "SingleGrain") {
-                IntermediateOutputAndCheck(id, cycle, grid, XSwitch, cellData.CellType_AllLayers);
+                IntermediateOutputAndCheck(id, cycle, grid, XSwitch, cellData.CellType);
             }
 
         } while (XSwitch == 0);
         if (layernumber != grid.number_of_layers - 1) {
             MPI_Barrier(MPI_COMM_WORLD);
+
+            // Optional print current state of ExaCA
+            print.printInterlayer(id, np, layernumber, grid, cellData, temperature, interface, orientation);
             if (id == 0)
                 std::cout << "Layer " << layernumber << " finished solidification; initializing layer "
                           << layernumber + 1 << std::endl;
-
-            // Reset intermediate file counter to zero if printing video files
-            print.resetIntermediateFileCounter();
 
             // Determine new active cell domain size and offset from bottom of global domain
             grid.init_next_layer(id, simulation_type, layernumber + 1, inputs.domain.SpotRadius);
@@ -218,8 +217,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     // Collect and print specified final fields to output files
-    print.printFinalExaCAData(id, np, grid, cellData.LayerID_AllLayers, cellData.CellType_AllLayers,
-                              cellData.GrainID_AllLayers, temperature, orientation);
+    print.printInterlayer(id, np, grid.number_of_layers - 1, grid, cellData, temperature, interface, orientation);
 
     // Calculate volume fraction of solidified domain consisting of nucleated grains
     float VolFractionNucleated = cellData.calcVolFractionNucleated(id, grid);
@@ -248,7 +246,7 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
                          CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, grid.x_min, grid.x_max,
                          grid.y_min, grid.y_max, grid.z_min, grid.z_max, VolFractionNucleated);
     if (id == 0)
-        PrintExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
+        printExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
                          CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
                          OutMaxTime, OutMinTime);
 }

@@ -28,11 +28,9 @@
       "OutputFile": "TestProblemTwoLineTwoLayer",
       "PrintBinary": false,
       "PrintExaConstitSize": 0,
-      "PrintFieldsInit": [],
-      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation", "UndercoolingCurrent"],
-      "PrintIntermediateOutput": {
-          "Frequency": 0,
-          "PrintIdleFrames": false
+      "Interlayer": {
+          "Fields": ["GrainID", "LayerID", "GrainMisorientation", "UndercoolingCurrent", "SolidificationEventCounter"],
+          "Layers": [0, 1]
       }
    }
 }

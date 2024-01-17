@@ -143,9 +143,6 @@ void testInputs(int PrintVersion) {
 
         // These are different for all 3 test problems
         if ((FileName == InputFilenames[0]) || (FileName == InputFilenames[3])) {
-            EXPECT_TRUE(inputs.print.PrintTimeSeries);
-            EXPECT_EQ(inputs.print.TimeSeriesInc, 5250);
-            EXPECT_FALSE(inputs.print.PrintIdleTimeSeriesFrames);
             EXPECT_DOUBLE_EQ(inputs.temperature.G, 500000.0);
             EXPECT_DOUBLE_EQ(inputs.temperature.R, 300000.0);
             // compare with float to avoid floating point error with irrational number
@@ -171,26 +168,36 @@ void testInputs(int PrintVersion) {
                 EXPECT_TRUE(inputs.substrate.CustomGrainLocationsIDs);
                 EXPECT_DOUBLE_EQ(inputs.temperature.initUndercooling, 10.0);
             }
-            EXPECT_TRUE(inputs.print.PrintInitCritTimeStep);
-            EXPECT_FALSE(inputs.print.PrintInitGrainID);
-            EXPECT_FALSE(inputs.print.PrintInitLayerID);
-            EXPECT_FALSE(inputs.print.PrintInitMeltTimeStep);
-            EXPECT_FALSE(inputs.print.PrintInitUndercoolingChange);
-            EXPECT_TRUE(inputs.print.PrintFinalGrainID);
-            EXPECT_TRUE(inputs.print.PrintFinalLayerID);
-            EXPECT_TRUE(inputs.print.PrintFinalMisorientation);
-            EXPECT_FALSE(inputs.print.PrintFinalUndercoolingCurrent);
-            EXPECT_FALSE(inputs.print.PrintFinalMeltTimeStep);
-            EXPECT_FALSE(inputs.print.PrintFinalCritTimeStep);
-            EXPECT_FALSE(inputs.print.PrintFinalUndercoolingChange);
-            EXPECT_FALSE(inputs.print.PrintDefaultRVE);
-            EXPECT_DOUBLE_EQ(inputs.RNGSeed, 0.0);
-            EXPECT_FALSE(inputs.print.PrintBinary);
+            EXPECT_TRUE(inputs.print.intralayer);
+            EXPECT_EQ(inputs.print.intralayer_increment, 5250);
+            EXPECT_FALSE(inputs.print.intralayer_idle_frames);
+            EXPECT_FALSE(inputs.print.intralayer_grain_id);
+            EXPECT_FALSE(inputs.print.intralayer_layer_id);
+            EXPECT_TRUE(inputs.print.intralayer_grain_misorientation);
+            EXPECT_FALSE(inputs.print.intralayer_undercooling_current);
+            EXPECT_FALSE(inputs.print.intralayer_melt_time_step);
+            EXPECT_FALSE(inputs.print.intralayer_crit_time_step);
+            EXPECT_FALSE(inputs.print.intralayer_undercooling_change);
+            EXPECT_FALSE(inputs.print.intralayer_cell_type);
+            EXPECT_FALSE(inputs.print.intralayer_diagonal_length);
+            EXPECT_FALSE(inputs.print.intralayer_solidification_event_counter);
+            EXPECT_FALSE(inputs.print.intralayer_number_of_solidification_events);
+            EXPECT_TRUE(inputs.print.interlayer_full);
+            EXPECT_FALSE(inputs.print.interlayer_current);
+            EXPECT_TRUE(inputs.print.interlayer_grain_id);
+            EXPECT_TRUE(inputs.print.interlayer_layer_id);
+            EXPECT_TRUE(inputs.print.interlayer_grain_misorientation);
+            EXPECT_FALSE(inputs.print.interlayer_undercooling_current);
+            EXPECT_FALSE(inputs.print.interlayer_melt_time_step);
+            EXPECT_FALSE(inputs.print.interlayer_crit_time_step);
+            EXPECT_FALSE(inputs.print.interlayer_undercooling_change);
+            EXPECT_FALSE(inputs.print.interlayer_cell_type);
+            EXPECT_FALSE(inputs.print.interlayer_diagonal_length);
+            EXPECT_FALSE(inputs.print.interlayer_solidification_event_counter);
+            EXPECT_FALSE(inputs.print.interlayer_number_of_solidification_events);
+            EXPECT_EQ(inputs.print.print_layer_number[0], 0);
         }
         else if (FileName == InputFilenames[1]) {
-            EXPECT_TRUE(inputs.print.PrintTimeSeries);
-            EXPECT_EQ(inputs.print.TimeSeriesInc, 37500);
-            EXPECT_TRUE(inputs.print.PrintIdleTimeSeriesFrames);
             EXPECT_DOUBLE_EQ(inputs.temperature.G, 500000.0);
             EXPECT_DOUBLE_EQ(inputs.temperature.R, 300000.0);
             // compare with float to avoid floating point error with irrational number
@@ -208,18 +215,34 @@ void testInputs(int PrintVersion) {
             EXPECT_DOUBLE_EQ(inputs.substrate.BaseplateTopZ, inputs.domain.deltax * inputs.domain.SpotRadius);
             EXPECT_FLOAT_EQ(inputs.substrate.SubstrateGrainSpacing, 25.0);
             EXPECT_TRUE(inputs.print.BaseFileName == "TestProblemSpot");
-            EXPECT_TRUE(inputs.print.PrintInitCritTimeStep);
-            EXPECT_TRUE(inputs.print.PrintInitMeltTimeStep);
-            EXPECT_FALSE(inputs.print.PrintInitGrainID);
-            EXPECT_FALSE(inputs.print.PrintInitLayerID);
-            EXPECT_FALSE(inputs.print.PrintInitUndercoolingChange);
-            EXPECT_TRUE(inputs.print.PrintFinalGrainID);
-            EXPECT_TRUE(inputs.print.PrintFinalLayerID);
-            EXPECT_TRUE(inputs.print.PrintFinalMisorientation);
-            EXPECT_FALSE(inputs.print.PrintFinalUndercoolingCurrent);
-            EXPECT_FALSE(inputs.print.PrintFinalMeltTimeStep);
-            EXPECT_FALSE(inputs.print.PrintFinalCritTimeStep);
-            EXPECT_FALSE(inputs.print.PrintFinalUndercoolingChange);
+            EXPECT_TRUE(inputs.print.intralayer);
+            EXPECT_EQ(inputs.print.intralayer_increment, 37500);
+            EXPECT_TRUE(inputs.print.intralayer_idle_frames);
+            EXPECT_FALSE(inputs.print.intralayer_grain_id);
+            EXPECT_FALSE(inputs.print.intralayer_layer_id);
+            EXPECT_TRUE(inputs.print.intralayer_grain_misorientation);
+            EXPECT_FALSE(inputs.print.intralayer_undercooling_current);
+            EXPECT_TRUE(inputs.print.intralayer_melt_time_step);
+            EXPECT_TRUE(inputs.print.intralayer_crit_time_step);
+            EXPECT_FALSE(inputs.print.intralayer_undercooling_change);
+            EXPECT_FALSE(inputs.print.intralayer_cell_type);
+            EXPECT_FALSE(inputs.print.intralayer_diagonal_length);
+            EXPECT_FALSE(inputs.print.intralayer_solidification_event_counter);
+            EXPECT_FALSE(inputs.print.intralayer_number_of_solidification_events);
+            EXPECT_TRUE(inputs.print.interlayer_full);
+            EXPECT_FALSE(inputs.print.interlayer_current);
+            EXPECT_TRUE(inputs.print.interlayer_grain_id);
+            EXPECT_TRUE(inputs.print.interlayer_layer_id);
+            EXPECT_TRUE(inputs.print.interlayer_grain_misorientation);
+            EXPECT_FALSE(inputs.print.interlayer_undercooling_current);
+            EXPECT_FALSE(inputs.print.interlayer_melt_time_step);
+            EXPECT_FALSE(inputs.print.interlayer_crit_time_step);
+            EXPECT_FALSE(inputs.print.interlayer_undercooling_change);
+            EXPECT_FALSE(inputs.print.interlayer_cell_type);
+            EXPECT_FALSE(inputs.print.interlayer_diagonal_length);
+            EXPECT_FALSE(inputs.print.interlayer_solidification_event_counter);
+            EXPECT_FALSE(inputs.print.interlayer_number_of_solidification_events);
+            EXPECT_EQ(inputs.print.print_layer_number[0], 1);
             EXPECT_FALSE(inputs.print.PrintDefaultRVE);
             EXPECT_DOUBLE_EQ(inputs.RNGSeed, 0.0);
         }
@@ -237,32 +260,53 @@ void testInputs(int PrintVersion) {
             EXPECT_TRUE(inputs.temperature.temp_paths[0] == ".//1DummyTemperature.txt");
             EXPECT_TRUE(inputs.temperature.temp_paths[1] == ".//2DummyTemperature.txt");
             if (PrintVersion == 0) {
-                EXPECT_TRUE(inputs.print.PrintInitCritTimeStep);
-                EXPECT_TRUE(inputs.print.PrintInitMeltTimeStep);
-                EXPECT_TRUE(inputs.print.PrintInitGrainID);
-                EXPECT_TRUE(inputs.print.PrintInitLayerID);
-                EXPECT_TRUE(inputs.print.PrintInitUndercoolingChange);
-                EXPECT_TRUE(inputs.print.PrintFinalMisorientation);
-                EXPECT_TRUE(inputs.print.PrintFinalUndercoolingCurrent);
-                EXPECT_TRUE(inputs.print.PrintFinalLayerID);
-                EXPECT_TRUE(inputs.print.PrintFinalGrainID);
-                EXPECT_TRUE(inputs.print.PrintTimeSeries);
-                EXPECT_EQ(inputs.print.TimeSeriesInc, 200); // value from file divided by deltat
-                EXPECT_TRUE(inputs.print.PrintIdleTimeSeriesFrames);
+                EXPECT_TRUE(inputs.print.intralayer);
+                EXPECT_EQ(inputs.print.intralayer_increment, 200);
+                EXPECT_TRUE(inputs.print.intralayer_idle_frames);
+                EXPECT_TRUE(inputs.print.intralayer_grain_id);
+                EXPECT_TRUE(inputs.print.intralayer_layer_id);
+                EXPECT_FALSE(inputs.print.intralayer_grain_misorientation);
+                EXPECT_FALSE(inputs.print.intralayer_undercooling_current);
+                EXPECT_TRUE(inputs.print.intralayer_melt_time_step);
+                EXPECT_TRUE(inputs.print.intralayer_crit_time_step);
+                EXPECT_TRUE(inputs.print.intralayer_undercooling_change);
+                EXPECT_FALSE(inputs.print.intralayer_cell_type);
+                EXPECT_FALSE(inputs.print.intralayer_diagonal_length);
+                EXPECT_FALSE(inputs.print.intralayer_solidification_event_counter);
+                EXPECT_FALSE(inputs.print.intralayer_number_of_solidification_events);
+                EXPECT_TRUE(inputs.print.interlayer_full);
+                EXPECT_TRUE(inputs.print.interlayer_current);
+                EXPECT_TRUE(inputs.print.interlayer_grain_id);
+                EXPECT_TRUE(inputs.print.interlayer_layer_id);
+                EXPECT_TRUE(inputs.print.interlayer_grain_misorientation);
+                EXPECT_TRUE(inputs.print.interlayer_undercooling_current);
+                EXPECT_FALSE(inputs.print.interlayer_melt_time_step);
+                EXPECT_FALSE(inputs.print.interlayer_crit_time_step);
+                EXPECT_FALSE(inputs.print.interlayer_undercooling_change);
+                EXPECT_FALSE(inputs.print.interlayer_cell_type);
+                EXPECT_FALSE(inputs.print.interlayer_diagonal_length);
+                EXPECT_FALSE(inputs.print.interlayer_solidification_event_counter);
+                EXPECT_FALSE(inputs.print.interlayer_number_of_solidification_events);
+                EXPECT_EQ(inputs.print.print_layer_number[0], 1);
                 EXPECT_FALSE(inputs.print.PrintDefaultRVE);
             }
             else if (PrintVersion == 1) {
-                EXPECT_FALSE(inputs.print.PrintInitCritTimeStep);
-                EXPECT_FALSE(inputs.print.PrintInitMeltTimeStep);
-                EXPECT_FALSE(inputs.print.PrintInitGrainID);
-                EXPECT_FALSE(inputs.print.PrintInitLayerID);
-                EXPECT_FALSE(inputs.print.PrintInitUndercoolingChange);
-                EXPECT_TRUE(inputs.print.PrintFinalMisorientation);
-                EXPECT_FALSE(inputs.print.PrintFinalUndercoolingCurrent);
-                EXPECT_TRUE(inputs.print.PrintFinalLayerID);
-                EXPECT_TRUE(inputs.print.PrintFinalGrainID);
+                EXPECT_FALSE(inputs.print.intralayer);
+                EXPECT_TRUE(inputs.print.interlayer_full);
+                EXPECT_FALSE(inputs.print.interlayer_current);
+                EXPECT_TRUE(inputs.print.interlayer_grain_id);
+                EXPECT_TRUE(inputs.print.interlayer_layer_id);
+                EXPECT_TRUE(inputs.print.interlayer_grain_misorientation);
+                EXPECT_FALSE(inputs.print.interlayer_undercooling_current);
+                EXPECT_FALSE(inputs.print.interlayer_melt_time_step);
+                EXPECT_FALSE(inputs.print.interlayer_crit_time_step);
+                EXPECT_FALSE(inputs.print.interlayer_undercooling_change);
+                EXPECT_FALSE(inputs.print.interlayer_cell_type);
+                EXPECT_FALSE(inputs.print.interlayer_diagonal_length);
+                EXPECT_FALSE(inputs.print.interlayer_solidification_event_counter);
+                EXPECT_FALSE(inputs.print.interlayer_number_of_solidification_events);
+                EXPECT_EQ(inputs.print.print_layer_number[0], 1);
                 EXPECT_TRUE(inputs.print.PrintDefaultRVE);
-                EXPECT_FALSE(inputs.print.PrintTimeSeries);
             }
             EXPECT_FALSE(inputs.temperature.LayerwiseTempRead);
             EXPECT_DOUBLE_EQ(inputs.RNGSeed, 2.0);
