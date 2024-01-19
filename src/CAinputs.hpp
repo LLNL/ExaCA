@@ -24,55 +24,55 @@ struct DomainInputs {
     // number of CA cells in each direction only initialized here for problem types C, S, and SingleGrain
     int nx = 0, ny = 0, nz = 0;
     // multilayer problems only
-    int NumberOfLayers = 1, LayerHeight = 0;
+    int number_of_layers = 1, layer_height = 0;
     // problem type S only
-    int NSpotsX = 0, NSpotsY = 0, SpotRadius = 0, SpotOffset = 0;
+    int n_spots_x = 0, n_spots_y = 0, spot_radius = 0, spot_offset = 0;
 };
 
 struct NucleationInputs {
     // unused for single grain problem type, zero by default
-    double NMax = 0.0;
-    double dTN = 0.0;
-    double dTsigma = 0.0;
+    double n_max = 0.0;
+    double dtn = 0.0;
+    double dtsigma = 0.0;
 };
 
 struct TemperatureInputs {
     // Used for problem type R (by default, all temperature files read during init)
-    bool LayerwiseTempRead = false;
-    int TempFilesInSeries = 0;
+    bool layerwise_temp_read = false;
+    int temp_files_in_series = 0;
     std::vector<std::string> temp_paths;
     // Use for problem types other than R (no temperature files to read) - default to no initial undercooling at
     // solidification front
     double G = 0, R = 0;
-    double initUndercooling = 0.0;
+    double init_undercooling = 0.0;
 };
 
 struct SubstrateInputs {
     // problem type C only - one of these two inputs will be given
-    double FractSurfaceSitesActive = 0.0;
-    std::vector<int> GrainLocationsX, GrainLocationsY, GrainIDs;
-    bool CustomGrainLocationsIDs = false;
-    bool FillBottomSurface = false;
+    double fract_surface_sites_active = 0.0;
+    std::vector<int> grain_locations_x, grain_locations_y, grain_ids;
+    bool custom_grain_locations_ids = false;
+    bool fill_bottom_surface = false;
     // problem type SingleGrain only
-    int singleGrainOrientation = 0;
+    int single_grain_orientation = 0;
     // problem types S and R only
-    bool UseSubstrateFile = false;
-    bool BaseplateThroughPowder = false;
-    std::string SubstrateFileName = "";
-    double SubstrateGrainSpacing = 0.0;
+    bool use_substrate_file = false;
+    bool baseplate_through_powder = false;
+    std::string substrate_filename = "";
+    double substrate_grain_spacing = 0.0;
     // defaults to all sites in powder layer initialized with a new grain
-    double PowderActiveFraction = 1.0;
+    double powder_active_fraction = 1.0;
     // Top of baseplate assumed at Z = 0 if not otherwise given
-    double BaseplateTopZ = 0.0;
+    double baseplate_top_z = 0.0;
 };
 
 struct PrintInputs {
     // Base name of CA output
-    std::string BaseFileName = "";
+    std::string base_filename = "";
     // Path to CA output
-    std::string PathToOutput = "";
+    std::string path_to_output = "";
     // Names of output fields that can be printed to files during or at the end of a simulation
-    std::vector<std::string> Fieldnames_key = {"GrainID",
+    std::vector<std::string> fieldnames_key = {"GrainID",
                                                "LayerID",
                                                "GrainMisorientation",
                                                "UndercoolingCurrent",
@@ -117,17 +117,17 @@ struct PrintInputs {
     std::vector<int> print_layer_number;
 
     // Should binary be used for printing vtk data?
-    bool PrintBinary = false;
+    bool print_binary = false;
 
     // Should the default RVE data for ExaConstit be printed? If so, with what size?
-    bool PrintDefaultRVE = false;
-    int RVESize = 0;
+    bool print_default_rve = false;
+    int rve_size = 0;
 };
 
 struct Inputs {
 
-    std::string SimulationType = "", MaterialFileName = "", GrainOrientationFile = "";
-    unsigned long RNGSeed = 0.0;
+    std::string simulation_type = "", material_filename = "", grain_orientation_file = "";
+    unsigned long rng_seed = 0.0;
     DomainInputs domain;
     NucleationInputs nucleation;
     TemperatureInputs temperature;
@@ -137,140 +137,140 @@ struct Inputs {
     // Creates input struct with uninitialized/default values, used in unit tests
     Inputs(){};
 
-    Inputs(int id, std::string InputFile) {
+    Inputs(const int id, const std::string input_file) {
 
         // Open and read JSON input file
-        std::ifstream InputData(InputFile);
-        nlohmann::json inputdata = nlohmann::json::parse(InputData);
+        std::ifstream input_data_stream(input_file);
+        nlohmann::json input_data = nlohmann::json::parse(input_data_stream);
 
         // General inputs
-        SimulationType = inputdata["SimulationType"];
+        simulation_type = input_data["SimulationType"];
         // "C": constrained (directional) solidification
         // "S": array of overlapping hemispherical spots
         // "R": time-temperature history comes from external files
         // Check if simulation type includes remelting ("M" suffix to input problem type) - all simulations now use
         // remelting, so in the absence of this suffix, print warning that the problem will use remelting
         // DirSoldification problems now include remelting logic
-        if (SimulationType == "RM") {
-            SimulationType = "R";
+        if (simulation_type == "RM") {
+            simulation_type = "R";
         }
-        else if (SimulationType == "SM") {
-            SimulationType = "S";
+        else if (simulation_type == "SM") {
+            simulation_type = "S";
         }
-        else if ((SimulationType == "S") || (SimulationType == "R")) {
+        else if ((simulation_type == "S") || (simulation_type == "R")) {
             if (id == 0) {
-                if (SimulationType == "S")
+                if (simulation_type == "S")
                     std::cout
                         << "Warning: While the specified problem type did not include remelting, all simulations now "
                            "include remelting"
                         << std::endl;
             }
         }
-        if ((SimulationType == "S") && (id == 0))
+        if ((simulation_type == "S") && (id == 0))
             std::cout << "Warning: The spot melt array simulation type (Problem type S) is now deprecated and will be "
                          "removed in a future release"
                       << std::endl;
 
         // Input files that should be present for all problem types
-        std::string MaterialFileName_Read = inputdata["MaterialFileName"];
-        std::string GrainOrientationFile_Read = inputdata["GrainOrientationFile"];
+        std::string material_filename_read = input_data["MaterialFileName"];
+        std::string grain_orientation_file_read = input_data["GrainOrientationFile"];
         // Path to file of materials constants based on install/source location
-        MaterialFileName = checkFileInstalled(MaterialFileName_Read, id);
-        checkFileNotEmpty(MaterialFileName);
+        material_filename = checkFileInstalled(material_filename_read, id);
+        checkFileNotEmpty(material_filename);
         // Path to file of grain orientations based on install/source location
-        GrainOrientationFile = checkFileInstalled(GrainOrientationFile_Read, id);
-        checkFileNotEmpty(GrainOrientationFile);
+        grain_orientation_file = checkFileInstalled(grain_orientation_file_read, id);
+        checkFileNotEmpty(grain_orientation_file);
         // Seed for random number generator (defaults to 0 if not given)
-        if (inputdata.contains("RandomSeed"))
-            RNGSeed = inputdata["RandomSeed"];
+        if (input_data.contains("RandomSeed"))
+            rng_seed = input_data["RandomSeed"];
 
         // Domain inputs:
         // Cell size - given in meters, stored in micrometers
-        domain.deltax = inputdata["Domain"]["CellSize"];
+        domain.deltax = input_data["Domain"]["CellSize"];
         domain.deltax = domain.deltax * pow(10, -6);
         // Time step - given in seconds, stored in microseconds
-        domain.deltat = inputdata["Domain"]["TimeStep"];
+        domain.deltat = input_data["Domain"]["TimeStep"];
         domain.deltat = domain.deltat * pow(10, -6);
-        if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
+        if ((simulation_type == "C") || (simulation_type == "SingleGrain")) {
             // Domain size, in cells
-            domain.nx = inputdata["Domain"]["Nx"];
-            domain.ny = inputdata["Domain"]["Ny"];
-            domain.nz = inputdata["Domain"]["Nz"];
+            domain.nx = input_data["Domain"]["Nx"];
+            domain.ny = input_data["Domain"]["Ny"];
+            domain.nz = input_data["Domain"]["Nz"];
         }
         else {
             // Number of layers, layer height are needed for problem types S and R
-            domain.NumberOfLayers = inputdata["Domain"]["NumberOfLayers"];
-            domain.LayerHeight = inputdata["Domain"]["LayerOffset"];
+            domain.number_of_layers = input_data["Domain"]["NumberOfLayers"];
+            domain.layer_height = input_data["Domain"]["LayerOffset"];
             // Type S needs spot information, which is then used to compute the domain bounds
-            if (SimulationType == "S") {
-                domain.NSpotsX = inputdata["Domain"]["NSpotsX"];
-                domain.NSpotsY = inputdata["Domain"]["NSpotsY"];
+            if (simulation_type == "S") {
+                domain.n_spots_x = input_data["Domain"]["NSpotsX"];
+                domain.n_spots_y = input_data["Domain"]["NSpotsY"];
                 // Radius and offset are given in micrometers, convert to cells
-                domain.SpotRadius = inputdata["Domain"]["RSpots"];
-                domain.SpotRadius = domain.SpotRadius * pow(10, -6) / domain.deltax;
-                domain.SpotOffset = inputdata["Domain"]["SpotOffset"];
-                domain.SpotOffset = domain.SpotOffset * pow(10, -6) / domain.deltax;
+                domain.spot_radius = input_data["Domain"]["RSpots"];
+                domain.spot_radius = domain.spot_radius * pow(10, -6) / domain.deltax;
+                domain.spot_offset = input_data["Domain"]["SpotOffset"];
+                domain.spot_offset = domain.spot_offset * pow(10, -6) / domain.deltax;
                 // Calculate nx, ny, and nz based on spot array pattern and number of layers
-                domain.nz = domain.SpotRadius + 1 + (domain.NumberOfLayers - 1) * domain.LayerHeight;
-                domain.nx = 2 * domain.SpotRadius + 1 + domain.SpotOffset * (domain.NSpotsX - 1);
-                domain.ny = 2 * domain.SpotRadius + 1 + domain.SpotOffset * (domain.NSpotsY - 1);
+                domain.nz = domain.spot_radius + 1 + (domain.number_of_layers - 1) * domain.layer_height;
+                domain.nx = 2 * domain.spot_radius + 1 + domain.spot_offset * (domain.n_spots_x - 1);
+                domain.ny = 2 * domain.spot_radius + 1 + domain.spot_offset * (domain.n_spots_y - 1);
             }
         }
 
         // Nucleation inputs:
         // Nucleation density (normalized by 10^12 m^-3), mean nucleation undercooling/st dev undercooling(K)
         // SingleGrain problem type does not have nucleation, just a grain of a single orientation in the domain center
-        if (SimulationType != "SingleGrain") {
-            nucleation.NMax = inputdata["Nucleation"]["Density"];
-            nucleation.NMax = nucleation.NMax * pow(10, 12);
-            nucleation.dTN = inputdata["Nucleation"]["MeanUndercooling"];
-            nucleation.dTsigma = inputdata["Nucleation"]["StDev"];
+        if (simulation_type != "SingleGrain") {
+            nucleation.n_max = input_data["Nucleation"]["Density"];
+            nucleation.n_max = nucleation.n_max * pow(10, 12);
+            nucleation.dtn = input_data["Nucleation"]["MeanUndercooling"];
+            nucleation.dtsigma = input_data["Nucleation"]["StDev"];
         }
 
         // Temperature inputs:
-        if (SimulationType == "R") {
-            if ((inputdata["TemperatureData"].contains("HeatTransferCellSize")) && (id == 0))
+        if (simulation_type == "R") {
+            if ((input_data["TemperatureData"].contains("HeatTransferCellSize")) && (id == 0))
                 std::cout << "Note: Heat transport data cell size is no longer an input used in ExaCA, temperature "
                              "data must be at the same resolution as the CA cell size"
                           << std::endl;
             // Read all temperature files at once (default), or one at a time?
-            if (inputdata["TemperatureData"].contains("LayerwiseTempRead")) {
-                temperature.LayerwiseTempRead = inputdata["TemperatureData"]["LayerwiseTempRead"];
+            if (input_data["TemperatureData"].contains("LayerwiseTempRead")) {
+                temperature.layerwise_temp_read = input_data["TemperatureData"]["LayerwiseTempRead"];
             }
             // Get the paths/number of/names of the temperature data files used
-            temperature.TempFilesInSeries = inputdata["TemperatureData"]["TemperatureFiles"].size();
-            if (temperature.TempFilesInSeries == 0)
+            temperature.temp_files_in_series = input_data["TemperatureData"]["TemperatureFiles"].size();
+            if (temperature.temp_files_in_series == 0)
                 throw std::runtime_error("Error: No temperature files listed in the temperature instructions file");
             else {
-                for (int filename = 0; filename < temperature.TempFilesInSeries; filename++)
-                    temperature.temp_paths.push_back(inputdata["TemperatureData"]["TemperatureFiles"][filename]);
+                for (int filename = 0; filename < temperature.temp_files_in_series; filename++)
+                    temperature.temp_paths.push_back(input_data["TemperatureData"]["TemperatureFiles"][filename]);
             }
         }
         else {
             // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
-            temperature.G = inputdata["TemperatureData"]["G"];
-            temperature.R = inputdata["TemperatureData"]["R"];
+            temperature.G = input_data["TemperatureData"]["G"];
+            temperature.R = input_data["TemperatureData"]["R"];
             // Optional initial undercooling for problem type C (required for type SingleGrain). Defaults to 0 for
             // problem type C if not given, should be a positive number
-            if (inputdata["TemperatureData"].contains("InitUndercooling"))
-                if (inputdata["TemperatureData"]["InitUndercooling"] < 0)
+            if (input_data["TemperatureData"].contains("InitUndercooling"))
+                if (input_data["TemperatureData"]["InitUndercooling"] < 0)
                     throw std::runtime_error("Error: optional temperature data argument InitUndercooling should be "
                                              "greater than or equal to zero");
-            if (SimulationType == "SingleGrain")
-                temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
-            else if ((SimulationType == "C") && (inputdata["TemperatureData"].contains("InitUndercooling")))
-                temperature.initUndercooling = inputdata["TemperatureData"]["InitUndercooling"];
+            if (simulation_type == "SingleGrain")
+                temperature.init_undercooling = input_data["TemperatureData"]["InitUndercooling"];
+            else if ((simulation_type == "C") && (input_data["TemperatureData"].contains("InitUndercooling")))
+                temperature.init_undercooling = input_data["TemperatureData"]["InitUndercooling"];
             if ((temperature.G > 0) && (Kokkos::fabs(temperature.R) < 0.000001)) {
                 // Throw error for edge case where the cooling rate is 0, but cells in the domain would be initialized
                 // above the liquidus temperature (i.e., cells that would never solidify)
                 int location_init_undercooling;
-                if (SimulationType == "C")
+                if (simulation_type == "C")
                     location_init_undercooling = 0;
                 else
                     location_init_undercooling = Kokkos::floorf(static_cast<float>(domain.nz) / 2.0);
                 int location_liquidus_isotherm =
                     location_init_undercooling +
-                    Kokkos::round(temperature.initUndercooling / (temperature.G * domain.deltax));
+                    Kokkos::round(temperature.init_undercooling / (temperature.G * domain.deltax));
                 if ((temperature.R == 0) && (location_liquidus_isotherm <= domain.nz - 1))
                     throw std::runtime_error("Error: Domain will not fully solidify based on the size in Z, initial "
                                              "undercooling, thermal gradient, and cooling rate in the input file");
@@ -278,129 +278,131 @@ struct Inputs {
         }
 
         // Substrate inputs:
-        if (SimulationType == "C") {
-            // Must contain FractionSurfaceSitesActive OR all of GrainLocationsX/GrainLocationsY/GrainIDs, not both
-            bool contains_FractionSurfaceSitesActive = inputdata["Substrate"].contains("FractionSurfaceSitesActive");
-            bool contains_GrainLocationsX = inputdata["Substrate"].contains("GrainLocationsX");
-            bool contains_GrainLocationsY = inputdata["Substrate"].contains("GrainLocationsY");
-            bool contains_GrainIDs = inputdata["Substrate"].contains("GrainIDs");
-            bool contains_CustomGrainInitInfo =
-                contains_GrainLocationsX && contains_GrainLocationsY && contains_GrainIDs;
-            if (contains_FractionSurfaceSitesActive) {
-                if ((id == 0) && (contains_CustomGrainInitInfo))
+        if (simulation_type == "C") {
+            // Must contain FractionSurfaceSitesActive OR all of grain_locations_x/grain_locations_y/GrainIDs, not both
+            bool contains_fract_surface_sites_active = input_data["Substrate"].contains("FractionSurfaceSitesActive");
+            bool contains_grain_locations_x = input_data["Substrate"].contains("GrainLocationsX");
+            bool contains_grain_locations_y = input_data["Substrate"].contains("GrainLocationsY");
+            bool contains_grain_ids = input_data["Substrate"].contains("GrainIDs");
+            bool contains_custom_grain_init_info =
+                contains_grain_locations_x && contains_grain_locations_y && contains_grain_ids;
+            if (contains_fract_surface_sites_active) {
+                if ((id == 0) && (contains_custom_grain_init_info))
                     std::cout << "Warning: FractionSurfaceSitesActive will be ignored as explicit grain locations and "
                                  "IDs are given in the input file"
                               << std::endl;
                 else
-                    substrate.FractSurfaceSitesActive = inputdata["Substrate"]["FractionSurfaceSitesActive"];
+                    substrate.fract_surface_sites_active = input_data["Substrate"]["FractionSurfaceSitesActive"];
             }
-            else if (contains_CustomGrainInitInfo) {
+            else if (contains_custom_grain_init_info) {
                 // Ensure the number of grains is consistent
-                std::size_t numGrains = inputdata["Substrate"]["GrainLocationsX"].size();
-                if ((inputdata["Substrate"]["GrainLocationsY"].size() != numGrains) ||
-                    (inputdata["Substrate"]["GrainIDs"].size() != numGrains))
+                std::size_t num_grains = input_data["Substrate"]["GrainLocationsX"].size();
+                if ((input_data["Substrate"]["GrainLocationsY"].size() != num_grains) ||
+                    (input_data["Substrate"]["GrainIDs"].size() != num_grains))
                     throw std::runtime_error(
-                        "Error: GrainLocationsX, GrainLocationsY, and GrainIDs must be the same size");
+                        "Error: grain_locations_x, grain_locations_y, and GrainIDs must be the same size");
                 else {
-                    for (std::size_t graincount = 0; graincount < numGrains; graincount++) {
-                        substrate.GrainLocationsX.push_back(inputdata["Substrate"]["GrainLocationsX"][graincount]);
-                        substrate.GrainLocationsY.push_back(inputdata["Substrate"]["GrainLocationsY"][graincount]);
-                        substrate.GrainIDs.push_back(inputdata["Substrate"]["GrainIDs"][graincount]);
+                    for (std::size_t graincount = 0; graincount < num_grains; graincount++) {
+                        substrate.grain_locations_x.push_back(input_data["Substrate"]["GrainLocationsX"][graincount]);
+                        substrate.grain_locations_y.push_back(input_data["Substrate"]["GrainLocationsY"][graincount]);
+                        substrate.grain_ids.push_back(input_data["Substrate"]["GrainIDs"][graincount]);
                     }
-                    substrate.CustomGrainLocationsIDs = true;
+                    substrate.custom_grain_locations_ids = true;
                 }
             }
             else
-                throw std::runtime_error(
-                    "Error: either FractionSurfaceSitesActive or lists of GrainLocationsX/GrainLocationsY/GrainIDs are "
-                    "required to initialize this problem type");
-            if (inputdata["Substrate"].contains("FillBottomSurface"))
-                substrate.FillBottomSurface = inputdata["Substrate"]["FillBottomSurface"];
+                throw std::runtime_error("Error: either FractionSurfaceSitesActive or lists of "
+                                         "grain_locations_x/grain_locations_y/GrainIDs are "
+                                         "required to initialize this problem type");
+            if (input_data["Substrate"].contains("FillBottomSurface"))
+                substrate.fill_bottom_surface = input_data["Substrate"]["FillBottomSurface"];
         }
-        else if (SimulationType == "SingleGrain") {
+        else if (simulation_type == "SingleGrain") {
             // Orientation of the single grain at the domain center
-            substrate.singleGrainOrientation = inputdata["Substrate"]["GrainOrientation"];
+            substrate.single_grain_orientation = input_data["Substrate"]["GrainOrientation"];
         }
         else {
             // Substrate data - should data come from an initial size or a file?
-            if ((inputdata["Substrate"].contains("SubstrateFilename")) && (inputdata["Substrate"].contains("MeanSize")))
+            if ((input_data["Substrate"].contains("SubstrateFilename")) &&
+                (input_data["Substrate"].contains("MeanSize")))
                 throw std::runtime_error(
                     "Error: only one of substrate grain size and substrate structure filename should "
                     "be provided in the input file");
-            else if (inputdata["Substrate"].contains("SubstrateFilename")) {
-                substrate.SubstrateFileName = inputdata["Substrate"]["SubstrateFilename"];
-                substrate.UseSubstrateFile = true;
+            else if (input_data["Substrate"].contains("SubstrateFilename")) {
+                substrate.substrate_filename = input_data["Substrate"]["SubstrateFilename"];
+                substrate.use_substrate_file = true;
             }
-            else if (inputdata["Substrate"].contains("MeanSize")) {
-                substrate.SubstrateGrainSpacing = inputdata["Substrate"]["MeanSize"];
-                substrate.UseSubstrateFile = false;
+            else if (input_data["Substrate"].contains("MeanSize")) {
+                substrate.substrate_grain_spacing = input_data["Substrate"]["MeanSize"];
+                substrate.use_substrate_file = false;
             }
             // Should the baseplate microstructure be extended through the powder layers? Default is false
-            if (inputdata["Substrate"].contains("ExtendSubstrateThroughPower"))
-                substrate.BaseplateThroughPowder = inputdata["Substrate"]["ExtendSubstrateThroughPower"];
+            if (input_data["Substrate"].contains("ExtendSubstrateThroughPower"))
+                substrate.baseplate_through_powder = input_data["Substrate"]["ExtendSubstrateThroughPower"];
             // defaults to a unique grain at each site in the powder layers if not given
-            if (inputdata["Substrate"].contains("PowderDensity")) {
+            if (input_data["Substrate"].contains("PowderDensity")) {
                 // powder density is given as a density per unit volume, normalized by 10^12 m^-3 --> convert this into
                 // a density of sites active on the CA grid (0 to 1)
-                substrate.PowderActiveFraction = inputdata["Substrate"]["PowderDensity"];
-                substrate.PowderActiveFraction = substrate.PowderActiveFraction * pow(10, 12) * pow(domain.deltax, 3);
-                if ((substrate.PowderActiveFraction < 0.0) || (substrate.PowderActiveFraction > 1.0))
+                substrate.powder_active_fraction = input_data["Substrate"]["PowderDensity"];
+                substrate.powder_active_fraction =
+                    substrate.powder_active_fraction * pow(10, 12) * pow(domain.deltax, 3);
+                if ((substrate.powder_active_fraction < 0.0) || (substrate.powder_active_fraction > 1.0))
                     throw std::runtime_error(
                         "Error: Density of powder surface sites active must be larger than 0 and less "
                         "than 1/(CA cell volume)");
             }
-            if ((inputdata["Substrate"].contains("PowderFirstLayer")) && (id == 0))
+            if ((input_data["Substrate"].contains("PowderFirstLayer")) && (id == 0))
                 std::cout << "Warning: PowderFirstLayer input is no longer used, the top of the first layer must be "
                              "specified using BaseplateTopZ (which will otherwise default to Z = 0)"
                           << std::endl;
             // The top of the baseplate is designated using BaseplateTopZ (assumed to be Z = 0 if not given in input
             // file)
-            if (inputdata["Substrate"].contains("BaseplateTopZ"))
-                substrate.BaseplateTopZ = inputdata["Substrate"]["BaseplateTopZ"];
-            else if (SimulationType == "S") {
+            if (input_data["Substrate"].contains("BaseplateTopZ"))
+                substrate.baseplate_top_z = input_data["Substrate"]["BaseplateTopZ"];
+            else if (simulation_type == "S") {
                 // Baseplate top if not otherwise given for spot array problem is at the top of the first layer
-                substrate.BaseplateTopZ = domain.deltax * domain.SpotRadius;
+                substrate.baseplate_top_z = domain.deltax * domain.spot_radius;
             }
-            if ((substrate.BaseplateThroughPowder) && (inputdata["Substrate"].contains("PowderDensity")))
+            if ((substrate.baseplate_through_powder) && (input_data["Substrate"].contains("PowderDensity")))
                 throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers is "
                                          "toggled, a powder layer density cannot be given");
         }
 
         // Printing inputs
-        getPrintDataFromInputFile(inputdata, id, domain.deltat);
+        getPrintDataFromInputFile(input_data, id, domain.deltat);
 
         // Print information to console about the input file data read
         if (id == 0) {
-            std::cout << "Material simulated is " << MaterialFileName << std::endl;
+            std::cout << "Material simulated is " << material_filename << std::endl;
             std::cout << "CA cell size is " << domain.deltax * pow(10, 6) << " microns" << std::endl;
-            std::cout << "Nucleation density is " << nucleation.NMax << " per m^3" << std::endl;
-            std::cout << "Mean nucleation undercooling is " << nucleation.dTN
-                      << " K, standard deviation of distribution is " << nucleation.dTsigma << "K" << std::endl;
-            if (SimulationType == "C") {
+            std::cout << "Nucleation density is " << nucleation.n_max << " per m^3" << std::endl;
+            std::cout << "Mean nucleation undercooling is " << nucleation.dtn
+                      << " K, standard deviation of distribution is " << nucleation.dtsigma << "K" << std::endl;
+            if (simulation_type == "C") {
                 std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << temperature.G
                           << " K/m and a cooling rate of " << temperature.R << " K/s" << std::endl;
                 std::cout << "The time step is " << domain.deltat * pow(10, 6) << " microseconds" << std::endl;
-                if (substrate.CustomGrainLocationsIDs)
+                if (substrate.custom_grain_locations_ids)
                     std::cout << "Input grain locations and ID values will be used at the bottom surface" << std::endl;
                 else
                     std::cout << "The fraction of CA cells at the bottom surface that are active is "
-                              << substrate.FractSurfaceSitesActive << std::endl;
+                              << substrate.fract_surface_sites_active << std::endl;
             }
-            else if (SimulationType == "S") {
+            else if (simulation_type == "S") {
                 std::cout << "CA Simulation using a radial, fixed thermal gradient of " << temperature.G
                           << " K/m as a series of hemispherical spots, and a cooling rate of " << temperature.R
                           << " K/s" << std::endl;
-                std::cout << "A total of " << domain.NumberOfLayers << " spots per layer, with layers offset by "
-                          << domain.LayerHeight << " CA cells will be simulated" << std::endl;
+                std::cout << "A total of " << domain.number_of_layers << " spots per layer, with layers offset by "
+                          << domain.layer_height << " CA cells will be simulated" << std::endl;
                 std::cout << "The time step is " << domain.deltat * pow(10, 6) << " microseconds" << std::endl;
             }
-            else if (SimulationType == "R") {
+            else if (simulation_type == "R") {
                 std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
                 std::cout << "The time step is " << domain.deltat << " seconds" << std::endl;
                 std::cout << "The first temperature data file to be read is " << temperature.temp_paths[0]
-                          << ", and there are " << temperature.TempFilesInSeries << " in the series" << std::endl;
-                std::cout << "A total of " << domain.NumberOfLayers << " layers of solidification offset by "
-                          << domain.LayerHeight << " CA cells will be simulated" << std::endl;
+                          << ", and there are " << temperature.temp_files_in_series << " in the series" << std::endl;
+                std::cout << "A total of " << domain.number_of_layers << " layers of solidification offset by "
+                          << domain.layer_height << " CA cells will be simulated" << std::endl;
             }
         }
     }
@@ -409,87 +411,88 @@ struct Inputs {
     // Check the field names from the given input (Fieldtype = PrintFieldsInit or PrintFieldsFinal) against the possible
     // fieldnames listed in Fieldnames_key. Fill the vector PrintFields_given with true or false values depending on
     // whether the corresponding field name from Fieldnames_key appeared in the input or not
-    std::vector<bool> getPrintFieldValues_Old(nlohmann::json inputdata, std::string Fieldtype,
-                                              std::vector<std::string> Fieldnames_key) {
-        int NumFields_key = Fieldnames_key.size();
-        int NumFields_given = inputdata["Printing"][Fieldtype].size();
-        std::vector<bool> PrintFields_given(NumFields_key, false);
+    std::vector<bool> getPrintFieldValues_Old(nlohmann::json input_data, const std::string fieldtype,
+                                              const std::vector<std::string> fieldnames_key) {
+        int num_fields_key = fieldnames_key.size();
+        int num_fields_given = input_data["Printing"][fieldtype].size();
+        std::vector<bool> print_fields_given(num_fields_key, false);
         // Check each given field against each possible input field name
-        for (int field_given = 0; field_given < NumFields_given; field_given++) {
-            for (int field_key = 0; field_key < NumFields_key; field_key++) {
-                if (inputdata["Printing"][Fieldtype][field_given] == Fieldnames_key[field_key])
-                    PrintFields_given[field_key] = true;
+        for (int field_given = 0; field_given < num_fields_given; field_given++) {
+            for (int field_key = 0; field_key < num_fields_key; field_key++) {
+                if (input_data["Printing"][fieldtype][field_given] == fieldnames_key[field_key])
+                    print_fields_given[field_key] = true;
             }
         }
-        return PrintFields_given;
+        return print_fields_given;
     }
     // Updated version, where fields are organized into intralayer and interlayer
-    std::vector<bool> getPrintFieldValues(nlohmann::json inputdata, std::string Fieldtype,
-                                          std::vector<std::string> Fieldnames_key) {
-        int NumFields_key = Fieldnames_key.size();
-        int NumFields_given = inputdata["Printing"][Fieldtype]["Fields"].size();
-        std::vector<bool> PrintFields_given(NumFields_key, false);
+    std::vector<bool> getPrintFieldValues(nlohmann::json input_data, const std::string fieldtype,
+                                          const std::vector<std::string> fieldnames_key) {
+        int num_fields_key = fieldnames_key.size();
+        int num_fields_given = input_data["Printing"][fieldtype]["Fields"].size();
+        std::vector<bool> print_fields_given(num_fields_key, false);
         // Check each given field against each possible input field name
-        for (int field_given = 0; field_given < NumFields_given; field_given++) {
-            for (int field_key = 0; field_key < NumFields_key; field_key++) {
-                if (inputdata["Printing"][Fieldtype]["Fields"][field_given] == Fieldnames_key[field_key])
-                    PrintFields_given[field_key] = true;
+        for (int field_given = 0; field_given < num_fields_given; field_given++) {
+            for (int field_key = 0; field_key < num_fields_key; field_key++) {
+                if (input_data["Printing"][fieldtype]["Fields"][field_given] == fieldnames_key[field_key])
+                    print_fields_given[field_key] = true;
             }
         }
-        return PrintFields_given;
+        return print_fields_given;
     }
 
     // Using the old print inputs, read the input data file and initialize appropriate variables to non-default values
     // if necessary
-    void getPrintDataFromInputFile_Old(nlohmann::json inputdata, int id, double deltat) {
+    void getPrintDataFromInputFile_Old(nlohmann::json input_data, const int id, const double deltat) {
         // Which fields should be printed at the start and end of the simulation?
-        std::vector<std::string> InitFieldnames_key = {"GrainID", "LayerID", "MeltTimeStep", "CritTimeStep",
-                                                       "UndercoolingChange"};
-        std::vector<bool> PrintFieldsInit = getPrintFieldValues_Old(inputdata, "PrintFieldsInit", InitFieldnames_key);
-        if (PrintFieldsInit[0])
+        std::vector<std::string> init_fieldnames_key = {"GrainID", "LayerID", "MeltTimeStep", "CritTimeStep",
+                                                        "UndercoolingChange"};
+        std::vector<bool> print_fields_init =
+            getPrintFieldValues_Old(input_data, "PrintFieldsInit", init_fieldnames_key);
+        if (print_fields_init[0])
             print.intralayer_grain_id = true;
-        if (PrintFieldsInit[1])
+        if (print_fields_init[1])
             print.intralayer_layer_id = true;
-        if (PrintFieldsInit[2])
+        if (print_fields_init[2])
             print.intralayer_melt_time_step = true;
-        if (PrintFieldsInit[3])
+        if (print_fields_init[3])
             print.intralayer_crit_time_step = true;
-        if (PrintFieldsInit[4])
+        if (print_fields_init[4])
             print.intralayer_undercooling_change = true;
-        int num_print_intralayer_inputs = PrintFieldsInit.size();
+        int num_print_intralayer_inputs = print_fields_init.size();
         // True if any fields are printed
         for (int n = 0; n < num_print_intralayer_inputs; n++) {
-            if (PrintFieldsInit[n])
+            if (print_fields_init[n])
                 print.intralayer = true;
         }
 
-        std::vector<std::string> FinalFieldnames_key = {
+        std::vector<std::string> final_fieldnames_key = {
             "GrainID",      "LayerID",      "GrainMisorientation", "UndercoolingCurrent",
             "MeltTimeStep", "CritTimeStep", "UndercoolingChange",  "CellType"};
-        std::vector<bool> PrintFieldsFinal =
-            getPrintFieldValues_Old(inputdata, "PrintFieldsFinal", FinalFieldnames_key);
-        if (PrintFieldsFinal[0])
+        std::vector<bool> print_fields_final =
+            getPrintFieldValues_Old(input_data, "PrintFieldsFinal", final_fieldnames_key);
+        if (print_fields_final[0])
             print.interlayer_grain_id = true;
-        if (PrintFieldsFinal[1])
+        if (print_fields_final[1])
             print.interlayer_layer_id = true;
-        if (PrintFieldsFinal[2])
+        if (print_fields_final[2])
             print.interlayer_grain_misorientation = true;
-        if (PrintFieldsFinal[3])
+        if (print_fields_final[3])
             print.interlayer_undercooling_current = true;
-        if (PrintFieldsFinal[4])
+        if (print_fields_final[4])
             print.interlayer_melt_time_step = true;
-        if (PrintFieldsFinal[5])
+        if (print_fields_final[5])
             print.interlayer_crit_time_step = true;
-        if (PrintFieldsFinal[6])
+        if (print_fields_final[6])
             print.interlayer_undercooling_change = true;
-        if (PrintFieldsFinal[7])
+        if (print_fields_final[7])
             print.interlayer_cell_type = true;
         // Print fields final - only after last layer of simulation. Set increment to the number of layers
-        print.print_layer_number.push_back(domain.NumberOfLayers - 1);
+        print.print_layer_number.push_back(domain.number_of_layers - 1);
         if ((print.interlayer_grain_id) || (print.interlayer_layer_id))
             print.interlayer_full = true;
         for (int n = 3; n < 7; n++) {
-            if (PrintFieldsInit[n])
+            if (print_fields_init[n])
                 print.interlayer_current = true;
         }
 
@@ -500,18 +503,18 @@ struct Inputs {
             print.intralayer_increment = INT_MAX;
         }
         // Should intermediate output be printed?
-        if (inputdata["Printing"].contains("PrintIntermediateOutput")) {
+        if (input_data["Printing"].contains("PrintIntermediateOutput")) {
             // An increment of 0 will set the intermediate file printing to false
-            double TimeSeriesFrameInc_time = inputdata["Printing"]["PrintIntermediateOutput"]["Frequency"];
-            if (TimeSeriesFrameInc_time != 0) {
+            double time_series_frame_inc_time = input_data["Printing"]["PrintIntermediateOutput"]["Frequency"];
+            if (time_series_frame_inc_time != 0) {
                 print.intralayer = true;
                 // Increment is given in microseconds, convert to seconds
-                TimeSeriesFrameInc_time = TimeSeriesFrameInc_time * pow(10, -6);
+                time_series_frame_inc_time = time_series_frame_inc_time * pow(10, -6);
                 // Overwrite INT_MAX value for intralayer_increment if PrintInitFields was toggled
-                print.intralayer_increment = Kokkos::round(TimeSeriesFrameInc_time / deltat);
+                print.intralayer_increment = Kokkos::round(time_series_frame_inc_time / deltat);
                 // Should the intermediate output be printed even if the simulation was unchanged from the previous
                 // output step?
-                print.intralayer_idle_frames = inputdata["Printing"]["PrintIntermediateOutput"]["PrintIdleFrames"];
+                print.intralayer_idle_frames = input_data["Printing"]["PrintIntermediateOutput"]["PrintIdleFrames"];
                 if (id == 0)
                     std::cout << "Intermediate output for movie frames will be printed every "
                               << print.intralayer_increment << " time steps (or every "
@@ -521,47 +524,47 @@ struct Inputs {
     }
 
     // Read the input data file and initialize appropriate variables to non-default values if necessary
-    void getPrintDataFromInputFile(nlohmann::json inputdata, int id, double deltat) {
+    void getPrintDataFromInputFile(nlohmann::json input_data, const int id, const double deltat) {
         // Path to output data
-        print.PathToOutput = inputdata["Printing"]["PathToOutput"];
+        print.path_to_output = input_data["Printing"]["PathToOutput"];
         // Name of output data
-        print.BaseFileName = inputdata["Printing"]["OutputFile"];
+        print.base_filename = input_data["Printing"]["OutputFile"];
         // Should ASCII or binary be used to print vtk data? Defaults to ASCII if not given
-        if (inputdata["Printing"].contains("PrintBinary"))
-            print.PrintBinary = inputdata["Printing"]["PrintBinary"];
+        if (input_data["Printing"].contains("PrintBinary"))
+            print.print_binary = input_data["Printing"]["PrintBinary"];
         // Should default ExaConstit output be printed after the simulation? If so, what size RVE?
         // If a size of 0 is given, this is set to false
-        if (inputdata["Printing"].contains("PrintExaConstitSize")) {
-            print.RVESize = inputdata["Printing"]["PrintExaConstitSize"];
-            if (print.RVESize != 0)
-                print.PrintDefaultRVE = true;
+        if (input_data["Printing"].contains("PrintExaConstitSize")) {
+            print.rve_size = input_data["Printing"]["PrintExaConstitSize"];
+            if (print.rve_size != 0)
+                print.print_default_rve = true;
         }
 
-        if ((inputdata["Printing"].contains("PrintFieldsInit")) ||
-            (inputdata["Printing"].contains("PrintIntermediateOutput")) ||
-            (inputdata["Printing"].contains("PrintIntermediateOutput"))) {
+        if ((input_data["Printing"].contains("PrintFieldsInit")) ||
+            (input_data["Printing"].contains("PrintIntermediateOutput")) ||
+            (input_data["Printing"].contains("PrintIntermediateOutput"))) {
             if (id == 0)
                 std::cout << "Warning: Old print input format detected; compatibility with this will be removed in a "
                              "future release. See examples/README for updated format"
                           << std::endl;
-            getPrintDataFromInputFile_Old(inputdata, id, deltat);
+            getPrintDataFromInputFile_Old(input_data, id, deltat);
         }
         else {
-            if (inputdata["Printing"].contains("Intralayer")) {
+            if (input_data["Printing"].contains("Intralayer")) {
                 // Fields to be printed during a simulation or during a layer of a simulation - if increment
                 print.intralayer = true;
-                if (inputdata["Printing"]["Intralayer"]["Increment"] == 0) {
+                if (input_data["Printing"]["Intralayer"]["Increment"] == 0) {
                     // Files only printed for the initial state of a given layer
                     print.intralayer_increment = INT_MAX;
                 }
                 else {
                     // Files to be printed at some interval during each layer
-                    print.intralayer_increment = inputdata["Printing"]["Intralayer"]["Increment"];
-                    print.intralayer_idle_frames = inputdata["Printing"]["Intralayer"]["PrintIdleFrames"];
+                    print.intralayer_increment = input_data["Printing"]["Intralayer"]["Increment"];
+                    print.intralayer_idle_frames = input_data["Printing"]["Intralayer"]["PrintIdleFrames"];
                 }
                 // Which fields should be printed during the layers?
                 std::vector<bool> print_fields_intralayer =
-                    getPrintFieldValues(inputdata, "Intralayer", print.Fieldnames_key);
+                    getPrintFieldValues(input_data, "Intralayer", print.fieldnames_key);
                 if (print_fields_intralayer[0])
                     print.intralayer_grain_id = true;
                 if (print_fields_intralayer[1])
@@ -593,41 +596,41 @@ struct Inputs {
             }
             // List of layers following which interlayer data should be printed (will always print after last layer by
             // default)
-            if (inputdata["Printing"]["Interlayer"].contains("Layers")) {
-                if ((id == 0) && (inputdata["Printing"]["Interlayer"].contains("Increment")))
+            if (input_data["Printing"]["Interlayer"].contains("Layers")) {
+                if ((id == 0) && (input_data["Printing"]["Interlayer"].contains("Increment")))
                     std::cout << "Warning: A list of layers to print and a layer increment were both present in the "
                                  "input file print options, the layer increment will be ignored"
                               << std::endl;
-                int num_print_layers = inputdata["Printing"]["Interlayer"]["Layers"].size();
+                int num_print_layers = input_data["Printing"]["Interlayer"]["Layers"].size();
                 for (int n = 0; n < num_print_layers; n++) {
-                    int print_layer_val = inputdata["Printing"]["Interlayer"]["Layers"][n];
-                    if (print_layer_val >= domain.NumberOfLayers) {
+                    int print_layer_val = input_data["Printing"]["Interlayer"]["Layers"][n];
+                    if (print_layer_val >= domain.number_of_layers) {
                         if (id == 0)
                             std::cout << "Note: adjusting layer value of " << print_layer_val << " to "
-                                      << domain.NumberOfLayers - 1
-                                      << " as the simulation only contains layers 0 through " << domain.NumberOfLayers
+                                      << domain.number_of_layers - 1
+                                      << " as the simulation only contains layers 0 through " << domain.number_of_layers
                                       << std::endl;
-                        print_layer_val = domain.NumberOfLayers - 1;
+                        print_layer_val = domain.number_of_layers - 1;
                     }
                     print.print_layer_number.push_back(print_layer_val);
                 }
                 // Make sure files print after last layer, even if it wasn't listed
-                if (print.print_layer_number[num_print_layers - 1] != domain.NumberOfLayers - 1)
-                    print.print_layer_number.push_back(domain.NumberOfLayers - 1);
+                if (print.print_layer_number[num_print_layers - 1] != domain.number_of_layers - 1)
+                    print.print_layer_number.push_back(domain.number_of_layers - 1);
             }
-            else if (inputdata["Printing"]["Interlayer"].contains("Increment")) {
+            else if (input_data["Printing"]["Interlayer"].contains("Increment")) {
                 // Print layer numbers starting at 0 and at interlayer_increment, always including the last layer
-                int interlayer_increment = inputdata["Printing"]["Interlayer"]["Increment"];
-                for (int n = 0; n < domain.NumberOfLayers - 1; n += interlayer_increment)
+                int interlayer_increment = input_data["Printing"]["Interlayer"]["Increment"];
+                for (int n = 0; n < domain.number_of_layers - 1; n += interlayer_increment)
                     print.print_layer_number.push_back(n);
-                print.print_layer_number.push_back(domain.NumberOfLayers - 1);
+                print.print_layer_number.push_back(domain.number_of_layers - 1);
             }
             else
-                print.print_layer_number.push_back(domain.NumberOfLayers - 1);
+                print.print_layer_number.push_back(domain.number_of_layers - 1);
 
             // Which fields should be printed during the layers?
             std::vector<bool> print_fields_interlayer =
-                getPrintFieldValues(inputdata, "Interlayer", print.Fieldnames_key);
+                getPrintFieldValues(input_data, "Interlayer", print.fieldnames_key);
             if (print_fields_interlayer[0])
                 print.interlayer_grain_id = true;
             if (print_fields_interlayer[1])
@@ -665,16 +668,16 @@ struct Inputs {
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
     // TODO: Expand check that inputs are valid for the problem type
-    void checkPowderOverflow(int nx, int ny, int LayerHeight, int NumberOfLayers) {
+    void checkPowderOverflow(const int nx, const int ny, const int layer_height, const int number_of_layers) {
         // Check to make sure powder grain density is compatible with the number of powder sites
         // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur
         // when assigning powder layer GrainIDs
-        if (!(substrate.BaseplateThroughPowder)) {
-            long int NumCellsPowderLayers =
-                (long int)(nx) * (long int)(ny) * (long int)(LayerHeight) * (long int)(NumberOfLayers - 1);
-            long int NumAssignedCellsPowderLayers =
-                std::lround(Kokkos::round(static_cast<double>(NumCellsPowderLayers) * substrate.PowderActiveFraction));
-            if (NumAssignedCellsPowderLayers > INT_MAX)
+        if (!(substrate.baseplate_through_powder)) {
+            long int num_cells_powder_layers =
+                (long int)(nx) * (long int)(ny) * (long int)(layer_height) * (long int)(number_of_layers - 1);
+            long int num_assigned_cells_powder_layers = std::lround(
+                Kokkos::round(static_cast<double>(num_cells_powder_layers) * substrate.powder_active_fraction));
+            if (num_assigned_cells_powder_layers > INT_MAX)
                 throw std::runtime_error(
                     "Error: A smaller value for powder density is required to avoid potential integer "
                     "overflow when assigning powder layer GrainID");
@@ -685,13 +688,16 @@ struct Inputs {
     // from the input file as well as the decomposition scheme
     // Note: Passing external values for inputs like deltax that will later be stored in the grid class, with the grid
     // class passed to this function
-    void PrintExaCALog(int id, int np, std::string InputFile, int ny_local, int y_offset,
-                       InterfacialResponseFunction irf, double deltax, int NumberOfLayers, int LayerHeight, int nx,
-                       int ny, int nz, double InitTime, double RunTime, double OutTime, int cycle, double InitMaxTime,
-                       double InitMinTime, double NuclMaxTime, double NuclMinTime, double CreateSVMinTime,
-                       double CreateSVMaxTime, double CaptureMaxTime, double CaptureMinTime, double GhostMaxTime,
-                       double GhostMinTime, double OutMaxTime, double OutMinTime, double XMin, double XMax, double YMin,
-                       double YMax, double ZMin, double ZMax, float VolFractionNucleated) {
+    void printExaCALog(const int id, const int np, const std::string input_file, const int ny_local, const int y_offset,
+                       InterfacialResponseFunction irf, const double deltax, const int number_of_layers,
+                       const int layer_height, const int nx, const int ny, const int nz, const double init_time,
+                       const double run_time, const double out_time, const int cycle, const double init_max_time,
+                       const double init_min_time, const double nucl_max_time, const double nucl_min_time,
+                       const double create_sv_min_time, const double create_sv_max_time, const double capture_max_time,
+                       const double capture_min_time, const double ghost_max_time, const double ghost_min_time,
+                       const double out_max_time, const double out_min_time, const double x_min, const double x_max,
+                       const double y_min, const double y_max, const double z_min, const double z_max,
+                       const float vol_fraction_nucleated) {
 
         int *ny_local_allranks = new int[np];
         int *y_offset_allranks = new int[np];
@@ -699,103 +705,105 @@ struct Inputs {
         MPI_Gather(&y_offset, 1, MPI_INT, y_offset_allranks, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
         if (id == 0) {
-            std::string FName = print.PathToOutput + print.BaseFileName + ".json";
+            std::string FName = print.path_to_output + print.base_filename + ".json";
             std::cout << "Printing ExaCA log file" << std::endl;
-            std::ofstream ExaCALog;
-            ExaCALog.open(FName);
-            ExaCALog << "{" << std::endl;
-            ExaCALog << "   \"ExaCAVersion\": \"" << version() << "\", " << std::endl;
-            ExaCALog << "   \"ExaCACommitHash\": \"" << gitCommitHash() << "\", " << std::endl;
-            ExaCALog << "   \"KokkosVersion\": \"" << kokkosVersion() << "\", " << std::endl;
-            ExaCALog << "   \"InputFile\": \"" << InputFile << "\", " << std::endl;
-            ExaCALog << "   \"TimeStepOfOutput\": " << cycle << "," << std::endl;
-            ExaCALog << "   \"SimulationType\": \"" << SimulationType << "\"," << std::endl;
-            ExaCALog << "   \"GrainOrientationFile\": \"" << GrainOrientationFile << "\"," << std::endl;
-            ExaCALog << "   \"Domain\": {" << std::endl;
-            ExaCALog << "      \"Nx\": " << nx << "," << std::endl;
-            ExaCALog << "      \"Ny\": " << ny << "," << std::endl;
-            ExaCALog << "      \"Nz\": " << nz << "," << std::endl;
-            ExaCALog << "      \"CellSize\": " << deltax << "," << std::endl;
-            ExaCALog << "      \"TimeStep\": " << domain.deltat << "," << std::endl;
-            ExaCALog << "      \"XBounds\": [" << XMin << "," << XMax << "]," << std::endl;
-            ExaCALog << "      \"YBounds\": [" << YMin << "," << YMax << "]," << std::endl;
-            ExaCALog << "      \"ZBounds\": [" << ZMin << "," << ZMax << "]";
-            if (SimulationType != "C") {
-                ExaCALog << "," << std::endl;
-                ExaCALog << "      \"NumberOfLayers\": " << NumberOfLayers << "," << std::endl;
-                ExaCALog << "      \"LayerOffset\": " << LayerHeight;
-                if (SimulationType == "S") {
-                    ExaCALog << "," << std::endl;
-                    ExaCALog << "      \"NSpotsX\": " << domain.NSpotsX << "," << std::endl;
-                    ExaCALog << "      \"NSpotsY\": " << domain.NSpotsY << "," << std::endl;
-                    ExaCALog << "      \"RSpots\": " << domain.SpotRadius << "," << std::endl;
-                    ExaCALog << "      \"SpotOffset\": " << domain.SpotOffset << std::endl;
+            std::ofstream exaca_log;
+            exaca_log.open(FName);
+            exaca_log << "{" << std::endl;
+            exaca_log << "   \"ExaCAVersion\": \"" << version() << "\", " << std::endl;
+            exaca_log << "   \"ExaCACommitHash\": \"" << gitCommitHash() << "\", " << std::endl;
+            exaca_log << "   \"KokkosVersion\": \"" << kokkosVersion() << "\", " << std::endl;
+            exaca_log << "   \"InputFile\": \"" << input_file << "\", " << std::endl;
+            exaca_log << "   \"TimeStepOfOutput\": " << cycle << "," << std::endl;
+            exaca_log << "   \"SimulationType\": \"" << simulation_type << "\"," << std::endl;
+            exaca_log << "   \"GrainOrientationFile\": \"" << grain_orientation_file << "\"," << std::endl;
+            exaca_log << "   \"Domain\": {" << std::endl;
+            exaca_log << "      \"Nx\": " << nx << "," << std::endl;
+            exaca_log << "      \"Ny\": " << ny << "," << std::endl;
+            exaca_log << "      \"Nz\": " << nz << "," << std::endl;
+            exaca_log << "      \"CellSize\": " << deltax << "," << std::endl;
+            exaca_log << "      \"TimeStep\": " << domain.deltat << "," << std::endl;
+            exaca_log << "      \"XBounds\": [" << x_min << "," << x_max << "]," << std::endl;
+            exaca_log << "      \"YBounds\": [" << y_min << "," << y_max << "]," << std::endl;
+            exaca_log << "      \"ZBounds\": [" << z_min << "," << z_max << "]";
+            if (simulation_type != "C") {
+                exaca_log << "," << std::endl;
+                exaca_log << "      \"NumberOfLayers\": " << number_of_layers << "," << std::endl;
+                exaca_log << "      \"LayerOffset\": " << layer_height;
+                if (simulation_type == "S") {
+                    exaca_log << "," << std::endl;
+                    exaca_log << "      \"NSpotsX\": " << domain.n_spots_x << "," << std::endl;
+                    exaca_log << "      \"NSpotsY\": " << domain.n_spots_y << "," << std::endl;
+                    exaca_log << "      \"RSpots\": " << domain.spot_radius << "," << std::endl;
+                    exaca_log << "      \"SpotOffset\": " << domain.spot_offset << std::endl;
                 }
                 else
-                    ExaCALog << std::endl;
+                    exaca_log << std::endl;
             }
             else
-                ExaCALog << std::endl;
-            ExaCALog << "   }," << std::endl;
-            ExaCALog << "   \"Nucleation\": {" << std::endl;
-            ExaCALog << "      \"Density\": " << nucleation.NMax << "," << std::endl;
-            ExaCALog << "      \"MeanUndercooling\": " << nucleation.dTN << "," << std::endl;
-            ExaCALog << "      \"StDevUndercooling\": " << nucleation.dTsigma << "," << std::endl;
-            ExaCALog << "      \"VolFractionNucleated\": " << VolFractionNucleated << std::endl;
-            ExaCALog << "   }," << std::endl;
-            ExaCALog << "   \"TemperatureData\": {" << std::endl;
-            if (SimulationType == "R") {
-                ExaCALog << "       \"TemperatureFiles\": [";
-                for (int i = 0; i < temperature.TempFilesInSeries - 1; i++) {
-                    ExaCALog << "\"" << temperature.temp_paths[i] << "\", ";
+                exaca_log << std::endl;
+            exaca_log << "   }," << std::endl;
+            exaca_log << "   \"Nucleation\": {" << std::endl;
+            exaca_log << "      \"Density\": " << nucleation.n_max << "," << std::endl;
+            exaca_log << "      \"MeanUndercooling\": " << nucleation.dtn << "," << std::endl;
+            exaca_log << "      \"StDevUndercooling\": " << nucleation.dtsigma << "," << std::endl;
+            exaca_log << "      \"VolFractionNucleated\": " << vol_fraction_nucleated << std::endl;
+            exaca_log << "   }," << std::endl;
+            exaca_log << "   \"TemperatureData\": {" << std::endl;
+            if (simulation_type == "R") {
+                exaca_log << "       \"TemperatureFiles\": [";
+                for (int i = 0; i < temperature.temp_files_in_series - 1; i++) {
+                    exaca_log << "\"" << temperature.temp_paths[i] << "\", ";
                 }
-                ExaCALog << "\"" << temperature.temp_paths[temperature.TempFilesInSeries - 1] << "\"]" << std::endl;
+                exaca_log << "\"" << temperature.temp_paths[temperature.temp_files_in_series - 1] << "\"]" << std::endl;
             }
             else {
-                ExaCALog << "      \"G\": " << temperature.G << "," << std::endl;
-                ExaCALog << "      \"R\": " << temperature.R << std::endl;
+                exaca_log << "      \"G\": " << temperature.G << "," << std::endl;
+                exaca_log << "      \"R\": " << temperature.R << std::endl;
             }
-            ExaCALog << "   }," << std::endl;
-            ExaCALog << "   \"Substrate\": {" << std::endl;
-            if (SimulationType == "C")
-                ExaCALog << "       \"FractionSurfaceSitesActive\": " << substrate.FractSurfaceSitesActive << std::endl;
-            else if (SimulationType == "SingleGrain")
-                ExaCALog << "       \"GrainOrientation\": " << substrate.singleGrainOrientation << std::endl;
+            exaca_log << "   }," << std::endl;
+            exaca_log << "   \"Substrate\": {" << std::endl;
+            if (simulation_type == "C")
+                exaca_log << "       \"FractionSurfaceSitesActive\": " << substrate.fract_surface_sites_active
+                          << std::endl;
+            else if (simulation_type == "SingleGrain")
+                exaca_log << "       \"GrainOrientation\": " << substrate.single_grain_orientation << std::endl;
             else {
-                if (substrate.UseSubstrateFile)
-                    ExaCALog << "       \"SubstrateFilename\": " << substrate.SubstrateFileName << std::endl;
+                if (substrate.use_substrate_file)
+                    exaca_log << "       \"SubstrateFilename\": " << substrate.substrate_filename << std::endl;
                 else
-                    ExaCALog << "       \"MeanSize\": " << substrate.SubstrateGrainSpacing << std::endl;
+                    exaca_log << "       \"MeanSize\": " << substrate.substrate_grain_spacing << std::endl;
             }
-            ExaCALog << "   }," << std::endl;
-            ExaCALog << irf.print() << std::endl;
-            ExaCALog << "   \"NumberMPIRanks\": " << np << "," << std::endl;
-            ExaCALog << "   \"Decomposition\": {" << std::endl;
-            ExaCALog << "       \"SubdomainYSize\": [";
+            exaca_log << "   }," << std::endl;
+            exaca_log << irf.print() << std::endl;
+            exaca_log << "   \"NumberMPIRanks\": " << np << "," << std::endl;
+            exaca_log << "   \"Decomposition\": {" << std::endl;
+            exaca_log << "       \"SubdomainYSize\": [";
             for (int i = 0; i < np - 1; i++)
-                ExaCALog << ny_local_allranks[i] << ",";
-            ExaCALog << ny_local_allranks[np - 1] << "]," << std::endl;
-            ExaCALog << "       \"SubdomainYOffset\": [";
+                exaca_log << ny_local_allranks[i] << ",";
+            exaca_log << ny_local_allranks[np - 1] << "]," << std::endl;
+            exaca_log << "       \"SubdomainYOffset\": [";
             for (int i = 0; i < np - 1; i++)
-                ExaCALog << y_offset_allranks[i] << ",";
-            ExaCALog << y_offset_allranks[np - 1] << "]" << std::endl;
-            ExaCALog << "   }," << std::endl;
-            ExaCALog << "   \"Timing\": {" << std::endl;
-            ExaCALog << "       \"Runtime\": " << InitTime + RunTime + OutTime << "," << std::endl;
-            ExaCALog << "       \"InitRunOutputBreakdown\": [" << InitTime << "," << RunTime << "," << OutTime << "],"
-                     << std::endl;
-            ExaCALog << "       \"MaxMinInitTime\": [" << InitMaxTime << "," << InitMinTime << "]," << std::endl;
-            ExaCALog << "       \"MaxMinNucleationTime\": [" << NuclMaxTime << "," << NuclMinTime << "]," << std::endl;
-            ExaCALog << "       \"MaxMinSteeringVectorCreationTime\": [" << CreateSVMaxTime << "," << CreateSVMinTime
-                     << "]," << std::endl;
-            ExaCALog << "       \"MaxMinCellCaptureTime\": [" << CaptureMaxTime << "," << CaptureMinTime << "],"
-                     << std::endl;
-            ExaCALog << "       \"MaxMinGhostExchangeTime\": [" << GhostMaxTime << "," << GhostMinTime << "],"
-                     << std::endl;
-            ExaCALog << "       \"MaxMinOutputTime\": [" << OutMaxTime << "," << OutMinTime << "]" << std::endl;
-            ExaCALog << "   }" << std::endl;
-            ExaCALog << "}" << std::endl;
-            ExaCALog.close();
+                exaca_log << y_offset_allranks[i] << ",";
+            exaca_log << y_offset_allranks[np - 1] << "]" << std::endl;
+            exaca_log << "   }," << std::endl;
+            exaca_log << "   \"Timing\": {" << std::endl;
+            exaca_log << "       \"Runtime\": " << init_time + run_time + out_time << "," << std::endl;
+            exaca_log << "       \"InitRunOutputBreakdown\": [" << init_time << "," << run_time << "," << out_time
+                      << "]," << std::endl;
+            exaca_log << "       \"MaxMininit_time\": [" << init_max_time << "," << init_min_time << "]," << std::endl;
+            exaca_log << "       \"MaxMinNucleationTime\": [" << nucl_max_time << "," << nucl_min_time << "],"
+                      << std::endl;
+            exaca_log << "       \"MaxMinSteeringVectorCreationTime\": [" << create_sv_max_time << ","
+                      << create_sv_min_time << "]," << std::endl;
+            exaca_log << "       \"MaxMinCellCaptureTime\": [" << capture_max_time << "," << capture_min_time << "],"
+                      << std::endl;
+            exaca_log << "       \"MaxMinGhostExchangeTime\": [" << ghost_max_time << "," << ghost_min_time << "],"
+                      << std::endl;
+            exaca_log << "       \"MaxMinOutputTime\": [" << out_max_time << "," << out_min_time << "]" << std::endl;
+            exaca_log << "   }" << std::endl;
+            exaca_log << "}" << std::endl;
+            exaca_log.close();
         }
     }
 };

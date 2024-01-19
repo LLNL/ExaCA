@@ -21,6 +21,6 @@
 
 #include <string>
 
-void RunProgram_Reduced(int id, int np, std::string InputFile);
+void runExaCA(int id, int np, std::string InputFile);
 
 #endif

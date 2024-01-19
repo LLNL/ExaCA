@@ -60,7 +60,7 @@ struct Grid {
     };
 
     // Constructor for grid used in ExaCA
-    Grid(const std::string SimulationType, const int id, const int np, const int number_of_layers_temp,
+    Grid(const std::string simulation_type, const int id, const int np, const int number_of_layers_temp,
          DomainInputs inputs, TemperatureInputs t_inputs)
         : z_min_layer(
               view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), number_of_layers_temp))
@@ -71,17 +71,17 @@ struct Grid {
 
         // Copy from inputs structs
         deltax = _inputs.deltax;
-        layer_height = _inputs.LayerHeight;
-        layer_height = _inputs.LayerHeight;
+        layer_height = _inputs.layer_height;
+        layer_height = _inputs.layer_height;
         number_of_layers = number_of_layers_temp;
 
         // Obtain global domain bounds
         // For problem type R (reading data from file), need to parse temperature data files to obtain domain bounds for
         // each layer and for the multilayer domain
-        if (SimulationType == "R") {
+        if (simulation_type == "R") {
             // For simulations using input temperature data with remelting: even if only LayerwiseTempRead is true, all
             // files need to be read to determine the domain bounds
-            find_xyz_bounds(id);
+            findXYZBounds(id);
         }
         else {
             // Copy inputs from inputs struct into grid struct
@@ -95,11 +95,11 @@ struct Grid {
             x_max = nx * deltax;
             y_max = ny * deltax;
             z_max = nz * deltax;
-            if (SimulationType == "S") {
+            if (simulation_type == "S") {
                 // If this is a spot melt problem, also set the z_min/z_max for each layer
                 for (int n = 0; n < number_of_layers; n++) {
                     z_min_layer(n) = deltax * (layer_height * n);
-                    z_max_layer(n) = deltax * (_inputs.SpotRadius + layer_height * n);
+                    z_max_layer(n) = deltax * (_inputs.spot_radius + layer_height * n);
                 }
             }
         }
@@ -119,31 +119,31 @@ struct Grid {
 
         // The following was previously performed in "DomainDecomposition" in CAinitialize.cpp:
         // Domain size across all ranks and all layers
-        domain_size_all_layers = get_domain_size_all_layers();
+        domain_size_all_layers = getDomainSizeAllLayers();
 
         // Get neighboring ranks to each direction and set boundary indicator variables
-        neighbor_rank_north = get_neighbor_rank_north(id, np);
-        neighbor_rank_south = get_neighbor_rank_south(id, np);
-        at_north_boundary = get_at_north_boundary();
-        at_south_boundary = get_at_south_boundary();
+        neighbor_rank_north = getNeighborRankNorth(id, np);
+        neighbor_rank_south = getNeighborRankSouth(id, np);
+        at_north_boundary = getAtNorthBoundary();
+        at_south_boundary = getAtSouthBoundary();
 
         // Determine, for each MPI process id, the local grid size in y (and the offset in y relative to the overall
         // simulation domain)
-        y_offset = get_y_offset(id, np);
-        ny_local = get_ny_local(id, np);
+        y_offset = getYOffset(id, np);
+        ny_local = getNyLocal(id, np);
 
         // Add halo regions with a width of 1 in +/- Y if this MPI rank is not as a domain boundary in said direction
-        add_halo();
+        addHalo();
         std::cout << "Rank " << id << " spans Y = " << y_offset << " through " << y_offset + ny_local - 1 << std::endl;
 
         // Bounds of layer 0: Z coordinates span z_layer_bottom-z_layer_top, inclusive (functions previously in
         // CAinitialize.cpp and CAcelldata.hpp)
-        z_layer_bottom = calc_z_layer_bottom(SimulationType, 0);
-        z_layer_top = calc_z_layer_top(SimulationType, _inputs.SpotRadius, 0);
-        nz_layer = calc_nz_layer(id, 0);
-        domain_size = calc_domain_size(); // Number of cells in the current layer on this MPI rank
-        bottom_of_current_layer = get_bottom_of_current_layer();
-        top_of_current_layer = get_top_of_current_layer();
+        z_layer_bottom = calcZLayerBottom(simulation_type, 0);
+        z_layer_top = calcZLayerTop(simulation_type, _inputs.spot_radius, 0);
+        nz_layer = calcNzLayer(id, 0);
+        domain_size = calcDomainSize(); // Number of cells in the current layer on this MPI rank
+        bottom_of_current_layer = getBottomOfCurrentLayer();
+        top_of_current_layer = getTopOfCurrentLayer();
         layer_range = std::make_pair(bottom_of_current_layer, top_of_current_layer);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
@@ -154,89 +154,89 @@ struct Grid {
     // Read x, y, z coordinates in tempfile_thislayer (temperature file in either an ASCII or binary format) and return
     // the min and max values. This is not used by the temperature struct (no temperature info is parsed or stored), and
     // is only used to find the bounds of the simulation domain
-    std::array<double, 6> parseTemperatureCoordinateMinMax(std::string tempfile_thislayer, bool BinaryInputData) {
+    std::array<double, 6> parseTemperatureCoordinateMinMax(std::string tempfile_thislayer, bool binary_input_data) {
 
-        std::array<double, 6> XYZMinMax;
-        std::ifstream TemperatureFilestream;
-        TemperatureFilestream.open(tempfile_thislayer);
+        std::array<double, 6> xyz_min_max;
+        std::ifstream temperature_filestream;
+        temperature_filestream.open(tempfile_thislayer);
         std::size_t vals_per_line;
 
         // Binary temperature data should contain only the six columns of interest
         // Comma-separated double type values may contain additional columns after the 6 used by ExaCA
-        if (BinaryInputData)
+        if (binary_input_data)
             vals_per_line = 6;
         else {
             // Read the header line data
             // Make sure the first line contains all required column names: x, y, z, tm, tl, cr
-            std::string HeaderLine;
-            getline(TemperatureFilestream, HeaderLine);
-            vals_per_line = checkForHeaderValues(HeaderLine);
+            std::string header_line;
+            getline(temperature_filestream, header_line);
+            vals_per_line = checkForHeaderValues(header_line);
         }
 
         // Units are assumed to be in meters, meters, seconds, seconds, and K/second
-        int XYZPointCount_Estimate = 1000000;
-        std::vector<double> XCoordinates(XYZPointCount_Estimate), YCoordinates(XYZPointCount_Estimate),
-            ZCoordinates(XYZPointCount_Estimate);
-        long unsigned int XYZPointCounter = 0;
-        if (BinaryInputData) {
-            while (!TemperatureFilestream.eof()) {
+        int xyz_point_count_estimate = 1000000;
+        std::vector<double> x_coordinates(xyz_point_count_estimate), y_coordinates(xyz_point_count_estimate),
+            z_coordinates(xyz_point_count_estimate);
+        long unsigned int xyz_point_counter = 0;
+        if (binary_input_data) {
+            while (!temperature_filestream.eof()) {
                 // Get x from the binary string, or, if no data is left, exit the file read
-                double XValue = ReadBinaryData<double>(TemperatureFilestream);
-                if (!(TemperatureFilestream))
+                double x_value = readBinaryData<double>(temperature_filestream);
+                if (!(temperature_filestream))
                     break;
                 // Store the x value that was read, and parse the y and z values
-                XCoordinates[XYZPointCounter] = XValue;
-                YCoordinates[XYZPointCounter] = ReadBinaryData<double>(TemperatureFilestream);
-                ZCoordinates[XYZPointCounter] = ReadBinaryData<double>(TemperatureFilestream);
+                x_coordinates[xyz_point_counter] = x_value;
+                y_coordinates[xyz_point_counter] = readBinaryData<double>(temperature_filestream);
+                z_coordinates[xyz_point_counter] = readBinaryData<double>(temperature_filestream);
                 // Ignore the tm, tl, cr values associated with this x, y, z
                 unsigned char temp[3 * sizeof(double)];
-                TemperatureFilestream.read(reinterpret_cast<char *>(temp), 3 * sizeof(double));
-                XYZPointCounter++;
-                if (XYZPointCounter == XCoordinates.size()) {
-                    XCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
-                    YCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
-                    ZCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                temperature_filestream.read(reinterpret_cast<char *>(temp), 3 * sizeof(double));
+                xyz_point_counter++;
+                if (xyz_point_counter == x_coordinates.size()) {
+                    x_coordinates.resize(xyz_point_counter + xyz_point_count_estimate);
+                    y_coordinates.resize(xyz_point_counter + xyz_point_count_estimate);
+                    z_coordinates.resize(xyz_point_counter + xyz_point_count_estimate);
                 }
             }
         }
         else {
-            while (!TemperatureFilestream.eof()) {
-                std::vector<std::string> ParsedLine(3); // Get x, y, z - ignore tm, tl, cr
-                std::string ReadLine;
-                if (!getline(TemperatureFilestream, ReadLine))
+            while (!temperature_filestream.eof()) {
+                std::vector<std::string> parsed_line(3); // Get x, y, z - ignore tm, tl, cr
+                std::string read_line;
+                if (!getline(temperature_filestream, read_line))
                     break;
-                splitString(ReadLine, ParsedLine, vals_per_line);
+                splitString(read_line, parsed_line, vals_per_line);
                 // Only get x, y, and z values from ParsedLine
-                XCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[0]);
-                YCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[1]);
-                ZCoordinates[XYZPointCounter] = getInputDouble(ParsedLine[2]);
-                XYZPointCounter++;
-                if (XYZPointCounter == XCoordinates.size()) {
-                    XCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
-                    YCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
-                    ZCoordinates.resize(XYZPointCounter + XYZPointCount_Estimate);
+                x_coordinates[xyz_point_counter] = getInputDouble(parsed_line[0]);
+                y_coordinates[xyz_point_counter] = getInputDouble(parsed_line[1]);
+                z_coordinates[xyz_point_counter] = getInputDouble(parsed_line[2]);
+                xyz_point_counter++;
+                if (xyz_point_counter == x_coordinates.size()) {
+                    x_coordinates.resize(xyz_point_counter + xyz_point_count_estimate);
+                    y_coordinates.resize(xyz_point_counter + xyz_point_count_estimate);
+                    z_coordinates.resize(xyz_point_counter + xyz_point_count_estimate);
                 }
             }
         }
 
-        XCoordinates.resize(XYZPointCounter);
-        YCoordinates.resize(XYZPointCounter);
-        ZCoordinates.resize(XYZPointCounter);
-        TemperatureFilestream.close();
+        x_coordinates.resize(xyz_point_counter);
+        y_coordinates.resize(xyz_point_counter);
+        z_coordinates.resize(xyz_point_counter);
+        temperature_filestream.close();
 
         // Min/max x, y, and z coordinates from this layer's data
-        XYZMinMax[0] = *min_element(XCoordinates.begin(), XCoordinates.end());
-        XYZMinMax[1] = *max_element(XCoordinates.begin(), XCoordinates.end());
-        XYZMinMax[2] = *min_element(YCoordinates.begin(), YCoordinates.end());
-        XYZMinMax[3] = *max_element(YCoordinates.begin(), YCoordinates.end());
-        XYZMinMax[4] = *min_element(ZCoordinates.begin(), ZCoordinates.end());
-        XYZMinMax[5] = *max_element(ZCoordinates.begin(), ZCoordinates.end());
-        return XYZMinMax;
+        xyz_min_max[0] = *min_element(x_coordinates.begin(), x_coordinates.end());
+        xyz_min_max[1] = *max_element(x_coordinates.begin(), x_coordinates.end());
+        xyz_min_max[2] = *min_element(y_coordinates.begin(), y_coordinates.end());
+        xyz_min_max[3] = *max_element(y_coordinates.begin(), y_coordinates.end());
+        xyz_min_max[4] = *min_element(z_coordinates.begin(), z_coordinates.end());
+        xyz_min_max[5] = *max_element(z_coordinates.begin(), z_coordinates.end());
+        return xyz_min_max;
     }
 
     // For simulation type R, obtain the physical XYZ bounds of the domain by reading temperature data files and parsing
     // the coordinates. Previously in CAinitialize.cpp
-    void find_xyz_bounds(const int id) {
+    void findXYZBounds(const int id) {
 
         // Two passes through reading temperature data files- the first pass only reads the headers to
         // determine units and X/Y/Z bounds of the simulaton domain. Using the X/Y/Z bounds of the simulation domain,
@@ -252,15 +252,15 @@ struct Grid {
         z_max = std::numeric_limits<double>::lowest();
 
         // Read the first temperature file
-        std::ifstream FirstTemperatureFile;
-        FirstTemperatureFile.open(_t_inputs.temp_paths[0]);
-        std::string FirstLineFirstFile;
+        std::ifstream first_temperature_file;
+        first_temperature_file.open(_t_inputs.temp_paths[0]);
+        std::string first_line_first_file;
         // Header line
-        getline(FirstTemperatureFile, FirstLineFirstFile);
+        getline(first_temperature_file, first_line_first_file);
 
         // Read all data files to determine the domain bounds, max number of remelting events
         // for simulations with remelting
-        int layers_to_read = std::min(number_of_layers, _t_inputs.TempFilesInSeries); // was given in input file
+        int layers_to_read = std::min(number_of_layers, _t_inputs.temp_files_in_series); // was given in input file
         for (int layer_read_count = 1; layer_read_count <= layers_to_read; layer_read_count++) {
 
             std::string tempfile_thislayer = _t_inputs.temp_paths[layer_read_count - 1];
@@ -296,10 +296,10 @@ struct Grid {
         }
         // Extend domain in Z (build) direction if the number of layers are simulated is greater than the number
         // of temperature files read
-        if (number_of_layers > _t_inputs.TempFilesInSeries) {
-            for (int layer_read_count = _t_inputs.TempFilesInSeries; layer_read_count < number_of_layers;
+        if (number_of_layers > _t_inputs.temp_files_in_series) {
+            for (int layer_read_count = _t_inputs.temp_files_in_series; layer_read_count < number_of_layers;
                  layer_read_count++) {
-                if (_t_inputs.TempFilesInSeries == 1) {
+                if (_t_inputs.temp_files_in_series == 1) {
                     // Only one temperature file was read, so the upper Z bound should account for an additional
                     // "number_of_layers-1" worth of data Since all layers have the same temperature data, each
                     // layer's "z_min_layer" is just translated from that of the first layer
@@ -308,14 +308,16 @@ struct Grid {
                     z_max += deltax * layer_height;
                 }
                 else {
-                    // "TempFilesInSeries" temperature files was read, so the upper Z bound should account for
-                    // an additional "number_of_layers-TempFilesInSeries" worth of data
-                    int RepeatedFile = (layer_read_count) % _t_inputs.TempFilesInSeries;
-                    int RepeatUnit = layer_read_count / _t_inputs.TempFilesInSeries;
-                    z_min_layer[layer_read_count] =
-                        z_min_layer[RepeatedFile] + RepeatUnit * _t_inputs.TempFilesInSeries * deltax * layer_height;
-                    z_max_layer[layer_read_count] =
-                        z_max_layer[RepeatedFile] + RepeatUnit * _t_inputs.TempFilesInSeries * deltax * layer_height;
+                    // "temp_files_in_series" temperature files was read, so the upper Z bound should account for
+                    // an additional "number_of_layers-temp_files_in_series" worth of data
+                    int repeated_file = (layer_read_count) % _t_inputs.temp_files_in_series;
+                    int repeat_unit = layer_read_count / _t_inputs.temp_files_in_series;
+                    z_min_layer[layer_read_count] = z_min_layer[repeated_file] + repeat_unit *
+                                                                                     _t_inputs.temp_files_in_series *
+                                                                                     deltax * layer_height;
+                    z_max_layer[layer_read_count] = z_max_layer[repeated_file] + repeat_unit *
+                                                                                     _t_inputs.temp_files_in_series *
+                                                                                     deltax * layer_height;
                     z_max += deltax * layer_height;
                 }
             }
@@ -330,13 +332,13 @@ struct Grid {
         nz = Kokkos::round((z_max - z_min) / deltax) + 1;
     }
 
-    int get_domain_size_all_layers() {
+    int getDomainSizeAllLayers() {
         int domain_size_all_layers_local = nx * ny * nz;
         return domain_size_all_layers_local;
     }
 
     // Determine the MPI rank of the processor in the +Y direction
-    int get_neighbor_rank_north(const int id, const int np) {
+    int getNeighborRankNorth(const int id, const int np) {
         int neighbor_rank_north_local;
         if (np > 1) {
             neighbor_rank_north_local = id + 1;
@@ -351,7 +353,7 @@ struct Grid {
     }
 
     // Determine the MPI rank of the processor in the -Y direction
-    int get_neighbor_rank_south(const int id, const int np) {
+    int getNeighborRankSouth(const int id, const int np) {
         int neighbor_rank_south_local;
         if (np > 1) {
             neighbor_rank_south_local = id - 1;
@@ -366,7 +368,7 @@ struct Grid {
     }
 
     // Determine if this MPI rank is at the domain boundary in the +Y direction
-    bool get_at_north_boundary() {
+    bool getAtNorthBoundary() {
         bool at_north_boundary_local;
         if (neighbor_rank_north == MPI_PROC_NULL)
             at_north_boundary_local = true;
@@ -376,7 +378,7 @@ struct Grid {
     }
 
     // Determine if this MPI rank is at the domain boundary in the -Y direction
-    bool get_at_south_boundary() {
+    bool getAtSouthBoundary() {
         bool at_south_boundary_local;
         if (neighbor_rank_south == MPI_PROC_NULL)
             at_south_boundary_local = true;
@@ -386,7 +388,7 @@ struct Grid {
     }
 
     // Subdivide ny into ny_local across np ranks as evenly as possible, return ny_local on rank id
-    int get_ny_local(const int id, const int np) const {
+    int getNyLocal(const int id, const int np) const {
         int ny_local_local = 0;
         int ny_local_est = ny / np;
         int y_remainder = ny % np;
@@ -406,7 +408,7 @@ struct Grid {
 
     // Get the offset in the Y direction of the local grid on rank id from the global grid of np ranks, which has ny
     // total cells in Y
-    int get_y_offset(const int id, const int np) const {
+    int getYOffset(const int id, const int np) const {
         int y_offset_local = 0;
         int y_offset_est = ny / np;
         int y_remainder = ny % np;
@@ -427,7 +429,7 @@ struct Grid {
 
     // Add ghost nodes to the appropriate subdomains (added where the subdomains overlap, but not at edges of physical
     // domain)
-    void add_halo() {
+    void addHalo() {
 
         // Add halo regions in Y direction if this subdomain borders subdomains on other processors
         // If only 1 rank in the y direction, no halo regions - subdomain is coincident with overall simulation domain
@@ -443,19 +445,19 @@ struct Grid {
     }
 
     // Get the Z coordinate of the lower bound of iteration for layer layernumber
-    int calc_z_layer_bottom(const std::string SimulationType, const int layernumber) {
+    int calcZLayerBottom(const std::string simulation_type, const int layernumber) {
 
         int z_layer_bottom_local = -1; // assign dummy initial value
-        if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
+        if ((simulation_type == "C") || (simulation_type == "SingleGrain")) {
             // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
             z_layer_bottom_local = 0;
         }
-        else if (SimulationType == "S") {
+        else if (simulation_type == "S") {
             // lower bound of domain is an integer multiple of the layer spacing, since the temperature field is the
             // same for every layer
             z_layer_bottom_local = layer_height * layernumber;
         }
-        else if (SimulationType == "R") {
+        else if (simulation_type == "R") {
             // lower bound of domain is based on the data read from the file(s)
             z_layer_bottom_local = Kokkos::round((z_min_layer[layernumber] - z_min) / deltax);
         }
@@ -465,19 +467,19 @@ struct Grid {
     }
 
     // Get the Z coordinate of the upper bound of iteration for layer layernumber
-    int calc_z_layer_top(const std::string SimulationType, const int SpotRadius, const int layernumber) {
+    int calcZLayerTop(const std::string simulation_type, const int spot_radius, const int layernumber) {
 
         int z_layer_top_local = -1; // assign dummy initial value
-        if ((SimulationType == "C") || (SimulationType == "SingleGrain")) {
+        if ((simulation_type == "C") || (simulation_type == "SingleGrain")) {
             // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
             z_layer_top_local = nz - 1;
         }
-        else if (SimulationType == "S") {
+        else if (simulation_type == "S") {
             // Top of layer is equal to the spot radius for a problem of hemispherical spot solidification, plus an
             // offset depending on the layer number
-            z_layer_top_local = SpotRadius + layer_height * layernumber;
+            z_layer_top_local = spot_radius + layer_height * layernumber;
         }
-        else if (SimulationType == "R") {
+        else if (simulation_type == "R") {
             // Top of layer comes from the layer's file data (implicitly assumes bottom of layer 0 is the bottom of the
             // overall domain - this should be fixed in the future for edge cases where this isn't true)
             z_layer_top_local = Kokkos::round((z_max_layer[layernumber] - z_min) / deltax);
@@ -489,7 +491,7 @@ struct Grid {
     }
 
     // Calculate the size of the active domain in Z for layer layernumber
-    int calc_nz_layer(const int id, const int layernumber) {
+    int calcNzLayer(const int id, const int layernumber) {
         int nz_layer_local = z_layer_top - z_layer_bottom + 1;
         if (id == 0)
             std::cout << "Layer " << layernumber << "'s active domain is from Z = " << z_layer_bottom << " through "
@@ -498,58 +500,58 @@ struct Grid {
     }
 
     // Calculate the size of the domain, as a number of cells, for this layer of a multilayer problem
-    int calc_domain_size() {
+    int calcDomainSize() {
         int domain_size_local = nx * ny_local * nz_layer;
         return domain_size_local;
     }
 
     // Get 1D coordinate corresponding to the first cell in this layer of a multilayer problem
-    int get_bottom_of_current_layer() {
+    int getBottomOfCurrentLayer() {
         int bottom_of_current_layer_local = z_layer_bottom * nx * ny_local;
         return bottom_of_current_layer_local;
     }
 
     // Get 1D coordinate corresponding to the cell after the last cell in this layer of a multilayer problem
-    int get_top_of_current_layer() {
+    int getTopOfCurrentLayer() {
         int top_of_current_layer_local = z_layer_bottom * nx * ny_local + domain_size;
         return top_of_current_layer_local;
     }
 
     // Determine new active cell domain size and offset from bottom of global domain
-    void init_next_layer(const int id, const std::string SimulationType, const int next_layer_number,
-                         const int SpotRadius) {
-        z_layer_bottom = calc_z_layer_bottom(SimulationType, next_layer_number);
-        z_layer_top = calc_z_layer_top(SimulationType, SpotRadius, next_layer_number);
-        nz_layer = calc_nz_layer(id, next_layer_number);
-        domain_size = calc_domain_size();
-        bottom_of_current_layer = get_bottom_of_current_layer();
-        top_of_current_layer = get_top_of_current_layer();
+    void initNextLayer(const int id, const std::string simulation_type, const int next_layer_number,
+                       const int spot_radius) {
+        z_layer_bottom = calcZLayerBottom(simulation_type, next_layer_number);
+        z_layer_top = calcZLayerTop(simulation_type, spot_radius, next_layer_number);
+        nz_layer = calcNzLayer(id, next_layer_number);
+        domain_size = calcDomainSize();
+        bottom_of_current_layer = getBottomOfCurrentLayer();
+        top_of_current_layer = getTopOfCurrentLayer();
         layer_range = std::make_pair(bottom_of_current_layer, top_of_current_layer);
     }
 
     // Get the 1D cell coordinate from the x, y, and z cell positions
     KOKKOS_INLINE_FUNCTION
-    int get_1D_index(const int coord_x, const int coord_y_local, const int coord_z) const {
+    int get1DIndex(const int coord_x, const int coord_y_local, const int coord_z) const {
         int index = coord_z * nx * ny_local + coord_x * ny_local + coord_y_local;
         return index;
     }
     // TODO: There is probably some creative way to combine these functions and return one object containing the x, y,
     // and z positions Get the z cell position of the cell from the 1D cell coordinate
     KOKKOS_INLINE_FUNCTION
-    int get_coord_Z(const int index) const {
+    int getCoordZ(const int index) const {
         int coord_z = index / (nx * ny_local);
         return coord_z;
     }
     // Get the y cell position of the cell from the 1D cell coordinate
     KOKKOS_INLINE_FUNCTION
-    int get_coord_Y(const int index) const {
+    int getCoordY(const int index) const {
         int rem = index % (nx * ny_local);
         int coord_y = rem % ny_local;
         return coord_y;
     }
     // Get the x cell position of the cell from the 1D cell coordinate
     KOKKOS_INLINE_FUNCTION
-    int get_coord_X(const int index) const {
+    int getCoordX(const int index) const {
         int rem = index % (nx * ny_local);
         int coord_x = rem / ny_local;
         return coord_x;
@@ -557,14 +559,14 @@ struct Grid {
     // Get the z cell position of the cell from the 1D cell coordinate with respect to the overall simulation domain
     // (all MPI ranks)
     KOKKOS_INLINE_FUNCTION
-    int get_coord_Z_global(const int index) const {
+    int getCoordZGlobal(const int index) const {
         int coord_z = index / (nx * ny);
         return coord_z;
     }
     // Get the y cell position of the cell from the 1D cell coordinate with respect to the overall simulation domain
     // (all MPI ranks)
     KOKKOS_INLINE_FUNCTION
-    int get_coord_Y_global(const int index) const {
+    int getCoordYGlobal(const int index) const {
         int rem = index % (nx * ny);
         int coord_y = rem % ny;
         return coord_y;
@@ -572,7 +574,7 @@ struct Grid {
     // Get the x cell position of the cell from the 1D cell coordinate with respect to the overall simulation domain
     // (all MPI ranks)
     KOKKOS_INLINE_FUNCTION
-    int get_coord_X_global(const int index) const {
+    int getCoordXGlobal(const int index) const {
         int rem = index % (nx * ny);
         int coord_x = rem / ny;
         return coord_x;

@@ -24,7 +24,7 @@ namespace Test {
 // tests for Temperature struct
 //---------------------------------------------------------------------------//
 // Tests constructing temperature object in the case of reading data from a file(s)
-void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool TestBinaryInputRead) {
+void testReadTemperatureData(int number_of_layers, bool layerwise_temp_read, bool test_binary_input_read) {
 
     using memory_space = TEST_MEMSPACE;
 
@@ -36,7 +36,7 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
 
     // Create test data
     // Default grid, manually set values
-    Grid grid(NumberOfLayers);
+    Grid grid(number_of_layers);
     grid.ny_local = 3;
     grid.y_offset = 3 * id; // each col is separated from the others by 3 cells
     grid.y_min = 0.0;
@@ -51,84 +51,84 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     grid.layer_range = std::make_pair(0, grid.domain_size);
     // Write fake OpenFOAM data - only rank 0. Temperature data should be of type double
     // Write two files, one or both of which should be read
-    std::string TestTempFileName1 = "TestData1";
-    std::string TestTempFileName2 = "TestData2";
-    if (TestBinaryInputRead) {
-        TestTempFileName1 = TestTempFileName1 + ".catemp";
-        TestTempFileName2 = TestTempFileName2 + ".catemp";
+    std::string test_temp_filename_1 = "TestData1";
+    std::string test_temp_filename_2 = "TestData2";
+    if (test_binary_input_read) {
+        test_temp_filename_1 = test_temp_filename_1 + ".catemp";
+        test_temp_filename_2 = test_temp_filename_2 + ".catemp";
     }
     else {
-        TestTempFileName1 = TestTempFileName1 + ".txt";
-        TestTempFileName2 = TestTempFileName2 + ".txt";
+        test_temp_filename_1 = test_temp_filename_1 + ".txt";
+        test_temp_filename_2 = test_temp_filename_2 + ".txt";
     }
     if (id == 0) {
-        std::ofstream TestDataFile1;
-        if (TestBinaryInputRead)
-            TestDataFile1.open(TestTempFileName1, std::ios::out | std::ios::binary);
+        std::ofstream test_data_file_1;
+        if (test_binary_input_read)
+            test_data_file_1.open(test_temp_filename_1, std::ios::out | std::ios::binary);
         else {
-            TestDataFile1.open(TestTempFileName1);
-            TestDataFile1 << "x, y, z, tm, tl, cr" << std::endl;
+            test_data_file_1.open(test_temp_filename_1);
+            test_data_file_1 << "x, y, z, tm, tl, cr" << std::endl;
         }
         for (int j = 0; j < grid.ny; j++) {
             for (int i = 0; i < grid.nx; i++) {
-                if (TestBinaryInputRead) {
-                    writeData(TestDataFile1, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
-                    writeData(TestDataFile1, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
-                    writeData(TestDataFile1, static_cast<double>(0.0), TestBinaryInputRead);
-                    writeData(TestDataFile1, static_cast<double>(i * j), TestBinaryInputRead);
-                    writeData(TestDataFile1, static_cast<double>(i * j + i), TestBinaryInputRead);
-                    writeData(TestDataFile1, static_cast<double>(i * j + j), TestBinaryInputRead);
+                if (test_binary_input_read) {
+                    writeData(test_data_file_1, static_cast<double>(i * grid.deltax), test_binary_input_read);
+                    writeData(test_data_file_1, static_cast<double>(j * grid.deltax), test_binary_input_read);
+                    writeData(test_data_file_1, static_cast<double>(0.0), test_binary_input_read);
+                    writeData(test_data_file_1, static_cast<double>(i * j), test_binary_input_read);
+                    writeData(test_data_file_1, static_cast<double>(i * j + i), test_binary_input_read);
+                    writeData(test_data_file_1, static_cast<double>(i * j + j), test_binary_input_read);
                 }
                 else
-                    TestDataFile1 << i * grid.deltax << "," << j * grid.deltax << "," << 0.0 << ","
-                                  << static_cast<double>(i * j) << "," << static_cast<double>(i * j + i) << ","
-                                  << static_cast<double>(i * j + j) << std::endl;
+                    test_data_file_1 << i * grid.deltax << "," << j * grid.deltax << "," << 0.0 << ","
+                                     << static_cast<double>(i * j) << "," << static_cast<double>(i * j + i) << ","
+                                     << static_cast<double>(i * j + j) << std::endl;
             }
         }
-        TestDataFile1.close();
+        test_data_file_1.close();
 
-        std::ofstream TestDataFile2;
-        if (TestBinaryInputRead)
-            TestDataFile2.open(TestTempFileName2, std::ios::out | std::ios::binary);
+        std::ofstream test_data_file_2;
+        if (test_binary_input_read)
+            test_data_file_2.open(test_temp_filename_2, std::ios::out | std::ios::binary);
         else {
-            TestDataFile2.open(TestTempFileName2);
-            TestDataFile2 << "x, y, z, tm, tl, cr" << std::endl;
+            test_data_file_2.open(test_temp_filename_2);
+            test_data_file_2 << "x, y, z, tm, tl, cr" << std::endl;
         }
         for (int j = 0; j < grid.ny; j++) {
             for (int i = 0; i < grid.nx; i++) {
-                if (TestBinaryInputRead) {
-                    writeData(TestDataFile2, static_cast<double>(i * grid.deltax), TestBinaryInputRead);
-                    writeData(TestDataFile2, static_cast<double>(j * grid.deltax), TestBinaryInputRead);
-                    writeData(TestDataFile2, static_cast<double>(grid.deltax), TestBinaryInputRead);
-                    writeData(TestDataFile2, static_cast<double>(i * j), TestBinaryInputRead);
-                    writeData(TestDataFile2, static_cast<double>(i * j + i), TestBinaryInputRead);
-                    writeData(TestDataFile2, static_cast<double>(i * j + j), TestBinaryInputRead);
+                if (test_binary_input_read) {
+                    writeData(test_data_file_2, static_cast<double>(i * grid.deltax), test_binary_input_read);
+                    writeData(test_data_file_2, static_cast<double>(j * grid.deltax), test_binary_input_read);
+                    writeData(test_data_file_2, static_cast<double>(grid.deltax), test_binary_input_read);
+                    writeData(test_data_file_2, static_cast<double>(i * j), test_binary_input_read);
+                    writeData(test_data_file_2, static_cast<double>(i * j + i), test_binary_input_read);
+                    writeData(test_data_file_2, static_cast<double>(i * j + j), test_binary_input_read);
                 }
                 else
-                    TestDataFile2 << i * grid.deltax << "," << j * grid.deltax << "," << grid.deltax << ","
-                                  << static_cast<double>(i * j) << "," << static_cast<double>(i * j + i) << ","
-                                  << static_cast<double>(i * j + j) << std::endl;
+                    test_data_file_2 << i * grid.deltax << "," << j * grid.deltax << "," << grid.deltax << ","
+                                     << static_cast<double>(i * j) << "," << static_cast<double>(i * j + i) << ","
+                                     << static_cast<double>(i * j + j) << std::endl;
             }
         }
-        TestDataFile2.close();
+        test_data_file_2.close();
     }
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Test each 12 by 3 subdomain (this test uses MPI - each rank has its own subdomain)
     // Default inputs struct - manually set non-default substrateInputs values
     Inputs inputs;
-    inputs.temperature.temp_paths.push_back(TestTempFileName1);
-    inputs.temperature.temp_paths.push_back(TestTempFileName2);
-    inputs.temperature.TempFilesInSeries = 2;
-    inputs.temperature.LayerwiseTempRead = LayerwiseTempRead;
+    inputs.temperature.temp_paths.push_back(test_temp_filename_1);
+    inputs.temperature.temp_paths.push_back(test_temp_filename_2);
+    inputs.temperature.temp_files_in_series = 2;
+    inputs.temperature.layerwise_temp_read = layerwise_temp_read;
 
     // Ensure that constructor correctly initialized the local values of inputs
     Temperature<memory_space> temperature(grid, inputs.temperature);
-    if (LayerwiseTempRead)
-        EXPECT_TRUE(temperature._inputs.LayerwiseTempRead);
+    if (layerwise_temp_read)
+        EXPECT_TRUE(temperature._inputs.layerwise_temp_read);
     else
-        EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
-    EXPECT_EQ(inputs.temperature.TempFilesInSeries, temperature._inputs.TempFilesInSeries);
+        EXPECT_FALSE(temperature._inputs.layerwise_temp_read);
+    EXPECT_EQ(inputs.temperature.temp_files_in_series, temperature._inputs.temp_files_in_series);
     EXPECT_TRUE(temperature._inputs.temp_paths[0] == inputs.temperature.temp_paths[0]);
     EXPECT_TRUE(temperature._inputs.temp_paths[1] == inputs.temperature.temp_paths[1]);
 
@@ -138,38 +138,39 @@ void testReadTemperatureData(int NumberOfLayers, bool LayerwiseTempRead, bool Te
     // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr)
     // for each of the 9 cells in the subdomain
     // If both files were read, twice as many temperature data points per file should be present
-    int NumberOfTemperatureDataPoints = temperature.RawTemperatureData.extent(0);
-    int NumTempPointsMultiplier;
-    if (LayerwiseTempRead)
-        NumTempPointsMultiplier = 1;
+    int number_of_temperature_data_points = temperature.raw_temperature_data.extent(0);
+    int num_temp_points_multiplier;
+    if (layerwise_temp_read)
+        num_temp_points_multiplier = 1;
     else
-        NumTempPointsMultiplier = std::min(NumberOfLayers, inputs.temperature.TempFilesInSeries);
-    EXPECT_EQ(NumberOfTemperatureDataPoints, 54 * NumTempPointsMultiplier);
-    int NumberOfCellsPerRank = 9;
+        num_temp_points_multiplier = std::min(number_of_layers, inputs.temperature.temp_files_in_series);
+    EXPECT_EQ(number_of_temperature_data_points, 54 * num_temp_points_multiplier);
+    int number_of_cells_per_rank = 9;
     // Does each rank have the right temperature data values?
-    for (int layercounter = 0; layercounter < NumTempPointsMultiplier; layercounter++) {
-        for (int n = 0; n < NumberOfCellsPerRank; n++) {
-            double ExpectedValues_ThisDataPoint[6];
+    for (int layercounter = 0; layercounter < num_temp_points_multiplier; layercounter++) {
+        for (int n = 0; n < number_of_cells_per_rank; n++) {
+            double expected_values_this_data_point[6];
             // Location on local grid
-            int CARow = n % 3;
-            int CACol = n / 3;
+            int ca_row = n % 3;
+            int ca_col = n / 3;
             // X Coordinate
-            ExpectedValues_ThisDataPoint[0] = CARow * grid.deltax;
+            expected_values_this_data_point[0] = ca_row * grid.deltax;
             // Y Coordinate
-            ExpectedValues_ThisDataPoint[1] = (CACol + 3 * id) * grid.deltax;
+            expected_values_this_data_point[1] = (ca_col + 3 * id) * grid.deltax;
             // Z Coordinate
-            ExpectedValues_ThisDataPoint[2] = grid.deltax * layercounter;
-            int XInt = ExpectedValues_ThisDataPoint[0] / grid.deltax;
-            int YInt = ExpectedValues_ThisDataPoint[1] / grid.deltax;
+            expected_values_this_data_point[2] = grid.deltax * layercounter;
+            int x_int = expected_values_this_data_point[0] / grid.deltax;
+            int y_int = expected_values_this_data_point[1] / grid.deltax;
             // Melting time
-            ExpectedValues_ThisDataPoint[3] = XInt * YInt;
+            expected_values_this_data_point[3] = x_int * y_int;
             // Liquidus time
-            ExpectedValues_ThisDataPoint[4] = XInt * YInt + XInt;
+            expected_values_this_data_point[4] = x_int * y_int + x_int;
             // Cooling rate
-            ExpectedValues_ThisDataPoint[5] = XInt * YInt + YInt;
+            expected_values_this_data_point[5] = x_int * y_int + y_int;
             for (int nn = 0; nn < 6; nn++) {
-                EXPECT_DOUBLE_EQ(ExpectedValues_ThisDataPoint[nn],
-                                 temperature.RawTemperatureData(NumberOfCellsPerRank * 6 * layercounter + 6 * n + nn));
+                EXPECT_DOUBLE_EQ(
+                    expected_values_this_data_point[nn],
+                    temperature.raw_temperature_data(number_of_cells_per_rank * 6 * layercounter + 6 * n + nn));
             }
         }
     }
@@ -201,9 +202,9 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
 
     // default inputs struct - manually set non-default substrateInputs values
     Inputs inputs;
-    inputs.SimulationType = simulation_type;
+    inputs.simulation_type = simulation_type;
     inputs.temperature.G = G;
-    inputs.temperature.initUndercooling = init_undercooling;
+    inputs.temperature.init_undercooling = init_undercooling;
 
     // For problems with non-zero thermal gradient, 1 K difference between each cell and its neighbor in Z
     if (G == 0)
@@ -222,25 +223,25 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
     Temperature<memory_space> temperature(grid, inputs.temperature);
     // Test constructor initialization of _inputs
     // These should've been initialized with default values
-    EXPECT_FALSE(temperature._inputs.LayerwiseTempRead);
-    EXPECT_EQ(temperature._inputs.TempFilesInSeries, 0);
+    EXPECT_FALSE(temperature._inputs.layerwise_temp_read);
+    EXPECT_EQ(temperature._inputs.temp_files_in_series, 0);
     // These should have assigned values
     EXPECT_DOUBLE_EQ(temperature._inputs.R, inputs.temperature.R);
     EXPECT_DOUBLE_EQ(temperature._inputs.G, G);
-    EXPECT_DOUBLE_EQ(temperature._inputs.initUndercooling, inputs.temperature.initUndercooling);
+    EXPECT_DOUBLE_EQ(temperature._inputs.init_undercooling, inputs.temperature.init_undercooling);
     temperature.initialize(id, simulation_type, grid, deltat);
 
     // Copy temperature views back to host
-    auto number_solidification_events_host = Kokkos::create_mirror_view_and_copy(
-        Kokkos::HostSpace(), temperature.NumberOfSolidificationEvents); // Copy orientation data back to the host
+    auto number_of_solidification_events_host = Kokkos::create_mirror_view_and_copy(
+        Kokkos::HostSpace(), temperature.number_of_solidification_events); // Copy orientation data back to the host
     auto solidification_event_counter_host = Kokkos::create_mirror_view_and_copy(
-        Kokkos::HostSpace(), temperature.SolidificationEventCounter); // Copy orientation data back to the host
+        Kokkos::HostSpace(), temperature.solidification_event_counter); // Copy orientation data back to the host
     auto max_solidification_events_host = Kokkos::create_mirror_view_and_copy(
-        Kokkos::HostSpace(), temperature.MaxSolidificationEvents); // Copy orientation data back to the host
+        Kokkos::HostSpace(), temperature.max_solidification_events); // Copy orientation data back to the host
     auto undercooling_current_host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.UndercoolingCurrent);
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.undercooling_current);
     auto layer_time_temp_history_host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.LayerTimeTempHistory);
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.layer_time_temp_history);
 
     // Check results
     int location_init_undercooling, location_liquidus_isotherm;
@@ -255,24 +256,24 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
         location_liquidus_isotherm = grid.nz;
     else
         location_liquidus_isotherm =
-            location_init_undercooling + Kokkos::round(inputs.temperature.initUndercooling / (G * grid.deltax));
+            location_init_undercooling + Kokkos::round(inputs.temperature.init_undercooling / (G * grid.deltax));
 
     EXPECT_EQ(max_solidification_events_host(0), 1);
     for (int coord_z = 0; coord_z < grid.nz; coord_z++) {
         for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
             for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
-                int index = grid.get_1D_index(coord_x, coord_y, coord_z);
+                int index = grid.get1DIndex(coord_x, coord_y, coord_z);
                 // Each cell solidifies once, and counter should start at 0, associated with the zeroth layer
                 // MeltTimeStep should be -1 for all cells
                 // Cells cool at 1 K per time step
                 EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 0), -1.0);
                 EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 2), R_norm);
-                EXPECT_EQ(number_solidification_events_host(index), 1);
+                EXPECT_EQ(number_of_solidification_events_host(index), 1);
                 EXPECT_EQ(solidification_event_counter_host(index), 0);
-                // UndercoolingCurrent should be zero for cells if a positive G is given, or initUndercooling if being
+                // undercooling_current should be zero for cells if a positive G is given, or init_undercooling if being
                 // initialized with a uniform undercooling field (all cells initially below liquidus)
                 if (G == 0) {
-                    EXPECT_FLOAT_EQ(undercooling_current_host(index), inputs.temperature.initUndercooling);
+                    EXPECT_FLOAT_EQ(undercooling_current_host(index), inputs.temperature.init_undercooling);
                     EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 1), -1);
                 }
                 else {
@@ -283,7 +284,7 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
                         EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 1), -1);
                         int dist_from_init_undercooling = coord_z - location_init_undercooling;
                         EXPECT_FLOAT_EQ(undercooling_current_host(index),
-                                        inputs.temperature.initUndercooling -
+                                        inputs.temperature.init_undercooling -
                                             dist_from_init_undercooling * G * grid.deltax);
                     }
                     else {
@@ -303,15 +304,15 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, temperature) {
-    // Multiple permutations of inputs: NumberOfLayers, LayerwiseTempRead, TestBinaryInputRead
+    // Multiple permutations of inputs: number_of_layers, layerwise_temp_read, test_binary_input_read
     // reading temperature data is performed in the same manner with and without remelting
-    std::vector<int> NumberOfLayers_vals = {1, 2, 2, 2};
-    std::vector<bool> LayerwiseTempRead_vals = {false, true, false, true};
-    std::vector<bool> TestBinaryInputRead_vals = {false, false, false, true};
-    int num_vals = TestBinaryInputRead_vals.size();
+    std::vector<int> number_of_layers_vals = {1, 2, 2, 2};
+    std::vector<bool> layerwise_temp_read_vals = {false, true, false, true};
+    std::vector<bool> test_binary_input_read_vals = {false, false, false, true};
+    int num_vals = test_binary_input_read_vals.size();
     for (int test_count = 0; test_count < num_vals; test_count++) {
-        testReadTemperatureData(NumberOfLayers_vals[test_count], LayerwiseTempRead_vals[test_count],
-                                TestBinaryInputRead_vals[test_count]);
+        testReadTemperatureData(number_of_layers_vals[test_count], layerwise_temp_read_vals[test_count],
+                                test_binary_input_read_vals[test_count]);
     }
     // Test for directional and single grain problems, and with and without a thermal gradient for the single grain
     // problem and with/without an initial undercooling present at the initial solidification front

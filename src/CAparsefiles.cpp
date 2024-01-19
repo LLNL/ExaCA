@@ -133,13 +133,13 @@ void checkFileNotEmpty(std::string testfilename) {
 
 // Check if the temperature data is in ASCII or binary format
 bool checkTemperatureFileFormat(std::string tempfile_thislayer) {
-    bool BinaryInputData;
+    bool binary_input_data;
     std::size_t found = tempfile_thislayer.find(".catemp");
     if (found == std::string::npos)
-        BinaryInputData = false;
+        binary_input_data = false;
     else
-        BinaryInputData = true;
-    return BinaryInputData;
+        binary_input_data = true;
+    return binary_input_data;
 }
 
 // Check to make sure that the 6 expected column names appear in the correct order in the header for this temperature

@@ -21,59 +21,59 @@ namespace Test {
 //---------------------------------------------------------------------------//
 // file_read_tests
 //---------------------------------------------------------------------------//
-void testReadWrite(bool PrintReadBinary) {
+void testReadWrite(bool print_read_binary) {
 
     // Make lists of some int and float data
-    int IntData[5] = {-2, 0, 2, 4, 6};
-    float FloatData[5] = {-1.0, 0.0, 1.0, 2.0, 3.0};
+    int int_data[5] = {-2, 0, 2, 4, 6};
+    float float_data[5] = {-1.0, 0.0, 1.0, 2.0, 3.0};
 
     // Write data as binary to be used as input
-    std::ofstream TestIntData;
-    std::ofstream TestFloatData;
-    if (PrintReadBinary) {
-        TestIntData.open("TestIntData.txt", std::ios::out | std::ios::binary);
-        TestFloatData.open("TestFloatData.txt", std::ios::out | std::ios::binary);
+    std::ofstream test_int_data;
+    std::ofstream test_float_data;
+    if (print_read_binary) {
+        test_int_data.open("TestIntData.txt", std::ios::out | std::ios::binary);
+        test_float_data.open("TestFloatData.txt", std::ios::out | std::ios::binary);
     }
     else {
-        TestIntData.open("TestIntData.txt");
-        TestFloatData.open("TestFloatData.txt");
+        test_int_data.open("TestIntData.txt");
+        test_float_data.open("TestFloatData.txt");
     }
     for (int n = 0; n < 5; n++) {
         // Write to files
-        writeData(TestIntData, IntData[n], PrintReadBinary, true);
-        writeData(TestFloatData, FloatData[n], PrintReadBinary, true);
+        writeData(test_int_data, int_data[n], print_read_binary, true);
+        writeData(test_float_data, float_data[n], print_read_binary, true);
     }
-    TestIntData.close();
-    TestFloatData.close();
+    test_int_data.close();
+    test_float_data.close();
 
     // Read data and convert back to ints and floats, compare to original values
-    std::ifstream TestIntDataRead;
-    TestIntDataRead.open("TestIntData.txt");
-    std::ifstream TestFloatDataRead;
-    TestFloatDataRead.open("TestFloatData.txt");
+    std::ifstream test_int_data_read;
+    test_int_data_read.open("TestIntData.txt");
+    std::ifstream test_float_data_read;
+    test_float_data_read.open("TestFloatData.txt");
     // For reading ASCII data, obtain the lines from the files first, then parse the string stream at the spaces
-    if (PrintReadBinary) {
+    if (print_read_binary) {
         for (int n = 0; n < 5; n++) {
-            int IntToCompare = ReadBinaryData<int>(TestIntDataRead, true);
-            float FloatToCompare = ReadBinaryData<float>(TestFloatDataRead, true);
+            int int_to_compare = readBinaryData<int>(test_int_data_read, true);
+            float float_to_compare = readBinaryData<float>(test_float_data_read, true);
             // Compare to expected values
-            EXPECT_EQ(IntToCompare, IntData[n]);
-            EXPECT_FLOAT_EQ(FloatToCompare, FloatData[n]);
+            EXPECT_EQ(int_to_compare, int_data[n]);
+            EXPECT_FLOAT_EQ(float_to_compare, float_data[n]);
         }
     }
     else {
         std::string intline, floatline;
-        getline(TestIntDataRead, intline);
-        getline(TestFloatDataRead, floatline);
+        getline(test_int_data_read, intline);
+        getline(test_float_data_read, floatline);
         std::istringstream intss(intline);
         std::istringstream floatss(floatline);
         for (int n = 0; n < 5; n++) {
             // Get values from string stream
-            int IntToCompare = ParseASCIIData<float>(intss);
-            float FloatToCompare = ParseASCIIData<float>(floatss);
+            int int_to_compare = parseASCIIData<float>(intss);
+            float float_to_compare = parseASCIIData<float>(floatss);
             // Compare to expected values
-            EXPECT_EQ(IntToCompare, IntData[n]);
-            EXPECT_FLOAT_EQ(FloatToCompare, FloatData[n]);
+            EXPECT_EQ(int_to_compare, int_data[n]);
+            EXPECT_FLOAT_EQ(float_to_compare, float_data[n]);
         }
     }
 }

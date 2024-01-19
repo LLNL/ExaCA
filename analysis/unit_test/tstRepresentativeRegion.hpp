@@ -22,184 +22,184 @@ namespace Test {
 
 void writeTestArea() {
     // Write out example data
-    std::ofstream TestData;
-    TestData.open("TestArea.json");
-    TestData << "{" << std::endl;
-    TestData << "   \"Regions\": {" << std::endl;
-    TestData << "       \"RepresentativeArea\": {" << std::endl;
-    TestData << "          \"units\": \"Meters\"," << std::endl;
-    TestData << "          \"zBounds\": [0.000005,0.000005]," << std::endl;
-    TestData << "          \"printPoleFigureData\": true," << std::endl;
-    TestData << "          \"printInversePoleFigureData\": true," << std::endl;
-    TestData << "          \"printStats\": [\"GrainTypeFractions\"]," << std::endl;
-    TestData << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]" << std::endl;
-    TestData << "      }" << std::endl;
-    TestData << "   }" << std::endl;
-    TestData << "}" << std::endl;
-    TestData.close();
+    std::ofstream test_data;
+    test_data.open("TestArea.json");
+    test_data << "{" << std::endl;
+    test_data << "   \"Regions\": {" << std::endl;
+    test_data << "       \"RepresentativeArea\": {" << std::endl;
+    test_data << "          \"units\": \"Meters\"," << std::endl;
+    test_data << "          \"zBounds\": [0.000005,0.000005]," << std::endl;
+    test_data << "          \"printPoleFigureData\": true," << std::endl;
+    test_data << "          \"printInversePoleFigureData\": true," << std::endl;
+    test_data << "          \"printStats\": [\"GrainTypeFractions\"]," << std::endl;
+    test_data << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]" << std::endl;
+    test_data << "      }" << std::endl;
+    test_data << "   }" << std::endl;
+    test_data << "}" << std::endl;
+    test_data.close();
 }
 
 void writeTestVolume() {
     // Write out example data
-    std::ofstream TestData;
-    TestData.open("TestVolume.json");
-    TestData << "{" << std::endl;
-    TestData << "   \"Regions\": {" << std::endl;
-    TestData << "       \"RepresentativeVolume\": {" << std::endl;
-    TestData << "          \"units\": \"Cells\"," << std::endl;
-    TestData << "          \"xBounds\": [0, 4]," << std::endl;
-    TestData << "          \"yBounds\": [1, 10]," << std::endl;
-    TestData << "          \"zBounds\": [0, 9]," << std::endl;
-    TestData << "          \"printExaConstit\": false," << std::endl;
-    TestData << "          \"printPoleFigureData\": true," << std::endl;
-    TestData << "          \"printStats\": [\"GrainTypeFractions\", \"Misorientation\", \"Size\", "
-                "\"BuildTransAspectRatio\", \"XExtent\", \"YExtent\", \"ZExtent\"],"
-             << std::endl;
-    TestData << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]," << std::endl;
-    TestData << "          \"printLayerwiseData\": [\"MeanGrainArea\", \"MeanWeightedGrainArea\"]" << std::endl;
-    TestData << "      }" << std::endl;
-    TestData << "   }" << std::endl;
-    TestData << "}" << std::endl;
-    TestData.close();
+    std::ofstream test_data;
+    test_data.open("TestVolume.json");
+    test_data << "{" << std::endl;
+    test_data << "   \"Regions\": {" << std::endl;
+    test_data << "       \"RepresentativeVolume\": {" << std::endl;
+    test_data << "          \"units\": \"Cells\"," << std::endl;
+    test_data << "          \"xBounds\": [0, 4]," << std::endl;
+    test_data << "          \"yBounds\": [1, 10]," << std::endl;
+    test_data << "          \"zBounds\": [0, 9]," << std::endl;
+    test_data << "          \"printExaConstit\": false," << std::endl;
+    test_data << "          \"printPoleFigureData\": true," << std::endl;
+    test_data << "          \"printStats\": [\"GrainTypeFractions\", \"Misorientation\", \"Size\", "
+                 "\"BuildTransAspectRatio\", \"XExtent\", \"YExtent\", \"ZExtent\"],"
+              << std::endl;
+    test_data << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]," << std::endl;
+    test_data << "          \"printLayerwiseData\": [\"MeanGrainArea\", \"MeanWeightedGrainArea\"]" << std::endl;
+    test_data << "      }" << std::endl;
+    test_data << "   }" << std::endl;
+    test_data << "}" << std::endl;
+    test_data.close();
 }
 
-void testConstructRepresentativeRegion_Volume() {
+void testConstructrepresentativeregion_Volume() {
     // Write out example data
     writeTestVolume();
 
     // Read in test data
-    std::ifstream AnalysisDataStream("TestVolume.json");
-    nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
+    std::ifstream analysis_data_stream("TestVolume.json");
+    nlohmann::json AnalysisData = nlohmann::json::parse(analysis_data_stream);
     // Domain bounds
     const int nx = 20;
     const int ny = 30;
     const int nz = 40;
     double deltax = 1.25 * Kokkos::pow(10, -6);
-    double XMin = -1 * Kokkos::pow(10, -6);
-    double YMin = 0;
-    double ZMin = 0;
-    double XMax = XMin + (nx - 1) * deltax;
-    double YMax = YMin + (ny - 1) * deltax;
-    double ZMax = ZMin + (nz - 1) * deltax;
-    std::vector<double> XYZBounds = {XMin, YMin, ZMin, XMax, YMax, ZMax};
+    double x_min = -1 * Kokkos::pow(10, -6);
+    double y_min = 0;
+    double z_min = 0;
+    double x_max = x_min + (nx - 1) * deltax;
+    double y_max = y_min + (ny - 1) * deltax;
+    double z_max = z_min + (nz - 1) * deltax;
+    std::vector<double> xyz_bounds = {x_min, y_min, z_min, x_max, y_max, z_max};
     // View for storing grain ID data
-    Kokkos::View<int ***, Kokkos::HostSpace> GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
+    Kokkos::View<int ***, Kokkos::HostSpace> grain_id(Kokkos::ViewAllocateWithoutInitializing("grain_id"), nz, nx, ny);
 
     // Construct region
-    RepresentativeRegion representativeRegion(AnalysisData, "RepresentativeVolume", nx, ny, nz, deltax, XYZBounds,
-                                              GrainID);
+    RepresentativeRegion representativeregion(AnalysisData, "RepresentativeVolume", nx, ny, nz, deltax, xyz_bounds,
+                                              grain_id);
 
     // Check results
-    EXPECT_TRUE(representativeRegion.regionType == "volume");
-    EXPECT_TRUE(representativeRegion.regionOrientation == "XYZ");
-    EXPECT_DOUBLE_EQ(representativeRegion.xBounds_Meters[0], XMin);
-    EXPECT_DOUBLE_EQ(representativeRegion.yBounds_Meters[0], deltax);
-    EXPECT_DOUBLE_EQ(representativeRegion.zBounds_Meters[0], ZMin);
-    EXPECT_DOUBLE_EQ(representativeRegion.xBounds_Meters[1], XMin + deltax * 4);
-    EXPECT_DOUBLE_EQ(representativeRegion.yBounds_Meters[1], YMin + deltax * 10);
-    EXPECT_DOUBLE_EQ(representativeRegion.zBounds_Meters[1], ZMin + deltax * 9);
-    double ExpectedRegionSize_Meters =
-        (representativeRegion.xBounds_Meters[1] - representativeRegion.xBounds_Meters[0] + deltax) *
-        (representativeRegion.yBounds_Meters[1] - representativeRegion.yBounds_Meters[0] + deltax) *
-        (representativeRegion.zBounds_Meters[1] - representativeRegion.zBounds_Meters[0] + deltax);
-    double ExpectedRegionSize_Microns = ExpectedRegionSize_Meters * Kokkos::pow(10, 18);
-    EXPECT_DOUBLE_EQ(representativeRegion.regionSize_Microns, ExpectedRegionSize_Microns);
-    EXPECT_DOUBLE_EQ(representativeRegion.regionSize_Meters, ExpectedRegionSize_Meters);
-    EXPECT_EQ(representativeRegion.xBounds_Cells[0], 0);
-    EXPECT_EQ(representativeRegion.yBounds_Cells[0], 1);
-    EXPECT_EQ(representativeRegion.zBounds_Cells[0], 0);
-    EXPECT_EQ(representativeRegion.xBounds_Cells[1], 4);
-    EXPECT_EQ(representativeRegion.yBounds_Cells[1], 10);
-    EXPECT_EQ(representativeRegion.zBounds_Cells[1], 9);
-    int ExpectedRegionSize_Cells = 500;
-    EXPECT_EQ(representativeRegion.regionSize_Cells, ExpectedRegionSize_Cells);
-    int NumAnalysisOptions_Stats = representativeRegion.AnalysisOptions_StatsYN.size();
-    for (int i = 0; i < NumAnalysisOptions_Stats; i++)
-        EXPECT_TRUE(representativeRegion.AnalysisOptions_StatsYN[i]);
-    int NumAnalysisOptions_PerGrainStats = representativeRegion.AnalysisOptions_PerGrainStatsYN.size();
-    for (int i = 0; i < NumAnalysisOptions_PerGrainStats; i++) {
+    EXPECT_TRUE(representativeregion.region_type == "volume");
+    EXPECT_TRUE(representativeregion.region_orientation == "XYZ");
+    EXPECT_DOUBLE_EQ(representativeregion.x_bounds_meters[0], x_min);
+    EXPECT_DOUBLE_EQ(representativeregion.y_bounds_meters[0], deltax);
+    EXPECT_DOUBLE_EQ(representativeregion.z_bounds_meters[0], z_min);
+    EXPECT_DOUBLE_EQ(representativeregion.x_bounds_meters[1], x_min + deltax * 4);
+    EXPECT_DOUBLE_EQ(representativeregion.y_bounds_meters[1], y_min + deltax * 10);
+    EXPECT_DOUBLE_EQ(representativeregion.z_bounds_meters[1], z_min + deltax * 9);
+    double expected_region_size_meters =
+        (representativeregion.x_bounds_meters[1] - representativeregion.x_bounds_meters[0] + deltax) *
+        (representativeregion.y_bounds_meters[1] - representativeregion.y_bounds_meters[0] + deltax) *
+        (representativeregion.z_bounds_meters[1] - representativeregion.z_bounds_meters[0] + deltax);
+    double expected_region_size_microns = expected_region_size_meters * Kokkos::pow(10, 18);
+    EXPECT_DOUBLE_EQ(representativeregion.region_size_microns, expected_region_size_microns);
+    EXPECT_DOUBLE_EQ(representativeregion.region_size_meters, expected_region_size_meters);
+    EXPECT_EQ(representativeregion.x_bounds_cells[0], 0);
+    EXPECT_EQ(representativeregion.y_bounds_cells[0], 1);
+    EXPECT_EQ(representativeregion.z_bounds_cells[0], 0);
+    EXPECT_EQ(representativeregion.x_bounds_cells[1], 4);
+    EXPECT_EQ(representativeregion.y_bounds_cells[1], 10);
+    EXPECT_EQ(representativeregion.z_bounds_cells[1], 9);
+    int expected_region_size_cells = 500;
+    EXPECT_EQ(representativeregion.region_size_cells, expected_region_size_cells);
+    int num_analysis_options_stats = representativeregion.analysis_options_stats_yn.size();
+    for (int i = 0; i < num_analysis_options_stats; i++)
+        EXPECT_TRUE(representativeregion.analysis_options_stats_yn[i]);
+    int num_analysis_options_per_grain_stats = representativeregion.analysis_options_per_grain_stats_yn.size();
+    for (int i = 0; i < num_analysis_options_per_grain_stats; i++) {
         if ((i == 1) || (i == 6))
-            EXPECT_TRUE(representativeRegion.AnalysisOptions_PerGrainStatsYN[i]);
+            EXPECT_TRUE(representativeregion.analysis_options_per_grain_stats_yn[i]);
         else
-            EXPECT_FALSE(representativeRegion.AnalysisOptions_PerGrainStatsYN[i]);
+            EXPECT_FALSE(representativeregion.analysis_options_per_grain_stats_yn[i]);
     }
-    int NumAnalysisOptions_LayerwiseStats = representativeRegion.AnalysisOptions_LayerwiseStatsYN.size();
-    for (int i = 0; i < NumAnalysisOptions_LayerwiseStats; i++)
-        EXPECT_TRUE(representativeRegion.AnalysisOptions_LayerwiseStatsYN[i]);
-    EXPECT_TRUE(representativeRegion.PrintPerGrainStatsYN);
-    EXPECT_TRUE(representativeRegion.PrintPoleFigureYN);
-    EXPECT_FALSE(representativeRegion.PrintExaConstitYN);
-    EXPECT_FALSE(representativeRegion.PrintInversePoleFigureMapYN);
+    int num_analysis_options_layerwise_stats = representativeregion.analysis_options_layerwise_stats_yn.size();
+    for (int i = 0; i < num_analysis_options_layerwise_stats; i++)
+        EXPECT_TRUE(representativeregion.analysis_options_layerwise_stats_yn[i]);
+    EXPECT_TRUE(representativeregion.print_per_grain_stats_yn);
+    EXPECT_TRUE(representativeregion.print_pole_figure_yn);
+    EXPECT_FALSE(representativeregion.print_exaconstit_yn);
+    EXPECT_FALSE(representativeregion.print_inverse_pole_figure_map_yn);
 }
 
 // Initialize a representative area from json format
-void testConstructRepresentativeRegion_Area() {
+void testConstructrepresentativeregion_Area() {
 
     // Write out example data
     writeTestArea();
 
     // Read in test data
-    std::ifstream AnalysisDataStream("TestArea.json");
-    nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
+    std::ifstream analysis_data_stream("TestArea.json");
+    nlohmann::json analysis_data = nlohmann::json::parse(analysis_data_stream);
 
     // Domain bounds
     const int nx = 10;
     const int ny = 20;
     const int nz = 20;
     double deltax = 1.25 * Kokkos::pow(10, -6);
-    double XMin = 0;
-    double YMin = 0;
-    double ZMin = 0;
-    double XMax = XMin + (nx - 1) * deltax;
-    double YMax = YMin + (ny - 1) * deltax;
-    double ZMax = ZMin + (nz - 1) * deltax;
-    std::vector<double> XYZBounds = {XMin, YMin, ZMin, XMax, YMax, ZMax};
+    double x_min = 0;
+    double y_min = 0;
+    double z_min = 0;
+    double x_max = x_min + (nx - 1) * deltax;
+    double y_max = y_min + (ny - 1) * deltax;
+    double z_max = z_min + (nz - 1) * deltax;
+    std::vector<double> xyz_bounds = {x_min, y_min, z_min, x_max, y_max, z_max};
     // View for storing grain ID data
-    Kokkos::View<int ***, Kokkos::HostSpace> GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
+    Kokkos::View<int ***, Kokkos::HostSpace> grain_id(Kokkos::ViewAllocateWithoutInitializing("grain_id"), nz, nx, ny);
 
     // Construct region
-    RepresentativeRegion representativeRegion(AnalysisData, "RepresentativeArea", nx, ny, nz, deltax, XYZBounds,
-                                              GrainID);
+    RepresentativeRegion representativeregion(analysis_data, "RepresentativeArea", nx, ny, nz, deltax, xyz_bounds,
+                                              grain_id);
 
     // Check results
-    EXPECT_TRUE(representativeRegion.regionType == "area");
-    EXPECT_TRUE(representativeRegion.regionOrientation == "XY");
-    EXPECT_DOUBLE_EQ(representativeRegion.xBounds_Meters[0], XMin);
-    EXPECT_DOUBLE_EQ(representativeRegion.yBounds_Meters[0], YMin);
-    EXPECT_DOUBLE_EQ(representativeRegion.zBounds_Meters[0], 0.000005);
-    EXPECT_DOUBLE_EQ(representativeRegion.xBounds_Meters[1], XMax);
-    EXPECT_DOUBLE_EQ(representativeRegion.yBounds_Meters[1], YMax);
-    EXPECT_DOUBLE_EQ(representativeRegion.zBounds_Meters[1], 0.000005);
-    EXPECT_EQ(representativeRegion.xBounds_Cells[0], 0);
-    EXPECT_EQ(representativeRegion.yBounds_Cells[0], 0);
-    EXPECT_EQ(representativeRegion.zBounds_Cells[0], 4);
-    EXPECT_EQ(representativeRegion.xBounds_Cells[1], 9);
-    EXPECT_EQ(representativeRegion.yBounds_Cells[1], 19);
-    EXPECT_EQ(representativeRegion.zBounds_Cells[1], 4);
-    int ExpectedRegionSize_Cells = 200;
-    EXPECT_EQ(representativeRegion.regionSize_Cells, ExpectedRegionSize_Cells);
-    double ExpectedRegionSize_Meters = ExpectedRegionSize_Cells * Kokkos::pow(deltax, 2);
-    double ExpectedRegionSize_Microns = ExpectedRegionSize_Meters * Kokkos::pow(10, 12);
-    EXPECT_DOUBLE_EQ(representativeRegion.regionSize_Microns, ExpectedRegionSize_Microns);
-    EXPECT_DOUBLE_EQ(representativeRegion.regionSize_Meters, ExpectedRegionSize_Meters);
-    EXPECT_TRUE(representativeRegion.AnalysisOptions_StatsYN[0]);
-    int NumAnalysisOptions_Stats = representativeRegion.AnalysisOptions_StatsYN.size();
-    for (int i = 1; i < NumAnalysisOptions_Stats; i++)
-        EXPECT_FALSE(representativeRegion.AnalysisOptions_StatsYN[i]);
-    int NumAnalysisOptions_PerGrainStats = representativeRegion.AnalysisOptions_PerGrainStatsYN.size();
-    for (int i = 0; i < NumAnalysisOptions_PerGrainStats; i++) {
+    EXPECT_TRUE(representativeregion.region_type == "area");
+    EXPECT_TRUE(representativeregion.region_orientation == "XY");
+    EXPECT_DOUBLE_EQ(representativeregion.x_bounds_meters[0], x_min);
+    EXPECT_DOUBLE_EQ(representativeregion.y_bounds_meters[0], y_min);
+    EXPECT_DOUBLE_EQ(representativeregion.z_bounds_meters[0], 0.000005);
+    EXPECT_DOUBLE_EQ(representativeregion.x_bounds_meters[1], x_max);
+    EXPECT_DOUBLE_EQ(representativeregion.y_bounds_meters[1], y_max);
+    EXPECT_DOUBLE_EQ(representativeregion.z_bounds_meters[1], 0.000005);
+    EXPECT_EQ(representativeregion.x_bounds_cells[0], 0);
+    EXPECT_EQ(representativeregion.y_bounds_cells[0], 0);
+    EXPECT_EQ(representativeregion.z_bounds_cells[0], 4);
+    EXPECT_EQ(representativeregion.x_bounds_cells[1], 9);
+    EXPECT_EQ(representativeregion.y_bounds_cells[1], 19);
+    EXPECT_EQ(representativeregion.z_bounds_cells[1], 4);
+    int expected_region_size_cells = 200;
+    EXPECT_EQ(representativeregion.region_size_cells, expected_region_size_cells);
+    double expected_region_size_meters = expected_region_size_cells * Kokkos::pow(deltax, 2);
+    double expected_region_size_microns = expected_region_size_meters * Kokkos::pow(10, 12);
+    EXPECT_DOUBLE_EQ(representativeregion.region_size_microns, expected_region_size_microns);
+    EXPECT_DOUBLE_EQ(representativeregion.region_size_meters, expected_region_size_meters);
+    EXPECT_TRUE(representativeregion.analysis_options_stats_yn[0]);
+    int num_analysis_options_stats = representativeregion.analysis_options_stats_yn.size();
+    for (int i = 1; i < num_analysis_options_stats; i++)
+        EXPECT_FALSE(representativeregion.analysis_options_stats_yn[i]);
+    int num_analysis_options_per_grain_stats = representativeregion.analysis_options_per_grain_stats_yn.size();
+    for (int i = 0; i < num_analysis_options_per_grain_stats; i++) {
         if ((i == 1) || (i == 6))
-            EXPECT_TRUE(representativeRegion.AnalysisOptions_PerGrainStatsYN[i]);
+            EXPECT_TRUE(representativeregion.analysis_options_per_grain_stats_yn[i]);
         else
-            EXPECT_FALSE(representativeRegion.AnalysisOptions_PerGrainStatsYN[i]);
+            EXPECT_FALSE(representativeregion.analysis_options_per_grain_stats_yn[i]);
     }
-    int NumAnalysisOptions_LayerwiseStats = representativeRegion.AnalysisOptions_LayerwiseStatsYN.size();
-    for (int i = 0; i < NumAnalysisOptions_LayerwiseStats; i++)
-        EXPECT_FALSE(representativeRegion.AnalysisOptions_LayerwiseStatsYN[i]);
-    EXPECT_TRUE(representativeRegion.PrintPerGrainStatsYN);
-    EXPECT_TRUE(representativeRegion.PrintPoleFigureYN);
-    EXPECT_FALSE(representativeRegion.PrintExaConstitYN);
-    EXPECT_TRUE(representativeRegion.PrintInversePoleFigureMapYN);
+    int num_analysis_options_layerwise_stats = representativeregion.analysis_options_layerwise_stats_yn.size();
+    for (int i = 0; i < num_analysis_options_layerwise_stats; i++)
+        EXPECT_FALSE(representativeregion.analysis_options_layerwise_stats_yn[i]);
+    EXPECT_TRUE(representativeregion.print_per_grain_stats_yn);
+    EXPECT_TRUE(representativeregion.print_pole_figure_yn);
+    EXPECT_FALSE(representativeregion.print_exaconstit_yn);
+    EXPECT_TRUE(representativeregion.print_inverse_pole_figure_map_yn);
 }
 
 // For a 3D domain, obtain a vector of the grain IDs that appear in a representative portion, and the associated grain
@@ -213,67 +213,67 @@ void testCollectGrainStats() {
     const int ny = 11; // Representative region spans 1-10 (one less than domain size in Y)
     const int nz = 12; // Representative region spans 0-9 (two less than domain size in Z)
     const double deltax = 1.25 * Kokkos::pow(10, -6);
-    std::vector<double> XYZBounds = {0.0, 0.0, 0.0, nx * deltax, ny * deltax, nz * deltax};
+    std::vector<double> xyz_bounds = {0.0, 0.0, 0.0, nx * deltax, ny * deltax, nz * deltax};
 
     // View for storing grain ID data
-    Kokkos::View<int ***, Kokkos::HostSpace> GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx, ny);
+    Kokkos::View<int ***, Kokkos::HostSpace> grain_id(Kokkos::ViewAllocateWithoutInitializing("grain_id"), nz, nx, ny);
     // Assign grain ID using the Z coordinate
     for (int k = 0; k < nz; k++) {
         for (int i = 0; i < nx; i++) {
             for (int j = 0; j < ny; j++) {
-                GrainID(k, i, j) = k;
+                grain_id(k, i, j) = k;
             }
         }
     }
 
     // Representative region creation
-    std::ifstream AnalysisDataStream("TestVolume.json");
-    nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
-    RepresentativeRegion representativeRegion(AnalysisData, "RepresentativeVolume", nx, ny, nz, deltax, XYZBounds,
-                                              GrainID);
+    std::ifstream analysis_data_stream("TestVolume.json");
+    nlohmann::json analysis_data = nlohmann::json::parse(analysis_data_stream);
+    RepresentativeRegion representativeregion(analysis_data, "RepresentativeVolume", nx, ny, nz, deltax, xyz_bounds,
+                                              grain_id);
 
     // Check results of grain ID vector (50 of each grain ID should exist)
-    EXPECT_EQ(representativeRegion.regionSize_Cells, nx * (ny - 1) * (nz - 2));
-    for (int n = 0; n < representativeRegion.regionSize_Cells; n++) {
-        EXPECT_EQ(representativeRegion.GrainIDVector[n], n / 50);
+    EXPECT_EQ(representativeregion.region_size_cells, nx * (ny - 1) * (nz - 2));
+    for (int n = 0; n < representativeregion.region_size_cells; n++) {
+        EXPECT_EQ(representativeregion.grain_id_vector[n], n / 50);
     }
 
     // Check number of grains and unique grain IDs
-    EXPECT_EQ(representativeRegion.NumberOfGrains, 10);
-    for (int n = 0; n < representativeRegion.NumberOfGrains; n++) {
-        EXPECT_EQ(representativeRegion.UniqueGrainIDVector[n], n);
+    EXPECT_EQ(representativeregion.number_of_grains, 10);
+    for (int n = 0; n < representativeregion.number_of_grains; n++) {
+        EXPECT_EQ(representativeregion.unique_grain_id_vector[n], n);
     }
 
     // Check against expected grain sizes, in cubic microns (each grain spans 50 cells)
-    for (int n = 0; n < representativeRegion.NumberOfGrains; n++) {
-        EXPECT_FLOAT_EQ(representativeRegion.GrainSizeVector_Microns[n],
+    for (int n = 0; n < representativeregion.number_of_grains; n++) {
+        EXPECT_FLOAT_EQ(representativeregion.grain_size_vector_microns[n],
                         50 * Kokkos::pow(deltax, 3) * Kokkos::pow(10, 18));
     }
 
     // Obtain the grain extents
     // Extent of each grain in X
-    std::vector<float> GrainExtentX(representativeRegion.NumberOfGrains);
-    representativeRegion.calcGrainExtent(GrainExtentX, GrainID, "X", deltax);
+    std::vector<float> grain_extent_x(representativeregion.number_of_grains);
+    representativeregion.calcGrainExtent(grain_extent_x, grain_id, "X", deltax);
     // Extent of each grain in Y
-    std::vector<float> GrainExtentY(representativeRegion.NumberOfGrains);
-    representativeRegion.calcGrainExtent(GrainExtentY, GrainID, "Y", deltax);
+    std::vector<float> grain_extent_y(representativeregion.number_of_grains);
+    representativeregion.calcGrainExtent(grain_extent_y, grain_id, "Y", deltax);
     // Extent of each grain in Z
-    std::vector<float> GrainExtentZ(representativeRegion.NumberOfGrains);
-    representativeRegion.calcGrainExtent(GrainExtentZ, GrainID, "Z", deltax);
+    std::vector<float> grain_extent_z(representativeregion.number_of_grains);
+    representativeregion.calcGrainExtent(grain_extent_z, grain_id, "Z", deltax);
     // Check grain extents
-    for (int n = 0; n < representativeRegion.NumberOfGrains; n++) {
+    for (int n = 0; n < representativeregion.number_of_grains; n++) {
         // Expected value should be in microns
-        EXPECT_FLOAT_EQ(GrainExtentX[n], nx * deltax * Kokkos::pow(10, 6));
-        EXPECT_FLOAT_EQ(GrainExtentY[n], (ny - 1) * deltax * Kokkos::pow(10, 6));
-        EXPECT_FLOAT_EQ(GrainExtentZ[n], deltax * Kokkos::pow(10, 6));
+        EXPECT_FLOAT_EQ(grain_extent_x[n], nx * deltax * Kokkos::pow(10, 6));
+        EXPECT_FLOAT_EQ(grain_extent_y[n], (ny - 1) * deltax * Kokkos::pow(10, 6));
+        EXPECT_FLOAT_EQ(grain_extent_z[n], deltax * Kokkos::pow(10, 6));
     }
 }
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, representative_region) {
-    testConstructRepresentativeRegion_Volume();
-    testConstructRepresentativeRegion_Area();
+    testConstructrepresentativeregion_Volume();
+    testConstructrepresentativeregion_Area();
     testCollectGrainStats();
 }
 } // end namespace Test

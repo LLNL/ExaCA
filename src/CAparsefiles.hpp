@@ -33,52 +33,52 @@ std::size_t checkForHeaderValues(std::string header_line);
 
 // Swaps bits for a variable of type SwapType
 template <typename SwapType>
-void SwapEndian(SwapType &var) {
+void swapEndian(SwapType &var) {
     // Cast var into a char array (bit values)
-    char *varArray = reinterpret_cast<char *>(&var);
+    char *var_array = reinterpret_cast<char *>(&var);
     // Size of char array
-    int varSize = sizeof(var);
+    int var_size = sizeof(var);
     // Swap the "ith" bit with the bit "i" from the end of the array
-    for (long i = 0; i < static_cast<long>(varSize / 2); i++)
-        std::swap(varArray[varSize - 1 - i], varArray[i]);
+    for (long i = 0; i < static_cast<long>(var_size / 2); i++)
+        std::swap(var_array[var_size - 1 - i], var_array[i]);
 }
 // Reads binary data of the type ReadType, optionally swapping the endian format
 template <typename ReadType>
-ReadType ReadBinaryData(std::ifstream &instream, bool SwapEndianYN = false) {
+ReadType readBinaryData(std::ifstream &instream, bool swap_endian_yn = false) {
     unsigned char temp[sizeof(ReadType)];
     instream.read(reinterpret_cast<char *>(temp), sizeof(ReadType));
-    if (SwapEndianYN)
-        SwapEndian(temp);
-    ReadType readValue = reinterpret_cast<ReadType &>(temp);
-    return readValue;
+    if (swap_endian_yn)
+        swapEndian(temp);
+    ReadType read_value = reinterpret_cast<ReadType &>(temp);
+    return read_value;
 }
 // Parse space-separated ASCII data loaded into the string stream
 template <typename ReadType>
-ReadType ParseASCIIData(std::istringstream &ss) {
-    ReadType readValue;
-    ss >> readValue;
-    return readValue;
+ReadType parseASCIIData(std::istringstream &ss) {
+    ReadType read_value;
+    ss >> read_value;
+    return read_value;
 }
 
 // Reads portion of a paraview file and places data in the appropriate data structure
 // ASCII data at each Z value is separated by a newline
 template <typename read_view_type_3d_host>
-read_view_type_3d_host ReadASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz, std::string label) {
-    read_view_type_3d_host FieldOfInterest(Kokkos::ViewAllocateWithoutInitializing(label), nz, nx, ny);
+read_view_type_3d_host readASCIIField(std::ifstream &input_data_stream, int nx, int ny, int nz, std::string label) {
+    read_view_type_3d_host field_of_interest(Kokkos::ViewAllocateWithoutInitializing(label), nz, nx, ny);
     using value_type = typename read_view_type_3d_host::value_type;
     for (int k = 0; k < nz; k++) {
         // Get line from file
         std::string line;
-        getline(InputDataStream, line);
+        getline(input_data_stream, line);
         // Parse string at spaces
         std::istringstream ss(line);
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
-                FieldOfInterest(k, i, j) = ParseASCIIData<value_type>(ss);
+                field_of_interest(k, i, j) = parseASCIIData<value_type>(ss);
             }
         }
     }
-    return FieldOfInterest;
+    return field_of_interest;
 }
 
 // Reads binary string of type read_datatype from a paraview file, converts field to the appropriate type to match
@@ -86,30 +86,30 @@ read_view_type_3d_host ReadASCIIField(std::ifstream &InputDataStream, int nx, in
 // single binary string (no newlines) Store converted values in view - LayerID data is a short int, GrainID data is an
 // int In some older vtk files, LayerID may have been stored as an int and should be converted
 template <typename read_view_type_3d_host, typename read_datatype>
-read_view_type_3d_host ReadBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz, std::string label) {
-    read_view_type_3d_host FieldOfInterest(Kokkos::ViewAllocateWithoutInitializing(label), nz, nx, ny);
+read_view_type_3d_host readBinaryField(std::ifstream &input_data_stream, int nx, int ny, int nz, std::string label) {
+    read_view_type_3d_host field_of_interest(Kokkos::ViewAllocateWithoutInitializing(label), nz, nx, ny);
     using value_type = typename read_view_type_3d_host::value_type;
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
-                read_datatype parsed_value = ReadBinaryData<read_datatype>(InputDataStream, true);
-                FieldOfInterest(k, i, j) = static_cast<value_type>(parsed_value);
+                read_datatype parsed_value = readBinaryData<read_datatype>(input_data_stream, true);
+                field_of_interest(k, i, j) = static_cast<value_type>(parsed_value);
             }
         }
     }
-    return FieldOfInterest;
+    return field_of_interest;
 }
 
-void ReadIgnoreASCIIField(std::ifstream &InputDataStream, int nx, int ny, int nz);
+void readIgnoreASCIIField(std::ifstream &input_data_stream, int nx, int ny, int nz);
 
 // Reads and discards binary string of type read_datatype from a paraview file
 template <typename read_datatype>
-void ReadIgnoreBinaryField(std::ifstream &InputDataStream, int nx, int ny, int nz) {
+void readIgnoreBinaryField(std::ifstream &input_data_stream, int nx, int ny, int nz) {
     unsigned char temp[sizeof(read_datatype)];
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
             for (int i = 0; i < nx; i++) {
-                InputDataStream.read(reinterpret_cast<char *>(temp), sizeof(read_datatype));
+                input_data_stream.read(reinterpret_cast<char *>(temp), sizeof(read_datatype));
             }
         }
     }
