@@ -20,7 +20,7 @@
 // Interfacial repsonse function with various functional forms.
 struct InterfacialResponseFunction {
 
-    double FreezingRange;
+    double freezing_range;
     double A;
     double B;
     double C;
@@ -33,17 +33,18 @@ struct InterfacialResponseFunction {
     int function = cubic;
 
     // Constructor
-    InterfacialResponseFunction(int id, std::string MaterialFile, const double deltat, const double deltax) {
-        parseMaterial(id, MaterialFile);
+    InterfacialResponseFunction(const int id, const std::string material_file, const double deltat,
+                                const double deltax) {
+        parseMaterial(id, material_file);
         normalize(deltat, deltax);
     }
 
     // Used for reading material file in new json format
-    void parseMaterial(int id, std::string MaterialFile) {
+    void parseMaterial(const int id, const std::string material_file) {
         if (id == 0)
             std::cout << "Parsing material file using json input format" << std::endl;
-        std::ifstream MaterialData(MaterialFile);
-        nlohmann::json data = nlohmann::json::parse(MaterialData);
+        std::ifstream material_data(material_file);
+        nlohmann::json data = nlohmann::json::parse(material_data);
         A = data["coefficients"]["A"];
         B = data["coefficients"]["B"];
         C = data["coefficients"]["C"];
@@ -66,7 +67,7 @@ struct InterfacialResponseFunction {
         else
             throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
                                      "supported options are quadratic, cubic, and exponential");
-        FreezingRange = data["freezing_range"];
+        freezing_range = data["freezing_range"];
     }
 
     void normalize(const double deltat, const double deltax) {
@@ -104,7 +105,7 @@ struct InterfacialResponseFunction {
         return Kokkos::fmax(0.0, V);
     }
 
-    std::string function_name() {
+    std::string functionName() {
         // Not storing string due to Cuda warnings when constructing on device.
         if (function == cubic)
             return "cubic";
@@ -121,13 +122,13 @@ struct InterfacialResponseFunction {
         std::stringstream out;
         out << "   \"InterfacialResponse\": {" << std::endl;
         out << "       \"Function\": "
-            << "\"" << function_name() << "\"," << std::endl;
+            << "\"" << functionName() << "\"," << std::endl;
         out << "       \"A\": " << (A) << "," << std::endl;
         out << "       \"B\": " << (B) << "," << std::endl;
         out << "       \"C\": " << (C) << "," << std::endl;
         if (function == cubic)
             out << "       \"D\": " << (D) << "," << std::endl;
-        out << "       \"FreezingRange\": " << (FreezingRange) << std::endl;
+        out << "       \"FreezingRange\": " << (freezing_range) << std::endl;
         out << "   },";
         return out.str();
     }

@@ -27,134 +27,136 @@ int main(int argc, char *argv[]) {
     {
         using memory_space = typename Kokkos::DefaultExecutionSpace::memory_space;
         // Read command line input to obtain name of analysis file
-        std::string AnalysisFile;
+        std::string analysis_file;
         if (argc < 2) {
             throw std::runtime_error("Error: Full path to and name of analysis file must be given on the command line");
         }
-        AnalysisFile = argv[1];
-        std::string BaseFileName = argv[2];
-        std::string LogFile = BaseFileName + ".json";
-        std::string MicrostructureFile = BaseFileName + ".vtk";
-        std::cout << "Performing analysis of " << MicrostructureFile << " , using the log file " << LogFile
-                  << " and the options specified in " << AnalysisFile << std::endl;
+        analysis_file = argv[1];
+        std::string base_filename = argv[2];
+        std::string log_file = base_filename + ".json";
+        std::string microstructure_file = base_filename + ".vtk";
+        std::cout << "Performing analysis of " << microstructure_file << " , using the log file " << log_file
+                  << " and the options specified in " << analysis_file << std::endl;
 
         std::string grain_unit_vector_file;
         double deltax;
-        int nx, ny, nz, NumberOfLayers;
-        std::vector<double> XYZBounds(6);
-        ParseLogFile(LogFile, nx, ny, nz, deltax, NumberOfLayers, XYZBounds, grain_unit_vector_file, false);
+        int nx, ny, nz, number_of_layers;
+        std::vector<double> xyz_bounds(6);
+        parseLogFile(log_file, nx, ny, nz, deltax, number_of_layers, xyz_bounds, grain_unit_vector_file, false);
 
-        // Allocate memory blocks for GrainID and LayerID data
-        Kokkos::View<int ***, Kokkos::HostSpace> GrainID(Kokkos::ViewAllocateWithoutInitializing("GrainID"), nz, nx,
-                                                         ny);
-        Kokkos::View<short ***, Kokkos::HostSpace> LayerID(Kokkos::ViewAllocateWithoutInitializing("LayerID"), nz, nx,
-                                                           ny);
+        // Allocate memory blocks for grain_id and layer_id data
+        Kokkos::View<int ***, Kokkos::HostSpace> grain_id(Kokkos::ViewAllocateWithoutInitializing("grain_id"), nz, nx,
+                                                          ny);
+        Kokkos::View<short ***, Kokkos::HostSpace> layer_id(Kokkos::ViewAllocateWithoutInitializing("layer_id"), nz, nx,
+                                                            ny);
 
         // Fill arrays with data from paraview file
-        InitializeData(MicrostructureFile, nx, ny, nz, GrainID, LayerID);
+        initializeData(microstructure_file, nx, ny, nz, grain_id, layer_id);
 
         // Grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
         // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
         Orientation<memory_space> orientation(grain_unit_vector_file, true);
 
         // Representative region creation
-        std::ifstream AnalysisDataStream(AnalysisFile);
-        nlohmann::json AnalysisData = nlohmann::json::parse(AnalysisDataStream);
-        nlohmann::json RegionsData = AnalysisData["Regions"];
-        int NumberOfRegions = AnalysisData["Regions"].size();
-        std::cout << "There are " << NumberOfRegions << " regions to analyze" << std::endl;
-        for (auto it = RegionsData.begin(); it != RegionsData.end(); it++) {
+        std::ifstream analysis_data_stream(analysis_file);
+        nlohmann::json analysis_data = nlohmann::json::parse(analysis_data_stream);
+        nlohmann::json regions_data = analysis_data["Regions"];
+        int number_of_regions = analysis_data["Regions"].size();
+        std::cout << "There are " << number_of_regions << " regions to analyze" << std::endl;
+        for (auto it = regions_data.begin(); it != regions_data.end(); it++) {
             // Create region
-            std::string RegionName = it.key();
-            RepresentativeRegion representativeRegion(AnalysisData, RegionName, nx, ny, nz, deltax, XYZBounds, GrainID);
-            std::string BaseFileNameThisRegion = BaseFileName + "_" + RegionName;
+            std::string region_name = it.key();
+            RepresentativeRegion representativeregion(analysis_data, region_name, nx, ny, nz, deltax, xyz_bounds,
+                                                      grain_id);
+            std::string base_filename_this_region = base_filename + "_" + region_name;
 
             // Output file stream for quantities of interest
-            std::ofstream QoIs;
-            std::string QoIs_fname = BaseFileNameThisRegion + "_QoIs.txt";
-            QoIs.open(QoIs_fname);
-            // Header data for QoIs file
-            representativeRegion.printAnalysisHeader(QoIs);
+            std::ofstream qois;
+            std::string qois_fname = base_filename_this_region + "_QoIs.txt";
+            qois.open(qois_fname);
+            // Header data for qois file
+            representativeregion.printAnalysisHeader(qois);
 
             // Fraction of region consisting of nucleated grains, unmelted material
-            if (representativeRegion.AnalysisOptions_StatsYN[0])
-                representativeRegion.printGrainTypeFractions(QoIs, GrainID, LayerID);
+            if (representativeregion.analysis_options_stats_yn[0])
+                representativeregion.printGrainTypeFractions(qois, grain_id, layer_id);
 
             // Calculate and if specified, print misorientation data
-            std::vector<float> GrainMisorientationXVector =
-                representativeRegion.getGrainMisorientation("X", orientation);
-            std::vector<float> GrainMisorientationYVector =
-                representativeRegion.getGrainMisorientation("Y", orientation);
-            std::vector<float> GrainMisorientationZVector =
-                representativeRegion.getGrainMisorientation("Z", orientation);
-            if (representativeRegion.AnalysisOptions_StatsYN[1])
-                representativeRegion.printMeanMisorientations(QoIs, GrainMisorientationXVector,
-                                                              GrainMisorientationYVector, GrainMisorientationZVector);
+            std::vector<float> grain_misorientation_x_vector =
+                representativeregion.getGrainMisorientation("X", orientation);
+            std::vector<float> grain_misorientation_y_vector =
+                representativeregion.getGrainMisorientation("Y", orientation);
+            std::vector<float> grain_misorientation_z_vector =
+                representativeregion.getGrainMisorientation("Z", orientation);
+            if (representativeregion.analysis_options_stats_yn[1])
+                representativeregion.printMeanMisorientations(
+                    qois, grain_misorientation_x_vector, grain_misorientation_y_vector, grain_misorientation_z_vector);
 
             // Print mean size data if specified
-            if (representativeRegion.AnalysisOptions_StatsYN[2])
-                representativeRegion.printMeanSize(QoIs);
+            if (representativeregion.analysis_options_stats_yn[2])
+                representativeregion.printMeanSize(qois);
 
-            // If XExtent, YExtent, ZExtent, or BuildTransAspectRatio/Extent are toggled for general stats printing
+            // If XExtent, YExtent, ZExtent, or build_trans_aspect_ratio/Extent are toggled for general stats printing
             // or per grain printing, calculate grain extents for the necessary direction(s) (otherwise don't, since
             // it can be slow for large volumes) Extents are calculated in microns
             // If options StatsYN[3] or PerGrainStatsYN[5] is toggled, grain extents are needed
             // If StatsYN[4] or PerGrainStatsYN[2] is toggled, X extents are needed
             // If StatsYN[5] or PerGrainStatsYN[3] is toggled, Y extents are needed
             // If StatsYN[6] or PerGrainStatsYN[4] is toggled, Z extents are needed
-            representativeRegion.calcNecessaryGrainExtents(GrainID, deltax);
-            std::vector<float> BuildTransAspectRatio(representativeRegion.NumberOfGrains);
-            if ((representativeRegion.AnalysisOptions_StatsYN[3]) ||
-                (representativeRegion.AnalysisOptions_PerGrainStatsYN[5]))
-                representativeRegion.calcBuildTransAspectRatio(BuildTransAspectRatio);
-            if (representativeRegion.AnalysisOptions_StatsYN[3])
-                representativeRegion.printMeanBuildTransAspectRatio(QoIs);
+            representativeregion.calcNecessaryGrainExtents(grain_id, deltax);
+            std::vector<float> build_trans_aspect_ratio(representativeregion.number_of_grains);
+            if ((representativeregion.analysis_options_stats_yn[3]) ||
+                (representativeregion.analysis_options_per_grain_stats_yn[5]))
+                representativeregion.calcBuildTransAspectRatio(build_trans_aspect_ratio);
+            if (representativeregion.analysis_options_stats_yn[3])
+                representativeregion.printMeanBuildTransAspectRatio(qois);
 
-            if (representativeRegion.AnalysisOptions_StatsYN[4])
-                representativeRegion.printMeanExtent(QoIs, "X");
-            if (representativeRegion.AnalysisOptions_StatsYN[5])
-                representativeRegion.printMeanExtent(QoIs, "Y");
-            if (representativeRegion.AnalysisOptions_StatsYN[6])
-                representativeRegion.printMeanExtent(QoIs, "Z");
+            if (representativeregion.analysis_options_stats_yn[4])
+                representativeregion.printMeanExtent(qois, "X");
+            if (representativeregion.analysis_options_stats_yn[5])
+                representativeregion.printMeanExtent(qois, "Y");
+            if (representativeregion.analysis_options_stats_yn[6])
+                representativeregion.printMeanExtent(qois, "Z");
 
             // Determine IPF-Z color of each grain relative to each direction: 0 (red), 1 (green), 2 (blue)
-            std::vector<float> GrainRed = representativeRegion.getIPFZColor(0, orientation);
-            std::vector<float> GrainGreen = representativeRegion.getIPFZColor(1, orientation);
-            std::vector<float> GrainBlue = representativeRegion.getIPFZColor(2, orientation);
+            std::vector<float> grain_red = representativeregion.getIPFZColor(0, orientation);
+            std::vector<float> grain_green = representativeregion.getIPFZColor(1, orientation);
+            std::vector<float> grain_blue = representativeregion.getIPFZColor(2, orientation);
 
             // Write grain area data as a function of Z location in the representative volume if the options are
             // toggled, writing to files
-            // "[BaseFileNameThisRegion]_WeightedGrainAreas.csv" and "[BaseFileNameThisRegion]_GrainAreas.csv",
+            // "[base_filename_this_region]_WeightedGrainAreas.csv" and "[base_filename_this_region]_GrainAreas.csv",
             // respectively
-            if ((representativeRegion.AnalysisOptions_LayerwiseStatsYN[0]) ||
-                (representativeRegion.AnalysisOptions_LayerwiseStatsYN[1]))
-                representativeRegion.writeAreaSeries(BaseFileNameThisRegion, deltax, GrainID);
-            QoIs.close();
+            if ((representativeregion.analysis_options_layerwise_stats_yn[0]) ||
+                (representativeregion.analysis_options_layerwise_stats_yn[1]))
+                representativeregion.writeAreaSeries(base_filename_this_region, deltax, grain_id);
+            qois.close();
 
             // Write per-grain stats for the analysis types specified to the file
-            // "[BaseFileNameThisRegion]_grains.csv"
-            if (representativeRegion.PrintPerGrainStatsYN)
-                representativeRegion.writePerGrainStats(BaseFileNameThisRegion, GrainMisorientationXVector,
-                                                        GrainMisorientationYVector, GrainMisorientationZVector,
-                                                        BuildTransAspectRatio, GrainRed, GrainGreen, GrainBlue);
+            // "[base_filename_this_region]_grains.csv"
+            if (representativeregion.print_per_grain_stats_yn)
+                representativeregion.writePerGrainStats(base_filename_this_region, grain_misorientation_x_vector,
+                                                        grain_misorientation_y_vector, grain_misorientation_z_vector,
+                                                        build_trans_aspect_ratio, grain_red, grain_green, grain_blue);
 
-            // ExaConstit print a file named "[BaseFileNameThisRegion]_ExaConstit.csv"
-            if (representativeRegion.PrintExaConstitYN) {
-                representativeRegion.writeExaConstitRVE(BaseFileNameThisRegion, deltax, GrainID);
+            // ExaConstit print a file named "[base_filename_this_region]_ExaConstit.csv"
+            if (representativeregion.print_exaconstit_yn) {
+                representativeregion.writeExaConstitRVE(base_filename_this_region, deltax, grain_id);
             }
 
-            // Pole figure print a file named "[BaseFileNameThisRegion]_PoleFigureData.txt"
-            if (representativeRegion.PrintPoleFigureYN) {
-                auto GOHistogram =
-                    representativeRegion.getOrientationHistogram(orientation.n_grain_orientations, GrainID, LayerID);
-                representativeRegion.writePoleFigure(BaseFileNameThisRegion, orientation, GOHistogram);
+            // Pole figure print a file named "[base_filename_this_region]_PoleFigureData.txt"
+            if (representativeregion.print_pole_figure_yn) {
+                auto go_histogram =
+                    representativeregion.getOrientationHistogram(orientation.n_grain_orientations, grain_id, layer_id);
+                representativeregion.writePoleFigure(base_filename_this_region, orientation, go_histogram);
             }
 
-            // IPF map for area print a file named "[BaseFileNameThisRegion]_IPFCrossSectionData.txt"
-            if (representativeRegion.PrintInversePoleFigureMapYN) {
-                representativeRegion.writeIPFColoredCrossSection(BaseFileNameThisRegion, GrainID, orientation, deltax);
+            // IPF map for area print a file named "[base_filename_this_region]_IPFCrossSectionData.txt"
+            if (representativeregion.print_inverse_pole_figure_map_yn) {
+                representativeregion.writeIPFColoredCrossSection(base_filename_this_region, grain_id, orientation,
+                                                                 deltax);
             }
-            std::cout << "Finished analysis for region " << RegionName << std::endl;
+            std::cout << "Finished analysis for region " << region_name << std::endl;
         } // end loop over all representative regions in analysis file
     }     // end scope for kokkos
     // Finalize kokkos and end program

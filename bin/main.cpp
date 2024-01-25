@@ -36,8 +36,8 @@ int main(int argc, char *argv[]) {
         }
         else {
             // Run CA code using reduced temperature data format
-            std::string InputFile = argv[1];
-            RunProgram_Reduced(id, np, InputFile);
+            std::string input_file = argv[1];
+            runExaCA(id, np, input_file);
         }
     }
     // Finalize Kokkos

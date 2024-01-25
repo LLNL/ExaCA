@@ -10,24 +10,24 @@
 #include <string>
 #include <vector>
 
-void RunProgram_Reduced(int id, int np, std::string InputFile) {
+void runExaCA(int id, int np, std::string input_file) {
 
     // Run on the default space.
     using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
 
-    double NuclTime = 0.0, CreateSVTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
-    double StartNuclTime, StartCreateSVTime, StartCaptureTime, StartGhostTime;
-    double StartInitTime = MPI_Wtime();
+    double nucl_time = 0.0, create_sv_time = 0.0, capture_time = 0.0, ghost_time = 0.0;
+    double start_nucl_time, start_create_sv_time, start_capture_time, start_ghost_time;
+    double start_init_time = MPI_Wtime();
 
     // Read input file
-    Inputs inputs(id, InputFile);
-    std::string simulation_type = inputs.SimulationType;
+    Inputs inputs(id, input_file);
+    std::string simulation_type = inputs.simulation_type;
 
     // Setup local and global grids, decomposing domain
-    Grid grid(simulation_type, id, np, inputs.domain.NumberOfLayers, inputs.domain, inputs.temperature);
+    Grid grid(simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
 
     // Material response function
-    InterfacialResponseFunction irf(id, inputs.MaterialFileName, inputs.domain.deltat, grid.deltax);
+    InterfacialResponseFunction irf(id, inputs.material_filename, inputs.domain.deltat, grid.deltax);
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
     if ((simulation_type == "R") || (simulation_type == "S"))
@@ -42,27 +42,27 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
         temperature.initialize(id, simulation_type, grid, inputs.domain.deltat);
     else if (simulation_type == "S")
-        temperature.initialize(id, grid, irf.FreezingRange, inputs);
+        temperature.initialize(id, grid, irf.freezing_range, inputs);
     else if (simulation_type == "R")
-        temperature.initialize(0, id, grid, irf.FreezingRange, inputs.domain.deltat);
+        temperature.initialize(0, id, grid, irf.freezing_range, inputs.domain.deltat);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with temperature field initialization" << std::endl;
 
     // Initialize grain orientations
-    Orientation<memory_space> orientation(inputs.GrainOrientationFile, false);
+    Orientation<memory_space> orientation(inputs.grain_orientation_file, false);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Done with orientation initialization " << std::endl;
 
     // Initialize cell types, grain IDs, and layer IDs
-    CellData<memory_space> cellData(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
     if (simulation_type == "C")
-        cellData.init_substrate(id, grid, inputs.RNGSeed);
+        celldata.initSubstrate(id, grid, inputs.rng_seed);
     else if (simulation_type == "SingleGrain")
-        cellData.init_substrate(id, grid);
+        celldata.initSubstrate(id, grid);
     else
-        cellData.init_substrate(id, grid, inputs.RNGSeed, temperature.NumberOfSolidificationEvents);
+        celldata.initSubstrate(id, grid, inputs.rng_seed, temperature.number_of_solidification_events);
     MPI_Barrier(MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "Grain struct initialized" << std::endl;
@@ -78,43 +78,43 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
     // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
-    int EstimatedNuclei_ThisRankThisLayer = inputs.nucleation.NMax * pow(grid.deltax, 3) * grid.domain_size;
-    Nucleation<memory_space> nucleation(EstimatedNuclei_ThisRankThisLayer, grid.deltax, inputs.nucleation);
+    int estimated_nuclei_this_rank_this_layer = inputs.nucleation.n_max * pow(grid.deltax, 3) * grid.domain_size;
+    Nucleation<memory_space> nucleation(estimated_nuclei_this_rank_this_layer, grid.deltax, inputs.nucleation);
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
     // successive layer when layer 0 in complete
-    nucleation.placeNuclei(temperature, inputs.RNGSeed, 0, grid, id);
+    nucleation.placeNuclei(temperature, inputs.rng_seed, 0, grid, id);
 
     // Initialize printing struct from inputs
     Print print(grid, np, inputs.print);
 
     // If specified, print initial values in some views for debugging purposes
-    double InitTime = MPI_Wtime() - StartInitTime;
+    double init_time = MPI_Wtime() - start_init_time;
     if (id == 0)
-        std::cout << "Data initialized: Time spent: " << InitTime << " s" << std::endl;
+        std::cout << "Data initialized: Time spent: " << init_time << " s" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
     int cycle = 0;
-    double StartRunTime = MPI_Wtime();
+    double start_run_time = MPI_Wtime();
     for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
 
-        int XSwitch = 0;
-        double LayerTime1 = MPI_Wtime();
+        int x_switch = 0;
+        double layer_time_1 = MPI_Wtime();
 
         // Loop continues until all liquid cells claimed by solid grains
         do {
 
             // Start of time step - optional print current state of ExaCA simulation (up to and including the current
             // layer's data)
-            print.printIntralayer(id, np, layernumber, inputs.domain.deltat, cycle, grid, cellData, temperature,
+            print.printIntralayer(id, np, layernumber, inputs.domain.deltat, cycle, grid, celldata, temperature,
                                   interface, orientation);
             cycle++;
 
             // Update cells on GPU - undercooling and diagonal length updates, nucleation
             // Cells with a successful nucleation event are marked and added to a steering vector, later dealt with in
             // CellCapture
-            StartNuclTime = MPI_Wtime();
-            nucleation.nucleate_grain(cycle, grid, cellData, interface);
-            NuclTime += MPI_Wtime() - StartNuclTime;
+            start_nucl_time = MPI_Wtime();
+            nucleation.nucleateGrain(cycle, grid, celldata, interface);
+            nucl_time += MPI_Wtime() - start_nucl_time;
 
             // Update cells on GPU - new active cells, solidification of old active cells
             // Cell capture performed in two steps - first, adding cells of interest to a steering vector (different
@@ -123,130 +123,131 @@ void RunProgram_Reduced(int id, int np, std::string InputFile) {
             // Constrained/directional solidification problem cells only undergo 1 solidificaton event and are
             // initialized as liquid - the steering vector operation for this problem can be constructed using
             // FillSteeringVector_NoRemelt (a simplified version of FillSteeringVector_Remelt
-            StartCreateSVTime = MPI_Wtime();
+            start_create_sv_time = MPI_Wtime();
 
             if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
-                fill_steering_vector_no_remelt(cycle, grid, cellData, temperature, interface);
+                fillSteeringVector_NoRemelt(cycle, grid, celldata, temperature, interface);
             else
-                fill_steering_vector_remelt(cycle, grid, cellData, temperature, interface);
-            CreateSVTime += MPI_Wtime() - StartCreateSVTime;
+                fillSteeringVector_Remelt(cycle, grid, celldata, temperature, interface);
+            create_sv_time += MPI_Wtime() - start_create_sv_time;
 
-            StartCaptureTime = MPI_Wtime();
+            start_capture_time = MPI_Wtime();
             // Cell capture and checking of the MPI buffers to ensure that all appropriate interface updates in the halo
             // regions were recorded
-            cell_capture(cycle, np, grid, irf, cellData, temperature, interface, orientation);
-            check_buffers(id, cycle, grid, cellData, interface, orientation.n_grain_orientations);
-            CaptureTime += MPI_Wtime() - StartCaptureTime;
+            cellCapture(cycle, np, grid, irf, celldata, temperature, interface, orientation);
+            checkBuffers(id, cycle, grid, celldata, interface, orientation.n_grain_orientations);
+            capture_time += MPI_Wtime() - start_capture_time;
 
             if (np > 1) {
                 // Update ghost nodes
-                StartGhostTime = MPI_Wtime();
-                halo_update(cycle, id, grid, cellData, interface, orientation);
-                GhostTime += MPI_Wtime() - StartGhostTime;
+                start_ghost_time = MPI_Wtime();
+                haloUpdate(cycle, id, grid, celldata, interface, orientation);
+                ghost_time += MPI_Wtime() - start_ghost_time;
             }
 
             if ((cycle % 1000 == 0) && (simulation_type != "SingleGrain")) {
-                IntermediateOutputAndCheck(id, np, cycle, grid, nucleation.SuccessfulNucleationCounter, XSwitch,
-                                           cellData, temperature, inputs.SimulationType, layernumber, orientation,
+                intermediateOutputAndCheck(id, np, cycle, grid, nucleation.successful_nucleation_counter, x_switch,
+                                           celldata, temperature, inputs.simulation_type, layernumber, orientation,
                                            print, inputs.domain.deltat, interface);
             }
             else if (simulation_type == "SingleGrain") {
-                IntermediateOutputAndCheck(id, cycle, grid, XSwitch, cellData.CellType);
+                intermediateOutputAndCheck(id, cycle, grid, x_switch, celldata.cell_type);
             }
 
-        } while (XSwitch == 0);
+        } while (x_switch == 0);
         if (layernumber != grid.number_of_layers - 1) {
             MPI_Barrier(MPI_COMM_WORLD);
 
             // Optional print current state of ExaCA
-            print.printInterlayer(id, np, layernumber, grid, cellData, temperature, interface, orientation);
+            print.printInterlayer(id, np, layernumber, grid, celldata, temperature, interface, orientation);
             if (id == 0)
                 std::cout << "Layer " << layernumber << " finished solidification; initializing layer "
                           << layernumber + 1 << std::endl;
 
             // Determine new active cell domain size and offset from bottom of global domain
-            grid.init_next_layer(id, simulation_type, layernumber + 1, inputs.domain.SpotRadius);
+            grid.initNextLayer(id, simulation_type, layernumber + 1, inputs.domain.spot_radius);
 
             // For simulation type R, need to initialize new temperature field data for layer "layernumber + 1"
             // TODO: reorganize these temperature functions calls into a temperature.init_next_layer as done with the
             // substrate
             if (simulation_type == "R") {
                 // If the next layer's temperature data isn't already stored, it should be read
-                if (inputs.temperature.LayerwiseTempRead)
+                if (inputs.temperature.layerwise_temp_read)
                     temperature.readTemperatureData(id, grid, layernumber + 1);
                 // Initialize next layer's temperature data
-                temperature.initialize(layernumber + 1, id, grid, irf.FreezingRange, inputs.domain.deltat);
+                temperature.initialize(layernumber + 1, id, grid, irf.freezing_range, inputs.domain.deltat);
             }
 
             // Reset solidification event counter of all cells to zeros for the next layer, resizing to number of cells
             // associated with the next layer, and get the subview for undercooling
-            temperature.reset_layer_events_undercooling(grid);
+            temperature.resetLayerEventsUndercooling(grid);
             // Resize and zero all view data relating to the active region from the last layer, in preparation for the
             // next layer
-            interface.init_next_layer(grid.domain_size);
+            interface.initNextLayer(grid.domain_size);
             MPI_Barrier(MPI_COMM_WORLD);
 
             // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
-            cellData.init_next_layer(layernumber + 1, id, grid, inputs.RNGSeed,
-                                     temperature.NumberOfSolidificationEvents);
+            celldata.initNextLayer(layernumber + 1, id, grid, inputs.rng_seed,
+                                   temperature.number_of_solidification_events);
 
             // Initialize potential nucleation event data for next layer "layernumber + 1"
             // Views containing nucleation data will be resized to the possible number of nuclei on a given MPI rank for
             // the next layer
             nucleation.resetNucleiCounters(); // start counters at 0
-            nucleation.placeNuclei(temperature, inputs.RNGSeed, layernumber + 1, grid, id);
+            nucleation.placeNuclei(temperature, inputs.rng_seed, layernumber + 1, grid, id);
 
-            XSwitch = 0;
+            x_switch = 0;
             MPI_Barrier(MPI_COMM_WORLD);
-            double LayerTime2 = MPI_Wtime();
+            double layer_time_2 = MPI_Wtime();
             cycle = 0;
             if (id == 0)
-                std::cout << "Time for layer number " << layernumber << " was " << LayerTime2 - LayerTime1
+                std::cout << "Time for layer number " << layernumber << " was " << layer_time_2 - layer_time_1
                           << " s, starting layer " << layernumber + 1 << std::endl;
         }
         else {
             MPI_Barrier(MPI_COMM_WORLD);
-            double LayerTime2 = MPI_Wtime();
+            double layer_time_2 = MPI_Wtime();
             if (id == 0)
-                std::cout << "Time for final layer was " << LayerTime2 - LayerTime1 << " s" << std::endl;
+                std::cout << "Time for final layer was " << layer_time_2 - layer_time_1 << " s" << std::endl;
         }
     }
 
-    double RunTime = MPI_Wtime() - StartRunTime;
-    double StartOutTime = MPI_Wtime();
+    double run_time = MPI_Wtime() - start_run_time;
+    double start_out_time = MPI_Wtime();
 
     MPI_Barrier(MPI_COMM_WORLD);
     // Collect and print specified final fields to output files
-    print.printInterlayer(id, np, grid.number_of_layers - 1, grid, cellData, temperature, interface, orientation);
+    print.printInterlayer(id, np, grid.number_of_layers - 1, grid, celldata, temperature, interface, orientation);
 
     // Calculate volume fraction of solidified domain consisting of nucleated grains
-    float VolFractionNucleated = cellData.calcVolFractionNucleated(id, grid);
+    float vol_fraction_nucleated = celldata.calcVolFractionNucleated(id, grid);
 
-    double OutTime = MPI_Wtime() - StartOutTime;
-    double InitMaxTime, InitMinTime, OutMaxTime, OutMinTime = 0.0;
-    double NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime,
-        GhostMinTime = 0.0;
-    MPI_Allreduce(&InitTime, &InitMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&InitTime, &InitMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&NuclTime, &NuclMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&NuclTime, &NuclMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&CreateSVTime, &CreateSVMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&CreateSVTime, &CreateSVMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&CaptureTime, &CaptureMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&CaptureTime, &CaptureMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&GhostTime, &GhostMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&GhostTime, &GhostMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&OutTime, &OutMaxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&OutTime, &OutMinTime, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    double out_time = MPI_Wtime() - start_out_time;
+    double init_max_time, init_min_time, out_max_time, out_min_time = 0.0;
+    double nucl_max_time, nucl_min_time, create_sv_min_time, create_sv_max_time, capture_max_time, capture_min_time,
+        ghost_max_time, ghost_min_time = 0.0;
+    MPI_Allreduce(&init_time, &init_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&init_time, &init_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(&nucl_time, &nucl_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&nucl_time, &nucl_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(&create_sv_time, &create_sv_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&create_sv_time, &create_sv_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(&capture_time, &capture_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&capture_time, &capture_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(&ghost_time, &ghost_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&ghost_time, &ghost_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(&out_time, &out_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&out_time, &out_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
 
     // Print the log file with JSON format, timing information to the console
-    inputs.PrintExaCALog(id, np, InputFile, grid.ny_local, grid.y_offset, irf, grid.deltax, grid.number_of_layers,
-                         grid.layer_height, grid.nx, grid.ny, grid.nz, InitTime, RunTime, OutTime, cycle, InitMaxTime,
-                         InitMinTime, NuclMaxTime, NuclMinTime, CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime,
-                         CaptureMinTime, GhostMaxTime, GhostMinTime, OutMaxTime, OutMinTime, grid.x_min, grid.x_max,
-                         grid.y_min, grid.y_max, grid.z_min, grid.z_max, VolFractionNucleated);
+    inputs.printExaCALog(id, np, input_file, grid.ny_local, grid.y_offset, irf, grid.deltax, grid.number_of_layers,
+                         grid.layer_height, grid.nx, grid.ny, grid.nz, init_time, run_time, out_time, cycle,
+                         init_max_time, init_min_time, nucl_max_time, nucl_min_time, create_sv_min_time,
+                         create_sv_max_time, capture_max_time, capture_min_time, ghost_max_time, ghost_min_time,
+                         out_max_time, out_min_time, grid.x_min, grid.x_max, grid.y_min, grid.y_max, grid.z_min,
+                         grid.z_max, vol_fraction_nucleated);
     if (id == 0)
-        printExaCATiming(np, InitTime, RunTime, OutTime, cycle, InitMaxTime, InitMinTime, NuclMaxTime, NuclMinTime,
-                         CreateSVMinTime, CreateSVMaxTime, CaptureMaxTime, CaptureMinTime, GhostMaxTime, GhostMinTime,
-                         OutMaxTime, OutMinTime);
+        printExaCATiming(np, init_time, run_time, out_time, cycle, init_max_time, init_min_time, nucl_max_time,
+                         nucl_min_time, create_sv_min_time, create_sv_max_time, capture_max_time, capture_min_time,
+                         ghost_max_time, ghost_min_time, out_max_time, out_min_time);
 }

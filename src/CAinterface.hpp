@@ -52,7 +52,7 @@ struct Interface {
 
     // Constructor for views and view bounds for current layer
     // Use default initialization to 0 for num_steer_host and num_steer and buffer counts
-    Interface(int domain_size, int buf_size_initial_estimate = 25, int buf_components_temp = 8)
+    Interface(const int domain_size, const int buf_size_initial_estimate = 25, const int buf_components_temp = 8)
         : diagonal_length(view_type_float(Kokkos::ViewAllocateWithoutInitializing("diagonal_length"), domain_size))
         , octahedron_center(
               view_type_float(Kokkos::ViewAllocateWithoutInitializing("octahedron_center"), 3 * domain_size))
@@ -80,14 +80,14 @@ struct Interface {
         buf_components = buf_components_temp;
         // Send/recv buffers for ghost node data should be initialized with -1s in the first index as placeholders for
         // empty positions in the buffer, and with send size counts of 0
-        reset_buffers();
+        resetBuffers();
         // Initialize neighbor lists for iterating over active cells
-        neighbor_list_init();
+        neighborListInit();
     }
 
     // Set first index in send buffers to -1 (placeholder) for all cells in the buffer, and reset the counts of number
     // of cells contained in buffers to 0s
-    void reset_buffers() {
+    void resetBuffers() {
 
         auto buffer_north_send_local = buffer_north_send;
         auto buffer_south_send_local = buffer_south_send;
@@ -106,7 +106,7 @@ struct Interface {
     }
 
     // Intialize neighbor list structures (neighbor_x, neighbor_y, neighbor_z)
-    void neighbor_list_init() {
+    void neighborListInit() {
 
         // Neighbors 0 through 5 are nearest neighbors, 6 through 17 are second nearest neighbors, and 18 through 25 are
         // third nearest neighbors
@@ -116,7 +116,7 @@ struct Interface {
     }
 
     // buffers if necessary, returning the new buffer size. Return true if the buffers were resized
-    int resize_buffers(const int id, const int cycle, int num_cells_buffer_padding = 25) {
+    int resizeBuffers(const int id, const int cycle, const int num_cells_buffer_padding = 25) {
 
         bool resize_performed = false;
         int old_buf_size = buf_size;
@@ -163,7 +163,7 @@ struct Interface {
     }
 
     // Resize and reinitialize structs governing the active cells before the next layer of a multilayer problem
-    void init_next_layer(int domain_size) {
+    void initNextLayer(const int domain_size) {
 
         // Realloc steering vector as LocalActivedomain_size may have changed (old values aren't needed)
         Kokkos::realloc(steering_vector, domain_size);
@@ -182,8 +182,8 @@ struct Interface {
     // Assign octahedron a small initial size, and a center location
     // Note that the Y coordinate is relative to the domain origin to keep the coordinate system continuous across ranks
     KOKKOS_INLINE_FUNCTION
-    void create_new_octahedron(const int index, const int coord_x, const int coord_y, const int y_offset,
-                               const int coord_z) const {
+    void createNewOctahedron(const int index, const int coord_x, const int coord_y, const int y_offset,
+                             const int coord_z) const {
         diagonal_length(index) = 0.01;
         octahedron_center(3 * index) = coord_x + 0.5;
         octahedron_center(3 * index + 1) = coord_y + y_offset + 0.5;
@@ -195,9 +195,10 @@ struct Interface {
     // (cx, cy, cz) Note that yp and cy are relative to the domain origin to keep the coordinate system continuous
     // across ranks
     template <typename ViewType>
-    KOKKOS_INLINE_FUNCTION void calc_crit_diagonal_length(int index, float xp, float yp, float zp, float cx, float cy,
-                                                          float cz, int my_orientation,
-                                                          ViewType grain_unit_vector) const {
+    KOKKOS_INLINE_FUNCTION void calcCritDiagonalLength(const int index, const float xp, const float yp, const float zp,
+                                                       const float cx, const float cy, const float cz,
+                                                       const int my_orientation,
+                                                       const ViewType grain_unit_vector) const {
         // Calculate critical octahedron diagonal length to activate nearest neighbor.
         // First, calculate the unique planes (4) associated with all octahedron faces (8)
         // Then just look at distance between face and the point of interest (cell center of
@@ -251,11 +252,11 @@ struct Interface {
     // false (otherwise return true) but keep incrementing the send size counters for use resizing the buffers in the
     // future
     KOKKOS_INLINE_FUNCTION
-    bool load_ghost_nodes(const int ghost_grain_id, const float ghost_octahedron_center_x,
-                          const float ghost_octahedron_center_y, const float ghost_octahedron_center_z,
-                          const float ghost_diagonal_length, const int ny_local, const int coord_x, const int coord_y,
-                          const int coord_z, const bool at_north_boundary, const bool at_south_boundary,
-                          int n_grain_orientations) const {
+    bool loadGhostNodes(const int ghost_grain_id, const float ghost_octahedron_center_x,
+                        const float ghost_octahedron_center_y, const float ghost_octahedron_center_z,
+                        const float ghost_diagonal_length, const int ny_local, const int coord_x, const int coord_y,
+                        const int coord_z, const bool at_north_boundary, const bool at_south_boundary,
+                        const int n_grain_orientations) const {
         bool data_fits_in_buffer = true;
         if ((coord_y == 1) && (!(at_south_boundary))) {
             int ghost_position_south = Kokkos::atomic_fetch_add(&send_size_south(0), 1);
@@ -265,9 +266,9 @@ struct Interface {
                 buffer_south_send(ghost_position_south, 0) = static_cast<float>(coord_x);
                 buffer_south_send(ghost_position_south, 1) = static_cast<float>(coord_z);
                 buffer_south_send(ghost_position_south, 2) =
-                    static_cast<float>(get_grain_orientation(ghost_grain_id, n_grain_orientations, false));
+                    static_cast<float>(getGrainOrientation(ghost_grain_id, n_grain_orientations, false));
                 buffer_south_send(ghost_position_south, 3) =
-                    static_cast<float>(get_grain_number(ghost_grain_id, n_grain_orientations));
+                    static_cast<float>(getGrainNumber(ghost_grain_id, n_grain_orientations));
                 buffer_south_send(ghost_position_south, 4) = ghost_octahedron_center_x;
                 buffer_south_send(ghost_position_south, 5) = ghost_octahedron_center_y;
                 buffer_south_send(ghost_position_south, 6) = ghost_octahedron_center_z;
@@ -282,9 +283,9 @@ struct Interface {
                 buffer_north_send(ghost_position_north, 0) = static_cast<float>(coord_x);
                 buffer_north_send(ghost_position_north, 1) = static_cast<float>(coord_z);
                 buffer_north_send(ghost_position_north, 2) =
-                    static_cast<float>(get_grain_orientation(ghost_grain_id, n_grain_orientations, false));
+                    static_cast<float>(getGrainOrientation(ghost_grain_id, n_grain_orientations, false));
                 buffer_north_send(ghost_position_north, 3) =
-                    static_cast<float>(get_grain_number(ghost_grain_id, n_grain_orientations));
+                    static_cast<float>(getGrainNumber(ghost_grain_id, n_grain_orientations));
                 buffer_north_send(ghost_position_north, 4) = ghost_octahedron_center_x;
                 buffer_north_send(ghost_position_north, 5) = ghost_octahedron_center_y;
                 buffer_north_send(ghost_position_north, 6) = ghost_octahedron_center_z;

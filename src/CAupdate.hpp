@@ -21,22 +21,22 @@
 // For the case where all cells solidify once, determine which cells are associated with the "steering vector" of
 // cells that are either active, or becoming active this time step
 template <typename MemorySpace>
-void fill_steering_vector_no_remelt(const int cycle, const Grid &grid, CellData<MemorySpace> &cellData,
-                                    Temperature<MemorySpace> &temperature, Interface<MemorySpace> &interface) {
+void fillSteeringVector_NoRemelt(const int cycle, const Grid &grid, CellData<MemorySpace> &celldata,
+                                 Temperature<MemorySpace> &temperature, Interface<MemorySpace> &interface) {
 
     // Cells associated with this layer that are not solid type but have passed the liquidus (crit time step) have
     // their undercooling values updated Cells that meet the aforementioned criteria and are active type should be
     // added to the steering vector
     Kokkos::parallel_for(
         "FillSV", grid.domain_size, KOKKOS_LAMBDA(const int &index) {
-            int cellType = cellData.CellType(index);
-            int isNotSolid = (cellType != Solid);
-            int CritTimeStep = temperature.LayerTimeTempHistory(index, 0, 1);
-            int pastCritTime = (cycle > CritTimeStep);
-            int cell_Active = ((cellType == Active) || (cellType == FutureActive));
-            if (isNotSolid && pastCritTime) {
-                temperature.update_undercooling(index);
-                if (cell_Active) {
+            int cell_type = celldata.cell_type(index);
+            int is_not_solid = (cell_type != Solid);
+            int crit_time_step = temperature.layer_time_temp_history(index, 0, 1);
+            int past_crit_time = (cycle > crit_time_step);
+            int cell_active = ((cell_type == Active) || (cell_type == FutureActive));
+            if (is_not_solid && past_crit_time) {
+                temperature.updateUndercooling(index);
+                if (cell_active) {
                     interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) = index;
                 }
             }
@@ -47,37 +47,37 @@ void fill_steering_vector_no_remelt(const int cycle, const Grid &grid, CellData<
 // For the case where cells may melt and solidify multiple times, determine which cells are associated with the
 // "steering vector" of cells that are either active, or becoming active this time step - version with remelting
 template <typename MemorySpace>
-void fill_steering_vector_remelt(const int cycle, const Grid &grid, CellData<MemorySpace> &cellData,
-                                 Temperature<MemorySpace> &temperature, Interface<MemorySpace> &interface) {
+void fillSteeringVector_Remelt(const int cycle, const Grid &grid, CellData<MemorySpace> &celldata,
+                               Temperature<MemorySpace> &temperature, Interface<MemorySpace> &interface) {
 
-    auto GrainID = cellData.getGrainIDSubview(grid);
+    auto grain_id = celldata.getGrainIDSubview(grid);
     Kokkos::parallel_for(
         "FillSV_RM", grid.domain_size, KOKKOS_LAMBDA(const int &index) {
-            int cellType = cellData.CellType(index);
+            int celltype = celldata.cell_type(index);
             // Only iterate over cells that are not Solid type
-            if (cellType != Solid) {
-                int MeltTimeStep = temperature.getMeltTimeStep(cycle, index);
-                int CritTimeStep = temperature.getCritTimeStep(index);
-                bool atMeltTime = (cycle == MeltTimeStep);
-                bool atCritTime = (cycle == CritTimeStep);
-                bool pastCritTime = (cycle > CritTimeStep);
-                if (atMeltTime) {
+            if (celltype != Solid) {
+                int melt_time_step = temperature.getMeltTimeStep(cycle, index);
+                int crit_time_step = temperature.getCritTimeStep(index);
+                bool at_melt_time = (cycle == melt_time_step);
+                bool at_crit_time = (cycle == crit_time_step);
+                bool past_crit_time = (cycle > crit_time_step);
+                if (at_melt_time) {
                     // Cell melts, undercooling is reset to 0 from the previous value, if any
-                    cellData.CellType(index) = Liquid;
-                    temperature.reset_undercooling(index);
-                    if (cellType != TempSolid) {
+                    celldata.cell_type(index) = Liquid;
+                    temperature.resetUndercooling(index);
+                    if (celltype != TempSolid) {
                         // This cell either hasn't started or hasn't finished the previous solidification event, but
                         // has undergone melting - increment the solidification counter to move on to the next
                         // melt-solidification event
-                        temperature.update_solidification_counter(index);
+                        temperature.updateSolidificationCounter(index);
                     }
                     // Any adjacent active cells should also be remelted, as these cells are more likely heating up
                     // than cooling down These are converted to the temporary FutureLiquid state, to be later
                     // iterated over and loaded into the steering vector as necessary Get the x, y, z coordinates of
                     // the cell on this MPI rank
-                    int coord_x = grid.get_coord_X(index);
-                    int coord_y = grid.get_coord_Y(index);
-                    int coord_z = grid.get_coord_Z(index);
+                    int coord_x = grid.getCoordX(index);
+                    int coord_y = grid.getCoordY(index);
+                    int coord_z = grid.getCoordZ(index);
                     for (int l = 0; l < 26; l++) {
                         // "l" correpsponds to the specific neighboring cell
                         // Local coordinates of adjacent cell center
@@ -87,31 +87,30 @@ void fill_steering_vector_remelt(const int cycle, const Grid &grid, CellData<Mem
                         if ((neighbor_coord_x >= 0) && (neighbor_coord_x < grid.nx) && (neighbor_coord_y >= 0) &&
                             (neighbor_coord_y < grid.ny_local) && (neighbor_coord_z < grid.nz_layer) &&
                             (neighbor_coord_z >= 0)) {
-                            int neighbor_index =
-                                grid.get_1D_index(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
-                            if (cellData.CellType(neighbor_index) == Active) {
+                            int neighbor_index = grid.get1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
+                            if (celldata.cell_type(neighbor_index) == Active) {
                                 // Mark adjacent active cells to this as cells that should be converted into liquid,
                                 // as they are more likely heating than cooling
-                                cellData.CellType(neighbor_index) = FutureLiquid;
+                                celldata.cell_type(neighbor_index) = FutureLiquid;
                                 interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) =
                                     neighbor_index;
                             }
                         }
                     }
                 }
-                else if ((cellType != TempSolid) && (pastCritTime)) {
+                else if ((celltype != TempSolid) && (past_crit_time)) {
                     // Update cell undercooling
-                    temperature.update_undercooling(index);
-                    if (cellType == Active) {
+                    temperature.updateUndercooling(index);
+                    if (celltype == Active) {
                         // Add active cells below liquidus to steering vector
                         interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) = index;
                     }
                 }
-                else if ((atCritTime) && (cellType == Liquid) && (GrainID(index) != 0)) {
+                else if ((at_crit_time) && (celltype == Liquid) && (grain_id(index) != 0)) {
                     // Get the x, y, z coordinates of the cell on this MPI rank
-                    int coord_x = grid.get_coord_X(index);
-                    int coord_y = grid.get_coord_Y(index);
-                    int coord_z = grid.get_coord_Z(index);
+                    int coord_x = grid.getCoordX(index);
+                    int coord_y = grid.getCoordY(index);
+                    int coord_z = grid.getCoordZ(index);
                     // If this cell has cooled to the liquidus temperature, borders at least one solid/tempsolid
                     // cell, and is part of a grain, it should become active. This only needs to be checked on the
                     // time step where the cell reaches the liquidus, not every time step beyond this
@@ -124,14 +123,13 @@ void fill_steering_vector_remelt(const int cycle, const Grid &grid, CellData<Mem
                         if ((neighbor_coord_x >= 0) && (neighbor_coord_x < grid.nx) && (neighbor_coord_y >= 0) &&
                             (neighbor_coord_y < grid.ny_local) && (neighbor_coord_z < grid.nz_layer) &&
                             (neighbor_coord_z >= 0)) {
-                            int neighbor_index =
-                                grid.get_1D_index(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
-                            if ((cellData.CellType(neighbor_index) == TempSolid) ||
-                                (cellData.CellType(neighbor_index) == Solid) || (coord_z == 0)) {
+                            int neighbor_index = grid.get1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
+                            if ((celldata.cell_type(neighbor_index) == TempSolid) ||
+                                (celldata.cell_type(neighbor_index) == Solid) || (coord_z == 0)) {
                                 // Cell activation to be performed as part of steering vector
                                 l = 26;
                                 interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) = index;
-                                cellData.CellType(index) =
+                                celldata.cell_type(index) =
                                     FutureActive; // this cell cannot be captured - is being activated
                             }
                         }
@@ -147,12 +145,12 @@ void fill_steering_vector_remelt(const int cycle, const Grid &grid, CellData<Mem
 
 // Decentered octahedron algorithm for the capture of new interface cells by grains
 template <typename MemorySpace>
-void cell_capture(const int, const int np, const Grid &grid, const InterfacialResponseFunction &irf,
-                  CellData<MemorySpace> &cellData, Temperature<MemorySpace> &temperature,
-                  Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
+void cellCapture(const int, const int np, const Grid &grid, const InterfacialResponseFunction &irf,
+                 CellData<MemorySpace> &celldata, Temperature<MemorySpace> &temperature,
+                 Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
 
-    // Get GrainID subview for this layer
-    auto GrainID = cellData.getGrainIDSubview(grid);
+    // Get grain_id subview for this layer
+    auto grain_id = celldata.getGrainIDSubview(grid);
     // Loop over list of active and soon-to-be active cells, potentially performing cell capture events and updating
     // cell types
     Kokkos::parallel_for(
@@ -160,19 +158,20 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
             interface.num_steer(0) = 0;
             int index = interface.steering_vector(num);
             // Get the x, y, z coordinates of the cell on this MPI rank
-            int coord_x = grid.get_coord_X(index);
-            int coord_y = grid.get_coord_Y(index);
-            int coord_z = grid.get_coord_Z(index);
+            int coord_x = grid.getCoordX(index);
+            int coord_y = grid.getCoordY(index);
+            int coord_z = grid.getCoordZ(index);
 
             // Cells of interest for the CA - active cells and future active/liquid cells
-            if (cellData.CellType(index) == Active) {
+            if (celldata.cell_type(index) == Active) {
                 // Get undercooling of active cell
-                double LocU = temperature.UndercoolingCurrent(index);
+                double loc_u = temperature.undercooling_current(index);
                 // Update diagonal length of octahedron based on local undercooling and interfacial response function
-                interface.diagonal_length(index) += irf.compute(LocU);
+                interface.diagonal_length(index) += irf.compute(loc_u);
                 // Cycle through all neigboring cells on this processor to see if they have been captured
                 // Cells in ghost nodes cannot capture cells on other processors
-                bool DeactivateCell = true; // switch that becomes false if the cell has at least 1 liquid type neighbor
+                bool deactivate_cell =
+                    true; // switch that becomes false if the cell has at least 1 liquid type neighbor
                 // Which neighbors should be iterated over?
                 for (int l = 0; l < 26; l++) {
                     // Local coordinates of adjacent cell center
@@ -183,12 +182,12 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                     if ((neighbor_coord_x >= 0) && (neighbor_coord_x < grid.nx) && (neighbor_coord_y >= 0) &&
                         (neighbor_coord_y < grid.ny_local) && (neighbor_coord_z < grid.nz_layer) &&
                         (neighbor_coord_z >= 0)) {
-                        int neighbor_index = grid.get_1D_index(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
-                        if (cellData.CellType(neighbor_index) == Liquid)
-                            DeactivateCell = false;
-                        // Capture of cell located at "NeighborD3D1ConvPosition" if this condition is satisfied
+                        int neighbor_index = grid.get1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
+                        if (celldata.cell_type(neighbor_index) == Liquid)
+                            deactivate_cell = false;
+                        // Capture of cell located at "neighbor_index" if this condition is satisfied
                         if ((interface.diagonal_length(index) >= interface.crit_diagonal_length(26 * index + l)) &&
-                            (cellData.CellType(neighbor_index) == Liquid)) {
+                            (celldata.cell_type(neighbor_index) == Liquid)) {
                             // Use of atomic_compare_exchange
                             // (https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_compare_exchange) old_val =
                             // atomic_compare_exchange(ptr_to_value,comparison_value, new_value); Atomicly sets the
@@ -199,16 +198,16 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                             // already been changed to "TemporaryUpdate" type, return a value of "0"
                             int update_val = TemporaryUpdate;
                             int old_val = Liquid;
-                            int OldCellTypeValue = Kokkos::atomic_compare_exchange(&cellData.CellType(neighbor_index),
-                                                                                   old_val, update_val);
-                            // Only proceed if CellType was previously liquid (this current thread changed the value to
+                            int old_cell_type_value = Kokkos::atomic_compare_exchange(
+                                &celldata.cell_type(neighbor_index), old_val, update_val);
+                            // Only proceed if cell_type was previously liquid (this current thread changed the value to
                             // TemporaryUpdate)
-                            if (OldCellTypeValue == Liquid) {
-                                int h = GrainID(index);
-                                int my_orientation = get_grain_orientation(h, orientation.n_grain_orientations);
+                            if (old_cell_type_value == Liquid) {
+                                int h = grain_id(index);
+                                int my_orientation = getGrainOrientation(h, orientation.n_grain_orientations);
 
                                 // The new cell is captured by this cell's growing octahedron (Grain "h")
-                                GrainID(neighbor_index) = h;
+                                grain_id(neighbor_index) = h;
 
                                 // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
                                 float cxold = interface.octahedron_center(3 * index);
@@ -246,134 +245,135 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                                  orientation.grain_unit_vector(9 * my_orientation + 7) * y0 +
                                                  orientation.grain_unit_vector(9 * my_orientation + 8) * z0) /
                                                 mag0;
-                                float Diag1X =
+                                float diag_1x =
                                     orientation.grain_unit_vector(9 * my_orientation) * (2 * (angle_1 < 0) - 1);
-                                float Diag1Y =
+                                float diag_1y =
                                     orientation.grain_unit_vector(9 * my_orientation + 1) * (2 * (angle_1 < 0) - 1);
-                                float Diag1Z =
+                                float diag_1z =
                                     orientation.grain_unit_vector(9 * my_orientation + 2) * (2 * (angle_1 < 0) - 1);
 
-                                float Diag2X =
+                                float diag_2x =
                                     orientation.grain_unit_vector(9 * my_orientation + 3) * (2 * (angle_2 < 0) - 1);
-                                float Diag2Y =
+                                float diag_2y =
                                     orientation.grain_unit_vector(9 * my_orientation + 4) * (2 * (angle_2 < 0) - 1);
-                                float Diag2Z =
+                                float diag_2z =
                                     orientation.grain_unit_vector(9 * my_orientation + 5) * (2 * (angle_2 < 0) - 1);
 
-                                float Diag3X =
+                                float diag_3x =
                                     orientation.grain_unit_vector(9 * my_orientation + 6) * (2 * (angle_3 < 0) - 1);
-                                float Diag3Y =
+                                float diag_3y =
                                     orientation.grain_unit_vector(9 * my_orientation + 7) * (2 * (angle_3 < 0) - 1);
-                                float Diag3Z =
+                                float diag_3z =
                                     orientation.grain_unit_vector(9 * my_orientation + 8) * (2 * (angle_3 < 0) - 1);
 
-                                float U1[3], U2[3];
-                                U1[0] = Diag2X - Diag1X;
-                                U1[1] = Diag2Y - Diag1Y;
-                                U1[2] = Diag2Z - Diag1Z;
-                                U2[0] = Diag3X - Diag1X;
-                                U2[1] = Diag3Y - Diag1Y;
-                                U2[2] = Diag3Z - Diag1Z;
-                                float UU[3];
-                                UU[0] = U1[1] * U2[2] - U1[2] * U2[1];
-                                UU[1] = U1[2] * U2[0] - U1[0] * U2[2];
-                                UU[2] = U1[0] * U2[1] - U1[1] * U2[0];
-                                float NDem = Kokkos::hypot(UU[0], UU[1], UU[2]);
-                                float Norm[3];
-                                Norm[0] = UU[0] / NDem;
-                                Norm[1] = UU[1] / NDem;
-                                Norm[2] = UU[2] / NDem;
+                                float u1[3], u2[3];
+                                u1[0] = diag_2x - diag_1x;
+                                u1[1] = diag_2y - diag_1y;
+                                u1[2] = diag_2z - diag_1z;
+                                u2[0] = diag_3x - diag_1x;
+                                u2[1] = diag_3y - diag_1y;
+                                u2[2] = diag_3z - diag_1z;
+                                float uu[3];
+                                uu[0] = u1[1] * u2[2] - u1[2] * u2[1];
+                                uu[1] = u1[2] * u2[0] - u1[0] * u2[2];
+                                uu[2] = u1[0] * u2[1] - u1[1] * u2[0];
+                                float n_dem = Kokkos::hypot(uu[0], uu[1], uu[2]);
+                                float norm[3];
+                                norm[0] = uu[0] / n_dem;
+                                norm[1] = uu[1] / n_dem;
+                                norm[2] = uu[2] / n_dem;
                                 // normal to capturing plane
-                                double norm[3], TriangleX[3], TriangleY[3], TriangleZ[3], ParaT;
-                                norm[0] = Norm[0];
-                                norm[1] = Norm[1];
-                                norm[2] = Norm[2];
-                                ParaT = (norm[0] * x0 + norm[1] * y0 + norm[2] * z0) /
-                                        (norm[0] * Diag1X + norm[1] * Diag1Y + norm[2] * Diag1Z);
+                                double norm_plane[3], triangle_x[3], triangle_y[3], triangle_z[3], para_t;
+                                norm_plane[0] = norm[0];
+                                norm_plane[1] = norm[1];
+                                norm_plane[2] = norm[2];
+                                para_t = (norm_plane[0] * x0 + norm_plane[1] * y0 + norm_plane[2] * z0) /
+                                         (norm_plane[0] * diag_1x + norm_plane[1] * diag_1y + norm_plane[2] * diag_1z);
 
-                                TriangleX[0] = cxold + ParaT * Diag1X;
-                                TriangleY[0] = cyold + ParaT * Diag1Y;
-                                TriangleZ[0] = czold + ParaT * Diag1Z;
+                                triangle_x[0] = cxold + para_t * diag_1x;
+                                triangle_y[0] = cyold + para_t * diag_1y;
+                                triangle_z[0] = czold + para_t * diag_1z;
 
-                                TriangleX[1] = cxold + ParaT * Diag2X;
-                                TriangleY[1] = cyold + ParaT * Diag2Y;
-                                TriangleZ[1] = czold + ParaT * Diag2Z;
+                                triangle_x[1] = cxold + para_t * diag_2x;
+                                triangle_y[1] = cyold + para_t * diag_2y;
+                                triangle_z[1] = czold + para_t * diag_2z;
 
-                                TriangleX[2] = cxold + ParaT * Diag3X;
-                                TriangleY[2] = cyold + ParaT * Diag3Y;
-                                TriangleZ[2] = czold + ParaT * Diag3Z;
+                                triangle_x[2] = cxold + para_t * diag_3x;
+                                triangle_y[2] = cyold + para_t * diag_3y;
+                                triangle_z[2] = czold + para_t * diag_3z;
 
                                 // Determine which of the 3 corners of the capturing face is closest to the captured
                                 // cell center
-                                float DistToCorner[3];
-                                DistToCorner[0] =
-                                    Kokkos::hypot(TriangleX[0] - xp, TriangleY[0] - yp, TriangleZ[0] - zp);
-                                DistToCorner[1] =
-                                    Kokkos::hypot(TriangleX[1] - xp, TriangleY[1] - yp, TriangleZ[1] - zp);
-                                DistToCorner[2] =
-                                    Kokkos::hypot(TriangleX[2] - xp, TriangleY[2] - yp, TriangleZ[2] - zp);
+                                float dist_to_corner[3];
+                                dist_to_corner[0] =
+                                    Kokkos::hypot(triangle_x[0] - xp, triangle_y[0] - yp, triangle_z[0] - zp);
+                                dist_to_corner[1] =
+                                    Kokkos::hypot(triangle_x[1] - xp, triangle_y[1] - yp, triangle_z[1] - zp);
+                                dist_to_corner[2] =
+                                    Kokkos::hypot(triangle_x[2] - xp, triangle_y[2] - yp, triangle_z[2] - zp);
 
                                 int x, y, z;
-                                x = (DistToCorner[0] < DistToCorner[1]);
-                                y = (DistToCorner[1] < DistToCorner[2]);
-                                z = (DistToCorner[2] < DistToCorner[0]);
+                                x = (dist_to_corner[0] < dist_to_corner[1]);
+                                y = (dist_to_corner[1] < dist_to_corner[2]);
+                                z = (dist_to_corner[2] < dist_to_corner[0]);
 
                                 int idx = 2 * (z - y) * z + (y - x) * y;
-                                float mindisttocorner = DistToCorner[idx];
-                                float xc = TriangleX[idx];
-                                float yc = TriangleY[idx];
-                                float zc = TriangleZ[idx];
+                                float mindist_to_corner = dist_to_corner[idx];
+                                float xc = triangle_x[idx];
+                                float yc = triangle_y[idx];
+                                float zc = triangle_z[idx];
 
-                                float x1 = TriangleX[(idx + 1) % 3];
-                                float y1 = TriangleY[(idx + 1) % 3];
-                                float z1 = TriangleZ[(idx + 1) % 3];
-                                float x2 = TriangleX[(idx + 2) % 3];
-                                float y2 = TriangleY[(idx + 2) % 3];
-                                float z2 = TriangleZ[(idx + 2) % 3];
+                                float x1 = triangle_x[(idx + 1) % 3];
+                                float y1 = triangle_y[(idx + 1) % 3];
+                                float z1 = triangle_z[(idx + 1) % 3];
+                                float x2 = triangle_x[(idx + 2) % 3];
+                                float y2 = triangle_y[(idx + 2) % 3];
+                                float z2 = triangle_z[(idx + 2) % 3];
 
-                                float D1 = Kokkos::hypot(xp - x2, yp - y2, zp - z2);
-                                float D2 = Kokkos::hypot(xc - x2, yc - y2, zc - z2);
-                                float D3 = Kokkos::hypot(xp - x1, yp - y1, zp - z1);
-                                float D4 = Kokkos::hypot(xc - x1, yc - y1, zc - z1);
+                                float d1 = Kokkos::hypot(xp - x2, yp - y2, zp - z2);
+                                float d2 = Kokkos::hypot(xc - x2, yc - y2, zc - z2);
+                                float d3 = Kokkos::hypot(xp - x1, yp - y1, zp - z1);
+                                float d4 = Kokkos::hypot(xc - x1, yc - y1, zc - z1);
 
-                                float I1 = 0;
-                                float I2 = D2;
-                                float J1 = 0;
-                                float J2 = D4;
+                                float i_1 = 0;
+                                float i_2 = d2;
+                                float j_1 = 0;
+                                float j_2 = d4;
                                 // If minimum distance to corner = 0, the octahedron corner captured the new cell
                                 // center
-                                if (mindisttocorner != 0) {
-                                    I1 = D1 * ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
-                                         (D1 * D2);
-                                    I2 = D2 - I1;
-                                    J1 = D3 * ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
-                                         (D3 * D4);
-                                    J2 = D4 - J1;
+                                if (mindist_to_corner != 0) {
+                                    i_1 = d1 * ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
+                                          (d1 * d2);
+                                    i_2 = d2 - i_1;
+                                    j_1 = d3 * ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
+                                          (d3 * d4);
+                                    j_2 = d4 - j_1;
                                 }
-                                float L12 =
-                                    0.5 * (Kokkos::fmin(I1, Kokkos::sqrt(3.0f)) + Kokkos::fmin(I2, Kokkos::sqrt(3.0f)));
-                                float L13 =
-                                    0.5 * (Kokkos::fmin(J1, Kokkos::sqrt(3.0f)) + Kokkos::fmin(J2, Kokkos::sqrt(3.0f)));
+                                float l_12 = 0.5 * (Kokkos::fmin(i_1, Kokkos::sqrt(3.0f)) +
+                                                    Kokkos::fmin(i_2, Kokkos::sqrt(3.0f)));
+                                float l_13 = 0.5 * (Kokkos::fmin(j_1, Kokkos::sqrt(3.0f)) +
+                                                    Kokkos::fmin(j_2, Kokkos::sqrt(3.0f)));
                                 // half diagonal length of new octahedron
-                                float NewODiagL = Kokkos::sqrt(2.0f) * Kokkos::fmax(L12, L13);
+                                float new_o_diag_l = Kokkos::sqrt(2.0f) * Kokkos::fmax(l_12, l_13);
 
-                                interface.diagonal_length(neighbor_index) = NewODiagL;
+                                interface.diagonal_length(neighbor_index) = new_o_diag_l;
                                 // Calculate coordinates of new decentered octahedron center
-                                float CaptDiag[3];
-                                CaptDiag[0] = xc - cxold;
-                                CaptDiag[1] = yc - cyold;
-                                CaptDiag[2] = zc - czold;
+                                float capt_diag[3];
+                                capt_diag[0] = xc - cxold;
+                                capt_diag[1] = yc - cyold;
+                                capt_diag[2] = zc - czold;
 
-                                float CaptDiagMagnitude = Kokkos::sqrt(
-                                    CaptDiag[0] * CaptDiag[0] + CaptDiag[1] * CaptDiag[1] + CaptDiag[2] * CaptDiag[2]);
-                                float CaptDiagUV[3];
-                                CaptDiagUV[0] = CaptDiag[0] / CaptDiagMagnitude;
-                                CaptDiagUV[1] = CaptDiag[1] / CaptDiagMagnitude;
-                                CaptDiagUV[2] = CaptDiag[2] / CaptDiagMagnitude;
+                                float capt_diag_magnitude =
+                                    Kokkos::sqrt(capt_diag[0] * capt_diag[0] + capt_diag[1] * capt_diag[1] +
+                                                 capt_diag[2] * capt_diag[2]);
+                                float capt_diag_uv[3];
+                                capt_diag_uv[0] = capt_diag[0] / capt_diag_magnitude;
+                                capt_diag_uv[1] = capt_diag[1] / capt_diag_magnitude;
+                                capt_diag_uv[2] = capt_diag[2] / capt_diag_magnitude;
                                 // (cx, cy, cz) are the coordiantes of the new active cell's decentered octahedron
-                                float cx = xc - NewODiagL * CaptDiagUV[0];
-                                float cy = yc - NewODiagL * CaptDiagUV[1];
-                                float cz = zc - NewODiagL * CaptDiagUV[2];
+                                float cx = xc - new_o_diag_l * capt_diag_uv[0];
+                                float cy = yc - new_o_diag_l * capt_diag_uv[1];
+                                float cz = zc - new_o_diag_l * capt_diag_uv[2];
 
                                 interface.octahedron_center(3 * neighbor_index) = cx;
                                 interface.octahedron_center(3 * neighbor_index + 1) = cy;
@@ -381,8 +381,8 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
 
                                 // Get new critical diagonal length values for the newly activated cell (at array
                                 // position "neighbor_index")
-                                interface.calc_crit_diagonal_length(neighbor_index, xp, yp, zp, cx, cy, cz,
-                                                                    my_orientation, orientation.grain_unit_vector);
+                                interface.calcCritDiagonalLength(neighbor_index, xp, yp, zp, cx, cy, cz, my_orientation,
+                                                                 orientation.grain_unit_vector);
 
                                 if (np > 1) {
                                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting
@@ -391,10 +391,10 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                     float ghost_octahedron_center_x = cx;
                                     float ghost_octahedron_center_y = cy;
                                     float ghost_octahedron_center_z = cz;
-                                    float ghost_diagonal_length = NewODiagL;
+                                    float ghost_diagonal_length = new_o_diag_l;
                                     // Collect data for the ghost nodes, if necessary
                                     // Data loaded into the ghost nodes is for the cell that was just captured
-                                    bool data_fits_in_buffer = interface.load_ghost_nodes(
+                                    bool data_fits_in_buffer = interface.loadGhostNodes(
                                         ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y,
                                         ghost_octahedron_center_z, ghost_diagonal_length, grid.ny_local,
                                         neighbor_coord_x, neighbor_coord_y, neighbor_coord_z, grid.at_north_boundary,
@@ -402,12 +402,12 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                     if (!(data_fits_in_buffer)) {
                                         // This cell's data did not fit in the buffer with current size buf_size -
                                         // mark with temporary type
-                                        cellData.CellType(neighbor_index) = ActiveFailedBufferLoad;
+                                        celldata.cell_type(neighbor_index) = ActiveFailedBufferLoad;
                                     }
                                     else {
                                         // Cell activation is now finished - cell type can be changed from
                                         // TemporaryUpdate to Active
-                                        cellData.CellType(neighbor_index) = Active;
+                                        celldata.cell_type(neighbor_index) = Active;
                                     }
                                 } // End if statement for serial/parallel code
                                 else {
@@ -416,36 +416,36 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                                     // condition in which the new cell is activated, and another thread acts on the
                                     // new active cell before the cell's new critical diagonal length/triangle
                                     // index/diagonal length values are assigned
-                                    cellData.CellType(neighbor_index) = Active;
+                                    celldata.cell_type(neighbor_index) = Active;
                                 }
                             } // End if statement within locked capture loop
                         }     // End if statement for outer capture loop
                     }         // End if statement over neighbors on the active grid
                 }             // End loop over all neighbors of this active cell
-                if (DeactivateCell) {
+                if (deactivate_cell) {
                     // This active cell has no more neighboring cells to be captured
                     // Update the counter for the number of times this cell went from liquid to active to solid
-                    bool SolidificationCompleteYN = temperature.update_check_solidification_counter(index);
+                    bool solidification_complete_y_n = temperature.updateCheckSolidificationCounter(index);
                     // Did the cell solidify for the last time in the layer?
                     // If so, this cell is solid - ignore until next layer (if needed)
                     // If not, this cell is tempsolid, will become liquid again
-                    if (SolidificationCompleteYN)
-                        cellData.CellType(index) = Solid;
+                    if (solidification_complete_y_n)
+                        celldata.cell_type(index) = Solid;
                     else
-                        cellData.CellType(index) = TempSolid;
+                        celldata.cell_type(index) = TempSolid;
                 }
             }
-            else if (cellData.CellType(index) == FutureActive) {
+            else if (celldata.cell_type(index) == FutureActive) {
                 // Successful nucleation event - this cell is becoming a new active cell
-                cellData.CellType(index) = TemporaryUpdate; // avoid operating on the new active cell before its
-                                                            // associated octahedron data is initialized
-                int MyGrainID = GrainID(index);             // GrainID was assigned as part of Nucleation
+                celldata.cell_type(index) = TemporaryUpdate; // avoid operating on the new active cell before its
+                                                             // associated octahedron data is initialized
+                int my_grain_id = grain_id(index);           // grain_id was assigned as part of Nucleation
 
                 // Initialize new octahedron
-                interface.create_new_octahedron(index, coord_x, coord_y, grid.y_offset, coord_z);
+                interface.createNewOctahedron(index, coord_x, coord_y, grid.y_offset, coord_z);
                 // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative
-                // GrainID values)
-                int my_orientation = get_grain_orientation(MyGrainID, orientation.n_grain_orientations);
+                // grain_id values)
+                int my_orientation = getGrainOrientation(my_grain_id, orientation.n_grain_orientations);
                 // Octahedron center is at (cx, cy, cz) - note that the Y coordinate is relative to the domain
                 // origin to keep the coordinate system continuous across ranks
                 float cx = coord_x + 0.5;
@@ -454,52 +454,52 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
                 // Calculate critical values at which this active cell leads to the activation of a neighboring
                 // liquid cell. Octahedron center and cell center overlap for octahedra created as part of a new
                 // grain
-                interface.calc_crit_diagonal_length(index, cx, cy, cz, cx, cy, cz, my_orientation,
-                                                    orientation.grain_unit_vector);
+                interface.calcCritDiagonalLength(index, cx, cy, cz, cx, cy, cz, my_orientation,
+                                                 orientation.grain_unit_vector);
                 if (np > 1) {
                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting this change if the
                     // slowdown is minor
-                    int ghost_grain_id = MyGrainID;
+                    int ghost_grain_id = my_grain_id;
                     float ghost_octahedron_center_x = cx;
                     float ghost_octahedron_center_y = cy;
                     float ghost_octahedron_center_z = cz;
                     float ghost_diagonal_length = 0.01;
                     // Collect data for the ghost nodes, if necessary
-                    bool data_fits_in_buffer = interface.load_ghost_nodes(
+                    bool data_fits_in_buffer = interface.loadGhostNodes(
                         ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y, ghost_octahedron_center_z,
                         ghost_diagonal_length, grid.ny_local, coord_x, coord_y, coord_z, grid.at_north_boundary,
                         grid.at_south_boundary, orientation.n_grain_orientations);
                     if (!(data_fits_in_buffer)) {
                         // This cell's data did not fit in the buffer with current size buf_size - mark with
                         // temporary type
-                        cellData.CellType(index) = ActiveFailedBufferLoad;
+                        celldata.cell_type(index) = ActiveFailedBufferLoad;
                     }
                     else {
                         // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
-                        cellData.CellType(index) = Active;
+                        celldata.cell_type(index) = Active;
                     }
                 } // End if statement for serial/parallel code
                 else {
                     // Cell activation is now finished - cell type can be changed from TemporaryUpdate to Active
-                    cellData.CellType(index) = Active;
+                    celldata.cell_type(index) = Active;
                 } // End if statement for serial/parallel code
             }
-            else if (cellData.CellType(index) == FutureLiquid) {
+            else if (celldata.cell_type(index) == FutureLiquid) {
                 // This type was assigned to a cell that was recently transformed from active to liquid, due to its
                 // bordering of a cell above the liquidus. This information may need to be sent to other MPI ranks
                 // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
                 // length
-                bool data_fits_in_buffer = interface.load_ghost_nodes(
+                bool data_fits_in_buffer = interface.loadGhostNodes(
                     -1, -1.0, -1.0, -1.0, 0.0, grid.ny_local, coord_x, coord_y, coord_z, grid.at_north_boundary,
                     grid.at_south_boundary, orientation.n_grain_orientations);
                 if (!(data_fits_in_buffer)) {
                     // This cell's data did not fit in the buffer with current size buf_size - mark with temporary
                     // type
-                    cellData.CellType(index) = LiquidFailedBufferLoad;
+                    celldata.cell_type(index) = LiquidFailedBufferLoad;
                 }
                 else {
                     // Cell activation is now finished - cell type can be changed from FutureLiquid to Active
-                    cellData.CellType(index) = Liquid;
+                    celldata.cell_type(index) = Liquid;
                 }
             }
         });
@@ -508,83 +508,83 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
 
 // Check buffers for overflow and resize/refill as necessary
 template <typename MemorySpace>
-void check_buffers(const int id, const int cycle, const Grid &grid, CellData<MemorySpace> &cellData,
-                   Interface<MemorySpace> &interface, const int n_grain_orientations) {
+void checkBuffers(const int id, const int cycle, const Grid &grid, CellData<MemorySpace> &celldata,
+                  Interface<MemorySpace> &interface, const int n_grain_orientations) {
     // Count the number of cells' in halo regions where the data did not fit into the send buffers
     // Reduce across all ranks, as the same buf_size should be maintained across all ranks
     // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
-    bool resize_performed = interface.resize_buffers(id, cycle);
+    bool resize_performed = interface.resizeBuffers(id, cycle);
     if (resize_performed)
-        refill_buffers(grid, cellData, interface, n_grain_orientations);
+        refillBuffers(grid, celldata, interface, n_grain_orientations);
 }
 
 // Refill the buffers as necessary starting from the old count size, using the data from cells marked with type
 // ActiveFailedBufferLoad
 template <typename MemorySpace>
-void refill_buffers(const Grid &grid, CellData<MemorySpace> &cellData, Interface<MemorySpace> &interface,
-                    const int n_grain_orientations) {
+void refillBuffers(const Grid &grid, CellData<MemorySpace> &celldata, Interface<MemorySpace> &interface,
+                   const int n_grain_orientations) {
 
-    auto GrainID = cellData.getGrainIDSubview(grid);
+    auto grain_id = celldata.getGrainIDSubview(grid);
     Kokkos::parallel_for(
         "FillSendBuffersOverflow", grid.nx, KOKKOS_LAMBDA(const int &coord_x) {
             for (int coord_z = 0; coord_z < grid.nz_layer; coord_z++) {
-                int index_south_buffer = grid.get_1D_index(coord_x, 1, coord_z);
-                int index_north_buffer = grid.get_1D_index(coord_x, grid.ny_local - 2, coord_z);
-                if (cellData.CellType(index_south_buffer) == ActiveFailedBufferLoad) {
-                    int ghost_grain_id = GrainID(index_south_buffer);
+                int index_south_buffer = grid.get1DIndex(coord_x, 1, coord_z);
+                int index_north_buffer = grid.get1DIndex(coord_x, grid.ny_local - 2, coord_z);
+                if (celldata.cell_type(index_south_buffer) == ActiveFailedBufferLoad) {
+                    int ghost_grain_id = grain_id(index_south_buffer);
                     float ghost_octahedron_center_x = interface.octahedron_center(3 * index_south_buffer);
                     float ghost_octahedron_center_y = interface.octahedron_center(3 * index_south_buffer + 1);
                     float ghost_octahedron_center_z = interface.octahedron_center(3 * index_south_buffer + 2);
                     float ghost_diagonal_length = interface.diagonal_length(index_south_buffer);
                     // Collect data for the ghost nodes, if necessary
                     // Data loaded into the ghost nodes is for the cell that was just captured
-                    bool data_fits_in_buffer = interface.load_ghost_nodes(
+                    bool data_fits_in_buffer = interface.loadGhostNodes(
                         ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y, ghost_octahedron_center_z,
                         ghost_diagonal_length, grid.ny_local, coord_x, 1, coord_z, grid.at_north_boundary,
                         grid.at_south_boundary, n_grain_orientations);
-                    cellData.CellType(index_south_buffer) = Active;
+                    celldata.cell_type(index_south_buffer) = Active;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(data_fits_in_buffer))
                         printf("Error: Send/recv buffer resize failed to include all necessary data, predicted "
                                "results at MPI processor boundaries may be inaccurate\n");
                 }
-                else if (cellData.CellType(index_south_buffer) == LiquidFailedBufferLoad) {
+                else if (celldata.cell_type(index_south_buffer) == LiquidFailedBufferLoad) {
                     // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for
                     // diagonal length
-                    bool data_fits_in_buffer = interface.load_ghost_nodes(-1, -1.0, -1.0, -1.0, 0.0, grid.ny_local,
-                                                                          coord_x, 1, coord_z, grid.at_north_boundary,
-                                                                          grid.at_south_boundary, n_grain_orientations);
-                    cellData.CellType(index_south_buffer) = Liquid;
+                    bool data_fits_in_buffer =
+                        interface.loadGhostNodes(-1, -1.0, -1.0, -1.0, 0.0, grid.ny_local, coord_x, 1, coord_z,
+                                                 grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
+                    celldata.cell_type(index_south_buffer) = Liquid;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(data_fits_in_buffer))
                         printf("Error: Send/recv buffer resize failed to include all necessary data, predicted "
                                "results at MPI processor boundaries may be inaccurate\n");
                 }
-                if (cellData.CellType(index_north_buffer) == ActiveFailedBufferLoad) {
-                    int ghost_grain_id = GrainID(index_north_buffer);
+                if (celldata.cell_type(index_north_buffer) == ActiveFailedBufferLoad) {
+                    int ghost_grain_id = grain_id(index_north_buffer);
                     float ghost_octahedron_center_x = interface.octahedron_center(3 * index_north_buffer);
                     float ghost_octahedron_center_y = interface.octahedron_center(3 * index_north_buffer + 1);
                     float ghost_octahedron_center_z = interface.octahedron_center(3 * index_north_buffer + 2);
                     float ghost_diagonal_length = interface.diagonal_length(index_north_buffer);
                     // Collect data for the ghost nodes, if necessary
                     // Data loaded into the ghost nodes is for the cell that was just captured
-                    bool data_fits_in_buffer = interface.load_ghost_nodes(
+                    bool data_fits_in_buffer = interface.loadGhostNodes(
                         ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y, ghost_octahedron_center_z,
                         ghost_diagonal_length, grid.ny_local, coord_x, grid.ny_local - 2, coord_z,
                         grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
-                    cellData.CellType(index_north_buffer) = Active;
+                    celldata.cell_type(index_north_buffer) = Active;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(data_fits_in_buffer))
                         printf("Error: Send/recv buffer resize failed to include all necessary data, predicted "
                                "results at MPI processor boundaries may be inaccurate\n");
                 }
-                else if (cellData.CellType(index_north_buffer) == LiquidFailedBufferLoad) {
+                else if (celldata.cell_type(index_north_buffer) == LiquidFailedBufferLoad) {
                     // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for
                     // diagonal length
-                    bool data_fits_in_buffer = interface.load_ghost_nodes(
+                    bool data_fits_in_buffer = interface.loadGhostNodes(
                         -1, -1.0, -1.0, -1.0, 0.0, grid.ny_local, coord_x, grid.ny_local - 2, coord_z,
                         grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
-                    cellData.CellType(index_north_buffer) = Liquid;
+                    celldata.cell_type(index_north_buffer) = Liquid;
                     // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
                     if (!(data_fits_in_buffer))
                         printf("Error: Send/recv buffer resize failed to include all necessary data, predicted "
@@ -597,31 +597,31 @@ void refill_buffers(const Grid &grid, CellData<MemorySpace> &cellData, Interface
 
 // 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
 template <typename MemorySpace>
-void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &cellData,
-                 Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
+void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &celldata,
+                Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
 
-    std::vector<MPI_Request> SendRequests(2, MPI_REQUEST_NULL);
-    std::vector<MPI_Request> RecvRequests(2, MPI_REQUEST_NULL);
+    std::vector<MPI_Request> send_requests(2, MPI_REQUEST_NULL);
+    std::vector<MPI_Request> recv_requests(2, MPI_REQUEST_NULL);
 
     // Send data to each other rank (MPI_Isend)
     MPI_Isend(interface.buffer_south_send.data(), interface.buf_components * interface.buf_size, MPI_FLOAT,
-              grid.neighbor_rank_south, 0, MPI_COMM_WORLD, &SendRequests[0]);
+              grid.neighbor_rank_south, 0, MPI_COMM_WORLD, &send_requests[0]);
     MPI_Isend(interface.buffer_north_send.data(), interface.buf_components * interface.buf_size, MPI_FLOAT,
-              grid.neighbor_rank_north, 0, MPI_COMM_WORLD, &SendRequests[1]);
+              grid.neighbor_rank_north, 0, MPI_COMM_WORLD, &send_requests[1]);
 
     // Receive buffers for all neighbors (MPI_Irecv)
     MPI_Irecv(interface.buffer_south_recv.data(), interface.buf_components * interface.buf_size, MPI_FLOAT,
-              grid.neighbor_rank_south, 0, MPI_COMM_WORLD, &RecvRequests[0]);
+              grid.neighbor_rank_south, 0, MPI_COMM_WORLD, &recv_requests[0]);
     MPI_Irecv(interface.buffer_north_recv.data(), interface.buf_components * interface.buf_size, MPI_FLOAT,
-              grid.neighbor_rank_north, 0, MPI_COMM_WORLD, &RecvRequests[1]);
+              grid.neighbor_rank_north, 0, MPI_COMM_WORLD, &recv_requests[1]);
 
     // unpack in any order
     bool unpack_complete = false;
-    auto GrainID = cellData.getGrainIDSubview(grid);
+    auto grain_id = celldata.getGrainIDSubview(grid);
     while (!unpack_complete) {
         // Get the next buffer to unpack from rank "unpack_index"
         int unpack_index = MPI_UNDEFINED;
-        MPI_Waitany(2, RecvRequests.data(), &unpack_index, MPI_STATUS_IGNORE);
+        MPI_Waitany(2, recv_requests.data(), &unpack_index, MPI_STATUS_IGNORE);
         // If there are no more buffers to unpack, leave the while loop
         if (MPI_UNDEFINED == unpack_index) {
             unpack_complete = true;
@@ -633,7 +633,7 @@ void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &
                     int coord_x, coord_y, coord_z, index, new_grain_id;
                     float new_octahedron_center_x, new_octahedron_center_y, new_octahedron_center_z,
                         new_diagonal_length;
-                    bool Place = false;
+                    bool place = false;
                     // Which rank was the data received from? Is there valid data at this position in the buffer
                     // (i.e., not set to -1.0)?
                     if ((unpack_index == 0) && (interface.buffer_south_recv(buf_position, 0) != -1.0) &&
@@ -642,23 +642,23 @@ void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &
                         coord_x = static_cast<int>(interface.buffer_south_recv(buf_position, 0));
                         coord_y = 0;
                         coord_z = static_cast<int>(interface.buffer_south_recv(buf_position, 1));
-                        index = grid.get_1D_index(coord_x, coord_y, coord_z);
+                        index = grid.get1DIndex(coord_x, coord_y, coord_z);
                         // Two possibilities: buffer data with non-zero diagonal length was loaded, and a liquid
                         // cell may have to be updated to active - or zero diagonal length data was loaded, and an
                         // active cell may have to be updated to liquid
-                        if (cellData.CellType(index) == Liquid) {
-                            Place = true;
+                        if (celldata.cell_type(index) == Liquid) {
+                            place = true;
                             int my_grain_orientation = static_cast<int>(interface.buffer_south_recv(buf_position, 2));
                             int my_grain_number = static_cast<int>(interface.buffer_south_recv(buf_position, 3));
-                            new_grain_id = orientation.get_grain_id(my_grain_orientation, my_grain_number);
+                            new_grain_id = orientation.getGrainID(my_grain_orientation, my_grain_number);
                             new_octahedron_center_x = interface.buffer_south_recv(buf_position, 4);
                             new_octahedron_center_y = interface.buffer_south_recv(buf_position, 5);
                             new_octahedron_center_z = interface.buffer_south_recv(buf_position, 6);
                             new_diagonal_length = interface.buffer_south_recv(buf_position, 7);
                         }
-                        else if ((cellData.CellType(index) == Active) &&
+                        else if ((celldata.cell_type(index) == Active) &&
                                  (interface.buffer_south_recv(buf_position, 7) == 0.0)) {
-                            cellData.CellType(index) = Liquid;
+                            celldata.cell_type(index) = Liquid;
                         }
                     }
                     else if ((unpack_index == 1) && (interface.buffer_north_recv(buf_position, 0) != -1.0) &&
@@ -667,32 +667,32 @@ void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &
                         coord_x = static_cast<int>(interface.buffer_north_recv(buf_position, 0));
                         coord_y = grid.ny_local - 1;
                         coord_z = static_cast<int>(interface.buffer_north_recv(buf_position, 1));
-                        index = grid.get_1D_index(coord_x, coord_y, coord_z);
+                        index = grid.get1DIndex(coord_x, coord_y, coord_z);
                         // Two possibilities: buffer data with non-zero diagonal length was loaded, and a liquid
                         // cell may have to be updated to active - or zero diagonal length data was loaded, and an
                         // active cell may have to be updated to liquid
-                        if (cellData.CellType(index) == Liquid) {
-                            Place = true;
+                        if (celldata.cell_type(index) == Liquid) {
+                            place = true;
                             int my_grain_orientation = static_cast<int>(interface.buffer_north_recv(buf_position, 2));
                             int my_grain_number = static_cast<int>(interface.buffer_north_recv(buf_position, 3));
-                            new_grain_id = orientation.get_grain_id(my_grain_orientation, my_grain_number);
+                            new_grain_id = orientation.getGrainID(my_grain_orientation, my_grain_number);
                             new_octahedron_center_x = interface.buffer_north_recv(buf_position, 4);
                             new_octahedron_center_y = interface.buffer_north_recv(buf_position, 5);
                             new_octahedron_center_z = interface.buffer_north_recv(buf_position, 6);
                             new_diagonal_length = interface.buffer_north_recv(buf_position, 7);
                         }
-                        else if ((cellData.CellType(index) == Active) &&
+                        else if ((celldata.cell_type(index) == Active) &&
                                  (interface.buffer_north_recv(buf_position, 7) == 0.0)) {
-                            cellData.CellType(index) = Liquid;
+                            celldata.cell_type(index) = Liquid;
                         }
                     }
-                    if (Place) {
+                    if (place) {
                         // Update this ghost node cell's information with data from other rank
-                        GrainID(index) = new_grain_id;
+                        grain_id(index) = new_grain_id;
                         interface.octahedron_center(3 * index) = new_octahedron_center_x;
                         interface.octahedron_center(3 * index + 1) = new_octahedron_center_y;
                         interface.octahedron_center(3 * index + 2) = new_octahedron_center_z;
-                        int my_orientation = get_grain_orientation(GrainID(index), orientation.n_grain_orientations);
+                        int my_orientation = getGrainOrientation(grain_id(index), orientation.n_grain_orientations);
                         interface.diagonal_length(index) = static_cast<float>(new_diagonal_length);
                         // Cell center - note that the Y coordinate is relative to the domain origin to keep the
                         // coordinate system continuous across ranks
@@ -701,66 +701,66 @@ void halo_update(const int, const int, const Grid &grid, CellData<MemorySpace> &
                         double zp = coord_z + 0.5;
                         // Calculate critical values at which this active cell leads to the activation of a
                         // neighboring liquid cell
-                        interface.calc_crit_diagonal_length(index, xp, yp, zp, new_octahedron_center_x,
-                                                            new_octahedron_center_y, new_octahedron_center_z,
-                                                            my_orientation, orientation.grain_unit_vector);
-                        cellData.CellType(index) = Active;
+                        interface.calcCritDiagonalLength(index, xp, yp, zp, new_octahedron_center_x,
+                                                         new_octahedron_center_y, new_octahedron_center_z,
+                                                         my_orientation, orientation.grain_unit_vector);
+                        celldata.cell_type(index) = Active;
                     }
                 });
         }
     }
 
     // Reset send buffer data to -1 (used as placeholder) and reset the number of cells stored in the buffers to 0
-    interface.reset_buffers();
+    interface.resetBuffers();
     // Wait on send requests
-    MPI_Waitall(2, SendRequests.data(), MPI_STATUSES_IGNORE);
+    MPI_Waitall(2, send_requests.data(), MPI_STATUSES_IGNORE);
     Kokkos::fence();
 }
 //*****************************************************************************/
 // Jump to the next time step with work to be done, if nothing left to do in the near future
 // The cells of interest are active cells, and the view checked for future work is
-// MeltTimeStep Print intermediate output during this jump if PrintIdleMovieFrames = true
+// melt_time_step Print intermediate output during this jump if PrintIdleMovieFrames = true
 template <typename MemorySpace>
-void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsigned long int LocalTempSolidCells,
-                  Temperature<MemorySpace> &temperature, const Grid &grid, CellData<MemorySpace> &cellData,
+void jumpTimeStep(int &cycle, unsigned long int remaining_cells_of_interest, unsigned long int local_temp_solid_cells,
+                  Temperature<MemorySpace> &temperature, const Grid &grid, CellData<MemorySpace> &celldata,
                   const int id, const int layernumber, const int np, Orientation<MemorySpace> &orientation, Print print,
                   const double deltat, Interface<MemorySpace> &interface) {
 
-    MPI_Bcast(&RemainingCellsOfInterest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
-    if (RemainingCellsOfInterest == 0) {
+    MPI_Bcast(&remaining_cells_of_interest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+    if (remaining_cells_of_interest == 0) {
         // If this rank still has cells that will later undergo transformation (LocalIncompleteCells > 0), check when
         // the next solid cells go above the liquidus (remelting) Otherwise, assign the largest possible time step as
         // the next time work needs to be done on the rank
-        unsigned long int NextMeltTimeStep;
-        if (LocalTempSolidCells > 0) {
+        unsigned long int next_melt_time_step;
+        if (local_temp_solid_cells > 0) {
             Kokkos::parallel_reduce(
                 "CheckNextTSForWork", grid.domain_size,
                 KOKKOS_LAMBDA(const int &index, unsigned long int &tempv) {
                     // criteria for a cell to be associated with future work (checking this layer's cells only)
-                    if (cellData.CellType(index) == TempSolid) {
-                        int SolidificationCounter_ThisCell = temperature.SolidificationEventCounter(index);
-                        unsigned long int NextMeltTimeStep_ThisCell = static_cast<unsigned long int>(
-                            temperature.LayerTimeTempHistory(index, SolidificationCounter_ThisCell, 0));
-                        if (NextMeltTimeStep_ThisCell < tempv)
-                            tempv = NextMeltTimeStep_ThisCell;
+                    if (celldata.cell_type(index) == TempSolid) {
+                        int solidification_counter_this_cell = temperature.solidification_event_counter(index);
+                        unsigned long int next_melt_time_step_this_cell = static_cast<unsigned long int>(
+                            temperature.layer_time_temp_history(index, solidification_counter_this_cell, 0));
+                        if (next_melt_time_step_this_cell < tempv)
+                            tempv = next_melt_time_step_this_cell;
                     }
                 },
-                Kokkos::Min<unsigned long int>(NextMeltTimeStep));
+                Kokkos::Min<unsigned long int>(next_melt_time_step));
         }
         else
-            NextMeltTimeStep = INT_MAX;
+            next_melt_time_step = INT_MAX;
 
-        unsigned long int GlobalNextMeltTimeStep;
-        MPI_Allreduce(&NextMeltTimeStep, &GlobalNextMeltTimeStep, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
-        if ((GlobalNextMeltTimeStep - cycle) > 5000) {
+        unsigned long int global_next_melt_time_step;
+        MPI_Allreduce(&next_melt_time_step, &global_next_melt_time_step, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
+        if ((global_next_melt_time_step - cycle) > 5000) {
             // Print current grain misorientations (up to and including the current layer's data) for any of the time
             // steps between now and when melting/solidification occurs again, if the print option for idle frame
             // printing was toggled
 
-            print.printIdleIntralayer(id, np, layernumber, deltat, cycle, grid, cellData, temperature, interface,
-                                      orientation, GlobalNextMeltTimeStep);
+            print.printIdleIntralayer(id, np, layernumber, deltat, cycle, grid, celldata, temperature, interface,
+                                      orientation, global_next_melt_time_step);
             // Jump to next time step when solidification starts again
-            cycle = GlobalNextMeltTimeStep - 1;
+            cycle = global_next_melt_time_step - 1;
             if (id == 0)
                 std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
         }
@@ -771,27 +771,27 @@ void JumpTimeStep(int &cycle, unsigned long int RemainingCellsOfInterest, unsign
 // Prints intermediate code output to stdout (intermediate output collected and printed is different than without
 // remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
 template <typename MemorySpace>
-void IntermediateOutputAndCheck(const int id, const int np, int &cycle, const Grid &grid,
-                                int SuccessfulNucEvents_ThisRank, int &XSwitch, CellData<MemorySpace> &cellData,
-                                Temperature<MemorySpace> &temperature, std::string SimulationType,
+void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Grid &grid,
+                                int successful_nuc_events_this_rank, int &x_switch, CellData<MemorySpace> &celldata,
+                                Temperature<MemorySpace> &temperature, std::string simulation_type,
                                 const int layernumber, Orientation<MemorySpace> &orientation, Print print,
                                 const double deltat, Interface<MemorySpace> &interface) {
 
-    auto GrainID = cellData.getGrainIDSubview(grid);
-    unsigned long int LocalSuperheatedCells;
-    unsigned long int LocalUndercooledCells;
-    unsigned long int LocalActiveCells;
-    unsigned long int LocalTempSolidCells;
-    unsigned long int LocalFinishedSolidCells;
+    auto grain_id = celldata.getGrainIDSubview(grid);
+    unsigned long int local_superheated_cells;
+    unsigned long int local_undercooled_cells;
+    unsigned long int local_active_cells;
+    unsigned long int local_temp_solid_cells;
+    unsigned long int local_finished_solid_cells;
     Kokkos::parallel_reduce(
         "IntermediateOutput", grid.domain_size,
         KOKKOS_LAMBDA(const int &index, unsigned long int &sum_superheated, unsigned long int &sum_undercooled,
                       unsigned long int &sum_active, unsigned long int &sum_temp_solid,
                       unsigned long int &sum_finished_solid) {
-            int cell_type_this_cell = cellData.CellType(index);
+            int cell_type_this_cell = celldata.cell_type(index);
             if (cell_type_this_cell == Liquid) {
-                int CritTimeStep = temperature.getCritTimeStep(index);
-                if (CritTimeStep > cycle)
+                int crit_time_step = temperature.getCritTimeStep(index);
+                if (crit_time_step > cycle)
                     sum_superheated += 1;
                 else
                     sum_undercooled += 1;
@@ -803,105 +803,108 @@ void IntermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
             else if (cell_type_this_cell == Solid)
                 sum_finished_solid += 1;
         },
-        LocalSuperheatedCells, LocalUndercooledCells, LocalActiveCells, LocalTempSolidCells, LocalFinishedSolidCells);
+        local_superheated_cells, local_undercooled_cells, local_active_cells, local_temp_solid_cells,
+        local_finished_solid_cells);
 
-    unsigned long int Global_SuccessfulNucEvents_ThisRank = 0;
-    unsigned long int GlobalSuperheatedCells, GlobalUndercooledCells, GlobalActiveCells, GlobalTempSolidCells,
-        GlobalFinishedSolidCells;
-    MPI_Reduce(&LocalSuperheatedCells, &GlobalSuperheatedCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&LocalUndercooledCells, &GlobalUndercooledCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&LocalActiveCells, &GlobalActiveCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&LocalTempSolidCells, &GlobalTempSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&LocalFinishedSolidCells, &GlobalFinishedSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&SuccessfulNucEvents_ThisRank, &Global_SuccessfulNucEvents_ThisRank, 1, MPI_INT, MPI_SUM, 0,
+    unsigned long int global_successful_nuc_events_this_rank = 0;
+    unsigned long int global_superheated_cells, global_undercooled_cells, global_active_cells, global_temp_solid_cells,
+        global_finished_solid_cells;
+    MPI_Reduce(&local_superheated_cells, &global_superheated_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_undercooled_cells, &global_undercooled_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_active_cells, &global_active_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_temp_solid_cells, &global_temp_solid_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_finished_solid_cells, &global_finished_solid_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0,
+               MPI_COMM_WORLD);
+    MPI_Reduce(&successful_nuc_events_this_rank, &global_successful_nuc_events_this_rank, 1, MPI_INT, MPI_SUM, 0,
                MPI_COMM_WORLD);
 
     if (id == 0) {
         std::cout << "cycle = " << cycle << " in layer " << layernumber
-                  << ": Superheated liquid cells = " << GlobalSuperheatedCells
-                  << " Undercooled liquid cells = " << GlobalUndercooledCells
-                  << " Number of nucleation events this layer " << Global_SuccessfulNucEvents_ThisRank
-                  << " cells to undergo at least one more solidification event = " << GlobalTempSolidCells
-                  << " cells that are finished with solidification = " << GlobalFinishedSolidCells << std::endl;
-        if (GlobalSuperheatedCells + GlobalUndercooledCells + GlobalActiveCells + GlobalTempSolidCells == 0)
-            XSwitch = 1;
+                  << ": Superheated liquid cells = " << global_superheated_cells
+                  << " Undercooled liquid cells = " << global_undercooled_cells
+                  << " Number of nucleation events this layer " << global_successful_nuc_events_this_rank
+                  << " cells to undergo at least one more solidification event = " << global_temp_solid_cells
+                  << " cells that are finished with solidification = " << global_finished_solid_cells << std::endl;
+        if (global_superheated_cells + global_undercooled_cells + global_active_cells + global_temp_solid_cells == 0)
+            x_switch = 1;
     }
-    MPI_Bcast(&XSwitch, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&x_switch, 1, MPI_INT, 0, MPI_COMM_WORLD);
     // Cells of interest are those currently undergoing a melting-solidification cycle
-    unsigned long int RemainingCellsOfInterest = GlobalActiveCells + GlobalSuperheatedCells + GlobalUndercooledCells;
-    if ((XSwitch == 0) && ((SimulationType == "R") || (SimulationType == "S")))
-        JumpTimeStep(cycle, RemainingCellsOfInterest, LocalTempSolidCells, temperature, grid, cellData, id, layernumber,
-                     np, orientation, print, deltat, interface);
+    unsigned long int remaining_cells_of_interest =
+        global_active_cells + global_superheated_cells + global_undercooled_cells;
+    if ((x_switch == 0) && ((simulation_type == "R") || (simulation_type == "S")))
+        jumpTimeStep(cycle, remaining_cells_of_interest, local_temp_solid_cells, temperature, grid, celldata, id,
+                     layernumber, np, orientation, print, deltat, interface);
 }
 
 //*****************************************************************************/
 // Prints intermediate code output to stdout and checks to see the single grain simulation end condition (the grain has
 // reached a domain edge) has been satisfied
 template <typename ViewTypeInt>
-void IntermediateOutputAndCheck(const int id, int cycle, const Grid &grid, int &XSwitch, ViewTypeInt CellType) {
+void intermediateOutputAndCheck(const int id, int cycle, const Grid &grid, int &x_switch, ViewTypeInt cell_type) {
 
-    unsigned long int LocalLiquidCells, LocalActiveCells, LocalSolidCells;
+    unsigned long int local_liquid_cells, local_active_cells, local_solid_cells;
     using memory_space = typename ViewTypeInt::memory_space;
-    Kokkos::View<bool **, memory_space> EdgesReached(Kokkos::ViewAllocateWithoutInitializing("EdgesReached"), 3,
-                                                     2); // init to false
-    Kokkos::deep_copy(EdgesReached, false);
+    Kokkos::View<bool **, memory_space> edges_reached(Kokkos::ViewAllocateWithoutInitializing("edges_reached"), 3,
+                                                      2); // init to false
+    Kokkos::deep_copy(edges_reached, false);
 
     Kokkos::parallel_reduce(
         "IntermediateOutput", grid.domain_size,
         KOKKOS_LAMBDA(const int &index, unsigned long int &sum_liquid, unsigned long int &sum_active,
                       unsigned long int &sum_solid) {
-            if (CellType(index) == Liquid)
+            if (cell_type(index) == Liquid)
                 sum_liquid += 1;
-            else if (CellType(index) == Active) {
+            else if (cell_type(index) == Active) {
                 sum_active += 1;
                 // Did this cell reach a domain edge?
-                int coord_x = grid.get_coord_X(index);
-                int coord_y = grid.get_coord_Y(index);
-                int coord_z = grid.get_coord_Z(index);
+                int coord_x = grid.getCoordX(index);
+                int coord_y = grid.getCoordY(index);
+                int coord_z = grid.getCoordZ(index);
                 int coord_y_global = coord_y + grid.y_offset;
                 if (coord_x == 0)
-                    EdgesReached(0, 0) = true;
+                    edges_reached(0, 0) = true;
                 if (coord_x == grid.nx - 1)
-                    EdgesReached(0, 1) = true;
+                    edges_reached(0, 1) = true;
                 if (coord_y_global == 0)
-                    EdgesReached(1, 0) = true;
+                    edges_reached(1, 0) = true;
                 if (coord_y_global == grid.ny - 1)
-                    EdgesReached(1, 1) = true;
+                    edges_reached(1, 1) = true;
                 if (coord_z == 0)
-                    EdgesReached(2, 0) = true;
+                    edges_reached(2, 0) = true;
                 if (coord_z == grid.nz - 1)
-                    EdgesReached(2, 1) = true;
+                    edges_reached(2, 1) = true;
             }
-            else if (CellType(index) == Solid)
+            else if (cell_type(index) == Solid)
                 sum_solid += 1;
         },
-        LocalLiquidCells, LocalActiveCells, LocalSolidCells);
+        local_liquid_cells, local_active_cells, local_solid_cells);
 
-    unsigned long int GlobalLiquidCells, GlobalActiveCells, GlobalSolidCells;
-    MPI_Reduce(&LocalLiquidCells, &GlobalLiquidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&LocalActiveCells, &GlobalActiveCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&LocalSolidCells, &GlobalSolidCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    unsigned long int global_liquid_cells, global_active_cells, global_solid_cells;
+    MPI_Reduce(&local_liquid_cells, &global_liquid_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_active_cells, &global_active_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_solid_cells, &global_solid_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     if (id == 0)
-        std::cout << "cycle = " << cycle << " : Liquid cells = " << GlobalLiquidCells
-                  << " Active cells = " << GlobalActiveCells << " Solid cells = " << GlobalSolidCells << std::endl;
+        std::cout << "cycle = " << cycle << " : Liquid cells = " << global_liquid_cells
+                  << " Active cells = " << global_active_cells << " Solid cells = " << global_solid_cells << std::endl;
 
     // Each rank checks to see if a global domain boundary was reached
-    auto EdgesReached_Host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), EdgesReached);
-    int XSwitchLocal = 0;
-    std::vector<std::string> EdgeDims = {"X", "Y", "Z"};
-    std::vector<std::string> EdgeNames = {"Lower", "Upper"};
+    auto edges_reached_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), edges_reached);
+    int x_switch_local = 0;
+    std::vector<std::string> edge_dims = {"X", "Y", "Z"};
+    std::vector<std::string> edge_names = {"Lower", "Upper"};
     for (int edgedim = 0; edgedim < 3; edgedim++) {
         for (int edgename = 0; edgename < 2; edgename++) {
-            if (EdgesReached_Host(edgedim, edgename)) {
-                std::cout << EdgeNames[edgename] << " edge of domain in the " << EdgeDims[edgedim]
+            if (edges_reached_host(edgedim, edgename)) {
+                std::cout << edge_names[edgename] << " edge of domain in the " << edge_dims[edgedim]
                           << " direction was reached on rank " << id << " and cycle " << cycle
                           << "; simulation is complete" << std::endl;
-                XSwitchLocal = 1;
+                x_switch_local = 1;
             }
         }
     }
     // Simulation ends if a global domain boundary was reached on any rank
-    MPI_Allreduce(&XSwitchLocal, &XSwitch, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&x_switch_local, &x_switch, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 }
 
 #endif
