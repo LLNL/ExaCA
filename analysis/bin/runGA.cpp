@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 
             // Output file stream for quantities of interest
             std::ofstream qois;
-            std::string qois_fname = base_filename_this_region + "_qois.txt";
+            std::string qois_fname = base_filename_this_region + "_QoIs.txt";
             qois.open(qois_fname);
             // Header data for qois file
             representativeregion.printAnalysisHeader(qois);
@@ -107,9 +107,9 @@ int main(int argc, char *argv[]) {
             std::vector<float> build_trans_aspect_ratio(representativeregion.number_of_grains);
             if ((representativeregion.analysis_options_stats_yn[3]) ||
                 (representativeregion.analysis_options_per_grain_stats_yn[5]))
-                representativeregion.calcbuild_trans_aspect_ratio(build_trans_aspect_ratio);
+                representativeregion.calcBuildTransAspectRatio(build_trans_aspect_ratio);
             if (representativeregion.analysis_options_stats_yn[3])
-                representativeregion.printMeanbuild_trans_aspect_ratio(qois);
+                representativeregion.printMeanBuildTransAspectRatio(qois);
 
             if (representativeregion.analysis_options_stats_yn[4])
                 representativeregion.printMeanExtent(qois, "X");

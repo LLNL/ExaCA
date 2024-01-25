@@ -72,8 +72,8 @@ void testInterfacialResponse() {
             EXPECT_DOUBLE_EQ(irf.D, d_test * 2);
         }
         EXPECT_DOUBLE_EQ(irf.freezing_range, freezing_range_test);
-        double computer_v = irf.compute(loc_u);
-        EXPECT_DOUBLE_EQ(computer_v, expected_v);
+        double computed_v = irf.compute(loc_u);
+        EXPECT_DOUBLE_EQ(computed_v, expected_v);
     }
 }
 //---------------------------------------------------------------------------//

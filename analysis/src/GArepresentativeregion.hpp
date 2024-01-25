@@ -488,7 +488,7 @@ struct RepresentativeRegion {
     }
 
     //*****************************************************************************/
-    // "print" routines print average quantities to the screen (and to the file stream specified by qois)
+    // "print" routines print average quantities to the screen (and to the file stream specified by QoIs)
     // "write" routines write data to specific files
     //*****************************************************************************/
     // Print information about a representative area or volume to the console/qois file
@@ -624,7 +624,7 @@ struct RepresentativeRegion {
     }
 
     // Print average aspect ratio in the build to the average of the transverse directions
-    void printMeanbuild_trans_aspect_ratio(std::ofstream &qois) {
+    void printMeanBuildTransAspectRatio(std::ofstream &qois) {
 
         std::vector<float> grain_aspect_ratios(number_of_grains);
         float ar_sum = 0.0;
@@ -749,7 +749,7 @@ struct RepresentativeRegion {
 
     // From the grain extents in x, y, and z, calcualte the aspect ratio for each grain in the build to the average of
     // the transverse directions
-    void calcbuild_trans_aspect_ratio(std::vector<float> &build_trans_aspect_ratio) {
+    void calcBuildTransAspectRatio(std::vector<float> &build_trans_aspect_ratio) {
 
         for (int n = 0; n < number_of_grains; n++) {
             float ar_xz = grain_extent_z[n] / grain_extent_x[n];

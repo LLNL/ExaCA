@@ -312,7 +312,7 @@ struct Inputs {
             }
             else
                 throw std::runtime_error("Error: either FractionSurfaceSitesActive or lists of "
-                                         "grain_locations_x/grain_locations_y/GrainIDs are "
+                                         "GrainLocationsX/GrainLocationsY/GrainIDs are "
                                          "required to initialize this problem type");
             if (input_data["Substrate"].contains("FillBottomSurface"))
                 substrate.fill_bottom_surface = input_data["Substrate"]["FillBottomSurface"];

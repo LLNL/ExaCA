@@ -163,11 +163,11 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
             int coord_z = grid.getCoordZ(index);
 
             // Cells of interest for the CA - active cells and future active/liquid cells
-            if (cellData.CellType(index) == Active) {
+            if (celldata.cell_type(index) == Active) {
                 // Get undercooling of active cell
                 double loc_u = temperature.undercooling_current(index);
                 // Update diagonal length of octahedron based on local undercooling and interfacial response function
-                interface.diagonal_length(index) += irf.compute(LocU);
+                interface.diagonal_length(index) += irf.compute(loc_u);
                 // Cycle through all neigboring cells on this processor to see if they have been captured
                 // Cells in ghost nodes cannot capture cells on other processors
                 bool deactivate_cell =
@@ -773,7 +773,7 @@ void jumpTimeStep(int &cycle, unsigned long int remaining_cells_of_interest, uns
 template <typename MemorySpace>
 void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Grid &grid,
                                 int successful_nuc_events_this_rank, int &x_switch, CellData<MemorySpace> &celldata,
-                                Temperature<MemorySpace> &temperature, std::string SimulationType,
+                                Temperature<MemorySpace> &temperature, std::string simulation_type,
                                 const int layernumber, Orientation<MemorySpace> &orientation, Print print,
                                 const double deltat, Interface<MemorySpace> &interface) {
 
@@ -832,7 +832,7 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
     // Cells of interest are those currently undergoing a melting-solidification cycle
     unsigned long int remaining_cells_of_interest =
         global_active_cells + global_superheated_cells + global_undercooled_cells;
-    if ((x_switch == 0) && ((SimulationType == "R") || (SimulationType == "S")))
+    if ((x_switch == 0) && ((simulation_type == "R") || (simulation_type == "S")))
         jumpTimeStep(cycle, remaining_cells_of_interest, local_temp_solid_cells, temperature, grid, celldata, id,
                      layernumber, np, orientation, print, deltat, interface);
 }

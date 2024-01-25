@@ -63,7 +63,7 @@ void writeTestVolume() {
     test_data.close();
 }
 
-void testConstructrepresentativeregion_Volume() {
+void testConstructRepresentativeRegion_Volume() {
     // Write out example data
     writeTestVolume();
 
@@ -133,7 +133,7 @@ void testConstructrepresentativeregion_Volume() {
 }
 
 // Initialize a representative area from json format
-void testConstructrepresentativeregion_Area() {
+void testConstructRepresentativeRegion_Area() {
 
     // Write out example data
     writeTestArea();
@@ -272,8 +272,8 @@ void testCollectGrainStats() {
 // RUN TESTS
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, representative_region) {
-    testConstructrepresentativeregion_Volume();
-    testConstructrepresentativeregion_Area();
+    testConstructRepresentativeRegion_Volume();
+    testConstructRepresentativeRegion_Area();
     testCollectGrainStats();
 }
 } // end namespace Test
