@@ -166,12 +166,10 @@ void cell_capture(const int, const int np, const Grid &grid, const InterfacialRe
 
             // Cells of interest for the CA - active cells and future active/liquid cells
             if (cellData.CellType(index) == Active) {
-                // Update local diagonal length of active cell
+                // Get undercooling of active cell
                 double LocU = temperature.UndercoolingCurrent(index);
-                LocU = Kokkos::fmin(210.0, LocU);
-                double V = irf.compute(LocU);
-                // Max amount the diagonal can grow per time step
-                interface.diagonal_length(index) += Kokkos::fmin(0.045, V);
+                // Update diagonal length of octahedron based on local undercooling and interfacial response function
+                interface.diagonal_length(index) += irf.compute(LocU);
                 // Cycle through all neigboring cells on this processor to see if they have been captured
                 // Cells in ghost nodes cannot capture cells on other processors
                 bool DeactivateCell = true; // switch that becomes false if the cell has at least 1 liquid type neighbor
