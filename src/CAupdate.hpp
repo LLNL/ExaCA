@@ -650,7 +650,8 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
                             place = true;
                             int my_grain_orientation = static_cast<int>(interface.buffer_south_recv(buf_position, 2));
                             int my_grain_number = static_cast<int>(interface.buffer_south_recv(buf_position, 3));
-                            new_grain_id = orientation.getGrainID(my_grain_orientation, my_grain_number);
+                            new_grain_id =
+                                getGrainID(my_grain_orientation, my_grain_number, orientation.n_grain_orientations);
                             new_octahedron_center_x = interface.buffer_south_recv(buf_position, 4);
                             new_octahedron_center_y = interface.buffer_south_recv(buf_position, 5);
                             new_octahedron_center_z = interface.buffer_south_recv(buf_position, 6);
@@ -675,7 +676,8 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
                             place = true;
                             int my_grain_orientation = static_cast<int>(interface.buffer_north_recv(buf_position, 2));
                             int my_grain_number = static_cast<int>(interface.buffer_north_recv(buf_position, 3));
-                            new_grain_id = orientation.getGrainID(my_grain_orientation, my_grain_number);
+                            new_grain_id =
+                                getGrainID(my_grain_orientation, my_grain_number, orientation.n_grain_orientations);
                             new_octahedron_center_x = interface.buffer_north_recv(buf_position, 4);
                             new_octahedron_center_y = interface.buffer_north_recv(buf_position, 5);
                             new_octahedron_center_z = interface.buffer_north_recv(buf_position, 6);

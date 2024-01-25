@@ -25,23 +25,22 @@ void testCalcZLayerBottom() {
 
     // Default initialized inputs and grid structs
     Inputs inputs;
-    int NumberOfLayers_temp = 10;
-    Grid grid(NumberOfLayers_temp);
+    int number_of_layers_temp = 10;
+    Grid grid(number_of_layers_temp);
 
     // Manually set layer info
-    grid.LayerHeight = 10;
-    grid.NumberOfLayers = 10;
+    grid.layer_height = 10;
     grid.deltax = 1 * pow(10, -6);
-    grid.ZMin = -0.5 * pow(10, -6);
-    for (int layernumber = 0; layernumber < NumberOfLayers; layernumber++) {
+    grid.z_min = -0.5 * pow(10, -6);
+    for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
         // Set ZMinLayer for each layer to be offset by LayerHeight cells from the previous one (lets solution for
         // both problem types by the same)
-        grid.ZMinLayer(layernumber) = grid.ZMin + layernumber * grid.LayerHeight * grid.deltax;
+        grid.z_min_layer(layernumber) = grid.z_min + layernumber * grid.layer_height * grid.deltax;
         // Call function for each layernumber, and for simulation types "S" and "R"
-        int z_layer_bottom_S = grid.calc_z_layer_bottom("S", layernumber);
-        EXPECT_EQ(z_layer_bottom_S, grid.LayerHeight * layernumber);
-        int z_layer_bottom_R = grid.calc_z_layer_bottom("R", layernumber);
-        EXPECT_EQ(z_layer_bottom_R, grid.LayerHeight * layernumber);
+        int z_layer_bottom_S = grid.calcZLayerBottom("S", layernumber);
+        EXPECT_EQ(z_layer_bottom_S, grid.layer_height * layernumber);
+        int z_layer_bottom_R = grid.calcZLayerBottom("R", layernumber);
+        EXPECT_EQ(z_layer_bottom_R, grid.layer_height * layernumber);
     }
 }
 
@@ -50,57 +49,57 @@ void testCalcZLayerTop() {
     // A separate function is now used for ZBound_High calculation
     // Default initialized inputs and grid structs with manually set values for tests
     Inputs inputs;
-    inputs.domain.SpotRadius = 100;
-    inputs.domain.LayerHeight = 10;
-    int NumberOfLayers_temp = 10;
-    Grid grid(NumberOfLayers_temp);
-    grid.ZMin = 0.5 * pow(10, -6);
+    inputs.domain.spot_radius = 100;
+    inputs.domain.layer_height = 10;
+    int number_of_layers_temp = 10;
+    Grid grid(number_of_layers_temp);
+    grid.z_min = 0.5 * pow(10, -6);
     grid.deltax = 1.0 * pow(10, -6);
     grid.nz = 101;
-    for (int layernumber = 0; layernumber < grid.NumberOfLayers; layernumber++) {
+    for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
         // Set ZMaxLayer for each layer to be offset by LayerHeight cells from the previous one, with layer 0 having a
         // ZMax value of ZMin + SpotRadius (lets solution for both problem types be the same)
-        grid.ZMaxLayer(layernumber) =
-            grid.ZMin + inputs.domain.SpotRadius * grid.deltax + layernumber * grid.LayerHeight * grid.deltax;
+        grid.z_max_layer(layernumber) =
+            grid.z_min + inputs.domain.spot_radius * grid.deltax + layernumber * grid.layer_height * grid.deltax;
         // Call function for each layernumber, and for simulation types "S" and "R"
-        int z_layer_top_S = grid.calc_z_layer_top("S", inputs.domain.SpotRadius, layernumber);
-        EXPECT_EQ(z_layer_top_S, inputs.domain.SpotRadius + grid.LayerHeight * layernumber);
-        int z_layer_top_R = calc_z_layer_top("R", inputs.domain.SpotRadius, layernumber);
-        EXPECT_EQ(z_layer_top_R, inputs.domain.SpotRadius + grid.LayerHeight * layernumber);
+        int z_layer_top_S = grid.calcZLayerTop("S", inputs.domain.spot_radius, layernumber);
+        EXPECT_EQ(z_layer_top_S, inputs.domain.spot_radius + grid.layer_height * layernumber);
+        int z_layer_top_R = grid.calcZLayerTop("R", inputs.domain.spot_radius, layernumber);
+        EXPECT_EQ(z_layer_top_R, inputs.domain.spot_radius + grid.layer_height * layernumber);
         // For simulation type C, should be independent of layernumber
-        int z_layer_top_C = calc_z_layer_top("C", inputs.domain.SpotRadius, layernumber);
+        int z_layer_top_C = grid.calcZLayerTop("C", inputs.domain.spot_radius, layernumber);
         EXPECT_EQ(z_layer_top_C, grid.nz - 1);
     }
 }
 
-void testCalcnzLayer() {
+void testCalcNzLayer() {
 
     int id = 0;
     Inputs inputs;
-    int NumberOfLayers_temp = 10;
-    Grid grid(NumberOfLayers_temp);
+    int number_of_layers_temp = 10;
+    Grid grid(number_of_layers_temp);
     grid.z_layer_bottom = 5;
-    for (int layernumber = 0; layernumber < grid.NumberOfLayers; layernumber++) {
+    for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
         grid.z_layer_top = 6 + layernumber;
-        int nz_layer = grid.calc_nz_layer(id, layernumber);
+        int nz_layer = grid.calcNzLayer(id, layernumber);
         EXPECT_EQ(nz_layer, 2 + layernumber);
     }
 }
 
 void testCalcDomainSize() {
 
-    Grid grid();
+    Grid grid;
     grid.nx = 5;
     grid.ny_local = 4;
     grid.nz_layer = 10;
-    int DomainSize = calcDomainSize();
-    EXPECT_EQ(DomainSize, 10 * 5 * 4);
+    int domain_size = grid.calcDomainSize();
+    EXPECT_EQ(domain_size, 10 * 5 * 4);
 }
 
 //---------------------------------------------------------------------------//
 // bounds_init_test
 //---------------------------------------------------------------------------//
-void testFindXYZBounds(bool TestBinaryInputRead) {
+void testFindXYZBounds(bool test_binary_input_read) {
 
     int id, np;
     // Get number of processes
@@ -110,65 +109,70 @@ void testFindXYZBounds(bool TestBinaryInputRead) {
 
     // Write fake OpenFOAM data - temperature data should be of type double
     double deltax = 1 * pow(10, -6);
-    std::string TestFilename = "TestData";
-    if (TestBinaryInputRead)
-        TestFilename = TestFilename + ".catemp";
+    std::string test_filename = "TestData";
+    if (test_binary_input_read)
+        test_filename = test_filename + ".catemp";
     else
-        TestFilename = TestFilename + ".txt";
-    std::ofstream TestData;
-    if (TestBinaryInputRead)
-        TestData.open(TestFilename, std::ios::out | std::ios::binary);
+        test_filename = test_filename + ".txt";
+    std::ofstream test_data_stream;
+    if (test_binary_input_read)
+        test_data_stream.open(test_filename, std::ios::out | std::ios::binary);
     else {
-        TestData.open(TestFilename);
-        TestData << "x, y, z, tm, tl, cr" << std::endl;
+        test_data_stream.open(test_filename);
+        test_data_stream << "x, y, z, tm, tl, cr" << std::endl;
     }
     // only x,y,z data should be read, tm, tl, cr should not affect result
-    for (int k = 0; k < 3; k++) {
-        for (int j = 0; j < 3; j++) {
-            for (int i = 0; i < 4; i++) {
-                if (TestBinaryInputRead) {
-                    WriteData(TestData, static_cast<double>(i * deltax), TestBinaryInputRead);
-                    WriteData(TestData, static_cast<double>(j * deltax), TestBinaryInputRead);
-                    WriteData(TestData, static_cast<double>(k * deltax), TestBinaryInputRead);
-                    WriteData(TestData, static_cast<double>(-1.0), TestBinaryInputRead);
-                    WriteData(TestData, static_cast<double>(-1.0), TestBinaryInputRead);
-                    WriteData(TestData, static_cast<double>(-1.0), TestBinaryInputRead);
+    const int nx = 4;
+    const int ny = 8;
+    const int nz = 3;
+    for (int k = 0; k < nz; k++) {
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
+                if (test_binary_input_read) {
+                    writeData(test_data_stream, static_cast<double>(i * deltax), test_binary_input_read);
+                    writeData(test_data_stream, static_cast<double>(j * deltax), test_binary_input_read);
+                    writeData(test_data_stream, static_cast<double>(k * deltax), test_binary_input_read);
+                    writeData(test_data_stream, static_cast<double>(-1.0), test_binary_input_read);
+                    writeData(test_data_stream, static_cast<double>(-1.0), test_binary_input_read);
+                    writeData(test_data_stream, static_cast<double>(-1.0), test_binary_input_read);
                 }
                 else
-                    TestData << i * deltax << "," << j * deltax << "," << k * deltax << "," << static_cast<double>(-1.0)
-                             << "," << static_cast<double>(-1.0) << "," << static_cast<double>(-1.0) << std::endl;
+                    test_data_stream << i * deltax << "," << j * deltax << "," << k * deltax << ","
+                                     << static_cast<double>(-1.0) << "," << static_cast<double>(-1.0) << ","
+                                     << static_cast<double>(-1.0) << std::endl;
             }
         }
     }
-    TestData.close();
+    test_data_stream.close();
 
     // Set up grid
     Inputs inputs;
-    inputs.temperature.TempFilesInSeries = 1;
-    inputs.temperature.temp_paths.push_back(TestFilename);
-    inputs.LayerHeight = 2;
-    inputs.NumberOfLayers = 2;
+    inputs.temperature.temp_files_in_series = 1;
+    inputs.temperature.temp_paths.push_back(test_filename);
+    inputs.domain.deltax = deltax;
+    inputs.domain.layer_height = 2;
+    inputs.domain.number_of_layers = 2;
 
     // Fill grid struct
-    Grid grid("R", id, np, 1);
+    Grid grid("R", id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
 
-    EXPECT_DOUBLE_EQ(grid.XMin, 0.0);
-    EXPECT_DOUBLE_EQ(grid.YMin, 0.0);
-    EXPECT_DOUBLE_EQ(grid.ZMin, 0.0);
-    EXPECT_DOUBLE_EQ(grid.XMax, 3 * grid.deltax);
-    EXPECT_DOUBLE_EQ(grid.YMax, 2 * grid.deltax);
+    EXPECT_DOUBLE_EQ(grid.x_min, 0.0);
+    EXPECT_DOUBLE_EQ(grid.y_min, 0.0);
+    EXPECT_DOUBLE_EQ(grid.z_min, 0.0);
+    EXPECT_DOUBLE_EQ(grid.x_max, (nx - 1) * deltax);
+    EXPECT_DOUBLE_EQ(grid.y_max, (ny - 1) * deltax);
     // ZMax is equal to the largest Z coordinate in the file, offset by LayerHeight cells in the build direction due
     // to the second layer
-    EXPECT_DOUBLE_EQ(grid.ZMax, 4 * grid.deltax);
+    EXPECT_DOUBLE_EQ(grid.z_max, 4 * grid.deltax);
     // Bounds for each individual layer - 2nd layer offset by LayerHeight cells from the first
-    EXPECT_DOUBLE_EQ(grid.ZMinLayer(0), 0.0);
-    EXPECT_DOUBLE_EQ(grid.ZMaxLayer(0), 2 * grid.deltax);
-    EXPECT_DOUBLE_EQ(grid.ZMinLayer(1), 2 * grid.deltax);
-    EXPECT_DOUBLE_EQ(grid.ZMaxLayer(1), 4 * grid.deltax);
+    EXPECT_DOUBLE_EQ(grid.z_min_layer(0), 0.0);
+    EXPECT_DOUBLE_EQ(grid.z_max_layer(0), (nz - 1) * deltax);
+    EXPECT_DOUBLE_EQ(grid.z_min_layer(1), (nz - 1) * deltax);
+    EXPECT_DOUBLE_EQ(grid.z_max_layer(1), (nz - 1 + inputs.domain.layer_height) * deltax);
     // Size of overall domain
-    EXPECT_EQ(grid.nx, 4);
-    EXPECT_EQ(grid.ny, 3);
-    EXPECT_EQ(grid.nz, 5);
+    EXPECT_EQ(grid.nx, nx);
+    EXPECT_EQ(grid.ny, ny);
+    EXPECT_EQ(grid.nz, nz + inputs.domain.layer_height);
 }
 
 //---------------------------------------------------------------------------//
@@ -177,7 +181,7 @@ void testFindXYZBounds(bool TestBinaryInputRead) {
 TEST(TEST_CATEGORY, activedomainsizecalc) {
     testCalcZLayerBottom();
     testCalcZLayerTop();
-    testCalcnzLayer();
+    testCalcNzLayer();
     testCalcDomainSize();
 }
 TEST(TEST_CATEGORY, bounds_init_test) {
