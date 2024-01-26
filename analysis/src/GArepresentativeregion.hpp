@@ -368,7 +368,7 @@ struct RepresentativeRegion {
             int grain_size_cells =
                 std::count(grain_id_vector.begin(), grain_id_vector.end(), unique_grain_id_vector[n]);
             // convert to either microns, square microns, or cubic microns
-            grain_size_vector[n] = static_cast<float>(conv * grain_size_cells);
+            grain_size_vector[n] = static_cast<float>(conv) * static_cast<float>(grain_size_cells);
         }
         return grain_size_vector;
     }

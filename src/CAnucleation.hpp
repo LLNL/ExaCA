@@ -102,7 +102,7 @@ struct Nucleation {
         std::uniform_real_distribution<double> y_dist(-0.49999, grid.ny - 0.5);
         std::uniform_real_distribution<double> z_dist(-0.49999, grid.nz_layer - 0.5);
         // Gaussian distribution of nucleation undercooling
-        std::normal_distribution<double> g_distribution(_inputs.dtn, _inputs.dtsigma);
+        std::normal_distribution<float> g_distribution(_inputs.dtn, _inputs.dtsigma);
 
         // Max number of nucleated grains in this layer
         // Use long int in intermediate steps calculating the number of nucleated grains, though the number should be
@@ -146,7 +146,7 @@ struct Nucleation {
                 // Assign each nuclei a Grain ID (negative values used for nucleated grains) and an undercooling
                 nuclei_grain_id_whole_domain_v[n_event] =
                     -(nuclei_whole_domain + n_event + 1); // avoid using grain ID 0
-                nuclei_undercooling_whole_domain_v[n_event] = static_cast<float>(g_distribution(generator));
+                nuclei_undercooling_whole_domain_v[n_event] = g_distribution(generator);
             }
         }
 
