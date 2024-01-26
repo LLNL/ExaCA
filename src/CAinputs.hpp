@@ -673,8 +673,9 @@ struct Inputs {
         // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur
         // when assigning powder layer GrainIDs
         if (!(substrate.baseplate_through_powder)) {
-            long int num_cells_powder_layers =
-                (long int)(nx) * (long int)(ny) * (long int)(layer_height) * (long int)(number_of_layers - 1);
+            long int num_cells_powder_layers = static_cast<long int>(nx) * static_cast<long int>(ny) *
+                                               static_cast<long int>(layer_height) *
+                                               static_cast<long int>(number_of_layers - 1);
             long int num_assigned_cells_powder_layers = std::lround(
                 Kokkos::round(static_cast<double>(num_cells_powder_layers) * substrate.powder_active_fraction));
             if (num_assigned_cells_powder_layers > INT_MAX)

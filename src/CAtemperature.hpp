@@ -678,7 +678,7 @@ struct Temperature {
     // Extract the next time that this point undergoes melting
     KOKKOS_INLINE_FUNCTION
     int getMeltTimeStep(const int cycle, const int index) const {
-        double melt_time_step;
+        int melt_time_step;
         int solidification_event_counter_cell = solidification_event_counter(index);
         melt_time_step = static_cast<int>(layer_time_temp_history(index, solidification_event_counter_cell, 0));
         if (cycle > melt_time_step) {

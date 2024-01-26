@@ -122,11 +122,11 @@ struct Nucleation {
                                      "events in the temperature data, or the domain size should be reduced");
         int nuclei_this_layer_single = static_cast<int>(nuclei_this_layer_single_long);
         int nuclei_this_layer = static_cast<int>(nuclei_this_layer_long);
-        int nuclei_multiplier = static_cast<long int>(nuclei_multiplier_long);
+        int nuclei_multiplier = static_cast<int>(nuclei_multiplier_long);
 
         // Nuclei Grain ID are assigned to avoid reusing values from previous layers
         std::vector<int> nuclei_grain_id_whole_domain_v(nuclei_this_layer);
-        std::vector<double> nuclei_undercooling_whole_domain_v(nuclei_this_layer);
+        std::vector<float> nuclei_undercooling_whole_domain_v(nuclei_this_layer);
         // Views for storing potential nucleated grain coordinates
         view_type_int_host nuclei_x(Kokkos::ViewAllocateWithoutInitializing("NucleiX"), nuclei_this_layer);
         view_type_int_host nuclei_y(Kokkos::ViewAllocateWithoutInitializing("NucleiY"), nuclei_this_layer);
@@ -146,7 +146,7 @@ struct Nucleation {
                 // Assign each nuclei a Grain ID (negative values used for nucleated grains) and an undercooling
                 nuclei_grain_id_whole_domain_v[n_event] =
                     -(nuclei_whole_domain + n_event + 1); // avoid using grain ID 0
-                nuclei_undercooling_whole_domain_v[n_event] = g_distribution(generator);
+                nuclei_undercooling_whole_domain_v[n_event] = static_cast<float>(g_distribution(generator));
             }
         }
 
@@ -189,7 +189,7 @@ struct Nucleation {
                         float undercooling_change_this_event =
                             layer_time_temp_history_host(nuclei_location_this_layer, meltevent, 2);
                         float time_to_nuc_und =
-                            Kokkos::round(crit_time_step_this_event +
+                            Kokkos::round(static_cast<float>(crit_time_step_this_event) +
                                           nuclei_undercooling_whole_domain_v[n_event] / undercooling_change_this_event);
                         if (crit_time_step_this_event > time_to_nuc_und)
                             time_to_nuc_und = crit_time_step_this_event;

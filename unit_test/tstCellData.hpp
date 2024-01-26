@@ -52,7 +52,7 @@ void testCellDataInit_SingleGrain() {
     CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
 
     // Check that default substrate single grain orientation was set
-    EXPECT_DOUBLE_EQ(inputs.substrate.single_grain_orientation, celldata._inputs.single_grain_orientation);
+    EXPECT_EQ(inputs.substrate.single_grain_orientation, celldata._inputs.single_grain_orientation);
 
     // Init grain
     celldata.initSubstrate(id, grid);

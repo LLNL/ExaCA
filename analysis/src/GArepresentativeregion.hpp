@@ -368,7 +368,7 @@ struct RepresentativeRegion {
             int grain_size_cells =
                 std::count(grain_id_vector.begin(), grain_id_vector.end(), unique_grain_id_vector[n]);
             // convert to either microns, square microns, or cubic microns
-            grain_size_vector[n] = conv * grain_size_cells;
+            grain_size_vector[n] = static_cast<float>(conv * grain_size_cells);
         }
         return grain_size_vector;
     }
@@ -597,7 +597,7 @@ struct RepresentativeRegion {
     // Print the average grain size and the number of grains in the region
     void printMeanSize(std::ofstream &qois) {
 
-        double avg_size_per_grain = divideCast<double>(region_size_microns, number_of_grains);
+        float avg_size_per_grain = divideCast<float>(region_size_microns, number_of_grains);
         std::string temp = "-- There are " + std::to_string(number_of_grains) + " grains in this " + region_type +
                            " , and the mean grain " + region_type + " is " + std::to_string(avg_size_per_grain) + " " +
                            units_dimension + "\n";
@@ -688,7 +688,7 @@ struct RepresentativeRegion {
             it = std::unique(unique_grain_id_vector_area.begin(), unique_grain_id_vector_area.end());
             unique_grain_id_vector_area.resize(std::distance(unique_grain_id_vector_area.begin(), it));
             int number_of_grains_area = unique_grain_id_vector_area.size();
-            double mean_grain_area_this_layer = divideCast<double>(layer_area, number_of_grains_area);
+            float mean_grain_area_this_layer = divideCast<float>(layer_area, number_of_grains_area);
             if (print_unweighted_areas)
                 grainplot1 << z_bounds_meters[0] * Kokkos::pow(10, 6) + convertToMicrons(deltax, "length") << ","
                            << mean_grain_area_this_layer * convertToMicrons(deltax, "area") << std::endl;
@@ -698,12 +698,12 @@ struct RepresentativeRegion {
                 for (int n = 0; n < number_of_grains_area; n++) {
                     int grain_size_cells = std::count(grain_id_vector_area.begin(), grain_id_vector_area.end(),
                                                       unique_grain_id_vector_area[n]);
-                    grain_size_vector_microns_area[n] = conv * grain_size_cells;
+                    grain_size_vector_microns_area[n] = static_cast<float>(conv) * grain_size_cells;
                 }
                 float area_x_area = 0.0;
                 for (int n = 0; n < number_of_grains_area; n++)
                     area_x_area += grain_size_vector_microns_area[n] * grain_size_vector_microns_area[n];
-                double weighted_area = divideCast<double>(area_x_area, layer_area);
+                float weighted_area = divideCast<float>(area_x_area, layer_area);
                 grainplot2 << z_bounds_meters[0] * Kokkos::pow(10, 6) + convertToMicrons(deltax, "length") << ","
                            << weighted_area << std::endl;
                 if (k == z_bounds_cells[1])

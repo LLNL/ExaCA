@@ -30,10 +30,10 @@ void fillSteeringVector_NoRemelt(const int cycle, const Grid &grid, CellData<Mem
     Kokkos::parallel_for(
         "FillSV", grid.domain_size, KOKKOS_LAMBDA(const int &index) {
             int cell_type = celldata.cell_type(index);
-            int is_not_solid = (cell_type != Solid);
+            bool is_not_solid = (cell_type != Solid);
             int crit_time_step = temperature.layer_time_temp_history(index, 0, 1);
-            int past_crit_time = (cycle > crit_time_step);
-            int cell_active = ((cell_type == Active) || (cell_type == FutureActive));
+            bool past_crit_time = (cycle > crit_time_step);
+            bool cell_active = ((cell_type == Active) || (cell_type == FutureActive));
             if (is_not_solid && past_crit_time) {
                 temperature.updateUndercooling(index);
                 if (cell_active) {
@@ -165,7 +165,7 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
             // Cells of interest for the CA - active cells and future active/liquid cells
             if (celldata.cell_type(index) == Active) {
                 // Get undercooling of active cell
-                double loc_u = temperature.undercooling_current(index);
+                float loc_u = temperature.undercooling_current(index);
                 // Update diagonal length of octahedron based on local undercooling and interfacial response function
                 interface.diagonal_length(index) += irf.compute(loc_u);
                 // Cycle through all neigboring cells on this processor to see if they have been captured
@@ -283,7 +283,7 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                 norm[1] = uu[1] / n_dem;
                                 norm[2] = uu[2] / n_dem;
                                 // normal to capturing plane
-                                double norm_plane[3], triangle_x[3], triangle_y[3], triangle_z[3], para_t;
+                                float norm_plane[3], triangle_x[3], triangle_y[3], triangle_z[3], para_t;
                                 norm_plane[0] = norm[0];
                                 norm_plane[1] = norm[1];
                                 norm_plane[2] = norm[2];
@@ -698,9 +698,9 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
                         interface.diagonal_length(index) = static_cast<float>(new_diagonal_length);
                         // Cell center - note that the Y coordinate is relative to the domain origin to keep the
                         // coordinate system continuous across ranks
-                        double xp = coord_x + 0.5;
-                        double yp = coord_y + grid.y_offset + 0.5;
-                        double zp = coord_z + 0.5;
+                        float xp = coord_x + 0.5;
+                        float yp = coord_y + grid.y_offset + 0.5;
+                        float zp = coord_z + 0.5;
                         // Calculate critical values at which this active cell leads to the activation of a
                         // neighboring liquid cell
                         interface.calcCritDiagonalLength(index, xp, yp, zp, new_octahedron_center_x,
@@ -723,37 +723,37 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
 // The cells of interest are active cells, and the view checked for future work is
 // melt_time_step Print intermediate output during this jump if PrintIdleMovieFrames = true
 template <typename MemorySpace>
-void jumpTimeStep(int &cycle, unsigned long int remaining_cells_of_interest, unsigned long int local_temp_solid_cells,
+void jumpTimeStep(int &cycle, int remaining_cells_of_interest, const int local_temp_solid_cells,
                   Temperature<MemorySpace> &temperature, const Grid &grid, CellData<MemorySpace> &celldata,
                   const int id, const int layernumber, const int np, Orientation<MemorySpace> &orientation, Print print,
                   const double deltat, Interface<MemorySpace> &interface) {
 
-    MPI_Bcast(&remaining_cells_of_interest, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&remaining_cells_of_interest, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (remaining_cells_of_interest == 0) {
         // If this rank still has cells that will later undergo transformation (LocalIncompleteCells > 0), check when
         // the next solid cells go above the liquidus (remelting) Otherwise, assign the largest possible time step as
         // the next time work needs to be done on the rank
-        unsigned long int next_melt_time_step;
+        int next_melt_time_step;
         if (local_temp_solid_cells > 0) {
             Kokkos::parallel_reduce(
                 "CheckNextTSForWork", grid.domain_size,
-                KOKKOS_LAMBDA(const int &index, unsigned long int &tempv) {
+                KOKKOS_LAMBDA(const int &index, int &tempv) {
                     // criteria for a cell to be associated with future work (checking this layer's cells only)
                     if (celldata.cell_type(index) == TempSolid) {
                         int solidification_counter_this_cell = temperature.solidification_event_counter(index);
-                        unsigned long int next_melt_time_step_this_cell = static_cast<unsigned long int>(
+                        int next_melt_time_step_this_cell = static_cast<int>(
                             temperature.layer_time_temp_history(index, solidification_counter_this_cell, 0));
                         if (next_melt_time_step_this_cell < tempv)
                             tempv = next_melt_time_step_this_cell;
                     }
                 },
-                Kokkos::Min<unsigned long int>(next_melt_time_step));
+                Kokkos::Min<int>(next_melt_time_step));
         }
         else
             next_melt_time_step = INT_MAX;
 
-        unsigned long int global_next_melt_time_step;
-        MPI_Allreduce(&next_melt_time_step, &global_next_melt_time_step, 1, MPI_UNSIGNED_LONG, MPI_MIN, MPI_COMM_WORLD);
+        int global_next_melt_time_step;
+        MPI_Allreduce(&next_melt_time_step, &global_next_melt_time_step, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         if ((global_next_melt_time_step - cycle) > 5000) {
             // Print current grain misorientations (up to and including the current layer's data) for any of the time
             // steps between now and when melting/solidification occurs again, if the print option for idle frame
@@ -780,16 +780,12 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
                                 const double deltat, Interface<MemorySpace> &interface) {
 
     auto grain_id = celldata.getGrainIDSubview(grid);
-    unsigned long int local_superheated_cells;
-    unsigned long int local_undercooled_cells;
-    unsigned long int local_active_cells;
-    unsigned long int local_temp_solid_cells;
-    unsigned long int local_finished_solid_cells;
+    int local_superheated_cells, local_undercooled_cells, local_active_cells, local_temp_solid_cells,
+        local_finished_solid_cells;
     Kokkos::parallel_reduce(
         "IntermediateOutput", grid.domain_size,
-        KOKKOS_LAMBDA(const int &index, unsigned long int &sum_superheated, unsigned long int &sum_undercooled,
-                      unsigned long int &sum_active, unsigned long int &sum_temp_solid,
-                      unsigned long int &sum_finished_solid) {
+        KOKKOS_LAMBDA(const int &index, int &sum_superheated, int &sum_undercooled, int &sum_active,
+                      int &sum_temp_solid, int &sum_finished_solid) {
             int cell_type_this_cell = celldata.cell_type(index);
             if (cell_type_this_cell == Liquid) {
                 int crit_time_step = temperature.getCritTimeStep(index);
@@ -808,15 +804,14 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
         local_superheated_cells, local_undercooled_cells, local_active_cells, local_temp_solid_cells,
         local_finished_solid_cells);
 
-    unsigned long int global_successful_nuc_events_this_rank = 0;
-    unsigned long int global_superheated_cells, global_undercooled_cells, global_active_cells, global_temp_solid_cells,
+    int global_successful_nuc_events_this_rank = 0;
+    int global_superheated_cells, global_undercooled_cells, global_active_cells, global_temp_solid_cells,
         global_finished_solid_cells;
-    MPI_Reduce(&local_superheated_cells, &global_superheated_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_undercooled_cells, &global_undercooled_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_active_cells, &global_active_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_temp_solid_cells, &global_temp_solid_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_finished_solid_cells, &global_finished_solid_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0,
-               MPI_COMM_WORLD);
+    MPI_Reduce(&local_superheated_cells, &global_superheated_cells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_undercooled_cells, &global_undercooled_cells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_active_cells, &global_active_cells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_temp_solid_cells, &global_temp_solid_cells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_finished_solid_cells, &global_finished_solid_cells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&successful_nuc_events_this_rank, &global_successful_nuc_events_this_rank, 1, MPI_INT, MPI_SUM, 0,
                MPI_COMM_WORLD);
 
@@ -832,8 +827,7 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
     }
     MPI_Bcast(&x_switch, 1, MPI_INT, 0, MPI_COMM_WORLD);
     // Cells of interest are those currently undergoing a melting-solidification cycle
-    unsigned long int remaining_cells_of_interest =
-        global_active_cells + global_superheated_cells + global_undercooled_cells;
+    int remaining_cells_of_interest = global_active_cells + global_superheated_cells + global_undercooled_cells;
     if ((x_switch == 0) && ((simulation_type == "R") || (simulation_type == "S")))
         jumpTimeStep(cycle, remaining_cells_of_interest, local_temp_solid_cells, temperature, grid, celldata, id,
                      layernumber, np, orientation, print, deltat, interface);
@@ -845,7 +839,7 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
 template <typename ViewTypeInt>
 void intermediateOutputAndCheck(const int id, int cycle, const Grid &grid, int &x_switch, ViewTypeInt cell_type) {
 
-    unsigned long int local_liquid_cells, local_active_cells, local_solid_cells;
+    int local_liquid_cells, local_active_cells, local_solid_cells;
     using memory_space = typename ViewTypeInt::memory_space;
     Kokkos::View<bool **, memory_space> edges_reached(Kokkos::ViewAllocateWithoutInitializing("edges_reached"), 3,
                                                       2); // init to false
@@ -853,8 +847,7 @@ void intermediateOutputAndCheck(const int id, int cycle, const Grid &grid, int &
 
     Kokkos::parallel_reduce(
         "IntermediateOutput", grid.domain_size,
-        KOKKOS_LAMBDA(const int &index, unsigned long int &sum_liquid, unsigned long int &sum_active,
-                      unsigned long int &sum_solid) {
+        KOKKOS_LAMBDA(const int &index, int &sum_liquid, int &sum_active, int &sum_solid) {
             if (cell_type(index) == Liquid)
                 sum_liquid += 1;
             else if (cell_type(index) == Active) {
@@ -882,10 +875,10 @@ void intermediateOutputAndCheck(const int id, int cycle, const Grid &grid, int &
         },
         local_liquid_cells, local_active_cells, local_solid_cells);
 
-    unsigned long int global_liquid_cells, global_active_cells, global_solid_cells;
-    MPI_Reduce(&local_liquid_cells, &global_liquid_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_active_cells, &global_active_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_solid_cells, &global_solid_cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    int global_liquid_cells, global_active_cells, global_solid_cells;
+    MPI_Reduce(&local_liquid_cells, &global_liquid_cells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_active_cells, &global_active_cells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_solid_cells, &global_solid_cells, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if (id == 0)
         std::cout << "cycle = " << cycle << " : Liquid cells = " << global_liquid_cells
                   << " Active cells = " << global_active_cells << " Solid cells = " << global_solid_cells << std::endl;

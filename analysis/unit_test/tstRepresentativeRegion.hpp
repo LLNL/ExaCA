@@ -246,8 +246,8 @@ void testCollectGrainStats() {
 
     // Check against expected grain sizes, in cubic microns (each grain spans 50 cells)
     for (int n = 0; n < representativeregion.number_of_grains; n++) {
-        EXPECT_FLOAT_EQ(representativeregion.grain_size_vector_microns[n],
-                        50 * Kokkos::pow(deltax, 3) * Kokkos::pow(10, 18));
+        float grain_size_microns_expected = static_cast<float>(50 * Kokkos::pow(deltax, 3) * Kokkos::pow(10, 18));
+        EXPECT_FLOAT_EQ(representativeregion.grain_size_vector_microns[n], grain_size_microns_expected);
     }
 
     // Obtain the grain extents

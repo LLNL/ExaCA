@@ -20,11 +20,11 @@
 // Interfacial repsonse function with various functional forms.
 struct InterfacialResponseFunction {
 
-    double freezing_range;
-    double A;
-    double B;
-    double C;
-    double D = 0.0;
+    float freezing_range;
+    float A;
+    float B;
+    float C;
+    float D = 0.0;
     enum IRFtypes {
         cubic = 0,
         quadratic = 1,
@@ -73,35 +73,35 @@ struct InterfacialResponseFunction {
     void normalize(const double deltat, const double deltax) {
         if (function == cubic) {
             // Normalize all 4 coefficients: V = A*x^3 + B*x^2 + C*x + D
-            A *= deltat / deltax;
-            B *= deltat / deltax;
-            C *= deltat / deltax;
-            D *= deltat / deltax;
+            A *= static_cast<float>(deltat / deltax);
+            B *= static_cast<float>(deltat / deltax);
+            C *= static_cast<float>(deltat / deltax);
+            D *= static_cast<float>(deltat / deltax);
         }
         else if (function == quadratic) {
             // Normalize the 3 relevant coefficients: V = A*x^2 + B*x + C
-            A *= deltat / deltax;
-            B *= deltat / deltax;
-            C *= deltat / deltax;
+            A *= static_cast<float>(deltat / deltax);
+            B *= static_cast<float>(deltat / deltax);
+            C *= static_cast<float>(deltat / deltax);
         }
         else if (function == power) {
             // Normalize only the leading and last coefficient: V = A*x^B + C
-            A *= deltat / deltax;
-            C *= deltat / deltax;
+            A *= static_cast<float>(deltat / deltax);
+            C *= static_cast<float>(deltat / deltax);
         }
     }
 
     // Compute velocity from local undercooling.
     // functional form is assumed to be cubic if not explicitly given in input file
     KOKKOS_INLINE_FUNCTION
-    double compute(const double LocU) const {
-        double V;
+    float compute(const float loc_u) const {
+        float V;
         if (function == quadratic)
-            V = A * Kokkos::pow(LocU, 2.0) + B * LocU + C;
+            V = A * Kokkos::pow(loc_u, 2.0) + B * loc_u + C;
         else if (function == power)
-            V = A * Kokkos::pow(LocU, B) + C;
+            V = A * Kokkos::pow(loc_u, B) + C;
         else
-            V = A * Kokkos::pow(LocU, 3.0) + B * Kokkos::pow(LocU, 2.0) + C * LocU + D;
+            V = A * Kokkos::pow(loc_u, 3.0) + B * Kokkos::pow(loc_u, 2.0) + C * loc_u + D;
         return Kokkos::fmax(0.0, V);
     }
 
