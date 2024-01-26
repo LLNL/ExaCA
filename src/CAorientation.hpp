@@ -157,17 +157,18 @@ struct Orientation {
         }
         return grain_misorientation;
     }
-
-    // Get the grain ID from the repeat number of a grain from a given grain ID and the number of possible orientations
-    KOKKOS_INLINE_FUNCTION int getGrainID(const int my_grain_orientation, const int my_grain_number) const {
-        int my_grain_id = n_grain_orientations * (Kokkos::abs(my_grain_number) - 1) + my_grain_orientation;
-        if (my_grain_number < 0)
-            my_grain_id = -my_grain_id;
-        return my_grain_id;
-    }
 };
 
 // Inline functions
+// Get the grain ID from the repeat number of a grain from a given grain ID and the number of possible orientations
+KOKKOS_INLINE_FUNCTION int getGrainID(const int my_grain_orientation, const int my_grain_number,
+                                      const int n_grain_orientations) {
+    int my_grain_id = n_grain_orientations * (Kokkos::abs(my_grain_number) - 1) + my_grain_orientation;
+    if (my_grain_number < 0)
+        my_grain_id = -my_grain_id;
+    return my_grain_id;
+}
+
 // Get the orientation of a grain from a given grain ID and the number of possible orientations
 // By default, start indexing at 0 (GrainID of 1 has Orientation number 0), optionally starting at 1
 // GrainID of 0 is a special case - has orientation 0 no matter what (only used when reconstructing grain ID in

@@ -22,4 +22,4 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../examples/Materials/SS316.json
 
 ExaCA_add_tests(PACKAGE ExaCA NAMES InterfacialResponse Inputs Orientation Parse Print)
 
-ExaCA_add_tests(MPI PACKAGE ExaCA NAMES CellData Nucleation Temperature Update)
+ExaCA_add_tests(MPI PACKAGE ExaCA NAMES CellData Grid Interface Nucleation Temperature Update)
