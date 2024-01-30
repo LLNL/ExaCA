@@ -108,42 +108,45 @@ void testFindXYZBounds(bool test_binary_input_read) {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
     // Write fake OpenFOAM data - temperature data should be of type double
+    const int nx = 4;
+    const int ny = 8;
+    const int nz = 3;
     double deltax = 1 * pow(10, -6);
     std::string test_filename = "TestData";
     if (test_binary_input_read)
         test_filename = test_filename + ".catemp";
     else
         test_filename = test_filename + ".txt";
-    std::ofstream test_data_stream;
-    if (test_binary_input_read)
-        test_data_stream.open(test_filename, std::ios::out | std::ios::binary);
-    else {
-        test_data_stream.open(test_filename);
-        test_data_stream << "x, y, z, tm, tl, cr" << std::endl;
-    }
-    // only x,y,z data should be read, tm, tl, cr should not affect result
-    const int nx = 4;
-    const int ny = 8;
-    const int nz = 3;
-    for (int k = 0; k < nz; k++) {
-        for (int j = 0; j < ny; j++) {
-            for (int i = 0; i < nx; i++) {
-                if (test_binary_input_read) {
-                    writeData(test_data_stream, static_cast<double>(i * deltax), test_binary_input_read);
-                    writeData(test_data_stream, static_cast<double>(j * deltax), test_binary_input_read);
-                    writeData(test_data_stream, static_cast<double>(k * deltax), test_binary_input_read);
-                    writeData(test_data_stream, static_cast<double>(-1.0), test_binary_input_read);
-                    writeData(test_data_stream, static_cast<double>(-1.0), test_binary_input_read);
-                    writeData(test_data_stream, static_cast<double>(-1.0), test_binary_input_read);
+    if (id == 0) {
+        std::ofstream test_data_stream;
+        if (test_binary_input_read)
+            test_data_stream.open(test_filename, std::ios::out | std::ios::binary);
+        else {
+            test_data_stream.open(test_filename);
+            test_data_stream << "x, y, z, tm, tl, cr" << std::endl;
+        }
+        // only x,y,z data should be read, tm, tl, cr should not affect result
+        for (int k = 0; k < nz; k++) {
+            for (int j = 0; j < ny; j++) {
+                for (int i = 0; i < nx; i++) {
+                    if (test_binary_input_read) {
+                        writeData(test_data_stream, static_cast<double>(i * deltax), test_binary_input_read);
+                        writeData(test_data_stream, static_cast<double>(j * deltax), test_binary_input_read);
+                        writeData(test_data_stream, static_cast<double>(k * deltax), test_binary_input_read);
+                        writeData(test_data_stream, static_cast<double>(-1.0), test_binary_input_read);
+                        writeData(test_data_stream, static_cast<double>(-1.0), test_binary_input_read);
+                        writeData(test_data_stream, static_cast<double>(-1.0), test_binary_input_read);
+                    }
+                    else
+                        test_data_stream << i * deltax << "," << j * deltax << "," << k * deltax << ","
+                                         << static_cast<double>(-1.0) << "," << static_cast<double>(-1.0) << ","
+                                         << static_cast<double>(-1.0) << std::endl;
                 }
-                else
-                    test_data_stream << i * deltax << "," << j * deltax << "," << k * deltax << ","
-                                     << static_cast<double>(-1.0) << "," << static_cast<double>(-1.0) << ","
-                                     << static_cast<double>(-1.0) << std::endl;
             }
         }
+        test_data_stream.close();
     }
-    test_data_stream.close();
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // Set up grid
     Inputs inputs;
