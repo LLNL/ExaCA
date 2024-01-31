@@ -552,7 +552,6 @@ struct Inputs {
         else {
             if (input_data["Printing"].contains("Intralayer")) {
                 // Fields to be printed during a simulation or during a layer of a simulation - if increment
-                print.intralayer = true;
                 if (input_data["Printing"]["Intralayer"]["Increment"] == 0) {
                     // Files only printed for the initial state of a given layer
                     print.intralayer_increment = INT_MAX;

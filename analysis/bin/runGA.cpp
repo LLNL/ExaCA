@@ -73,9 +73,12 @@ int main(int argc, char *argv[]) {
             // Output file stream for quantities of interest
             std::ofstream qois;
             std::string qois_fname = base_filename_this_region + "_QoIs.txt";
-            qois.open(qois_fname);
-            // Header data for qois file
-            representativeregion.printAnalysisHeader(qois);
+            // Print QoIs file if at least one analysis option is turned on
+            if (representativeregion.print_stats_yn) {
+                qois.open(qois_fname);
+                // Header data for qois file
+                representativeregion.printAnalysisHeader(qois);
+            }
 
             // Fraction of region consisting of nucleated grains, unmelted material
             if (representativeregion.analysis_options_stats_yn[0])
@@ -130,7 +133,8 @@ int main(int argc, char *argv[]) {
             if ((representativeregion.analysis_options_layerwise_stats_yn[0]) ||
                 (representativeregion.analysis_options_layerwise_stats_yn[1]))
                 representativeregion.writeAreaSeries(base_filename_this_region, deltax, grain_id);
-            qois.close();
+            if (representativeregion.print_stats_yn)
+                qois.close();
 
             // Write per-grain stats for the analysis types specified to the file
             // "[base_filename_this_region]_grains.csv"
