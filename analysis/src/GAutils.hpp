@@ -118,7 +118,7 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
 
             // grain_id and layer_id are the only fields currently used by the analysis, other fields will be
             // skipped/ignored
-            std::vector<std::string> possible_fieldnames = {"grain_id", "layer_id"};
+            std::vector<std::string> possible_fieldnames = {"GrainID", "LayerID"};
             int num_possible_fieldnames = possible_fieldnames.size();
             for (auto n = 0; n < num_possible_fieldnames; n++) {
                 if (line.find(possible_fieldnames[n]) != std::string::npos)
@@ -142,31 +142,31 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
                 // 1 more unused line
                 getline(input_data_stream, line);
                 // Place appropriate data
-                if (read_fieldname == "grain_id") {
+                if (read_fieldname == "GrainID") {
                     // grain_id data should be type int
                     if (read_datatype_string != "int")
-                        throw std::runtime_error("Error: Field grain_id should be data of type int");
+                        throw std::runtime_error("Error: Field GrainID should be data of type int");
                     if (binary_vtk)
                         grain_id = readBinaryField<Kokkos::View<int ***, Kokkos::HostSpace>, int>(input_data_stream, nx,
-                                                                                                  ny, nz, "grain_id");
+                                                                                                  ny, nz, "GrainID");
                     else
                         grain_id = readASCIIField<Kokkos::View<int ***, Kokkos::HostSpace>>(input_data_stream, nx, ny,
-                                                                                            nz, "grain_id");
+                                                                                            nz, "GrainID");
                 }
-                else if (read_fieldname == "layer_id") {
+                else if (read_fieldname == "LayerID") {
                     // layer_id may be int or short, but is stored as type short
                     if ((read_datatype_string != "int") && (read_datatype_string != "short"))
-                        throw std::runtime_error("Error: Field layer_id should be data of type int or short");
+                        throw std::runtime_error("Error: Field LayerID should be data of type int or short");
                     if (!binary_vtk)
                         layer_id = readASCIIField<Kokkos::View<short ***, Kokkos::HostSpace>>(input_data_stream, nx, ny,
-                                                                                              nz, "layer_id");
+                                                                                              nz, "LayerID");
                     else {
                         if (read_datatype_string == "int")
                             layer_id = readBinaryField<Kokkos::View<short ***, Kokkos::HostSpace>, int>(
-                                input_data_stream, nx, ny, nz, "layer_id");
+                                input_data_stream, nx, ny, nz, "LayerID");
                         else
                             layer_id = readBinaryField<Kokkos::View<short ***, Kokkos::HostSpace>, short>(
-                                input_data_stream, nx, ny, nz, "layer_id");
+                                input_data_stream, nx, ny, nz, "LayerID");
                     }
                 }
                 std::cout << "Data field " << read_fieldname << " read" << std::endl;
