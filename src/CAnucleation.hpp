@@ -102,7 +102,7 @@ struct Nucleation {
         std::uniform_real_distribution<double> y_dist(-0.49999, grid.ny - 0.5);
         std::uniform_real_distribution<double> z_dist(-0.49999, grid.nz_layer - 0.5);
         // Gaussian distribution of nucleation undercooling
-        std::normal_distribution<double> g_distribution(_inputs.dtn, _inputs.dtsigma);
+        std::normal_distribution<float> g_distribution(_inputs.dtn, _inputs.dtsigma);
 
         // Max number of nucleated grains in this layer
         // Use long int in intermediate steps calculating the number of nucleated grains, though the number should be
@@ -122,11 +122,11 @@ struct Nucleation {
                                      "events in the temperature data, or the domain size should be reduced");
         int nuclei_this_layer_single = static_cast<int>(nuclei_this_layer_single_long);
         int nuclei_this_layer = static_cast<int>(nuclei_this_layer_long);
-        int nuclei_multiplier = static_cast<long int>(nuclei_multiplier_long);
+        int nuclei_multiplier = static_cast<int>(nuclei_multiplier_long);
 
         // Nuclei Grain ID are assigned to avoid reusing values from previous layers
         std::vector<int> nuclei_grain_id_whole_domain_v(nuclei_this_layer);
-        std::vector<double> nuclei_undercooling_whole_domain_v(nuclei_this_layer);
+        std::vector<float> nuclei_undercooling_whole_domain_v(nuclei_this_layer);
         // Views for storing potential nucleated grain coordinates
         view_type_int_host nuclei_x(Kokkos::ViewAllocateWithoutInitializing("NucleiX"), nuclei_this_layer);
         view_type_int_host nuclei_y(Kokkos::ViewAllocateWithoutInitializing("NucleiY"), nuclei_this_layer);
@@ -189,7 +189,7 @@ struct Nucleation {
                         float undercooling_change_this_event =
                             layer_time_temp_history_host(nuclei_location_this_layer, meltevent, 2);
                         float time_to_nuc_und =
-                            Kokkos::round(crit_time_step_this_event +
+                            Kokkos::round(static_cast<float>(crit_time_step_this_event) +
                                           nuclei_undercooling_whole_domain_v[n_event] / undercooling_change_this_event);
                         if (crit_time_step_this_event > time_to_nuc_und)
                             time_to_nuc_und = crit_time_step_this_event;

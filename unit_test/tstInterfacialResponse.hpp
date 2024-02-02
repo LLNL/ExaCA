@@ -31,8 +31,8 @@ void testInterfacialResponse() {
         // Check that fitting parameters were correctly initialized and normalized
         // Fitting parameters should've been normalized by deltat / deltax, i.e. twice as large as the numbers in the
         // file
-        double a_test, b_test, c_test, d_test, freezing_range_test, expected_v;
-        double loc_u = 11.0;
+        float a_test, b_test, c_test, d_test, freezing_range_test, expected_v;
+        float loc_u = 11.0;
         if (file_name == "Inconel625.json") {
             a_test = -0.00000010302;
             b_test = 0.00010533;
@@ -62,18 +62,18 @@ void testInterfacialResponse() {
         // For all IRFs, A and C should be normalized by deltat/deltax (i.e., 2)
         // For the power law IRF (SS316), B is dimensionless and should not be normalized unlike the other IRFs where
         // all coefficients are normalized
-        EXPECT_DOUBLE_EQ(irf.A, a_test * 2);
+        EXPECT_FLOAT_EQ(irf.A, a_test * 2);
         if (file_name == "SS316.json")
-            EXPECT_DOUBLE_EQ(irf.B, b_test);
+            EXPECT_FLOAT_EQ(irf.B, b_test);
         else
-            EXPECT_DOUBLE_EQ(irf.B, b_test * 2);
-        EXPECT_DOUBLE_EQ(irf.C, c_test * 2);
+            EXPECT_FLOAT_EQ(irf.B, b_test * 2);
+        EXPECT_FLOAT_EQ(irf.C, c_test * 2);
         if (file_name == "Inconel625.json") {
-            EXPECT_DOUBLE_EQ(irf.D, d_test * 2);
+            EXPECT_FLOAT_EQ(irf.D, d_test * 2);
         }
-        EXPECT_DOUBLE_EQ(irf.freezing_range, freezing_range_test);
-        double computed_v = irf.compute(loc_u);
-        EXPECT_DOUBLE_EQ(computed_v, expected_v);
+        EXPECT_FLOAT_EQ(irf.freezing_range, freezing_range_test);
+        float computed_v = irf.compute(loc_u);
+        EXPECT_FLOAT_EQ(computed_v, expected_v);
     }
 }
 //---------------------------------------------------------------------------//

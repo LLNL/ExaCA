@@ -205,7 +205,7 @@ struct Interface {
         // neighbor). The critical diagonal length will be the maximum of these (since all other
         // planes will have passed over the point by then
         // ... meaning it must be in the octahedron)
-        double fx[4], fy[4], fz[4];
+        float fx[4], fy[4], fz[4];
 
         fx[0] = grain_unit_vector(9 * my_orientation) + grain_unit_vector(9 * my_orientation + 3) +
                 grain_unit_vector(9 * my_orientation + 6);

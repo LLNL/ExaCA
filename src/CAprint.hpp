@@ -413,12 +413,12 @@ struct Print {
     void printIdleIntralayer(const int id, const int np, const int layernumber, const int deltat, const int cycle,
                              const Grid &grid, CellData<MemorySpace> &celldata, Temperature<MemorySpace> &temperature,
                              Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation,
-                             const unsigned long int global_next_melt_time_step) {
+                             const int global_next_melt_time_step) {
 
         if (_inputs.intralayer_idle_frames) {
             // Print current state of ExaCA simulation (up to and including the current layer's data) during the skipped
             // time steps, if intermediate output is toggled
-            for (unsigned long int cycle_jump = cycle + 1; cycle_jump < global_next_melt_time_step; cycle_jump++) {
+            for (int cycle_jump = cycle + 1; cycle_jump < global_next_melt_time_step; cycle_jump++) {
                 printIntralayer(id, np, layernumber, deltat, cycle_jump, grid, celldata, temperature, interface,
                                 orientation);
             }

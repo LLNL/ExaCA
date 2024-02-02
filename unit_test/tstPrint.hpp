@@ -33,7 +33,7 @@ void testPrintExaConstitDefaultRVE() {
     // default inputs struct - manually set non-default substrateInputs values
     Inputs inputs;
     inputs.print.print_default_rve = true;
-    inputs.print.rve_size = 0.0005 / grid.deltax;
+    inputs.print.rve_size = Kokkos::round(0.0005 / grid.deltax);
     // File name/path for test RVE output
     inputs.print.base_filename = "TestRVE";
     // Initialize printing struct from inputs
@@ -41,7 +41,7 @@ void testPrintExaConstitDefaultRVE() {
 
     // Check that inputs in print struct match the initialization from inputs
     EXPECT_TRUE(print._inputs.print_default_rve);
-    EXPECT_DOUBLE_EQ(inputs.print.rve_size, print._inputs.rve_size);
+    EXPECT_EQ(inputs.print.rve_size, print._inputs.rve_size);
     EXPECT_EQ(inputs.print.base_filename, print._inputs.base_filename);
 
     // Create test data
