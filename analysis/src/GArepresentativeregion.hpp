@@ -51,8 +51,9 @@ struct RepresentativeRegion {
         "YExtent",               // all regions
         "ZExtent",               // all regions
     };
+    bool print_stats_yn = false;
     std::vector<bool> analysis_options_stats_yn = std::vector<bool>(7, false);
-    std::vector<std::string> AnalysisOptions_PerGrainStats_key = {
+    std::vector<std::string> analysis_options_per_grain_stats_key = {
         "Misorientation",        // all regions
         "Size",                  // all regions - volume, area, or length
         "XExtent",               // all regions
@@ -66,7 +67,7 @@ struct RepresentativeRegion {
         "MeanGrainArea",        // volume only
         "MeanWeightedGrainArea" // volume only
     };
-    bool print_per_grain_stats_yn;
+    bool print_per_grain_stats_yn = false;
     std::vector<bool> analysis_options_layerwise_stats_yn = std::vector<bool>(2, false);
 
     // Analysis options that print separate files
@@ -99,8 +100,14 @@ struct RepresentativeRegion {
 
         // Check which overall stats and per grain stats should be printed for this region
         readAnalysisOptionsFromList(region_data, "printStats", analysis_options_stats_key, analysis_options_stats_yn);
+        // print_stats_yn = true if any one of the options are toggled
+        int num_analysis_options_stats = analysis_options_stats_yn.size();
+        for (int n = 0; n < num_analysis_options_stats; n++) {
+            if (analysis_options_stats_yn[n])
+                print_stats_yn = true;
+        }
         // print_per_grain_stats_yn = true if any one of the options are toggled
-        readAnalysisOptionsFromList(region_data, "printPerGrainStats", AnalysisOptions_PerGrainStats_key,
+        readAnalysisOptionsFromList(region_data, "printPerGrainStats", analysis_options_per_grain_stats_key,
                                     analysis_options_per_grain_stats_yn);
         int num_analysis_options_per_grain_stats = analysis_options_per_grain_stats_yn.size();
         for (int n = 0; n < num_analysis_options_per_grain_stats; n++) {
