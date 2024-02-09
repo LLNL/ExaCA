@@ -63,3 +63,18 @@
   year={2022},
   publisher={SAGE Publications Sage UK: London, England}
 }
+
+# Method development preceding ExaCA
+
+@article{rolchigo2020,
+  author = {Matthew Rolchigo and Benjamin Stump and James Belak and Alex Plotkowski},
+  title = {Sparse thermal data for cellular automata modeling of grain structure in additive manufacturing},
+  journal = {Modelling and Simulation in Materials Science and Engineering},
+  doi = {10.1088/1361-651X/ab9734},
+  year = {2020},
+  month = {jun},
+  publisher = {IOP Publishing},
+  volume = {28},
+  number = {6},
+  pages = {065003},
+}
