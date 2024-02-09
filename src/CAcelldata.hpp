@@ -551,6 +551,8 @@ struct CellData {
                              view_type_int number_of_solidification_events) {
 
         int melt_pool_cell_count;
+        // Realloc celltype to the domain size of the next layer
+        Kokkos::realloc(cell_type, grid.domain_size);
         // Local copies for lambda capture.
         auto cell_type_local = cell_type;
         auto layer_id_all_layers_local = layer_id_all_layers;
