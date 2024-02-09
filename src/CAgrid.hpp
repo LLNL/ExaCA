@@ -134,7 +134,16 @@ struct Grid {
 
         // Add halo regions with a width of 1 in +/- Y if this MPI rank is not as a domain boundary in said direction
         addHalo();
-        std::cout << "Rank " << id << " spans Y = " << y_offset << " through " << y_offset + ny_local - 1 << std::endl;
+        // Gather ny_local and y_offset information on rank 0 to print to screen in rank order
+        std::vector<int> global_offset(np);
+        std::vector<int> global_size(np);
+        MPI_Gather(&y_offset, 1, MPI_INT, global_offset.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Gather(&ny_local, 1, MPI_INT, global_size.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+        if (id == 0) {
+            for (int pid = 0; pid < np; pid++)
+                std::cout << "Rank " << pid << " spans Y = " << global_offset[pid] << " through "
+                          << global_offset[pid] + global_size[pid] - 1 << std::endl;
+        }
 
         // Bounds of layer 0: Z coordinates span z_layer_bottom-z_layer_top, inclusive (functions previously in
         // CAinitialize.cpp and CAcelldata.hpp)
