@@ -211,6 +211,11 @@ If you use ExaCA in your work, please cite the following [paper](CITATION.bib).
 In addition, cite the current release or version used from
 [Zenodo](https://doi.org/10.5281/zenodo.6908176).
 
+### Publications using ExaCA
+
+In addition to the primary ExaCA [citation](CITATION.bib),
+[this list of articles](PUBLICATIONS.bib) use ExaCA in their work.
+
 ## Contributing
 
 We encourage you to contribute to ExaCA. Please check the
