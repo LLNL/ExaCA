@@ -16,6 +16,7 @@
 #include "CAparsefiles.hpp"
 #include "CAprint.hpp"
 #include "CAtemperature.hpp"
+#include "CAtimers.hpp"
 #include "CAtypes.hpp"
 #include "CAupdate.hpp"
 

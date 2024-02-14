@@ -8,6 +8,7 @@
 
 #include "CAinfo.hpp"
 #include "CAinterfacialresponse.hpp"
+#include "CAtimers.hpp"
 
 #include "mpi.h"
 
@@ -690,14 +691,9 @@ struct Inputs {
     // class passed to this function
     void printExaCALog(const int id, const int np, const std::string input_file, const int ny_local, const int y_offset,
                        InterfacialResponseFunction irf, const double deltax, const int number_of_layers,
-                       const int layer_height, const int nx, const int ny, const int nz, const double init_time,
-                       const double run_time, const double out_time, const int cycle, const double init_max_time,
-                       const double init_min_time, const double nucl_max_time, const double nucl_min_time,
-                       const double create_sv_min_time, const double create_sv_max_time, const double capture_max_time,
-                       const double capture_min_time, const double ghost_max_time, const double ghost_min_time,
-                       const double out_max_time, const double out_min_time, const double x_min, const double x_max,
-                       const double y_min, const double y_max, const double z_min, const double z_max,
-                       const float vol_fraction_nucleated) {
+                       const int layer_height, const int nx, const int ny, const int nz, Timers timers, const int cycle,
+                       const double x_min, const double x_max, const double y_min, const double y_max,
+                       const double z_min, const double z_max, const float vol_fraction_nucleated) {
 
         int *ny_local_allranks = new int[np];
         int *y_offset_allranks = new int[np];
@@ -787,21 +783,7 @@ struct Inputs {
                 exaca_log << y_offset_allranks[i] << ",";
             exaca_log << y_offset_allranks[np - 1] << "]" << std::endl;
             exaca_log << "   }," << std::endl;
-            exaca_log << "   \"Timing\": {" << std::endl;
-            exaca_log << "       \"Runtime\": " << init_time + run_time + out_time << "," << std::endl;
-            exaca_log << "       \"InitRunOutputBreakdown\": [" << init_time << "," << run_time << "," << out_time
-                      << "]," << std::endl;
-            exaca_log << "       \"MaxMininit_time\": [" << init_max_time << "," << init_min_time << "]," << std::endl;
-            exaca_log << "       \"MaxMinNucleationTime\": [" << nucl_max_time << "," << nucl_min_time << "],"
-                      << std::endl;
-            exaca_log << "       \"MaxMinSteeringVectorCreationTime\": [" << create_sv_max_time << ","
-                      << create_sv_min_time << "]," << std::endl;
-            exaca_log << "       \"MaxMinCellCaptureTime\": [" << capture_max_time << "," << capture_min_time << "],"
-                      << std::endl;
-            exaca_log << "       \"MaxMinGhostExchangeTime\": [" << ghost_max_time << "," << ghost_min_time << "],"
-                      << std::endl;
-            exaca_log << "       \"MaxMinOutputTime\": [" << out_max_time << "," << out_min_time << "]" << std::endl;
-            exaca_log << "   }" << std::endl;
+            exaca_log << timers.printLog() << std::endl;
             exaca_log << "}" << std::endl;
             exaca_log.close();
         }
