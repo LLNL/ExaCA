@@ -74,7 +74,7 @@ struct Timers {
         log << "       \"Runtime\": " << getTotal() << "," << std::endl;
         log << "       \"InitRunOutputBreakdown\": [" << init_time << "," << run_time << "," << out_time << "],"
             << std::endl;
-        log << "       \"MaxMininit_time\": [" << init_max_time << "," << init_min_time << "]," << std::endl;
+        log << "       \"MaxMinInitTime\": [" << init_max_time << "," << init_min_time << "]," << std::endl;
         log << "       \"MaxMinNucleationTime\": [" << nucl_max_time << "," << nucl_min_time << "]," << std::endl;
         log << "       \"MaxMinSteeringVectorCreationTime\": [" << create_sv_max_time << "," << create_sv_min_time
             << "]," << std::endl;
