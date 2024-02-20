@@ -112,6 +112,7 @@ The .json files in the examples subdirectory are provided on the command line to
 | PathToOutput | All                      | File path location for the output files
 | OutputFile   | All                      | All output files will begin with the string specified on this line
 | PrintBinary  | All                      | Whether or not ExaCA vtk output data should be printed as big endian binary data, or as ASCII characters (defaults to false)
+| PrintFrontUndercooling | C              | Whether or not ExaCA will store and print the undercooling at the solidification front when solidification begins and ends at each Z coordinate
 | PrintExaConstitSize | R                 | Length of the cubic representative volume element (RVE) data for ExaConstit, taken from the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure. If not given (or given a value of 0), the RVE will not be printed 
 | Intralayer   | All | Optional section for printing the state of the simulation during a given layer of a multilayer problem/during a single layer problem
 | Intralayer: Increment | All | Increment, in time steps, at which intermediate output should be printed. If 0, will only print the state of the system at the start of each layer
