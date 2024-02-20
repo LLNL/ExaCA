@@ -26,7 +26,8 @@ void testOrientationInit_Vectors() {
     std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", 0);
 
     // Initialize grain orientations - unit vector form only
-    Orientation<memory_space> orientation(grain_orientation_file, false);
+    int id = 0;
+    Orientation<memory_space> orientation(id, grain_orientation_file, false);
 
     // Check results for first 2 orientations (first 18 values in the file)
     EXPECT_EQ(orientation.n_grain_orientations, 10000);
@@ -49,7 +50,8 @@ void testOrientationInit_Angles() {
 
     // Initialize grain orientations - unit vector form and data from GrainOrientationEulerAnglesBungeZXZ.csv should be
     // read
-    Orientation<memory_space> orientation(grain_orientation_file, true);
+    int id = 0;
+    Orientation<memory_space> orientation(id, grain_orientation_file, true);
 
     // Check results
     EXPECT_EQ(orientation.n_grain_orientations, 10000);

@@ -52,7 +52,8 @@ struct Interface {
 
     // Constructor for views and view bounds for current layer
     // Use default initialization to 0 for num_steer_host and num_steer and buffer counts
-    Interface(const int domain_size, const int buf_size_initial_estimate = 25, const int buf_components_temp = 8)
+    Interface(const int id, const int domain_size, const int buf_size_initial_estimate = 25,
+              const int buf_components_temp = 8)
         : diagonal_length(view_type_float(Kokkos::ViewAllocateWithoutInitializing("diagonal_length"), domain_size))
         , octahedron_center(
               view_type_float(Kokkos::ViewAllocateWithoutInitializing("octahedron_center"), 3 * domain_size))
@@ -83,6 +84,9 @@ struct Interface {
         resetBuffers();
         // Initialize neighbor lists for iterating over active cells
         neighborListInit();
+
+        if (id == 0)
+            std::cout << "Done with interface initialization" << std::endl;
     }
 
     // Set first index in send buffers to -1 (placeholder) for all cells in the buffer, and reset the counts of number

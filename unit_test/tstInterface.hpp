@@ -83,7 +83,7 @@ void testHaloUpdate() {
 
     // Intialize grain orientations
     std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", id);
-    Orientation<memory_space> orientation(grain_orientation_file, false);
+    Orientation<memory_space> orientation(id, grain_orientation_file, false);
 
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid
     CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
@@ -98,7 +98,7 @@ void testHaloUpdate() {
     // Interface struct
     // Initial size large enough to hold all data
     int buf_size_initial_estimate = grid.nx * grid.nz_layer;
-    Interface<memory_space> interface(grid.domain_size, buf_size_initial_estimate);
+    Interface<memory_space> interface(id, grid.domain_size, buf_size_initial_estimate);
     // Copy to host for initialization
     auto diagonal_length_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.diagonal_length);
     auto octahedron_center_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.octahedron_center);
@@ -278,11 +278,11 @@ void testResizeRefillBuffers() {
     // Orientation struct
     // Intialize grain orientations
     std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", id);
-    Orientation<memory_space> orientation(grain_orientation_file, false);
+    Orientation<memory_space> orientation(id, grain_orientation_file, false);
 
     // Interface struct - set buffer size to 1
     int buf_size_initial_estimate = 1;
-    Interface<memory_space> interface(grid.domain_size, buf_size_initial_estimate);
+    Interface<memory_space> interface(id, grid.domain_size, buf_size_initial_estimate);
 
     // Start with 2 cells in the current layer active (one in each buffer), GrainID equal to the X coordinate, Diagonal
     // length equal to the Y coordinate, octahedron center at (x + 0.5, y + 0.5, z + 0.5)
@@ -443,11 +443,14 @@ void testResizeBuffers() {
 
     using memory_space = TEST_MEMSPACE;
 
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
     // Interface struct
     int domain_size = 50;
     int buf_size_initial_estimate = 50;
     // Init buffers to large size
-    Interface<memory_space> interface(domain_size, 50);
+    Interface<memory_space> interface(id, domain_size, 50);
 
     // Fill buffers with test data
     Kokkos::parallel_for(
@@ -535,7 +538,9 @@ void testFillSteeringVector_Remelt() {
         });
 
     // Interface struct
-    Interface<memory_space> interface(grid.domain_size);
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    Interface<memory_space> interface(id, grid.domain_size);
 
     int numcycles = 15;
     for (int cycle = 1; cycle <= numcycles; cycle++) {
@@ -622,7 +627,9 @@ void testCalcCritDiagonalLength() {
     grain_unit_vector = Kokkos::create_mirror_view_and_copy(memory_space(), grain_unit_vector_host);
 
     // Initialize interface struct
-    Interface<memory_space> interface(domain_size);
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    Interface<memory_space> interface(id, domain_size);
 
     // Load octahedron centers into test view
     view_type octahedron_center_test(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * domain_size);
@@ -675,7 +682,9 @@ void testCreateNewOctahedron() {
     grid.y_offset = 10;
 
     // Create interface struct
-    Interface<memory_space> interface(grid.domain_size);
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+    Interface<memory_space> interface(id, grid.domain_size);
 
     // Octahedra now use the layer coordinates, not the coordinates of the multilayer domain
     for (int coord_z = 0; coord_z < grid.nz_layer; coord_z++) {

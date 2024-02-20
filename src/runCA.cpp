@@ -46,14 +46,10 @@ void runExaCA(int id, int np, std::string input_file) {
     else if (simulation_type == "R")
         temperature.initialize(0, id, grid, irf.freezing_range, inputs.domain.deltat);
     MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "Done with temperature field initialization" << std::endl;
 
     // Initialize grain orientations
-    Orientation<memory_space> orientation(inputs.grain_orientation_file, false);
+    Orientation<memory_space> orientation(id, inputs.grain_orientation_file, false);
     MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "Done with orientation initialization " << std::endl;
 
     // Initialize cell types, grain IDs, and layer IDs
     CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
@@ -64,15 +60,11 @@ void runExaCA(int id, int np, std::string input_file) {
     else
         celldata.initSubstrate(id, grid, inputs.rng_seed, temperature.number_of_solidification_events);
     MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "Grain struct initialized" << std::endl;
 
     // Variables characterizing the active cell region within each rank's grid, including buffers for ghost node data
     // (fixed size) and the steering vector/steering vector size on host/device
-    Interface<memory_space> interface(grid.domain_size);
+    Interface<memory_space> interface(id, grid.domain_size);
     MPI_Barrier(MPI_COMM_WORLD);
-    if (id == 0)
-        std::cout << "Done with interface struct initialization " << std::endl;
 
     // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
@@ -158,9 +150,6 @@ void runExaCA(int id, int np, std::string input_file) {
 
             // Optional print current state of ExaCA
             print.printInterlayer(id, np, layernumber, grid, celldata, temperature, interface, orientation);
-            if (id == 0)
-                std::cout << "Layer " << layernumber << " finished solidification; initializing layer "
-                          << layernumber + 1 << std::endl;
 
             // Determine new active cell domain size and offset from bottom of global domain
             grid.initNextLayer(id, simulation_type, layernumber + 1, inputs.domain.spot_radius);

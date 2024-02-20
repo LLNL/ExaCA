@@ -87,6 +87,9 @@ struct CellData {
             std::cout << "Rank " << id << " initialized a grain with orientation " << single_grain_orientation_local
                       << " initialized at X = " << grain_location_x << ", Y = " << grain_location_y
                       << ", Z = " << grain_location_z << std::endl;
+
+        if (id == 0)
+            std::cout << "Grain struct initialized" << std::endl;
     }
 
     // Get the X, Y coordinates and grain ID values for grains at the bottom surface for problem type C
@@ -209,8 +212,10 @@ struct CellData {
                     }
                 });
         }
-        if (id == 0)
+        if (id == 0) {
             std::cout << "Number of substrate active cells across all ranks: " << substrate_act_cells << std::endl;
+            std::cout << "Grain struct initialized" << std::endl;
+        }
     }
 
     void initSubstrate(const int id, const Grid &grid, const unsigned long rng_seed,
@@ -239,6 +244,10 @@ struct CellData {
 
         // Initialize cell types and layer IDs based on whether cells will solidify in layer 0 or not
         initCellTypeLayerID(0, id, grid, number_of_solidification_events);
+
+        if (id == 0) {
+            std::cout << "Grain struct initialized" << std::endl;
+        }
     }
 
     // Determine the height of the baseplate, in CA cells

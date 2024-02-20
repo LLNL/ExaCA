@@ -35,7 +35,7 @@ struct Orientation {
     view_type_float grain_unit_vector;
     view_type_float_host grain_bunge_euler_host, grain_rgb_ipfz_host;
 
-    Orientation(const std::string grain_unit_vector_file, const bool init_euler_rgb_vals)
+    Orientation(const int id, const std::string grain_unit_vector_file, const bool init_euler_rgb_vals)
         : grain_unit_vector(view_type_float(Kokkos::ViewAllocateWithoutInitializing("grain_unit_vector"), 1))
         , grain_bunge_euler_host(
               view_type_float_host(Kokkos::ViewAllocateWithoutInitializing("grain_bunge_euler_host"), 1))
@@ -54,6 +54,8 @@ struct Orientation {
             // GrainOrientationVectors.csv, this will be an empty string
             getEulerIPFZFilenames(grain_unit_vector_file);
         }
+        if (id == 0)
+            std::cout << "Done with orientation initialization " << std::endl;
     }
 
     // Get grain orientations from the specified file and the number of grain orientations and return a host view

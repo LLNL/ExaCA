@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 
         // Grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
         // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
-        Orientation<memory_space> orientation(grain_unit_vector_file, true);
+        Orientation<memory_space> orientation(0, grain_unit_vector_file, true);
 
         // Representative region creation
         std::ifstream analysis_data_stream(analysis_file);
