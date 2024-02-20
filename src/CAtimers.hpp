@@ -7,6 +7,8 @@
 #define EXACA_TIMERS_HPP
 
 #include "mpi.h"
+#include <iostream>
+#include <sstream>
 
 // Print timing info
 struct Timers {
