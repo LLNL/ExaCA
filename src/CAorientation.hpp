@@ -142,13 +142,13 @@ struct Orientation {
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grain_unit_vector);
 
         // Find the smallest possible misorientation between the specified direction, and this grain orientations' 6
-        // possible 001 directions (where 62.7 degrees is the largest possible misorientation between two 001 directions
-        // for a cubic crystal system)
+        // possible 001 directions (where 54.7356 degrees is the largest possible misorientation between a 001 and a
+        // given cardinal direction for the cubic crystal system)
         for (int n = 0; n < n_grain_orientations; n++) {
-            float misorientation_angle_min = 62.7;
+            float misorientation_angle_min = 54.7356;
             for (int ll = 0; ll < 3; ll++) {
                 float misorientation =
-                    Kokkos::abs((180 / M_PI) * Kokkos::acos(grain_unit_vector_host(9 * n + 3 * ll + dir)));
+                    Kokkos::abs((180 / M_PI) * Kokkos::acos(Kokkos::abs(grain_unit_vector_host(9 * n + 3 * ll + dir))));
                 if (misorientation < misorientation_angle_min) {
                     misorientation_angle_min = misorientation;
                 }
