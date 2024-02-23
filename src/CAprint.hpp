@@ -278,6 +278,8 @@ struct Print {
     void printInterlayer(const int id, const int np, const int layernumber, const Grid &grid,
                          CellData<MemorySpace> &celldata, Temperature<MemorySpace> &temperature,
                          Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
+        if (id == 0)
+            std::cout << "Layer " << layernumber << " finished solidification" << std::endl;
 
         using view_type_float = Kokkos::View<float *, MemorySpace>;
         using view_type_int = Kokkos::View<int *, MemorySpace>;

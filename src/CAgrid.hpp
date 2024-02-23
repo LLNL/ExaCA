@@ -529,6 +529,9 @@ struct Grid {
     // Determine new active cell domain size and offset from bottom of global domain
     void initNextLayer(const int id, const std::string simulation_type, const int next_layer_number,
                        const int spot_radius) {
+        if (id == 0)
+            std::cout << "Initializing layer " << next_layer_number << std::endl;
+
         z_layer_bottom = calcZLayerBottom(simulation_type, next_layer_number);
         z_layer_top = calcZLayerTop(simulation_type, spot_radius, next_layer_number);
         nz_layer = calcNzLayer(id, next_layer_number);

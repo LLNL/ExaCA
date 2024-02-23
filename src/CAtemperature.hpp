@@ -287,10 +287,12 @@ struct Temperature {
                 max_solidification_events_local(0) = 1;
                 number_solidification_events_local(index) = 1;
             });
-        if (id == 0)
+        if (id == 0) {
             std::cout << "Temperature field initialized for unidirectional solidification with G = " << G_local
                       << " K/m, initial undercooling at Z = " << location_init_undercooling << " of "
                       << _inputs.init_undercooling << " K below the liquidus" << std::endl;
+            std::cout << "Done with temperature field initialization" << std::endl;
+        }
     }
 
     // For an overlapping spot melt pattern, determine max number of times a cell will melt/solidify as part of a layer
@@ -408,10 +410,11 @@ struct Temperature {
         layer_time_temp_history = Kokkos::create_mirror_view_and_copy(memory_space(), layer_time_temp_history_host);
         number_of_solidification_events =
             Kokkos::create_mirror_view_and_copy(memory_space(), number_of_solidification_events_host);
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
+        if (id == 0) {
             std::cout << "Spot melt temperature field initialized; each cell will solidify up to "
                       << max_num_solidification_events << " times" << std::endl;
+            std::cout << "Done with temperature field initialization" << std::endl;
+        }
     }
 
     // Calculate the number of times that a cell in layer "layernumber" undergoes melting/solidification, and store in
@@ -628,9 +631,11 @@ struct Temperature {
         number_of_solidification_events =
             Kokkos::create_mirror_view_and_copy(memory_space(), number_of_solidification_events_host);
 
-        if (id == 0)
+        if (id == 0) {
             std::cout << "Layer " << layernumber << " temperature field is from Z = " << grid.z_layer_bottom
                       << " through " << grid.nz_layer + grid.z_layer_bottom - 1 << " of the global domain" << std::endl;
+            std::cout << "Done with temperature field initialization" << std::endl;
+        }
     }
 
     // Get the subview associated with the undercooling of cells in the current layer. Do not reset the undercooling of
