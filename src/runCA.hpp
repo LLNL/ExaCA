@@ -3,6 +3,9 @@
 //
 // SPDX-License-Identifier: MIT
 
+#ifndef RUNCA_HPP
+#define RUNCA_HPP
+
 #include "ExaCA.hpp"
 
 #include "mpi.h"
@@ -10,21 +13,13 @@
 #include <string>
 #include <vector>
 
-void runExaCA(int id, int np, std::string input_file) {
+template <typename MemorySpace>
+void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperature<MemorySpace> temperature) {
 
     // Run on the default space.
-    using memory_space = Kokkos::DefaultExecutionSpace::memory_space;
+    using memory_space = MemorySpace;
 
-    // Create timers
-    Timers timers(id);
-    timers.startInit();
-
-    // Read input file
-    Inputs inputs(id, input_file);
     std::string simulation_type = inputs.simulation_type;
-
-    // Setup local and global grids, decomposing domain
-    Grid grid(simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
 
     // Material response function
     InterfacialResponseFunction irf(id, inputs.material_filename, inputs.domain.deltat, grid.deltax);
@@ -33,8 +28,6 @@ void runExaCA(int id, int np, std::string input_file) {
     if (simulation_type == "R")
         inputs.checkPowderOverflow(grid.nx, grid.ny, grid.layer_height, grid.number_of_layers);
 
-    // Temperature fields characterized by data in this structure
-    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print.store_solidification_start);
     // Read temperature data if necessary
     if (simulation_type == "R")
         temperature.readTemperatureData(id, grid, 0);
@@ -205,10 +198,12 @@ void runExaCA(int id, int np, std::string input_file) {
     timers.reduceMPI();
 
     // Print the log file with JSON format
-    inputs.printExaCALog(id, np, input_file, grid.ny_local, grid.y_offset, irf, grid.deltax, grid.number_of_layers,
+    inputs.printExaCALog(id, np, grid.ny_local, grid.y_offset, irf, grid.deltax, grid.number_of_layers,
                          grid.layer_height, grid.nx, grid.ny, grid.nz, timers, cycle, grid.x_min, grid.x_max,
                          grid.y_min, grid.y_max, grid.z_min, grid.z_max, vol_fraction_nucleated);
 
     // Print timing information to the console
     timers.printFinal(np, cycle);
 }
+
+#endif

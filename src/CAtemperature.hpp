@@ -94,6 +94,45 @@ struct Temperature {
         getCurrentLayerUndercooling(grid.layer_range);
     }
 
+    // Constructor using in-memory temperature data from external source.
+    template <typename ViewType>
+    Temperature(const Grid &grid, TemperatureInputs inputs, ViewType input_temperature_data)
+        : max_solidification_events(
+              view_type_int(Kokkos::ViewAllocateWithoutInitializing("number_of_layers"), grid.number_of_layers))
+        , layer_time_temp_history(view_type_float_3d(Kokkos::ViewAllocateWithoutInitializing("layer_time_temp_history"),
+                                                     grid.domain_size, 1, 3))
+        , number_of_solidification_events(view_type_int(
+              Kokkos::ViewAllocateWithoutInitializing("number_of_solidification_events"), grid.domain_size))
+        , solidification_event_counter(view_type_int("solidification_event_counter", grid.domain_size))
+        , undercooling_current_all_layers(view_type_float("undercooling_current", grid.domain_size_all_layers))
+        , raw_temperature_data(view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("raw_temperature_data"),
+                                                     input_temperature_data.extent(0) * 6))
+        , first_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("first_value"), grid.number_of_layers))
+        , last_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("last_value"), grid.number_of_layers))
+        , _inputs(inputs) {
+
+        copyTemperatureData(input_temperature_data);
+        getCurrentLayerUndercooling(grid.layer_range);
+    }
+
+    // Copy data from external source into raw host View.
+    // TODO: rewrite routines so that these host copies aren't necessary and the file reading routines aren't used in
+    // this case.
+    template <typename ViewType>
+    void copyTemperatureData(ViewType input_temperature_data) {
+        auto input_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), input_temperature_data);
+
+        using exec_space = Kokkos::DefaultHostExecutionSpace;
+        auto policy = Kokkos::RangePolicy<exec_space>(0, input_host.extent(0));
+        Kokkos::parallel_for(
+            "CopyInputTemp", policy, KOKKOS_LAMBDA(const int &index) {
+                auto offset = index * 6;
+                for (int component = 0; component < 6; component++) {
+                    raw_temperature_data(offset + component) = input_host(index, component);
+                }
+            });
+    }
+
     // Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header
     // line - or a binary string of double precision values), storing the x, y, z, tm, tl, cr values in the RawData
     // vector. Each rank only contains the points corresponding to cells within the associated Y bounds.
