@@ -7,21 +7,21 @@ install(FILES ${EXACA_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/CAconfig.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-add_library(ExaCA ${EXACA_SOURCES})
-add_library(ExaCA::ExaCA ALIAS ExaCA)
+add_library(ExaCA-Core ${EXACA_SOURCES})
+add_library(ExaCA::Core ALIAS ExaCA-Core)
 
-target_link_libraries(ExaCA PUBLIC
+target_link_libraries(ExaCA-Core PUBLIC
     MPI::MPI_CXX
     Kokkos::kokkos
     nlohmann_json::nlohmann_json
 )
 
-target_include_directories(ExaCA PUBLIC
+target_include_directories(ExaCA-Core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
-install(TARGETS ExaCA
+install(TARGETS ExaCA-Core
   EXPORT ExaCA_Targets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})

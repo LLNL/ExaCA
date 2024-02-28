@@ -3,17 +3,17 @@ file(GLOB EXAGA_SOURCES GLOB *.cpp)
 
 install(FILES ${EXAGA_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-add_library(ExaGA ${EXAGA_SOURCES})
-add_library(ExaCA::ExaGA ALIAS ExaGA)
+add_library(ExaCA-Analysis ${EXAGA_SOURCES})
+add_library(ExaCA::Analysis ALIAS ExaCA-Analysis)
 
-target_link_libraries(ExaGA PUBLIC ExaCA)
+target_link_libraries(ExaCA-Analysis PUBLIC ExaCA-Core)
 
-target_include_directories(ExaGA PUBLIC
+target_include_directories(ExaCA-Analysis PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
-install(TARGETS ExaGA
-  EXPORT ExaGA_Targets
+install(TARGETS ExaCA-Analysis
+  EXPORT ExaCA_Targets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})

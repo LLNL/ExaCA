@@ -1,3 +1,3 @@
-add_executable(ExaCA-Kokkos main.cpp)
-target_link_libraries(ExaCA-Kokkos ExaCA)
-install(TARGETS ExaCA-Kokkos DESTINATION ${CMAKE_INSTALL_BINDIR})
+add_executable(ExaCA run.cpp)
+target_link_libraries(ExaCA ExaCA-Core)
+install(TARGETS ExaCA DESTINATION ${CMAKE_INSTALL_BINDIR})
