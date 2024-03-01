@@ -295,126 +295,63 @@ struct Temperature {
         }
     }
 
-    // For an overlapping spot melt pattern, determine max number of times a cell will melt/solidify as part of a layer
-    int calcMaxSolidificationEvents(const Grid &grid, const int number_of_spots, const int n_spots_x,
-                                    const int spot_radius, const int spot_offset) {
+    // Initialize temperature data for a hemispherical spot melt (single layer simulation)
+    void initialize(const int id, const Grid &grid, const double freezing_range, double deltat, double spot_radius) {
 
-        Kokkos::View<int **, Kokkos::HostSpace> max_solidification_events_temp("SEvents_Temp", grid.nx, grid.ny_local);
-        for (int n = 0; n < number_of_spots; n++) {
-            int x_spot_pos = spot_radius + (n % n_spots_x) * spot_offset;
-            int y_spot_pos = spot_radius + (n / n_spots_x) * spot_offset;
-            for (int i = 0; i < grid.nx; i++) {
-                float dist_x = static_cast<float>(x_spot_pos - i);
-                for (int j = 0; j < grid.ny_local; j++) {
-                    int y_global = j + grid.y_offset;
-                    float dist_y = static_cast<float>(y_spot_pos - y_global);
-                    float tot_dist = Kokkos::sqrt(dist_x * dist_x + dist_y * dist_y);
-                    if (tot_dist <= spot_radius) {
-                        max_solidification_events_temp(i, j)++;
-                    }
-                }
-            }
-        }
-        int temp_max = 0;
-        for (int i = 0; i < grid.nx; i++) {
-            for (int j = 0; j < grid.ny_local; j++) {
-                if (max_solidification_events_temp(i, j) > temp_max) {
-                    temp_max = max_solidification_events_temp(i, j);
-                }
-            }
-        }
-        // Max solidification events should be the same on each rank (and each layer, since the pattern for all layers
-        // is identical)
-        int global_max_s_events;
-        MPI_Allreduce(&temp_max, &global_max_s_events, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-        return global_max_s_events;
-    }
-
-    // Initialize temperature data for an array of overlapping spot melts. As every layer is the same, this only needs
-    // to be done at the start of the simulation
-    // TODO: This can be performed on the device as the dirS problem is
-    void initialize(const int id, const Grid &grid, const double freezing_range, Inputs &inputs) {
-
-        int number_of_spots = inputs.domain.n_spots_x * inputs.domain.n_spots_y;
-
-        // Temporary host view for the maximum number of times a cell in a given layer will solidify (same for every
-        // layer)
-        view_type_int_host max_solidification_events_host =
-            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), max_solidification_events);
-        int max_num_solidification_events = calcMaxSolidificationEvents(
-            grid, number_of_spots, inputs.domain.n_spots_x, inputs.domain.spot_radius, inputs.domain.spot_offset);
-        for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++)
-            max_solidification_events_host(layernumber) = max_num_solidification_events;
-
-        // Resize layer_time_temp_history now that the max number of solidification events is known
-        Kokkos::resize(layer_time_temp_history, grid.domain_size, max_num_solidification_events, 3);
-
-        // Temporary host views filled with data and copied to the device. Initialize to zeros
-        view_type_float_3d_host layer_time_temp_history_host("TimeTempHistory_H", grid.domain_size,
-                                                             max_num_solidification_events, 3);
-        view_type_int_host number_of_solidification_events_host("NumSEvents_H", grid.domain_size);
+        // Each cell solidifies at most one time
+        Kokkos::deep_copy(max_solidification_events, 1);
 
         // Outer edges of spots are initialized at the liquidus temperature
         // Spots cool at constant rate R, spot thermal gradient = G
-        // Time between "start" of next spot is the time it takes for the previous spot
-        // to have entirely gone below the solidus temperature
-        float isotherm_velocity =
-            (_inputs.R / _inputs.G) * inputs.domain.deltat / grid.deltax; // in cells per time step
-        int time_between_spots = inputs.domain.spot_radius / isotherm_velocity +
-                                 (freezing_range / _inputs.R) / inputs.domain.deltat; // in time steps
+        float isotherm_velocity = (_inputs.R / _inputs.G) * deltat / grid.deltax; // in cells per time step
+        int spot_time_est = spot_radius / isotherm_velocity + (freezing_range / _inputs.R) / deltat; // in time steps
+        // Spot center location - center of domain in X and Y, top of domain in Z
+        float spot_center_x = spot_radius + 1;
+        float spot_center_y = spot_radius + 1;
+        float spot_center_z = grid.nz - 0.5;
 
         if (id == 0)
-            std::cout << "Initializing temperature field for " << number_of_spots
-                      << ", each of which takes approximately " << time_between_spots << " time steps to fully solidify"
-                      << std::endl;
+            std::cout << "Initializing temperature field for the hemispherical spot, which will take approximately "
+                      << spot_time_est << " time steps to fully solidify" << std::endl;
 
-        for (int n = 0; n < number_of_spots; n++) {
-            if (id == 0)
-                std::cout << "Initializing spot " << n << std::endl;
-            // Initialize layer_time_temp_history data values for this spot/this layer - relative to the layer bottom
-            int x_spot_pos = inputs.domain.spot_radius + (n % inputs.domain.n_spots_x) * inputs.domain.spot_offset;
-            int y_spot_pos = inputs.domain.spot_radius + (n / inputs.domain.n_spots_x) * inputs.domain.spot_offset;
-            for (int coord_z = 0; coord_z <= inputs.domain.spot_radius; coord_z++) {
+        // Initialize layer_time_temp_history data values for this spot
+        auto layer_time_temp_history_local = layer_time_temp_history;
+        auto number_solidification_events_local = number_of_solidification_events;
+        double R_local = _inputs.R;
+        auto md_policy =
+            Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
+                {0, 0, 0}, {grid.nz, grid.nx, grid.ny_local});
+        Kokkos::parallel_for(
+            "SpotTemperatureInit", md_policy, KOKKOS_LAMBDA(const int coord_z, const int coord_x, const int coord_y) {
+                // 1D cell index
+                int index = grid.get1DIndex(coord_x, coord_y, coord_z);
                 // Distance of this cell from the spot center
-                float dist_z = static_cast<float>(inputs.domain.spot_radius - coord_z);
-                for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
-                    float dist_x = static_cast<float>(x_spot_pos - coord_x);
-                    for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
-                        int coord_y_global = coord_y + grid.y_offset;
-                        float dist_y = static_cast<float>(y_spot_pos - coord_y_global);
-                        float tot_dist = Kokkos::hypot(dist_x, dist_y, dist_z);
-                        if (tot_dist <= inputs.domain.spot_radius) {
-                            int index = grid.get1DIndex(coord_x, coord_y, coord_z);
-                            // Melt time
-                            layer_time_temp_history_host(index, number_of_solidification_events_host(index), 0) =
-                                1 + time_between_spots * n;
-                            // Liquidus time
-                            int liquidus_time =
-                                Kokkos::round((static_cast<float>(inputs.domain.spot_radius) - tot_dist) /
-                                              isotherm_velocity) +
-                                time_between_spots * n;
-                            layer_time_temp_history_host(index, number_of_solidification_events_host(index), 1) =
-                                1 + liquidus_time;
-                            // Cooling rate
-                            layer_time_temp_history_host(index, number_of_solidification_events_host(index), 2) =
-                                _inputs.R * inputs.domain.deltat;
-                            number_of_solidification_events_host(index)++;
-                        }
-                    }
+                float dist_z = spot_center_z - coord_z;
+                float dist_x = spot_center_x - coord_x;
+                int coord_y_global = coord_y + grid.y_offset;
+                float dist_y = spot_center_y - coord_y_global;
+                float tot_dist = Kokkos::hypot(dist_x, dist_y, dist_z);
+                if (tot_dist <= spot_radius) {
+                    // Melt time step (first time step)
+                    layer_time_temp_history_local(index, 0, 0) = 1;
+                    // Liquidus time step (related to distance to spot edge)
+                    layer_time_temp_history_local(index, 0, 1) =
+                        Kokkos::round((spot_radius - tot_dist) / isotherm_velocity) + 1;
+                    // Cooling rate per time step
+                    layer_time_temp_history_local(index, 0, 2) = R_local * deltat;
+                    number_solidification_events_local(index) = 1;
                 }
-            }
-        }
-
-        // Copy host view data back to device
-        max_solidification_events = Kokkos::create_mirror_view_and_copy(memory_space(), max_solidification_events_host);
-        layer_time_temp_history = Kokkos::create_mirror_view_and_copy(memory_space(), layer_time_temp_history_host);
-        number_of_solidification_events =
-            Kokkos::create_mirror_view_and_copy(memory_space(), number_of_solidification_events_host);
-        if (id == 0) {
-            std::cout << "Spot melt temperature field initialized; each cell will solidify up to "
-                      << max_num_solidification_events << " times" << std::endl;
-            std::cout << "Done with temperature field initialization" << std::endl;
-        }
+                else {
+                    // Dummy layer_time_temp_history data
+                    for (int l = 0; l < 3; l++) {
+                        layer_time_temp_history_local(index, 0, l) = -1.0;
+                    }
+                    number_solidification_events_local(index) = 0;
+                }
+            });
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (id == 0)
+            std::cout << "Spot melt temperature field initialized" << std::endl;
     }
 
     // Calculate the number of times that a cell in layer "layernumber" undergoes melting/solidification, and store in

@@ -88,19 +88,28 @@ struct Grid {
             nx = _inputs.nx;
             ny = _inputs.ny;
             nz = _inputs.nz;
-            // Domain origin is placed at 0
-            x_min = 0.0;
-            y_min = 0.0;
-            z_min = 0.0;
-            x_max = nx * deltax;
-            y_max = ny * deltax;
-            z_max = nz * deltax;
-            if (simulation_type == "S") {
-                // If this is a spot melt problem, also set the z_min/z_max for each layer
-                for (int n = 0; n < number_of_layers; n++) {
-                    z_min_layer(n) = deltax * (layer_height * n);
-                    z_max_layer(n) = deltax * (_inputs.spot_radius + layer_height * n);
-                }
+            if (simulation_type == "Spot") {
+                // Domain edge in X and Y is at 0
+                x_min = 0.0;
+                y_min = 0.0;
+                x_max = (nx - 1) * deltax;
+                y_max = (ny - 1) * deltax;
+                // Domain top is at 0
+                z_min = -(nz - 1) * deltax;
+                z_min_layer(0) = z_min;
+                z_max = 0.0;
+                z_max_layer(0) = z_max;
+            }
+            else {
+                // Domain origin is placed at 0
+                x_min = 0.0;
+                y_min = 0.0;
+                z_min = 0.0;
+                z_min_layer(0) = z_min;
+                x_max = (nx - 1) * deltax;
+                y_max = (ny - 1) * deltax;
+                z_max = (nz - 1) * deltax;
+                z_max_layer(0) = z_max;
             }
         }
         if (id == 0) {
@@ -148,7 +157,7 @@ struct Grid {
         // Bounds of layer 0: Z coordinates span z_layer_bottom-z_layer_top, inclusive (functions previously in
         // CAinitialize.cpp and CAcelldata.hpp)
         z_layer_bottom = calcZLayerBottom(simulation_type, 0);
-        z_layer_top = calcZLayerTop(simulation_type, _inputs.spot_radius, 0);
+        z_layer_top = calcZLayerTop(simulation_type, 0);
         nz_layer = calcNzLayer(id, 0);
         domain_size = calcDomainSize(); // Number of cells in the current layer on this MPI rank
         bottom_of_current_layer = getBottomOfCurrentLayer();
@@ -456,46 +465,31 @@ struct Grid {
     // Get the Z coordinate of the lower bound of iteration for layer layernumber
     int calcZLayerBottom(const std::string simulation_type, const int layernumber) {
 
-        int z_layer_bottom_local = -1; // assign dummy initial value
-        if ((simulation_type == "C") || (simulation_type == "SingleGrain")) {
-            // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
-            z_layer_bottom_local = 0;
-        }
-        else if (simulation_type == "S") {
-            // lower bound of domain is an integer multiple of the layer spacing, since the temperature field is the
-            // same for every layer
-            z_layer_bottom_local = layer_height * layernumber;
-        }
-        else if (simulation_type == "R") {
+        int z_layer_bottom_local;
+        if (simulation_type == "R") {
             // lower bound of domain is based on the data read from the file(s)
             z_layer_bottom_local = Kokkos::round((z_min_layer[layernumber] - z_min) / deltax);
         }
-        if (z_layer_bottom_local == -1)
-            throw std::runtime_error("Error: ZBound_Low went uninitialized, problem type must be C, S, or R");
+        else {
+            // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
+            z_layer_bottom_local = 0;
+        }
         return z_layer_bottom_local;
     }
 
     // Get the Z coordinate of the upper bound of iteration for layer layernumber
-    int calcZLayerTop(const std::string simulation_type, const int spot_radius, const int layernumber) {
+    int calcZLayerTop(const std::string simulation_type, const int layernumber) {
 
-        int z_layer_top_local = -1; // assign dummy initial value
-        if ((simulation_type == "C") || (simulation_type == "SingleGrain")) {
-            // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
-            z_layer_top_local = nz - 1;
-        }
-        else if (simulation_type == "S") {
-            // Top of layer is equal to the spot radius for a problem of hemispherical spot solidification, plus an
-            // offset depending on the layer number
-            z_layer_top_local = spot_radius + layer_height * layernumber;
-        }
-        else if (simulation_type == "R") {
+        int z_layer_top_local;
+        if (simulation_type == "R") {
             // Top of layer comes from the layer's file data (implicitly assumes bottom of layer 0 is the bottom of the
             // overall domain - this should be fixed in the future for edge cases where this isn't true)
             z_layer_top_local = Kokkos::round((z_max_layer[layernumber] - z_min) / deltax);
         }
-        if (z_layer_top_local == -1)
-            throw std::runtime_error(
-                "Error: ZBound_High went uninitialized, problem type must be SingleGrain, C, S, or R");
+        else {
+            // Not a multilayer problem, top of "layer" is the top of the overall simulation domain
+            z_layer_top_local = nz - 1;
+        }
         return z_layer_top_local;
     }
 
@@ -527,13 +521,12 @@ struct Grid {
     }
 
     // Determine new active cell domain size and offset from bottom of global domain
-    void initNextLayer(const int id, const std::string simulation_type, const int next_layer_number,
-                       const int spot_radius) {
+    void initNextLayer(const int id, const std::string simulation_type, const int next_layer_number) {
         if (id == 0)
             std::cout << "Initializing layer " << next_layer_number << std::endl;
 
         z_layer_bottom = calcZLayerBottom(simulation_type, next_layer_number);
-        z_layer_top = calcZLayerTop(simulation_type, spot_radius, next_layer_number);
+        z_layer_top = calcZLayerTop(simulation_type, next_layer_number);
         nz_layer = calcNzLayer(id, next_layer_number);
         domain_size = calcDomainSize();
         bottom_of_current_layer = getBottomOfCurrentLayer();

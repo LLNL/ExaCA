@@ -32,15 +32,16 @@ void testCalcZLayerBottom() {
     grid.layer_height = 10;
     grid.deltax = 1 * pow(10, -6);
     grid.z_min = -0.5 * pow(10, -6);
+    // Test for simulation type "S"
+    int z_layer_bottom = grid.calcZLayerBottom("S", 0);
+    EXPECT_EQ(z_layer_bottom, 0);
     for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
         // Set ZMinLayer for each layer to be offset by LayerHeight cells from the previous one (lets solution for
         // both problem types by the same)
         grid.z_min_layer(layernumber) = grid.z_min + layernumber * grid.layer_height * grid.deltax;
-        // Call function for each layernumber, and for simulation types "S" and "R"
-        int z_layer_bottom_S = grid.calcZLayerBottom("S", layernumber);
-        EXPECT_EQ(z_layer_bottom_S, grid.layer_height * layernumber);
-        int z_layer_bottom_R = grid.calcZLayerBottom("R", layernumber);
-        EXPECT_EQ(z_layer_bottom_R, grid.layer_height * layernumber);
+        // Call function for each layernumber, and for simulation type and "R"
+        int z_layer_bottom = grid.calcZLayerBottom("R", layernumber);
+        EXPECT_EQ(z_layer_bottom, grid.layer_height * layernumber);
     }
 }
 
@@ -49,26 +50,26 @@ void testCalcZLayerTop() {
     // A separate function is now used for ZBound_High calculation
     // Default initialized inputs and grid structs with manually set values for tests
     Inputs inputs;
-    inputs.domain.spot_radius = 100;
     inputs.domain.layer_height = 10;
     int number_of_layers_temp = 10;
     Grid grid(number_of_layers_temp);
     grid.z_min = 0.5 * pow(10, -6);
     grid.deltax = 1.0 * pow(10, -6);
-    grid.nz = 101;
+    for (int layernumber = 0; layernumber < number_of_layers_temp; layernumber++) {
+        grid.z_max_layer(layernumber) = grid.z_min + grid.deltax * inputs.domain.layer_height;
+    }
+    grid.nz = 111;
     for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
         // Set ZMaxLayer for each layer to be offset by LayerHeight cells from the previous one, with layer 0 having a
         // ZMax value of ZMin + SpotRadius (lets solution for both problem types be the same)
-        grid.z_max_layer(layernumber) =
-            grid.z_min + inputs.domain.spot_radius * grid.deltax + layernumber * grid.layer_height * grid.deltax;
-        // Call function for each layernumber, and for simulation types "S" and "R"
-        int z_layer_top_S = grid.calcZLayerTop("S", inputs.domain.spot_radius, layernumber);
-        EXPECT_EQ(z_layer_top_S, inputs.domain.spot_radius + grid.layer_height * layernumber);
-        int z_layer_top_R = grid.calcZLayerTop("R", inputs.domain.spot_radius, layernumber);
-        EXPECT_EQ(z_layer_top_R, inputs.domain.spot_radius + grid.layer_height * layernumber);
+        // Call function for each layernumber for simulation types "R"
+        int z_layer_top_R = grid.calcZLayerTop("R", layernumber);
+        EXPECT_EQ(z_layer_top_R, (grid.z_max_layer(layernumber) - grid.z_min) / grid.deltax);
         // For simulation type C, should be independent of layernumber
-        int z_layer_top_C = grid.calcZLayerTop("C", inputs.domain.spot_radius, layernumber);
+        int z_layer_top_C = grid.calcZLayerTop("C", layernumber);
         EXPECT_EQ(z_layer_top_C, grid.nz - 1);
+        int z_layer_top_S = grid.calcZLayerTop("S", layernumber);
+        EXPECT_EQ(z_layer_top_S, grid.nz - 1);
     }
 }
 

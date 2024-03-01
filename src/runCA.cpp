@@ -30,7 +30,7 @@ void runExaCA(int id, int np, std::string input_file) {
     InterfacialResponseFunction irf(id, inputs.material_filename, inputs.domain.deltat, grid.deltax);
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
-    if ((simulation_type == "R") || (simulation_type == "S"))
+    if (simulation_type == "R")
         inputs.checkPowderOverflow(grid.nx, grid.ny, grid.layer_height, grid.number_of_layers);
 
     // Temperature fields characterized by data in this structure
@@ -41,8 +41,8 @@ void runExaCA(int id, int np, std::string input_file) {
     // Initialize the temperature fields for the simualtion type of interest
     if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
         temperature.initialize(id, simulation_type, grid, inputs.domain.deltat);
-    else if (simulation_type == "S")
-        temperature.initialize(id, grid, irf.freezing_range, inputs);
+    else if (simulation_type == "Spot")
+        temperature.initialize(id, grid, irf.freezing_range, inputs.domain.deltat, inputs.domain.spot_radius);
     else if (simulation_type == "R")
         temperature.initialize(0, id, grid, irf.freezing_range, inputs.domain.deltat);
     MPI_Barrier(MPI_COMM_WORLD);
@@ -152,18 +152,16 @@ void runExaCA(int id, int np, std::string input_file) {
             print.printInterlayer(id, np, layernumber, grid, celldata, temperature, interface, orientation);
 
             // Determine new active cell domain size and offset from bottom of global domain
-            grid.initNextLayer(id, simulation_type, layernumber + 1, inputs.domain.spot_radius);
+            grid.initNextLayer(id, simulation_type, layernumber + 1);
 
-            // For simulation type R, need to initialize new temperature field data for layer "layernumber + 1"
+            // Initialize new temperature field data for layer "layernumber + 1"
             // TODO: reorganize these temperature functions calls into a temperature.init_next_layer as done with the
             // substrate
-            if (simulation_type == "R") {
-                // If the next layer's temperature data isn't already stored, it should be read
-                if (inputs.temperature.layerwise_temp_read)
-                    temperature.readTemperatureData(id, grid, layernumber + 1);
-                // Initialize next layer's temperature data
-                temperature.initialize(layernumber + 1, id, grid, irf.freezing_range, inputs.domain.deltat);
-            }
+            // If the next layer's temperature data isn't already stored, it should be read
+            if (inputs.temperature.layerwise_temp_read)
+                temperature.readTemperatureData(id, grid, layernumber + 1);
+            // Initialize next layer's temperature data
+            temperature.initialize(layernumber + 1, id, grid, irf.freezing_range, inputs.domain.deltat);
 
             // Reset solidification event counter of all cells to zeros for the next layer, resizing to number of cells
             // associated with the next layer, and get the subview for undercooling

@@ -1,17 +1,12 @@
 {
-   "SimulationType": "S",
+   "SimulationType": "Spot",
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
    "RandomSeed": 0,
    "Domain": {
        "CellSize": 1,
        "TimeStep": 0.066666666,
-       "NSpotsX": 3,
-       "NSpotsY": 2,
-       "RSpots": 75,
-       "SpotOffset": 100,
-       "NumberOfLayers": 2,
-       "LayerOffset": 20
+       "SpotRadius": 75
    },
    "Nucleation": {
        "Density": 10,
@@ -32,7 +27,7 @@
       "PrintBinary": false,
       "printExaConstitSize": 0,
       "Intralayer": {
-          "Increment": 37500,
+          "Increment": 2000,
           "Fields": ["GrainMisorientation", "MeltTimeStep", "CritTimeStep"],
           "PrintIdleFrames": true
       },
