@@ -53,13 +53,17 @@ struct Temperature {
     // These contain "number_of_layers" values corresponding to the location within "raw_temperature_data" of the first
     // data element in each temperature file, if used
     view_type_int_host first_value, last_value;
+    // Undercooling when a solidification first began in a cell (optional to store based on selected inputs)
+    bool _store_solidification_start;
+    view_type_float undercooling_solidification_start_all_layers, undercooling_solidification_start;
     // Temperature field inputs from file
     TemperatureInputs _inputs;
 
     // Constructor creates views with size based on the grid inputs - each cell assumed to solidify once by default,
     // layer_time_temp_history modified to account for multiple events if needed undercooling_current and
     // solidification_event_counter are default initialized to zeros
-    Temperature(const Grid &grid, TemperatureInputs inputs, const int est_num_temperature_data_points = 1000000)
+    Temperature(const Grid &grid, TemperatureInputs inputs, const bool store_solidification_start = false,
+                const int est_num_temperature_data_points = 1000000)
         : max_solidification_events(
               view_type_int(Kokkos::ViewAllocateWithoutInitializing("number_of_layers"), grid.number_of_layers))
         , layer_time_temp_history(view_type_float_3d(Kokkos::ViewAllocateWithoutInitializing("layer_time_temp_history"),
@@ -72,8 +76,15 @@ struct Temperature {
                                                      est_num_temperature_data_points))
         , first_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("first_value"), grid.number_of_layers))
         , last_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("last_value"), grid.number_of_layers))
+        , _store_solidification_start(store_solidification_start)
         , _inputs(inputs) {
 
+        if (_store_solidification_start) {
+            // Default init starting undercooling in cells to zero
+            undercooling_solidification_start_all_layers =
+                view_type_float("undercooling_solidification_start", grid.domain_size_all_layers);
+            getCurrentLayerStartingUndercooling(grid.layer_range);
+        }
         getCurrentLayerUndercooling(grid.layer_range);
     }
 
@@ -645,14 +656,34 @@ struct Temperature {
         undercooling_current = Kokkos::subview(undercooling_current_all_layers, layer_range);
     }
 
-    // Reset local cell undercooling to 0
+    // (Optional based on selected inputs) Get the subview associated with the initial undercooling of cells during
+    // solidification start in the current layer. Do not reset the undercooling of cells from the prior layer to zero as
+    // this information will be stored for a potential print (and a cell that remelts in the current layer will have its
+    // undercooling reset to 0 and recalculated)
+    void getCurrentLayerStartingUndercooling(std::pair<int, int> layer_range) {
+        undercooling_solidification_start = Kokkos::subview(undercooling_solidification_start_all_layers, layer_range);
+    }
+
+    // Reset local cell undercooling (and if needed, the cell's starting undercooling) to 0
     KOKKOS_INLINE_FUNCTION
-    void resetUndercooling(const int index) const { undercooling_current(index) = 0.0; }
+    void resetUndercooling(const int index) const {
+        if (_store_solidification_start)
+            undercooling_solidification_start(index) = 0.0;
+        undercooling_current(index) = 0.0;
+    }
 
     // Update local cell undercooling for the current melt-resolidification event
     KOKKOS_INLINE_FUNCTION
     void updateUndercooling(const int index) const {
         undercooling_current(index) += layer_time_temp_history(index, solidification_event_counter(index), 2);
+    }
+
+    // (Optional based on inputs) Set the starting undercooling in the cell for the solidification event that just
+    // started
+    KOKKOS_INLINE_FUNCTION
+    void setStartingUndercooling(const int index) const {
+        if (_store_solidification_start)
+            undercooling_solidification_start(index) = undercooling_current(index);
     }
 
     // Update the solidification event counter for a cell that has not finished the previous solidification event (i.e.,
@@ -676,6 +707,8 @@ struct Temperature {
     // Reset solidification event counter and get the subview associated with the undercooling field for the next layer
     void resetLayerEventsUndercooling(const Grid &grid) {
         getCurrentLayerUndercooling(grid.layer_range);
+        if (_store_solidification_start)
+            getCurrentLayerStartingUndercooling(grid.layer_range);
         Kokkos::realloc(solidification_event_counter, grid.domain_size);
         Kokkos::deep_copy(solidification_event_counter, 0);
     }

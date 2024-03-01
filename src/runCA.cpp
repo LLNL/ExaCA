@@ -34,7 +34,7 @@ void runExaCA(int id, int np, std::string input_file) {
         inputs.checkPowderOverflow(grid.nx, grid.ny, grid.layer_height, grid.number_of_layers);
 
     // Temperature fields characterized by data in this structure
-    Temperature<memory_space> temperature(grid, inputs.temperature);
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print.store_solidification_start);
     // Read temperature data if necessary
     if (simulation_type == "R")
         temperature.readTemperatureData(id, grid, 0);

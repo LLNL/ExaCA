@@ -197,12 +197,19 @@ struct Print {
                 printViewData(id, intralayer_ofstream, grid, true, "short", "LayerID", layer_id_whole_domain);
             }
             if (_inputs.intralayer_undercooling_current) {
+                // TODO: remove this, the subview undercooling_current_layer is already stored in the temperature struct
                 auto undercooling_current_layer =
                     Kokkos::subview(temperature.undercooling_current_all_layers, grid.layer_range);
                 auto undercooling_whole_domain =
                     collectViewData(id, np, grid, true, MPI_FLOAT, undercooling_current_layer);
                 printViewData(id, intralayer_ofstream, grid, true, "float", "UndercoolingCurrent",
                               undercooling_whole_domain);
+            }
+            if (_inputs.intralayer_undercooling_solidification_start) {
+                auto undercooling_start_whole_domain =
+                    collectViewData(id, np, grid, true, MPI_FLOAT, temperature.undercooling_solidification_start);
+                printViewData(id, intralayer_ofstream, grid, true, "float", "UndercoolingStart",
+                              undercooling_start_whole_domain);
             }
             if (_inputs.intralayer_melt_time_step) {
                 auto melt_time_step = temperature.template extractTmTlCrData<view_type_int>(0, grid.domain_size);
@@ -321,6 +328,12 @@ struct Print {
                         collectViewData(id, np, grid, false, MPI_FLOAT, temperature.undercooling_current_all_layers);
                     printViewData(id, interlayer_all_layers_ofstream, grid, false, "float", "UndercoolingCurrent",
                                   undercooling_all_layers_whole_domain);
+                }
+                if (_inputs.interlayer_undercooling_solidification_start) {
+                    auto undercooling_start_all_layers_whole_domain = collectViewData(
+                        id, np, grid, false, MPI_FLOAT, temperature.undercooling_solidification_start_all_layers);
+                    printViewData(id, interlayer_all_layers_ofstream, grid, false, "float", "UndercoolingStart",
+                                  undercooling_start_all_layers_whole_domain);
                 }
                 interlayer_all_layers_ofstream.close();
             }

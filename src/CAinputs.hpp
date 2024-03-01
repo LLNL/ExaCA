@@ -77,6 +77,7 @@ struct PrintInputs {
                                                "LayerID",
                                                "GrainMisorientation",
                                                "UndercoolingCurrent",
+                                               "UndercoolingSolidificationStart",
                                                "MeltTimeStep",
                                                "CritTimeStep",
                                                "UndercoolingChange",
@@ -92,6 +93,7 @@ struct PrintInputs {
     bool intralayer_layer_id = false;
     bool intralayer_grain_misorientation = false;
     bool intralayer_undercooling_current = false;
+    bool intralayer_undercooling_solidification_start = false;
     bool intralayer_melt_time_step = false;
     bool intralayer_crit_time_step = false;
     bool intralayer_undercooling_change = false;
@@ -105,6 +107,7 @@ struct PrintInputs {
     bool interlayer_grain_id = false;
     bool interlayer_layer_id = false;
     bool interlayer_grain_misorientation = false;
+    bool interlayer_undercooling_solidification_start = false;
     bool interlayer_undercooling_current = false;
     bool interlayer_melt_time_step = false;
     bool interlayer_crit_time_step = false;
@@ -113,6 +116,8 @@ struct PrintInputs {
     bool interlayer_diagonal_length = false;
     bool interlayer_solidification_event_counter = false;
     bool interlayer_number_of_solidification_events = false;
+    // True if intralayer_undercooling_solidification_start or interlayer_undercooling_solidification_start is true
+    bool store_solidification_start = false;
     // List of layers following which the interlayer fields should be printed (will always include final layer of
     // simulation)
     std::vector<int> print_layer_number;
@@ -574,18 +579,20 @@ struct Inputs {
                 if (print_fields_intralayer[3])
                     print.intralayer_undercooling_current = true;
                 if (print_fields_intralayer[4])
-                    print.intralayer_melt_time_step = true;
+                    print.intralayer_undercooling_solidification_start = true;
                 if (print_fields_intralayer[5])
-                    print.intralayer_crit_time_step = true;
+                    print.intralayer_melt_time_step = true;
                 if (print_fields_intralayer[6])
-                    print.intralayer_undercooling_change = true;
+                    print.intralayer_crit_time_step = true;
                 if (print_fields_intralayer[7])
-                    print.intralayer_cell_type = true;
+                    print.intralayer_undercooling_change = true;
                 if (print_fields_intralayer[8])
-                    print.intralayer_diagonal_length = true;
+                    print.intralayer_cell_type = true;
                 if (print_fields_intralayer[9])
-                    print.intralayer_solidification_event_counter = true;
+                    print.intralayer_diagonal_length = true;
                 if (print_fields_intralayer[10])
+                    print.intralayer_solidification_event_counter = true;
+                if (print_fields_intralayer[11])
                     print.intralayer_number_of_solidification_events = true;
                 // True if any fields are printed
                 int num_print_intralayer_inputs = print_fields_intralayer.size();
@@ -640,27 +647,34 @@ struct Inputs {
             if (print_fields_interlayer[3])
                 print.interlayer_undercooling_current = true;
             if (print_fields_interlayer[4])
-                print.interlayer_melt_time_step = true;
+                print.interlayer_undercooling_solidification_start = true;
             if (print_fields_interlayer[5])
-                print.interlayer_crit_time_step = true;
+                print.interlayer_melt_time_step = true;
             if (print_fields_interlayer[6])
-                print.interlayer_undercooling_change = true;
+                print.interlayer_crit_time_step = true;
             if (print_fields_interlayer[7])
-                print.interlayer_cell_type = true;
+                print.interlayer_undercooling_change = true;
             if (print_fields_interlayer[8])
-                print.interlayer_diagonal_length = true;
+                print.interlayer_cell_type = true;
             if (print_fields_interlayer[9])
-                print.interlayer_solidification_event_counter = true;
+                print.interlayer_diagonal_length = true;
             if (print_fields_interlayer[10])
+                print.interlayer_solidification_event_counter = true;
+            if (print_fields_interlayer[11])
                 print.interlayer_number_of_solidification_events = true;
-            if ((print.interlayer_grain_id) || (print.interlayer_layer_id) || (print.interlayer_undercooling_current))
+            if ((print.interlayer_grain_id) || (print.interlayer_layer_id) || (print.interlayer_undercooling_current) ||
+                (print.interlayer_undercooling_solidification_start))
                 print.interlayer_full = true;
-            // First 4 inputs are full domain inputs - check if any of the others were toggled
+            // First 5 inputs are full domain inputs - check if any of the others were toggled
             int num_interlayer_current_inputs = print_fields_interlayer.size();
-            for (int n = 4; n < num_interlayer_current_inputs; n++) {
+            for (int n = 5; n < num_interlayer_current_inputs; n++) {
                 if (print_fields_interlayer[n])
                     print.interlayer_current = true;
             }
+            // Should starting undercooling for solidification be stored?
+            if ((print.intralayer_undercooling_solidification_start) ||
+                (print.interlayer_undercooling_solidification_start))
+                print.store_solidification_start = true;
         }
         if (id == 0)
             std::cout << "Successfully parsed data printing options from input file" << std::endl;
