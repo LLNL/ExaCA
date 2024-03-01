@@ -77,13 +77,12 @@ struct Temperature {
         , first_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("first_value"), grid.number_of_layers))
         , last_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("last_value"), grid.number_of_layers))
         , _store_solidification_start(store_solidification_start)
-        , undercooling_solidification_start_all_layers(
-              view_type_float(Kokkos::ViewAllocateWithoutInitializing("undercooling_solidification_start"), 0))
         , _inputs(inputs) {
 
         if (_store_solidification_start) {
-            Kokkos::realloc(undercooling_solidification_start_all_layers, grid.domain_size_all_layers);
-            Kokkos::deep_copy(undercooling_solidification_start_all_layers, 0.0);
+            // Default init starting undercooling in cells to zero
+            undercooling_solidification_start_all_layers =
+                view_type_float("undercooling_solidification_start", grid.domain_size_all_layers);
             getCurrentLayerStartingUndercooling(grid.layer_range);
         }
         getCurrentLayerUndercooling(grid.layer_range);
