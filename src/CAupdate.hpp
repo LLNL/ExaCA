@@ -208,6 +208,9 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
 
                                 // The new cell is captured by this cell's growing octahedron (Grain "h")
                                 grain_id(neighbor_index) = h;
+                                // Store the initial undercooling for the newly captured cell, if this output was
+                                // toggled
+                                temperature.setStartingUndercooling(neighbor_index);
 
                                 // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
                                 float cxold = interface.octahedron_center(3 * index);
