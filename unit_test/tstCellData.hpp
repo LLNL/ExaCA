@@ -330,7 +330,7 @@ void testCellDataInit(bool powder_first_layer) {
     int previous_layer_first_epitaxial_grain_id = celldata.next_layer_first_epitaxial_grain_id;
     // Initialize the next layer using the same time-temperature history - powder should span cells at Z = 3
     expected_num_powder_grains_per_layer = grid.nx * grid.ny_local * np;
-    grid.initNextLayer(id, "R", 1, inputs.domain.spot_radius);
+    grid.initNextLayer(id, "R", 1);
     celldata.initNextLayer(1, id, grid, inputs.rng_seed, number_of_solidification_events);
 
     // Copy all grain IDs for all layers back to the host to check that they match

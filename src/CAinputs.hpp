@@ -22,12 +22,12 @@
 // Structs to organize data within inputs struct
 struct DomainInputs {
     double deltax = 0.0, deltat = 0.0;
-    // number of CA cells in each direction only initialized here for problem types C, S, and SingleGrain
+    // number of CA cells in each direction only initialized here for problem types C, Spot, and SingleGrain
     int nx = 0, ny = 0, nz = 0;
     // multilayer problems only
     int number_of_layers = 1, layer_height = 0;
-    // problem type S only
-    int n_spots_x = 0, n_spots_y = 0, spot_radius = 0, spot_offset = 0;
+    // problem type Spot only
+    int spot_radius = 0;
 };
 
 struct NucleationInputs {
@@ -56,7 +56,7 @@ struct SubstrateInputs {
     bool fill_bottom_surface = false;
     // problem type SingleGrain only
     int single_grain_orientation = 0;
-    // problem types S and R only
+    // problem types Spot and R only
     bool use_substrate_file = false;
     bool baseplate_through_powder = false;
     std::string substrate_filename = "";
@@ -152,30 +152,21 @@ struct Inputs {
         // General inputs
         simulation_type = input_data["SimulationType"];
         // "C": constrained (directional) solidification
-        // "S": array of overlapping hemispherical spots
+        // "Spot": hemispherical spot with fixed thermal gradient and cooling rate
         // "R": time-temperature history comes from external files
         // Check if simulation type includes remelting ("M" suffix to input problem type) - all simulations now use
         // remelting, so in the absence of this suffix, print warning that the problem will use remelting
         // DirSoldification problems now include remelting logic
-        if (simulation_type == "RM") {
+        if (simulation_type == "RM")
             simulation_type = "R";
-        }
-        else if (simulation_type == "SM") {
-            simulation_type = "S";
-        }
-        else if ((simulation_type == "S") || (simulation_type == "R")) {
-            if (id == 0) {
-                if (simulation_type == "S")
-                    std::cout
-                        << "Warning: While the specified problem type did not include remelting, all simulations now "
-                           "include remelting"
-                        << std::endl;
-            }
-        }
-        if ((simulation_type == "S") && (id == 0))
-            std::cout << "Warning: The spot melt array simulation type (Problem type S) is now deprecated and will be "
-                         "removed in a future release"
+        else if (simulation_type == "R")
+            std::cout << "Warning: While the specified problem type did not include remelting, all simulations now "
+                         "include remelting"
                       << std::endl;
+        else if ((simulation_type == "S") || (simulation_type == "SM"))
+            throw std::runtime_error("Error: The spot melt array simulation type (Problem type S or SM) was removed "
+                                     "after version 1.3; simulation of a single hemispherical spot can be performed "
+                                     "using problem type Spot. See README for details");
 
         // Input files that should be present for all problem types
         std::string material_filename_read = input_data["MaterialFileName"];
@@ -203,24 +194,24 @@ struct Inputs {
             domain.ny = input_data["Domain"]["Ny"];
             domain.nz = input_data["Domain"]["Nz"];
         }
-        else {
-            // Number of layers, layer height are needed for problem types S and R
+        else if (simulation_type == "R") {
+            // Number of layers, layer height are needed for problem type and R
             domain.number_of_layers = input_data["Domain"]["NumberOfLayers"];
             domain.layer_height = input_data["Domain"]["LayerOffset"];
-            // Type S needs spot information, which is then used to compute the domain bounds
-            if (simulation_type == "S") {
-                domain.n_spots_x = input_data["Domain"]["NSpotsX"];
-                domain.n_spots_y = input_data["Domain"]["NSpotsY"];
-                // Radius and offset are given in micrometers, convert to cells
-                domain.spot_radius = input_data["Domain"]["RSpots"];
-                domain.spot_radius = domain.spot_radius * pow(10, -6) / domain.deltax;
-                domain.spot_offset = input_data["Domain"]["SpotOffset"];
-                domain.spot_offset = domain.spot_offset * pow(10, -6) / domain.deltax;
-                // Calculate nx, ny, and nz based on spot array pattern and number of layers
-                domain.nz = domain.spot_radius + 1 + (domain.number_of_layers - 1) * domain.layer_height;
-                domain.nx = 2 * domain.spot_radius + 1 + domain.spot_offset * (domain.n_spots_x - 1);
-                domain.ny = 2 * domain.spot_radius + 1 + domain.spot_offset * (domain.n_spots_y - 1);
-            }
+        }
+        else if (simulation_type == "Spot") {
+            std::vector<std::string> unused_spot_inputs = {"NSpotsX", "NSpotsY", "SpotOffset", "RSpots"};
+            int num_unused_spot_inputs = unused_spot_inputs.size();
+            for (int n = 0; n < num_unused_spot_inputs; n++)
+                if ((input_data["Domain"].contains(unused_spot_inputs[n])) && (id == 0))
+                    std::cout << "Note: Input " << unused_spot_inputs[n] << " is unused in the Spot problem type"
+                              << std::endl;
+            // Radius is given in micrometers, convert to cells
+            domain.spot_radius = input_data["Domain"]["SpotRadius"];
+            // Calculate nx, ny, and nz based on spot radius
+            domain.nz = domain.spot_radius + 1;
+            domain.nx = 2 * domain.spot_radius + 2;
+            domain.ny = 2 * domain.spot_radius + 2;
         }
 
         // Nucleation inputs:
@@ -342,36 +333,41 @@ struct Inputs {
                 substrate.substrate_grain_spacing = input_data["Substrate"]["MeanSize"];
                 substrate.use_substrate_file = false;
             }
-            // Should the baseplate microstructure be extended through the powder layers? Default is false
-            if (input_data["Substrate"].contains("ExtendSubstrateThroughPower"))
-                substrate.baseplate_through_powder = input_data["Substrate"]["ExtendSubstrateThroughPower"];
-            // defaults to a unique grain at each site in the powder layers if not given
-            if (input_data["Substrate"].contains("PowderDensity")) {
-                // powder density is given as a density per unit volume, normalized by 10^12 m^-3 --> convert this into
-                // a density of sites active on the CA grid (0 to 1)
-                substrate.powder_active_fraction = input_data["Substrate"]["PowderDensity"];
-                substrate.powder_active_fraction =
-                    substrate.powder_active_fraction * pow(10, 12) * pow(domain.deltax, 3);
-                if ((substrate.powder_active_fraction < 0.0) || (substrate.powder_active_fraction > 1.0))
+            if (simulation_type == "Spot") {
+                // No powder for this problem type, baseplate top at Z = 0
+                substrate.baseplate_top_z = 0.0;
+                substrate.baseplate_through_powder = false;
+            }
+            else {
+                // Should the baseplate microstructure be extended through the powder layers? Default is false
+                if (input_data["Substrate"].contains("ExtendSubstrateThroughPower"))
+                    substrate.baseplate_through_powder = input_data["Substrate"]["ExtendSubstrateThroughPower"];
+                // defaults to a unique grain at each site in the powder layers if not given
+                if (input_data["Substrate"].contains("PowderDensity")) {
+                    // powder density is given as a density per unit volume, normalized by 10^12 m^-3 --> convert this
+                    // into a density of sites active on the CA grid (0 to 1)
+                    substrate.powder_active_fraction = input_data["Substrate"]["PowderDensity"];
+                    substrate.powder_active_fraction =
+                        substrate.powder_active_fraction * pow(10, 12) * pow(domain.deltax, 3);
+                    if ((substrate.powder_active_fraction < 0.0) || (substrate.powder_active_fraction > 1.0))
+                        throw std::runtime_error(
+                            "Error: Density of powder surface sites active must be larger than 0 and less "
+                            "than 1/(CA cell volume)");
+                }
+                if ((input_data["Substrate"].contains("PowderFirstLayer")) && (id == 0))
+                    std::cout
+                        << "Warning: PowderFirstLayer input is no longer used, the top of the first layer must be "
+                           "specified using BaseplateTopZ (which will otherwise default to Z = 0)"
+                        << std::endl;
+                // The top of the baseplate is designated using BaseplateTopZ (assumed to be Z = 0 if not given in input
+                // file)
+                if (input_data["Substrate"].contains("BaseplateTopZ"))
+                    substrate.baseplate_top_z = input_data["Substrate"]["BaseplateTopZ"];
+                if ((substrate.baseplate_through_powder) && (input_data["Substrate"].contains("PowderDensity")))
                     throw std::runtime_error(
-                        "Error: Density of powder surface sites active must be larger than 0 and less "
-                        "than 1/(CA cell volume)");
+                        "Error: if the option to extend the baseplate through the powder layers is "
+                        "toggled, a powder layer density cannot be given");
             }
-            if ((input_data["Substrate"].contains("PowderFirstLayer")) && (id == 0))
-                std::cout << "Warning: PowderFirstLayer input is no longer used, the top of the first layer must be "
-                             "specified using BaseplateTopZ (which will otherwise default to Z = 0)"
-                          << std::endl;
-            // The top of the baseplate is designated using BaseplateTopZ (assumed to be Z = 0 if not given in input
-            // file)
-            if (input_data["Substrate"].contains("BaseplateTopZ"))
-                substrate.baseplate_top_z = input_data["Substrate"]["BaseplateTopZ"];
-            else if (simulation_type == "S") {
-                // Baseplate top if not otherwise given for spot array problem is at the top of the first layer
-                substrate.baseplate_top_z = domain.deltax * domain.spot_radius;
-            }
-            if ((substrate.baseplate_through_powder) && (input_data["Substrate"].contains("PowderDensity")))
-                throw std::runtime_error("Error: if the option to extend the baseplate through the powder layers is "
-                                         "toggled, a powder layer density cannot be given");
         }
 
         // Printing inputs
@@ -394,12 +390,10 @@ struct Inputs {
                     std::cout << "The fraction of CA cells at the bottom surface that are active is "
                               << substrate.fract_surface_sites_active << std::endl;
             }
-            else if (simulation_type == "S") {
+            else if (simulation_type == "Spot") {
                 std::cout << "CA Simulation using a radial, fixed thermal gradient of " << temperature.G
-                          << " K/m as a series of hemispherical spots, and a cooling rate of " << temperature.R
-                          << " K/s" << std::endl;
-                std::cout << "A total of " << domain.number_of_layers << " spots per layer, with layers offset by "
-                          << domain.layer_height << " CA cells will be simulated" << std::endl;
+                          << " K/m across a hemispherical spot of radius " << domain.spot_radius
+                          << " cells, with a cooling rate of " << temperature.R << " K/s" << std::endl;
                 std::cout << "The time step is " << domain.deltat * pow(10, 6) << " microseconds" << std::endl;
             }
             else if (simulation_type == "R") {
@@ -736,22 +730,16 @@ struct Inputs {
             exaca_log << "      \"XBounds\": [" << x_min << "," << x_max << "]," << std::endl;
             exaca_log << "      \"YBounds\": [" << y_min << "," << y_max << "]," << std::endl;
             exaca_log << "      \"ZBounds\": [" << z_min << "," << z_max << "]";
-            if (simulation_type != "C") {
+            if (simulation_type == "R") {
                 exaca_log << "," << std::endl;
                 exaca_log << "      \"NumberOfLayers\": " << number_of_layers << "," << std::endl;
                 exaca_log << "      \"LayerOffset\": " << layer_height;
-                if (simulation_type == "S") {
-                    exaca_log << "," << std::endl;
-                    exaca_log << "      \"NSpotsX\": " << domain.n_spots_x << "," << std::endl;
-                    exaca_log << "      \"NSpotsY\": " << domain.n_spots_y << "," << std::endl;
-                    exaca_log << "      \"RSpots\": " << domain.spot_radius << "," << std::endl;
-                    exaca_log << "      \"SpotOffset\": " << domain.spot_offset << std::endl;
-                }
-                else
-                    exaca_log << std::endl;
             }
-            else
-                exaca_log << std::endl;
+            else if (simulation_type == "Spot") {
+                exaca_log << "," << std::endl;
+                exaca_log << "      \"SpotRadius\": " << domain.spot_radius;
+            }
+            exaca_log << std::endl;
             exaca_log << "   }," << std::endl;
             exaca_log << "   \"Nucleation\": {" << std::endl;
             exaca_log << "      \"Density\": " << nucleation.n_max << "," << std::endl;

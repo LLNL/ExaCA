@@ -2,8 +2,7 @@
 ExaCA currently can model three types of problems:
 
 * Problem type C is a directional solidification problem, with the bottom surface initialized with some fraction of sites home to epitaxial grains and at the liquidus temperature and a positive thermal gradient in the +Z direction. The domain is then cooled at a constant rate. 
-* Problem type S or SM is an array of hemispherical spots, with the number of spots in X, Y, and the number of layers for which the pattern is repeated (offset by a specified number of cells in the positive Z direction) specified. This problem type also uses fixed thermal gradient magnitude and cooling rate for each spot. 
-    * The M is no longer required in the problem type, as problem type S is now the same as SM (it now includes multiple melting and solidification events per cell)
+* Problem type `Spot` is a hemispherical spot, with fixed thermal gradient magnitude and cooling rate as solidification proceeds from the outer edge of the spot towards the center. The ability to simulate multilayer arrays of overlapping spots was deprecated in version 1.2 and removed after version 1.3
 * Problem type `SingleGrain` is an initial nuclei at the domain center growing each time step until a domain edge is reached
 * Problem type R or RM is a custom solidification problem using time-temperature history file(s) (default location is `examples/Temperatures`). The format of these files are as follows:
     * The first line should be the names of the columns: x, y, z, tm, tl, cr
@@ -68,25 +67,22 @@ The .json files in the examples subdirectory are provided on the command line to
 |Nx            | C, SingleGrain         | Domain size in x, in cells
 |Ny            | C, SingleGrain         | Domain size in y, in cells
 |Nz            | C, SingleGrain         | Domain size in z, in cells
-|NumberOfLayers| S, R                   | Number of layers for which the temperature pattern will be repeated
-|LayerOffset   | S, R                   | If numberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
-|NSpotsX       | S                      | Number of spots in the x direction
-|NSpotsY       | S                      | Number of spots in the y direction
-|RSpots        | S                      | Spot radii, in microns
-|SpotOffset    | S                      | Offset of spot centers along the x and y axes, in microns     
+|NumberOfLayers| R                      | Number of layers for which the temperature pattern will be repeated
+|LayerOffset   | R                      | If numberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
+|SpotRadius    | Spot                   | Spot radius, in microns
 
 ## Nucleation inputs
 | Input            |Relevant problem type(s)| Details |
 |------------------|------------------------|---------|
-|Density           | C, S, R                | Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
-|MeanUndercooling  | C, S, R                | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
-|StDevUndercooling | C, S, R                | Standard deviation of nucleation undercooling (Gaussian distribution), in K
+|Density           | C, Spot, R             | Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
+|MeanUndercooling  | C, Spot, R             | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
+|StDevUndercooling | C, Spot, R             | Standard deviation of nucleation undercooling (Gaussian distribution), in K
 
 ## Temperature inputs
 | Input        | Relevant problem type(s)| Details |
 |--------------|-------------------------|---------|
-|G             | C, S, SingleGrain       | Thermal gradient in the build (+Z) directions, in K/m
-|R             | C, S, SingleGrain       | Cooling rate (uniform across the domain), in K/s
+|G             | C, Spot, SingleGrain    | Thermal gradient in the build (+Z) directions, in K/m
+|R             | C, Spot, SingleGrain    | Cooling rate (uniform across the domain), in K/s
 |LayerwiseTempRead | R                   | If set to Y, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to N, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. This option is only applicable to simulations with remelting; simulations without remelting (and simulations where this input is not given) default to N. Setting this to Y is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
 |TemperatureFiles | R                    | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than numberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, layerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
 |InitUndercooling | C, SingleGrain       | For SingleGrain, this is the undercooling at the location of the seeded grain. For problem type C, this is an optional argument (defaulting to zero) for the initial undercooling at the domain's bottom surface
@@ -99,11 +95,11 @@ The .json files in the examples subdirectory are provided on the command line to
 |GrainLocationsY | C           | List of grain locations in Y on the bottom surface of the domain (see note (b))
 |GrainIDs | C           | GrainID values for each grain in (X,Y) (see note (b))
 |FillBottomSurface | C  | Optionally assign all cells on the bottom surface the grain ID of the closest grain (defaults to false)
-|MeanSize      | S, R                     | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
-|SubstrateFilename |  S, R                | Path to and filename for substrate data (see note (a))
-|PowderDensity | S, R                     | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))
-|ExtendSubstrateThroughPowder| S, R        | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
-| BaseplateTopZ   | S, R                  | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
+|MeanSize      | Spot, R                  | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
+|SubstrateFilename |  Spot, R             | Path to and filename for substrate data (see note (a))
+|PowderDensity | Spot, R                  | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))
+|ExtendSubstrateThroughPowder| R          | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
+| BaseplateTopZ   | R                     | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
 |GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
 
 (a) One of these inputs must be provided, but not both

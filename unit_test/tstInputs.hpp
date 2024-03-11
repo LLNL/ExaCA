@@ -203,20 +203,13 @@ void testInputs(int print_version) {
             // compare with float to avoid floating point error with irrational number
             float deltat_comp = static_cast<float>(inputs.domain.deltat);
             EXPECT_FLOAT_EQ(deltat_comp, pow(10, -6) / 15.0);
-            EXPECT_EQ(inputs.domain.n_spots_x, 3);
-            EXPECT_EQ(inputs.domain.n_spots_y, 2);
-            EXPECT_EQ(inputs.domain.spot_offset, 100);
             EXPECT_EQ(inputs.domain.spot_radius, 75);
-            EXPECT_EQ(inputs.domain.number_of_layers, 2);
-            EXPECT_EQ(inputs.domain.layer_height, 20);
             EXPECT_FALSE(inputs.substrate.use_substrate_file);
             EXPECT_FALSE(inputs.substrate.baseplate_through_powder);
-            // For spot melt array, this is the top of first layer
-            EXPECT_DOUBLE_EQ(inputs.substrate.baseplate_top_z, inputs.domain.deltax * inputs.domain.spot_radius);
             EXPECT_FLOAT_EQ(inputs.substrate.substrate_grain_spacing, 25.0);
             EXPECT_TRUE(inputs.print.base_filename == "TestProblemSpot");
             EXPECT_TRUE(inputs.print.intralayer);
-            EXPECT_EQ(inputs.print.intralayer_increment, 37500);
+            EXPECT_EQ(inputs.print.intralayer_increment, 2000);
             EXPECT_TRUE(inputs.print.intralayer_idle_frames);
             EXPECT_FALSE(inputs.print.intralayer_grain_id);
             EXPECT_FALSE(inputs.print.intralayer_layer_id);
@@ -242,7 +235,7 @@ void testInputs(int print_version) {
             EXPECT_FALSE(inputs.print.interlayer_diagonal_length);
             EXPECT_FALSE(inputs.print.interlayer_solidification_event_counter);
             EXPECT_FALSE(inputs.print.interlayer_number_of_solidification_events);
-            EXPECT_EQ(inputs.print.print_layer_number[0], 1);
+            EXPECT_EQ(inputs.print.print_layer_number[0], 0);
             EXPECT_FALSE(inputs.print.print_default_rve);
             EXPECT_DOUBLE_EQ(inputs.rng_seed, 0.0);
         }
