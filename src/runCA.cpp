@@ -81,7 +81,7 @@ void runExaCA(int id, int np, std::string input_file) {
     Print print(grid, np, inputs.print);
 
     // End of initialization
-    timers.endInit();
+    timers.stopInit();
     MPI_Barrier(MPI_COMM_WORLD);
 
     int cycle = 0;
@@ -105,7 +105,7 @@ void runExaCA(int id, int np, std::string input_file) {
             // CellCapture
             timers.startNucleation();
             nucleation.nucleateGrain(cycle, grid, celldata, interface);
-            timers.endNucleation();
+            timers.stopNucleation();
 
             // Update cells on GPU - new active cells, solidification of old active cells
             // Cell capture performed in two steps - first, adding cells of interest to a steering vector (different
@@ -119,20 +119,20 @@ void runExaCA(int id, int np, std::string input_file) {
                 fillSteeringVector_NoRemelt(cycle, grid, celldata, temperature, interface);
             else
                 fillSteeringVector_Remelt(cycle, grid, celldata, temperature, interface);
-            timers.endSV();
+            timers.stopSV();
 
             timers.startCapture();
             // Cell capture and checking of the MPI buffers to ensure that all appropriate interface updates in the halo
             // regions were recorded
             cellCapture(cycle, np, grid, irf, celldata, temperature, interface, orientation);
             checkBuffers(id, cycle, grid, celldata, interface, orientation.n_grain_orientations);
-            timers.endCapture();
+            timers.stopCapture();
 
             if (np > 1) {
                 // Update ghost nodes
                 timers.startComm();
                 haloUpdate(cycle, id, grid, celldata, interface, orientation);
-                timers.endComm();
+                timers.stopComm();
             }
 
             if ((cycle % 1000 == 0) && (simulation_type != "SingleGrain")) {
@@ -184,14 +184,14 @@ void runExaCA(int id, int np, std::string input_file) {
             x_switch = 0;
             MPI_Barrier(MPI_COMM_WORLD);
             cycle = 0;
-            timers.endLayer(layernumber);
+            timers.stopLayer(layernumber);
         }
         else {
             MPI_Barrier(MPI_COMM_WORLD);
-            timers.endLayer();
+            timers.stopLayer();
         }
     }
-    timers.endRun();
+    timers.stopRun();
     MPI_Barrier(MPI_COMM_WORLD);
     timers.startOutput();
 
@@ -201,7 +201,7 @@ void runExaCA(int id, int np, std::string input_file) {
     // Calculate volume fraction of solidified domain consisting of nucleated grains
     float vol_fraction_nucleated = celldata.calcVolFractionNucleated(id, grid);
     // Get MPI timing statisticss
-    timers.endOutput();
+    timers.stopOutput();
     timers.reduceMPI();
 
     // Print the log file with JSON format

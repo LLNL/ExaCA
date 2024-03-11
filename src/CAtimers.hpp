@@ -10,98 +10,125 @@
 #include <iostream>
 #include <sstream>
 
+class Timer {
+    double _time = 0.0;
+    double start_time = 0.0;
+    double max_time, min_time = 0.0;
+
+  public:
+    void start() { start_time = MPI_Wtime(); }
+    void stop() { _time = MPI_Wtime() - start_time; }
+    auto time() { return _time; }
+    auto minTime() { return max_time; }
+    auto maxTime() { return min_time; }
+
+    void reduceMPI() {
+        MPI_Allreduce(&_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+        MPI_Allreduce(&_time, &min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    }
+
+    auto print(std::string description) {
+        std::stringstream out;
+        out << "Time spent " << description << " = " << _time << " s" << std::endl;
+        return out.str();
+    }
+
+    auto printMinMax(std::string description) {
+        std::stringstream out;
+        out << "Max/min rank time " << description << " = " << max_time << " / " << min_time << " s" << std::endl;
+        return out.str();
+    }
+};
+
 // Print timing info
 struct Timers {
 
     int id;
-    double init_time = 0.0, nucl_time = 0.0, create_sv_time = 0.0, capture_time = 0.0, ghost_time = 0.0;
-    double start_nucl_time, start_create_sv_time, start_capture_time, start_ghost_time;
-    double start_init_time, start_run_time, start_out_time;
-    double run_time, out_time;
-    double layer_time_1, layer_time_2;
-
-    double init_max_time, init_min_time, out_max_time, out_min_time = 0.0;
-    double nucl_max_time, nucl_min_time, create_sv_min_time, create_sv_max_time, capture_max_time, capture_min_time,
-        ghost_max_time, ghost_min_time = 0.0;
+    Timer init, run, output;
+    Timer nucl, create_sv, capture, ghost;
+    Timer layer;
 
     Timers(const int mpi_id)
-        : id(mpi_id) {}
+        : id(mpi_id)
+        , init()
+        , run()
+        , output()
+        , nucl()
+        , create_sv()
+        , capture()
+        , ghost()
+        , layer() {}
 
-    void startInit() { start_init_time = MPI_Wtime(); }
-    void endInit() {
-        init_time = MPI_Wtime() - start_init_time;
+    void startInit() { init.start(); }
+    void stopInit() {
+        init.stop();
         if (id == 0)
-            std::cout << "Data initialized: Time spent: " << init_time << " s" << std::endl;
+            std::cout << "Data initialized: Time spent: " << init.time() << " s" << std::endl;
     }
 
-    void startRun() { start_run_time = MPI_Wtime(); }
+    void startRun() { run.start(); }
 
-    void endRun() { run_time = MPI_Wtime() - start_run_time; }
+    void stopRun() { run.stop(); }
 
-    void startOutput() { start_out_time = MPI_Wtime(); }
+    void startOutput() { output.start(); }
 
-    void endOutput() { out_time = MPI_Wtime() - start_out_time; }
+    void stopOutput() { output.stop(); }
 
-    void startNucleation() { start_nucl_time = MPI_Wtime(); }
-    void endNucleation() { nucl_time += MPI_Wtime() - start_nucl_time; }
+    void startNucleation() { nucl.start(); }
+    void stopNucleation() { nucl.stop(); }
 
-    void startSV() { start_create_sv_time = MPI_Wtime(); }
-    void endSV() { create_sv_time += MPI_Wtime() - start_create_sv_time; }
+    void startSV() { create_sv.start(); }
+    void stopSV() { create_sv.stop(); }
 
-    void startCapture() { start_capture_time = MPI_Wtime(); }
-    void endCapture() { capture_time += MPI_Wtime() - start_capture_time; }
+    void startCapture() { capture.start(); }
+    void stopCapture() { capture.stop(); }
 
-    void startComm() { start_ghost_time = MPI_Wtime(); }
-    void endComm() { ghost_time += MPI_Wtime() - start_ghost_time; }
+    void startComm() { ghost.start(); }
+    void stopComm() { ghost.stop(); }
 
-    void startLayer() { layer_time_1 = MPI_Wtime(); }
-    void endLayer(const int layernumber) {
-        double layer_time_2 = MPI_Wtime();
+    void startLayer() { layer.start(); }
+    void stopLayer(const int layernumber) {
+        layer.stop();
         if (id == 0)
-            std::cout << "Time for layer number " << layernumber << " was " << layer_time_2 - layer_time_1
-                      << " s, starting layer " << layernumber + 1 << std::endl;
+            std::cout << "Time for layer number " << layernumber << " was " << layer.time() << " s, starting layer "
+                      << layernumber + 1 << std::endl;
     }
-    void endLayer() {
-        double layer_time_2 = MPI_Wtime();
+    void stopLayer() {
+        layer.stop();
         if (id == 0)
-            std::cout << "Time for final layer was " << layer_time_2 - layer_time_1 << " s" << std::endl;
+            std::cout << "Time for final layer was " << layer.time() << " s" << std::endl;
     }
 
-    double getTotal() { return init_time + run_time + out_time; }
+    double getTotal() { return init.time() + run.time() + output.time(); }
 
     auto printLog() {
         // This assumes reduceMPI() has already been called.
         std::stringstream log;
         log << "   \"Timing\": {" << std::endl;
         log << "       \"Runtime\": " << getTotal() << "," << std::endl;
-        log << "       \"InitRunOutputBreakdown\": [" << init_time << "," << run_time << "," << out_time << "],"
-            << std::endl;
-        log << "       \"MaxMinInitTime\": [" << init_max_time << "," << init_min_time << "]," << std::endl;
-        log << "       \"MaxMinNucleationTime\": [" << nucl_max_time << "," << nucl_min_time << "]," << std::endl;
-        log << "       \"MaxMinSteeringVectorCreationTime\": [" << create_sv_max_time << "," << create_sv_min_time
+        log << "       \"InitRunOutputBreakdown\": [" << init.time() << "," << run.time() << "," << output.time()
             << "]," << std::endl;
-        log << "       \"MaxMinCellCaptureTime\": [" << capture_max_time << "," << capture_min_time << "],"
+        log << "       \"MaxMinInitTime\": [" << init.maxTime() << "," << init.minTime() << "]," << std::endl;
+        log << "       \"MaxMinNucleationTime\": [" << nucl.maxTime() << "," << nucl.minTime() << "]," << std::endl;
+        log << "       \"MaxMinSteeringVectorCreationTime\": [" << create_sv.maxTime() << "," << create_sv.minTime()
+            << "]," << std::endl;
+        log << "       \"MaxMinCellCaptureTime\": [" << capture.maxTime() << "," << capture.minTime() << "],"
             << std::endl;
-        log << "       \"MaxMinGhostExchangeTime\": [" << ghost_max_time << "," << ghost_min_time << "]," << std::endl;
-        log << "       \"MaxMinOutputTime\": [" << out_max_time << "," << out_min_time << "]" << std::endl;
+        log << "       \"MaxMinGhostExchangeTime\": [" << ghost.maxTime() << "," << ghost.minTime() << "],"
+            << std::endl;
+        log << "       \"MaxMinOutputTime\": [" << output.maxTime() << "," << output.minTime() << "]" << std::endl;
         log << "   }" << std::endl;
         return log.str();
     }
 
     void reduceMPI() {
         // Reduce all times across MPI ranks
-        MPI_Allreduce(&init_time, &init_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-        MPI_Allreduce(&init_time, &init_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-        MPI_Allreduce(&nucl_time, &nucl_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-        MPI_Allreduce(&nucl_time, &nucl_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-        MPI_Allreduce(&create_sv_time, &create_sv_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-        MPI_Allreduce(&create_sv_time, &create_sv_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-        MPI_Allreduce(&capture_time, &capture_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-        MPI_Allreduce(&capture_time, &capture_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-        MPI_Allreduce(&ghost_time, &ghost_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-        MPI_Allreduce(&ghost_time, &ghost_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-        MPI_Allreduce(&out_time, &out_max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-        MPI_Allreduce(&out_time, &out_min_time, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+        init.reduceMPI();
+        nucl.reduceMPI();
+        create_sv.reduceMPI();
+        capture.reduceMPI();
+        ghost.reduceMPI();
+        output.reduceMPI();
     }
 
     void printFinal(const int np, const int cycle) {
@@ -112,23 +139,17 @@ struct Timers {
         std::cout << "===================================================================================" << std::endl;
         std::cout << "Having run with = " << np << " processors" << std::endl;
         std::cout << "Output written at cycle = " << cycle << std::endl;
-        std::cout << "Total time = " << init_time + run_time + out_time << std::endl;
-        std::cout << "Time spent initializing data = " << init_time << " s" << std::endl;
-        std::cout << "Time spent performing CA calculations = " << run_time << " s" << std::endl;
-        std::cout << "Time spent collecting and printing output data = " << out_time << " s\n" << std::endl;
+        std::cout << "Total time = " << getTotal() << std::endl;
+        std::cout << init.print("initializing data");
+        std::cout << run.print("performing CA calculations");
+        std::cout << output.print("collecting and printing output data");
 
-        std::cout << "Max/min rank time initializing data  = " << init_max_time << " / " << init_min_time << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time in CA nucleation   = " << nucl_max_time << " / " << nucl_min_time << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time in CA steering vector creation = " << create_sv_max_time << " / "
-                  << create_sv_min_time << " s" << std::endl;
-        std::cout << "Max/min rank time in CA cell capture = " << capture_max_time << " / " << capture_min_time << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time in CA ghosting     = " << ghost_max_time << " / " << ghost_min_time << " s"
-                  << std::endl;
-        std::cout << "Max/min rank time exporting data     = " << out_max_time << " / " << out_min_time << " s\n"
-                  << std::endl;
+        std::cout << init.printMinMax("initializing data");
+        std::cout << nucl.printMinMax("in CA nucleation");
+        std::cout << create_sv.printMinMax("in CA steering vector creation");
+        std::cout << capture.printMinMax("in CA cell capture");
+        std::cout << ghost.printMinMax("in CA cell communication");
+        std::cout << output.printMinMax("exporting data");
 
         std::cout << "===================================================================================" << std::endl;
     }
