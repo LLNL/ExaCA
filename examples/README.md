@@ -4,7 +4,7 @@ ExaCA currently can model three types of problems:
 * Problem type C is a directional solidification problem, with the bottom surface initialized with some fraction of sites home to epitaxial grains and at the liquidus temperature and a positive thermal gradient in the +Z direction. The domain is then cooled at a constant rate. 
 * Problem type `Spot` is a hemispherical spot, with fixed thermal gradient magnitude and cooling rate as solidification proceeds from the outer edge of the spot towards the center. The ability to simulate multilayer arrays of overlapping spots was deprecated in version 1.2 and removed after version 1.3
 * Problem type `SingleGrain` is an initial nuclei at the domain center growing each time step until a domain edge is reached
-* Problem type R or RM is a custom solidification problem using time-temperature history file(s) (default location is `examples/Temperatures`). The format of these files are as follows:
+* Problem type R or RM is a custom solidification problem using time-temperature history file(s) (default location is `examples/Temperatures`). Again note that some example problems require [external data](https://github.com/LLNL/ExaCA-Data). The format of these files are as follows:
     * The first line should be the names of the columns: x, y, z, tm, tl, cr
     * Each line following the first should have six comma-separated values corresponding to x, y, z, tm, tl, cr. x, y, and z are cell coordinates, in meters, of a given location in the simulation. The spacing between locations should correpond to a Cartesian grid, with a cell size equivalent to that specified in the input file. For each time that an x,y,z coordinate went above and below the liqiuidus temperature of the alloy during a heat transport simulation, a tm (time at which the point went above the liquidus), tl (time at which the point went below the liquidus), and cr (instantaneous cooling rate at the liquidus) should be recorded. As meters and seconds are the units used, and the cell size and time step tend to be on the order of micrometers and microseconds, it is recommended that this data be given as double precision values to avoid truncation of values
     * If an x,y,z coordinate melted and solidified multiple times, it should appear in the file multiple times on separate lines. The order of the lines do not matter, except that the header line must be before any data.
@@ -48,16 +48,16 @@ The .json files in the examples subdirectory are provided on the command line to
 | SimulationType         |
 |                        | C for directional solidification (thermal gradient in build direction, fixed cooling rate)
 |                        | S for spot melt array problem (fixed thermal gradient/constant cooling rate for each hemispherical spot)
-|                        | R for use of temperature data provided in the appropriate format (see README file in examples/Temperatures)
+|                        | R for use of temperature data provided in the appropriate format ([see below](#temperature-inputs))
 |                        | `SingleGrain` for solidification of a single grain at the domain center, continuing until it reaches a domain edge
-| MaterialFileName       | Name of material file in examples/Materials used (see README file in examples/Materials)
-| GrainOrientationFile   | File listing rotation matrix components used in assigning orientations to grains (see README file in examples/Substrate)
+| MaterialFileName       | Name of material file in examples/Materials used
+| GrainOrientationFile   | File listing rotation matrix components used in assigning orientations to grains ([see below](#substrate-inputs))
 | RandomSeed             | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
-| Domain                 | Section for parameters that describe the simulation domain for the given problem type (see below for second level inputs)
-| Nucleation             | Section for parameters that describe nucleation (see below for second level inputs)
-| TemperatureData        | Section for parameters/files governing the temperature field for the given problem type (see below for second level inputs)
-| Substrate              | Section for parameters/files governing the edge boundary conditions (see below for second level inputs)
-| Printing               | Section for parameters/file names for output data (see below for second level inputs)
+| Domain                 | Section for parameters that describe the simulation domain for the given problem type ([see below](#domain-inputs))
+| Nucleation             | Section for parameters that describe nucleation ([see below](#nucleation-inputs))
+| TemperatureData        | Section for parameters/files governing the temperature field for the given problem type ([see below](#temperature-inputs))
+| Substrate              | Section for parameters/files governing the edge boundary conditions ([see below](#substrate-inputs))
+| Printing               | Section for parameters/file names for output data ([see below](#printing-inputs))
 
 ## Domain inputs
 | Input        |Relevant problem type(s)| Details |
