@@ -135,16 +135,15 @@ void testReadTemperatureData(int number_of_layers, bool layerwise_temp_read, boo
     // Read in data to "RawTemperatureData"
     temperature.readTemperatureData(id, grid, 0);
     // Check the results.
-    // Does each rank have the right number of temperature data points? Each rank should have six (x,y,z,tm,tl,cr)
-    // for each of the 9 cells in the subdomain
-    // If both files were read, twice as many temperature data points per file should be present
+    // Does each rank have the right number of temperature data points? Each rank should have one for each of the 9
+    // cells in the subdomain If both files were read, twice as many temperature data points per file should be present
     int number_of_temperature_data_points = temperature.raw_temperature_data.extent(0);
     int num_temp_points_multiplier;
     if (layerwise_temp_read)
         num_temp_points_multiplier = 1;
     else
         num_temp_points_multiplier = std::min(number_of_layers, inputs.temperature.temp_files_in_series);
-    EXPECT_EQ(number_of_temperature_data_points, 54 * num_temp_points_multiplier);
+    EXPECT_EQ(number_of_temperature_data_points, 9 * num_temp_points_multiplier);
     int number_of_cells_per_rank = 9;
     // Does each rank have the right temperature data values?
     for (int layercounter = 0; layercounter < num_temp_points_multiplier; layercounter++) {
@@ -168,9 +167,8 @@ void testReadTemperatureData(int number_of_layers, bool layerwise_temp_read, boo
             // Cooling rate
             expected_values_this_data_point[5] = x_int * y_int + y_int;
             for (int nn = 0; nn < 6; nn++) {
-                EXPECT_DOUBLE_EQ(
-                    expected_values_this_data_point[nn],
-                    temperature.raw_temperature_data(number_of_cells_per_rank * 6 * layercounter + 6 * n + nn));
+                EXPECT_DOUBLE_EQ(expected_values_this_data_point[nn],
+                                 temperature.raw_temperature_data(number_of_cells_per_rank * layercounter + n, nn));
             }
         }
     }
