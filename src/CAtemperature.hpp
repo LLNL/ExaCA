@@ -163,7 +163,7 @@ struct Temperature {
                     int raw_temperature_data_extent = raw_temperature_data.extent(0);
                     // Adjust size of RawData if it is near full
                     if (number_of_temperature_data_points >= raw_temperature_data_extent) {
-                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + 100000);
+                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + 100000, 6);
                     }
                 }
             }
@@ -215,7 +215,7 @@ struct Temperature {
                                  number_of_temperature_data_points, binary_input_data);
             last_value(layer_read_count) = number_of_temperature_data_points;
         } // End loop over all files read for all layers
-        Kokkos::resize(raw_temperature_data, number_of_temperature_data_points);
+        Kokkos::resize(raw_temperature_data, number_of_temperature_data_points, 6);
         // Determine start values for each layer's data within "RawData", if all layers were read
         if (!(_inputs.layerwise_temp_read)) {
             if (grid.number_of_layers > _inputs.temp_files_in_series) {
