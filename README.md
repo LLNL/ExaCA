@@ -4,7 +4,7 @@ ExaCA is a cellular automata (CA) code for grain growth under additive
 manufacturing conditions, created by ExaAM within the Exascale Computing Project.
 
 ## Build
-ExaCA-Kokkos uses Kokkos and MPI for parallelism and JSON for input files.
+ExaCA uses Kokkos and MPI for parallelism and JSON for input files.
 
 ### Dependencies
 
@@ -165,7 +165,7 @@ After building, tests can be run with `cmake --build build --target test` from t
 
 ## Running ExaCA
 
-ExaCA-Kokkos runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - a separate `examples/README.md` file goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
+ExaCA runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - a separate `examples/README.md` file goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
  * `Inp_DirSolidification.json`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
  * `Inp_SmallDirSolidification.json`: a smaller and simpler version of the previous
  * `Inp_SpotMelt.json`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate
@@ -177,7 +177,7 @@ Example problems only possible with [external data](https://github.com/LLNL/ExaC
 
 Run by calling the created executable with an ExaCA input file:
 ```
-mpiexec -n 1 ./build/install/bin/ExaCA-Kokkos examples/Inp_DirSolidification.json
+mpiexec -n 1 ./build/install/bin/ExaCA examples/Inp_DirSolidification.json
 ```
 ## Automated input file generation using Tasmanian (https://tasmanian.ornl.gov/)
 Within the `utilities` directory, an example python script for the generation of an ensemble of input files is available. By running the example script `TasmanianTest.py`, 69 ExaCA input files are generated with a range of heterogenous nucleation density, mean nucleation undercooling, and mean substrate grain size values, based on the ranges in python code (N0Min-N0Max, dTNMin-dTNMax, and S0Min-S0Max), respectively. Running the python script from the ExaCA source directory, via the command
@@ -196,7 +196,7 @@ Specifying debug check options can be done to print various ExaCA data fields to
 
 ExaCA can optionally print the system state at intermediate time values as part of a series of vtk files that can be read by Paraview to make animations, if the "Print intermediate output frames" option is turned on. "Increment to separate frames" is the separation between intermediate output files in microseconds - if there is a long time period between solidification events (such as two overlapping melt pools formed via line scan with a long dwell time between them), setting "Intermediate output even if system is unchanged from previous state" to off will skip printing of those files.
 
-Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` (containing LayerID, GrainID, and Melted data) and `TestProblemDirS.json` (containing information regarding the simulation parameters used, simulation dimensions, and some timing data). To analyze this data, run `grain_analysis` (installed in the same location as `ExaCA-Kokkos`), with two command line arguments: the first being the path to/name of the analysis input file, and the second being the path to and filename (excluding extensions) of the .vtk and .json files associated with the data set of interest.
+Running ExaCA for the test problem `Inp_DirSolidification.txt` yields the output files `TestProblemDirS.vtk` (containing LayerID, GrainID, and Melted data) and `TestProblemDirS.json` (containing information regarding the simulation parameters used, simulation dimensions, and some timing data). To analyze this data, run `ExaCA-GrainAnalysis` (installed in the same location as `ExaCA`), with two command line arguments: the first being the path to/name of the analysis input file, and the second being the path to and filename (excluding extensions) of the .vtk and .json files associated with the data set of interest.
 
 ```
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.json TestProblemDirS
