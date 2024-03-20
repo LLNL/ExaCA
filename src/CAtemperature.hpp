@@ -26,9 +26,11 @@ struct Temperature {
     using view_type_int = Kokkos::View<int *, memory_space>;
     using view_type_float = Kokkos::View<float *, memory_space>;
     using view_type_double = Kokkos::View<double *, memory_space>;
+    using view_type_double_2d = Kokkos::View<double **, memory_space>;
     using view_type_float_3d = Kokkos::View<float ***, memory_space>;
     using view_type_int_host = typename view_type_int::HostMirror;
     using view_type_double_host = typename view_type_double::HostMirror;
+    using view_type_double_2d_host = typename view_type_double_2d::HostMirror;
     using view_type_float_3d_host = typename view_type_float_3d::HostMirror;
 
     // Using the default exec space for this memory space.
@@ -49,7 +51,8 @@ struct Temperature {
     // Data structure for storing raw temperature data from file(s)
     // Store data as double - needed for small time steps to resolve local differences in solidification conditions
     // Each data point has 6 values (X, Y, Z coordinates, melting time, liquidus time, and cooling rate)
-    view_type_double_host raw_temperature_data;
+    const int num_temperature_components = 6;
+    view_type_double_2d_host raw_temperature_data;
     // These contain "number_of_layers" values corresponding to the location within "raw_temperature_data" of the first
     // data element in each temperature file, if used
     view_type_int_host first_value, last_value;
@@ -63,7 +66,7 @@ struct Temperature {
     // layer_time_temp_history modified to account for multiple events if needed undercooling_current and
     // solidification_event_counter are default initialized to zeros
     Temperature(const Grid &grid, TemperatureInputs inputs, const bool store_solidification_start = false,
-                const int est_num_temperature_data_points = 1000000)
+                const int est_num_temperature_data_points = 100000)
         : max_solidification_events(
               view_type_int(Kokkos::ViewAllocateWithoutInitializing("number_of_layers"), grid.number_of_layers))
         , layer_time_temp_history(view_type_float_3d(Kokkos::ViewAllocateWithoutInitializing("layer_time_temp_history"),
@@ -72,8 +75,8 @@ struct Temperature {
               Kokkos::ViewAllocateWithoutInitializing("number_of_solidification_events"), grid.domain_size))
         , solidification_event_counter(view_type_int("solidification_event_counter", grid.domain_size))
         , undercooling_current_all_layers(view_type_float("undercooling_current", grid.domain_size_all_layers))
-        , raw_temperature_data(view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("raw_temperature_data"),
-                                                     est_num_temperature_data_points))
+        , raw_temperature_data(view_type_double_2d_host(Kokkos::ViewAllocateWithoutInitializing("raw_temperature_data"),
+                                                        est_num_temperature_data_points, num_temperature_components))
         , first_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("first_value"), grid.number_of_layers))
         , last_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("last_value"), grid.number_of_layers))
         , _store_solidification_start(store_solidification_start)
@@ -94,7 +97,7 @@ struct Temperature {
     // number_of_temperature_data_points is incremented on each rank as data is added to RawData
     void parseTemperatureData(const std::string tempfile_thislayer, const double y_min, const double deltax,
                               const int lower_y_bound, const int upper_y_bound, int &number_of_temperature_data_points,
-                              const bool binary_input_data) {
+                              const bool binary_input_data, const int temperature_buffer_increment = 100000) {
 
         std::ifstream temperature_filestream;
         temperature_filestream.open(tempfile_thislayer);
@@ -111,20 +114,19 @@ struct Temperature {
                 if ((y_int >= lower_y_bound) && (y_int <= upper_y_bound)) {
                     // This data point is inside the bounds of interest for this MPI rank
                     // Store the x and y values in RawData
-                    raw_temperature_data(number_of_temperature_data_points) = x_temperature_point;
-                    number_of_temperature_data_points++;
-                    raw_temperature_data(number_of_temperature_data_points) = y_temperature_point;
-                    number_of_temperature_data_points++;
+                    raw_temperature_data(number_of_temperature_data_points, 0) = x_temperature_point;
+                    raw_temperature_data(number_of_temperature_data_points, 1) = y_temperature_point;
                     // Parse the remaining 4 components (z, tm, tl, cr) from the line and store in RawData
-                    for (int component = 2; component < 6; component++) {
-                        raw_temperature_data(number_of_temperature_data_points) =
+                    for (int component = 2; component < num_temperature_components; component++) {
+                        raw_temperature_data(number_of_temperature_data_points, component) =
                             readBinaryData<double>(temperature_filestream);
-                        number_of_temperature_data_points++;
                     }
+                    number_of_temperature_data_points++;
                     int raw_temperature_data_extent = raw_temperature_data.extent(0);
                     // Adjust size of RawData if it is near full
-                    if (number_of_temperature_data_points >= raw_temperature_data_extent - 6) {
-                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + 1000000);
+                    if (number_of_temperature_data_points >= raw_temperature_data_extent) {
+                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + temperature_buffer_increment,
+                                       num_temperature_components);
                     }
                 }
                 else {
@@ -141,7 +143,8 @@ struct Temperature {
             getline(temperature_filestream, header_line);
             int vals_per_line = checkForHeaderValues(header_line);
             while (!temperature_filestream.eof()) {
-                std::vector<std::string> parsed_line(6); // Each line has an x, y, z, tm, tl, cr
+                std::vector<std::string> parsed_line(
+                    num_temperature_components); // Each line has an x, y, z, tm, tl, cr
                 std::string read_line;
                 if (!getline(temperature_filestream, read_line))
                     break;
@@ -154,16 +157,17 @@ struct Temperature {
                 if ((y_int >= lower_y_bound) && (y_int <= upper_y_bound)) {
                     // This data point is inside the bounds of interest for this MPI rank: Store the x, z, tm, tl, and
                     // cr vals inside of RawData, incrementing with each value added
-                    for (int component = 0; component < 6; component++) {
-                        raw_temperature_data(number_of_temperature_data_points) =
+                    for (int component = 0; component < num_temperature_components; component++) {
+                        raw_temperature_data(number_of_temperature_data_points, component) =
                             getInputDouble(parsed_line[component]);
-                        number_of_temperature_data_points++;
                     }
+                    number_of_temperature_data_points++;
                     // Adjust size of RawData if it is near full
                     int raw_temperature_data_extent = raw_temperature_data.extent(0);
                     // Adjust size of RawData if it is near full
-                    if (number_of_temperature_data_points >= raw_temperature_data_extent - 6) {
-                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + 1000000);
+                    if (number_of_temperature_data_points >= raw_temperature_data_extent) {
+                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + temperature_buffer_increment,
+                                       num_temperature_components);
                     }
                 }
             }
@@ -215,7 +219,7 @@ struct Temperature {
                                  number_of_temperature_data_points, binary_input_data);
             last_value(layer_read_count) = number_of_temperature_data_points;
         } // End loop over all files read for all layers
-        Kokkos::resize(raw_temperature_data, number_of_temperature_data_points);
+        Kokkos::resize(raw_temperature_data, number_of_temperature_data_points, num_temperature_components);
         // Determine start values for each layer's data within "RawData", if all layers were read
         if (!(_inputs.layerwise_temp_read)) {
             if (grid.number_of_layers > _inputs.temp_files_in_series) {
@@ -389,7 +393,7 @@ struct Temperature {
             // Init to 0
             view_type_int_host temp_melt_count("temp_melt_count", grid.domain_size);
 
-            for (int i = start_range; i < end_range; i += 6) {
+            for (int i = start_range; i < end_range; i++) {
 
                 // Get the integer X, Y, Z coordinates associated with this data point, with the Y coordinate based on
                 // local MPI rank's grid
@@ -416,37 +420,36 @@ struct Temperature {
 
     // Read data from storage, and calculate the normalized x value of the data point
     int getTempCoordX(const int i, const double x_min, const double deltax) {
-        int x_coord = Kokkos::round((raw_temperature_data(i) - x_min) / deltax);
+        int x_coord = Kokkos::round((raw_temperature_data(i, 0) - x_min) / deltax);
         return x_coord;
     }
     // Read data from storage, and calculate the normalized y value of the data point. If the optional offset argument
     // is given, the return value is calculated relative to the edge of the MPI rank's local simulation domain (which is
     // offset by y_offset cells from the global domain edge)
     int getTempCoordY(const int i, const double y_min, const double deltax, const int y_offset = 0) {
-        int y_coord = Kokkos::round((raw_temperature_data(i + 1) - y_min) / deltax) - y_offset;
+        int y_coord = Kokkos::round((raw_temperature_data(i, 1) - y_min) / deltax) - y_offset;
         return y_coord;
     }
     // Read data from storage, and calculate the normalized z value of the data point
     int getTempCoordZ(const int i, const double deltax, const int layer_height, const int layer_counter,
                       const view_type_double_host z_min_layer) {
         int z_coord = Kokkos::round(
-            (raw_temperature_data(i + 2) + deltax * layer_height * layer_counter - z_min_layer[layer_counter]) /
-            deltax);
+            (raw_temperature_data(i, 2) + deltax * layer_height * layer_counter - z_min_layer[layer_counter]) / deltax);
         return z_coord;
     }
     // Read data from storage, obtain melting time
     double getTempCoordTM(const int i) {
-        double TMelting = raw_temperature_data(i + 3);
+        double TMelting = raw_temperature_data(i, 3);
         return TMelting;
     }
     // Read data from storage, obtain liquidus time
     double getTempCoordTL(const int i) {
-        double TLiquidus = raw_temperature_data(i + 4);
+        double TLiquidus = raw_temperature_data(i, 4);
         return TLiquidus;
     }
     // Read data from storage, obtain cooling rate
     double getTempCoordCR(const int i) {
-        double cooling_rate = raw_temperature_data(i + 5);
+        double cooling_rate = raw_temperature_data(i, 5);
         return cooling_rate;
     }
 
@@ -482,7 +485,7 @@ struct Temperature {
             std::cout << "Range of raw data for layer " << layernumber << " on rank 0 is " << start_range << " to "
                       << end_range << std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
-        for (int i = start_range; i < end_range; i += 6) {
+        for (int i = start_range; i < end_range; i++) {
 
             // Get the integer X, Y, Z coordinates associated with this data point, along with the associated TM, TL, CR
             // values
