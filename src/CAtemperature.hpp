@@ -76,7 +76,7 @@ struct Temperature {
         , solidification_event_counter(view_type_int("solidification_event_counter", grid.domain_size))
         , undercooling_current_all_layers(view_type_float("undercooling_current", grid.domain_size_all_layers))
         , raw_temperature_data(view_type_double_2d_host(Kokkos::ViewAllocateWithoutInitializing("raw_temperature_data"),
-                                                        est_num_temperature_data_points, 6))
+                                                        est_num_temperature_data_points, num_temperature_components))
         , first_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("first_value"), grid.number_of_layers))
         , last_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("last_value"), grid.number_of_layers))
         , _store_solidification_start(store_solidification_start)
@@ -393,7 +393,7 @@ struct Temperature {
             // Init to 0
             view_type_int_host temp_melt_count("temp_melt_count", grid.domain_size);
 
-            for (int i = start_range; i < end_range; i += 6) {
+            for (int i = start_range; i < end_range; i++) {
 
                 // Get the integer X, Y, Z coordinates associated with this data point, with the Y coordinate based on
                 // local MPI rank's grid
