@@ -96,7 +96,8 @@ struct Temperature {
     // number_of_temperature_data_points is incremented on each rank as data is added to RawData
     void parseTemperatureData(const std::string tempfile_thislayer, const double y_min, const double deltax,
                               const int lower_y_bound, const int upper_y_bound, int &number_of_temperature_data_points,
-                              const bool binary_input_data) {
+                              const bool binary_input_data, const int num_temperature_components = 6,
+                              const int temperature_buffer_increment = 100000) {
 
         std::ifstream temperature_filestream;
         temperature_filestream.open(tempfile_thislayer);
@@ -124,7 +125,8 @@ struct Temperature {
                     int raw_temperature_data_extent = raw_temperature_data.extent(0);
                     // Adjust size of RawData if it is near full
                     if (number_of_temperature_data_points >= raw_temperature_data_extent) {
-                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + 100000, 6);
+                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + temperature_buffer_increment,
+                                       num_temperature_components);
                     }
                 }
                 else {
@@ -163,7 +165,8 @@ struct Temperature {
                     int raw_temperature_data_extent = raw_temperature_data.extent(0);
                     // Adjust size of RawData if it is near full
                     if (number_of_temperature_data_points >= raw_temperature_data_extent) {
-                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + 100000, 6);
+                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + temperature_buffer_increment,
+                                       num_temperature_components);
                     }
                 }
             }
