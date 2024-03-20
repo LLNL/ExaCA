@@ -238,7 +238,7 @@ struct RepresentativeRegion {
             std::vector<int> bounds_cells(2);
             std::vector<double> bounds_meters(2);
 
-            // Get the minimium coordinate along the specified axis
+            // Get the minimum coordinate along the specified axis
             double coordinate_min_val = xyz_bounds[dir];
 
             // Two bounds or no bounds should be given
@@ -754,7 +754,7 @@ struct RepresentativeRegion {
         grainplot_pf.close();
     }
 
-    // From the grain extents in x, y, and z, calcualte the aspect ratio for each grain in the build to the average of
+    // From the grain extents in x, y, and z, calculate the aspect ratio for each grain in the build to the average of
     // the transverse directions
     void calcBuildTransAspectRatio(std::vector<float> &build_trans_aspect_ratio) {
 

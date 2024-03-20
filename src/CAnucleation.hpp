@@ -38,7 +38,7 @@ struct Nucleation {
     // matches this layer number). Starts at 0 each layer
     // 3. nucleation_counter - the number of nucleation events that have actually either failed or succeeded on a given
     // MPI rank. Starts at 0 each layer
-    // 4. successful_nucleation_counter - the number of nucleation events that have successfully occured at a given
+    // 4. successful_nucleation_counter - the number of nucleation events that have successfully occurred at a given
     // point in the simulation of a layer. Starts at 0 each layer.
     int nuclei_whole_domain, possible_nuclei, nucleation_counter, successful_nucleation_counter;
 

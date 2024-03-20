@@ -81,14 +81,14 @@ void testHaloUpdate() {
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
 
-    // Intialize grain orientations
+    // Initialize grain orientations
     std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", id);
     Orientation<memory_space> orientation(id, grain_orientation_file, false);
 
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid
     CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
 
-    // Subviews are the portion of the domain of interst for the test (i.e., the current layer of the problem, cells
+    // Subviews are the portion of the domain of interest for the test (i.e., the current layer of the problem, cells
     // located at the top 5 Z coordinates)
     auto grain_id = celldata.getGrainIDSubview(grid);
     auto cell_type_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), celldata.cell_type);
@@ -276,7 +276,7 @@ void testResizeRefillBuffers() {
     auto grain_id = celldata.getGrainIDSubview(grid);
 
     // Orientation struct
-    // Intialize grain orientations
+    // Initialize grain orientations
     std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", id);
     Orientation<memory_space> orientation(id, grain_orientation_file, false);
 
@@ -653,10 +653,10 @@ void testCalcCritDiagonalLength() {
         2.248777,  1.851513, 1.914002,  2.266173,  2.291471, 1.914002,  2.266173,  2.291471,  2.902006,
         2.613426,  2.236490, 2.346452,  2.346452,  2.236490, 2.613426,  2.902006};
 
-    // For first grain, calculate critical diagonal lenghts using test octahedron centers
+    // For first grain, calculate critical diagonal lengths using test octahedron centers
     interface.calcCritDiagonalLength(0, 31.5, 3.5, 1.5, octahedron_center_test(0), octahedron_center_test(1),
                                      octahedron_center_test(2), 0, grain_unit_vector);
-    // For second grain, calculate critical diagonal lenghts
+    // For second grain, calculate critical diagonal lengths
     interface.calcCritDiagonalLength(1, 110.5, 60.5, 0.5, octahedron_center_test(3), octahedron_center_test(4),
                                      octahedron_center_test(5), 1, grain_unit_vector);
 

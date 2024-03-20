@@ -46,7 +46,7 @@ struct Print {
     // If printing data at the end of layers, the counter for the number of intermediate files that have been printed
     int interlayer_file_count = 0;
 
-    // Message sizes and data offsets for data send/recieved to/from other ranks- message size different for different
+    // Message sizes and data offsets for data send/received to/from other ranks- message size different for different
     // ranks
     using view_type_int_host = Kokkos::View<int *, Kokkos::HostSpace>;
     using view_type_float_host = Kokkos::View<float *, Kokkos::HostSpace>;
@@ -122,7 +122,7 @@ struct Print {
                 }
             }
 
-            // Recieve values from other ranks - message size different for different ranks
+            // Receive values from other ranks - message size different for different ranks
             for (int recvrank = 1; recvrank < np; recvrank++) {
                 int recv_buf_size_this_rank = recv_buf_size(recvrank);
                 host_view_type recv_buf(Kokkos::ViewAllocateWithoutInitializing("RecvBufData"),

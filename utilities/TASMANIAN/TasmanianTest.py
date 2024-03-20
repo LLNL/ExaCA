@@ -3,7 +3,7 @@
 # Command line inputs are the list of temperature files associated with the ensemble of simulations
 # See top level README for more details regarding these inputs
 # Generate input files for ExaCA using a level 3 tasmanian sparse grid and 3 ExaCA
-# input variables: heterogenous nucleation density, mean substrate grain size,
+# input variables: heterogeneous nucleation density, mean substrate grain size,
 # and mean nucleation undercooling
 import Tasmanian
 import sys
@@ -49,7 +49,7 @@ for tfile in range(1, NumCommandLineArgs):
 
 # Write ExaCA input files to the examples subdirectory
 for filenumber in range(1, 70):
-    # Heterogenous nucleation density for this ensemble member
+    # Heterogeneous nucleation density for this ensemble member
     N0ThisMember = N0Mean + N0Dev * points[filenumber-1,0]
     # Mean nucleation undercooling for this ensemble member
     dTNThisMember = dTNMean + dTNDev * points[filenumber-1,1]

@@ -7,7 +7,7 @@ Running the `grain_analysis` executable after generation of an ExaCA data set (i
 ./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt TestProblemDirS
 ```
 
-The analysis files, such as `examples/AnalyzeDirS.json`, allow analysis of multiple regions of the microstructure. Under the top level header `Regions`, the user-specified names of the regions for analysis are given (in the case of `examples/AnalyzeDirS.json`, these are `RepresentativeVolume`, `XYCross`, and `YZCross`). At the third level, anaylsis options for each individual region are given.
+The analysis files, such as `examples/AnalyzeDirS.json`, allow analysis of multiple regions of the microstructure. Under the top level header `Regions`, the user-specified names of the regions for analysis are given (in the case of `examples/AnalyzeDirS.json`, these are `RepresentativeVolume`, `XYCross`, and `YZCross`). At the third level, analysis options for each individual region are given.
 
 1D, 2D, and 3D regions can be analyzed depending on the bounds provided. The `units` input for each region should be either Meters or Cells, depending on the values used as the bounds. For example, if `xBounds`, `yBounds`, and `zBounds` are all provided (in the form `[lower, upper]`), and the lower and upper bounds for each direction do not match, the region is analyzed as a volume. If one direction has equivalent lower and upper bounds, the region is analyzed as an area, and if two directions have equivalent lower and upper bounds, the region is analyzed as a line. If no bounds are given for a direction, the analysis will default to including the entire domain extent in said direction.
 

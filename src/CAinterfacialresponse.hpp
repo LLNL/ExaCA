@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-// Interfacial repsonse function with various functional forms.
+// Interfacial response function with various functional forms.
 struct InterfacialResponseFunction {
 
     float freezing_range;
