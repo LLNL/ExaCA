@@ -51,6 +51,7 @@ struct Temperature {
     // Data structure for storing raw temperature data from file(s)
     // Store data as double - needed for small time steps to resolve local differences in solidification conditions
     // Each data point has 6 values (X, Y, Z coordinates, melting time, liquidus time, and cooling rate)
+    const int num_temperature_components = 6;
     view_type_double_2d_host raw_temperature_data;
     // These contain "number_of_layers" values corresponding to the location within "raw_temperature_data" of the first
     // data element in each temperature file, if used
@@ -96,8 +97,7 @@ struct Temperature {
     // number_of_temperature_data_points is incremented on each rank as data is added to RawData
     void parseTemperatureData(const std::string tempfile_thislayer, const double y_min, const double deltax,
                               const int lower_y_bound, const int upper_y_bound, int &number_of_temperature_data_points,
-                              const bool binary_input_data, const int num_temperature_components = 6,
-                              const int temperature_buffer_increment = 100000) {
+                              const bool binary_input_data, const int temperature_buffer_increment = 100000) {
 
         std::ifstream temperature_filestream;
         temperature_filestream.open(tempfile_thislayer);
@@ -117,7 +117,7 @@ struct Temperature {
                     raw_temperature_data(number_of_temperature_data_points, 0) = x_temperature_point;
                     raw_temperature_data(number_of_temperature_data_points, 1) = y_temperature_point;
                     // Parse the remaining 4 components (z, tm, tl, cr) from the line and store in RawData
-                    for (int component = 2; component < 6; component++) {
+                    for (int component = 2; component < num_temperature_components; component++) {
                         raw_temperature_data(number_of_temperature_data_points, component) =
                             readBinaryData<double>(temperature_filestream);
                     }
@@ -143,7 +143,8 @@ struct Temperature {
             getline(temperature_filestream, header_line);
             int vals_per_line = checkForHeaderValues(header_line);
             while (!temperature_filestream.eof()) {
-                std::vector<std::string> parsed_line(6); // Each line has an x, y, z, tm, tl, cr
+                std::vector<std::string> parsed_line(
+                    num_temperature_components); // Each line has an x, y, z, tm, tl, cr
                 std::string read_line;
                 if (!getline(temperature_filestream, read_line))
                     break;
@@ -156,7 +157,7 @@ struct Temperature {
                 if ((y_int >= lower_y_bound) && (y_int <= upper_y_bound)) {
                     // This data point is inside the bounds of interest for this MPI rank: Store the x, z, tm, tl, and
                     // cr vals inside of RawData, incrementing with each value added
-                    for (int component = 0; component < 6; component++) {
+                    for (int component = 0; component < num_temperature_components; component++) {
                         raw_temperature_data(number_of_temperature_data_points, component) =
                             getInputDouble(parsed_line[component]);
                     }
@@ -218,7 +219,7 @@ struct Temperature {
                                  number_of_temperature_data_points, binary_input_data);
             last_value(layer_read_count) = number_of_temperature_data_points;
         } // End loop over all files read for all layers
-        Kokkos::resize(raw_temperature_data, number_of_temperature_data_points, 6);
+        Kokkos::resize(raw_temperature_data, number_of_temperature_data_points, num_temperature_components);
         // Determine start values for each layer's data within "RawData", if all layers were read
         if (!(_inputs.layerwise_temp_read)) {
             if (grid.number_of_layers > _inputs.temp_files_in_series) {
