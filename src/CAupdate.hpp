@@ -168,7 +168,7 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                 float loc_u = temperature.undercooling_current(index);
                 // Update diagonal length of octahedron based on local undercooling and interfacial response function
                 interface.diagonal_length(index) += irf.compute(loc_u);
-                // Cycle through all neigboring cells on this processor to see if they have been captured
+                // Cycle through all neighboring cells on this processor to see if they have been captured
                 // Cells in ghost nodes cannot capture cells on other processors
                 bool deactivate_cell =
                     true; // switch that becomes false if the cell has at least 1 liquid type neighbor
@@ -190,7 +190,7 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                             (celldata.cell_type(neighbor_index) == Liquid)) {
                             // Use of atomic_compare_exchange
                             // (https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_compare_exchange) old_val =
-                            // atomic_compare_exchange(ptr_to_value,comparison_value, new_value); Atomicly sets the
+                            // atomic_compare_exchange(ptr_to_value,comparison_value, new_value); Atomically sets the
                             // value at the address given by ptr_to_value to new_value if the current value at
                             // ptr_to_value is equal to comparison_value Returns the previously stored value at the
                             // address independent on whether the exchange has happened. If this cell's is a liquid
@@ -212,7 +212,7 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                 // toggled
                                 temperature.setStartingUndercooling(neighbor_index);
 
-                                // (cxold, cyold, czold) are the coordiantes of this decentered octahedron
+                                // (cxold, cyold, czold) are the coordinates of this decentered octahedron
                                 float cxold = interface.octahedron_center(3 * index);
                                 float cyold = interface.octahedron_center(3 * index + 1);
                                 float czold = interface.octahedron_center(3 * index + 2);
@@ -373,7 +373,7 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                 capt_diag_uv[0] = capt_diag[0] / capt_diag_magnitude;
                                 capt_diag_uv[1] = capt_diag[1] / capt_diag_magnitude;
                                 capt_diag_uv[2] = capt_diag[2] / capt_diag_magnitude;
-                                // (cx, cy, cz) are the coordiantes of the new active cell's decentered octahedron
+                                // (cx, cy, cz) are the coordinates of the new active cell's decentered octahedron
                                 float cx = xc - new_o_diag_l * capt_diag_uv[0];
                                 float cy = yc - new_o_diag_l * capt_diag_uv[1];
                                 float cz = zc - new_o_diag_l * capt_diag_uv[2];
@@ -641,7 +641,7 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
                     // (i.e., not set to -1.0)?
                     if ((unpack_index == 0) && (interface.buffer_south_recv(buf_position, 0) != -1.0) &&
                         (grid.neighbor_rank_south != MPI_PROC_NULL)) {
-                        // Data receieved from South
+                        // Data received from South
                         coord_x = static_cast<int>(interface.buffer_south_recv(buf_position, 0));
                         coord_y = 0;
                         coord_z = static_cast<int>(interface.buffer_south_recv(buf_position, 1));

@@ -38,7 +38,7 @@ void runExaCA(int id, int np, std::string input_file) {
     // Read temperature data if necessary
     if (simulation_type == "R")
         temperature.readTemperatureData(id, grid, 0);
-    // Initialize the temperature fields for the simualtion type of interest
+    // Initialize the temperature fields for the simulation type of interest
     if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
         temperature.initialize(id, simulation_type, grid, inputs.domain.deltat);
     else if (simulation_type == "Spot")

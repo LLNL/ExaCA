@@ -6,7 +6,7 @@ ExaCA currently can model three types of problems:
 * Problem type `SingleGrain` is an initial nuclei at the domain center growing each time step until a domain edge is reached
 * Problem type R or RM is a custom solidification problem using time-temperature history file(s) (default location is `examples/Temperatures`). Again note that some example problems require [external data](https://github.com/LLNL/ExaCA-Data). The format of these files are as follows:
     * The first line should be the names of the columns: x, y, z, tm, tl, cr
-    * Each line following the first should have six comma-separated values corresponding to x, y, z, tm, tl, cr. x, y, and z are cell coordinates, in meters, of a given location in the simulation. The spacing between locations should correpond to a Cartesian grid, with a cell size equivalent to that specified in the input file. For each time that an x,y,z coordinate went above and below the liqiuidus temperature of the alloy during a heat transport simulation, a tm (time at which the point went above the liquidus), tl (time at which the point went below the liquidus), and cr (instantaneous cooling rate at the liquidus) should be recorded. As meters and seconds are the units used, and the cell size and time step tend to be on the order of micrometers and microseconds, it is recommended that this data be given as double precision values to avoid truncation of values
+    * Each line following the first should have six comma-separated values corresponding to x, y, z, tm, tl, cr. x, y, and z are cell coordinates, in meters, of a given location in the simulation. The spacing between locations should correspond to a Cartesian grid, with a cell size equivalent to that specified in the input file. For each time that an x,y,z coordinate went above and below the liqiuidus temperature of the alloy during a heat transport simulation, a tm (time at which the point went above the liquidus), tl (time at which the point went below the liquidus), and cr (instantaneous cooling rate at the liquidus) should be recorded. As meters and seconds are the units used, and the cell size and time step tend to be on the order of micrometers and microseconds, it is recommended that this data be given as double precision values to avoid truncation of values
     * If an x,y,z coordinate melted and solidified multiple times, it should appear in the file multiple times on separate lines. The order of the lines do not matter, except that the header line must be before any data.
     * The top surface (the largest Z coordinate in a file) is assumed to be flat. Additionally, if multiple temperature files are being used (for example, a scan pattern consisting of 10 layers of repeating even and odd file data), the Z coordinate corresponding to this flat top surface should be the same for all files.
     * Alternatively, if a time-temperature history file has the extension `.catemp`, it will be parsed as a binary string. The binary form for these files does not contain commas, newlines, nor a header, but consists of sequential x,y,z,tm,tl,cr,x,y,z,tm,tl,cr... data as double precision values (little endian). This is often a significantly smaller file size than the standard format, and will be faster to read during initialization.
@@ -28,7 +28,7 @@ Like the material file, the orientation file could be swapped out with one
 consisting of more (or fewer) orientations, following
 `GrainOrientationVectors.csv` as a template. Both of these material and
 orientation file examples are installed with the executable, making it possible
-to simplfy use the file name in the input file. Custom files must either be
+to simplify use the file name in the input file. Custom files must either be
 added to the ExaCA CMake build, use an absolute file path, or a path relative
 to the ExaCA source. It should also be noted that if using a custom file of 
 grain orientation vectors in an ExaCA simulations, corresponding files that 
@@ -74,7 +74,7 @@ The .json files in the examples subdirectory are provided on the command line to
 ## Nucleation inputs
 | Input            |Relevant problem type(s)| Details |
 |------------------|------------------------|---------|
-|Density           | C, Spot, R             | Density of heterogenous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
+|Density           | C, Spot, R             | Density of heterogeneous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
 |MeanUndercooling  | C, Spot, R             | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
 |StDevUndercooling | C, Spot, R             | Standard deviation of nucleation undercooling (Gaussian distribution), in K
 

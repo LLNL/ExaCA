@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-// Data representing the active cells at the solid-liquid interrface, including MPI buffers
+// Data representing the active cells at the solid-liquid interface, including MPI buffers
 template <typename MemorySpace>
 struct Interface {
 
@@ -109,7 +109,7 @@ struct Interface {
             });
     }
 
-    // Intialize neighbor list structures (neighbor_x, neighbor_y, neighbor_z)
+    // Initialize neighbor list structures (neighbor_x, neighbor_y, neighbor_z)
     void neighborListInit() {
 
         // Neighbors 0 through 5 are nearest neighbors, 6 through 17 are second nearest neighbors, and 18 through 25 are

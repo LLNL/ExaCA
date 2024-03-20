@@ -48,13 +48,13 @@ int getInputInt(std::string val_input) {
     return IntFromString;
 }
 
-// Convert string "val_input" to float value multipled by 10^(factor)
+// Convert string "val_input" to float value multiplied by 10^(factor)
 float getInputFloat(std::string val_input, int factor) {
     float FloatFromString = atof(val_input.c_str()) * pow(10, factor);
     return FloatFromString;
 }
 
-// Convert string "val_input" to double value multipled by 10^(factor)
+// Convert string "val_input" to double value multiplied by 10^(factor)
 double getInputDouble(std::string val_input, int factor) {
     double DoubleFromString = std::stod(val_input.c_str()) * pow(10, factor);
     return DoubleFromString;

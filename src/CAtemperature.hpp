@@ -489,7 +489,7 @@ struct Temperature {
 
             // Get the integer X, Y, Z coordinates associated with this data point, along with the associated TM, TL, CR
             // values
-            // coord_y is relative to ths MPI rank's grid, while coord_y_global is relative to the overall simulation
+            // coord_y is relative to this MPI rank's grid, while coord_y_global is relative to the overall simulation
             // domain
             int coord_x = getTempCoordX(i, grid.x_min, grid.deltax);
             int coord_y = getTempCoordY(i, grid.y_min, grid.deltax, grid.y_offset);
