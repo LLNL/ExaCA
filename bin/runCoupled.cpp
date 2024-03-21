@@ -14,7 +14,7 @@
 #include <stdexcept>
 #include <string>
 
-void runCoupled(int id, int np, Finch::Inputs inputs, Inputs exaca_inputs) {
+void runCoupled(int id, int np, Finch::Inputs finch_inputs, Inputs exaca_inputs) {
     // Set up Finch
     using exec_space = Kokkos::DefaultExecutionSpace;
     using memory_space = exec_space::memory_space;
@@ -24,32 +24,35 @@ void runCoupled(int id, int np, Finch::Inputs inputs, Inputs exaca_inputs) {
     timers.startHeatTransfer();
 
     // initialize a moving beam
-    Finch::MovingBeam beam(inputs.source.scan_path_file);
+    Finch::MovingBeam beam(finch_inputs.source.scan_path_file);
 
     // Define boundary condition details.
     std::array<std::string, 6> bc_types = {"adiabatic", "adiabatic", "adiabatic",
                                            "adiabatic", "adiabatic", "adiabatic"};
 
     // create the global mesh
-    Finch::Grid<memory_space> grid(MPI_COMM_WORLD, inputs.space.cell_size, inputs.space.global_low_corner,
-                                   inputs.space.global_high_corner, inputs.space.ranks_per_dim, bc_types,
-                                   inputs.space.initial_temperature);
+    Finch::Grid<memory_space> finch_grid(MPI_COMM_WORLD, finch_inputs.space.cell_size,
+                                         finch_inputs.space.global_low_corner, finch_inputs.space.global_high_corner,
+                                         finch_inputs.space.ranks_per_dim, bc_types,
+                                         finch_inputs.space.initial_temperature);
 
     // Run Finch heat transfer
-    Finch::SingleLayer app(inputs, grid);
-    app.run(exec_space(), inputs, grid, beam, fd);
+    Finch::Layer app(finch_inputs, finch_grid);
+    auto fd = Finch::createSolver(finch_inputs, finch_grid);
+    app.run(exec_space(), finch_inputs, finch_grid, beam, fd);
 
     // Start of ExaCA init time.
-    timers.endHeatTransfer();
+    timers.stopHeatTransfer();
     timers.startInit();
 
     // Setup local and global grids, decomposing domain (needed to construct temperature)
-    Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
+    Grid exaca_grid(exaca_inputs.simulation_type, id, np, exaca_inputs.domain.number_of_layers, exaca_inputs.domain,
+                    exaca_inputs.temperature);
     // Temperature fields characterized by data in this structure
-    Temperature<memory_space> temperature(grid, app.getSolidificationData(), inputs.print.store_solidification_start);
+    Temperature<memory_space> temperature(exaca_grid, exaca_inputs.temperature, app.getSolidificationData());
 
     // Now run ExaCA
-    runExaCA(id, np, exaca_inputs, timers, grid, temperature);
+    runExaCA(id, np, exaca_inputs, timers, exaca_grid, temperature);
 }
 
 int main(int argc, char *argv[]) {
