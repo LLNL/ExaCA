@@ -123,7 +123,9 @@ struct Temperature {
     template <typename ViewType>
     void copyTemperatureData(ViewType input_temperature_data) {
         // TODO: Each MPI rank to only store temperature data relevant to its local Y bounds
-        raw_temperature_data = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), input_temperature_data);
+        // Take first num_temperature_components columns of input_temperature_data and copy to host
+        auto input_temperature_data_comp = Kokkos::subview(input_temperature_data, num_temperature_components);
+        raw_temperature_data = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), input_temperature_data_comp);
     }
 
     // Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header

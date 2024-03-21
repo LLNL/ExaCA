@@ -1,5 +1,5 @@
 # ExaCA problem types and auxiliary files
-ExaCA currently can model three types of problems:
+ExaCA currently can model five types of problems:
 
 * Problem type C is a directional solidification problem, with the bottom surface initialized with some fraction of sites home to epitaxial grains and at the liquidus temperature and a positive thermal gradient in the +Z direction. The domain is then cooled at a constant rate. 
 * Problem type `Spot` is a hemispherical spot, with fixed thermal gradient magnitude and cooling rate as solidification proceeds from the outer edge of the spot towards the center. The ability to simulate multilayer arrays of overlapping spots was deprecated in version 1.2 and removed after version 1.3
@@ -11,6 +11,7 @@ ExaCA currently can model three types of problems:
     * The top surface (the largest Z coordinate in a file) is assumed to be flat. Additionally, if multiple temperature files are being used (for example, a scan pattern consisting of 10 layers of repeating even and odd file data), the Z coordinate corresponding to this flat top surface should be the same for all files.
     * Alternatively, if a time-temperature history file has the extension `.catemp`, it will be parsed as a binary string. The binary form for these files does not contain commas, newlines, nor a header, but consists of sequential x,y,z,tm,tl,cr,x,y,z,tm,tl,cr... data as double precision values (little endian). This is often a significantly smaller file size than the standard format, and will be faster to read during initialization.
     * The M is no longer required in the problem type, as problem type R is now the same as RM (it now includes multiple melting and solidification events per cell)
+* Problem type `FromFinch` uses time-temperature history data generated from Finch, and requires Finch as a dependency and two input files: a Finch input file and an ExaCA input file (in that order). Running using this problem type requires use of the `Finch-ExaCA` executable and the 
 
 All problem types rely on two files in addition to the main input file. First,
 a file containing the interfacial response function data governing

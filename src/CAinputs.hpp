@@ -252,7 +252,7 @@ struct Inputs {
                     temperature.temp_paths.push_back(input_data["TemperatureData"]["TemperatureFiles"][filename]);
             }
         }
-        else {
+        else if (simulation_type != "FromFinch") {
             // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
             temperature.G = input_data["TemperatureData"]["G"];
             temperature.R = input_data["TemperatureData"]["R"];

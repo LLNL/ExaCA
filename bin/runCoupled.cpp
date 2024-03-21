@@ -69,17 +69,18 @@ int main(int argc, char *argv[]) {
             Kokkos::DefaultExecutionSpace().print_configuration(std::cout);
             std::cout << "Number of MPI ranks = " << np << std::endl;
         }
-        if (argc < 2) {
-            throw std::runtime_error("Error: Must provide path to input file on the command line.");
+        if (argc < 3) {
+            throw std::runtime_error("Error: Must provide path to Finch and ExaCA input files on the command line.");
         }
         else {
-            std::string input_file = argv[1];
+            std::string finch_input_file = argv[1];
+            std::string exaca_input_file = argv[2];
 
             // Setup Finch simulation
-            Finch::Inputs finch_inputs(MPI_COMM_WORLD, argc, argv);
+            Finch::Inputs finch_inputs(MPI_COMM_WORLD, finch_input_file);
 
             // Setup ExaCA simulation details
-            Inputs inputs(id, input_file);
+            Inputs inputs(id, exaca_input_file);
 
             runCoupled(id, np, finch_inputs, inputs);
         }
