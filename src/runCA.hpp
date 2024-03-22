@@ -36,7 +36,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
         temperature.initialize(id, simulation_type, grid, inputs.domain.deltat);
     else if (simulation_type == "Spot")
         temperature.initialize(id, grid, irf.freezing_range, inputs.domain.deltat, inputs.domain.spot_radius);
-    else if (simulation_type == "R")
+    else if ((simulation_type == "R") || (simulation_type == "FromFinch"))
         temperature.initialize(0, id, grid, irf.freezing_range, inputs.domain.deltat);
     MPI_Barrier(MPI_COMM_WORLD);
 

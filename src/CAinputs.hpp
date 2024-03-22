@@ -208,6 +208,11 @@ struct Inputs {
             domain.number_of_layers = input_data["Domain"]["NumberOfLayers"];
             domain.layer_height = input_data["Domain"]["LayerOffset"];
         }
+        else if ((simulation_type == "FromFinch") && (input_data["Domain"].contains("NumberOfLayers")) && (id == 0)) {
+            std::cout << "Note: NumberOfLayers for Finch-ExaCA coupled runs is not used, as only single layer "
+                         "simulations are currently supported"
+                      << std::endl;
+        }
         else if (simulation_type == "Spot") {
             std::vector<std::string> unused_spot_inputs = {"NSpotsX", "NSpotsY", "SpotOffset", "RSpots"};
             int num_unused_spot_inputs = unused_spot_inputs.size();

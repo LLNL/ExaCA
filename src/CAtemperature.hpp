@@ -64,8 +64,6 @@ struct Temperature {
     view_type_float undercooling_solidification_start_all_layers, undercooling_solidification_start;
     // Temperature field inputs from file
     TemperatureInputs _inputs;
-    // Whether temperature data was from a file or not
-    bool temp_data_from_file = false;
 
     // Constructor creates views with size based on the grid inputs - each cell assumed to solidify once by default,
     // layer_time_temp_history modified to account for multiple events if needed undercooling_current and
@@ -98,7 +96,8 @@ struct Temperature {
 
     // Constructor using in-memory temperature data from external source.
     template <typename ViewType>
-    Temperature(const Grid &grid, TemperatureInputs inputs, ViewType input_temperature_data)
+    Temperature(const Grid &grid, TemperatureInputs inputs, ViewType input_temperature_data,
+                const bool store_solidification_start = false)
         : max_solidification_events(
               view_type_int(Kokkos::ViewAllocateWithoutInitializing("number_of_layers"), grid.number_of_layers))
         , layer_time_temp_history(view_type_float_3d(Kokkos::ViewAllocateWithoutInitializing("layer_time_temp_history"),
@@ -108,12 +107,19 @@ struct Temperature {
         , solidification_event_counter(view_type_int("solidification_event_counter", grid.domain_size))
         , undercooling_current_all_layers(view_type_float("undercooling_current", grid.domain_size_all_layers))
         , raw_temperature_data(view_type_double_2d_host(Kokkos::ViewAllocateWithoutInitializing("raw_temperature_data"),
-                                                        input_temperature_data.extent(0), 6))
+                                                        input_temperature_data.extent(0), num_temperature_components))
         , first_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("first_value"), grid.number_of_layers))
         , last_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("last_value"), grid.number_of_layers))
+        , _store_solidification_start(store_solidification_start)
         , _inputs(inputs) {
 
         copyTemperatureData(input_temperature_data);
+        if (_store_solidification_start) {
+            // Default init starting undercooling in cells to zero
+            undercooling_solidification_start_all_layers =
+                view_type_float("undercooling_solidification_start", grid.domain_size_all_layers);
+            getCurrentLayerStartingUndercooling(grid.layer_range);
+        }
         getCurrentLayerUndercooling(grid.layer_range);
     }
 
@@ -123,10 +129,13 @@ struct Temperature {
     template <typename ViewType>
     void copyTemperatureData(ViewType input_temperature_data) {
         // TODO: Each MPI rank to only store temperature data relevant to its local Y bounds
-        // Take first num_temperature_components columns of input_temperature_data and copy to host
+        std::cout << "Input data has " << input_temperature_data.extent(0) << " data points" << std::endl;
+
+        // Take first num_temperature_components columns of input_temperature_data
         auto temp_components = std::make_pair(0, num_temperature_components);
-        auto input_temperature_data_comp = Kokkos::subview(input_temperature_data, Kokkos::ALL(), temp_components);
-        raw_temperature_data = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), input_temperature_data_comp);
+        raw_temperature_data = Kokkos::subview(input_temperature_data, Kokkos::ALL(), temp_components);
+        first_value(0) = 0;
+        last_value(0) = raw_temperature_data.extent(0);
     }
 
     // Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header
@@ -215,9 +224,6 @@ struct Temperature {
     // Read in temperature data from files, stored in the host view "RawData", with the appropriate MPI ranks storing
     // the appropriate data
     void readTemperatureData(int id, const Grid &grid, int layernumber) {
-
-        // Temperature data is read from at least one input file
-        temp_data_from_file = true;
 
         // Y coordinates of this rank's data, inclusive and including ghost nodes
         int lower_y_bound = grid.y_offset;
@@ -494,52 +500,6 @@ struct Temperature {
         return cooling_rate;
     }
 
-    // Initialize layer_time_temp_history_host data, returning largest_time, for the in-memory coupling case where all
-    // time-temperature history data is stored on all ranks and must be downselected on each rank based on the Y
-    // coordinates. Return largest expected time step for solidification TODO: will no longer be needed when this is
-    // accounted for as part of the constructor
-    double init_time_temp_history_in_memory(const int layernumber, const int start_range, const int end_range,
-                                            const Grid &grid, const double freezing_range, const double deltat,
-                                            view_type_int_host &number_of_solidification_events_host,
-                                            view_type_float_3d_host &layer_time_temp_history_host) {
-
-        double largest_time = 0;
-        double rank_y_min = grid.y_min + grid.y_offset * grid.deltax;
-        double rank_y_max = rank_y_min + (grid.ny_local - 1) * grid.deltax;
-        for (int i = start_range; i < end_range; i++) {
-
-            // Check if this data point is in bounds for this MPI rank
-            if ((raw_temperature_data(i, 1) >= rank_y_min) && (raw_temperature_data(i, 1) <= rank_y_max)) {
-                // Get the integer X, Y, Z coordinates associated with this data point, along with the associated TM,
-                // TL, CR values coord_y is relative to ths MPI rank's grid, while coord_y_global is relative to the
-                // overall simulation domain
-                int coord_x = getTempCoordX(i, grid.x_min, grid.deltax);
-                int coord_y = getTempCoordY(i, grid.y_min, grid.deltax, grid.y_offset);
-                int coord_z = getTempCoordZ(i, grid.deltax, grid.layer_height, layernumber, grid.z_min_layer);
-                double t_melting = getTempCoordTM(i);
-                double t_liquidus = getTempCoordTL(i);
-                double cooling_rate = getTempCoordCR(i);
-
-                // 1D cell coordinate on this MPI rank's domain
-                int index = grid.get1DIndex(coord_x, coord_y, coord_z);
-                // Store TM, TL, CR values for this solidification event in layer_time_temp_history
-                layer_time_temp_history_host(index, number_of_solidification_events_host(index), 0) =
-                    Kokkos::round(t_melting / deltat) + 1;
-                layer_time_temp_history_host(index, number_of_solidification_events_host(index), 1) =
-                    Kokkos::round(t_liquidus / deltat) + 1;
-                layer_time_temp_history_host(index, number_of_solidification_events_host(index), 2) =
-                    std::abs(cooling_rate) * deltat;
-                // Increment number of solidification events for this cell
-                number_of_solidification_events_host(index)++;
-                // Estimate of the time step where the last possible solidification is expected to occur
-                double solidus_time = t_liquidus + freezing_range / cooling_rate;
-                if (solidus_time > largest_time)
-                    largest_time = solidus_time;
-            }
-        }
-        return largest_time;
-    }
-
     // Initialize temperature fields for layer "layernumber" in case where temperature data comes from file(s)
     // TODO: This can be performed on the device as the dirS problem is
     void initialize(const int layernumber, const int id, const Grid &grid, const double freezing_range,
@@ -572,42 +532,32 @@ struct Temperature {
             std::cout << "Range of raw data for layer " << layernumber << " on rank 0 is " << start_range << " to "
                       << end_range << std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
-        if (temp_data_from_file) {
-            for (int i = start_range; i < end_range; i++) {
-                // Get the integer X, Y, Z coordinates associated with this data point, along with the associated TM,
-                // TL, CR values coord_y is relative to this MPI rank's grid, while coord_y_global is relative to the
-                // overall simulation domain
-                int coord_x = getTempCoordX(i, grid.x_min, grid.deltax);
-                int coord_y = getTempCoordY(i, grid.y_min, grid.deltax, grid.y_offset);
-                int coord_z = getTempCoordZ(i, grid.deltax, grid.layer_height, layernumber, grid.z_min_layer);
-                double t_melting = getTempCoordTM(i);
-                double t_liquidus = getTempCoordTL(i);
-                double cooling_rate = getTempCoordCR(i);
+        for (int i = start_range; i < end_range; i++) {
+            // Get the integer X, Y, Z coordinates associated with this data point, along with the associated TM,
+            // TL, CR values coord_y is relative to this MPI rank's grid, while coord_y_global is relative to the
+            // overall simulation domain
+            int coord_x = getTempCoordX(i, grid.x_min, grid.deltax);
+            int coord_y = getTempCoordY(i, grid.y_min, grid.deltax, grid.y_offset);
+            int coord_z = getTempCoordZ(i, grid.deltax, grid.layer_height, layernumber, grid.z_min_layer);
+            double t_melting = getTempCoordTM(i);
+            double t_liquidus = getTempCoordTL(i);
+            double cooling_rate = getTempCoordCR(i);
 
-                // 1D cell coordinate on this MPI rank's domain
-                int index = grid.get1DIndex(coord_x, coord_y, coord_z);
-                // Store TM, TL, CR values for this solidification event in layer_time_temp_history
-                layer_time_temp_history_host(index, number_of_solidification_events_host(index), 0) =
-                    Kokkos::round(t_melting / deltat) + 1;
-                layer_time_temp_history_host(index, number_of_solidification_events_host(index), 1) =
-                    Kokkos::round(t_liquidus / deltat) + 1;
-                layer_time_temp_history_host(index, number_of_solidification_events_host(index), 2) =
-                    std::abs(cooling_rate) * deltat;
-                // Increment number of solidification events for this cell
-                number_of_solidification_events_host(index)++;
-                // Estimate of the time step where the last possible solidification is expected to occur
-                double solidus_time = t_liquidus + freezing_range / cooling_rate;
-                if (solidus_time > largest_time)
-                    largest_time = solidus_time;
-            }
-        }
-        else {
-            // Initialize layer_time_temp_history_host data, returning largest_time, for the case where all
-            // time-temperature history data is stored on all ranks and must be downselected on each rank based on the Y
-            // coordinates TODO: will no longer be needed when this is accounted for as part of the constructor
-            largest_time =
-                init_time_temp_history_in_memory(layernumber, start_range, end_range, grid, deltat, freezing_range,
-                                                 number_of_solidification_events_host, layer_time_temp_history_host);
+            // 1D cell coordinate on this MPI rank's domain
+            int index = grid.get1DIndex(coord_x, coord_y, coord_z);
+            // Store TM, TL, CR values for this solidification event in layer_time_temp_history
+            layer_time_temp_history_host(index, number_of_solidification_events_host(index), 0) =
+                Kokkos::round(t_melting / deltat) + 1;
+            layer_time_temp_history_host(index, number_of_solidification_events_host(index), 1) =
+                Kokkos::round(t_liquidus / deltat) + 1;
+            layer_time_temp_history_host(index, number_of_solidification_events_host(index), 2) =
+                std::abs(cooling_rate) * deltat;
+            // Increment number of solidification events for this cell
+            number_of_solidification_events_host(index)++;
+            // Estimate of the time step where the last possible solidification is expected to occur
+            double solidus_time = t_liquidus + freezing_range / cooling_rate;
+            if (solidus_time > largest_time)
+                largest_time = solidus_time;
         }
         MPI_Allreduce(&largest_time, &largest_time_global, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
         if (id == 0)

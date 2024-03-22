@@ -45,11 +45,13 @@ void runCoupled(int id, int np, Finch::Inputs finch_inputs, Inputs exaca_inputs)
     timers.stopHeatTransfer();
     timers.startInit();
 
-    // Setup local and global grids, decomposing domain (needed to construct temperature)
-    Grid exaca_grid(exaca_inputs.simulation_type, id, np, exaca_inputs.domain.number_of_layers, exaca_inputs.domain,
-                    exaca_inputs.temperature);
+    // Setup local and global grids, decomposing domain (needed to construct temperature). Currently only single layer
+    // simulations are supported
+    Grid exaca_grid(id, np, exaca_inputs.domain, finch_inputs.space.cell_size, finch_inputs.space.global_low_corner,
+                    finch_inputs.space.global_high_corner);
     // Temperature fields characterized by data in this structure
-    Temperature<memory_space> temperature(exaca_grid, exaca_inputs.temperature, app.getSolidificationData());
+    Temperature<memory_space> temperature(exaca_grid, exaca_inputs.temperature, app.getSolidificationData(),
+                                          exaca_inputs.print.store_solidification_start);
 
     // Now run ExaCA
     runExaCA(id, np, exaca_inputs, timers, exaca_grid, temperature);
