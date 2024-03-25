@@ -25,6 +25,7 @@ jobs:
         cmake_build_type: ['Debug', 'Release']
         kokkos_ver: ['4.0.01']
         json: ['Internal']
+        heat_transfer: ['None']
         include:
           - distro: 'ubuntu:intel'
             cxx: 'icpx'
@@ -32,18 +33,28 @@ jobs:
             cmake_build_type: 'Release'
             kokkos_ver: '4.0.01'
             json: External
+            heat_transfer: 'None'
           - distro: 'ubuntu:intel'
             cxx: 'icpx'
             backend: 'OPENMP'
             cmake_build_type: 'Release'
             kokkos_ver: '4.0.01'
             json: External
+            heat_transfer: 'None'
           - distro: 'ubuntu:latest'
             cxx: 'g++'
             backend: 'SERIAL'
             cmake_build_type: 'Debug'
             kokkos_ver: '4.0.01'
             json: External
+            heat_transfer: 'None'
+          - distro: 'ubuntu:latest'
+            cxx: 'g++'
+            backend: 'SERIAL'
+            cmake_build_type: 'Release'
+            kokkos_ver: '4.0.01'
+            json: External
+            heat_transfer: 'Finch'
     runs-on: ubuntu-20.04
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     continue-on-error: ${{ matrix.distro == 'ubuntu:intel' }}
@@ -82,13 +93,50 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
           cmake --build build --parallel 2
           cmake --install build
+      - name: Checkout Cabana
+        if: ${{ matrix.heat_transfer == 'Finch' }}
+        uses: actions/checkout@v3
+        with:
+          repository: ECP-CoPA/Cabana
+          ref: 0.6.1
+          path: cabana
+      - name: Build Cabana
+        if: ${{ matrix.heat_transfer == 'Finch' }}
+        working-directory: cabana
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DCMAKE_INSTALL_PREFIX=$HOME/cabana \
+            -DCMAKE_PREFIX_PATH="$HOME/kokkos" \
+            -DCabana_ENABLE_GRID=ON
+          cmake --build build --parallel 2
+          cmake --install build
+      - name: Checkout Finch
+        if: ${{ matrix.heat_transfer == 'Finch' }}
+        uses: actions/checkout@v3
+        with:
+          repository: ORNL-MDF/Finch
+          # This is post-release 0.1
+          ref: 765a7cef4bded27fd5b2a475454aa045bced85c1
+          path: finch
+      - name: Build Finch
+        if: ${{ matrix.heat_transfer == 'Finch' }}
+        working-directory: finch
+        run: |
+          cmake -B build \
+            -DCMAKE_INSTALL_PREFIX=$HOME/finch \
+            -DCMAKE_PREFIX_PATH="$HOME/cabana" \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+          cmake --build build --parallel 2
+          cmake --install build
       - name: Checkout ExaCA
         uses: actions/checkout@v3
       - name: Build ExaCA
         run: |
           cmake -B build \
             -D CMAKE_INSTALL_PREFIX=$HOME/exaca \
-            -D CMAKE_PREFIX_PATH="$HOME/kokkos;$HOME/json" \
+            -D CMAKE_PREFIX_PATH="$HOME/kokkos;$HOME/json;$HOME/finch" \
             -D CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -D CMAKE_CXX_FLAGS="-Wall -Wextra -pedantic -Werror" \
@@ -113,6 +161,11 @@ jobs:
         run: |
            $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.json
            $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.json TestProblemSmallDirS
+      - name: Test Finch-ExaCA
+        if: ${{ matrix.heat_transfer == 'Finch' }}
+        working-directory: utilities/Finch
+        run: |
+          $HOME/exaca/bin/Finch-ExaCA inputs_small.json ../../examples/Inp_SmallFinch.json
 
   HIP:
     defaults:
