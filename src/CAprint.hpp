@@ -337,6 +337,9 @@ struct Print {
                 }
                 interlayer_all_layers_ofstream.close();
             }
+            // File of front undercooling at interfa
+            if (_inputs.print_front_undercooling)
+                temperature.writeFrontUndercooling(path_base_filename, id, grid);
 
             // Views where data should be printed only for the layer of the problem that just finished
             if (_inputs.interlayer_current) {
@@ -515,6 +518,20 @@ struct Print {
             if (!(_inputs.print_binary))
                 output_fstream << std::endl;
         }
+    }
+
+    // Called on rank 0 to write solidification undercooling data to a file
+    template <typename Print1DViewType>
+    void printSolidificationFrontUndercooling(const int nz, Print1DViewType front_undercooling) {
+
+        std::string front_undercooling_filename = path_base_filename + "_FrontUndercooling.csv";
+        std::ofstream und_ofstream;
+        und_ofstream.open(front_undercooling_filename);
+        for (int coord_z = 0; coord_z < nz - 1; coord_z++) {
+            und_ofstream << front_undercooling(coord_z) << std::endl;
+        }
+        und_ofstream << front_undercooling(nz - 1);
+        und_ofstream.close();
     }
 
     // On rank 0, print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a vtk
