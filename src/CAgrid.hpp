@@ -62,11 +62,15 @@ struct Grid {
     // Creates grid struct from Finch grid - currently only single layer simulation is supported
     Grid(const int id, const int np, DomainInputs inputs, const double finch_cell_size,
          std::array<double, 3> global_low_corner, std::array<double, 3> global_high_corner,
-         int number_of_layers_temp = 1, double cell_size_tolerance = 1 * pow(10, -8))
-        : z_min_layer(view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), 1))
-        , z_max_layer(view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_max_layer"), 1))
+         const double cell_size_tolerance = 1 * pow(10, -8))
+        : z_min_layer(
+              view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), inputs.number_of_layers))
+        , z_max_layer(
+              view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_max_layer"), inputs.number_of_layers))
+        , number_of_layers(inputs.number_of_layers)
+        , layer_height(inputs.layer_height)
         , _inputs(inputs) {
-        number_of_layers = number_of_layers_temp;
+
         // Ensure Finch and ExaCA cell sizes match
         deltax = _inputs.deltax;
         if (Kokkos::abs(finch_cell_size - deltax) > cell_size_tolerance)
@@ -77,12 +81,14 @@ struct Grid {
         z_min = global_low_corner[2];
         x_max = global_high_corner[0];
         y_max = global_high_corner[1];
-        z_max = global_high_corner[2];
+        z_max = global_high_corner[2] + inputs.layer_height * (inputs.number_of_layers - 1) * deltax;
         nx = Kokkos::round((x_max - x_min) / deltax) + 1;
         ny = Kokkos::round((y_max - y_min) / deltax) + 1;
         nz = Kokkos::round((z_max - z_min) / deltax) + 1;
-        z_min_layer(0) = z_min;
-        z_max_layer(0) = z_max;
+        for (int n = 0; n < inputs.number_of_layers; n++) {
+            z_min_layer(n) = z_min + n * inputs.layer_height * deltax;
+            z_max_layer(n) = global_high_corner[2] + n * inputs.layer_height * deltax;
+        }
         // Domain decomposition
         decomposeDomain(id, np, "FromFinch");
     };

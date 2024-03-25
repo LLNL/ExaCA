@@ -37,7 +37,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     else if (simulation_type == "Spot")
         temperature.initialize(id, grid, irf.freezing_range, inputs.domain.deltat, inputs.domain.spot_radius);
     else if ((simulation_type == "R") || (simulation_type == "FromFinch"))
-        temperature.initialize(0, id, grid, irf.freezing_range, inputs.domain.deltat);
+        temperature.initialize(0, id, grid, irf.freezing_range, inputs.domain.deltat, simulation_type);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Initialize grain orientations
@@ -151,10 +151,12 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
             // TODO: reorganize these temperature functions calls into a temperature.init_next_layer as done with the
             // substrate
             // If the next layer's temperature data isn't already stored, it should be read
-            if (inputs.temperature.layerwise_temp_read)
+            if ((simulation_type == "R") && (inputs.temperature.layerwise_temp_read))
                 temperature.readTemperatureData(id, grid, layernumber + 1);
+            MPI_Barrier(MPI_COMM_WORLD);
             // Initialize next layer's temperature data
-            temperature.initialize(layernumber + 1, id, grid, irf.freezing_range, inputs.domain.deltat);
+            temperature.initialize(layernumber + 1, id, grid, irf.freezing_range, inputs.domain.deltat,
+                                   simulation_type);
 
             // Reset solidification event counter of all cells to zeros for the next layer, resizing to number of cells
             // associated with the next layer, and get the subview for undercooling
