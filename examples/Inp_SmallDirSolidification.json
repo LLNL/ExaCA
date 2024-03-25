@@ -27,11 +27,8 @@
       "OutputFile": "TestProblemSmallDirS",
       "PrintBinary": false,
       "PrintExaConstitSize": 0,
-      "PrintFieldsInit": [],
-      "PrintFieldsFinal": ["GrainID", "LayerID", "GrainMisorientation"],
-      "PrintIntermediateOutput": {
-          "Frequency": 0,
-          "PrintIdleFrames": false
+      "Interlayer": {
+          "Fields": ["GrainID", "LayerID", "GrainMisorientation"]
       }
    }
 }
