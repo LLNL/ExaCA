@@ -96,7 +96,7 @@ struct Temperature {
 
     // Constructor using in-memory temperature data from external source.
     template <typename ViewType>
-    Temperature(const Grid &grid, TemperatureInputs inputs, ViewType input_temperature_data,
+    Temperature(const int id, const int np, const Grid &grid, TemperatureInputs inputs, ViewType input_temperature_data,
                 const bool store_solidification_start = false)
         : max_solidification_events(
               view_type_int(Kokkos::ViewAllocateWithoutInitializing("number_of_layers"), grid.number_of_layers))
@@ -113,7 +113,7 @@ struct Temperature {
         , _store_solidification_start(store_solidification_start)
         , _inputs(inputs) {
 
-        copyTemperatureData(input_temperature_data);
+        copyTemperatureData(id, np, grid, input_temperature_data);
         if (_store_solidification_start) {
             // Default init starting undercooling in cells to zero
             undercooling_solidification_start_all_layers =
@@ -123,19 +123,82 @@ struct Temperature {
         getCurrentLayerUndercooling(grid.layer_range);
     }
 
-    // Copy data from external source into raw host View.
-    // TODO: rewrite routines so that these host copies aren't necessary and the file reading routines aren't used in
-    // this case.
+    // Copy data from external source onto the appropriate MPI ranks
     template <typename ViewType>
-    void copyTemperatureData(ViewType input_temperature_data) {
-        // TODO: Each MPI rank to only store temperature data relevant to its local Y bounds
-        std::cout << "Input data has " << input_temperature_data.extent(0) << " data points" << std::endl;
+    void copyTemperatureData(const int id, const int np, const Grid &grid, ViewType input_temperature_data, const int resize_padding = 100) {
 
         // Take first num_temperature_components columns of input_temperature_data
-        auto temp_components = std::make_pair(0, num_temperature_components);
-        raw_temperature_data = Kokkos::subview(input_temperature_data, Kokkos::ALL(), temp_components);
+        int finch_data_size = input_temperature_data.extent(0);
+        int finch_temp_components = input_temperature_data.extent(1);
+        std::cout << "Rank " << id << " has " << finch_data_size << " events from the Finch simulation" << std::endl;
+        
+        // First, store data with Y coordinates in bounds for this rank in raw_temperature_data
+        int temperature_point_counter = 0;
+        for (int n=0; n<finch_data_size; n++) {
+            int coord_y = (input_temperature_data(n, 1) - grid.y_min) / grid.deltax;
+            if ((coord_y >= grid.y_offset) && (coord_y < grid.y_offset + grid.ny_local)) {
+                for (int comp=0; comp<num_temperature_components; comp++)
+                    raw_temperature_data(temperature_point_counter, comp) = input_temperature_data(n, comp);
+                // Increment counter for each point stored on this rank
+                temperature_point_counter++;
+            }
+        }
+        
+        // Communication pattern - sending to right, receiving from left
+        int left, right;
+        if (id == 0)
+            left = np-1;
+        else
+            left = id-1;
+        if (id == np-1)
+            right = 0;
+        else
+            right = id+1;
+
+        // Send and recieve data so each rank parses all finch data points
+        int send_data_size = finch_data_size;
+        for (int i=0; i<np-1; i++) {
+            // Get size for sending/receiving
+            int recv_data_size;
+            MPI_Request send_request_size, recv_request_size;
+            MPI_Isend(&send_data_size, 1, MPI_INT, right, 0, MPI_COMM_WORLD, &send_request_size);
+            MPI_Irecv(&recv_data_size, 1, MPI_INT, left, 0, MPI_COMM_WORLD, &recv_request_size);
+            MPI_Wait(&send_request_size, MPI_STATUS_IGNORE);
+            MPI_Wait(&recv_request_size, MPI_STATUS_IGNORE);
+            // Allocate view for received data
+            ViewType finch_data_recv(Kokkos::ViewAllocateWithoutInitializing("finch_data_recv"), recv_data_size, finch_temp_components);
+            
+            // Send data to the right, recieve data from the left - if needed, increase size of data stored on this rank to accomodate received data
+            MPI_Request send_request_data, recv_request_data;
+            MPI_Isend(input_temperature_data.data(), send_data_size * finch_temp_components, MPI_DOUBLE, right, 1, MPI_COMM_WORLD, &send_request_data);
+            MPI_Irecv(finch_data_recv.data(), recv_data_size * finch_temp_components, MPI_DOUBLE, left, 1, MPI_COMM_WORLD, &recv_request_data);
+            int current_size = raw_temperature_data.extent(0);
+            if (temperature_point_counter + recv_data_size >= current_size)
+                Kokkos::resize(raw_temperature_data, temperature_point_counter + recv_data_size + resize_padding, num_temperature_components);
+            MPI_Wait(&send_request_data, MPI_STATUS_IGNORE);
+            MPI_Wait(&recv_request_data, MPI_STATUS_IGNORE);
+            
+            // Unpack the appropriate received data into raw_temperature_data
+            for (int n=0; n<recv_data_size; n++) {
+                int coord_y = (finch_data_recv(n, 1) - grid.y_min) / grid.deltax;
+                if ((coord_y >= grid.y_offset) && (coord_y < grid.y_offset + grid.ny_local)) {
+                    for (int comp=0; comp<num_temperature_components; comp++)
+                        raw_temperature_data(temperature_point_counter, comp) = finch_data_recv(n, comp);
+                    // Increment counter for each point stored on this rank
+                    temperature_point_counter++;
+                }
+            }
+            
+            // Replace send buffer with the received data
+            input_temperature_data = finch_data_recv;
+            send_data_size = recv_data_size;
+        }
+        // Resize with the number of temperature data points on this rank now known
+        Kokkos::resize(raw_temperature_data, temperature_point_counter, num_temperature_components);
+        // TODO: Update these lines to be general for multilayer simulation
         first_value(0) = 0;
-        last_value(0) = raw_temperature_data.extent(0);
+        last_value(0) = temperature_point_counter;
+        std::cout << "Rank " << id << " has " << temperature_point_counter << " events to simulate with ExaCA" << std::endl;
     }
 
     // Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header
