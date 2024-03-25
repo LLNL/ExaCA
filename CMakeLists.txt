@@ -88,7 +88,7 @@ add_subdirectory(analysis)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 find_package( CLANG_FORMAT 10)
 if(CLANG_FORMAT_FOUND)
-  file(GLOB_RECURSE FORMAT_SOURCES src/*.[c,h]pp analysis/*.[c,h]pp unit_test/*.[c,h]pp)
+  file(GLOB_RECURSE FORMAT_SOURCES *.[c,h]pp)
   add_custom_target(format
     COMMAND ${CLANG_FORMAT_EXECUTABLE} -i -style=file ${FORMAT_SOURCES}
     DEPENDS ${FORMAT_SOURCES})
