@@ -154,7 +154,7 @@ void testInputs(int print_version) {
             if (filename == input_filenames[0]) {
                 EXPECT_DOUBLE_EQ(inputs.substrate.fract_surface_sites_active, 0.08);
                 EXPECT_TRUE(inputs.print.base_filename == "TestProblemDirS");
-                EXPECT_FALSE(inputs.substrate.custom_grain_locations_ids);
+                EXPECT_TRUE(inputs.substrate.surface_init_mode == "FractionSurfaceSitesActive");
                 EXPECT_DOUBLE_EQ(inputs.temperature.init_undercooling, 0.0);
             }
             else {
@@ -165,7 +165,7 @@ void testInputs(int print_version) {
                 EXPECT_EQ(inputs.substrate.grain_locations_y[1], 150);
                 EXPECT_EQ(inputs.substrate.grain_ids[1], 9936);
                 EXPECT_TRUE(inputs.print.base_filename == "TestProblemTwoGrainDirS");
-                EXPECT_TRUE(inputs.substrate.custom_grain_locations_ids);
+                EXPECT_TRUE(inputs.substrate.surface_init_mode == "Custom");
                 EXPECT_DOUBLE_EQ(inputs.temperature.init_undercooling, 10.0);
             }
             EXPECT_TRUE(inputs.print.intralayer);
