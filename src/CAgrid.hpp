@@ -62,7 +62,7 @@ struct Grid {
     // Creates grid struct from Finch grid - currently only single layer simulation is supported
     Grid(const int id, const int np, DomainInputs inputs, const double finch_cell_size,
          std::array<double, 3> global_low_corner, std::array<double, 3> global_high_corner,
-         const double cell_size_tolerance = 1 * pow(10, -8))
+         const double cell_size_tolerance = 1 * Kokkos::pow(10, -8))
         : z_min_layer(
               view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), inputs.number_of_layers))
         , z_max_layer(
