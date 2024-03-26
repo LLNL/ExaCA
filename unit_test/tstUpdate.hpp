@@ -28,6 +28,7 @@ namespace Test {
 //---------------------------------------------------------------------------//
 void testSmallDirS() {
 
+    using memory_space = TEST_MEMSPACE;
     int id, np;
     // Get number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &np);
@@ -35,10 +36,17 @@ void testSmallDirS() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
     std::string input_file = "Inp_SmallDirSolidification.json";
+    Inputs inputs(id, input_file);
+    Timers timers(id);
+
+    // Setup local and global grids, decomposing domain (needed to construct temperature)
+    Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
+    // Temperature fields characterized by data in this structure
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print.store_solidification_start);
 
     // Run SmallDirS problem and check volume fraction of nucleated grains with 1% tolerance of expected value (to
     // account for the non-deterministic nature of the cell capture)
-    runExaCA(id, np, input_file);
+    runExaCA(id, np, inputs, timers, grid, temperature);
 
     // MPI barrier to ensure that log file has been written
     MPI_Barrier(MPI_COMM_WORLD);
@@ -51,6 +59,7 @@ void testSmallDirS() {
 
 void testSmallEquiaxedGrain() {
 
+    using memory_space = TEST_MEMSPACE;
     int id, np;
     // Get number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &np);
@@ -58,9 +67,16 @@ void testSmallEquiaxedGrain() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
     std::string input_file = "Inp_SmallEquiaxedGrain.json";
+    Inputs inputs(id, input_file);
+    Timers timers(id);
+
+    // Setup local and global grids, decomposing domain (needed to construct temperature)
+    Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
+    // Temperature fields characterized by data in this structure
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print.store_solidification_start);
 
     // Run Small equiaxed grain problem and check time step at which the grain reaches the domain edge
-    runExaCA(id, np, input_file);
+    runExaCA(id, np, inputs, timers, grid, temperature);
 
     // MPI barrier to ensure that log file has been written
     MPI_Barrier(MPI_COMM_WORLD);

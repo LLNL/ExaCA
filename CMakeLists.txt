@@ -5,6 +5,15 @@ set(PROJECT_VERSION "1.4.0-dev")
 
 include(GNUInstallDirs)
 
+option(ExaCA_REQUIRE_FINCH "Build with Finch heat transport support" OFF)
+# Build with Finch if available or if requested.
+find_package(Finch QUIET)
+if(ExaCA_REQUIRE_FINCH OR Finch_FOUND)
+  set(ExaCA_ENABLE_FINCH ON)
+  find_package(Finch REQUIRED COMPONENTS Finch::Core Finch::ScanPaths)
+  message( STATUS "Finch heat transfer enabled." )
+endif()
+
 find_package(Kokkos 4.0 REQUIRED)
 find_package(MPI REQUIRED)
 

@@ -47,6 +47,7 @@ struct Timers {
     Timer init, run, output;
     Timer nucl, create_sv, capture, ghost;
     Timer layer;
+    Timer heat_transfer;
 
     Timers(const int mpi_id)
         : id(mpi_id)
@@ -57,7 +58,8 @@ struct Timers {
         , create_sv()
         , capture()
         , ghost()
-        , layer() {}
+        , layer()
+        , heat_transfer() {}
 
     void startInit() { init.start(); }
     void stopInit() {
@@ -99,6 +101,9 @@ struct Timers {
             std::cout << "Time for final layer was " << layer.time() << " s" << std::endl;
     }
 
+    void startHeatTransfer() { heat_transfer.start(); }
+    void stopHeatTransfer() { heat_transfer.stop(); }
+
     double getTotal() { return init.time() + run.time() + output.time(); }
 
     auto printLog() {
@@ -129,6 +134,9 @@ struct Timers {
         capture.reduceMPI();
         ghost.reduceMPI();
         output.reduceMPI();
+
+        if (heat_transfer.time() > 0)
+            heat_transfer.reduceMPI();
     }
 
     void printFinal(const int np, const int cycle) {
@@ -140,6 +148,8 @@ struct Timers {
         std::cout << "Having run with = " << np << " processors" << std::endl;
         std::cout << "Output written at cycle = " << cycle << std::endl;
         std::cout << "Total time = " << getTotal() << std::endl;
+        if (heat_transfer.time() > 0)
+            std::cout << heat_transfer.print("performing heat transfer simulation");
         std::cout << init.print("initializing data");
         std::cout << run.print("performing CA calculations");
         std::cout << output.print("collecting and printing output data");

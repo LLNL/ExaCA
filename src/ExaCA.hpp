@@ -19,9 +19,6 @@
 #include "CAtimers.hpp"
 #include "CAtypes.hpp"
 #include "CAupdate.hpp"
-
-#include <string>
-
-void runExaCA(int id, int np, std::string InputFile);
+#include "runCA.hpp"
 
 #endif
