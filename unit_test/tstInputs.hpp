@@ -316,6 +316,6 @@ void testInputs(int print_version) {
 TEST(TEST_CATEGORY, inputs) {
     // input argument: test for two different print versions for last input file
     testInputs(0);
-    // testInputs(1);
+    testInputs(1);
 }
 } // end namespace Test
