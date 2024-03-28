@@ -49,10 +49,14 @@ struct TemperatureInputs {
 };
 
 struct SubstrateInputs {
-    // problem type C only - one of these two inputs will be given
+    // problem type C only
+    std::string surface_init_mode = "";
+    // Only used for mode (i)
     double fract_surface_sites_active = 0.0;
+    // Only used for mode (ii)
+    double surface_site_density = 0.0;
+    // Only used for mode (iii)
     std::vector<int> grain_locations_x, grain_locations_y, grain_ids;
-    bool custom_grain_locations_ids = false;
     bool fill_bottom_surface = false;
     // problem type SingleGrain only
     int single_grain_orientation = 0;
@@ -276,39 +280,46 @@ struct Inputs {
 
         // Substrate inputs:
         if (simulation_type == "C") {
-            // Must contain FractionSurfaceSitesActive OR all of grain_locations_x/grain_locations_y/GrainIDs, not both
-            bool contains_fract_surface_sites_active = input_data["Substrate"].contains("FractionSurfaceSitesActive");
-            bool contains_grain_locations_x = input_data["Substrate"].contains("GrainLocationsX");
-            bool contains_grain_locations_y = input_data["Substrate"].contains("GrainLocationsY");
-            bool contains_grain_ids = input_data["Substrate"].contains("GrainIDs");
-            bool contains_custom_grain_init_info =
-                contains_grain_locations_x && contains_grain_locations_y && contains_grain_ids;
-            if (contains_fract_surface_sites_active) {
-                if ((id == 0) && (contains_custom_grain_init_info))
-                    std::cout << "Warning: FractionSurfaceSitesActive will be ignored as explicit grain locations and "
-                                 "IDs are given in the input file"
-                              << std::endl;
-                else
-                    substrate.fract_surface_sites_active = input_data["Substrate"]["FractionSurfaceSitesActive"];
+            // Must contain inputs corresponding to one of the three modes
+            // fract_surface_sites_active only used for mode (i)
+            // surface_site_density only used for mode (ii) - given in grains/mm^2
+            // grain_locations_x/grain_locations_y/grain_ids only used for mode (iii)
+            // Determine surface initialization mode
+            bool mode_i_input = input_data["Substrate"].contains("FractionSurfaceSitesActive");
+            bool mode_ii_input = input_data["Substrate"].contains("SurfaceSiteDensity");
+            bool mode_iii_input = ((input_data["Substrate"].contains("GrainLocationsX")) &&
+                                   (input_data["Substrate"].contains("GrainLocationsY")) &&
+                                   (input_data["Substrate"].contains("GrainIDs")));
+            if ((mode_i_input && mode_ii_input) || (mode_i_input && mode_iii_input) ||
+                (mode_ii_input && mode_iii_input) || (mode_i_input && mode_ii_input && mode_iii_input))
+                throw std::runtime_error(
+                    "Error: Conflicting substrate input parameters detected. See examples/README for details");
+            if (mode_i_input) {
+                substrate.surface_init_mode = "FractionSurfaceSitesActive";
+                substrate.fract_surface_sites_active = input_data["Substrate"]["FractionSurfaceSitesActive"];
             }
-            else if (contains_custom_grain_init_info) {
+            else if (mode_ii_input) {
+                substrate.surface_init_mode = "SurfaceSiteDensity";
+                substrate.surface_site_density = input_data["Substrate"]["SurfaceSiteDensity"];
+            }
+            else if (mode_iii_input) {
+                substrate.surface_init_mode = "Custom";
                 // Ensure the number of grains is consistent
                 std::size_t num_grains = input_data["Substrate"]["GrainLocationsX"].size();
                 if ((input_data["Substrate"]["GrainLocationsY"].size() != num_grains) ||
                     (input_data["Substrate"]["GrainIDs"].size() != num_grains))
                     throw std::runtime_error(
-                        "Error: grain_locations_x, grain_locations_y, and GrainIDs must be the same size");
+                        "Error: GrainLocationsX, GrainLocationsY, and GrainIDs must be the same size");
                 else {
                     for (std::size_t graincount = 0; graincount < num_grains; graincount++) {
                         substrate.grain_locations_x.push_back(input_data["Substrate"]["GrainLocationsX"][graincount]);
                         substrate.grain_locations_y.push_back(input_data["Substrate"]["GrainLocationsY"][graincount]);
                         substrate.grain_ids.push_back(input_data["Substrate"]["GrainIDs"][graincount]);
                     }
-                    substrate.custom_grain_locations_ids = true;
                 }
             }
             else
-                throw std::runtime_error("Error: either FractionSurfaceSitesActive or lists of "
+                throw std::runtime_error("Error: either FractionSurfaceSitesActive, SurfaceSiteDensity, or lists of "
                                          "GrainLocationsX/GrainLocationsY/GrainIDs are "
                                          "required to initialize this problem type");
             if (input_data["Substrate"].contains("FillBottomSurface"))
@@ -384,11 +395,14 @@ struct Inputs {
                 std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << temperature.G
                           << " K/m and a cooling rate of " << temperature.R << " K/s" << std::endl;
                 std::cout << "The time step is " << domain.deltat * pow(10, 6) << " microseconds" << std::endl;
-                if (substrate.custom_grain_locations_ids)
+                if (substrate.surface_init_mode == "Custom")
                     std::cout << "Input grain locations and ID values will be used at the bottom surface" << std::endl;
-                else
+                else if (substrate.surface_init_mode == "FractionSurfaceSitesActive")
                     std::cout << "The fraction of CA cells at the bottom surface that are active is "
                               << substrate.fract_surface_sites_active << std::endl;
+                else if (substrate.surface_init_mode == "SurfaceSiteDensity")
+                    std::cout << "The density of active CA cells at the bottom surface is "
+                              << substrate.surface_site_density << " grains per µm2" << std::endl;
             }
             else if (simulation_type == "Spot") {
                 std::cout << "CA Simulation using a radial, fixed thermal gradient of " << temperature.G
