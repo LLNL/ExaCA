@@ -371,7 +371,7 @@ struct Inputs {
         }
 
         // Printing inputs
-        getPrintDataFromInputFile(input_data, id, domain.deltat);
+        getPrintDataFromInputFile(input_data, id);
 
         // Print information to console about the input file data read
         if (id == 0) {
@@ -407,24 +407,6 @@ struct Inputs {
         }
     }
 
-    // TODO: Old version, remove when old print options parsing format compatibility is no longer needed
-    // Check the field names from the given input (Fieldtype = PrintFieldsInit or PrintFieldsFinal) against the possible
-    // fieldnames listed in Fieldnames_key. Fill the vector PrintFields_given with true or false values depending on
-    // whether the corresponding field name from Fieldnames_key appeared in the input or not
-    std::vector<bool> getPrintFieldValues_Old(nlohmann::json input_data, const std::string fieldtype,
-                                              const std::vector<std::string> fieldnames_key) {
-        int num_fields_key = fieldnames_key.size();
-        int num_fields_given = input_data["Printing"][fieldtype].size();
-        std::vector<bool> print_fields_given(num_fields_key, false);
-        // Check each given field against each possible input field name
-        for (int field_given = 0; field_given < num_fields_given; field_given++) {
-            for (int field_key = 0; field_key < num_fields_key; field_key++) {
-                if (input_data["Printing"][fieldtype][field_given] == fieldnames_key[field_key])
-                    print_fields_given[field_key] = true;
-            }
-        }
-        return print_fields_given;
-    }
     // Updated version, where fields are organized into intralayer and interlayer
     std::vector<bool> getPrintFieldValues(nlohmann::json input_data, const std::string fieldtype,
                                           const std::vector<std::string> fieldnames_key) {
@@ -441,90 +423,8 @@ struct Inputs {
         return print_fields_given;
     }
 
-    // Using the old print inputs, read the input data file and initialize appropriate variables to non-default values
-    // if necessary
-    void getPrintDataFromInputFile_Old(nlohmann::json input_data, const int id, const double deltat) {
-        // Which fields should be printed at the start and end of the simulation?
-        std::vector<std::string> init_fieldnames_key = {"GrainID", "LayerID", "MeltTimeStep", "CritTimeStep",
-                                                        "UndercoolingChange"};
-        std::vector<bool> print_fields_init =
-            getPrintFieldValues_Old(input_data, "PrintFieldsInit", init_fieldnames_key);
-        if (print_fields_init[0])
-            print.intralayer_grain_id = true;
-        if (print_fields_init[1])
-            print.intralayer_layer_id = true;
-        if (print_fields_init[2])
-            print.intralayer_melt_time_step = true;
-        if (print_fields_init[3])
-            print.intralayer_crit_time_step = true;
-        if (print_fields_init[4])
-            print.intralayer_undercooling_change = true;
-        int num_print_intralayer_inputs = print_fields_init.size();
-        // True if any fields are printed
-        for (int n = 0; n < num_print_intralayer_inputs; n++) {
-            if (print_fields_init[n])
-                print.intralayer = true;
-        }
-
-        std::vector<std::string> final_fieldnames_key = {
-            "GrainID",      "LayerID",      "GrainMisorientation", "UndercoolingCurrent",
-            "MeltTimeStep", "CritTimeStep", "UndercoolingChange",  "CellType"};
-        std::vector<bool> print_fields_final =
-            getPrintFieldValues_Old(input_data, "PrintFieldsFinal", final_fieldnames_key);
-        if (print_fields_final[0])
-            print.interlayer_grain_id = true;
-        if (print_fields_final[1])
-            print.interlayer_layer_id = true;
-        if (print_fields_final[2])
-            print.interlayer_grain_misorientation = true;
-        if (print_fields_final[3])
-            print.interlayer_undercooling_current = true;
-        if (print_fields_final[4])
-            print.interlayer_melt_time_step = true;
-        if (print_fields_final[5])
-            print.interlayer_crit_time_step = true;
-        if (print_fields_final[6])
-            print.interlayer_undercooling_change = true;
-        if (print_fields_final[7])
-            print.interlayer_cell_type = true;
-        // Print fields final - only after last layer of simulation. Set increment to the number of layers
-        print.print_layer_number.push_back(domain.number_of_layers - 1);
-        if ((print.interlayer_grain_id) || (print.interlayer_layer_id))
-            print.interlayer_full = true;
-        for (int n = 3; n < 7; n++) {
-            if (print_fields_init[n])
-                print.interlayer_current = true;
-        }
-
-        // Initial fields should be printed, set intralayer increment to large number so only the first frame will be
-        // printed (this is overwritten if PrintIntermediateOutput and a Frequency are toggled)
-        if (print.intralayer) {
-            print.intralayer = true;
-            print.intralayer_increment = INT_MAX;
-        }
-        // Should intermediate output be printed?
-        if (input_data["Printing"].contains("PrintIntermediateOutput")) {
-            // An increment of 0 will set the intermediate file printing to false
-            double time_series_frame_inc_time = input_data["Printing"]["PrintIntermediateOutput"]["Frequency"];
-            if (time_series_frame_inc_time != 0) {
-                print.intralayer = true;
-                // Increment is given in microseconds, convert to seconds
-                time_series_frame_inc_time = time_series_frame_inc_time * pow(10, -6);
-                // Overwrite INT_MAX value for intralayer_increment if PrintInitFields was toggled
-                print.intralayer_increment = Kokkos::round(time_series_frame_inc_time / deltat);
-                // Should the intermediate output be printed even if the simulation was unchanged from the previous
-                // output step?
-                print.intralayer_idle_frames = input_data["Printing"]["PrintIntermediateOutput"]["PrintIdleFrames"];
-                if (id == 0)
-                    std::cout << "Intermediate output for movie frames will be printed every "
-                              << print.intralayer_increment << " time steps (or every "
-                              << print.intralayer_increment * deltat << " microseconds)" << std::endl;
-            }
-        }
-    }
-
     // Read the input data file and initialize appropriate variables to non-default values if necessary
-    void getPrintDataFromInputFile(nlohmann::json input_data, const int id, const double deltat) {
+    void getPrintDataFromInputFile(nlohmann::json input_data, const int id) {
         // Path to output data
         print.path_to_output = input_data["Printing"]["PathToOutput"];
         // Name of output data
@@ -543,11 +443,8 @@ struct Inputs {
         if ((input_data["Printing"].contains("PrintFieldsInit")) ||
             (input_data["Printing"].contains("PrintIntermediateOutput")) ||
             (input_data["Printing"].contains("PrintIntermediateOutput"))) {
-            if (id == 0)
-                std::cout << "Warning: Old print input format detected; compatibility with this will be removed in a "
-                             "future release. See examples/README for updated format"
-                          << std::endl;
-            getPrintDataFromInputFile_Old(input_data, id, deltat);
+            throw std::runtime_error("Error: The old print input format is no longer compatible with ExaCA. See "
+                                     "examples/README for updated format");
         }
         else {
             if (input_data["Printing"].contains("Intralayer")) {

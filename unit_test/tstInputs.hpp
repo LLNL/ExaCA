@@ -54,21 +54,24 @@ void writeTestData(std::string input_filename, int print_version) {
     // two different permutations of print outputs
     if (print_version == 0) {
         test_data_file << "      \"PrintExaConstitSize\": 0," << std::endl;
-        test_data_file << "      \"PrintFieldsInit\": "
+        test_data_file << "      \"Intralayer\": {" << std::endl;
+        test_data_file << "          \"Fields\": "
                           "[\"UndercoolingChange\",\"GrainID\",\"LayerID\",\"MeltTimeStep\",\"CritTimeStep\"],"
                        << std::endl;
-        test_data_file
-            << "      \"PrintFieldsFinal\": [\"UndercoolingCurrent\",\"GrainMisorientation\",\"GrainID\",\"LayerID\"],"
-            << std::endl;
-        test_data_file << "      \"PrintIntermediateOutput\": {" << std::endl;
-        test_data_file << "          \"Frequency\": 300," << std::endl;
+        test_data_file << "          \"Increment\": 200," << std::endl;
         test_data_file << "          \"PrintIdleFrames\": true" << std::endl;
-        test_data_file << "       }" << std::endl;
+        test_data_file << "      }," << std::endl;
+        test_data_file << "      \"Interlayer\": {" << std::endl;
+        test_data_file
+            << "          \"Fields\": [\"UndercoolingCurrent\",\"GrainMisorientation\",\"GrainID\",\"LayerID\"]"
+            << std::endl;
+        test_data_file << "      }" << std::endl;
     }
     else if (print_version == 1) {
         test_data_file << "      \"PrintExaConstitSize\": 500," << std::endl;
-        test_data_file << "      \"PrintFieldsInit\": []," << std::endl;
-        test_data_file << "      \"PrintFieldsFinal\": [\"GrainMisorientation\",\"GrainID\",\"LayerID\"]" << std::endl;
+        test_data_file << "      \"Interlayer\": {" << std::endl;
+        test_data_file << "          \"Fields\": [\"GrainMisorientation\",\"GrainID\",\"LayerID\"]" << std::endl;
+        test_data_file << "      }" << std::endl;
     }
     test_data_file << "   }" << std::endl;
     test_data_file << "}" << std::endl;
@@ -268,7 +271,7 @@ void testInputs(int print_version) {
                 EXPECT_FALSE(inputs.print.intralayer_solidification_event_counter);
                 EXPECT_FALSE(inputs.print.intralayer_number_of_solidification_events);
                 EXPECT_TRUE(inputs.print.interlayer_full);
-                EXPECT_TRUE(inputs.print.interlayer_current);
+                EXPECT_FALSE(inputs.print.interlayer_current);
                 EXPECT_TRUE(inputs.print.interlayer_grain_id);
                 EXPECT_TRUE(inputs.print.interlayer_layer_id);
                 EXPECT_TRUE(inputs.print.interlayer_grain_misorientation);
