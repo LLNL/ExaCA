@@ -35,6 +35,7 @@ struct Temperature {
     using view_type_double_2d_host = typename view_type_double_2d::HostMirror;
     using view_type_float_2d_host = typename view_type_float_2d::HostMirror;
     using view_type_float_3d_host = typename view_type_float_3d::HostMirror;
+    using view_type_coupled = Kokkos::View<double **, Kokkos::LayoutLeft, Kokkos::HostSpace>;
 
     // Using the default exec space for this memory space.
     using execution_space = typename memory_space::execution_space;
@@ -95,9 +96,8 @@ struct Temperature {
     }
 
     // Constructor using in-memory temperature data from external source.
-    template <typename ViewType>
-    Temperature(const int id, const int np, const Grid &grid, TemperatureInputs inputs, ViewType input_temperature_data,
-                const bool store_solidification_start = false)
+    Temperature(const int id, const int np, const Grid &grid, TemperatureInputs inputs,
+                view_type_coupled input_temperature_data, const bool store_solidification_start = false)
         : max_solidification_events(
               view_type_int(Kokkos::ViewAllocateWithoutInitializing("number_of_layers"), grid.number_of_layers))
         , layer_time_temp_history(view_type_float_3d(Kokkos::ViewAllocateWithoutInitializing("layer_time_temp_history"),
@@ -124,8 +124,7 @@ struct Temperature {
     }
 
     // Copy data from external source onto the appropriate MPI ranks
-    template <typename ViewType>
-    void copyTemperatureData(const int id, const int np, const Grid &grid, ViewType input_temperature_data,
+    void copyTemperatureData(const int id, const int np, const Grid &grid, view_type_coupled input_temperature_data,
                              const int resize_padding = 100) {
 
         // Take first num_temperature_components columns of input_temperature_data
@@ -167,8 +166,8 @@ struct Temperature {
             MPI_Wait(&send_request_size, MPI_STATUS_IGNORE);
             MPI_Wait(&recv_request_size, MPI_STATUS_IGNORE);
             // Allocate view for received data
-            ViewType finch_data_recv(Kokkos::ViewAllocateWithoutInitializing("finch_data_recv"), recv_data_size,
-                                     finch_temp_components);
+            view_type_coupled finch_data_recv(Kokkos::ViewAllocateWithoutInitializing("finch_data_recv"),
+                                              recv_data_size, finch_temp_components);
 
             // Send data to the right, recieve data from the left - if needed, increase size of data stored on this rank
             // to accomodate received data
