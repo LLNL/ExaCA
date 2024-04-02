@@ -20,7 +20,7 @@
       "R": 300000
    },
    "Substrate": {
-      "FractionSurfaceSitesActive": 0.08
+      "SurfaceSiteFraction": 0.08
    },
    "Printing": {
       "PathToOutput": "./",

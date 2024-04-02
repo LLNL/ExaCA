@@ -100,7 +100,7 @@ struct CellData {
         const int bottom_surface_size = grid.nx * grid.ny;
 
         // First get number of substrate grains for each initialization condition
-        if (_inputs.surface_init_mode == "FractionSurfaceSitesActive")
+        if (_inputs.surface_init_mode == "SurfaceSiteFraction")
             substrate_act_cells = Kokkos::round(_inputs.fract_surface_sites_active * bottom_surface_size);
         else if (_inputs.surface_init_mode == "SurfaceSiteDensity")
             substrate_act_cells =
@@ -112,7 +112,7 @@ struct CellData {
         // View for storing surface grain locations and IDs
         view_type_int_2d_host act_cell_data_host(Kokkos::ViewAllocateWithoutInitializing("ActCellData_Host"),
                                                  substrate_act_cells, 3);
-        if (_inputs.surface_init_mode == "FractionSurfaceSitesActive") {
+        if (_inputs.surface_init_mode == "SurfaceSiteFraction") {
             // Fraction of surface sites active was given - ensure the appropriate number of cells are assigned
             // GrainIDs. Note that the physical locations of these sites (x,y) will vary based on the domain size/cell
             // size Create list of grain IDs and shuffle - leave 0s for cells without substrate grains

@@ -154,7 +154,7 @@ void testInputs(int print_version) {
             if (filename == input_filenames[0]) {
                 EXPECT_DOUBLE_EQ(inputs.substrate.fract_surface_sites_active, 0.08);
                 EXPECT_TRUE(inputs.print.base_filename == "TestProblemDirS");
-                EXPECT_TRUE(inputs.substrate.surface_init_mode == "FractionSurfaceSitesActive");
+                EXPECT_TRUE(inputs.substrate.surface_init_mode == "SurfaceSiteFraction");
                 EXPECT_DOUBLE_EQ(inputs.temperature.init_undercooling, 0.0);
             }
             else {

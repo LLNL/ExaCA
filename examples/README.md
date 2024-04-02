@@ -90,7 +90,7 @@ The .json files in the examples subdirectory are provided on the command line to
 ## Substrate inputs
 | Input        | Relevant problem type(s))| Details |
 |--------------| -------------------------|---------|
-|FractionSurfaceSitesActive | C           | What fraction of cells at the bottom surface of the domain are the source of a grain? (see note (b-i))
+|SurfaceSiteFraction | C           | What fraction of cells at the bottom surface of the domain are the source of a grain? (see note (b-i))
 |SurfaceSiteDensity         | C           | Density, in nuclei/µm^2, of grains at the bottom surface of the domain (see note (b-ii))
 |GrainLocationsX | C           | List of grain locations in X on the bottom surface of the domain (see note (b-iii))
 |GrainLocationsY | C           | List of grain locations in Y on the bottom surface of the domain (see note (b-iii))

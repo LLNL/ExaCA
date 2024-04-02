@@ -92,14 +92,15 @@ void testCellDataInit_Constrained_Automatic(std::string input_surface_init_mode)
     // Empty inputs and grid struct
     Inputs inputs;
     Grid grid;
-    inputs.substrate.surface_init_mode = input_surface_init_mode;
-    if (input_surface_init_mode == "SurfaceSiteDensity") {
-        // Set so that there are 4 grains in the domain, regardless of domain size
-        inputs.substrate.surface_site_density = 1.0 / (4.0 * static_cast<double>(np));
+    if (input_surface_init_mode == "SurfaceSiteFraction") {
+        // Set quarter of sites active, number of grains will depend on domain size
+        inputs.substrate.fract_surface_sites_active = 0.25;
+        inputs.substrate.surface_init_mode = "SurfaceSiteFraction";
     }
     else {
-        // Set half of sites active, number of grains will depend on domain size
-        inputs.substrate.fract_surface_sites_active = 0.25;
+        // Set so that there are 4 grains in the domain, regardless of domain size
+        inputs.substrate.surface_site_density = 1.0 / (4.0 * static_cast<double>(np));
+        inputs.substrate.surface_init_mode = "SurfaceSiteDensity";
     }
     // Create test data
     grid.nz = 2;
@@ -127,10 +128,10 @@ void testCellDataInit_Constrained_Automatic(std::string input_surface_init_mode)
     auto grain_id_all_layers_host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), celldata.grain_id_all_layers);
     int max_expected_grain_id;
-    if (input_surface_init_mode == "SurfaceSiteDensity")
-        max_expected_grain_id = 5;
-    else
+    if (input_surface_init_mode == "SurfaceSiteFraction")
         max_expected_grain_id = 4 * np + 1;
+    else
+        max_expected_grain_id = 5;
 
     for (int index = 0; index < grid.domain_size; index++) {
         if (index >= grid.nx * grid.ny_local) {
@@ -449,6 +450,7 @@ void testCalcVolFractionNucleated() {
 TEST(TEST_CATEGORY, cell_init_tests) {
     testCellDataInit_SingleGrain();
     testCellDataInit_Constrained_Automatic("SurfaceSiteDensity");
+    testCellDataInit_Constrained_Automatic("SurfaceSiteFraction");
     testCellDataInit_Constrained_Automatic("FractionSurfaceSitesActive");
     testCellDataInit_Constrained_Custom();
     // For non-constrained solidification problems, test w/ and w/o space left for powder layer

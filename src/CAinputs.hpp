@@ -285,18 +285,21 @@ struct Inputs {
             // surface_site_density only used for mode (ii) - given in grains/mm^2
             // grain_locations_x/grain_locations_y/grain_ids only used for mode (iii)
             // Determine surface initialization mode
-            bool mode_i_input = input_data["Substrate"].contains("FractionSurfaceSitesActive");
+            bool mode_i_input = input_data["Substrate"].contains("SurfaceSiteFraction");
             bool mode_ii_input = input_data["Substrate"].contains("SurfaceSiteDensity");
             bool mode_iii_input = ((input_data["Substrate"].contains("GrainLocationsX")) &&
                                    (input_data["Substrate"].contains("GrainLocationsY")) &&
                                    (input_data["Substrate"].contains("GrainIDs")));
+            // Check for deprecated input FractionSurfaceSitesActive - which used the logic now associated with the
+            // SurfaceSiteDensity input
+            bool mode_deprecated_input = input_data["Substrate"].contains("FractionSurfaceSitesActive");
             if ((mode_i_input && mode_ii_input) || (mode_i_input && mode_iii_input) ||
                 (mode_ii_input && mode_iii_input) || (mode_i_input && mode_ii_input && mode_iii_input))
                 throw std::runtime_error(
                     "Error: Conflicting substrate input parameters detected. See examples/README for details");
             if (mode_i_input) {
-                substrate.surface_init_mode = "FractionSurfaceSitesActive";
-                substrate.fract_surface_sites_active = input_data["Substrate"]["FractionSurfaceSitesActive"];
+                substrate.surface_init_mode = "SurfaceSiteFraction";
+                substrate.fract_surface_sites_active = input_data["Substrate"]["SurfaceSiteFraction"];
             }
             else if (mode_ii_input) {
                 substrate.surface_init_mode = "SurfaceSiteDensity";
@@ -318,8 +321,21 @@ struct Inputs {
                     }
                 }
             }
+            else if (mode_deprecated_input) {
+                if (id == 0)
+                    std::cout
+                        << "Warning: FractionSurfaceSitesActive is a deprecated input for problem type C and support "
+                           "will be removed in a future release. See README for updated initialization options"
+                        << std::endl;
+                // The deprecated input uses the logic currently associated with the SurfaceSiteDensity initialization
+                // mode, so the fraction should be transformed into a density
+                substrate.surface_init_mode = "SurfaceSiteDensity";
+                double fract_surface_active_old = input_data["Substrate"]["FractionSurfaceSitesActive"];
+                substrate.surface_site_density =
+                    fract_surface_active_old / (domain.deltax * domain.deltax * pow(10, 12));
+            }
             else
-                throw std::runtime_error("Error: either FractionSurfaceSitesActive, SurfaceSiteDensity, or lists of "
+                throw std::runtime_error("Error: either SurfaceSiteFraction, SurfaceSiteDensity, or lists of "
                                          "GrainLocationsX/GrainLocationsY/GrainIDs are "
                                          "required to initialize this problem type");
             if (input_data["Substrate"].contains("FillBottomSurface"))
@@ -397,7 +413,7 @@ struct Inputs {
                 std::cout << "The time step is " << domain.deltat * pow(10, 6) << " microseconds" << std::endl;
                 if (substrate.surface_init_mode == "Custom")
                     std::cout << "Input grain locations and ID values will be used at the bottom surface" << std::endl;
-                else if (substrate.surface_init_mode == "FractionSurfaceSitesActive")
+                else if (substrate.surface_init_mode == "SurfaceSiteFraction")
                     std::cout << "The fraction of CA cells at the bottom surface that are active is "
                               << substrate.fract_surface_sites_active << std::endl;
                 else if (substrate.surface_init_mode == "SurfaceSiteDensity")
@@ -776,8 +792,7 @@ struct Inputs {
             exaca_log << "   }," << std::endl;
             exaca_log << "   \"Substrate\": {" << std::endl;
             if (simulation_type == "C")
-                exaca_log << "       \"FractionSurfaceSitesActive\": " << substrate.fract_surface_sites_active
-                          << std::endl;
+                exaca_log << "       \"SurfaceSiteFraction\": " << substrate.fract_surface_sites_active << std::endl;
             else if (simulation_type == "SingleGrain")
                 exaca_log << "       \"GrainOrientation\": " << substrate.single_grain_orientation << std::endl;
             else {
