@@ -98,7 +98,7 @@ void testHaloUpdate() {
     // Interface struct
     // Initial size large enough to hold all data
     int buf_size_initial_estimate = grid.nx * grid.nz_layer;
-    Interface<memory_space> interface(id, grid.domain_size, buf_size_initial_estimate);
+    Interface<memory_space> interface(id, grid.domain_size, 0.01, buf_size_initial_estimate);
     // Copy to host for initialization
     auto diagonal_length_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.diagonal_length);
     auto octahedron_center_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.octahedron_center);
@@ -282,7 +282,7 @@ void testResizeRefillBuffers() {
 
     // Interface struct - set buffer size to 1
     int buf_size_initial_estimate = 1;
-    Interface<memory_space> interface(id, grid.domain_size, buf_size_initial_estimate);
+    Interface<memory_space> interface(id, grid.domain_size, 0.01, buf_size_initial_estimate);
 
     // Start with 2 cells in the current layer active (one in each buffer), GrainID equal to the X coordinate, Diagonal
     // length equal to the Y coordinate, octahedron center at (x + 0.5, y + 0.5, z + 0.5)
@@ -450,7 +450,7 @@ void testResizeBuffers() {
     int domain_size = 50;
     int buf_size_initial_estimate = 50;
     // Init buffers to large size
-    Interface<memory_space> interface(id, domain_size, 50);
+    Interface<memory_space> interface(id, domain_size, 0.01, 50);
 
     // Fill buffers with test data
     Kokkos::parallel_for(
@@ -540,7 +540,7 @@ void testFillSteeringVector_Remelt() {
     // Interface struct
     int id;
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
-    Interface<memory_space> interface(id, grid.domain_size);
+    Interface<memory_space> interface(id, grid.domain_size, 0.01);
 
     int numcycles = 15;
     for (int cycle = 1; cycle <= numcycles; cycle++) {
@@ -629,7 +629,7 @@ void testCalcCritDiagonalLength() {
     // Initialize interface struct
     int id;
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
-    Interface<memory_space> interface(id, domain_size);
+    Interface<memory_space> interface(id, domain_size, 0.01);
 
     // Load octahedron centers into test view
     view_type octahedron_center_test(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * domain_size);
@@ -684,7 +684,7 @@ void testCreateNewOctahedron() {
     // Create interface struct
     int id;
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
-    Interface<memory_space> interface(id, grid.domain_size);
+    Interface<memory_space> interface(id, grid.domain_size, 0.01);
 
     // Octahedra now use the layer coordinates, not the coordinates of the multilayer domain
     for (int coord_z = 0; coord_z < grid.nz_layer; coord_z++) {

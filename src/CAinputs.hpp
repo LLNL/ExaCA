@@ -65,6 +65,8 @@ struct SubstrateInputs {
     double powder_active_fraction = 1.0;
     // Top of baseplate assumed at Z = 0 if not otherwise given
     double baseplate_top_z = 0.0;
+    // Initial size of octahedra during initialization of an active cell
+    float init_oct_size = 0.01;
 };
 
 struct PrintInputs {
@@ -367,6 +369,12 @@ struct Inputs {
                     throw std::runtime_error(
                         "Error: if the option to extend the baseplate through the powder layers is "
                         "toggled, a powder layer density cannot be given");
+            }
+            // Optional input for initial size of octhedra when a cell begins solidification (in units of CA cells)
+            if (input_data["Substrate"].contains("InitOctahedronSize")) {
+                substrate.init_oct_size = input_data["Substrate"]["InitOctahedronSize"];
+                if ((substrate.init_oct_size < 0.0) || (substrate.init_oct_size >= 1.0))
+                    throw std::runtime_error("Error: InitOctahedronSize should be at least 0, and less than 1");
             }
         }
 

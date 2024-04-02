@@ -43,6 +43,8 @@ struct Interface {
     view_type_buffer buffer_south_send, buffer_north_send, buffer_south_recv, buffer_north_recv;
     view_type_int send_size_south, send_size_north, steering_vector, num_steer;
     view_type_int_host send_size_south_host, send_size_north_host, num_steer_host;
+    // Initial size of new octahedra
+    float _init_oct_size;
 
     // Neighbor lists
     neighbor_list_type neighbor_x, neighbor_y, neighbor_z;
@@ -52,7 +54,7 @@ struct Interface {
 
     // Constructor for views and view bounds for current layer
     // Use default initialization to 0 for num_steer_host and num_steer and buffer counts
-    Interface(const int id, const int domain_size, const int buf_size_initial_estimate = 25,
+    Interface(const int id, const int domain_size, const float init_oct_size, const int buf_size_initial_estimate = 25,
               const int buf_components_temp = 8)
         : diagonal_length(view_type_float(Kokkos::ViewAllocateWithoutInitializing("diagonal_length"), domain_size))
         , octahedron_center(
@@ -73,7 +75,8 @@ struct Interface {
         , num_steer(view_type_int("steering_vector_size", 1))
         , send_size_south_host(view_type_int_host("send_size_south_host", 1))
         , send_size_north_host(view_type_int_host("send_size_north_host", 1))
-        , num_steer_host(view_type_int_host("steering_vector_size_host", 1)) {
+        , num_steer_host(view_type_int_host("steering_vector_size_host", 1))
+        , _init_oct_size(init_oct_size) {
 
         // Set initial buffer size to the estimate
         buf_size = buf_size_initial_estimate;
@@ -188,7 +191,7 @@ struct Interface {
     KOKKOS_INLINE_FUNCTION
     void createNewOctahedron(const int index, const int coord_x, const int coord_y, const int y_offset,
                              const int coord_z) const {
-        diagonal_length(index) = 0.01;
+        diagonal_length(index) = _init_oct_size;
         octahedron_center(3 * index) = coord_x + 0.5;
         octahedron_center(3 * index + 1) = coord_y + y_offset + 0.5;
         octahedron_center(3 * index + 2) = coord_z + 0.5;

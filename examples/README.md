@@ -101,6 +101,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |ExtendSubstrateThroughPowder| R          | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
 | BaseplateTopZ   | R                     | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
 |GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
+|InitOctahedronSize | All           | Initial size of the octahedra that represent the solid-liquid interface when solidifiation first begins locally. Given as a fraction of a cell size, must be at least 0 and smaller than 1. Default is 0.01
 
 (a) One of these inputs must be provided, but not both
 (b) If GrainLocationsX, GrainLocationsY, and GrainIDs are provided, FractionSurfaceSitesActive should not be given. Conversely, if FractionSurfaceSitesActive is not given, each of GrainLocationsX, GrainLocationsY, and GrainIDs must be provided
