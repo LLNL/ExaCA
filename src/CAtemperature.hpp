@@ -27,11 +27,13 @@ struct Temperature {
     using view_type_float = Kokkos::View<float *, memory_space>;
     using view_type_double = Kokkos::View<double *, memory_space>;
     using view_type_double_2d = Kokkos::View<double **, memory_space>;
+    using view_type_float_2d = Kokkos::View<float **, memory_space>;
     using view_type_float_3d = Kokkos::View<float ***, memory_space>;
     using view_type_int_host = typename view_type_int::HostMirror;
     using view_type_float_host = typename view_type_float::HostMirror;
     using view_type_double_host = typename view_type_double::HostMirror;
     using view_type_double_2d_host = typename view_type_double_2d::HostMirror;
+    using view_type_float_2d_host = typename view_type_float_2d::HostMirror;
     using view_type_float_3d_host = typename view_type_float_3d::HostMirror;
 
     // Using the default exec space for this memory space.
@@ -607,7 +609,7 @@ struct Temperature {
 
     // For each Z coordinate, find the smallest undercooling at which solidification started and finished, writing this
     // data to an output file
-    void writeFrontUndercooling(std::string path_base_filename, const int id, const Grid &grid) {
+    view_type_float_2d_host getFrontUndercoolingStartFinish(const int id, const Grid &grid) {
         view_type_float start_solidification_z(Kokkos::ViewAllocateWithoutInitializing("start_solidification_z"),
                                                grid.nz);
         view_type_float end_solidification_z(Kokkos::ViewAllocateWithoutInitializing("end_solidification_z"), grid.nz);
@@ -639,20 +641,21 @@ struct Temperature {
                    MPI_COMM_WORLD);
         MPI_Reduce(end_solidification_z.data(), end_solidification_z_reduced.data(), grid.nz, MPI_FLOAT, MPI_MIN, 0,
                    MPI_COMM_WORLD);
-        auto start_z_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), start_solidification_z_reduced);
-        auto end_z_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), end_solidification_z_reduced);
-        // Rank 0 - write to file
+
+        // Rank 0 - copy to host view
+        view_type_float_2d_host start_end_solidification_z_host(
+            Kokkos::ViewAllocateWithoutInitializing("start_end_solidification_z_host"), grid.nz, 2);
         if (id == 0) {
-            std::string frontfilename = path_base_filename + "_FrontUndercooling.csv";
-            std::ofstream frontofstream;
-            frontofstream.open(frontfilename);
-            frontofstream << "Z (micrometers), Initial Undercooling, Final Undercooling" << std::endl;
+            view_type_float_host start_solidification_z_host =
+                Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), start_solidification_z_reduced);
+            view_type_float_host end_solidification_z_host =
+                Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), end_solidification_z_reduced);
             for (int coord_z = 0; coord_z < grid.nz; coord_z++) {
-                frontofstream << grid.deltax * coord_z * pow(10, 6) << ", " << start_z_host(coord_z) << ", "
-                              << end_z_host(coord_z) << std::endl;
+                start_end_solidification_z_host(coord_z, 0) = start_solidification_z_host(coord_z);
+                start_end_solidification_z_host(coord_z, 1) = end_solidification_z_host(coord_z);
             }
-            frontofstream.close();
         }
+        return start_end_solidification_z_host;
     }
 
     // Reset local cell undercooling (and if needed, the cell's starting undercooling) to 0
