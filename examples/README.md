@@ -90,10 +90,11 @@ The .json files in the examples subdirectory are provided on the command line to
 ## Substrate inputs
 | Input        | Relevant problem type(s))| Details |
 |--------------| -------------------------|---------|
-|FractionSurfaceSitesActive | C           | What fraction of cells at the bottom surface of the domain are the source of a grain? (see note (b))
-|GrainLocationsX | C           | List of grain locations in X on the bottom surface of the domain (see note (b))
-|GrainLocationsY | C           | List of grain locations in Y on the bottom surface of the domain (see note (b))
-|GrainIDs | C           | GrainID values for each grain in (X,Y) (see note (b))
+|SurfaceSiteFraction | C           | What fraction of cells at the bottom surface of the domain are the source of a grain? (see note (b-i))
+|SurfaceSiteDensity         | C           | Density, in nuclei/µm^2, of grains at the bottom surface of the domain (see note (b-ii))
+|GrainLocationsX | C           | List of grain locations in X on the bottom surface of the domain (see note (b-iii))
+|GrainLocationsY | C           | List of grain locations in Y on the bottom surface of the domain (see note (b-iii))
+|GrainIDs | C           | GrainID values for each grain in (X,Y) (see note (b3))
 |FillBottomSurface | C  | Optionally assign all cells on the bottom surface the grain ID of the closest grain (defaults to false)
 |MeanSize      | Spot, R                  | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
 |SubstrateFilename |  Spot, R             | Path to and filename for substrate data (see note (a))
@@ -103,7 +104,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
 
 (a) One of these inputs must be provided, but not both
-(b) If GrainLocationsX, GrainLocationsY, and GrainIDs are provided, FractionSurfaceSitesActive should not be given. Conversely, if FractionSurfaceSitesActive is not given, each of GrainLocationsX, GrainLocationsY, and GrainIDs must be provided
+(b) These represent 3 different ways of initializing the interface. Only the inputs corresponding to one mode (i, ii, or iii) should be given. Mode (i) assigns a GrainID value to randomly selected cells at the domain's bottom surface according to the input fixed fraction of sites active. However, this does not guarantee the same grains to be at the same physical (x,y) location if the cell size or domain size are changed. Mode (ii) determines a number of grains based on the input density, and assigns physical (x,y) locations. As only one GrainID per cell is allowed, a large density with a large cell size may lead to underresolution of the desired density - however, this approach does guarantee that the same grains will be initialized at the same physical (x,y) locations in the simulation with changes to cell size or domain size. Mode (iii) requires 3 inputs and allows manual initialization of the substrate with of lists of cell coordinates in X, cell coordinates in Y, and GrainID values.
 
 ## Printing inputs
 | Input        | Relevant problem type(s))| Details |

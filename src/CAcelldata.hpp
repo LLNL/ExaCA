@@ -93,31 +93,56 @@ struct CellData {
     }
 
     // Get the X, Y coordinates and grain ID values for grains at the bottom surface for problem type C
-    view_type_int_2d_host getSurfaceActiveCellData(int &substrate_act_cells, const int nx, const int ny,
+    view_type_int_2d_host getSurfaceActiveCellData(int &substrate_act_cells, const Grid &grid,
                                                    const unsigned long rng_seed) {
-        // First get number of substrate grains
-        if (_inputs.custom_grain_locations_ids)
+
+        // Number of cells at the bottom surface that could potentially be assigned GrainID values
+        const int bottom_surface_size = grid.nx * grid.ny;
+
+        // First get number of substrate grains for each initialization condition
+        if (_inputs.surface_init_mode == "SurfaceSiteFraction")
+            substrate_act_cells = Kokkos::round(_inputs.fract_surface_sites_active * bottom_surface_size);
+        else if (_inputs.surface_init_mode == "SurfaceSiteDensity")
+            substrate_act_cells =
+                Kokkos::round(_inputs.surface_site_density * static_cast<double>(bottom_surface_size) * grid.deltax *
+                              grid.deltax * pow(10, 12));
+        if (_inputs.surface_init_mode == "Custom")
             substrate_act_cells = _inputs.grain_locations_x.size();
-        else
-            substrate_act_cells = Kokkos::round(_inputs.fract_surface_sites_active * nx * ny);
+
         // View for storing surface grain locations and IDs
         view_type_int_2d_host act_cell_data_host(Kokkos::ViewAllocateWithoutInitializing("ActCellData_Host"),
                                                  substrate_act_cells, 3);
-        if (_inputs.custom_grain_locations_ids) {
-            // Values were already given in the inputs struct, copy these to the view
+        if (_inputs.surface_init_mode == "SurfaceSiteFraction") {
+            // Fraction of surface sites active was given - ensure the appropriate number of cells are assigned
+            // GrainIDs. Note that the physical locations of these sites (x,y) will vary based on the domain size/cell
+            // size Create list of grain IDs and shuffle - leave 0s for cells without substrate grains
+            std::vector<int> grain_locations_1d(bottom_surface_size, 0);
             for (int n = 0; n < substrate_act_cells; n++) {
-                act_cell_data_host(n, 0) = _inputs.grain_locations_x[n];
-                act_cell_data_host(n, 1) = _inputs.grain_locations_y[n];
-                act_cell_data_host(n, 2) = _inputs.grain_ids[n];
+                grain_locations_1d[n] = n + 1; // grain ID for epitaxial seeds must be > 0
+            }
+            std::mt19937_64 gen(rng_seed);
+            std::shuffle(grain_locations_1d.begin(), grain_locations_1d.end(), gen);
+            // Fill act_cell_data_host with the non-zero grain IDs and their associated X and Y based on the position in
+            // the 1D vector
+            int act_cell_count = 0;
+            for (int n = 0; n < bottom_surface_size; n++) {
+                if (grain_locations_1d[n] != 0) {
+                    act_cell_data_host(act_cell_count, 0) = grid.getCoordXGlobal(n);
+                    act_cell_data_host(act_cell_count, 1) = grid.getCoordYGlobal(n);
+                    act_cell_data_host(act_cell_count, 2) = grain_locations_1d[n];
+                    act_cell_count++;
+                }
             }
         }
-        else {
+        else if (_inputs.surface_init_mode == "SurfaceSiteDensity") {
             // Calls to Xdist(gen) and Y dist(gen) return random locations for grain seeds
             // Since X = 0 and X = nx-1 are the cell centers of the last cells in X, locations are evenly scattered
-            // between X = -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5
+            // between X = -0.49999 and X = nx - 0.5, as the cells have a half width of 0.5. Note that if the number of
+            // grains is large compared to the number of cells, multiple grain IDs may be assigned to one cell and the
+            // total density will be underestimated on the given grid
             std::mt19937_64 gen(rng_seed);
-            std::uniform_real_distribution<double> x_dist(-0.49999, nx - 0.5);
-            std::uniform_real_distribution<double> y_dist(-0.49999, ny - 0.5);
+            std::uniform_real_distribution<double> x_dist(-0.49999, grid.nx - 0.5);
+            std::uniform_real_distribution<double> y_dist(-0.49999, grid.ny - 0.5);
             // Randomly locate substrate grain seeds for cells in the interior of this subdomain (at the k = 0 bottom
             // surface)
             for (int n = 0; n < substrate_act_cells; n++) {
@@ -127,6 +152,14 @@ struct CellData {
                 act_cell_data_host(n, 0) = Kokkos::round(x_location);
                 act_cell_data_host(n, 1) = Kokkos::round(y_location);
                 act_cell_data_host(n, 2) = n + 1; // grain ID for epitaxial seeds must be > 0
+            }
+        }
+        else if (_inputs.surface_init_mode == "Custom") {
+            // Values were already given in the inputs struct, copy these to the view
+            for (int n = 0; n < substrate_act_cells; n++) {
+                act_cell_data_host(n, 0) = _inputs.grain_locations_x[n];
+                act_cell_data_host(n, 1) = _inputs.grain_locations_y[n];
+                act_cell_data_host(n, 2) = _inputs.grain_ids[n];
             }
         }
         return act_cell_data_host;
@@ -140,8 +173,7 @@ struct CellData {
         // TODO: Could generate random numbers on GPU, instead of using host view and copying over - but would also need
         // inputs struct to store device data for grain locations in X, Y, and GrainIDs
         int substrate_act_cells;
-        view_type_int_2d_host act_cell_data_host =
-            getSurfaceActiveCellData(substrate_act_cells, grid.nx, grid.ny, rng_seed);
+        view_type_int_2d_host act_cell_data_host = getSurfaceActiveCellData(substrate_act_cells, grid, rng_seed);
         // Copy views of substrate grain locations and IDs back to the device
         auto act_cell_data = Kokkos::create_mirror_view_and_copy(memory_space(), act_cell_data_host);
 

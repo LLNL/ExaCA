@@ -79,7 +79,7 @@ void testCellDataInit_SingleGrain() {
     }
 }
 
-void testCellDataInit_ConstrainedGrowthMultiGrain() {
+void testCellDataInit_Constrained_Automatic(std::string input_surface_init_mode) {
 
     using memory_space = TEST_MEMSPACE;
 
@@ -92,11 +92,21 @@ void testCellDataInit_ConstrainedGrowthMultiGrain() {
     // Empty inputs and grid struct
     Inputs inputs;
     Grid grid;
+    if (input_surface_init_mode == "SurfaceSiteFraction") {
+        // Set quarter of sites active, number of grains will depend on domain size
+        inputs.substrate.fract_surface_sites_active = 0.25;
+        inputs.substrate.surface_init_mode = "SurfaceSiteFraction";
+    }
+    else {
+        // Set so that there are 4 grains in the domain, regardless of domain size
+        inputs.substrate.surface_site_density = 1.0 / (4.0 * static_cast<double>(np));
+        inputs.substrate.surface_init_mode = "SurfaceSiteDensity";
+    }
     // Create test data
     grid.nz = 2;
     grid.z_layer_bottom = 0;
     grid.nz_layer = 2;
-    grid.nx = 1;
+    grid.nx = 4;
     grid.deltax = 1 * pow(10, -6);
     grid.z_max_layer(0) = (grid.nz - 1) * grid.deltax;
     // Domain size in Y depends on the number of ranks - each rank has 4 cells in Y
@@ -107,8 +117,6 @@ void testCellDataInit_ConstrainedGrowthMultiGrain() {
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
 
-    // Set fract surface cells active to 0.5
-    inputs.substrate.fract_surface_sites_active = 0.5;
     // Construct celldata struct
     CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
     // Check appropriate initialization of celldata input
@@ -119,6 +127,12 @@ void testCellDataInit_ConstrainedGrowthMultiGrain() {
     auto cell_type_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), celldata.cell_type);
     auto grain_id_all_layers_host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), celldata.grain_id_all_layers);
+    int max_expected_grain_id;
+    if (input_surface_init_mode == "SurfaceSiteFraction")
+        max_expected_grain_id = 4 * np + 1;
+    else
+        max_expected_grain_id = 5;
+
     for (int index = 0; index < grid.domain_size; index++) {
         if (index >= grid.nx * grid.ny_local) {
             // Not at bottom surface - should be liquid cells with GrainID still equal to 0
@@ -126,11 +140,11 @@ void testCellDataInit_ConstrainedGrowthMultiGrain() {
             EXPECT_EQ(cell_type_host(index), Liquid);
         }
         else {
-            // Check that active cells have GrainIDs > 0, and less than 2 * np + 1 (there are 2 * np different positive
-            // GrainIDs used for epitaxial grain seeds)
+            // Check that active cells have GrainIDs > 0, and less than max_expected_grain_id (GrainIDs 1 through
+            // max_expected_grain_id-1 should've been used)
             if (cell_type_host(index) == FutureActive) {
                 EXPECT_GT(grain_id_all_layers_host(index), 0);
-                EXPECT_LT(grain_id_all_layers_host(index), 2 * np + 1);
+                EXPECT_LT(grain_id_all_layers_host(index), max_expected_grain_id);
             }
             else {
                 // Liquid cells should still have GrainID = 0
@@ -140,7 +154,7 @@ void testCellDataInit_ConstrainedGrowthMultiGrain() {
     }
 }
 
-void testCellDataInit_ConstrainedGrowthTwoGrain() {
+void testCellDataInit_Constrained_Custom() {
 
     using memory_space = TEST_MEMSPACE;
 
@@ -435,8 +449,10 @@ void testCalcVolFractionNucleated() {
 //---------------------------------------------------------------------------//
 TEST(TEST_CATEGORY, cell_init_tests) {
     testCellDataInit_SingleGrain();
-    testCellDataInit_ConstrainedGrowthMultiGrain();
-    testCellDataInit_ConstrainedGrowthTwoGrain();
+    testCellDataInit_Constrained_Automatic("SurfaceSiteDensity");
+    testCellDataInit_Constrained_Automatic("SurfaceSiteFraction");
+    testCellDataInit_Constrained_Automatic("FractionSurfaceSitesActive");
+    testCellDataInit_Constrained_Custom();
     // For non-constrained solidification problems, test w/ and w/o space left for powder layer
     testCellDataInit(true);
     testCellDataInit(false);
