@@ -615,8 +615,9 @@ struct Temperature {
         view_type_float end_solidification_z(Kokkos::ViewAllocateWithoutInitializing("end_solidification_z"), grid.nz);
         auto _undercooling_solidification_start = undercooling_solidification_start;
         auto _undercooling_current = undercooling_current;
+        auto policy = Kokkos::RangePolicy<execution_space>(0, grid.nz);
         Kokkos::parallel_for(
-            "GetMinUndercooling", grid.nz, KOKKOS_LAMBDA(const int &coord_z) {
+            "GetMinUndercooling", policy, KOKKOS_LAMBDA(const int &coord_z) {
                 float min_start_undercooling = Kokkos::Experimental::finite_max_v<float>;
                 float min_end_undercooling = Kokkos::Experimental::finite_max_v<float>;
                 for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
@@ -637,6 +638,8 @@ struct Temperature {
             Kokkos::ViewAllocateWithoutInitializing("start_solidification_z_red"), grid.nz);
         view_type_float end_solidification_z_reduced(
             Kokkos::ViewAllocateWithoutInitializing("end_solidification_z_red"), grid.nz);
+        // Could potentially perform these reductions on the 2D view storing both start and end values, but depends on
+        // 2D view data layout
         MPI_Reduce(start_solidification_z.data(), start_solidification_z_reduced.data(), grid.nz, MPI_FLOAT, MPI_MIN, 0,
                    MPI_COMM_WORLD);
         MPI_Reduce(end_solidification_z.data(), end_solidification_z_reduced.data(), grid.nz, MPI_FLOAT, MPI_MIN, 0,

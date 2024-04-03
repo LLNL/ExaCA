@@ -530,8 +530,8 @@ struct Print {
         und_ofstream.open(front_undercooling_filename);
         und_ofstream << "Z (micrometers), Initial Undercooling, Final Undercooling" << std::endl;
         for (int coord_z = 0; coord_z < nz - 1; coord_z++) {
-            und_ofstream << coord_z * deltax * pow(10, 6) << "," << front_undercooling(coord_z, 0) << ","
-                         << front_undercooling(coord_z, 1) << std::endl;
+            und_ofstream << static_cast<double>(coord_z) * deltax * pow(10, 6) << "," << front_undercooling(coord_z, 0)
+                         << "," << front_undercooling(coord_z, 1) << std::endl;
         }
         und_ofstream << static_cast<double>(nz - 1) * deltax * pow(10, 6) << "," << front_undercooling(nz - 1, 0) << ","
                      << front_undercooling(nz - 1, 1);
