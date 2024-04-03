@@ -10,6 +10,8 @@
 #include <iostream>
 #include <sstream>
 
+#include <nlohmann/json.hpp>
+
 class Timer {
     double _time = 0.0;
     double start_time = 0.0;
@@ -113,22 +115,16 @@ struct Timers {
 
     auto printLog() {
         // This assumes reduceMPI() has already been called.
-        std::stringstream log;
-        log << "   \"Timing\": {" << std::endl;
-        log << "       \"Runtime\": " << getTotal() << "," << std::endl;
-        log << "       \"InitRunOutputBreakdown\": [" << init.time() << "," << run.time() << "," << output.time()
-            << "]," << std::endl;
-        log << "       \"MaxMinInitTime\": [" << init.maxTime() << "," << init.minTime() << "]," << std::endl;
-        log << "       \"MaxMinNucleationTime\": [" << nucl.maxTime() << "," << nucl.minTime() << "]," << std::endl;
-        log << "       \"MaxMinSteeringVectorCreationTime\": [" << create_sv.maxTime() << "," << create_sv.minTime()
-            << "]," << std::endl;
-        log << "       \"MaxMinCellCaptureTime\": [" << capture.maxTime() << "," << capture.minTime() << "],"
-            << std::endl;
-        log << "       \"MaxMinGhostExchangeTime\": [" << ghost.maxTime() << "," << ghost.minTime() << "],"
-            << std::endl;
-        log << "       \"MaxMinOutputTime\": [" << output.maxTime() << "," << output.minTime() << "]" << std::endl;
-        log << "   }" << std::endl;
-        return log.str();
+        nlohmann::json log;
+        log["Runtime"] = getTotal();
+        log["InitRunOutputBreakdown"] = {init.time(), run.time(), output.time()};
+        log["MaxMinInitTime"] = {init.maxTime(), init.minTime()};
+        log["MaxMinNucleationTime"] = {nucl.maxTime(), nucl.minTime()};
+        log["MaxMinSteeringVectorCreationTime"] = {create_sv.maxTime(), create_sv.minTime()};
+        log["MaxMinCellCaptureTime"] = {capture.maxTime(), capture.minTime()};
+        log["MaxMinGhostExchangeTime"] = {ghost.maxTime(), ghost.minTime()};
+        log["MaxMinOutputTime"] = {output.maxTime(), output.minTime()};
+        return log;
     }
 
     void reduceMPI() {

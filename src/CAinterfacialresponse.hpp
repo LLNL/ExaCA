@@ -118,19 +118,16 @@ struct InterfacialResponseFunction {
         return "none";
     }
     // json format for interfacial response function printing
-    std::string print() {
-        std::stringstream out;
-        out << "   \"InterfacialResponse\": {" << std::endl;
-        out << "       \"Function\": "
-            << "\"" << functionName() << "\"," << std::endl;
-        out << "       \"A\": " << (A) << "," << std::endl;
-        out << "       \"B\": " << (B) << "," << std::endl;
-        out << "       \"C\": " << (C) << "," << std::endl;
+    auto print() {
+        nlohmann::json log;
+        log["Function"] = functionName();
+        log["A"] = A;
+        log["B"] = B;
+        log["C"] = C;
         if (function == cubic)
-            out << "       \"D\": " << (D) << "," << std::endl;
-        out << "       \"FreezingRange\": " << (freezing_range) << std::endl;
-        out << "   },";
-        return out.str();
+            log["D"] = D;
+        log["FreezingRange"] = freezing_range;
+        return log;
     }
 };
 

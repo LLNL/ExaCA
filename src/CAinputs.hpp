@@ -147,6 +147,8 @@ struct Inputs {
     SubstrateInputs substrate;
     PrintInputs print;
     std::string file_name;
+    // How should log be printed?
+    int json_indent = 1;
 
     // Creates input struct with uninitialized/default values, used in unit tests
     Inputs(){};
@@ -644,90 +646,82 @@ struct Inputs {
                        const double x_min, const double x_max, const double y_min, const double y_max,
                        const double z_min, const double z_max, const float vol_fraction_nucleated) {
 
-        int *ny_local_allranks = new int[np];
-        int *y_offset_allranks = new int[np];
-        MPI_Gather(&ny_local, 1, MPI_INT, ny_local_allranks, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        MPI_Gather(&y_offset, 1, MPI_INT, y_offset_allranks, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        std::vector<int> ny_local_allranks(np);
+        std::vector<int> y_offset_allranks(np);
+        MPI_Gather(&ny_local, 1, MPI_INT, ny_local_allranks.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Gather(&y_offset, 1, MPI_INT, y_offset_allranks.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
         if (id == 0) {
-            std::string FName = print.path_to_output + print.base_filename + ".json";
-            std::cout << "Printing ExaCA log file" << std::endl;
-            std::ofstream exaca_log;
-            exaca_log.open(FName);
-            exaca_log << "{" << std::endl;
-            exaca_log << "   \"ExaCAVersion\": \"" << version() << "\", " << std::endl;
-            exaca_log << "   \"ExaCACommitHash\": \"" << gitCommitHash() << "\", " << std::endl;
-            exaca_log << "   \"KokkosVersion\": \"" << kokkosVersion() << "\", " << std::endl;
-            exaca_log << "   \"InputFile\": \"" << file_name << "\", " << std::endl;
-            exaca_log << "   \"TimeStepOfOutput\": " << cycle << "," << std::endl;
-            exaca_log << "   \"SimulationType\": \"" << simulation_type << "\"," << std::endl;
-            exaca_log << "   \"GrainOrientationFile\": \"" << grain_orientation_file << "\"," << std::endl;
-            exaca_log << "   \"Domain\": {" << std::endl;
-            exaca_log << "      \"Nx\": " << nx << "," << std::endl;
-            exaca_log << "      \"Ny\": " << ny << "," << std::endl;
-            exaca_log << "      \"Nz\": " << nz << "," << std::endl;
-            exaca_log << "      \"CellSize\": " << deltax << "," << std::endl;
-            exaca_log << "      \"TimeStep\": " << domain.deltat << "," << std::endl;
-            exaca_log << "      \"XBounds\": [" << x_min << "," << x_max << "]," << std::endl;
-            exaca_log << "      \"YBounds\": [" << y_min << "," << y_max << "]," << std::endl;
-            exaca_log << "      \"ZBounds\": [" << z_min << "," << z_max << "]";
+            // Build json output.
+            nlohmann::json json_log;
+            json_log["ExaCAVersion"] = version();
+            json_log["ExaCACommitHash"] = gitCommitHash();
+            json_log["KokkosVersion"] = kokkosVersion();
+            json_log["InputFile"] = file_name;
+            json_log["TimeStepOfOutput"] = cycle;
+            json_log["SimulationType"] = simulation_type;
+            json_log["GrainOrientationFile"] = grain_orientation_file;
+            json_log["Domain"] = {};
+            json_log["Domain"]["Nx"] = nx;
+            json_log["Domain"]["Ny"] = ny;
+            json_log["Domain"]["Nz"] = nz;
+            json_log["Domain"]["CellSize"] = deltax;
+            json_log["Domain"]["Timestep"] = domain.deltat;
+            std::array<double, 2> x_bounds = {x_min, x_max};
+            std::array<double, 2> y_bounds = {y_min, y_max};
+            std::array<double, 2> z_bounds = {z_min, z_max};
+            json_log["Domain"]["XBounds"] = x_bounds;
+            json_log["Domain"]["YBounds"] = y_bounds;
+            json_log["Domain"]["ZBounds"] = z_bounds;
             if (simulation_type == "R") {
-                exaca_log << "," << std::endl;
-                exaca_log << "      \"NumberOfLayers\": " << number_of_layers << "," << std::endl;
-                exaca_log << "      \"LayerOffset\": " << layer_height;
+                json_log["NumberOfLayers"] = number_of_layers;
+                json_log["LayerOffset"] = layer_height;
             }
             else if (simulation_type == "Spot") {
-                exaca_log << "," << std::endl;
-                exaca_log << "      \"SpotRadius\": " << domain.spot_radius;
+                json_log["RSpots"] = domain.spot_radius;
             }
-            exaca_log << std::endl;
-            exaca_log << "   }," << std::endl;
-            exaca_log << "   \"Nucleation\": {" << std::endl;
-            exaca_log << "      \"Density\": " << nucleation.n_max << "," << std::endl;
-            exaca_log << "      \"MeanUndercooling\": " << nucleation.dtn << "," << std::endl;
-            exaca_log << "      \"StDevUndercooling\": " << nucleation.dtsigma << "," << std::endl;
-            exaca_log << "      \"VolFractionNucleated\": " << vol_fraction_nucleated << std::endl;
-            exaca_log << "   }," << std::endl;
-            exaca_log << "   \"TemperatureData\": {" << std::endl;
+
+            json_log["Nucleation"] = {};
+            json_log["Nucleation"]["Density"] = nucleation.n_max;
+            json_log["Nucleation"]["MeanUndercooling"] = nucleation.dtn;
+            json_log["Nucleation"]["StDevUndercooling"] = nucleation.dtsigma;
+            json_log["Nucleation"]["VolFractionNucleated"] = vol_fraction_nucleated;
+            json_log["TemperatureData"] = {};
             if (simulation_type == "R") {
-                exaca_log << "       \"TemperatureFiles\": [";
                 for (int i = 0; i < temperature.temp_files_in_series - 1; i++) {
-                    exaca_log << "\"" << temperature.temp_paths[i] << "\", ";
+                    json_log["TemperatureData"]["TemperatureFiles"] = temperature.temp_paths[i];
                 }
-                exaca_log << "\"" << temperature.temp_paths[temperature.temp_files_in_series - 1] << "\"]" << std::endl;
             }
             else {
-                exaca_log << "      \"G\": " << temperature.G << "," << std::endl;
-                exaca_log << "      \"R\": " << temperature.R << std::endl;
+                json_log["TemperatureData"]["G"] = temperature.G;
+                json_log["TemperatureData"]["R"] = temperature.R;
             }
-            exaca_log << "   }," << std::endl;
-            exaca_log << "   \"Substrate\": {" << std::endl;
+            json_log["Substrate"] = {};
             if (simulation_type == "C")
-                exaca_log << "       \"SurfaceSiteFraction\": " << substrate.fract_surface_sites_active << std::endl;
+                json_log["SurfaceSiteFraction"] = substrate.fract_surface_sites_active;
             else if (simulation_type == "SingleGrain")
-                exaca_log << "       \"GrainOrientation\": " << substrate.single_grain_orientation << std::endl;
+                json_log["GrainOrientation"] = substrate.single_grain_orientation;
             else {
                 if (substrate.use_substrate_file)
-                    exaca_log << "       \"SubstrateFilename\": " << substrate.substrate_filename << std::endl;
+                    json_log["SubstrateFilename"] = substrate.substrate_filename;
                 else
-                    exaca_log << "       \"MeanSize\": " << substrate.substrate_grain_spacing << std::endl;
+                    json_log["MeanSize"] = substrate.substrate_grain_spacing;
             }
-            exaca_log << "   }," << std::endl;
-            exaca_log << irf.print() << std::endl;
-            exaca_log << "   \"NumberMPIRanks\": " << np << "," << std::endl;
-            exaca_log << "   \"Decomposition\": {" << std::endl;
-            exaca_log << "       \"SubdomainYSize\": [";
-            for (int i = 0; i < np - 1; i++)
-                exaca_log << ny_local_allranks[i] << ",";
-            exaca_log << ny_local_allranks[np - 1] << "]," << std::endl;
-            exaca_log << "       \"SubdomainYOffset\": [";
-            for (int i = 0; i < np - 1; i++)
-                exaca_log << y_offset_allranks[i] << ",";
-            exaca_log << y_offset_allranks[np - 1] << "]" << std::endl;
-            exaca_log << "   }," << std::endl;
-            exaca_log << timers.printLog() << std::endl;
-            exaca_log << "}" << std::endl;
-            exaca_log.close();
+            nlohmann::json irf_log;
+            json_log["InterfacialResponse"] = irf.print();
+            json_log["NumberMPIRanks"] = np;
+            json_log["Decomposition"] = {};
+            json_log["Decomposition"]["SubdomainYSize"] = ny_local_allranks;
+            json_log["Decomposition"]["SubdomainYOffset"] = y_offset_allranks;
+            json_log["Timing"] = timers.printLog();
+
+            // Write to file.
+            std::string file_name = print.path_to_output + print.base_filename + ".json";
+            std::cout << "Printing ExaCA log file" << std::endl;
+            std::ofstream log;
+            log.open(file_name);
+            log << json_log.dump(json_indent);
+            log.close();
         }
     }
 };
