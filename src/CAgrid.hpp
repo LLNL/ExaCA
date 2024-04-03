@@ -112,7 +112,7 @@ struct Grid {
         // Obtain global domain bounds
         // For problem type R (reading data from file), need to parse temperature data files to obtain domain bounds for
         // each layer and for the multilayer domain
-        if (simulation_type == "R") {
+        if (simulation_type == "FromFile") {
             // For simulations using input temperature data with remelting: even if only LayerwiseTempRead is true, all
             // files need to be read to determine the domain bounds
             findXYZBounds(id);
@@ -507,7 +507,7 @@ struct Grid {
     int calcZLayerBottom(const std::string simulation_type, const int layernumber) {
 
         int z_layer_bottom_local;
-        if ((simulation_type == "R") || (simulation_type == "FromFinch")) {
+        if ((simulation_type == "FromFile") || (simulation_type == "FromFinch")) {
             // lower bound of domain is based on the data read from the file(s) or from Finch
             z_layer_bottom_local = Kokkos::round((z_min_layer[layernumber] - z_min) / deltax);
         }
@@ -522,7 +522,7 @@ struct Grid {
     int calcZLayerTop(const std::string simulation_type, const int layernumber) {
 
         int z_layer_top_local;
-        if ((simulation_type == "R") || (simulation_type == "FromFinch")) {
+        if ((simulation_type == "FromFile") || (simulation_type == "FromFinch")) {
             // Top of layer comes from the layer's file data or from Finch
             z_layer_top_local = Kokkos::round((z_max_layer[layernumber] - z_min) / deltax);
         }

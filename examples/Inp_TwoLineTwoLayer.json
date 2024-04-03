@@ -1,5 +1,5 @@
 {
-   "SimulationType": "R",
+   "SimulationType": "FromFile",
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
    "RandomSeed": 0,

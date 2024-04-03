@@ -836,7 +836,7 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
     MPI_Bcast(&x_switch, 1, MPI_INT, 0, MPI_COMM_WORLD);
     // Cells of interest are those currently undergoing a melting-solidification cycle
     int remaining_cells_of_interest = global_active_cells + global_superheated_cells + global_undercooled_cells;
-    if ((x_switch == 0) && ((simulation_type != "C")))
+    if ((x_switch == 0) && ((simulation_type != "DirSol")))
         jumpTimeStep(cycle, remaining_cells_of_interest, local_temp_solid_cells, temperature, grid, celldata, id,
                      layernumber, np, orientation, print, deltat, interface);
 }

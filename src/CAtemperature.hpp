@@ -367,7 +367,7 @@ struct Temperature {
         // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
         // (with custom InitUndercooling value) for single grain solidification
         int location_init_undercooling, location_liquidus_isotherm;
-        if (simulation_type == "C")
+        if (simulation_type == "DirSol")
             location_init_undercooling = 0;
         else
             location_init_undercooling = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);

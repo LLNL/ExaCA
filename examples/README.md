@@ -1,10 +1,10 @@
 # ExaCA problem types and auxiliary files
 ExaCA currently can model five types of problems:
 
-* Problem type C is a directional solidification problem, with the bottom surface initialized with some fraction of sites home to epitaxial grains and at the liquidus temperature and a positive thermal gradient in the +Z direction. The domain is then cooled at a constant rate. 
+* Problem type `DirSol` is a directional solidification problem, with the bottom surface initialized with some fraction of sites home to epitaxial grains and at the liquidus temperature and a positive thermal gradient in the +Z direction. The domain is then cooled at a constant rate. 
 * Problem type `Spot` is a hemispherical spot, with fixed thermal gradient magnitude and cooling rate as solidification proceeds from the outer edge of the spot towards the center. The ability to simulate multilayer arrays of overlapping spots was deprecated in version 1.2 and removed after version 1.3
 * Problem type `SingleGrain` is an initial nuclei at the domain center growing each time step until a domain edge is reached
-* Problem type R or RM is a custom solidification problem using time-temperature history file(s) (default location is `examples/Temperatures`). Again note that some example problems require [external data](https://github.com/LLNL/ExaCA-Data). The format of these files are as follows:
+* Problem type `FromFile` is a custom solidification problem using time-temperature history file(s) (default location is `examples/Temperatures`). Again note that some example problems require [external data](https://github.com/LLNL/ExaCA-Data). The format of these files are as follows:
     * The first line should be the names of the columns: x, y, z, tm, tl, cr
     * Each line following the first should have six comma-separated values corresponding to x, y, z, tm, tl, cr. x, y, and z are cell coordinates, in meters, of a given location in the simulation. The spacing between locations should correspond to a Cartesian grid, with a cell size equivalent to that specified in the input file. For each time that an x,y,z coordinate went above and below the liqiuidus temperature of the alloy during a heat transport simulation, a tm (time at which the point went above the liquidus), tl (time at which the point went below the liquidus), and cr (instantaneous cooling rate at the liquidus) should be recorded. As meters and seconds are the units used, and the cell size and time step tend to be on the order of micrometers and microseconds, it is recommended that this data be given as double precision values to avoid truncation of values
     * If an x,y,z coordinate melted and solidified multiple times, it should appear in the file multiple times on separate lines. The order of the lines do not matter, except that the header line must be before any data.
@@ -47,9 +47,9 @@ The .json files in the examples subdirectory are provided on the command line to
 |Input                   | Details |
 |------------------------|---------|
 | SimulationType         |
-|                        | C for directional solidification (thermal gradient in build direction, fixed cooling rate)
-|                        | S for spot melt array problem (fixed thermal gradient/constant cooling rate for each hemispherical spot)
-|                        | R for use of temperature data provided in the appropriate format ([see below](#temperature-inputs))
+|                        | `DirSol` for directional solidification (thermal gradient in build direction, fixed cooling rate)
+|                        | `Spot` for spot melt problem (fixed thermal gradient/constant cooling rate for a single hemispherical spot)
+|                        | `FromFile` for use of temperature data provided in the appropriate format ([see below](#temperature-inputs))
 |                        | `SingleGrain` for solidification of a single grain at the domain center, continuing until it reaches a domain edge
 |                        | `FromFinch` for solidification driven by time-temperature history data from a Finch heat transport simulation
 | MaterialFileName       | Name of material file in examples/Materials used
@@ -65,44 +65,44 @@ The .json files in the examples subdirectory are provided on the command line to
 | Input        |Relevant problem type(s)| Details |
 |--------------|------------------------|---------|
 |CellSize      | All                    | CA cell size, in microns
-|TimeStep      | All                    | CA time step, in microseconds (note previously for problem type C, this was derived from deltax, G, and R)
-|Nx            | C, SingleGrain         | Domain size in x, in cells
-|Ny            | C, SingleGrain         | Domain size in y, in cells
-|Nz            | C, SingleGrain         | Domain size in z, in cells
-|NumberOfLayers| R, FromFinch           | Number of layers for which the temperature pattern will be repeated
-|LayerOffset   | R, FromFinch           | If numberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
+|TimeStep      | All                    | CA time step, in microseconds (note previously for problem type DirSol, this was derived from deltax, G, and R)
+|Nx            | DirSol, SingleGrain    | Domain size in x, in cells
+|Ny            | DirSol, SingleGrain    | Domain size in y, in cells
+|Nz            | DirSol, SingleGrain    | Domain size in z, in cells
+|NumberOfLayers| FromFile, FromFinch    | Number of layers for which the temperature pattern will be repeated
+|LayerOffset   | FromFile, FromFinch    | If numberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
 |SpotRadius    | Spot                   | Spot radius, in microns
 
 ## Nucleation inputs
 | Input            |Relevant problem type(s)| Details |
 |------------------|------------------------|---------|
-|Density           | C, Spot, R, FromFinch  | Density of heterogeneous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
-|MeanUndercooling  | C, Spot, R, FromFinch  | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
-|StDevUndercooling | C, Spot, R, FromFinch  | Standard deviation of nucleation undercooling (Gaussian distribution), in K
+|Density           | DirSol, Spot, FromFile, FromFinch  | Density of heterogeneous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
+|MeanUndercooling  | DirSol, Spot, FromFile, FromFinch  | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
+|StDevUndercooling | DirSol, Spot, FromFile, FromFinch  | Standard deviation of nucleation undercooling (Gaussian distribution), in K
 
 ## Temperature inputs
 | Input        | Relevant problem type(s)| Details |
 |--------------|-------------------------|---------|
-|G             | C, Spot, SingleGrain    | Thermal gradient in the build (+Z) directions, in K/m
-|R             | C, Spot, SingleGrain    | Cooling rate (uniform across the domain), in K/s
-|LayerwiseTempRead | R                   | If set to Y, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to N, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. This option is only applicable to simulations with remelting; simulations without remelting (and simulations where this input is not given) default to N. Setting this to Y is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
-|TemperatureFiles | R                    | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than numberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, layerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
-|InitUndercooling | C, SingleGrain       | For SingleGrain, this is the undercooling at the location of the seeded grain. For problem type C, this is an optional argument (defaulting to zero) for the initial undercooling at the domain's bottom surface
+|G             | DirSol, Spot, SingleGrain    | Thermal gradient in the build (+Z) directions, in K/m
+|R             | DirSol, Spot, SingleGrain    | Cooling rate (uniform across the domain), in K/s
+|LayerwiseTempRead | FromFile            | If set to Y, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to N, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. This option is only applicable to simulations with remelting; simulations without remelting (and simulations where this input is not given) default to N. Setting this to Y is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
+|TemperatureFiles | FromFile             | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than numberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, layerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
+|InitUndercooling | DirSol, SingleGrain       | For SingleGrain, this is the undercooling at the location of the seeded grain. For problem type DirSol, this is an optional argument (defaulting to zero) for the initial undercooling at the domain's bottom surface
 
 ## Substrate inputs
-| Input        | Relevant problem type(s))| Details |
-|--------------| -------------------------|---------|
-|SurfaceSiteFraction | C           | What fraction of cells at the bottom surface of the domain are the source of a grain? (see note (b-i))
-|SurfaceSiteDensity         | C           | Density, in nuclei/µm^2, of grains at the bottom surface of the domain (see note (b-ii))
-|GrainLocationsX | C           | List of grain locations in X on the bottom surface of the domain (see note (b-iii))
-|GrainLocationsY | C           | List of grain locations in Y on the bottom surface of the domain (see note (b-iii))
-|GrainIDs | C           | GrainID values for each grain in (X,Y) (see note (b3))
-|FillBottomSurface | C  | Optionally assign all cells on the bottom surface the grain ID of the closest grain (defaults to false)
-|MeanSize      | Spot, R, FromFinch       | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
-|SubstrateFilename |  Spot, R, FromFinch  | Path to and filename for substrate data (see note (a))
-|PowderDensity | Spot, R, FromFinch       | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))
-|ExtendSubstrateThroughPowder| R, FromFinch  | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
-| BaseplateTopZ   | R, FromFinch          | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
+| Input              | Relevant problem type(s))| Details |
+|--------------------|--------------------------|---------|
+|SurfaceSiteFraction | DirSol      | What fraction of cells at the bottom surface of the domain are the source of a grain? (see note (b-i))
+|SurfaceSiteDensity  | DirSol      | Density, in nuclei/µm^2, of grains at the bottom surface of the domain (see note (b-ii))
+|GrainLocationsX     | DirSol      | List of grain locations in X on the bottom surface of the domain (see note (b-iii))
+|GrainLocationsY     | DirSol      | List of grain locations in Y on the bottom surface of the domain (see note (b-iii))
+|GrainIDs            | DirSol      | GrainID values for each grain in (X,Y) (see note (b3))
+|FillBottomSurface   | DirSol      | Optionally assign all cells on the bottom surface the grain ID of the closest grain (defaults to false)
+|MeanSize            | Spot, FromFile, FromFinch       | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
+|SubstrateFilename   |  Spot, FromFile, FromFinch  | Path to and filename for substrate data (see note (a))
+|PowderDensity       | Spot, FromFile, FromFinch       | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))
+|ExtendSubstrateThroughPowder| FromFile, FromFinch  | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
+| BaseplateTopZ      | FromFile, FromFinch          | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
 |GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
 |InitOctahedronSize | All           | Initial size of the octahedra that represent the solid-liquid interface when solidifiation first begins locally. Given as a fraction of a cell size, must be at least 0 and smaller than 1. Default is 0.01
 
@@ -115,8 +115,8 @@ The .json files in the examples subdirectory are provided on the command line to
 | PathToOutput | All                      | File path location for the output files
 | OutputFile   | All                      | All output files will begin with the string specified on this line
 | PrintBinary  | All                      | Whether or not ExaCA vtk output data should be printed as big endian binary data, or as ASCII characters (defaults to false)
-| PrintFrontUndercooling | C              | Whether or not ExaCA will store and print the undercooling at the solidification front when solidification begins and ends at each Z coordinate
-| PrintExaConstitSize | R                 | Length of the cubic representative volume element (RVE) data for ExaConstit, taken from the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure. If not given (or given a value of 0), the RVE will not be printed 
+| PrintFrontUndercooling | DirSol         | Whether or not ExaCA will store and print the undercooling at the solidification front when solidification begins and ends at each Z coordinate
+| PrintExaConstitSize    | FromFile          | Length of the cubic representative volume element (RVE) data for ExaConstit, taken from the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure. If not given (or given a value of 0), the RVE will not be printed 
 | Intralayer   | All | Optional section for printing the state of the simulation during a given layer of a multilayer problem/during a single layer problem
 | Intralayer: Increment | All | Increment, in time steps, at which intermediate output should be printed. If 0, will only print the state of the system at the start of each layer
 | Intralayer: Fields | All | Fields to print during intralayer increments. Currently supported options are "GrainID", "LayerID", "GrainMisorientation", "UndercoolingCurrent", "UndercoolingSolidificationStart", ""MeltTimeStep", "CritTimeStep", "UndercoolingChange", "CellType", "DiagonalLength", "SolidificationEventCounter", "NumberOfSolidificationEvents"

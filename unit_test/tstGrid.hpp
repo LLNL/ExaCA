@@ -32,15 +32,17 @@ void testCalcZLayerBottom() {
     grid.layer_height = 10;
     grid.deltax = 1 * pow(10, -6);
     grid.z_min = -0.5 * pow(10, -6);
-    // Test for simulation type "S"
-    int z_layer_bottom = grid.calcZLayerBottom("S", 0);
+
+    // Test for simulation type "Spot"
+    int z_layer_bottom = grid.calcZLayerBottom("Spot", 0);
+
+    // Call function for each layernumber with simulation type and "FromFile"
     EXPECT_EQ(z_layer_bottom, 0);
     for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
         // Set ZMinLayer for each layer to be offset by LayerHeight cells from the previous one (lets solution for
         // both problem types by the same)
         grid.z_min_layer(layernumber) = grid.z_min + layernumber * grid.layer_height * grid.deltax;
-        // Call function for each layernumber, and for simulation type and "R"
-        int z_layer_bottom = grid.calcZLayerBottom("R", layernumber);
+        int z_layer_bottom = grid.calcZLayerBottom("FromFile", layernumber);
         EXPECT_EQ(z_layer_bottom, grid.layer_height * layernumber);
     }
 }
@@ -62,13 +64,13 @@ void testCalcZLayerTop() {
     for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
         // Set ZMaxLayer for each layer to be offset by LayerHeight cells from the previous one, with layer 0 having a
         // ZMax value of ZMin + SpotRadius (lets solution for both problem types be the same)
-        // Call function for each layernumber for simulation types "R"
-        int z_layer_top_R = grid.calcZLayerTop("R", layernumber);
+        // Call function for each layernumber for simulation types "FromFile"
+        int z_layer_top_R = grid.calcZLayerTop("FromFile", layernumber);
         EXPECT_EQ(z_layer_top_R, (grid.z_max_layer(layernumber) - grid.z_min) / grid.deltax);
         // For simulation type C, should be independent of layernumber
-        int z_layer_top_C = grid.calcZLayerTop("C", layernumber);
+        int z_layer_top_C = grid.calcZLayerTop("DirSol", layernumber);
         EXPECT_EQ(z_layer_top_C, grid.nz - 1);
-        int z_layer_top_S = grid.calcZLayerTop("S", layernumber);
+        int z_layer_top_S = grid.calcZLayerTop("Spot", layernumber);
         EXPECT_EQ(z_layer_top_S, grid.nz - 1);
     }
 }
@@ -158,7 +160,7 @@ void testFindXYZBounds(bool test_binary_input_read) {
     inputs.domain.number_of_layers = 2;
 
     // Fill grid struct
-    Grid grid("R", id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
+    Grid grid("FromFile", id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
 
     EXPECT_DOUBLE_EQ(grid.x_min, 0.0);
     EXPECT_DOUBLE_EQ(grid.y_min, 0.0);
