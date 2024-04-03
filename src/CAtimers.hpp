@@ -14,11 +14,16 @@ class Timer {
     double _time = 0.0;
     double start_time = 0.0;
     double max_time, min_time = 0.0;
+    int num_calls = 0;
 
   public:
     void start() { start_time = MPI_Wtime(); }
-    void stop() { _time += MPI_Wtime() - start_time; }
+    void stop() {
+        _time += MPI_Wtime() - start_time;
+        num_calls++;
+    }
     auto time() { return _time; }
+    auto numCalls() { return num_calls; }
     auto minTime() { return max_time; }
     auto maxTime() { return min_time; }
 
