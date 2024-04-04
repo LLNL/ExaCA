@@ -7,10 +7,12 @@
 #define EXACA_INPUTS_HPP
 
 #include "CAinfo.hpp"
-#include "CAinterfacialresponse.hpp"
+#include "CAparsefiles.hpp"
 #include "CAtimers.hpp"
 
 #include "mpi.h"
+
+#include <Kokkos_Core.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -35,6 +37,20 @@ struct NucleationInputs {
     double n_max = 0.0;
     double dtn = 0.0;
     double dtsigma = 0.0;
+};
+
+struct InterfacialResponseInputs {
+    float freezing_range;
+    float A;
+    float B;
+    float C;
+    float D = 0.0;
+    enum IRFtypes {
+        cubic = 0,
+        quadratic = 1,
+        power = 2,
+    };
+    int function = cubic;
 };
 
 struct TemperatureInputs {
@@ -150,6 +166,7 @@ struct Inputs {
     unsigned long rng_seed = 0.0;
     DomainInputs domain;
     NucleationInputs nucleation;
+    InterfacialResponseInputs irf;
     TemperatureInputs temperature;
     SubstrateInputs substrate;
     PrintInputs print;
@@ -248,6 +265,8 @@ struct Inputs {
             nucleation.dtn = input_data["Nucleation"]["MeanUndercooling"];
             nucleation.dtsigma = input_data["Nucleation"]["StDev"];
         }
+
+        parseIRF(id, material_filename);
 
         // Temperature inputs:
         if (simulation_type == "FromFile") {
@@ -654,11 +673,10 @@ struct Inputs {
     // from the input file as well as the decomposition scheme
     // Note: Passing external values for inputs like deltax that will later be stored in the grid class, with the grid
     // class passed to this function
-    void printExaCALog(const int id, const int np, const int ny_local, const int y_offset,
-                       InterfacialResponseFunction irf, const double deltax, const int number_of_layers,
-                       const int layer_height, const int nx, const int ny, const int nz, Timers timers, const int cycle,
-                       const double x_min, const double x_max, const double y_min, const double y_max,
-                       const double z_min, const double z_max, const float vol_fraction_nucleated) {
+    void printExaCALog(const int id, const int np, const int ny_local, const int y_offset, const double deltax,
+                       const int number_of_layers, const int layer_height, const int nx, const int ny, const int nz,
+                       Timers timers, const int cycle, const double x_min, const double x_max, const double y_min,
+                       const double y_max, const double z_min, const double z_max, const float vol_fraction_nucleated) {
 
         int *ny_local_allranks = new int[np];
         int *y_offset_allranks = new int[np];
@@ -729,7 +747,16 @@ struct Inputs {
                     exaca_log << "       \"MeanSize\": " << substrate.substrate_grain_spacing << std::endl;
             }
             exaca_log << "   }," << std::endl;
-            exaca_log << irf.print() << std::endl;
+            exaca_log << "   \"InterfacialResponse\": {" << std::endl;
+            exaca_log << "       \"Function\": "
+                      << "\"" << irf.function << "\"," << std::endl;
+            exaca_log << "       \"A\": " << (irf.A) << "," << std::endl;
+            exaca_log << "       \"B\": " << (irf.B) << "," << std::endl;
+            exaca_log << "       \"C\": " << (irf.C) << "," << std::endl;
+            if (irf.function == irf.cubic)
+                exaca_log << "       \"D\": " << (irf.D) << "," << std::endl;
+            exaca_log << "       \"FreezingRange\": " << (irf.freezing_range) << std::endl;
+            exaca_log << "   },";
             exaca_log << "   \"NumberMPIRanks\": " << np << "," << std::endl;
             exaca_log << "   \"Decomposition\": {" << std::endl;
             exaca_log << "       \"SubdomainYSize\": [";
@@ -745,6 +772,35 @@ struct Inputs {
             exaca_log << "}" << std::endl;
             exaca_log.close();
         }
+    }
+
+    void parseIRF(const int id, std::string material_filename) {
+        if (id == 0)
+            std::cout << "Parsing material file using json input format" << std::endl;
+        nlohmann::json data = nlohmann::json::parse(material_filename);
+        irf.A = data["coefficients"]["A"];
+        irf.B = data["coefficients"]["B"];
+        irf.C = data["coefficients"]["C"];
+        std::string functionform = data["function"];
+        if (functionform == "cubic") {
+            irf.D = data["coefficients"]["D"];
+            irf.function = irf.cubic;
+        }
+        else if ((functionform == "quadratic") || (functionform == "power")) {
+            // D should not have been given, this functional form only takes 3 input fitting parameters
+            if (data["coefficients"]["D"] != nullptr) {
+                std::string error = "Error: functional form of this type takes only A, B, and C as inputs";
+                throw std::runtime_error(error);
+            }
+            if (functionform == "quadratic")
+                irf.function = irf.quadratic;
+            else if (functionform == "power")
+                irf.function = irf.power;
+        }
+        else
+            throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
+                                     "supported options are quadratic, cubic, and exponential");
+        irf.freezing_range = data["freezing_range"];
     }
 };
 

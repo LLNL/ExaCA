@@ -6,11 +6,9 @@
 #ifndef EXACA_IRF_HPP
 #define EXACA_IRF_HPP
 
-#include "CAparsefiles.hpp"
+#include "CAinputs.hpp"
 
 #include <Kokkos_Core.hpp>
-
-#include <nlohmann/json.hpp>
 
 #include <fstream>
 #include <iostream>
@@ -20,74 +18,32 @@
 // Interfacial response function with various functional forms.
 struct InterfacialResponseFunction {
 
-    float freezing_range;
-    float A;
-    float B;
-    float C;
-    float D = 0.0;
-    enum IRFtypes {
-        cubic = 0,
-        quadratic = 1,
-        power = 2,
-    };
-    int function = cubic;
+    InterfacialResponseInputs _inputs;
 
     // Constructor
-    InterfacialResponseFunction(const int id, const std::string material_file, const double deltat,
-                                const double deltax) {
-        parseMaterial(id, material_file);
+    InterfacialResponseFunction(const double deltat, const double deltax, const InterfacialResponseInputs inputs)
+        : _inputs(inputs) {
         normalize(deltat, deltax);
     }
 
-    // Used for reading material file in new json format
-    void parseMaterial(const int id, const std::string material_file) {
-        if (id == 0)
-            std::cout << "Parsing material file using json input format" << std::endl;
-        std::ifstream material_data(material_file);
-        nlohmann::json data = nlohmann::json::parse(material_data);
-        A = data["coefficients"]["A"];
-        B = data["coefficients"]["B"];
-        C = data["coefficients"]["C"];
-        std::string functionform = data["function"];
-        if (functionform == "cubic") {
-            D = data["coefficients"]["D"];
-            function = cubic;
-        }
-        else if ((functionform == "quadratic") || (functionform == "power")) {
-            // D should not have been given, this functional form only takes 3 input fitting parameters
-            if (data["coefficients"]["D"] != nullptr) {
-                std::string error = "Error: functional form of this type takes only A, B, and C as inputs";
-                throw std::runtime_error(error);
-            }
-            if (functionform == "quadratic")
-                function = quadratic;
-            else if (functionform == "power")
-                function = power;
-        }
-        else
-            throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
-                                     "supported options are quadratic, cubic, and exponential");
-        freezing_range = data["freezing_range"];
-    }
-
     void normalize(const double deltat, const double deltax) {
-        if (function == cubic) {
+        if (_inputs.function == _inputs.cubic) {
             // Normalize all 4 coefficients: V = A*x^3 + B*x^2 + C*x + D
-            A *= static_cast<float>(deltat / deltax);
-            B *= static_cast<float>(deltat / deltax);
-            C *= static_cast<float>(deltat / deltax);
-            D *= static_cast<float>(deltat / deltax);
+            _inputs.A *= static_cast<float>(deltat / deltax);
+            _inputs.B *= static_cast<float>(deltat / deltax);
+            _inputs.C *= static_cast<float>(deltat / deltax);
+            _inputs.D *= static_cast<float>(deltat / deltax);
         }
-        else if (function == quadratic) {
+        else if (_inputs.function == _inputs.quadratic) {
             // Normalize the 3 relevant coefficients: V = A*x^2 + B*x + C
-            A *= static_cast<float>(deltat / deltax);
-            B *= static_cast<float>(deltat / deltax);
-            C *= static_cast<float>(deltat / deltax);
+            _inputs.A *= static_cast<float>(deltat / deltax);
+            _inputs.B *= static_cast<float>(deltat / deltax);
+            _inputs.C *= static_cast<float>(deltat / deltax);
         }
-        else if (function == power) {
+        else if (_inputs.function == _inputs.power) {
             // Normalize only the leading and last coefficient: V = A*x^B + C
-            A *= static_cast<float>(deltat / deltax);
-            C *= static_cast<float>(deltat / deltax);
+            _inputs.A *= static_cast<float>(deltat / deltax);
+            _inputs.C *= static_cast<float>(deltat / deltax);
         }
     }
 
@@ -96,42 +52,34 @@ struct InterfacialResponseFunction {
     KOKKOS_INLINE_FUNCTION
     float compute(const float loc_u) const {
         float V;
-        if (function == quadratic)
-            V = A * Kokkos::pow(loc_u, 2.0) + B * loc_u + C;
-        else if (function == power)
-            V = A * Kokkos::pow(loc_u, B) + C;
+        if (_inputs.function == _inputs.quadratic)
+            V = _inputs.A * Kokkos::pow(loc_u, 2.0) + _inputs.B * loc_u + _inputs.C;
+        else if (_inputs.function == _inputs.power)
+            V = _inputs.A * Kokkos::pow(loc_u, _inputs.B) + _inputs.C;
         else
-            V = A * Kokkos::pow(loc_u, 3.0) + B * Kokkos::pow(loc_u, 2.0) + C * loc_u + D;
+            V = _inputs.A * Kokkos::pow(loc_u, 3.0) + _inputs.B * Kokkos::pow(loc_u, 2.0) + _inputs.C * loc_u +
+                _inputs.D;
         return Kokkos::fmax(0.0, V);
     }
 
     std::string functionName() {
         // Not storing string due to Cuda warnings when constructing on device.
-        if (function == cubic)
+        if (_inputs.function == _inputs.cubic)
             return "cubic";
-        else if (function == quadratic)
+        else if (_inputs.function == _inputs.quadratic)
             return "quadratic";
-        else if (function == power)
+        else if (_inputs.function == _inputs.power)
             return "power";
 
         // Should never make it here
         return "none";
     }
-    // json format for interfacial response function printing
-    std::string print() {
-        std::stringstream out;
-        out << "   \"InterfacialResponse\": {" << std::endl;
-        out << "       \"Function\": "
-            << "\"" << functionName() << "\"," << std::endl;
-        out << "       \"A\": " << (A) << "," << std::endl;
-        out << "       \"B\": " << (B) << "," << std::endl;
-        out << "       \"C\": " << (C) << "," << std::endl;
-        if (function == cubic)
-            out << "       \"D\": " << (D) << "," << std::endl;
-        out << "       \"FreezingRange\": " << (freezing_range) << std::endl;
-        out << "   },";
-        return out.str();
-    }
+
+    auto A() { return _inputs.A; }
+    auto B() { return _inputs.B; }
+    auto C() { return _inputs.C; }
+    auto D() { return _inputs.D; }
+    auto freezingRange() { return _inputs.freezing_range; }
 };
 
 #endif

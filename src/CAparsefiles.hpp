@@ -10,8 +10,6 @@
 
 #include <Kokkos_Core.hpp>
 
-#include <nlohmann/json.hpp>
-
 #include <fstream>
 #include <iostream>
 #include <sstream>

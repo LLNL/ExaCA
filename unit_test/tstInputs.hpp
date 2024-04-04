@@ -124,7 +124,6 @@ void testInputs(int print_version) {
         std::cout << "Reading " << filename << std::endl;
         // Data printing structure - contains print options (false by default) and functions
         Inputs inputs(id, filename);
-        InterfacialResponseFunction irf(0, inputs.material_filename, inputs.domain.deltat, inputs.domain.deltax);
         MPI_Barrier(MPI_COMM_WORLD);
 
         // Check the results
@@ -138,11 +137,11 @@ void testInputs(int print_version) {
             EXPECT_DOUBLE_EQ(inputs.nucleation.n_max, 1.0 * pow(10, 13));
         EXPECT_DOUBLE_EQ(inputs.nucleation.dtn, 5.0);
         EXPECT_DOUBLE_EQ(inputs.nucleation.dtsigma, 0.5);
-        EXPECT_FLOAT_EQ(irf.A, -0.00000010302 * inputs.domain.deltat / inputs.domain.deltax);
-        EXPECT_FLOAT_EQ(irf.B, 0.00010533 * inputs.domain.deltat / inputs.domain.deltax);
-        EXPECT_FLOAT_EQ(irf.C, 0.0022196 * inputs.domain.deltat / inputs.domain.deltax);
-        EXPECT_FLOAT_EQ(irf.D, 0);
-        EXPECT_FLOAT_EQ(irf.freezing_range, 210);
+        EXPECT_FLOAT_EQ(inputs.irf.A, -0.00000010302 * inputs.domain.deltat / inputs.domain.deltax);
+        EXPECT_FLOAT_EQ(inputs.irf.B, 0.00010533 * inputs.domain.deltat / inputs.domain.deltax);
+        EXPECT_FLOAT_EQ(inputs.irf.C, 0.0022196 * inputs.domain.deltat / inputs.domain.deltax);
+        EXPECT_FLOAT_EQ(inputs.irf.D, 0);
+        EXPECT_FLOAT_EQ(inputs.irf.freezing_range, 210);
 
         // These are different for all 3 test problems
         if ((filename == input_filenames[0]) || (filename == input_filenames[3])) {

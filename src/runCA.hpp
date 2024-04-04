@@ -22,7 +22,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     std::string simulation_type = inputs.simulation_type;
 
     // Material response function
-    InterfacialResponseFunction irf(id, inputs.material_filename, inputs.domain.deltat, grid.deltax);
+    InterfacialResponseFunction irf(inputs.domain.deltat, grid.deltax, inputs.irf);
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
     if (simulation_type == "FromFile")
@@ -35,9 +35,9 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     if ((simulation_type == "Directional") || (simulation_type == "SingleGrain"))
         temperature.initialize(id, simulation_type, grid, inputs.domain.deltat);
     else if (simulation_type == "Spot")
-        temperature.initialize(id, grid, irf.freezing_range, inputs.domain.deltat, inputs.domain.spot_radius);
+        temperature.initialize(id, grid, irf.freezingRange(), inputs.domain.deltat, inputs.domain.spot_radius);
     else if ((simulation_type == "FromFile") || (simulation_type == "FromFinch"))
-        temperature.initialize(0, id, grid, irf.freezing_range, inputs.domain.deltat, simulation_type);
+        temperature.initialize(0, id, grid, irf.freezingRange(), inputs.domain.deltat, simulation_type);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Initialize grain orientations
@@ -155,7 +155,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
                 temperature.readTemperatureData(id, grid, layernumber + 1);
             MPI_Barrier(MPI_COMM_WORLD);
             // Initialize next layer's temperature data
-            temperature.initialize(layernumber + 1, id, grid, irf.freezing_range, inputs.domain.deltat,
+            temperature.initialize(layernumber + 1, id, grid, irf.freezingRange(), inputs.domain.deltat,
                                    simulation_type);
 
             // Reset solidification event counter of all cells to zeros for the next layer, resizing to number of cells
@@ -200,9 +200,9 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     timers.reduceMPI();
 
     // Print the log file with JSON format
-    inputs.printExaCALog(id, np, grid.ny_local, grid.y_offset, irf, grid.deltax, grid.number_of_layers,
-                         grid.layer_height, grid.nx, grid.ny, grid.nz, timers, cycle, grid.x_min, grid.x_max,
-                         grid.y_min, grid.y_max, grid.z_min, grid.z_max, vol_fraction_nucleated);
+    inputs.printExaCALog(id, np, grid.ny_local, grid.y_offset, grid.deltax, grid.number_of_layers, grid.layer_height,
+                         grid.nx, grid.ny, grid.nz, timers, cycle, grid.x_min, grid.x_max, grid.y_min, grid.y_max,
+                         grid.z_min, grid.z_max, vol_fraction_nucleated);
 
     // Print timing information to the console
     timers.printFinal(np, cycle);
