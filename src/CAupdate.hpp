@@ -826,6 +826,8 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
                   << std::endl;
         std::cout << "Number of solid cells in simulation (finished/to be remelted): " << global_finished_solid_cells
                   << "/" << global_temp_solid_cells << std::endl;
+        std::cout << "Number of nucleation events during simulation of this layer: "
+                  << global_successful_nuc_events_this_rank << std::endl;
         std::cout << "======================================================================================"
                   << std::endl;
         if (global_superheated_cells + global_undercooled_cells + global_active_cells + global_temp_solid_cells == 0)
