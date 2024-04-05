@@ -340,7 +340,8 @@ struct Print {
             // File of front undercooling at interface
             if (_inputs.print_front_undercooling) {
                 auto start_end_solidification_z = temperature.getFrontUndercoolingStartFinish(id, grid);
-                printSolidificationFrontUndercooling(grid.deltax, grid.nz, start_end_solidification_z);
+                if (id == 0)
+                    printSolidificationFrontUndercooling(grid.deltax, grid.nz, start_end_solidification_z);
             }
             // Views where data should be printed only for the layer of the problem that just finished
             if (_inputs.interlayer_current) {
