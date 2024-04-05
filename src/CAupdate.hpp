@@ -819,12 +819,15 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
                MPI_COMM_WORLD);
 
     if (id == 0) {
-        std::cout << "cycle = " << cycle << " in layer " << layernumber
-                  << ": Superheated liquid cells = " << global_superheated_cells
-                  << " Undercooled liquid cells = " << global_undercooled_cells
-                  << " Number of nucleation events this layer " << global_successful_nuc_events_this_rank
-                  << " cells to undergo at least one more solidification event = " << global_temp_solid_cells
-                  << " cells that are finished with solidification = " << global_finished_solid_cells << std::endl;
+        std::cout << "Current time step " << cycle << " on layer number " << layernumber << std::endl;
+        std::cout << "Number of liquid cells in simulation (superheated/undercooled): " << global_superheated_cells
+                  << "/" << global_undercooled_cells << std::endl;
+        std::cout << "Number of active (solid-liquid interface) cells in simulation: " << global_active_cells
+                  << std::endl;
+        std::cout << "Number of solid cells in simulation (finished/to be remelted): " << global_finished_solid_cells
+                  << "/" << global_temp_solid_cells << std::endl;
+        std::cout << "======================================================================================"
+                  << std::endl;
         if (global_superheated_cells + global_undercooled_cells + global_active_cells + global_temp_solid_cells == 0)
             x_switch = 1;
     }
