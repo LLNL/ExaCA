@@ -27,10 +27,13 @@ struct Temperature {
     using view_type_float = Kokkos::View<float *, memory_space>;
     using view_type_double = Kokkos::View<double *, memory_space>;
     using view_type_double_2d = Kokkos::View<double **, memory_space>;
+    using view_type_float_2d = Kokkos::View<float **, memory_space>;
     using view_type_float_3d = Kokkos::View<float ***, memory_space>;
     using view_type_int_host = typename view_type_int::HostMirror;
+    using view_type_float_host = typename view_type_float::HostMirror;
     using view_type_double_host = typename view_type_double::HostMirror;
     using view_type_double_2d_host = typename view_type_double_2d::HostMirror;
+    using view_type_float_2d_host = typename view_type_float_2d::HostMirror;
     using view_type_float_3d_host = typename view_type_float_3d::HostMirror;
 
     // Using the default exec space for this memory space.
@@ -602,6 +605,60 @@ struct Temperature {
     // undercooling reset to 0 and recalculated)
     void getCurrentLayerStartingUndercooling(std::pair<int, int> layer_range) {
         undercooling_solidification_start = Kokkos::subview(undercooling_solidification_start_all_layers, layer_range);
+    }
+
+    // For each Z coordinate, find the smallest undercooling at which solidification started and finished, writing this
+    // data to an output file
+    view_type_float_2d_host getFrontUndercoolingStartFinish(const int id, const Grid &grid) {
+        view_type_float start_solidification_z(Kokkos::ViewAllocateWithoutInitializing("start_solidification_z"),
+                                               grid.nz);
+        view_type_float end_solidification_z(Kokkos::ViewAllocateWithoutInitializing("end_solidification_z"), grid.nz);
+        auto _undercooling_solidification_start = undercooling_solidification_start;
+        auto _undercooling_current = undercooling_current;
+        auto policy = Kokkos::RangePolicy<execution_space>(0, grid.nz);
+        Kokkos::parallel_for(
+            "GetMinUndercooling", policy, KOKKOS_LAMBDA(const int &coord_z) {
+                float min_start_undercooling = Kokkos::Experimental::finite_max_v<float>;
+                float min_end_undercooling = Kokkos::Experimental::finite_max_v<float>;
+                for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
+                    for (int coord_y = 1; coord_y < grid.ny_local - 1; coord_y++) {
+                        int index = grid.get1DIndex(coord_x, coord_y, coord_z);
+                        if (_undercooling_solidification_start(index) < min_start_undercooling)
+                            min_start_undercooling = _undercooling_solidification_start(index);
+                        if (_undercooling_current(index) < min_end_undercooling)
+                            min_end_undercooling = _undercooling_current(index);
+                    }
+                }
+                start_solidification_z(coord_z) = min_start_undercooling;
+                end_solidification_z(coord_z) = min_end_undercooling;
+            });
+
+        // Rank 0 - collect min values from all ranks to get the global start/end solidification undercoolings
+        view_type_float start_solidification_z_reduced(
+            Kokkos::ViewAllocateWithoutInitializing("start_solidification_z_red"), grid.nz);
+        view_type_float end_solidification_z_reduced(
+            Kokkos::ViewAllocateWithoutInitializing("end_solidification_z_red"), grid.nz);
+        // Could potentially perform these reductions on the 2D view storing both start and end values, but depends on
+        // 2D view data layout
+        MPI_Reduce(start_solidification_z.data(), start_solidification_z_reduced.data(), grid.nz, MPI_FLOAT, MPI_MIN, 0,
+                   MPI_COMM_WORLD);
+        MPI_Reduce(end_solidification_z.data(), end_solidification_z_reduced.data(), grid.nz, MPI_FLOAT, MPI_MIN, 0,
+                   MPI_COMM_WORLD);
+
+        // Rank 0 - copy to host view
+        view_type_float_2d_host start_end_solidification_z_host(
+            Kokkos::ViewAllocateWithoutInitializing("start_end_solidification_z_host"), grid.nz, 2);
+        if (id == 0) {
+            view_type_float_host start_solidification_z_host =
+                Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), start_solidification_z_reduced);
+            view_type_float_host end_solidification_z_host =
+                Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), end_solidification_z_reduced);
+            for (int coord_z = 0; coord_z < grid.nz; coord_z++) {
+                start_end_solidification_z_host(coord_z, 0) = start_solidification_z_host(coord_z);
+                start_end_solidification_z_host(coord_z, 1) = end_solidification_z_host(coord_z);
+            }
+        }
+        return start_end_solidification_z_host;
     }
 
     // Reset local cell undercooling (and if needed, the cell's starting undercooling) to 0

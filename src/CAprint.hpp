@@ -337,7 +337,12 @@ struct Print {
                 }
                 interlayer_all_layers_ofstream.close();
             }
-
+            // File of front undercooling at interface
+            if (_inputs.print_front_undercooling) {
+                auto start_end_solidification_z = temperature.getFrontUndercoolingStartFinish(id, grid);
+                if (id == 0)
+                    printSolidificationFrontUndercooling(grid.deltax, grid.nz, start_end_solidification_z);
+            }
             // Views where data should be printed only for the layer of the problem that just finished
             if (_inputs.interlayer_current) {
                 std::string vtk_filename_current_layer = vtk_filename_base + "_layeronly.vtk";
@@ -515,6 +520,23 @@ struct Print {
             if (!(_inputs.print_binary))
                 output_fstream << std::endl;
         }
+    }
+
+    // Called on rank 0 to write solidification undercooling data to a file
+    template <typename Print2DViewType>
+    void printSolidificationFrontUndercooling(const double deltax, const int nz, Print2DViewType front_undercooling) {
+
+        std::string front_undercooling_filename = path_base_filename + "_FrontUndercooling.csv";
+        std::ofstream und_ofstream;
+        und_ofstream.open(front_undercooling_filename);
+        und_ofstream << "Z (micrometers), Initial Undercooling, Final Undercooling" << std::endl;
+        for (int coord_z = 0; coord_z < nz - 1; coord_z++) {
+            und_ofstream << static_cast<double>(coord_z) * deltax * pow(10, 6) << "," << front_undercooling(coord_z, 0)
+                         << "," << front_undercooling(coord_z, 1) << std::endl;
+        }
+        und_ofstream << static_cast<double>(nz - 1) * deltax * pow(10, 6) << "," << front_undercooling(nz - 1, 0) << ","
+                     << front_undercooling(nz - 1, 1);
+        und_ofstream.close();
     }
 
     // On rank 0, print grain misorientation, 0-62 for epitaxial grains and 100-162 for nucleated grains, to a vtk

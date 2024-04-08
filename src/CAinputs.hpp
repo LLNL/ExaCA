@@ -124,6 +124,7 @@ struct PrintInputs {
     bool interlayer_number_of_solidification_events = false;
     // True if intralayer_undercooling_solidification_start or interlayer_undercooling_solidification_start is true
     bool store_solidification_start = false;
+    bool print_front_undercooling = false;
     // List of layers following which the interlayer fields should be printed (will always include final layer of
     // simulation)
     std::vector<int> print_layer_number;
@@ -467,6 +468,9 @@ struct Inputs {
         print.path_to_output = input_data["Printing"]["PathToOutput"];
         // Name of output data
         print.base_filename = input_data["Printing"]["OutputFile"];
+        if (simulation_type == "C")
+            if (input_data["Printing"].contains("PrintFrontUndercooling"))
+                print.print_front_undercooling = input_data["Printing"]["PrintFrontUndercooling"];
         // Should ASCII or binary be used to print vtk data? Defaults to ASCII if not given
         if (input_data["Printing"].contains("PrintBinary"))
             print.print_binary = input_data["Printing"]["PrintBinary"];
@@ -602,7 +606,7 @@ struct Inputs {
             }
             // Should starting undercooling for solidification be stored?
             if ((print.intralayer_undercooling_solidification_start) ||
-                (print.interlayer_undercooling_solidification_start))
+                (print.interlayer_undercooling_solidification_start) || (print.print_front_undercooling))
                 print.store_solidification_start = true;
         }
         if (id == 0)
