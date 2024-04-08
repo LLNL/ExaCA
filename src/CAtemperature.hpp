@@ -35,6 +35,7 @@ struct Temperature {
     using view_type_double_2d_host = typename view_type_double_2d::HostMirror;
     using view_type_float_2d_host = typename view_type_float_2d::HostMirror;
     using view_type_float_3d_host = typename view_type_float_3d::HostMirror;
+    using view_type_coupled = Kokkos::View<double **, Kokkos::LayoutLeft, Kokkos::HostSpace>;
 
     // Using the default exec space for this memory space.
     using execution_space = typename memory_space::execution_space;
@@ -92,6 +93,119 @@ struct Temperature {
             getCurrentLayerStartingUndercooling(grid.layer_range);
         }
         getCurrentLayerUndercooling(grid.layer_range);
+    }
+
+    // Constructor using in-memory temperature data from external source.
+    Temperature(const int id, const int np, const Grid &grid, TemperatureInputs inputs,
+                view_type_coupled input_temperature_data, const bool store_solidification_start = false)
+        : max_solidification_events(
+              view_type_int(Kokkos::ViewAllocateWithoutInitializing("number_of_layers"), grid.number_of_layers))
+        , layer_time_temp_history(view_type_float_3d(Kokkos::ViewAllocateWithoutInitializing("layer_time_temp_history"),
+                                                     grid.domain_size, 1, 3))
+        , number_of_solidification_events(view_type_int(
+              Kokkos::ViewAllocateWithoutInitializing("number_of_solidification_events"), grid.domain_size))
+        , solidification_event_counter(view_type_int("solidification_event_counter", grid.domain_size))
+        , undercooling_current_all_layers(view_type_float("undercooling_current", grid.domain_size_all_layers))
+        , raw_temperature_data(view_type_double_2d_host(Kokkos::ViewAllocateWithoutInitializing("raw_temperature_data"),
+                                                        input_temperature_data.extent(0), num_temperature_components))
+        , first_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("first_value"), grid.number_of_layers))
+        , last_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("last_value"), grid.number_of_layers))
+        , _store_solidification_start(store_solidification_start)
+        , _inputs(inputs) {
+
+        copyTemperatureData(id, np, grid, input_temperature_data);
+        if (_store_solidification_start) {
+            // Default init starting undercooling in cells to zero
+            undercooling_solidification_start_all_layers =
+                view_type_float("undercooling_solidification_start", grid.domain_size_all_layers);
+            getCurrentLayerStartingUndercooling(grid.layer_range);
+        }
+        getCurrentLayerUndercooling(grid.layer_range);
+    }
+
+    // Copy data from external source onto the appropriate MPI ranks
+    void copyTemperatureData(const int id, const int np, const Grid &grid, view_type_coupled input_temperature_data,
+                             const int resize_padding = 100) {
+
+        // Take first num_temperature_components columns of input_temperature_data
+        int finch_data_size = input_temperature_data.extent(0);
+        int finch_temp_components = input_temperature_data.extent(1);
+        std::cout << "Rank " << id << " has " << finch_data_size << " events from the Finch simulation" << std::endl;
+
+        // First, store data with Y coordinates in bounds for this rank in raw_temperature_data
+        int temperature_point_counter = 0;
+        for (int n = 0; n < finch_data_size; n++) {
+            int coord_y = (input_temperature_data(n, 1) - grid.y_min) / grid.deltax;
+            if ((coord_y >= grid.y_offset) && (coord_y < grid.y_offset + grid.ny_local)) {
+                for (int comp = 0; comp < num_temperature_components; comp++)
+                    raw_temperature_data(temperature_point_counter, comp) = input_temperature_data(n, comp);
+                // Increment counter for each point stored on this rank
+                temperature_point_counter++;
+            }
+        }
+
+        // Communication pattern - sending to right, receiving from left
+        int left, right;
+        if (id == 0)
+            left = np - 1;
+        else
+            left = id - 1;
+        if (id == np - 1)
+            right = 0;
+        else
+            right = id + 1;
+
+        // Send and recieve data so each rank parses all finch data points
+        int send_data_size = finch_data_size;
+        for (int i = 0; i < np - 1; i++) {
+            // Get size for sending/receiving
+            int recv_data_size;
+            MPI_Request send_request_size, recv_request_size;
+            MPI_Isend(&send_data_size, 1, MPI_INT, right, 0, MPI_COMM_WORLD, &send_request_size);
+            MPI_Irecv(&recv_data_size, 1, MPI_INT, left, 0, MPI_COMM_WORLD, &recv_request_size);
+            MPI_Wait(&send_request_size, MPI_STATUS_IGNORE);
+            MPI_Wait(&recv_request_size, MPI_STATUS_IGNORE);
+            // Allocate view for received data
+            view_type_coupled finch_data_recv(Kokkos::ViewAllocateWithoutInitializing("finch_data_recv"),
+                                              recv_data_size, finch_temp_components);
+
+            // Send data to the right, recieve data from the left - if needed, increase size of data stored on this rank
+            // to accomodate received data
+            MPI_Request send_request_data, recv_request_data;
+            MPI_Isend(input_temperature_data.data(), send_data_size * finch_temp_components, MPI_DOUBLE, right, 1,
+                      MPI_COMM_WORLD, &send_request_data);
+            MPI_Irecv(finch_data_recv.data(), recv_data_size * finch_temp_components, MPI_DOUBLE, left, 1,
+                      MPI_COMM_WORLD, &recv_request_data);
+            int current_size = raw_temperature_data.extent(0);
+            if (temperature_point_counter + recv_data_size >= current_size)
+                Kokkos::resize(raw_temperature_data, temperature_point_counter + recv_data_size + resize_padding,
+                               num_temperature_components);
+            MPI_Wait(&send_request_data, MPI_STATUS_IGNORE);
+            MPI_Wait(&recv_request_data, MPI_STATUS_IGNORE);
+
+            // Unpack the appropriate received data into raw_temperature_data
+            for (int n = 0; n < recv_data_size; n++) {
+                int coord_y = (finch_data_recv(n, 1) - grid.y_min) / grid.deltax;
+                if ((coord_y >= grid.y_offset) && (coord_y < grid.y_offset + grid.ny_local)) {
+                    for (int comp = 0; comp < num_temperature_components; comp++)
+                        raw_temperature_data(temperature_point_counter, comp) = finch_data_recv(n, comp);
+                    // Increment counter for each point stored on this rank
+                    temperature_point_counter++;
+                }
+            }
+
+            // Replace send buffer with the received data
+            input_temperature_data = finch_data_recv;
+            send_data_size = recv_data_size;
+        }
+        // Resize with the number of temperature data points on this rank now known
+        Kokkos::resize(raw_temperature_data, temperature_point_counter, num_temperature_components);
+        for (int n = 0; n < grid.number_of_layers; n++) {
+            first_value(n) = 0;
+            last_value(n) = temperature_point_counter;
+        }
+        std::cout << "Rank " << id << " has " << temperature_point_counter << " events to simulate with ExaCA"
+                  << std::endl;
     }
 
     // Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header
@@ -376,11 +490,24 @@ struct Temperature {
     // max_solidification_events_host
     void calcMaxSolidificationEvents(const int id, const int layernumber,
                                      const view_type_int_host max_solidification_events_host, const int start_range,
-                                     const int end_range, const Grid &grid) {
+                                     const int end_range, const Grid &grid, const std::string simulation_type) {
 
-        if (layernumber > _inputs.temp_files_in_series) {
+        bool calc_remelting_events;
+        if (simulation_type == "R") {
+            if (layernumber > _inputs.temp_files_in_series)
+                calc_remelting_events = false;
+            else
+                calc_remelting_events = true;
+        }
+        else {
+            if (layernumber > 0)
+                calc_remelting_events = false;
+            else
+                calc_remelting_events = true;
+        }
+        if (!calc_remelting_events) {
             // Use the value from a previously checked layer, since the time-temperature history is reused
-            if (_inputs.temp_files_in_series == 1) {
+            if ((simulation_type == "FromFinch") || (_inputs.temp_files_in_series == 1)) {
                 // All layers have the same temperature data, max_solidification_events for this layer is the same as
                 // the last
                 max_solidification_events_host(layernumber) = max_solidification_events_host(layernumber - 1);
@@ -459,7 +586,7 @@ struct Temperature {
     // Initialize temperature fields for layer "layernumber" in case where temperature data comes from file(s)
     // TODO: This can be performed on the device as the dirS problem is
     void initialize(const int layernumber, const int id, const Grid &grid, const double freezing_range,
-                    const double deltat) {
+                    const double deltat, const std::string simulation_type) {
 
         // Data was already read into the "raw_temperature_data" data structure
         // Determine which section of "raw_temperature_data" is relevant for this layer of the overall domain
@@ -470,7 +597,8 @@ struct Temperature {
         // layer)
         view_type_int_host max_solidification_events_host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), max_solidification_events);
-        calcMaxSolidificationEvents(id, layernumber, max_solidification_events_host, start_range, end_range, grid);
+        calcMaxSolidificationEvents(id, layernumber, max_solidification_events_host, start_range, end_range, grid,
+                                    simulation_type);
         int max_num_solidification_events = max_solidification_events_host(layernumber);
 
         // Resize layer_time_temp_history now that the max number of solidification events is known for this layer
@@ -489,11 +617,9 @@ struct Temperature {
                       << end_range << std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
         for (int i = start_range; i < end_range; i++) {
-
-            // Get the integer X, Y, Z coordinates associated with this data point, along with the associated TM, TL, CR
-            // values
-            // coord_y is relative to this MPI rank's grid, while coord_y_global is relative to the overall simulation
-            // domain
+            // Get the integer X, Y, Z coordinates associated with this data point, along with the associated TM,
+            // TL, CR values coord_y is relative to this MPI rank's grid, while coord_y_global is relative to the
+            // overall simulation domain
             int coord_x = getTempCoordX(i, grid.x_min, grid.deltax);
             int coord_y = getTempCoordY(i, grid.y_min, grid.deltax, grid.y_offset);
             int coord_z = getTempCoordZ(i, grid.deltax, grid.layer_height, layernumber, grid.z_min_layer);

@@ -146,11 +146,13 @@ struct Inputs {
     TemperatureInputs temperature;
     SubstrateInputs substrate;
     PrintInputs print;
+    std::string file_name;
 
     // Creates input struct with uninitialized/default values, used in unit tests
     Inputs(){};
 
-    Inputs(const int id, const std::string input_file) {
+    Inputs(const int id, const std::string input_file)
+        : file_name(input_file) {
 
         // Open and read JSON input file
         std::ifstream input_data_stream(input_file);
@@ -201,7 +203,7 @@ struct Inputs {
             domain.ny = input_data["Domain"]["Ny"];
             domain.nz = input_data["Domain"]["Nz"];
         }
-        else if (simulation_type == "R") {
+        else if ((simulation_type == "R") || (simulation_type == "FromFinch")) {
             // Number of layers, layer height are needed for problem type and R
             domain.number_of_layers = input_data["Domain"]["NumberOfLayers"];
             domain.layer_height = input_data["Domain"]["LayerOffset"];
@@ -250,7 +252,7 @@ struct Inputs {
                     temperature.temp_paths.push_back(input_data["TemperatureData"]["TemperatureFiles"][filename]);
             }
         }
-        else {
+        else if (simulation_type != "FromFinch") {
             // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
             temperature.G = input_data["TemperatureData"]["G"];
             temperature.R = input_data["TemperatureData"]["R"];
@@ -636,7 +638,7 @@ struct Inputs {
     // from the input file as well as the decomposition scheme
     // Note: Passing external values for inputs like deltax that will later be stored in the grid class, with the grid
     // class passed to this function
-    void printExaCALog(const int id, const int np, const std::string input_file, const int ny_local, const int y_offset,
+    void printExaCALog(const int id, const int np, const int ny_local, const int y_offset,
                        InterfacialResponseFunction irf, const double deltax, const int number_of_layers,
                        const int layer_height, const int nx, const int ny, const int nz, Timers timers, const int cycle,
                        const double x_min, const double x_max, const double y_min, const double y_max,
@@ -656,7 +658,7 @@ struct Inputs {
             exaca_log << "   \"ExaCAVersion\": \"" << version() << "\", " << std::endl;
             exaca_log << "   \"ExaCACommitHash\": \"" << gitCommitHash() << "\", " << std::endl;
             exaca_log << "   \"KokkosVersion\": \"" << kokkosVersion() << "\", " << std::endl;
-            exaca_log << "   \"InputFile\": \"" << input_file << "\", " << std::endl;
+            exaca_log << "   \"InputFile\": \"" << file_name << "\", " << std::endl;
             exaca_log << "   \"TimeStepOfOutput\": " << cycle << "," << std::endl;
             exaca_log << "   \"SimulationType\": \"" << simulation_type << "\"," << std::endl;
             exaca_log << "   \"GrainOrientationFile\": \"" << grain_orientation_file << "\"," << std::endl;

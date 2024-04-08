@@ -15,6 +15,9 @@ target_link_libraries(ExaCA-Core PUBLIC
     Kokkos::kokkos
     nlohmann_json::nlohmann_json
 )
+if(ExaCA_ENABLE_FINCH)
+  target_link_libraries(ExaCA-Core PUBLIC Finch::Core Finch::ScanPaths)
+endif()
 
 target_include_directories(ExaCA-Core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

@@ -59,6 +59,40 @@ struct Grid {
         number_of_layers = number_of_layers_temp;
     };
 
+    // Creates grid struct from Finch grid - currently only single layer simulation is supported
+    Grid(const int id, const int np, DomainInputs inputs, const double finch_cell_size,
+         std::array<double, 3> global_low_corner, std::array<double, 3> global_high_corner,
+         const double cell_size_tolerance = 1 * Kokkos::pow(10, -8))
+        : z_min_layer(
+              view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), inputs.number_of_layers))
+        , z_max_layer(
+              view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_max_layer"), inputs.number_of_layers))
+        , number_of_layers(inputs.number_of_layers)
+        , layer_height(inputs.layer_height)
+        , _inputs(inputs) {
+
+        // Ensure Finch and ExaCA cell sizes match
+        deltax = _inputs.deltax;
+        if (Kokkos::abs(finch_cell_size - deltax) > cell_size_tolerance)
+            throw std::runtime_error("Error: ExaCA cell size must match cell size from Finch simulation");
+        // Set ExaCA domain bounds using Finch domain bounds
+        x_min = global_low_corner[0];
+        y_min = global_low_corner[1];
+        z_min = global_low_corner[2];
+        x_max = global_high_corner[0];
+        y_max = global_high_corner[1];
+        z_max = global_high_corner[2] + inputs.layer_height * (inputs.number_of_layers - 1) * deltax;
+        nx = Kokkos::round((x_max - x_min) / deltax) + 1;
+        ny = Kokkos::round((y_max - y_min) / deltax) + 1;
+        nz = Kokkos::round((z_max - z_min) / deltax) + 1;
+        for (int n = 0; n < inputs.number_of_layers; n++) {
+            z_min_layer(n) = z_min + n * inputs.layer_height * deltax;
+            z_max_layer(n) = global_high_corner[2] + n * inputs.layer_height * deltax;
+        }
+        // Domain decomposition
+        decomposeDomain(id, np, "FromFinch");
+    };
+
     // Constructor for grid used in ExaCA
     Grid(const std::string simulation_type, const int id, const int np, const int number_of_layers_temp,
          DomainInputs inputs, TemperatureInputs t_inputs)
@@ -112,6 +146,17 @@ struct Grid {
                 z_max_layer(0) = z_max;
             }
         }
+        // Domain decomposition
+        decomposeDomain(id, np, simulation_type);
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (id == 0)
+            std::cout << "Mesh initialized: initial domain size is " << nz_layer << " out of " << nz
+                      << " total cells in the Z direction" << std::endl;
+    };
+
+    // Perform domain decomposition and initialize first layer's grid
+    void decomposeDomain(const int id, const int np, std::string simulation_type) {
+
         if (id == 0) {
             std::cout << "Domain size: " << nx << " by " << ny << " by " << nz << std::endl;
             std::cout << "X Limits of domain: " << x_min << " and " << x_max << std::endl;
@@ -163,11 +208,7 @@ struct Grid {
         bottom_of_current_layer = getBottomOfCurrentLayer();
         top_of_current_layer = getTopOfCurrentLayer();
         layer_range = std::make_pair(bottom_of_current_layer, top_of_current_layer);
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
-            std::cout << "Mesh initialized: initial domain size is " << nz_layer << " out of " << nz
-                      << " total cells in the Z direction" << std::endl;
-    };
+    }
 
     // Read x, y, z coordinates in tempfile_thislayer (temperature file in either an ASCII or binary format) and return
     // the min and max values. This is not used by the temperature struct (no temperature info is parsed or stored), and
@@ -466,8 +507,8 @@ struct Grid {
     int calcZLayerBottom(const std::string simulation_type, const int layernumber) {
 
         int z_layer_bottom_local;
-        if (simulation_type == "R") {
-            // lower bound of domain is based on the data read from the file(s)
+        if ((simulation_type == "R") || (simulation_type == "FromFinch")) {
+            // lower bound of domain is based on the data read from the file(s) or from Finch
             z_layer_bottom_local = Kokkos::round((z_min_layer[layernumber] - z_min) / deltax);
         }
         else {
@@ -481,9 +522,8 @@ struct Grid {
     int calcZLayerTop(const std::string simulation_type, const int layernumber) {
 
         int z_layer_top_local;
-        if (simulation_type == "R") {
-            // Top of layer comes from the layer's file data (implicitly assumes bottom of layer 0 is the bottom of the
-            // overall domain - this should be fixed in the future for edge cases where this isn't true)
+        if ((simulation_type == "R") || (simulation_type == "FromFinch")) {
+            // Top of layer comes from the layer's file data or from Finch
             z_layer_top_local = Kokkos::round((z_max_layer[layernumber] - z_min) / deltax);
         }
         else {

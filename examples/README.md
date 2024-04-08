@@ -1,5 +1,5 @@
 # ExaCA problem types and auxiliary files
-ExaCA currently can model three types of problems:
+ExaCA currently can model five types of problems:
 
 * Problem type C is a directional solidification problem, with the bottom surface initialized with some fraction of sites home to epitaxial grains and at the liquidus temperature and a positive thermal gradient in the +Z direction. The domain is then cooled at a constant rate. 
 * Problem type `Spot` is a hemispherical spot, with fixed thermal gradient magnitude and cooling rate as solidification proceeds from the outer edge of the spot towards the center. The ability to simulate multilayer arrays of overlapping spots was deprecated in version 1.2 and removed after version 1.3
@@ -11,6 +11,7 @@ ExaCA currently can model three types of problems:
     * The top surface (the largest Z coordinate in a file) is assumed to be flat. Additionally, if multiple temperature files are being used (for example, a scan pattern consisting of 10 layers of repeating even and odd file data), the Z coordinate corresponding to this flat top surface should be the same for all files.
     * Alternatively, if a time-temperature history file has the extension `.catemp`, it will be parsed as a binary string. The binary form for these files does not contain commas, newlines, nor a header, but consists of sequential x,y,z,tm,tl,cr,x,y,z,tm,tl,cr... data as double precision values (little endian). This is often a significantly smaller file size than the standard format, and will be faster to read during initialization.
     * The M is no longer required in the problem type, as problem type R is now the same as RM (it now includes multiple melting and solidification events per cell)
+* Problem type `FromFinch` uses time-temperature history data generated from Finch, and requires Finch (and as a result, Cabana) as a dependency and two input files: a Finch input file and an ExaCA input file (in that order). Running using this problem type requires use of the `Finch-ExaCA` executable - currently, multilayer simulations are supported, but only using data from a single finch run (i.e., time-temperature history data for every layer of the ExaCA simulation is the same)
 
 All problem types rely on two files in addition to the main input file. First,
 a file containing the interfacial response function data governing
@@ -50,12 +51,13 @@ The .json files in the examples subdirectory are provided on the command line to
 |                        | S for spot melt array problem (fixed thermal gradient/constant cooling rate for each hemispherical spot)
 |                        | R for use of temperature data provided in the appropriate format ([see below](#temperature-inputs))
 |                        | `SingleGrain` for solidification of a single grain at the domain center, continuing until it reaches a domain edge
+|                        | `FromFinch` for solidification driven by time-temperature history data from a Finch heat transport simulation
 | MaterialFileName       | Name of material file in examples/Materials used
 | GrainOrientationFile   | File listing rotation matrix components used in assigning orientations to grains ([see below](#substrate-inputs))
 | RandomSeed             | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
 | Domain                 | Section for parameters that describe the simulation domain for the given problem type ([see below](#domain-inputs))
 | Nucleation             | Section for parameters that describe nucleation ([see below](#nucleation-inputs))
-| TemperatureData        | Section for parameters/files governing the temperature field for the given problem type ([see below](#temperature-inputs))
+| TemperatureData        | Section for parameters/files governing the temperature field for the given problem type ([see below](#temperature-inputs)). Section is unused if temperature data is given from Finch
 | Substrate              | Section for parameters/files governing the edge boundary conditions ([see below](#substrate-inputs))
 | Printing               | Section for parameters/file names for output data ([see below](#printing-inputs))
 
@@ -67,16 +69,16 @@ The .json files in the examples subdirectory are provided on the command line to
 |Nx            | C, SingleGrain         | Domain size in x, in cells
 |Ny            | C, SingleGrain         | Domain size in y, in cells
 |Nz            | C, SingleGrain         | Domain size in z, in cells
-|NumberOfLayers| R                      | Number of layers for which the temperature pattern will be repeated
-|LayerOffset   | R                      | If numberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
+|NumberOfLayers| R, FromFinch           | Number of layers for which the temperature pattern will be repeated
+|LayerOffset   | R, FromFinch           | If numberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
 |SpotRadius    | Spot                   | Spot radius, in microns
 
 ## Nucleation inputs
 | Input            |Relevant problem type(s)| Details |
 |------------------|------------------------|---------|
-|Density           | C, Spot, R             | Density of heterogeneous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
-|MeanUndercooling  | C, Spot, R             | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
-|StDevUndercooling | C, Spot, R             | Standard deviation of nucleation undercooling (Gaussian distribution), in K
+|Density           | C, Spot, R, FromFinch  | Density of heterogeneous nucleation sites in the liquid (evenly distributed among cells that are liquid or undergo melting), normalized by 1 x 10^12 m^-3
+|MeanUndercooling  | C, Spot, R, FromFinch  | Mean nucleation undercooling (relative to the alloy liquidus temperature) for activation of nucleation sites (Gaussian distribution)
+|StDevUndercooling | C, Spot, R, FromFinch  | Standard deviation of nucleation undercooling (Gaussian distribution), in K
 
 ## Temperature inputs
 | Input        | Relevant problem type(s)| Details |
@@ -96,11 +98,11 @@ The .json files in the examples subdirectory are provided on the command line to
 |GrainLocationsY | C           | List of grain locations in Y on the bottom surface of the domain (see note (b-iii))
 |GrainIDs | C           | GrainID values for each grain in (X,Y) (see note (b3))
 |FillBottomSurface | C  | Optionally assign all cells on the bottom surface the grain ID of the closest grain (defaults to false)
-|MeanSize      | Spot, R                  | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
-|SubstrateFilename |  Spot, R             | Path to and filename for substrate data (see note (a))
-|PowderDensity | Spot, R                  | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))
-|ExtendSubstrateThroughPowder| R          | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
-| BaseplateTopZ   | R                     | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
+|MeanSize      | Spot, R, FromFinch       | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
+|SubstrateFilename |  Spot, R, FromFinch  | Path to and filename for substrate data (see note (a))
+|PowderDensity | Spot, R, FromFinch       | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))
+|ExtendSubstrateThroughPowder| R, FromFinch  | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
+| BaseplateTopZ   | R, FromFinch          | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
 |GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
 |InitOctahedronSize | All           | Initial size of the octahedra that represent the solid-liquid interface when solidifiation first begins locally. Given as a fraction of a cell size, must be at least 0 and smaller than 1. Default is 0.01
 

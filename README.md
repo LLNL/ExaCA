@@ -17,6 +17,7 @@ ExaCA uses Kokkos and MPI for parallelism and JSON for input files.
 |[GoogleTest](https://github.com/google/googletest) | 1.10+   | No       | Unit test framework
 |CUDA       | 9+      | No       | Programming model for NVIDIA GPUs
 |HIP        | 3.5+    | No       | Programming model for AMD GPUs
+|[Finch](https://github.com/ORNL-MDF/Finch) | main | No | Heat transport model for coupled simulation
 
 CMake must be available to build ExaCA and Kokkos. The underlying parallel programming models and MPI are available on most systems and can generally be found automatically by CMake. Note these dependencies must all be installed first, if not available. Kokkos is also available on many systems; if not, obtain the desired version:
 ```
@@ -156,6 +157,8 @@ cd ../
 ```
 Then add this install path to the ExaCA configuration (example above) together with the path to Kokkos `-D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR;$JSON_INSTALL_DIR` and build ExaCA.
 
+### Building with Finch
+ExaCA can be compiled with Finch, a finite difference-based heat transport solver, for coupled heat transport and solidification simulation without the need to read time-temperature history data from file(s). The Finch source code and build instructions are available at https://github.com/ORNL-MDF/Finch. To compile ExaCA with Finch, include the path to the Finch install in the `CMAKE_INSTALL_PREFIX`. To require that ExaCA is compiled with Finch, add `ExaCA_REQUIRE_FINCH=ON`.
 
 ## Testing ExaCA
 
@@ -179,6 +182,14 @@ Run by calling the created executable with an ExaCA input file:
 ```
 mpiexec -n 1 ./build/install/bin/ExaCA examples/Inp_DirSolidification.json
 ```
+Alternatively, the `Finch-ExaCA` executable can be used for coupled Finch-ExaCA simulations. This can be called by running with two input files listed on the command line, with the Finch input file listed first. Caution should be taken such that the cell size given in the CA input file matches that given in the Finch input file.
+
+mpiexec -n 1 ./build/install/bin/Finch-ExaCA $PATH_TO_FINCH/examples/single_line/inputs.json examples/Inp_DirSolidification.json
+
+Example problems only possible with [Finch in-memory coupling](https://github.com/ORNL-MDF/Finch):
+ * `Inp_SmallFinch.json`: simulates melting and solidification of a small melt pool segment at a coarse resolution
+ * `Inp_Finch.json`: simulates melting and solidification of a small melt pool segment at a fine resolution, repeated for 3 layers
+
 ## Automated input file generation using Tasmanian (https://tasmanian.ornl.gov/)
 Within the `utilities` directory, an example python script for the generation of an ensemble of input files is available. By running the example script `TasmanianTest.py`, 69 ExaCA input files are generated with a range of heterogeneous nucleation density, mean nucleation undercooling, and mean substrate grain size values, based on the ranges in python code (N0Min-N0Max, dTNMin-dTNMax, and S0Min-S0Max), respectively. Running the python script from the ExaCA source directory, via the command
 ```
