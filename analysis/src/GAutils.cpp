@@ -35,8 +35,13 @@ void parseLogFile(std::string log_file, int &nx, int &ny, int &nz, double &delta
     ny = logdata["Domain"]["Ny"];
     nz = logdata["Domain"]["Nz"];
     std::string simulation_type = logdata["SimulationType"];
-    if (simulation_type == "C")
+    if (simulation_type == "DirSol" || simulation_type == "C") {
         number_of_layers = 1;
+        if (simulation_type == "C")
+            std::cout
+                << "Warning: Problem type \"C\" is now \"DirSol\". Previous name will be removed in a future release."
+                << std::endl;
+    }
     else
         number_of_layers = logdata["Domain"]["NumberOfLayers"];
     if (orientation_files_in_input)
