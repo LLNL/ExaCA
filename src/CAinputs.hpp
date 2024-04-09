@@ -163,7 +163,7 @@ struct Inputs {
         // "DirSol": directional solidification
         // "Spot": hemispherical spot with fixed thermal gradient and cooling rate
         // "FromFile": time-temperature history comes from external files
-        if (simulation_type == "CM" || simulation_type == "C") {
+        if (simulation_type == "C") {
             simulation_type = "DirSol";
             std::cout
                 << "Warning: Problem type \"C\" is now \"DirSol\". Previous name will be removed in a future release."
