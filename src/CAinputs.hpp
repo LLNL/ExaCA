@@ -163,9 +163,6 @@ struct Inputs {
         // "DirSol": directional solidification
         // "Spot": hemispherical spot with fixed thermal gradient and cooling rate
         // "FromFile": time-temperature history comes from external files
-        // Check if simulation type includes remelting ("M" suffix to input problem type) - all simulations now use
-        // remelting, so in the absence of this suffix, print warning that the problem will use remelting
-        // DirSoldification problems now include remelting logic
         if (simulation_type == "CM" || simulation_type == "C") {
             simulation_type = "DirSol";
             std::cout
@@ -173,10 +170,6 @@ struct Inputs {
                 << std::endl;
         }
         else if (simulation_type == "RM" || simulation_type == "R") {
-            if (simulation_type == "R")
-                std::cout << "Warning: While the specified problem type did not include remelting, all simulations now "
-                             "include remelting"
-                          << std::endl;
             simulation_type = "FromFile";
             std::cout
                 << "Warning: Problem type \"R\" is now \"FromFile\". Previous name will be removed in a future release."
