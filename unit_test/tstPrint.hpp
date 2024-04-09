@@ -6,6 +6,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "CAgrid.hpp"
+#include "CAinputs.hpp"
 #include "CAprint.hpp"
 
 #include "mpi.h"

@@ -8,7 +8,7 @@
 
 #include "CAconfig.hpp"
 #include "CAgrid.hpp"
-#include "CAinputs.hpp"
+#include "CAinputdata.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtypes.hpp"
 #include "mpi.h"
