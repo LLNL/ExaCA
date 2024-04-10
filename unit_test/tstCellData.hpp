@@ -169,7 +169,7 @@ void testCellDataInit_Constrained_Custom() {
 
     // Domain size in Y depends on the number of ranks - each rank has 4 cells in Y
     // Each rank is assigned a different portion of the domain in Y
-    Grid grid("C", id, np, 1, inputs.domain, inputs.temperature);
+    Grid grid("Directional", id, np, 1, inputs.domain, inputs.temperature);
 
     // Construct celldata struct
     CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
@@ -344,7 +344,7 @@ void testCellDataInit(bool powder_first_layer) {
     int previous_layer_first_epitaxial_grain_id = celldata.next_layer_first_epitaxial_grain_id;
     // Initialize the next layer using the same time-temperature history - powder should span cells at Z = 3
     expected_num_powder_grains_per_layer = grid.nx * grid.ny_local * np;
-    grid.initNextLayer(id, "R", 1);
+    grid.initNextLayer(id, "FromFile", 1);
     celldata.initNextLayer(1, id, grid, inputs.rng_seed, number_of_solidification_events);
 
     // Copy all grain IDs for all layers back to the host to check that they match

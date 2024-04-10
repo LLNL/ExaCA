@@ -137,6 +137,13 @@ struct PrintInputs {
     int rve_size = 0;
 };
 
+// Error if this is not a valid simulation type.
+inline void validSimulationType(std::string simulation_type) {
+    if (simulation_type != "Directional" && simulation_type != "Spot" && simulation_type != "SingleGrain" &&
+        simulation_type != "FromFile" && simulation_type != "FromFinch")
+        throw std::runtime_error("Error: unknown problem type \"" + simulation_type + "\".");
+}
+
 struct Inputs {
 
     std::string simulation_type = "", material_filename = "", grain_orientation_file = "";
@@ -160,22 +167,31 @@ struct Inputs {
 
         // General inputs
         simulation_type = input_data["SimulationType"];
-        // "C": constrained (directional) solidification
+        // "Directional": directional solidification
         // "Spot": hemispherical spot with fixed thermal gradient and cooling rate
-        // "R": time-temperature history comes from external files
-        // Check if simulation type includes remelting ("M" suffix to input problem type) - all simulations now use
-        // remelting, so in the absence of this suffix, print warning that the problem will use remelting
-        // DirSoldification problems now include remelting logic
-        if (simulation_type == "RM")
-            simulation_type = "R";
-        else if (simulation_type == "R")
-            std::cout << "Warning: While the specified problem type did not include remelting, all simulations now "
-                         "include remelting"
+        // "FromFile": time-temperature history comes from external files
+        if (simulation_type == "C") {
+            simulation_type = "Directional";
+            std::cout << "Warning: Problem type \"C\" is now \"Directional\". Previous name will be removed in a "
+                         "future release."
                       << std::endl;
-        else if ((simulation_type == "S") || (simulation_type == "SM"))
+        }
+        else if (simulation_type == "RM" || simulation_type == "R") {
+            simulation_type = "FromFile";
+            std::cout
+                << "Warning: Problem type \"R\" is now \"FromFile\". Previous name will be removed in a future release."
+                << std::endl;
+        }
+        else if ((simulation_type == "S") || (simulation_type == "SM")) {
             throw std::runtime_error("Error: The spot melt array simulation type (Problem type S or SM) was removed "
                                      "after version 1.3; simulation of a single hemispherical spot can be performed "
                                      "using problem type Spot. See README for details");
+        }
+
+        // Check for valid simulation type.
+        if (simulation_type == "FromFunch")
+            simulation_type = "FromFinch";
+        validSimulationType(simulation_type);
 
         // Input files that should be present for all problem types
         std::string material_filename_read = input_data["MaterialFileName"];
@@ -197,13 +213,13 @@ struct Inputs {
         // Time step - given in seconds, stored in microseconds
         domain.deltat = input_data["Domain"]["TimeStep"];
         domain.deltat = domain.deltat * pow(10, -6);
-        if ((simulation_type == "C") || (simulation_type == "SingleGrain")) {
+        if ((simulation_type == "Directional") || (simulation_type == "SingleGrain")) {
             // Domain size, in cells
             domain.nx = input_data["Domain"]["Nx"];
             domain.ny = input_data["Domain"]["Ny"];
             domain.nz = input_data["Domain"]["Nz"];
         }
-        else if ((simulation_type == "R") || (simulation_type == "FromFinch")) {
+        else if ((simulation_type == "FromFile") || (simulation_type == "FromFinch")) {
             // Number of layers, layer height are needed for problem type and R
             domain.number_of_layers = input_data["Domain"]["NumberOfLayers"];
             domain.layer_height = input_data["Domain"]["LayerOffset"];
@@ -234,7 +250,7 @@ struct Inputs {
         }
 
         // Temperature inputs:
-        if (simulation_type == "R") {
+        if (simulation_type == "FromFile") {
             if ((input_data["TemperatureData"].contains("HeatTransferCellSize")) && (id == 0))
                 std::cout << "Note: Heat transport data cell size is no longer an input used in ExaCA, temperature "
                              "data must be at the same resolution as the CA cell size"
@@ -264,13 +280,13 @@ struct Inputs {
                                              "greater than or equal to zero");
             if (simulation_type == "SingleGrain")
                 temperature.init_undercooling = input_data["TemperatureData"]["InitUndercooling"];
-            else if ((simulation_type == "C") && (input_data["TemperatureData"].contains("InitUndercooling")))
+            else if ((simulation_type == "Directional") && (input_data["TemperatureData"].contains("InitUndercooling")))
                 temperature.init_undercooling = input_data["TemperatureData"]["InitUndercooling"];
             if ((temperature.G > 0) && (Kokkos::fabs(temperature.R) < 0.000001)) {
                 // Throw error for edge case where the cooling rate is 0, but cells in the domain would be initialized
                 // above the liquidus temperature (i.e., cells that would never solidify)
                 int location_init_undercooling;
-                if (simulation_type == "C")
+                if (simulation_type == "Directional")
                     location_init_undercooling = 0;
                 else
                     location_init_undercooling = Kokkos::floorf(static_cast<float>(domain.nz) / 2.0);
@@ -284,7 +300,7 @@ struct Inputs {
         }
 
         // Substrate inputs:
-        if (simulation_type == "C") {
+        if (simulation_type == "Directional") {
             // Must contain inputs corresponding to one of the three modes
             // fract_surface_sites_active only used for mode (i)
             // surface_site_density only used for mode (ii) - given in grains/mm^2
@@ -418,7 +434,7 @@ struct Inputs {
             std::cout << "Nucleation density is " << nucleation.n_max << " per m^3" << std::endl;
             std::cout << "Mean nucleation undercooling is " << nucleation.dtn
                       << " K, standard deviation of distribution is " << nucleation.dtsigma << "K" << std::endl;
-            if (simulation_type == "C") {
+            if (simulation_type == "Directional") {
                 std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << temperature.G
                           << " K/m and a cooling rate of " << temperature.R << " K/s" << std::endl;
                 std::cout << "The time step is " << domain.deltat * pow(10, 6) << " microseconds" << std::endl;
@@ -437,7 +453,7 @@ struct Inputs {
                           << " cells, with a cooling rate of " << temperature.R << " K/s" << std::endl;
                 std::cout << "The time step is " << domain.deltat * pow(10, 6) << " microseconds" << std::endl;
             }
-            else if (simulation_type == "R") {
+            else if (simulation_type == "FromFile") {
                 std::cout << "CA Simulation using temperature data from file(s)" << std::endl;
                 std::cout << "The time step is " << domain.deltat << " seconds" << std::endl;
                 std::cout << "The first temperature data file to be read is " << temperature.temp_paths[0]
@@ -470,7 +486,7 @@ struct Inputs {
         print.path_to_output = input_data["Printing"]["PathToOutput"];
         // Name of output data
         print.base_filename = input_data["Printing"]["OutputFile"];
-        if (simulation_type == "C")
+        if (simulation_type == "Directional")
             if (input_data["Printing"].contains("PrintFrontUndercooling"))
                 print.print_front_undercooling = input_data["Printing"]["PrintFrontUndercooling"];
         // Should ASCII or binary be used to print vtk data? Defaults to ASCII if not given
@@ -671,7 +687,7 @@ struct Inputs {
             exaca_log << "      \"XBounds\": [" << x_min << "," << x_max << "]," << std::endl;
             exaca_log << "      \"YBounds\": [" << y_min << "," << y_max << "]," << std::endl;
             exaca_log << "      \"ZBounds\": [" << z_min << "," << z_max << "]";
-            if (simulation_type == "R") {
+            if (simulation_type == "FromFile") {
                 exaca_log << "," << std::endl;
                 exaca_log << "      \"NumberOfLayers\": " << number_of_layers << "," << std::endl;
                 exaca_log << "      \"LayerOffset\": " << layer_height;
@@ -689,7 +705,7 @@ struct Inputs {
             exaca_log << "      \"VolFractionNucleated\": " << vol_fraction_nucleated << std::endl;
             exaca_log << "   }," << std::endl;
             exaca_log << "   \"TemperatureData\": {" << std::endl;
-            if (simulation_type == "R") {
+            if (simulation_type == "FromFile") {
                 exaca_log << "       \"TemperatureFiles\": [";
                 for (int i = 0; i < temperature.temp_files_in_series - 1; i++) {
                     exaca_log << "\"" << temperature.temp_paths[i] << "\", ";
@@ -702,7 +718,7 @@ struct Inputs {
             }
             exaca_log << "   }," << std::endl;
             exaca_log << "   \"Substrate\": {" << std::endl;
-            if (simulation_type == "C")
+            if (simulation_type == "Directional")
                 exaca_log << "       \"SurfaceSiteFraction\": " << substrate.fract_surface_sites_active << std::endl;
             else if (simulation_type == "SingleGrain")
                 exaca_log << "       \"GrainOrientation\": " << substrate.single_grain_orientation << std::endl;

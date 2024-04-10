@@ -243,7 +243,7 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
 
     // Check results
     int location_init_undercooling, location_liquidus_isotherm;
-    if (simulation_type == "C")
+    if (simulation_type == "Directional")
         location_init_undercooling = 0;
     else
         location_init_undercooling = coord_z_center;
@@ -314,8 +314,8 @@ TEST(TEST_CATEGORY, temperature) {
     }
     // Test for directional and single grain problems, and with and without a thermal gradient for the single grain
     // problem and with/without an initial undercooling present at the initial solidification front
-    testInit_UnidirectionalGradient("C", 1000000, 0);
-    testInit_UnidirectionalGradient("C", 1000000, 2);
+    testInit_UnidirectionalGradient("Directional", 1000000, 0);
+    testInit_UnidirectionalGradient("Directional", 1000000, 2);
     testInit_UnidirectionalGradient("SingleGrain", 0, 2);
     testInit_UnidirectionalGradient("SingleGrain", 1000000, 2);
 }

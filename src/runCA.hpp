@@ -25,18 +25,18 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     InterfacialResponseFunction irf(id, inputs.material_filename, inputs.domain.deltat, grid.deltax);
 
     // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
-    if (simulation_type == "R")
+    if (simulation_type == "FromFile")
         inputs.checkPowderOverflow(grid.nx, grid.ny, grid.layer_height, grid.number_of_layers);
 
     // Read temperature data if necessary
-    if (simulation_type == "R")
+    if (simulation_type == "FromFile")
         temperature.readTemperatureData(id, grid, 0);
     // Initialize the temperature fields for the simulation type of interest
-    if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
+    if ((simulation_type == "Directional") || (simulation_type == "SingleGrain"))
         temperature.initialize(id, simulation_type, grid, inputs.domain.deltat);
     else if (simulation_type == "Spot")
         temperature.initialize(id, grid, irf.freezing_range, inputs.domain.deltat, inputs.domain.spot_radius);
-    else if ((simulation_type == "R") || (simulation_type == "FromFinch"))
+    else if ((simulation_type == "FromFile") || (simulation_type == "FromFinch"))
         temperature.initialize(0, id, grid, irf.freezing_range, inputs.domain.deltat, simulation_type);
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -46,7 +46,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
 
     // Initialize cell types, grain IDs, and layer IDs
     CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
-    if (simulation_type == "C")
+    if (simulation_type == "Directional")
         celldata.initSubstrate(id, grid, inputs.rng_seed);
     else if (simulation_type == "SingleGrain")
         celldata.initSubstrate(id, grid);
@@ -108,7 +108,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
             // initialized as liquid - the steering vector operation for this problem can be constructed using
             // FillSteeringVector_NoRemelt (a simplified version of FillSteeringVector_Remelt
             timers.startSV();
-            if ((simulation_type == "C") || (simulation_type == "SingleGrain"))
+            if ((simulation_type == "Directional") || (simulation_type == "SingleGrain"))
                 fillSteeringVector_NoRemelt(cycle, grid, celldata, temperature, interface);
             else
                 fillSteeringVector_Remelt(cycle, grid, celldata, temperature, interface);
@@ -151,7 +151,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
             // TODO: reorganize these temperature functions calls into a temperature.init_next_layer as done with the
             // substrate
             // If the next layer's temperature data isn't already stored, it should be read
-            if ((simulation_type == "R") && (inputs.temperature.layerwise_temp_read))
+            if ((simulation_type == "FromFile") && (inputs.temperature.layerwise_temp_read))
                 temperature.readTemperatureData(id, grid, layernumber + 1);
             MPI_Barrier(MPI_COMM_WORLD);
             // Initialize next layer's temperature data

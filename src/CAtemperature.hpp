@@ -363,11 +363,14 @@ struct Temperature {
     // problem types
     void initialize(const int id, const std::string simulation_type, const Grid &grid, const double deltat) {
 
+        // Check for valid simulation type.
+        validSimulationType(simulation_type);
+
         // Initialize temperature field in Z direction with thermal gradient G set in input file
         // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
         // (with custom InitUndercooling value) for single grain solidification
         int location_init_undercooling, location_liquidus_isotherm;
-        if (simulation_type == "C")
+        if (simulation_type == "Directional")
             location_init_undercooling = 0;
         else
             location_init_undercooling = Kokkos::floorf(static_cast<float>(grid.nz) / 2.0);
