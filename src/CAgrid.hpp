@@ -103,6 +103,9 @@ struct Grid {
         , _inputs(inputs)
         , _t_inputs(t_inputs) {
 
+        // Check for valid simulation type.
+        validSimulationType(simulation_type);
+
         // Copy from inputs structs
         deltax = _inputs.deltax;
         layer_height = _inputs.layer_height;

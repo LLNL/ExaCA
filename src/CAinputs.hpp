@@ -137,6 +137,13 @@ struct PrintInputs {
     int rve_size = 0;
 };
 
+// Error if this is not a valid simulation type.
+inline void validSimulationType(std::string simulation_type) {
+    if (simulation_type != "Directional" && simulation_type != "Spot" && simulation_type != "SingleGrain" &&
+        simulation_type != "FromFile" && simulation_type != "FromFinch")
+        throw std::runtime_error("Error: unknown problem type \"" + simulation_type + "\".");
+}
+
 struct Inputs {
 
     std::string simulation_type = "", material_filename = "", grain_orientation_file = "";
@@ -181,10 +188,8 @@ struct Inputs {
                                      "using problem type Spot. See README for details");
         }
 
-        // Check for valid type.
-        if (simulation_type != "Directional" && simulation_type != "Spot" && simulation_type != "SingleGrain" &&
-            simulation_type != "FromFile" && simulation_type != "FromFinch")
-            throw std::runtime_error("Error: unknown problem type \"" + simulation_type + "\".");
+        // Check for valid simulation type.
+        validSimulationType(simulation_type);
 
         // Input files that should be present for all problem types
         std::string material_filename_read = input_data["MaterialFileName"];

@@ -363,6 +363,9 @@ struct Temperature {
     // problem types
     void initialize(const int id, const std::string simulation_type, const Grid &grid, const double deltat) {
 
+        // Check for valid simulation type.
+        validSimulationType(simulation_type);
+
         // Initialize temperature field in Z direction with thermal gradient G set in input file
         // Liquidus front (InitUndercooling = 0) is at domain bottom for directional solidification, is at domain center
         // (with custom InitUndercooling value) for single grain solidification
