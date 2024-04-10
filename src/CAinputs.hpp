@@ -180,6 +180,12 @@ struct Inputs {
                                      "after version 1.3; simulation of a single hemispherical spot can be performed "
                                      "using problem type Spot. See README for details");
         }
+
+        // Check for valid type.
+        if (simulation_type != "Directional" && simulation_type != "Spot" && simulation_type != "SingleGrain" &&
+            simulation_type != "FromFile" && simulation_type != "FromFinch")
+            throw std::runtime_error("Error: unknown problem type \"" + simulation_type + "\".");
+
         // Input files that should be present for all problem types
         std::string material_filename_read = input_data["MaterialFileName"];
         std::string grain_orientation_file_read = input_data["GrainOrientationFile"];
