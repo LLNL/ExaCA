@@ -1,5 +1,5 @@
 {
-   "SimulationType": "DirSol",
+   "SimulationType": "Directional",
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
    "RandomSeed": 0,

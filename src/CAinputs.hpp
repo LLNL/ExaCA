@@ -160,14 +160,14 @@ struct Inputs {
 
         // General inputs
         simulation_type = input_data["SimulationType"];
-        // "DirSol": directional solidification
+        // "Directional": directional solidification
         // "Spot": hemispherical spot with fixed thermal gradient and cooling rate
         // "FromFile": time-temperature history comes from external files
         if (simulation_type == "C") {
-            simulation_type = "DirSol";
-            std::cout
-                << "Warning: Problem type \"C\" is now \"DirSol\". Previous name will be removed in a future release."
-                << std::endl;
+            simulation_type = "Directional";
+            std::cout << "Warning: Problem type \"C\" is now \"Directional\". Previous name will be removed in a "
+                         "future release."
+                      << std::endl;
         }
         else if (simulation_type == "RM" || simulation_type == "R") {
             simulation_type = "FromFile";
@@ -200,7 +200,7 @@ struct Inputs {
         // Time step - given in seconds, stored in microseconds
         domain.deltat = input_data["Domain"]["TimeStep"];
         domain.deltat = domain.deltat * pow(10, -6);
-        if ((simulation_type == "DirSol") || (simulation_type == "SingleGrain")) {
+        if ((simulation_type == "Directional") || (simulation_type == "SingleGrain")) {
             // Domain size, in cells
             domain.nx = input_data["Domain"]["Nx"];
             domain.ny = input_data["Domain"]["Ny"];
@@ -267,13 +267,13 @@ struct Inputs {
                                              "greater than or equal to zero");
             if (simulation_type == "SingleGrain")
                 temperature.init_undercooling = input_data["TemperatureData"]["InitUndercooling"];
-            else if ((simulation_type == "DirSol") && (input_data["TemperatureData"].contains("InitUndercooling")))
+            else if ((simulation_type == "Directional") && (input_data["TemperatureData"].contains("InitUndercooling")))
                 temperature.init_undercooling = input_data["TemperatureData"]["InitUndercooling"];
             if ((temperature.G > 0) && (Kokkos::fabs(temperature.R) < 0.000001)) {
                 // Throw error for edge case where the cooling rate is 0, but cells in the domain would be initialized
                 // above the liquidus temperature (i.e., cells that would never solidify)
                 int location_init_undercooling;
-                if (simulation_type == "DirSol")
+                if (simulation_type == "Directional")
                     location_init_undercooling = 0;
                 else
                     location_init_undercooling = Kokkos::floorf(static_cast<float>(domain.nz) / 2.0);
@@ -287,7 +287,7 @@ struct Inputs {
         }
 
         // Substrate inputs:
-        if (simulation_type == "DirSol") {
+        if (simulation_type == "Directional") {
             // Must contain inputs corresponding to one of the three modes
             // fract_surface_sites_active only used for mode (i)
             // surface_site_density only used for mode (ii) - given in grains/mm^2
@@ -421,7 +421,7 @@ struct Inputs {
             std::cout << "Nucleation density is " << nucleation.n_max << " per m^3" << std::endl;
             std::cout << "Mean nucleation undercooling is " << nucleation.dtn
                       << " K, standard deviation of distribution is " << nucleation.dtsigma << "K" << std::endl;
-            if (simulation_type == "DirSol") {
+            if (simulation_type == "Directional") {
                 std::cout << "CA Simulation using a unidirectional, fixed thermal gradient of " << temperature.G
                           << " K/m and a cooling rate of " << temperature.R << " K/s" << std::endl;
                 std::cout << "The time step is " << domain.deltat * pow(10, 6) << " microseconds" << std::endl;
@@ -473,7 +473,7 @@ struct Inputs {
         print.path_to_output = input_data["Printing"]["PathToOutput"];
         // Name of output data
         print.base_filename = input_data["Printing"]["OutputFile"];
-        if (simulation_type == "DirSol")
+        if (simulation_type == "Directional")
             if (input_data["Printing"].contains("PrintFrontUndercooling"))
                 print.print_front_undercooling = input_data["Printing"]["PrintFrontUndercooling"];
         // Should ASCII or binary be used to print vtk data? Defaults to ASCII if not given
@@ -705,7 +705,7 @@ struct Inputs {
             }
             exaca_log << "   }," << std::endl;
             exaca_log << "   \"Substrate\": {" << std::endl;
-            if (simulation_type == "DirSol")
+            if (simulation_type == "Directional")
                 exaca_log << "       \"SurfaceSiteFraction\": " << substrate.fract_surface_sites_active << std::endl;
             else if (simulation_type == "SingleGrain")
                 exaca_log << "       \"GrainOrientation\": " << substrate.single_grain_orientation << std::endl;

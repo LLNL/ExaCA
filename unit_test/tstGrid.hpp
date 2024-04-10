@@ -68,7 +68,7 @@ void testCalcZLayerTop() {
         int z_layer_top_R = grid.calcZLayerTop("FromFile", layernumber);
         EXPECT_EQ(z_layer_top_R, (grid.z_max_layer(layernumber) - grid.z_min) / grid.deltax);
         // For simulation type C, should be independent of layernumber
-        int z_layer_top_C = grid.calcZLayerTop("DirSol", layernumber);
+        int z_layer_top_C = grid.calcZLayerTop("Directional", layernumber);
         EXPECT_EQ(z_layer_top_C, grid.nz - 1);
         int z_layer_top_S = grid.calcZLayerTop("Spot", layernumber);
         EXPECT_EQ(z_layer_top_S, grid.nz - 1);

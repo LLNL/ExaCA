@@ -169,7 +169,7 @@ void testCellDataInit_Constrained_Custom() {
 
     // Domain size in Y depends on the number of ranks - each rank has 4 cells in Y
     // Each rank is assigned a different portion of the domain in Y
-    Grid grid("DirSol", id, np, 1, inputs.domain, inputs.temperature);
+    Grid grid("Directional", id, np, 1, inputs.domain, inputs.temperature);
 
     // Construct celldata struct
     CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);

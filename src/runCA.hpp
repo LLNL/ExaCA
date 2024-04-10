@@ -32,7 +32,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     if (simulation_type == "FromFile")
         temperature.readTemperatureData(id, grid, 0);
     // Initialize the temperature fields for the simulation type of interest
-    if ((simulation_type == "DirSol") || (simulation_type == "SingleGrain"))
+    if ((simulation_type == "Directional") || (simulation_type == "SingleGrain"))
         temperature.initialize(id, simulation_type, grid, inputs.domain.deltat);
     else if (simulation_type == "Spot")
         temperature.initialize(id, grid, irf.freezing_range, inputs.domain.deltat, inputs.domain.spot_radius);
@@ -46,7 +46,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
 
     // Initialize cell types, grain IDs, and layer IDs
     CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
-    if (simulation_type == "DirSol")
+    if (simulation_type == "Directional")
         celldata.initSubstrate(id, grid, inputs.rng_seed);
     else if (simulation_type == "SingleGrain")
         celldata.initSubstrate(id, grid);
@@ -108,7 +108,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
             // initialized as liquid - the steering vector operation for this problem can be constructed using
             // FillSteeringVector_NoRemelt (a simplified version of FillSteeringVector_Remelt
             timers.startSV();
-            if ((simulation_type == "DirSol") || (simulation_type == "SingleGrain"))
+            if ((simulation_type == "Directional") || (simulation_type == "SingleGrain"))
                 fillSteeringVector_NoRemelt(cycle, grid, celldata, temperature, interface);
             else
                 fillSteeringVector_Remelt(cycle, grid, celldata, temperature, interface);
