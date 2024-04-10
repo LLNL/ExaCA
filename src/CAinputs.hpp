@@ -189,6 +189,8 @@ struct Inputs {
         }
 
         // Check for valid simulation type.
+        if (simulation_type == "FromFunch")
+            simulation_type = "FromFinch";
         validSimulationType(simulation_type);
 
         // Input files that should be present for all problem types
