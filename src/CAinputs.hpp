@@ -266,7 +266,7 @@ struct Inputs {
             nucleation.dtsigma = input_data["Nucleation"]["StDev"];
         }
 
-        parseIRF(id, material_filename);
+        parseIRF(id);
 
         // Temperature inputs:
         if (simulation_type == "FromFile") {
@@ -774,10 +774,11 @@ struct Inputs {
         }
     }
 
-    void parseIRF(const int id, std::string material_filename) {
+    void parseIRF(const int id) {
         if (id == 0)
             std::cout << "Parsing material file using json input format" << std::endl;
-        nlohmann::json data = nlohmann::json::parse(material_filename);
+        std::ifstream material_data(material_filename);
+        nlohmann::json data = nlohmann::json::parse(material_data);
         irf.A = data["coefficients"]["A"];
         irf.B = data["coefficients"]["B"];
         irf.C = data["coefficients"]["C"];

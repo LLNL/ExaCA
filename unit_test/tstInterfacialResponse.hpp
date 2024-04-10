@@ -28,7 +28,8 @@ void testInterfacialResponse() {
         std::cout << "Reading " << file_name << std::endl;
 
         Inputs inputs;
-        inputs.parseIRF(0, file_name);
+        inputs.material_filename = file_name;
+        inputs.parseIRF(0);
         InterfacialResponseFunction irf(deltat, deltax, inputs.irf);
 
         // Check that fitting parameters were correctly initialized and normalized

@@ -137,9 +137,11 @@ void testInputs(int print_version) {
             EXPECT_DOUBLE_EQ(inputs.nucleation.n_max, 1.0 * pow(10, 13));
         EXPECT_DOUBLE_EQ(inputs.nucleation.dtn, 5.0);
         EXPECT_DOUBLE_EQ(inputs.nucleation.dtsigma, 0.5);
-        EXPECT_FLOAT_EQ(inputs.irf.A, -0.00000010302 * inputs.domain.deltat / inputs.domain.deltax);
-        EXPECT_FLOAT_EQ(inputs.irf.B, 0.00010533 * inputs.domain.deltat / inputs.domain.deltax);
-        EXPECT_FLOAT_EQ(inputs.irf.C, 0.0022196 * inputs.domain.deltat / inputs.domain.deltax);
+        // Raw values read from material input file - not normalized (normalization occurs on local copies of these in
+        // the IRF constructor)
+        EXPECT_FLOAT_EQ(inputs.irf.A, -0.00000010302);
+        EXPECT_FLOAT_EQ(inputs.irf.B, 0.00010533);
+        EXPECT_FLOAT_EQ(inputs.irf.C, 0.0022196);
         EXPECT_FLOAT_EQ(inputs.irf.D, 0);
         EXPECT_FLOAT_EQ(inputs.irf.freezing_range, 210);
 
