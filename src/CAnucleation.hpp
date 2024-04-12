@@ -8,8 +8,10 @@
 
 #include "CAcelldata.hpp"
 #include "CAgrid.hpp"
+#include "CAinputs.hpp"
 #include "CAinterface.hpp"
 #include "CAtemperature.hpp"
+
 #include "mpi.h"
 
 #include <Kokkos_Core.hpp>
