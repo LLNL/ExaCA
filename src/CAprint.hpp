@@ -8,7 +8,7 @@
 
 #include "CAcelldata.hpp"
 #include "CAgrid.hpp"
-#include "CAinputs.hpp"
+#include "CAinputdata.hpp"
 #include "CAinterface.hpp"
 #include "CAinterfacialresponse.hpp"
 #include "CAorientation.hpp"

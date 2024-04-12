@@ -6,7 +6,7 @@
 #ifndef EXACA_GRID_HPP
 #define EXACA_GRID_HPP
 
-#include "CAinputs.hpp"
+#include "CAinputdata.hpp"
 #include "CAparsefiles.hpp"
 
 #include "mpi.h"

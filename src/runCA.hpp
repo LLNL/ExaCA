@@ -200,9 +200,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     timers.reduceMPI();
 
     // Print the log file with JSON format
-    inputs.printExaCALog(id, np, grid.ny_local, grid.y_offset, grid.deltax, grid.number_of_layers, grid.layer_height,
-                         grid.nx, grid.ny, grid.nz, timers, cycle, grid.x_min, grid.x_max, grid.y_min, grid.y_max,
-                         grid.z_min, grid.z_max, vol_fraction_nucleated);
+    inputs.printExaCALog(id, np, cycle, grid, timers, vol_fraction_nucleated);
 
     // Print timing information to the console
     timers.printFinal(np, cycle);

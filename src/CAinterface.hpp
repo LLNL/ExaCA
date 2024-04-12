@@ -8,7 +8,6 @@
 
 #include "CAcelldata.hpp"
 #include "CAconfig.hpp"
-#include "CAinputs.hpp"
 #include "CAorientation.hpp"
 #include "CAparsefiles.hpp"
 #include "CAtemperature.hpp"

@@ -7,7 +7,7 @@
 #define EXACA_TEMPS_HPP
 
 #include "CAgrid.hpp"
-#include "CAinputs.hpp"
+#include "CAinputdata.hpp"
 #include "CAparsefiles.hpp"
 #include "mpi.h"
 

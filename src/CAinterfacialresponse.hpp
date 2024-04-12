@@ -6,7 +6,7 @@
 #ifndef EXACA_IRF_HPP
 #define EXACA_IRF_HPP
 
-#include "CAinputs.hpp"
+#include "CAinputdata.hpp"
 
 #include <Kokkos_Core.hpp>
 

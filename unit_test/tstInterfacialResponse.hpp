@@ -6,6 +6,7 @@
 #include <Kokkos_Core.hpp>
 #include <nlohmann/json.hpp>
 
+#include "CAinputs.hpp"
 #include "CAinterfacialresponse.hpp"
 
 #include <gtest/gtest.h>
