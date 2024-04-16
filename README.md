@@ -155,7 +155,7 @@ cmake --build build
 cmake --install build
 cd ../
 ```
-Then add this install path to the ExaCA configuration (example above) together with the path to Kokkos `-D CMAKE_PREFIX_PATH=$KOKKOS_INSTALL_DIR;$JSON_INSTALL_DIR` and build ExaCA.
+Then add this install path to the ExaCA configuration (example above) together with the path to Kokkos `-D CMAKE_PREFIX_PATH="$KOKKOS_INSTALL_DIR;$JSON_INSTALL_DIR"` and build ExaCA. Note that quotes are necessary for multiple paths.
 
 ### Building with Finch
 ExaCA can be compiled with Finch, a finite difference-based heat transport solver, for coupled heat transport and solidification simulation without the need to read time-temperature history data from file(s). The Finch source code and build instructions are available at https://github.com/ORNL-MDF/Finch. To compile ExaCA with Finch, include the path to the Finch install in the `CMAKE_INSTALL_PREFIX`. To require that ExaCA is compiled with Finch, add `ExaCA_REQUIRE_FINCH=ON`.
