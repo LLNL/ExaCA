@@ -15,6 +15,7 @@
 #include <Kokkos_Core.hpp>
 
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
