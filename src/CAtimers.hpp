@@ -22,6 +22,7 @@ class Timer {
         _time += MPI_Wtime() - start_time;
         num_calls++;
     }
+    void reset() { _time = 0.0; }
     auto time() { return _time; }
     auto numCalls() { return num_calls; }
     auto minTime() { return max_time; }
@@ -99,6 +100,7 @@ struct Timers {
         if (id == 0)
             std::cout << "Time for layer number " << layernumber << " was " << layer.time() << " s, starting layer "
                       << layernumber + 1 << std::endl;
+        layer.reset();
     }
     void stopLayer() {
         layer.stop();
