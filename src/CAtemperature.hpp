@@ -496,7 +496,7 @@ struct Temperature {
                                      const int end_range, const Grid &grid, const std::string simulation_type) {
 
         bool calc_remelting_events;
-        if (simulation_type == "R") {
+        if (simulation_type == "FromFile") {
             if (layernumber > _inputs.temp_files_in_series)
                 calc_remelting_events = false;
             else
