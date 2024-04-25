@@ -86,8 +86,8 @@ struct Inputs {
         if (input_data.contains("RandomSeed"))
             rng_seed = input_data["RandomSeed"];
         // Increment for resizing the outer steering vector used to iterate over cells of interest each time step
-        if (input_data.contains("SteeringVectorIncrement"))
-            build_increment_outer = input_data["SteeringVectorIncrement"];
+        if (input_data.contains("SteeringVectorRebuildFrequency"))
+            build_increment_outer = input_data["SteeringVectorRebuildFrequency"];
 
         // Domain inputs:
         // Cell size - given in meters, stored in micrometers
