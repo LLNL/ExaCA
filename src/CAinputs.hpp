@@ -143,7 +143,8 @@ struct Inputs {
             // Get the paths/number of/names of the temperature data files used
             temperature.temp_files_in_series = input_data["TemperatureData"]["TemperatureFiles"].size();
             if (temperature.temp_files_in_series == 0)
-                throw std::runtime_error("Error: No temperature files listed in the temperature instructions file");
+                throw std::runtime_error(
+                    "Error: At least one temperature filename must be given for simulation type FromFile");
             else {
                 for (int filename = 0; filename < temperature.temp_files_in_series; filename++)
                     temperature.temp_paths.push_back(input_data["TemperatureData"]["TemperatureFiles"][filename]);
