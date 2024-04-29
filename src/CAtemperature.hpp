@@ -135,8 +135,8 @@ struct Temperature {
         // First, store data with Y coordinates in bounds for this rank in raw_temperature_data
         int temperature_point_counter = 0;
         for (int n = 0; n < finch_data_size; n++) {
-            int coord_y = (input_temperature_data(n, 1) - grid.y_min) / grid.deltax;
-            if ((coord_y >= grid.y_offset) && (coord_y < grid.y_offset + grid.ny_local)) {
+            int coord_y_global = Kokkos::round((input_temperature_data(n, 1) - grid.y_min) / grid.deltax);
+            if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
                 for (int comp = 0; comp < num_temperature_components; comp++)
                     raw_temperature_data(temperature_point_counter, comp) = input_temperature_data(n, comp);
                 // Increment counter for each point stored on this rank
@@ -185,8 +185,8 @@ struct Temperature {
 
             // Unpack the appropriate received data into raw_temperature_data
             for (int n = 0; n < recv_data_size; n++) {
-                int coord_y = (finch_data_recv(n, 1) - grid.y_min) / grid.deltax;
-                if ((coord_y >= grid.y_offset) && (coord_y < grid.y_offset + grid.ny_local)) {
+                int coord_y_global = Kokkos::round((finch_data_recv(n, 1) - grid.y_min) / grid.deltax);
+                if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
                     for (int comp = 0; comp < num_temperature_components; comp++)
                         raw_temperature_data(temperature_point_counter, comp) = finch_data_recv(n, comp);
                     // Increment counter for each point stored on this rank
