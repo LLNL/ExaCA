@@ -40,13 +40,16 @@ struct Interface {
     int buf_size, buf_components;
     view_type_float diagonal_length, octahedron_center, crit_diagonal_length;
     view_type_buffer buffer_south_send, buffer_north_send, buffer_south_recv, buffer_north_recv;
-    view_type_int send_size_south, send_size_north, steering_vector, num_steer;
-    view_type_int_host send_size_south_host, send_size_north_host, num_steer_host;
+    view_type_int send_size_south, send_size_north, steering_vector, steering_vector_outer, num_steer, num_steer_outer;
+    view_type_int_host send_size_south_host, send_size_north_host, num_steer_host, num_steer_outer_host;
     // Initial size of new octahedra
     float _init_oct_size;
 
     // Neighbor lists
     neighbor_list_type neighbor_x, neighbor_y, neighbor_z;
+
+    // Increment to rebuild outer steering vector
+    int build_increment_outer;
 
     // Parallel dispatch tags.
     struct RefillBuffersTag {};
@@ -54,7 +57,7 @@ struct Interface {
     // Constructor for views and view bounds for current layer
     // Use default initialization to 0 for num_steer_host and num_steer and buffer counts
     Interface(const int id, const int domain_size, const float init_oct_size, const int buf_size_initial_estimate = 25,
-              const int buf_components_temp = 8)
+              const int buf_components_temp = 8, const int build_increment_outer_input = 5000)
         : diagonal_length(view_type_float(Kokkos::ViewAllocateWithoutInitializing("diagonal_length"), domain_size))
         , octahedron_center(
               view_type_float(Kokkos::ViewAllocateWithoutInitializing("octahedron_center"), 3 * domain_size))
@@ -71,11 +74,16 @@ struct Interface {
         , send_size_south(view_type_int("send_size_south", 1))
         , send_size_north(view_type_int("send_size_north", 1))
         , steering_vector(view_type_int(Kokkos::ViewAllocateWithoutInitializing("steering_vector"), domain_size))
+        , steering_vector_outer(
+              view_type_int(Kokkos::ViewAllocateWithoutInitializing("steering_vector_outer"), domain_size))
         , num_steer(view_type_int("steering_vector_size", 1))
+        , num_steer_outer(view_type_int("outer_steering_vector_size", 1))
         , send_size_south_host(view_type_int_host("send_size_south_host", 1))
         , send_size_north_host(view_type_int_host("send_size_north_host", 1))
         , num_steer_host(view_type_int_host("steering_vector_size_host", 1))
-        , _init_oct_size(init_oct_size) {
+        , num_steer_outer_host(view_type_int_host("outer_steering_vector_size_host", 1))
+        , _init_oct_size(init_oct_size)
+        , build_increment_outer(build_increment_outer_input) {
 
         // Set initial buffer size to the estimate
         buf_size = buf_size_initial_estimate;

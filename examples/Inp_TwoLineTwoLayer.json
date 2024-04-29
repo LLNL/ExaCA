@@ -3,6 +3,7 @@
    "MaterialFileName": "Inconel625.json",
    "GrainOrientationFile": "GrainOrientationVectors.csv",
    "RandomSeed": 0,
+   "SteeringVectorRebuildFrequency": 5000,
    "Domain": {
        "CellSize": 2.5,
        "TimeStep": 0.0825,
