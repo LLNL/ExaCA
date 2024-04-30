@@ -314,66 +314,108 @@ struct CellData {
     // Initializes Grain ID values where the substrate comes from a file
     void initBaseplateGrainID(const int id, const Grid &grid, const int baseplate_size_z) {
 
-        if (id == 0)
-            std::cout << "Warning: Reading substrate data from a file will require a vtk file of GrainID values in a "
-                         "future release"
-                      << std::endl;
-        // Assign GrainID values to cells that are part of the substrate - read values from file and initialize using
-        // temporary host view
-        view_type_int_host grain_id_all_layers_host(Kokkos::ViewAllocateWithoutInitializing("GrainID_Host"),
-                                                    grid.domain_size_all_layers);
+        // Parse substrate input file
         std::ifstream substrate;
         substrate.open(_inputs.substrate_filename);
-        int substrate_low_y = grid.y_offset;
-        int substrate_high_y = grid.y_offset + grid.ny_local;
-        int nx_s, ny_s, nz_s;
-        if ((id == 0) && (baseplate_size_z < 1))
-            std::cout
-                << "Warning: No substrate data from the file be used, as the powder layer extends further in the Z "
-                   "direction than the first layer's temperature data"
-                << std::endl;
-        std::string s;
-        getline(substrate, s);
-        std::size_t found = s.find("=");
-        std::string str = s.substr(found + 1, s.length() - 1);
-        nz_s = stoi(str, nullptr, 10);
-        getline(substrate, s);
-        found = s.find("=");
-        str = s.substr(found + 1, s.length() - 1);
-        ny_s = stoi(str, nullptr, 10);
-        getline(substrate, s);
-        found = s.find("=");
-        str = s.substr(found + 1, s.length() - 1);
-        nx_s = stoi(str, nullptr, 10);
-        if ((id == 0) && (nz_s < baseplate_size_z)) {
-            // Do not allow simulation if there is inssufficient substrate data in the specified file
-            std::string error =
-                "Error: only " + std::to_string(nz_s) + " layers of substrate data are present in the file " +
-                _inputs.substrate_filename + " ; at least " + std::to_string(baseplate_size_z) +
-                " layers of substrate data are required to simulate the specified solidification problem";
-            throw std::runtime_error(error);
-        }
+        // Ignore first two header lines
+        skipLines(substrate, 2);
 
-        // Assign GrainID values to all cells - cells that will be part of the melt pool footprint may still need their
-        // initial GrainID
-        for (int k = 0; k < nz_s; k++) {
-            if (k == baseplate_size_z)
-                break;
-            for (int j = 0; j < ny_s; j++) {
-                for (int i = 0; i < nx_s; i++) {
-                    std::string gid_val;
-                    getline(substrate, gid_val);
-                    if ((j >= substrate_low_y) && (j < substrate_high_y)) {
-                        int ca_grid_location;
-                        ca_grid_location = k * grid.nx * grid.ny_local + i * grid.ny_local + (j - grid.y_offset);
-                        grain_id_all_layers_host(ca_grid_location) = stoi(gid_val, nullptr, 10);
-                    }
-                }
-            }
-        }
+        // Is this data binary or ASCII
+        std::string read_line;
+        getline(substrate, read_line);
+        const bool binary_s = (read_line.find("BINARY") != std::string::npos);
+
+        // Ignore line
+        skipLines(substrate, 1);
+
+        // Get nx_s, ny_s, and nz_s
+        std::vector<std::string> dims_read = readVTKTuple(substrate);
+
+        const int nx_s = getInputInt(dims_read[0]);
+        const int ny_s = getInputInt(dims_read[1]);
+        const int nz_s = getInputInt(dims_read[2]);
+
+        // Get origin location
+        std::vector<std::string> org_read = readVTKTuple(substrate);
+        const double x_min_s = getInputDouble(org_read[0]);
+        const double y_min_s = getInputDouble(org_read[1]);
+        const double z_min_s = getInputDouble(org_read[2]);
+
+        // Get voxel spacing
+        std::vector<std::string> vox_spacing_read = readVTKTuple(substrate);
+        const double deltax_s = getInputDouble(vox_spacing_read[0]);
+        if ((deltax_s != getInputDouble(vox_spacing_read[1])) || (deltax_s != getInputDouble(vox_spacing_read[2])))
+            throw std::runtime_error("Error: substrate data must have same spacing in all directions");
+
+        // Ensure substrate dimensions can sufficiently cover the solidification domain
+        if (id == 0)
+            std::cout << "Substrate dimensions from file are " << nx_s << " by " << ny_s << " by " << nz_s
+                      << ", voxel spacing is " << deltax_s << std::endl;
+        const double x_max_s = x_min_s + (nx_s - 1) * deltax_s;
+        const double y_max_s = y_min_s + (ny_s - 1) * deltax_s;
+        const double z_max_s = z_min_s + (nz_s - 1) * deltax_s;
+        const double z_max_baseplate = grid.z_min + (baseplate_size_z - 1) * grid.deltax;
+        if ((x_min_s > grid.x_min) || (x_max_s < grid.x_max) || (y_min_s > grid.y_min) || (y_max_s < grid.y_max) ||
+            (z_min_s > grid.z_min) || (z_max_s < z_max_baseplate))
+            throw std::runtime_error(
+                "Error: Substrate from file is not large enough to span the ExaCA simulation domain");
+
+        // Ignore line
+        skipLines(substrate, 1);
+
+        // Ensure data is of type integer
+        getline(substrate, read_line);
+        if (!read_line.find("int"))
+            throw std::runtime_error("Error: substrate grain ID data must be type int");
+
+        // Ignore line
+        skipLines(substrate, 1);
+
+        // Read grain ID data from file into the host view
+        Kokkos::View<int ***, Kokkos::HostSpace> grain_id_s_host(Kokkos::ViewAllocateWithoutInitializing("GrainID_S"),
+                                                                 nz_s, nx_s, ny_s);
+        if (binary_s)
+            grain_id_s_host =
+                readBinaryField<Kokkos::View<int ***, Kokkos::HostSpace>, int>(substrate, nx_s, ny_s, nz_s, "GrainID");
+        else
+            grain_id_s_host =
+                readASCIIField<Kokkos::View<int ***, Kokkos::HostSpace>>(substrate, nx_s, ny_s, nz_s, "GrainID");
+        if (id == 0)
+            std::cout << "Successfully read substrate GrainID data from the file" << std::endl;
         substrate.close();
-        // Copy GrainIDs read from file to device
-        grain_id_all_layers = Kokkos::create_mirror_view_and_copy(memory_space(), grain_id_all_layers_host);
+        // Copy host view data to device
+        auto grain_id_s = Kokkos::create_mirror_view_and_copy(memory_space(), grain_id_s_host);
+
+        // Assign each CA cell the GrainID of the nearest voxel in the substrate, returning the max GrainID
+        const int baseplate_top_coord_1D = grid.nx * grid.ny_local * baseplate_size_z;
+        int max_grain_id_local = 0;
+        auto grain_id_all_layers_local = grain_id_all_layers;
+        auto policy = Kokkos::RangePolicy<execution_space>(0, baseplate_top_coord_1D);
+        Kokkos::parallel_reduce(
+            "BaseplateInit", policy,
+            KOKKOS_LAMBDA(const int &index_all_layers, int &update) {
+                // x, y, z associated with this 1D cell location, with respect to the global simulation bounds
+                const int coord_x_global = grid.getCoordX(index_all_layers);
+                const int coord_y_global = grid.getCoordY(index_all_layers) + grid.y_offset;
+                const int coord_z_global = grid.getCoordZ(index_all_layers);
+                const double x_location = grid.x_min + coord_x_global * grid.deltax;
+                const double y_location = grid.y_min + coord_y_global * grid.deltax;
+                const double z_location = grid.z_min + coord_z_global * grid.deltax;
+                // What voxel does this correspond to in the substrate?
+                const int coord_x_s = Kokkos::round((x_location - x_min_s) / deltax_s);
+                const int coord_y_s = Kokkos::round((y_location - y_min_s) / deltax_s);
+                const int coord_z_s = Kokkos::round((z_location - z_min_s) / deltax_s);
+                grain_id_all_layers_local(index_all_layers) = grain_id_s(coord_z_s, coord_x_s, coord_y_s);
+                if (grain_id_all_layers_local(index_all_layers) > update)
+                    update = grain_id_all_layers_local(index_all_layers);
+            },
+            Kokkos::Max<int>(max_grain_id_local));
+        Kokkos::fence();
+        // Avoid reusing GrainID in next layer's powder grain structure
+        // TODO: Also account for negative grain ids in the baseplate, in the case where this comes from previous ExaCA
+        // data during future restart file reads
+        max_grain_id_local++;
+        MPI_Allreduce(&max_grain_id_local, &next_layer_first_epitaxial_grain_id, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Substrate file read complete" << std::endl;
     }

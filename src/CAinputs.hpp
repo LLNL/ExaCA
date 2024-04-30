@@ -261,6 +261,8 @@ struct Inputs {
                     "be provided in the input file");
             else if (input_data["Substrate"].contains("SubstrateFilename")) {
                 substrate.substrate_filename = input_data["Substrate"]["SubstrateFilename"];
+                if (substrate.substrate_filename.substr(substrate.substrate_filename.length() - 4) != ".vtk")
+                    throw std::runtime_error("Error: Substrate filename must be a vtk file");
                 substrate.use_substrate_file = true;
             }
             else if (input_data["Substrate"].contains("MeanSize")) {

@@ -170,3 +170,24 @@ std::size_t checkForHeaderValues(std::string header_line) {
     }
     return header_size;
 }
+
+// Read and discard "n_lines" lines of data from the file
+void skipLines(std::ifstream &input_data_stream, const int n_lines) {
+    std::string dummy_str;
+    for (int line = 0; line < n_lines; line++)
+        getline(input_data_stream, dummy_str);
+}
+
+// Read space-separated tuple from a vtk file header
+std::vector<std::string> readVTKTuple(std::ifstream &input_data_stream) {
+    std::vector<std::string> read_values(3);
+    std::string read_line;
+    getline(input_data_stream, read_line);
+    std::size_t first_separator = read_line.find(' ');
+    std::size_t second_separator = read_line.find(' ', first_separator + 1);
+    std::size_t third_separator = read_line.find(' ', second_separator + 1);
+    read_values[0] = read_line.substr(first_separator, second_separator - first_separator);
+    read_values[1] = read_line.substr(second_separator, third_separator - second_separator);
+    read_values[2] = read_line.substr(third_separator);
+    return read_values;
+}

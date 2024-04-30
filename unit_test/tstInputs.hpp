@@ -43,7 +43,7 @@ void writeTestData(std::string input_filename, int print_version) {
                    << std::endl;
     test_data_file << "   }," << std::endl;
     test_data_file << "   \"Substrate\": {" << std::endl;
-    test_data_file << "      \"SubstrateFilename\": \"DummySubstrate.txt\"," << std::endl;
+    test_data_file << "      \"SubstrateFilename\": \"DummySubstrate.vtk\"," << std::endl;
     test_data_file << "      \"PowderDensity\": 1000," << std::endl;
     test_data_file << "      \"BaseplateTopZ\": -0.00625" << std::endl;
     test_data_file << "   }," << std::endl;

@@ -113,4 +113,8 @@ void readIgnoreBinaryField(std::ifstream &input_data_stream, int nx, int ny, int
     }
 }
 
+// Read and discard "n_lines" lines of data from the file
+void skipLines(std::ifstream &input_data_stream, const int n_lines);
+std::vector<std::string> readVTKTuple(std::ifstream &input_data_stream);
+
 #endif
