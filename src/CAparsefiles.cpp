@@ -82,6 +82,35 @@ void splitString(const std::string line, std::vector<std::string> &parsed_line, 
     parsed_line[parsed_line_size - 1] = line_copy;
 }
 
+// Reads a line from an input file stream and outputs the components of the line split at "separator" (spaces used by
+// default). By default, expects 4 components of the line to separate (used in parsing vtk header data)
+std::vector<std::string> splitString(std::ifstream &input_data_stream, std::size_t expected_num_values,
+                                     char separator) {
+
+    std::string line;
+    getline(input_data_stream, line);
+
+    // Make sure the right number of values are present on the line - one more than the number of separators
+    std::size_t actual_num_values = std::count(line.begin(), line.end(), separator) + 1;
+    if (expected_num_values != actual_num_values) {
+        std::string error = "Error: Expected " + std::to_string(expected_num_values) +
+                            " values while reading file; but " + std::to_string(actual_num_values) + " were found";
+        throw std::runtime_error(error);
+    }
+    // Separate the line into its components, now that the number of values has been checked
+    std::vector<std::string> parsed_line(actual_num_values);
+    std::size_t parsed_line_size = parsed_line.size();
+    // Make a copy that we can modify
+    std::string line_copy = line;
+    for (std::size_t n = 0; n < parsed_line_size - 1; n++) {
+        std::size_t pos = line_copy.find(separator);
+        parsed_line[n] = line_copy.substr(0, pos);
+        line_copy = line_copy.substr(pos + 1, std::string::npos);
+    }
+    parsed_line[parsed_line_size - 1] = line_copy;
+    return parsed_line;
+}
+
 bool checkFileExists(const std::string path, const int id, const bool error) {
     std::ifstream stream;
     stream.open(path);
@@ -176,18 +205,4 @@ void skipLines(std::ifstream &input_data_stream, const int n_lines) {
     std::string dummy_str;
     for (int line = 0; line < n_lines; line++)
         getline(input_data_stream, dummy_str);
-}
-
-// Read space-separated tuple from a vtk file header
-std::vector<std::string> readVTKTuple(std::ifstream &input_data_stream) {
-    std::vector<std::string> read_values(3);
-    std::string read_line;
-    getline(input_data_stream, read_line);
-    std::size_t first_separator = read_line.find(' ');
-    std::size_t second_separator = read_line.find(' ', first_separator + 1);
-    std::size_t third_separator = read_line.find(' ', second_separator + 1);
-    read_values[0] = read_line.substr(first_separator, second_separator - first_separator);
-    read_values[1] = read_line.substr(second_separator, third_separator - second_separator);
-    read_values[2] = read_line.substr(third_separator);
-    return read_values;
 }

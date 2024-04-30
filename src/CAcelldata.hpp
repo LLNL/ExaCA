@@ -329,22 +329,21 @@ struct CellData {
         skipLines(substrate, 1);
 
         // Get nx_s, ny_s, and nz_s
-        std::vector<std::string> dims_read = readVTKTuple(substrate);
-
-        const int nx_s = getInputInt(dims_read[0]);
-        const int ny_s = getInputInt(dims_read[1]);
-        const int nz_s = getInputInt(dims_read[2]);
+        std::vector<std::string> dims_read = splitString(substrate);
+        const int nx_s = getInputInt(dims_read[1]);
+        const int ny_s = getInputInt(dims_read[2]);
+        const int nz_s = getInputInt(dims_read[3]);
 
         // Get origin location
-        std::vector<std::string> org_read = readVTKTuple(substrate);
-        const double x_min_s = getInputDouble(org_read[0]);
-        const double y_min_s = getInputDouble(org_read[1]);
-        const double z_min_s = getInputDouble(org_read[2]);
+        std::vector<std::string> org_read = splitString(substrate);
+        const double x_min_s = getInputDouble(org_read[1]);
+        const double y_min_s = getInputDouble(org_read[2]);
+        const double z_min_s = getInputDouble(org_read[3]);
 
         // Get voxel spacing
-        std::vector<std::string> vox_spacing_read = readVTKTuple(substrate);
-        const double deltax_s = getInputDouble(vox_spacing_read[0]);
-        if ((deltax_s != getInputDouble(vox_spacing_read[1])) || (deltax_s != getInputDouble(vox_spacing_read[2])))
+        std::vector<std::string> vox_spacing_read = splitString(substrate);
+        const double deltax_s = getInputDouble(vox_spacing_read[1]);
+        if ((deltax_s != getInputDouble(vox_spacing_read[2])) || (deltax_s != getInputDouble(vox_spacing_read[3])))
             throw std::runtime_error("Error: substrate data must have same spacing in all directions");
 
         // Ensure substrate dimensions can sufficiently cover the solidification domain
