@@ -134,15 +134,7 @@ struct Temperature {
 
         // First, store data with Y coordinates in bounds for this rank in raw_temperature_data
         int temperature_point_counter = 0;
-        for (int n = 0; n < finch_data_size; n++) {
-            int coord_y = (input_temperature_data(n, 1) - grid.y_min) / grid.deltax;
-            if ((coord_y >= grid.y_offset) && (coord_y < grid.y_offset + grid.ny_local)) {
-                for (int comp = 0; comp < num_temperature_components; comp++)
-                    raw_temperature_data(temperature_point_counter, comp) = input_temperature_data(n, comp);
-                // Increment counter for each point stored on this rank
-                temperature_point_counter++;
-            }
-        }
+        extractTemperatureData(input_temperature_data, raw_temperature_data, temperature_point_counter, grid);
 
         // Communication pattern - sending to right, receiving from left
         int left, right;
@@ -184,15 +176,7 @@ struct Temperature {
             MPI_Wait(&recv_request_data, MPI_STATUS_IGNORE);
 
             // Unpack the appropriate received data into raw_temperature_data
-            for (int n = 0; n < recv_data_size; n++) {
-                int coord_y = (finch_data_recv(n, 1) - grid.y_min) / grid.deltax;
-                if ((coord_y >= grid.y_offset) && (coord_y < grid.y_offset + grid.ny_local)) {
-                    for (int comp = 0; comp < num_temperature_components; comp++)
-                        raw_temperature_data(temperature_point_counter, comp) = finch_data_recv(n, comp);
-                    // Increment counter for each point stored on this rank
-                    temperature_point_counter++;
-                }
-            }
+            extractTemperatureData(finch_data_recv, raw_temperature_data, temperature_point_counter, grid);
 
             // Replace send buffer with the received data
             input_temperature_data = finch_data_recv;
@@ -206,6 +190,21 @@ struct Temperature {
         }
         std::cout << "Rank " << id << " has " << temperature_point_counter << " events to simulate with ExaCA"
                   << std::endl;
+    }
+
+    // Get temperature data from Finch and store as raw temperatures.
+    template <typename SrcViewType, typename DstViewType>
+    void extractTemperatureData(const SrcViewType &temp_src, DstViewType &temp_dst, int &temp_count, const Grid grid) {
+        int data_size = temp_src.extent(0);
+        for (int n = 0; n < data_size; n++) {
+            int coord_y_global = Kokkos::round((temp_src(n, 1) - grid.y_min) / grid.deltax);
+            if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
+                for (int comp = 0; comp < num_temperature_components; comp++)
+                    temp_dst(temp_count, comp) = temp_src(n, comp);
+                // Increment counter for each point stored on this rank
+                temp_count++;
+            }
+        }
     }
 
     // Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header
