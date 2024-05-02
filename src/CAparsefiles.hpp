@@ -22,6 +22,8 @@ float getInputFloat(std::string val_input, int factor = 0);
 double getInputDouble(std::string val_input, int factor = 0);
 void splitString(std::string line, std::vector<std::string> &parsed_line, std::size_t expected_num_values,
                  char separator = ',');
+std::vector<std::string> splitString(std::ifstream &input_data_stream, std::size_t expected_num_values = 4,
+                                     char separator = ' ');
 std::size_t checkForHeaderValues(std::string header_line);
 bool checkFileExists(const std::string path, const int id, const bool error = true);
 std::string checkFileInstalled(const std::string name, const int id);
@@ -112,5 +114,8 @@ void readIgnoreBinaryField(std::ifstream &input_data_stream, int nx, int ny, int
         }
     }
 }
+
+// Read and discard "n_lines" lines of data from the file
+void skipLines(std::ifstream &input_data_stream, const int n_lines);
 
 #endif

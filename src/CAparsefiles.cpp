@@ -82,6 +82,18 @@ void splitString(const std::string line, std::vector<std::string> &parsed_line, 
     parsed_line[parsed_line_size - 1] = line_copy;
 }
 
+// Reads a line from an input file stream and outputs the components of the line split at "separator" (spaces used by
+// default). By default, expects 4 components of the line to separate (used in parsing vtk header data)
+std::vector<std::string> splitString(std::ifstream &input_data_stream, std::size_t expected_num_values,
+                                     char separator) {
+
+    std::string line;
+    std::vector<std::string> parsed_line;
+    getline(input_data_stream, line);
+    splitString(line, parsed_line, expected_num_values, separator);
+    return parsed_line;
+}
+
 bool checkFileExists(const std::string path, const int id, const bool error) {
     std::ifstream stream;
     stream.open(path);
@@ -169,4 +181,11 @@ std::size_t checkForHeaderValues(std::string header_line) {
         }
     }
     return header_size;
+}
+
+// Read and discard "n_lines" lines of data from the file
+void skipLines(std::ifstream &input_data_stream, const int n_lines) {
+    std::string dummy_str;
+    for (int line = 0; line < n_lines; line++)
+        getline(input_data_stream, dummy_str);
 }
