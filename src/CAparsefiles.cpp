@@ -88,7 +88,7 @@ std::vector<std::string> splitString(std::ifstream &input_data_stream, std::size
                                      char separator) {
 
     std::string line;
-    std::vector<std::string> parsed_line;
+    std::vector<std::string> parsed_line(expected_num_values);
     getline(input_data_stream, line);
     splitString(line, parsed_line, expected_num_values, separator);
     return parsed_line;
