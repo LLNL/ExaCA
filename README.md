@@ -182,13 +182,13 @@ Run by calling the created executable with an ExaCA input file:
 ```
 mpiexec -n 1 ./build/install/bin/ExaCA examples/Inp_DirSolidification.json
 ```
-Alternatively, the `Finch-ExaCA` executable can be used for coupled Finch-ExaCA simulations. This can be called by running with two input files listed on the command line, with the Finch input file listed first. Caution should be taken such that the cell size given in the CA input file matches that given in the Finch input file.
-
-mpiexec -n 1 ./build/install/bin/Finch-ExaCA $PATH_TO_FINCH/examples/single_line/inputs.json examples/Inp_DirSolidification.json
-
-Example problems only possible with [Finch in-memory coupling](https://github.com/ORNL-MDF/Finch):
+Alternatively, the `Finch-ExaCA` executable can be used for coupled Finch-ExaCA simulations. Compilation with `ExaCA_ENABLE_FINCH=ON` is required for these examples with [Finch in-memory coupling](https://github.com/ORNL-MDF/Finch):
  * `Inp_SmallFinch.json`: simulates melting and solidification of a small melt pool segment at a coarse resolution
  * `Inp_Finch.json`: simulates melting and solidification of a small melt pool segment at a fine resolution, repeated for 3 layers
+
+For coupled Finch-ExaCA runs, caution should be taken such that the cell size given in the CA input file matches that given in the Finch input file. Additionally, `scan_path_file` in the Finch input file (for `Inp_Finch.json`, this is `examples/single_line/inputs_small_refined.json` in the Finch repository and for `Inp_SmallFinch.json`, this is `examples/single_line/inputs_small.json` in the Finch repository) should be modified to represent a global path name. Run by calling the created executable with a Finch input file and an ExaCA input file on the command line, with the Finch input file listed first:
+
+mpiexec -n 1 ./build/install/bin/Finch-ExaCA $PATH_TO_FINCH/examples/single_line/inputs_small.json examples/Inp_SmallFinch.json
 
 ## Automated input file generation using Tasmanian (https://tasmanian.ornl.gov/)
 Within the `utilities` directory, an example python script for the generation of an ensemble of input files is available. By running the example script `TasmanianTest.py`, 69 ExaCA input files are generated with a range of heterogeneous nucleation density, mean nucleation undercooling, and mean substrate grain size values, based on the ranges in python code (N0Min-N0Max, dTNMin-dTNMax, and S0Min-S0Max), respectively. Running the python script from the ExaCA source directory, via the command
