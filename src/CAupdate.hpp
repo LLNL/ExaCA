@@ -497,7 +497,7 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                     float ghost_octahedron_center_x = cx;
                     float ghost_octahedron_center_y = cy;
                     float ghost_octahedron_center_z = cz;
-                    float ghost_diagonal_length = 0.01;
+                    float ghost_diagonal_length = interface._init_oct_size;
                     // Collect data for the ghost nodes, if necessary
                     bool data_fits_in_buffer = interface.loadGhostNodes(
                         ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y, ghost_octahedron_center_z,
