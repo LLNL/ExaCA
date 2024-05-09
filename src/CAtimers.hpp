@@ -25,8 +25,8 @@ class Timer {
     void reset() { _time = 0.0; }
     auto time() { return _time; }
     auto numCalls() { return num_calls; }
-    auto minTime() { return max_time; }
-    auto maxTime() { return min_time; }
+    auto minTime() { return min_time; }
+    auto maxTime() { return max_time; }
 
     void reduceMPI() {
         MPI_Allreduce(&_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
