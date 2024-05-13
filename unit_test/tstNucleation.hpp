@@ -82,9 +82,10 @@ void testNucleiInit() {
 
     // Allocate temperature data structures
     Temperature<memory_space> temperature(grid, inputs.temperature);
-    // Resize layer_time_temp_history with the known max number of solidification events
-    Kokkos::resize(temperature.layer_time_temp_history, grid.domain_size, max_solidification_events_count, 3);
-    // Initialize max_solidification_events to 3 for each layer. layer_time_temp_history and
+    // Resize liquidus_time and cooling_rate with the known max number of solidification events
+    Kokkos::resize(temperature.liquidus_time, grid.domain_size, max_solidification_events_count, 2);
+    Kokkos::resize(temperature.cooling_rate, grid.domain_size, max_solidification_events_count);
+    // Initialize max_solidification_events to 3 for each layer. liquidus_time and
     // number_of_solidification_events are initialized for each cell on the host and copied to the device
     Kokkos::View<int *, Kokkos::HostSpace> max_solidification_events_host(
         Kokkos::ViewAllocateWithoutInitializing("max_solidification_events_host"), grid.number_of_layers);
@@ -115,13 +116,13 @@ void testNucleiInit() {
                         int coord_z_all_layers = coord_z + grid.z_layer_bottom;
                         if (n < temperature.number_of_solidification_events(index)) {
                             // melting time step depends on solidification event number
-                            temperature.layer_time_temp_history(index, n, 0) =
+                            temperature.liquidus_time(index, n, 0) =
                                 coord_z_all_layers + coord_y + grid.y_offset + (grid.domain_size * n);
                             // liquidus time stemp depends on solidification event number
-                            temperature.layer_time_temp_history(index, n, 1) =
+                            temperature.liquidus_time(index, n, 1) =
                                 coord_z_all_layers + coord_y + grid.y_offset + 1 + (grid.domain_size * n);
                             // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep value
-                            temperature.layer_time_temp_history(index, n, 2) = 1.2;
+                            temperature.cooling_rate(index, n) = 1.2;
                         }
                     }
                 }

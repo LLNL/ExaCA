@@ -522,18 +522,18 @@ void testFillSteeringVector_Remelt() {
             // Cells at Z = 0 through Z = 2 are Solid, Z = 3 and 4 are TempSolid
             if (coord_z <= 2) {
                 // Solid cells should have -1 assigned as their melt/crit time steps
-                temperature.layer_time_temp_history(index, 0, 0) = -1;
-                temperature.layer_time_temp_history(index, 0, 1) = -1;
-                temperature.layer_time_temp_history(index, 0, 2) = 0;
+                temperature.liquidus_time(index, 0, 0) = -1;
+                temperature.liquidus_time(index, 0, 1) = -1;
+                temperature.cooling_rate(index, 0) = 0;
             }
             else {
                 // Cells "melt" at a time step corresponding to their Y location in the overall domain (depends on
                 // MyYOffset of the rank)
-                temperature.layer_time_temp_history(index, 0, 0) = coord_y + grid.y_offset + 1;
+                temperature.liquidus_time(index, 0, 0) = coord_y + grid.y_offset + 1;
                 // Cells reach liquidus during cooling 2 time steps after melting
-                temperature.layer_time_temp_history(index, 0, 1) = temperature.layer_time_temp_history(index, 0, 0) + 2;
+                temperature.liquidus_time(index, 0, 1) = temperature.liquidus_time(index, 0, 0) + 2;
             }
-            temperature.layer_time_temp_history(index, 0, 2) = 0.2;
+            temperature.cooling_rate(index, 0) = 0.2;
             temperature.number_of_solidification_events(index) = 1;
         });
 
@@ -555,8 +555,7 @@ void testFillSteeringVector_Remelt() {
     auto num_steer_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.num_steer);
     auto undercooling_current_host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.undercooling_current);
-    auto layer_time_temp_history_host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.layer_time_temp_history);
+    auto liquidus_time_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.liquidus_time);
 
     // Check the modified CellType and UndercoolingCurrent values on the host:
     // Check that the cells corresponding to outside of the "active" portion of the domain have unchanged values
@@ -574,18 +573,16 @@ void testFillSteeringVector_Remelt() {
         if (coord_z <= 2)
             EXPECT_FLOAT_EQ(undercooling_current_host(index), 0.0);
         else {
-            if (numcycles < layer_time_temp_history_host(index, 0, 0)) {
+            if (numcycles < liquidus_time_host(index, 0, 0)) {
                 EXPECT_EQ(cell_type_host(index), TempSolid);
                 EXPECT_FLOAT_EQ(undercooling_current_host(index), 0.0);
             }
-            else if ((numcycles >= layer_time_temp_history_host(index, 0, 0)) &&
-                     (numcycles <= layer_time_temp_history_host(index, 0, 1))) {
+            else if ((numcycles >= liquidus_time_host(index, 0, 0)) && (numcycles <= liquidus_time_host(index, 0, 1))) {
                 EXPECT_EQ(cell_type_host(index), Liquid);
                 EXPECT_FLOAT_EQ(undercooling_current_host(index), 0.0);
             }
             else {
-                EXPECT_FLOAT_EQ(undercooling_current_host(index),
-                                (numcycles - layer_time_temp_history_host(index, 0, 1)) * 0.2);
+                EXPECT_FLOAT_EQ(undercooling_current_host(index), (numcycles - liquidus_time_host(index, 0, 1)) * 0.2);
                 if (coord_z == 4)
                     EXPECT_EQ(cell_type_host(index), Liquid);
                 else {

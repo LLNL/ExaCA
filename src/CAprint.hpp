@@ -210,20 +210,18 @@ struct Print {
                               undercooling_start_whole_domain);
             }
             if (_inputs.intralayer_melt_time_step) {
-                auto melt_time_step = temperature.template extractTmTlCrData<view_type_int>(0, grid.domain_size);
+                auto melt_time_step = temperature.template extractTmTlData<view_type_int>(0, grid.domain_size);
                 auto melt_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, melt_time_step);
                 printViewData(id, intralayer_ofstream, grid, true, "int", "MeltTimeStep", melt_time_step_whole_domain);
             }
             if (_inputs.intralayer_crit_time_step) {
-                auto crit_time_step = temperature.template extractTmTlCrData<view_type_int>(1, grid.domain_size);
+                auto crit_time_step = temperature.template extractTmTlData<view_type_int>(1, grid.domain_size);
                 auto crit_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, crit_time_step);
                 printViewData(id, intralayer_ofstream, grid, true, "int", "CritTimeStep", crit_time_step_whole_domain);
             }
             if (_inputs.intralayer_undercooling_change) {
-                auto undercooling_change =
-                    temperature.template extractTmTlCrData<view_type_float>(2, grid.domain_size, 0);
-                auto undercooling_change_whole_domain =
-                    collectViewData(id, np, grid, true, MPI_FLOAT, undercooling_change);
+                auto cooling_rate = temperature.template extractCrData<view_type_float>(grid.domain_size);
+                auto undercooling_change_whole_domain = collectViewData(id, np, grid, true, MPI_FLOAT, cooling_rate);
                 printViewData(id, intralayer_ofstream, grid, true, "float", "UndercoolingChange",
                               undercooling_change_whole_domain);
             }
@@ -352,22 +350,21 @@ struct Print {
                     writeHeader(currentlayer_ofstream, vtk_filename_current_layer, grid, true);
                 }
                 if (_inputs.interlayer_melt_time_step) {
-                    auto melt_time_step = temperature.template extractTmTlCrData<view_type_int>(0, grid.domain_size);
+                    auto melt_time_step = temperature.template extractTmTlData<view_type_int>(0, grid.domain_size);
                     auto melt_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, melt_time_step);
                     printViewData(id, currentlayer_ofstream, grid, true, "int", "MeltTimeStep",
                                   melt_time_step_whole_domain);
                 }
                 if (_inputs.interlayer_crit_time_step) {
-                    auto crit_time_step = temperature.template extractTmTlCrData<view_type_int>(1, grid.domain_size);
+                    auto crit_time_step = temperature.template extractTmTlData<view_type_int>(1, grid.domain_size);
                     auto crit_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, crit_time_step);
                     printViewData(id, currentlayer_ofstream, grid, true, "int", "CritTimeStep",
                                   crit_time_step_whole_domain);
                 }
                 if (_inputs.interlayer_undercooling_change) {
-                    auto undercooling_change =
-                        temperature.template extractTmTlCrData<view_type_float>(2, grid.domain_size, 0);
+                    auto cooling_rate = temperature.template extractCrData<view_type_float>(grid.domain_size);
                     auto undercooling_change_whole_domain =
-                        collectViewData(id, np, grid, true, MPI_FLOAT, undercooling_change);
+                        collectViewData(id, np, grid, true, MPI_FLOAT, cooling_rate);
                     printViewData(id, currentlayer_ofstream, grid, true, "float", "UndercoolingChange",
                                   undercooling_change_whole_domain);
                 }

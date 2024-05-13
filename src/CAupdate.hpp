@@ -32,7 +32,7 @@ void fillSteeringVector_NoRemelt(const int cycle, const Grid &grid, CellData<Mem
         "FillSV", grid.domain_size, KOKKOS_LAMBDA(const int &index) {
             int cell_type = celldata.cell_type(index);
             bool is_not_solid = (cell_type != Solid);
-            int crit_time_step = temperature.layer_time_temp_history(index, 0, 1);
+            int crit_time_step = temperature.liquidus_time(index, 0, 1);
             bool past_crit_time = (cycle > crit_time_step);
             bool cell_active = ((cell_type == Active) || (cell_type == FutureActive));
             if (is_not_solid && past_crit_time) {
@@ -745,8 +745,8 @@ void jumpTimeStep(int &cycle, int remaining_cells_of_interest, const int local_t
                     // criteria for a cell to be associated with future work (checking this layer's cells only)
                     if (celldata.cell_type(index) == TempSolid) {
                         int solidification_counter_this_cell = temperature.solidification_event_counter(index);
-                        int next_melt_time_step_this_cell = static_cast<int>(
-                            temperature.layer_time_temp_history(index, solidification_counter_this_cell, 0));
+                        int next_melt_time_step_this_cell =
+                            temperature.liquidus_time(index, solidification_counter_this_cell, 0);
                         if (next_melt_time_step_this_cell < tempv)
                             tempv = next_melt_time_step_this_cell;
                     }

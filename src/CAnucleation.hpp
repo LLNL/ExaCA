@@ -94,8 +94,8 @@ struct Nucleation {
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.max_solidification_events);
         auto number_of_solidification_events_host =
             Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.number_of_solidification_events);
-        auto layer_time_temp_history_host =
-            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.layer_time_temp_history);
+        auto liquidus_time_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.liquidus_time);
+        auto cooling_rate_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.cooling_rate);
 
         // Use new RNG seed for each layer
         std::mt19937_64 generator(rng_seed + static_cast<unsigned long>(layernumber));
@@ -104,7 +104,7 @@ struct Nucleation {
         std::uniform_real_distribution<double> y_dist(-0.49999, grid.ny - 0.5);
         std::uniform_real_distribution<double> z_dist(-0.49999, grid.nz_layer - 0.5);
         // Gaussian distribution of nucleation undercooling
-        std::normal_distribution<float> g_distribution(_inputs.dtn, _inputs.dtsigma);
+        std::normal_distribution<double> g_distribution(_inputs.dtn, _inputs.dtsigma);
 
         // Max number of nucleated grains in this layer
         // Use long int in intermediate steps calculating the number of nucleated grains, though the number should be
@@ -128,7 +128,7 @@ struct Nucleation {
 
         // Nuclei Grain ID are assigned to avoid reusing values from previous layers
         std::vector<int> nuclei_grain_id_whole_domain_v(nuclei_this_layer);
-        std::vector<float> nuclei_undercooling_whole_domain_v(nuclei_this_layer);
+        std::vector<double> nuclei_undercooling_whole_domain_v(nuclei_this_layer);
         // Views for storing potential nucleated grain coordinates
         view_type_int_host nuclei_x(Kokkos::ViewAllocateWithoutInitializing("NucleiX"), nuclei_this_layer);
         view_type_int_host nuclei_y(Kokkos::ViewAllocateWithoutInitializing("NucleiY"), nuclei_this_layer);
@@ -186,15 +186,14 @@ struct Nucleation {
                         // solidification
                         nuclei_location_myrank_v[possible_nuclei] = nuclei_location_this_layer;
 
-                        float crit_time_step_this_event =
-                            layer_time_temp_history_host(nuclei_location_this_layer, meltevent, 1);
-                        float undercooling_change_this_event =
-                            layer_time_temp_history_host(nuclei_location_this_layer, meltevent, 2);
-                        float time_to_nuc_und =
-                            Kokkos::round(static_cast<float>(crit_time_step_this_event) +
-                                          nuclei_undercooling_whole_domain_v[n_event] / undercooling_change_this_event);
-                        if (crit_time_step_this_event > time_to_nuc_und)
-                            time_to_nuc_und = crit_time_step_this_event;
+                        double liq_time_this_event =
+                            static_cast<double>(liquidus_time_host(nuclei_location_this_layer, meltevent, 1));
+                        double cooling_rate_this_event =
+                            static_cast<double>(cooling_rate_host(nuclei_location_this_layer, meltevent));
+                        double time_to_nuc_und =
+                            liq_time_this_event + nuclei_undercooling_whole_domain_v[n_event] / cooling_rate_this_event;
+                        if (liq_time_this_event > time_to_nuc_und)
+                            time_to_nuc_und = liq_time_this_event;
                         nucleation_times_myrank_v[possible_nuclei] = Kokkos::round(time_to_nuc_und);
                         // Assign this cell the potential nucleated grain ID
                         nuclei_grain_id_myrank_v[possible_nuclei] = nuclei_grain_id_whole_domain_v[n_event];
