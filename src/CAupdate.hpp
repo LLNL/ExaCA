@@ -45,35 +45,6 @@ void fillSteeringVector_NoRemelt(const int cycle, const Grid &grid, CellData<Mem
     Kokkos::deep_copy(interface.num_steer_host, interface.num_steer);
 }
 
-// Build an "outer" steering vector for cells that will undergo some transition in the next build_increment_outer time
-// steps, which will be iterated over in the other steering vector
-template <typename MemorySpace>
-void fillOuterSteeringVector_Remelt(const int cycle, const int domain_size, CellData<MemorySpace> &celldata,
-                                    Temperature<MemorySpace> &temperature, Interface<MemorySpace> &interface) {
-
-    // Reset outer steering vector size to 0 on device
-    Kokkos::deep_copy(interface.num_steer_outer, 0);
-    // Add any cells that are currently liquid or active, or any temporarily solid cells that will melt within the next
-    // build_increment_outer time steps, to the outer steering vector
-    Kokkos::parallel_for(
-        "FillOuterSV_RM", domain_size, KOKKOS_LAMBDA(const int &index) {
-            int celltype = celldata.cell_type(index);
-            if ((celltype == Active) || (celltype == Liquid) ||
-                ((celltype == TempSolid) &&
-                 (temperature.getMeltTimeStep(cycle, index) < cycle + interface.build_increment_outer)))
-                interface.steering_vector_outer(Kokkos::atomic_fetch_add(&interface.num_steer_outer(0), 1)) = index;
-        });
-    Kokkos::fence();
-
-    // Copy size of outer steering vector (containing positions of cells of interest within the next
-    // build_increment_outer time steps) to the host
-    Kokkos::deep_copy(interface.num_steer_outer_host, interface.num_steer_outer);
-    // Resize inner steering vector, as its max size is the size of the outer steering vector. Since the inner steering
-    // vector is rebuilt every time step, realloc can be used and the previous values from the inner steering vector do
-    // not need to be preserved
-    Kokkos::realloc(interface.steering_vector, interface.num_steer_outer_host(0));
-}
-
 // For the case where cells may melt and solidify multiple times, determine which cells are associated with the
 // "steering vector" of cells that are either active, or becoming active this time step - version with remelting
 template <typename MemorySpace>
@@ -82,8 +53,7 @@ void fillSteeringVector_Remelt(const int cycle, const Grid &grid, CellData<Memor
 
     auto grain_id = celldata.getGrainIDSubview(grid);
     Kokkos::parallel_for(
-        "FillSV_RM", interface.num_steer_outer_host(0), KOKKOS_LAMBDA(const int &num_outer) {
-            const int index = interface.steering_vector_outer(num_outer);
+        "FillSV_RM", grid.domain_size, KOKKOS_LAMBDA(const int &index) {
             int celltype = celldata.cell_type(index);
             // Only iterate over cells that are not Solid type
             if (celltype != Solid) {
@@ -797,8 +767,6 @@ void jumpTimeStep(int &cycle, int remaining_cells_of_interest, const int local_t
                                       orientation, global_next_melt_time_step);
             // Jump to next time step when solidification starts again
             cycle = global_next_melt_time_step - 1;
-            // Rebuild outer steering vector with cells that are relevant now that time step has been advanced
-            fillOuterSteeringVector_Remelt(cycle, grid.domain_size, celldata, temperature, interface);
             if (id == 0)
                 std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
         }
