@@ -26,7 +26,6 @@ struct Inputs {
 
     std::string simulation_type = "", material_filename = "", grain_orientation_file = "";
     unsigned long rng_seed = 0.0;
-    int build_increment_outer = 5000;
     DomainInputs domain;
     NucleationInputs nucleation;
     InterfacialResponseInputs irf;
@@ -85,9 +84,6 @@ struct Inputs {
         // Seed for random number generator (defaults to 0 if not given)
         if (input_data.contains("RandomSeed"))
             rng_seed = input_data["RandomSeed"];
-        // Increment for resizing the outer steering vector used to iterate over cells of interest each time step
-        if (input_data.contains("SteeringVectorRebuildFrequency"))
-            build_increment_outer = input_data["SteeringVectorRebuildFrequency"];
 
         // Domain inputs:
         // Cell size - given in meters, stored in micrometers

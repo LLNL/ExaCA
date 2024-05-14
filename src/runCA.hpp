@@ -56,8 +56,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
 
     // Variables characterizing the active cell region within each rank's grid, including buffers for ghost node data
     // (fixed size) and the steering vector/steering vector size on host/device
-    Interface<memory_space> interface(id, grid.domain_size, inputs.substrate.init_oct_size,
-                                      inputs.build_increment_outer);
+    Interface<memory_space> interface(id, grid.domain_size, inputs.substrate.init_oct_size);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event
@@ -83,9 +82,6 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
 
         int x_switch = 0;
-        // Fill initial outer steering vector for problems with remelting
-        if ((simulation_type != "Directional") && (simulation_type != "SingleGrain"))
-            fillOuterSteeringVector_Remelt(0, grid.domain_size, celldata, temperature, interface);
         timers.startLayer();
 
         // Loop continues until all liquid cells claimed by solid grains
@@ -114,11 +110,8 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
             timers.startSV();
             if ((simulation_type == "Directional") || (simulation_type == "SingleGrain"))
                 fillSteeringVector_NoRemelt(cycle, grid, celldata, temperature, interface);
-            else {
-                if (cycle % interface.build_increment_outer == 0)
-                    fillOuterSteeringVector_Remelt(cycle, grid.domain_size, celldata, temperature, interface);
+            else
                 fillSteeringVector_Remelt(cycle, grid, celldata, temperature, interface);
-            }
             timers.stopSV();
 
             timers.startCapture();

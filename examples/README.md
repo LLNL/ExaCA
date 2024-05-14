@@ -55,7 +55,6 @@ The .json files in the examples subdirectory are provided on the command line to
 | MaterialFileName       | Name of material file in examples/Materials used
 | GrainOrientationFile   | File listing rotation matrix components used in assigning orientations to grains ([see below](#substrate-inputs))
 | RandomSeed             | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
-| SteeringVectorRebuildFrequency | Used for problem types `Spot`, `FromFile`, and `FromFinch`, this is the number of time steps between rebuilding of the steering vector listing cells that will undergo a future type transition (default value is 5000 if not provided). Depending on the solidification rate in the problem of interest, tuning this may lead to small performance improvements
 | Domain                 | Section for parameters that describe the simulation domain for the given problem type ([see below](#domain-inputs))
 | Nucleation             | Section for parameters that describe nucleation ([see below](#nucleation-inputs))
 | TemperatureData        | Section for parameters/files governing the temperature field for the given problem type ([see below](#temperature-inputs)). Section is unused if temperature data is given from Finch
