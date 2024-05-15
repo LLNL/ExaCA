@@ -85,10 +85,9 @@ void fillSteeringVector_Remelt(const int cycle, const Grid &grid, CellData<Memor
                         int neighbor_coord_x = coord_x + interface.neighbor_x[l];
                         int neighbor_coord_y = coord_y + interface.neighbor_y[l];
                         int neighbor_coord_z = coord_z + interface.neighbor_z[l];
-                        if ((neighbor_coord_x >= 0) && (neighbor_coord_x < grid.nx) && (neighbor_coord_y >= 0) &&
-                            (neighbor_coord_y < grid.ny_local) && (neighbor_coord_z < grid.nz_layer) &&
-                            (neighbor_coord_z >= 0)) {
-                            int neighbor_index = grid.get1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
+                        const int neighbor_index =
+                            grid.getNeighbor1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
+                        if (neighbor_index != -1) {
                             if (celldata.cell_type(neighbor_index) == Active) {
                                 // Mark adjacent active cells to this as cells that should be converted into liquid,
                                 // as they are more likely heating than cooling
@@ -121,10 +120,9 @@ void fillSteeringVector_Remelt(const int cycle, const Grid &grid, CellData<Memor
                         int neighbor_coord_x = coord_x + interface.neighbor_x[l];
                         int neighbor_coord_y = coord_y + interface.neighbor_y[l];
                         int neighbor_coord_z = coord_z + interface.neighbor_z[l];
-                        if ((neighbor_coord_x >= 0) && (neighbor_coord_x < grid.nx) && (neighbor_coord_y >= 0) &&
-                            (neighbor_coord_y < grid.ny_local) && (neighbor_coord_z < grid.nz_layer) &&
-                            (neighbor_coord_z >= 0)) {
-                            int neighbor_index = grid.get1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
+                        const int neighbor_index =
+                            grid.getNeighbor1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
+                        if (neighbor_index != -1) {
                             if ((celldata.cell_type(neighbor_index) == TempSolid) ||
                                 (celldata.cell_type(neighbor_index) == Solid) || (coord_z == 0)) {
                                 // Cell activation to be performed as part of steering vector
@@ -180,10 +178,9 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                     int neighbor_coord_y = coord_y + interface.neighbor_y[l];
                     int neighbor_coord_z = coord_z + interface.neighbor_z[l];
                     // Check if neighbor is in bounds
-                    if ((neighbor_coord_x >= 0) && (neighbor_coord_x < grid.nx) && (neighbor_coord_y >= 0) &&
-                        (neighbor_coord_y < grid.ny_local) && (neighbor_coord_z < grid.nz_layer) &&
-                        (neighbor_coord_z >= 0)) {
-                        int neighbor_index = grid.get1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
+                    const int neighbor_index =
+                        grid.getNeighbor1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
+                    if (neighbor_index != -1) {
                         if (celldata.cell_type(neighbor_index) == Liquid)
                             deactivate_cell = false;
                         // Capture of cell located at "neighbor_index" if this condition is satisfied
