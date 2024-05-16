@@ -577,6 +577,19 @@ struct Grid {
         layer_range = std::make_pair(bottom_of_current_layer, top_of_current_layer);
     }
 
+    // Get the 1D cell coordinate from the x, y, and z cell positions of a neighboring cell, returning -1 is the
+    // neighbor coordinate is not in bounds
+    KOKKOS_INLINE_FUNCTION
+    int getNeighbor1DIndex(const int neighbor_coord_x, const int neighbor_coord_y, const int neighbor_coord_z) const {
+        int neighbor_index;
+        if ((neighbor_coord_x < 0) || (neighbor_coord_x >= nx) || (neighbor_coord_y < 0) ||
+            (neighbor_coord_y >= ny_local) || (neighbor_coord_z >= nz_layer) || (neighbor_coord_z < 0))
+            neighbor_index = -1;
+        else
+            neighbor_index = neighbor_coord_z * nx * ny_local + neighbor_coord_x * ny_local + neighbor_coord_y;
+        return neighbor_index;
+    }
+
     // Get the 1D cell coordinate from the x, y, and z cell positions
     KOKKOS_INLINE_FUNCTION
     int get1DIndex(const int coord_x, const int coord_y_local, const int coord_z) const {
