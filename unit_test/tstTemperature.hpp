@@ -231,16 +231,16 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
     temperature.initialize(id, simulation_type, grid, deltat);
 
     // Copy temperature views back to host
-    auto number_of_solidification_events_host = Kokkos::create_mirror_view_and_copy(
-        Kokkos::HostSpace(), temperature.number_of_solidification_events); // Copy orientation data back to the host
-    auto solidification_event_counter_host = Kokkos::create_mirror_view_and_copy(
-        Kokkos::HostSpace(), temperature.solidification_event_counter); // Copy orientation data back to the host
-    auto max_solidification_events_host = Kokkos::create_mirror_view_and_copy(
-        Kokkos::HostSpace(), temperature.max_solidification_events); // Copy orientation data back to the host
+    auto number_of_solidification_events_host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.number_of_solidification_events);
+    auto solidification_event_counter_host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.solidification_event_counter);
+    auto liquidus_time_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.liquidus_time);
+    auto max_solidification_events_host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.max_solidification_events);
     auto undercooling_current_host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.undercooling_current);
-    auto layer_time_temp_history_host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.layer_time_temp_history);
+    auto cooling_rate_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.cooling_rate);
 
     // Check results
     int location_init_undercooling, location_liquidus_isotherm;
@@ -265,22 +265,22 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
                 // Each cell solidifies once, and counter should start at 0, associated with the zeroth layer
                 // MeltTimeStep should be -1 for all cells
                 // Cells cool at 1 K per time step
-                EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 0), -1.0);
-                EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 2), R_norm);
+                EXPECT_FLOAT_EQ(liquidus_time_host(index, 0, 0), -1.0);
+                EXPECT_FLOAT_EQ(cooling_rate_host(index, 0), R_norm);
                 EXPECT_EQ(number_of_solidification_events_host(index), 1);
                 EXPECT_EQ(solidification_event_counter_host(index), 0);
                 // undercooling_current should be zero for cells if a positive G is given, or init_undercooling if being
                 // initialized with a uniform undercooling field (all cells initially below liquidus)
                 if (G == 0) {
                     EXPECT_FLOAT_EQ(undercooling_current_host(index), inputs.temperature.init_undercooling);
-                    EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 1), -1);
+                    EXPECT_FLOAT_EQ(liquidus_time_host(index, 0, 1), -1);
                 }
                 else {
                     int dist_from_liquidus = coord_z - location_liquidus_isotherm;
                     if (dist_from_liquidus < 0) {
                         // Undercooled cell (liquidus time step already passed, set to -1)
                         // The undercooling at Z = locationOfLiquidus should have been set to init_undercooling
-                        EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 1), -1);
+                        EXPECT_FLOAT_EQ(liquidus_time_host(index, 0, 1), -1);
                         int dist_from_init_undercooling = coord_z - location_init_undercooling;
                         EXPECT_FLOAT_EQ(undercooling_current_host(index),
                                         inputs.temperature.init_undercooling -
@@ -289,8 +289,7 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
                     else {
                         // Cell has not yet reached the nonzero liquidus time yet (or reaches it at time = 0), either
                         // does not have an assigned undercooling or the assigned undercooling is zero
-                        EXPECT_FLOAT_EQ(layer_time_temp_history_host(index, 0, 1),
-                                        dist_from_liquidus * G_norm / R_norm);
+                        EXPECT_FLOAT_EQ(liquidus_time_host(index, 0, 1), dist_from_liquidus * G_norm / R_norm);
                         EXPECT_FLOAT_EQ(undercooling_current_host(index), 0.0);
                     }
                 }
