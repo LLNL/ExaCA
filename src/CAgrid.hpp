@@ -175,9 +175,6 @@ struct Grid {
             throw std::runtime_error("Error: Must have at least 2 cells in Y (decomposition direction) per MPI rank.");
 
         // The following was previously performed in "DomainDecomposition" in CAinitialize.cpp:
-        // Domain size across all ranks and all layers
-        domain_size_all_layers = getDomainSizeAllLayers();
-
         // Get neighboring ranks to each direction and set boundary indicator variables
         neighbor_rank_north = getNeighborRankNorth(id, np);
         neighbor_rank_south = getNeighborRankSouth(id, np);
@@ -191,6 +188,8 @@ struct Grid {
 
         // Add halo regions with a width of 1 in +/- Y if this MPI rank is not as a domain boundary in said direction
         addHalo();
+        // Domain size across all ranks and all layers
+        domain_size_all_layers = getDomainSizeAllLayers();
         // Gather ny_local and y_offset information on rank 0 to print to screen in rank order
         std::vector<int> global_offset(np);
         std::vector<int> global_size(np);
@@ -395,7 +394,7 @@ struct Grid {
     }
 
     int getDomainSizeAllLayers() {
-        int domain_size_all_layers_local = nx * ny * nz;
+        int domain_size_all_layers_local = nx * ny_local * nz;
         return domain_size_all_layers_local;
     }
 
