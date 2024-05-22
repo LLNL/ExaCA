@@ -603,7 +603,8 @@ struct Inputs {
                 exaca_log << "       \"GrainOrientation\": " << substrate.single_grain_orientation << std::endl;
             else {
                 if (substrate.use_substrate_file)
-                    exaca_log << "       \"SubstrateFilename\": " << substrate.substrate_filename << std::endl;
+                    exaca_log << "       \"SubstrateFilename\": "
+                              << "\"" << substrate.substrate_filename << "\"" << std::endl;
                 else
                     exaca_log << "       \"MeanSize\": " << substrate.substrate_grain_spacing << std::endl;
             }
