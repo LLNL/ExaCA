@@ -70,7 +70,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |Ny            | Directional, SingleGrain    | Domain size in y, in cells
 |Nz            | Directional, SingleGrain    | Domain size in z, in cells
 |NumberOfLayers| FromFile, FromFinch    | Number of layers for which the temperature pattern will be repeated
-|LayerOffset   | FromFile, FromFinch    | If numberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
+|LayerOffset   | FromFile, FromFinch    | If NumberOfLayers > 1, the offset (in cells) in the +Z direction for each layer of the temperature pattern
 |SpotRadius    | Spot                   | Spot radius, in microns
 
 ## Nucleation inputs
@@ -85,8 +85,8 @@ The .json files in the examples subdirectory are provided on the command line to
 |--------------|-------------------------|---------|
 |G             | Directional, Spot, SingleGrain    | Thermal gradient in the build (+Z) directions, in K/m
 |R             | Directional, Spot, SingleGrain    | Cooling rate (uniform across the domain), in K/s
-|LayerwiseTempRead | FromFile            | If set to Y, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to N, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. This option is only applicable to simulations with remelting; simulations without remelting (and simulations where this input is not given) default to N. Setting this to Y is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
-|TemperatureFiles | FromFile             | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than numberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, layerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
+|LayerwiseTempRead | FromFile            | If set to true, the appropriate temperature data will be read during each layer's initialization, stored temporarily, and discarded. If set to false, temperature data for all layers will be read and stored during code initialization, and initialization of each layer will be performed using this stored temperature data. Setting this to true is only recommended if a large quantity of temperature data is read by ExaCA (for example, a 10 layer simulation where each layer's temperature data comes from a different file).
+|TemperatureFiles | FromFile             | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than NumberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, LayerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
 |InitUndercooling | Directional, SingleGrain       | For SingleGrain, this is the undercooling at the location of the seeded grain. For problem type Directional, this is an optional argument (defaulting to zero) for the initial undercooling at the domain's bottom surface
 
 ## Substrate inputs
@@ -119,7 +119,7 @@ The .json files in the examples subdirectory are provided on the command line to
 | PrintExaConstitSize    | FromFile          | Length of the cubic representative volume element (RVE) data for ExaConstit, taken from the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure. If not given (or given a value of 0), the RVE will not be printed 
 | Intralayer   | All | Optional section for printing the state of the simulation during a given layer of a multilayer problem/during a single layer problem
 | Intralayer: Increment | All | Increment, in time steps, at which intermediate output should be printed. If 0, will only print the state of the system at the start of each layer
-| Intralayer: Fields | All | Fields to print during intralayer increments. Currently supported options are "GrainID", "LayerID", "GrainMisorientation", "UndercoolingCurrent", "UndercoolingSolidificationStart", ""MeltTimeStep", "CritTimeStep", "UndercoolingChange", "CellType", "DiagonalLength", "SolidificationEventCounter", "NumberOfSolidificationEvents"
+| Intralayer: Fields | All | Fields to print during intralayer increments. Currently supported options are "GrainID", "LayerID", "GrainMisorientation", "UndercoolingCurrent", "UndercoolingSolidificationStart", "MeltTimeStep", "CritTimeStep", "UndercoolingChange", "CellType", "DiagonalLength", "SolidificationEventCounter", "NumberOfSolidificationEvents"
 | Intralayer: PrintIdleFrames | All | Whether or not ExaCA should print intermediate output regardless of whether the simulation has changed from the last frame
 | Interlayer   | All | List of options for printing the state of the system following a given layer, or at the end of the run
 | Interlayer: Layers | All | List of layers (starting at 0 and through "NumberOfLayers-1") following which the state of the simulation should be printed. If not given (or for non-multilayer problems), defaults to printing only after the full simulation has completed
