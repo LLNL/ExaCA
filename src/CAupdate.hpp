@@ -331,27 +331,45 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                 const float y2 = triangle_y[(triangle_index + 2) % 3];
                                 const float z2 = triangle_z[(triangle_index + 2) % 3];
 
-                                const float d1 = Kokkos::hypot(xp - x2, yp - y2, zp - z2);
-                                const float d2 = Kokkos::hypot(xc - x2, yc - y2, zc - z2);
-                                const float d3 = Kokkos::hypot(xp - x1, yp - y1, zp - z1);
-                                const float d4 = Kokkos::hypot(xc - x1, yc - y1, zc - z1);
+                                // Distance between the nearest corner of the capturing face (xc,yc,zc) and the other
+                                // two corners (should theoretically be the same, but may be slightly different due to
+                                // floating point errors) Previously d4
+                                const float dist_first_corner = Kokkos::hypot(xc - x1, yc - y1, zc - z1);
+                                // Previously d2
+                                const float dist_second_corner = Kokkos::hypot(xc - x2, yc - y2, zc - z2);
 
-                                float i_1 = 0;
-                                float i_2 = d2;
-                                float j_1 = 0;
-                                float j_2 = d4;
+                                // Projecting the captured cell center (xp,yp,zp) onto the nearest two edges of the
+                                // triangular octahedron face (connects the closest corner xc,yc,zc to the corners
+                                // x1,y1,z1 and x2,y2,z2), what are the distances from this projected point to the two
+                                // nearest corners for each edge? Previously j_1
+                                float proj_nearest_corner_edge_1 = 0;
+                                // Previously j_2
+                                float proj_next_nearest_corner_edge_1 = dist_first_corner;
+                                // Previously i_1
+                                float proj_next_nearest_corner_edge_2 = 0;
+                                // Previously i_2
+                                float proj_nearest_corner_edge_2 = dist_second_corner;
+
                                 // If minimum distance to corner = 0, the octahedron corner captured the new cell
                                 // center
                                 if (mindist_to_corner != 0) {
-                                    i_1 = ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) / d2;
-                                    i_2 = d2 - i_1;
-                                    j_1 = ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) / d4;
-                                    j_2 = d4 - j_1;
+                                    proj_nearest_corner_edge_1 =
+                                        ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
+                                        dist_first_corner;
+                                    proj_next_nearest_corner_edge_1 = dist_first_corner - proj_nearest_corner_edge_1;
+                                    proj_nearest_corner_edge_2 =
+                                        ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
+                                        dist_second_corner;
+                                    proj_next_nearest_corner_edge_2 = dist_second_corner - proj_nearest_corner_edge_2;
                                 }
-                                const float l_12 = 0.5 * (Kokkos::fmin(i_1, Kokkos::sqrt(3.0f)) +
-                                                          Kokkos::fmin(i_2, Kokkos::sqrt(3.0f)));
-                                const float l_13 = 0.5 * (Kokkos::fmin(j_1, Kokkos::sqrt(3.0f)) +
-                                                          Kokkos::fmin(j_2, Kokkos::sqrt(3.0f)));
+
+                                // Truncate the lengths at sqrt(3) for a max initial size of an octahedron
+                                const float l_12 =
+                                    0.5 * (Kokkos::fmin(proj_nearest_corner_edge_1, Kokkos::sqrt(3.0f)) +
+                                           Kokkos::fmin(proj_next_nearest_corner_edge_1, Kokkos::sqrt(3.0f)));
+                                const float l_13 =
+                                    0.5 * (Kokkos::fmin(proj_nearest_corner_edge_2, Kokkos::sqrt(3.0f)) +
+                                           Kokkos::fmin(proj_next_nearest_corner_edge_2, Kokkos::sqrt(3.0f)));
                                 // half diagonal length of new octahedron
                                 const float new_octahedron_diag_length = Kokkos::sqrt(2.0f) * Kokkos::fmax(l_12, l_13);
 
