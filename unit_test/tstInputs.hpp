@@ -309,6 +309,26 @@ void testInputs(int print_version) {
             EXPECT_DOUBLE_EQ(inputs.rng_seed, 2.0);
             EXPECT_TRUE(inputs.print.print_binary);
         }
+
+        // Empty grid and timer structs for log file print, give dummy values
+        Grid grid;
+        grid.nx = 0;
+        grid.ny = 0;
+        grid.nz = 0;
+        grid.deltax = 0.0;
+        grid.x_min = 0.0;
+        grid.y_min = 0.0;
+        grid.z_min = 0.0;
+        grid.x_max = 0.0;
+        Timers timers(0);
+
+        // Print log file
+        inputs.printExaCALog(0, 1, 0, grid, timers, 0.0);
+
+        // Check that log file can be parsed with json
+        std::string log_filename = inputs.print.path_to_output + inputs.print.base_filename + ".json";
+        std::ifstream input_data_stream(log_filename);
+        nlohmann::json test_input_data = nlohmann::json::parse(input_data_stream);
     }
 }
 //---------------------------------------------------------------------------//
