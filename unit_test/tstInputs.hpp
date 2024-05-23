@@ -320,6 +320,8 @@ void testInputs(int print_version) {
         grid.y_min = 0.0;
         grid.z_min = 0.0;
         grid.x_max = 0.0;
+        grid.y_max = 0.0;
+        grid.z_max = 0.0;
         Timers timers(0);
 
         // Print log file
