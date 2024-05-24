@@ -154,38 +154,40 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
     // cell types
     Kokkos::parallel_for(
         "CellCapture", interface.num_steer_host(0), KOKKOS_LAMBDA(const int &num) {
+            // Reset steering vector size on device to 0, to be rebuilt next time step
             interface.num_steer(0) = 0;
-            int index = interface.steering_vector(num);
-            // Get the x, y, z coordinates of the cell on this MPI rank
-            int coord_x = grid.getCoordX(index);
-            int coord_y = grid.getCoordY(index);
-            int coord_z = grid.getCoordZ(index);
-
+            // Get the 1D index of cell from the steering vector
+            const int index = interface.steering_vector(num);
+            // Using the 1D index, get the x, y, z coordinates of the cell on this MPI rank
+            const int coord_x = grid.getCoordX(index);
+            const int coord_y = grid.getCoordY(index);
+            const int coord_z = grid.getCoordZ(index);
+            const int cell_type_old = celldata.cell_type(index);
             // Cells of interest for the CA - active cells and future active/liquid cells
-            if (celldata.cell_type(index) == Active) {
+            if (cell_type_old == Active) {
                 // Get undercooling of active cell
-                float loc_u = temperature.undercooling_current(index);
+                const float local_undercooling = temperature.undercooling_current(index);
                 // Update diagonal length of octahedron based on local undercooling and interfacial response function
-                interface.diagonal_length(index) += irf.compute(loc_u);
+                interface.diagonal_length(index) += irf.compute(local_undercooling);
+                const float diagonal_length_cell = interface.diagonal_length(index);
+                // Switch that becomes false if the cell has at least 1 liquid type neighbor
+                bool deactivate_cell = true;
                 // Cycle through all neighboring cells on this processor to see if they have been captured
-                // Cells in ghost nodes cannot capture cells on other processors
-                bool deactivate_cell =
-                    true; // switch that becomes false if the cell has at least 1 liquid type neighbor
-                // Which neighbors should be iterated over?
                 for (int l = 0; l < 26; l++) {
                     // Local coordinates of adjacent cell center
-                    int neighbor_coord_x = coord_x + interface.neighbor_x[l];
-                    int neighbor_coord_y = coord_y + interface.neighbor_y[l];
-                    int neighbor_coord_z = coord_z + interface.neighbor_z[l];
+                    const int neighbor_coord_x = coord_x + interface.neighbor_x[l];
+                    const int neighbor_coord_y = coord_y + interface.neighbor_y[l];
+                    const int neighbor_coord_z = coord_z + interface.neighbor_z[l];
                     // Check if neighbor is in bounds
                     const int neighbor_index =
                         grid.getNeighbor1DIndex(neighbor_coord_x, neighbor_coord_y, neighbor_coord_z);
                     if (neighbor_index != -1) {
-                        if (celldata.cell_type(neighbor_index) == Liquid)
+                        const int neighbor_cell_type = celldata.cell_type(neighbor_index);
+                        if (neighbor_cell_type == Liquid)
                             deactivate_cell = false;
                         // Capture of cell located at "neighbor_index" if this condition is satisfied
-                        if ((interface.diagonal_length(index) >= interface.crit_diagonal_length(26 * index + l)) &&
-                            (celldata.cell_type(neighbor_index) == Liquid)) {
+                        if ((diagonal_length_cell >= interface.crit_diagonal_length(26 * index + l)) &&
+                            (neighbor_cell_type == Liquid)) {
                             // Use of atomic_compare_exchange
                             // (https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_compare_exchange) old_val =
                             // atomic_compare_exchange(ptr_to_value,comparison_value, new_value); Atomically sets the
@@ -194,114 +196,111 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                             // address independent on whether the exchange has happened. If this cell's is a liquid
                             // cell, change it to "TemporaryUpdate" type and return a value of "liquid" If this cell has
                             // already been changed to "TemporaryUpdate" type, return a value of "0"
-                            int update_val = TemporaryUpdate;
-                            int old_val = Liquid;
                             int old_cell_type_value = Kokkos::atomic_compare_exchange(
-                                &celldata.cell_type(neighbor_index), old_val, update_val);
+                                &celldata.cell_type(neighbor_index), Liquid, TemporaryUpdate);
                             // Only proceed if cell_type was previously liquid (this current thread changed the value to
                             // TemporaryUpdate)
                             if (old_cell_type_value == Liquid) {
-                                int h = grain_id(index);
-                                int my_orientation = getGrainOrientation(h, orientation.n_grain_orientations);
+                                // Cell capture event
+                                const int my_grain_id = grain_id(index);
+                                const int my_orientation =
+                                    getGrainOrientation(my_grain_id, orientation.n_grain_orientations);
 
-                                // The new cell is captured by this cell's growing octahedron (Grain "h")
-                                grain_id(neighbor_index) = h;
+                                // The new cell is captured by this cell's growing octahedron
+                                grain_id(neighbor_index) = my_grain_id;
                                 // Store the initial undercooling for the newly captured cell, if this output was
                                 // toggled
                                 temperature.setStartingUndercooling(neighbor_index);
 
                                 // (cxold, cyold, czold) are the coordinates of this decentered octahedron
-                                float cxold = interface.octahedron_center(3 * index);
-                                float cyold = interface.octahedron_center(3 * index + 1);
-                                float czold = interface.octahedron_center(3 * index + 2);
+                                const float cxold = interface.octahedron_center(3 * index);
+                                const float cyold = interface.octahedron_center(3 * index + 1);
+                                const float czold = interface.octahedron_center(3 * index + 2);
 
                                 // (xp,yp,zp) are the global coordinates of the new cell's center
                                 // Note that the Y coordinate is relative to the domain origin to keep the coordinate
                                 // system continuous across ranks
-                                float xp = coord_x + interface.neighbor_x[l] + 0.5;
-                                float yp = coord_y + grid.y_offset + interface.neighbor_y[l] + 0.5;
-                                float zp = coord_z + interface.neighbor_z[l] + 0.5;
+                                const float xp = neighbor_coord_x + 0.5;
+                                const float yp = neighbor_coord_y + grid.y_offset + 0.5;
+                                const float zp = neighbor_coord_z + 0.5;
 
                                 // (x0,y0,z0) is a vector pointing from this decentered octahedron center to the image
                                 // of the center of the new cell
-                                float x0 = xp - cxold;
-                                float y0 = yp - cyold;
-                                float z0 = zp - czold;
-
-                                // mag0 is the magnitude of (x0,y0,z0)
-                                float mag0 = Kokkos::sqrtf(x0 * x0 + y0 * y0 + z0 * z0);
+                                const float x0 = xp - cxold;
+                                const float y0 = yp - cyold;
+                                const float z0 = zp - czold;
 
                                 // Calculate unit vectors for the octahedron that intersect the new cell center
-                                // TODO: Potential inline function in orientation struct that returns Diag1, Diag2, or
-                                // Diag3
-                                float angle_1 = (orientation.grain_unit_vector(9 * my_orientation) * x0 +
-                                                 orientation.grain_unit_vector(9 * my_orientation + 1) * y0 +
-                                                 orientation.grain_unit_vector(9 * my_orientation + 2) * z0) /
-                                                mag0;
-                                float angle_2 = (orientation.grain_unit_vector(9 * my_orientation + 3) * x0 +
-                                                 orientation.grain_unit_vector(9 * my_orientation + 4) * y0 +
-                                                 orientation.grain_unit_vector(9 * my_orientation + 5) * z0) /
-                                                mag0;
-                                float angle_3 = (orientation.grain_unit_vector(9 * my_orientation + 6) * x0 +
-                                                 orientation.grain_unit_vector(9 * my_orientation + 7) * y0 +
-                                                 orientation.grain_unit_vector(9 * my_orientation + 8) * z0) /
-                                                mag0;
-                                float diag_1x =
-                                    orientation.grain_unit_vector(9 * my_orientation) * (2 * (angle_1 < 0) - 1);
-                                float diag_1y =
-                                    orientation.grain_unit_vector(9 * my_orientation + 1) * (2 * (angle_1 < 0) - 1);
-                                float diag_1z =
-                                    orientation.grain_unit_vector(9 * my_orientation + 2) * (2 * (angle_1 < 0) - 1);
+                                const int angle_1_neg =
+                                    ((orientation.grain_unit_vector(9 * my_orientation) * x0 +
+                                      orientation.grain_unit_vector(9 * my_orientation + 1) * y0 +
+                                      orientation.grain_unit_vector(9 * my_orientation + 2) * z0) < 0);
+                                const int angle_2_neg =
+                                    ((orientation.grain_unit_vector(9 * my_orientation + 3) * x0 +
+                                      orientation.grain_unit_vector(9 * my_orientation + 4) * y0 +
+                                      orientation.grain_unit_vector(9 * my_orientation + 5) * z0) < 0);
+                                const int angle_3_neg =
+                                    ((orientation.grain_unit_vector(9 * my_orientation + 6) * x0 +
+                                      orientation.grain_unit_vector(9 * my_orientation + 7) * y0 +
+                                      orientation.grain_unit_vector(9 * my_orientation + 8) * z0) < 0);
+                                const float diag_1x =
+                                    orientation.grain_unit_vector(9 * my_orientation) * (2 * angle_1_neg - 1);
+                                const float diag_1y =
+                                    orientation.grain_unit_vector(9 * my_orientation + 1) * (2 * angle_1_neg - 1);
+                                const float diag_1z =
+                                    orientation.grain_unit_vector(9 * my_orientation + 2) * (2 * angle_1_neg - 1);
 
-                                float diag_2x =
-                                    orientation.grain_unit_vector(9 * my_orientation + 3) * (2 * (angle_2 < 0) - 1);
-                                float diag_2y =
-                                    orientation.grain_unit_vector(9 * my_orientation + 4) * (2 * (angle_2 < 0) - 1);
-                                float diag_2z =
-                                    orientation.grain_unit_vector(9 * my_orientation + 5) * (2 * (angle_2 < 0) - 1);
+                                const float diag_2x =
+                                    orientation.grain_unit_vector(9 * my_orientation + 3) * (2 * angle_2_neg - 1);
+                                const float diag_2y =
+                                    orientation.grain_unit_vector(9 * my_orientation + 4) * (2 * angle_2_neg - 1);
+                                const float diag_2z =
+                                    orientation.grain_unit_vector(9 * my_orientation + 5) * (2 * angle_2_neg - 1);
 
-                                float diag_3x =
-                                    orientation.grain_unit_vector(9 * my_orientation + 6) * (2 * (angle_3 < 0) - 1);
-                                float diag_3y =
-                                    orientation.grain_unit_vector(9 * my_orientation + 7) * (2 * (angle_3 < 0) - 1);
-                                float diag_3z =
-                                    orientation.grain_unit_vector(9 * my_orientation + 8) * (2 * (angle_3 < 0) - 1);
+                                const float diag_3x =
+                                    orientation.grain_unit_vector(9 * my_orientation + 6) * (2 * angle_3_neg - 1);
+                                const float diag_3y =
+                                    orientation.grain_unit_vector(9 * my_orientation + 7) * (2 * angle_3_neg - 1);
+                                const float diag_3z =
+                                    orientation.grain_unit_vector(9 * my_orientation + 8) * (2 * angle_3_neg - 1);
 
-                                float u1[3], u2[3];
-                                u1[0] = diag_2x - diag_1x;
-                                u1[1] = diag_2y - diag_1y;
-                                u1[2] = diag_2z - diag_1z;
-                                u2[0] = diag_3x - diag_1x;
-                                u2[1] = diag_3y - diag_1y;
-                                u2[2] = diag_3z - diag_1z;
-                                float uu[3];
-                                uu[0] = u1[1] * u2[2] - u1[2] * u2[1];
-                                uu[1] = u1[2] * u2[0] - u1[0] * u2[2];
-                                uu[2] = u1[0] * u2[1] - u1[1] * u2[0];
-                                float n_dem = Kokkos::hypot(uu[0], uu[1], uu[2]);
-                                float norm[3];
-                                norm[0] = uu[0] / n_dem;
-                                norm[1] = uu[1] / n_dem;
-                                norm[2] = uu[2] / n_dem;
-                                // normal to capturing plane
-                                float norm_plane[3], triangle_x[3], triangle_y[3], triangle_z[3], para_t;
-                                norm_plane[0] = norm[0];
-                                norm_plane[1] = norm[1];
-                                norm_plane[2] = norm[2];
-                                para_t = (norm_plane[0] * x0 + norm_plane[1] * y0 + norm_plane[2] * z0) /
-                                         (norm_plane[0] * diag_1x + norm_plane[1] * diag_1y + norm_plane[2] * diag_1z);
+                                // Get the normal vector to the plane normal to the capturing face of the octahedron by
+                                // taking the cross-product
+                                const float in_plane_1_x = diag_2x - diag_1x;
+                                const float in_plane_1_y = diag_2y - diag_1y;
+                                const float in_plane_1_z = diag_2z - diag_1z;
+                                const float in_plane_2_x = diag_3x - diag_1x;
+                                const float in_plane_2_y = diag_3y - diag_1y;
+                                const float in_plane_2_z = diag_3z - diag_1z;
+                                const float normal_plane_x = in_plane_1_y * in_plane_2_z - in_plane_1_z * in_plane_2_y;
+                                const float normal_plane_y = in_plane_1_z * in_plane_2_x - in_plane_1_x * in_plane_2_z;
+                                const float normal_plane_z = in_plane_1_x * in_plane_2_y - in_plane_1_y * in_plane_2_x;
+                                const float normal_vec_mag =
+                                    Kokkos::hypot(normal_plane_x, normal_plane_y, normal_plane_z);
+                                const float normalized_vec_x = normal_plane_x / normal_vec_mag;
+                                const float normalized_vec_y = normal_plane_y / normal_vec_mag;
+                                const float normalized_vec_z = normal_plane_z / normal_vec_mag;
+                                // The capturing face of the octahedron is a triangle, with 3 (x,y,z) coordinates
+                                // representing the vertices. These vertices are located a distance "triangle_dist" from
+                                // the old octahedron center along the unit vector directions (normalized by
+                                // norm_vec_mag)
+                                const float triangle_dist =
+                                    (normalized_vec_x * x0 + normalized_vec_y * y0 + normalized_vec_z * z0) /
+                                    (normalized_vec_x * diag_1x + normalized_vec_y * diag_1y +
+                                     normalized_vec_z * diag_1z);
+                                float triangle_x[3], triangle_y[3], triangle_z[3];
 
-                                triangle_x[0] = cxold + para_t * diag_1x;
-                                triangle_y[0] = cyold + para_t * diag_1y;
-                                triangle_z[0] = czold + para_t * diag_1z;
+                                triangle_x[0] = cxold + triangle_dist * diag_1x;
+                                triangle_y[0] = cyold + triangle_dist * diag_1y;
+                                triangle_z[0] = czold + triangle_dist * diag_1z;
 
-                                triangle_x[1] = cxold + para_t * diag_2x;
-                                triangle_y[1] = cyold + para_t * diag_2y;
-                                triangle_z[1] = czold + para_t * diag_2z;
+                                triangle_x[1] = cxold + triangle_dist * diag_2x;
+                                triangle_y[1] = cyold + triangle_dist * diag_2y;
+                                triangle_z[1] = czold + triangle_dist * diag_2z;
 
-                                triangle_x[2] = cxold + para_t * diag_3x;
-                                triangle_y[2] = cyold + para_t * diag_3y;
-                                triangle_z[2] = czold + para_t * diag_3z;
+                                triangle_x[2] = cxold + triangle_dist * diag_3x;
+                                triangle_y[2] = cyold + triangle_dist * diag_3y;
+                                triangle_z[2] = czold + triangle_dist * diag_3z;
 
                                 // Determine which of the 3 corners of the capturing face is closest to the captured
                                 // cell center
@@ -313,68 +312,80 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                 dist_to_corner[2] =
                                     Kokkos::hypot(triangle_x[2] - xp, triangle_y[2] - yp, triangle_z[2] - zp);
 
-                                int x, y, z;
-                                x = (dist_to_corner[0] < dist_to_corner[1]);
-                                y = (dist_to_corner[1] < dist_to_corner[2]);
-                                z = (dist_to_corner[2] < dist_to_corner[0]);
+                                const int corner_0_closer_1 = (dist_to_corner[0] < dist_to_corner[1]);
+                                const int corner_1_closer_2 = (dist_to_corner[1] < dist_to_corner[2]);
+                                const int corner_2_closer_0 = (dist_to_corner[2] < dist_to_corner[0]);
 
-                                int idx = 2 * (z - y) * z + (y - x) * y;
-                                float mindist_to_corner = dist_to_corner[idx];
-                                float xc = triangle_x[idx];
-                                float yc = triangle_y[idx];
-                                float zc = triangle_z[idx];
+                                const int triangle_index =
+                                    2 * (corner_2_closer_0 - corner_1_closer_2) * corner_2_closer_0 +
+                                    (corner_1_closer_2 - corner_0_closer_1) * corner_1_closer_2;
+                                const float mindist_to_corner = dist_to_corner[triangle_index];
+                                const float xc = triangle_x[triangle_index];
+                                const float yc = triangle_y[triangle_index];
+                                const float zc = triangle_z[triangle_index];
 
-                                float x1 = triangle_x[(idx + 1) % 3];
-                                float y1 = triangle_y[(idx + 1) % 3];
-                                float z1 = triangle_z[(idx + 1) % 3];
-                                float x2 = triangle_x[(idx + 2) % 3];
-                                float y2 = triangle_y[(idx + 2) % 3];
-                                float z2 = triangle_z[(idx + 2) % 3];
+                                const float x1 = triangle_x[(triangle_index + 1) % 3];
+                                const float y1 = triangle_y[(triangle_index + 1) % 3];
+                                const float z1 = triangle_z[(triangle_index + 1) % 3];
+                                const float x2 = triangle_x[(triangle_index + 2) % 3];
+                                const float y2 = triangle_y[(triangle_index + 2) % 3];
+                                const float z2 = triangle_z[(triangle_index + 2) % 3];
 
-                                float d1 = Kokkos::hypot(xp - x2, yp - y2, zp - z2);
-                                float d2 = Kokkos::hypot(xc - x2, yc - y2, zc - z2);
-                                float d3 = Kokkos::hypot(xp - x1, yp - y1, zp - z1);
-                                float d4 = Kokkos::hypot(xc - x1, yc - y1, zc - z1);
+                                // Distance between the nearest corner of the capturing face (xc,yc,zc) and the other
+                                // two corners (should theoretically be the same, but may be slightly different due to
+                                // floating point errors) Previously d4
+                                const float dist_first_corner = Kokkos::hypot(xc - x1, yc - y1, zc - z1);
+                                // Previously d2
+                                const float dist_second_corner = Kokkos::hypot(xc - x2, yc - y2, zc - z2);
 
-                                float i_1 = 0;
-                                float i_2 = d2;
-                                float j_1 = 0;
-                                float j_2 = d4;
+                                // Projecting the captured cell center (xp,yp,zp) onto the nearest two edges of the
+                                // triangular octahedron face (connects the closest corner xc,yc,zc to the corners
+                                // x1,y1,z1 and x2,y2,z2), what are the distances from this projected point to the two
+                                // nearest corners for each edge? Previously j_1
+                                float proj_nearest_corner_edge_1 = 0;
+                                // Previously j_2
+                                float proj_next_nearest_corner_edge_1 = dist_first_corner;
+                                // Previously i_1
+                                float proj_next_nearest_corner_edge_2 = 0;
+                                // Previously i_2
+                                float proj_nearest_corner_edge_2 = dist_second_corner;
+
                                 // If minimum distance to corner = 0, the octahedron corner captured the new cell
                                 // center
                                 if (mindist_to_corner != 0) {
-                                    i_1 = d1 * ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
-                                          (d1 * d2);
-                                    i_2 = d2 - i_1;
-                                    j_1 = d3 * ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
-                                          (d3 * d4);
-                                    j_2 = d4 - j_1;
+                                    proj_nearest_corner_edge_1 =
+                                        ((xp - x1) * (xc - x1) + (yp - y1) * (yc - y1) + (zp - z1) * (zc - z1)) /
+                                        dist_first_corner;
+                                    proj_next_nearest_corner_edge_1 = dist_first_corner - proj_nearest_corner_edge_1;
+                                    proj_nearest_corner_edge_2 =
+                                        ((xp - x2) * (xc - x2) + (yp - y2) * (yc - y2) + (zp - z2) * (zc - z2)) /
+                                        dist_second_corner;
+                                    proj_next_nearest_corner_edge_2 = dist_second_corner - proj_nearest_corner_edge_2;
                                 }
-                                float l_12 = 0.5 * (Kokkos::fmin(i_1, Kokkos::sqrt(3.0f)) +
-                                                    Kokkos::fmin(i_2, Kokkos::sqrt(3.0f)));
-                                float l_13 = 0.5 * (Kokkos::fmin(j_1, Kokkos::sqrt(3.0f)) +
-                                                    Kokkos::fmin(j_2, Kokkos::sqrt(3.0f)));
+
+                                // Truncate the lengths at sqrt(3) for a max initial size of an octahedron
+                                const float l_12 =
+                                    0.5 * (Kokkos::fmin(proj_nearest_corner_edge_1, Kokkos::sqrt(3.0f)) +
+                                           Kokkos::fmin(proj_next_nearest_corner_edge_1, Kokkos::sqrt(3.0f)));
+                                const float l_13 =
+                                    0.5 * (Kokkos::fmin(proj_nearest_corner_edge_2, Kokkos::sqrt(3.0f)) +
+                                           Kokkos::fmin(proj_next_nearest_corner_edge_2, Kokkos::sqrt(3.0f)));
                                 // half diagonal length of new octahedron
-                                float new_o_diag_l = Kokkos::sqrt(2.0f) * Kokkos::fmax(l_12, l_13);
+                                const float new_octahedron_diag_length = Kokkos::sqrt(2.0f) * Kokkos::fmax(l_12, l_13);
 
-                                interface.diagonal_length(neighbor_index) = new_o_diag_l;
+                                interface.diagonal_length(neighbor_index) = new_octahedron_diag_length;
                                 // Calculate coordinates of new decentered octahedron center
-                                float capt_diag[3];
-                                capt_diag[0] = xc - cxold;
-                                capt_diag[1] = yc - cyold;
-                                capt_diag[2] = zc - czold;
-
-                                float capt_diag_magnitude =
-                                    Kokkos::sqrt(capt_diag[0] * capt_diag[0] + capt_diag[1] * capt_diag[1] +
-                                                 capt_diag[2] * capt_diag[2]);
-                                float capt_diag_uv[3];
-                                capt_diag_uv[0] = capt_diag[0] / capt_diag_magnitude;
-                                capt_diag_uv[1] = capt_diag[1] / capt_diag_magnitude;
-                                capt_diag_uv[2] = capt_diag[2] / capt_diag_magnitude;
+                                const float capt_diag_x = xc - cxold;
+                                const float capt_diag_y = yc - cyold;
+                                const float capt_diag_z = zc - czold;
+                                const float capt_diag_magnitude = Kokkos::hypot(capt_diag_x, capt_diag_y, capt_diag_z);
+                                const float capt_diag_unit_vec_x = capt_diag_x / capt_diag_magnitude;
+                                const float capt_diag_unit_vec_y = capt_diag_y / capt_diag_magnitude;
+                                const float capt_diag_unit_vec_z = capt_diag_z / capt_diag_magnitude;
                                 // (cx, cy, cz) are the coordinates of the new active cell's decentered octahedron
-                                float cx = xc - new_o_diag_l * capt_diag_uv[0];
-                                float cy = yc - new_o_diag_l * capt_diag_uv[1];
-                                float cz = zc - new_o_diag_l * capt_diag_uv[2];
+                                const float cx = xc - new_octahedron_diag_length * capt_diag_unit_vec_x;
+                                const float cy = yc - new_octahedron_diag_length * capt_diag_unit_vec_y;
+                                const float cz = zc - new_octahedron_diag_length * capt_diag_unit_vec_z;
 
                                 interface.octahedron_center(3 * neighbor_index) = cx;
                                 interface.octahedron_center(3 * neighbor_index + 1) = cy;
@@ -388,11 +399,11 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                 if (np > 1) {
                                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting
                                     // this change if the slowdown is minor
-                                    int ghost_grain_id = h;
-                                    float ghost_octahedron_center_x = cx;
-                                    float ghost_octahedron_center_y = cy;
-                                    float ghost_octahedron_center_z = cz;
-                                    float ghost_diagonal_length = new_o_diag_l;
+                                    const int ghost_grain_id = my_grain_id;
+                                    const float ghost_octahedron_center_x = cx;
+                                    const float ghost_octahedron_center_y = cy;
+                                    const float ghost_octahedron_center_z = cz;
+                                    const float ghost_diagonal_length = new_octahedron_diag_length;
                                     // Collect data for the ghost nodes, if necessary
                                     // Data loaded into the ghost nodes is for the cell that was just captured
                                     bool data_fits_in_buffer = interface.loadGhostNodes(
@@ -436,22 +447,22 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                         celldata.cell_type(index) = TempSolid;
                 }
             }
-            else if (celldata.cell_type(index) == FutureActive) {
+            else if (cell_type_old == FutureActive) {
                 // Successful nucleation event - this cell is becoming a new active cell
                 celldata.cell_type(index) = TemporaryUpdate; // avoid operating on the new active cell before its
                                                              // associated octahedron data is initialized
-                int my_grain_id = grain_id(index);           // grain_id was assigned as part of Nucleation
+                const int my_grain_id = grain_id(index);     // grain_id was assigned as part of Nucleation
 
                 // Initialize new octahedron
                 interface.createNewOctahedron(index, coord_x, coord_y, grid.y_offset, coord_z);
                 // The orientation for the new grain will depend on its Grain ID (nucleated grains have negative
                 // grain_id values)
-                int my_orientation = getGrainOrientation(my_grain_id, orientation.n_grain_orientations);
+                const int my_orientation = getGrainOrientation(my_grain_id, orientation.n_grain_orientations);
                 // Octahedron center is at (cx, cy, cz) - note that the Y coordinate is relative to the domain
                 // origin to keep the coordinate system continuous across ranks
-                float cx = coord_x + 0.5;
-                float cy = coord_y + grid.y_offset + 0.5;
-                float cz = coord_z + 0.5;
+                const float cx = coord_x + 0.5;
+                const float cy = coord_y + grid.y_offset + 0.5;
+                const float cz = coord_z + 0.5;
                 // Calculate critical values at which this active cell leads to the activation of a neighboring
                 // liquid cell. Octahedron center and cell center overlap for octahedra created as part of a new
                 // grain
@@ -460,11 +471,11 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                 if (np > 1) {
                     // TODO: Test loading ghost nodes in a separate kernel, potentially adopting this change if the
                     // slowdown is minor
-                    int ghost_grain_id = my_grain_id;
-                    float ghost_octahedron_center_x = cx;
-                    float ghost_octahedron_center_y = cy;
-                    float ghost_octahedron_center_z = cz;
-                    float ghost_diagonal_length = interface._init_oct_size;
+                    const int ghost_grain_id = my_grain_id;
+                    const float ghost_octahedron_center_x = cx;
+                    const float ghost_octahedron_center_y = cy;
+                    const float ghost_octahedron_center_z = cz;
+                    const float ghost_diagonal_length = interface._init_oct_size;
                     // Collect data for the ghost nodes, if necessary
                     bool data_fits_in_buffer = interface.loadGhostNodes(
                         ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y, ghost_octahedron_center_z,
@@ -485,7 +496,7 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                     celldata.cell_type(index) = Active;
                 } // End if statement for serial/parallel code
             }
-            else if (celldata.cell_type(index) == FutureLiquid) {
+            else if (cell_type_old == FutureLiquid) {
                 // This type was assigned to a cell that was recently transformed from active to liquid, due to its
                 // bordering of a cell above the liquidus. This information may need to be sent to other MPI ranks
                 // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for diagonal
