@@ -286,7 +286,7 @@ struct Print {
 
         using view_type_float = Kokkos::View<float *, MemorySpace>;
         using view_type_int = Kokkos::View<int *, MemorySpace>;
-        if (layernumber == _inputs.print_layer_number[interlayer_file_count]) {
+        if ((!_inputs.skip_all_printing) || (layernumber == _inputs.print_layer_number[interlayer_file_count])) {
             std::string vtk_filename_base;
             if (layernumber != grid.number_of_layers - 1)
                 vtk_filename_base = path_base_filename + "_layer" + std::to_string(layernumber);

@@ -59,7 +59,7 @@ The .json files in the examples subdirectory are provided on the command line to
 | Nucleation             | Section for parameters that describe nucleation ([see below](#nucleation-inputs))
 | TemperatureData        | Section for parameters/files governing the temperature field for the given problem type ([see below](#temperature-inputs)). Section is unused if temperature data is given from Finch
 | Substrate              | Section for parameters/files governing the edge boundary conditions ([see below](#substrate-inputs))
-| Printing               | Section for parameters/file names for output data ([see below](#printing-inputs))
+| Printing               | Section for parameters/file names for output data ([see below](#printing-inputs)). If this section is not given, only the log file from the run will be printed
 
 ## Domain inputs
 | Input        |Relevant problem type(s)| Details |
@@ -112,18 +112,18 @@ The .json files in the examples subdirectory are provided on the command line to
 ## Printing inputs
 | Input        | Relevant problem type(s))| Details |
 |--------------| -------------------------|---------|
-| PathToOutput | All                      | File path location for the output files
-| OutputFile   | All                      | All output files will begin with the string specified on this line
+| PathToOutput | All                      | File path location for the output files (required)
+| OutputFile   | All                      | All output files will begin with the string specified on this line (required)
 | PrintBinary  | All                      | Whether or not ExaCA vtk output data should be printed as big endian binary data, or as ASCII characters (defaults to false)
 | PrintFrontUndercooling | Directional         | Whether or not ExaCA will store and print the undercooling at the solidification front when solidification begins and ends at each Z coordinate
 | PrintExaConstitSize    | FromFile          | Length of the cubic representative volume element (RVE) data for ExaConstit, taken from the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure. If not given (or given a value of 0), the RVE will not be printed 
 | Intralayer   | All | Optional section for printing the state of the simulation during a given layer of a multilayer problem/during a single layer problem
 | Intralayer: Increment | All | Increment, in time steps, at which intermediate output should be printed. If 0, will only print the state of the system at the start of each layer
 | Intralayer: Fields | All | Fields to print during intralayer increments. Currently supported options are "GrainID", "LayerID", "GrainMisorientation", "UndercoolingCurrent", "UndercoolingSolidificationStart", "MeltTimeStep", "CritTimeStep", "UndercoolingChange", "CellType", "DiagonalLength", "SolidificationEventCounter", "NumberOfSolidificationEvents"
-| Intralayer: PrintIdleFrames | All | Whether or not ExaCA should print intermediate output regardless of whether the simulation has changed from the last frame
+| Intralayer: PrintIdleFrames | All | Whether or not ExaCA should print intermediate output regardless of whether the simulation has changed from the last frame. Defaults to false
 | Interlayer   | All | List of options for printing the state of the system following a given layer, or at the end of the run
 | Interlayer: Layers | All | List of layers (starting at 0 and through "NumberOfLayers-1") following which the state of the simulation should be printed. If not given (or for non-multilayer problems), defaults to printing only after the full simulation has completed
-| Interlayer: Increment | All | If "Interlayer: Layers" is not given, this option enables printing of interlayer output starting at layer 0 and repeating at the specified increment. The full simulation results following the final layer will always be printed.
+| Interlayer: Increment | All | If "Interlayer: Layers" is not given, this option enables printing of interlayer output starting at layer 0 and repeating at the specified increment. The full simulation results following the final layer will always be printed as long as the "Interlayer" section is present in the input file".
 | Interlayer: Fields | All | Fields to print following layers. Currently supported options are "GrainID", "LayerID", "GrainMisorientation", "UndercoolingCurrent", "UndercoolingSolidificationStart", "MeltTimeStep", "CritTimeStep", "UndercoolingChange", "CellType", "DiagonalLength", "SolidificationEventCounter", "NumberOfSolidificationEvents"
 
 Here, GrainMisorientation is not the misorientation of the grain itself, but rather the misorientation of the grain's nearest <100> crystallographic direction with the +Z direction. For cells that are liquid (possible only for intermediate state print, as the final state will only have solid cells), -1 is printed as the misorienatation. Misorientations for grains from the baseplate or powder layer are between 0-62 (degrees, rounded to nearest integer), and cells that are associated with nucleated grains are assigned values between 100-162 to differentiate them. Additionally, 200 is printed as the misorientation for cells in the powder layer that have not been assigned a grain ID.

@@ -25,7 +25,7 @@
       "PathToOutput": "./",
       "OutputFile": "TestProblemSpot",
       "PrintBinary": false,
-      "printExaConstitSize": 0,
+      "PrintExaConstitSize": 0,
       "Intralayer": {
           "Increment": 2000,
           "Fields": ["GrainMisorientation", "MeltTimeStep", "CritTimeStep"],

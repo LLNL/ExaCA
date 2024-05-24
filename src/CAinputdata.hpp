@@ -98,6 +98,12 @@ struct PrintInputs {
     std::string base_filename = "";
     // Path to CA output
     std::string path_to_output = "";
+    // List of valid print outputs and whether or not they are required
+    std::vector<std::string> print_field_label = {"PathToOutput", "OutputFile",          "PrintFrontUndercooling",
+                                                  "PrintBinary",  "PrintExaConstitSize", "Intralayer",
+                                                  "Interlayer"};
+    std::vector<bool> required_print_field = {true, true, false, false, false, false, false};
+
     // Names of output fields that can be printed to files during or at the end of a simulation
     std::vector<std::string> fieldnames_key = {"GrainID",
                                                "LayerID",
@@ -154,6 +160,7 @@ struct PrintInputs {
 
     // Should the default RVE data for ExaConstit be printed? If so, with what size?
     bool print_default_rve = false;
+    bool skip_all_printing = false;
     int rve_size = 0;
 };
 

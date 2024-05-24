@@ -308,8 +308,15 @@ struct Inputs {
             }
         }
 
-        // Printing inputs
-        getPrintDataFromInputFile(input_data, id);
+        // Printing inputs - leave as defaults (all false) if not given in the input file
+        if (input_data.contains("Printing"))
+            getPrintDataFromInputFile(input_data, id);
+        else {
+            print.skip_all_printing = true;
+            // Need to have at least the last layer in print_layer_number to avoid accessing empty vector, even if no
+            // fields are printed
+            print.print_layer_number.push_back(domain.number_of_layers - 1);
+        }
 
         // Print information to console about the input file data read
         if (id == 0) {
@@ -348,17 +355,56 @@ struct Inputs {
         }
     }
 
+    // Check that all given fields are valid, and all required fields are given
+    void checkPrintFieldValidity(nlohmann::json input_data, const int id) {
+        const int num_valid_print_fields = print.print_field_label.size();
+        std::vector<bool> required_field_found(num_valid_print_fields, false);
+        for (auto &[key, value] : input_data["Printing"].items()) {
+            bool valid_field = false;
+            // Check key read from file against possible matching fields
+            for (int field = 0; field < num_valid_print_fields; field++) {
+                if (key == print.print_field_label[field]) {
+                    valid_field = true;
+                    // If this was a required field, record that the field was found
+                    if (print.required_print_field[field])
+                        required_field_found[field] = true;
+                }
+            }
+            if ((!valid_field) && (id == 0)) {
+                std::string error =
+                    "Error: field '" + key + "' from Printing section of input file is not recognized by ExaCA";
+                throw std::runtime_error(error);
+            }
+        }
+        for (int field = 0; field < num_valid_print_fields; field++) {
+            if ((print.required_print_field[field]) && (!required_field_found[field]) && (id == 0)) {
+                std::string error = "Error: Required field \"" + print.print_field_label[field] +
+                                    "\" from Printing section of input file was not found";
+                throw std::runtime_error(error);
+            }
+        }
+    }
+
     // Updated version, where fields are organized into intralayer and interlayer
-    std::vector<bool> getPrintFieldValues(nlohmann::json input_data, const std::string fieldtype,
+    std::vector<bool> getPrintFieldValues(const int id, nlohmann::json input_data, const std::string fieldtype,
                                           const std::vector<std::string> fieldnames_key) {
         int num_fields_key = fieldnames_key.size();
         int num_fields_given = input_data["Printing"][fieldtype]["Fields"].size();
         std::vector<bool> print_fields_given(num_fields_key, false);
         // Check each given field against each possible input field name
         for (int field_given = 0; field_given < num_fields_given; field_given++) {
+            bool valid_field = false;
+            std::string field_read = input_data["Printing"][fieldtype]["Fields"][field_given];
             for (int field_key = 0; field_key < num_fields_key; field_key++) {
-                if (input_data["Printing"][fieldtype]["Fields"][field_given] == fieldnames_key[field_key])
+                if (field_read == fieldnames_key[field_key]) {
                     print_fields_given[field_key] = true;
+                    valid_field = true;
+                }
+            }
+            if ((!valid_field) && (id == 0)) {
+                std::string error = "Error: Field '" + field_read + "' from " + fieldtype +
+                                    " Printing section of input file is not recognized by ExaCA";
+                throw std::runtime_error(error);
             }
         }
         return print_fields_given;
@@ -366,6 +412,8 @@ struct Inputs {
 
     // Read the input data file and initialize appropriate variables to non-default values if necessary
     void getPrintDataFromInputFile(nlohmann::json input_data, const int id) {
+        // Check that all given fields are valid, and all required fields are given
+        checkPrintFieldValidity(input_data, id);
         // Path to output data
         print.path_to_output = input_data["Printing"]["PathToOutput"];
         // Name of output data
@@ -383,134 +431,131 @@ struct Inputs {
             if (print.rve_size != 0)
                 print.print_default_rve = true;
         }
-
-        if ((input_data["Printing"].contains("PrintFieldsInit")) ||
-            (input_data["Printing"].contains("PrintIntermediateOutput")) ||
-            (input_data["Printing"].contains("PrintIntermediateOutput"))) {
-            throw std::runtime_error("Error: The old print input format is no longer compatible with ExaCA. See "
-                                     "examples/README for updated format");
-        }
-        else {
-            if (input_data["Printing"].contains("Intralayer")) {
-                // Fields to be printed during a simulation or during a layer of a simulation - if increment
-                if (input_data["Printing"]["Intralayer"]["Increment"] == 0) {
-                    // Files only printed for the initial state of a given layer
-                    print.intralayer_increment = INT_MAX;
-                }
-                else {
-                    // Files to be printed at some interval during each layer
-                    print.intralayer_increment = input_data["Printing"]["Intralayer"]["Increment"];
+        if (input_data["Printing"].contains("Intralayer")) {
+            // Fields to be printed during a simulation or during a layer of a simulation - if increment
+            if (input_data["Printing"]["Intralayer"]["Increment"] == 0) {
+                // Files only printed for the initial state of a given layer
+                print.intralayer_increment = INT_MAX;
+            }
+            else {
+                // Files to be printed at some interval during each layer
+                print.intralayer_increment = input_data["Printing"]["Intralayer"]["Increment"];
+                // Default is false for printing intermediate frames if no changes in the simulation since the prior
+                // printed frame
+                if (input_data["Printing"]["Intralayer"].contains("PrintIdleFrames"))
                     print.intralayer_idle_frames = input_data["Printing"]["Intralayer"]["PrintIdleFrames"];
-                }
-                // Which fields should be printed during the layers?
-                std::vector<bool> print_fields_intralayer =
-                    getPrintFieldValues(input_data, "Intralayer", print.fieldnames_key);
-                if (print_fields_intralayer[0])
-                    print.intralayer_grain_id = true;
-                if (print_fields_intralayer[1])
-                    print.intralayer_layer_id = true;
-                if (print_fields_intralayer[2])
-                    print.intralayer_grain_misorientation = true;
-                if (print_fields_intralayer[3])
-                    print.intralayer_undercooling_current = true;
-                if (print_fields_intralayer[4])
-                    print.intralayer_undercooling_solidification_start = true;
-                if (print_fields_intralayer[5])
-                    print.intralayer_melt_time_step = true;
-                if (print_fields_intralayer[6])
-                    print.intralayer_crit_time_step = true;
-                if (print_fields_intralayer[7])
-                    print.intralayer_undercooling_change = true;
-                if (print_fields_intralayer[8])
-                    print.intralayer_cell_type = true;
-                if (print_fields_intralayer[9])
-                    print.intralayer_diagonal_length = true;
-                if (print_fields_intralayer[10])
-                    print.intralayer_solidification_event_counter = true;
-                if (print_fields_intralayer[11])
-                    print.intralayer_number_of_solidification_events = true;
-                // True if any fields are printed
-                int num_print_intralayer_inputs = print_fields_intralayer.size();
-                for (int n = 0; n < num_print_intralayer_inputs; n++) {
-                    if (print_fields_intralayer[n])
-                        print.intralayer = true;
-                }
             }
-            // List of layers following which interlayer data should be printed (will always print after last layer by
-            // default)
-            if (input_data["Printing"]["Interlayer"].contains("Layers")) {
-                if ((id == 0) && (input_data["Printing"]["Interlayer"].contains("Increment")))
-                    std::cout << "Warning: A list of layers to print and a layer increment were both present in the "
-                                 "input file print options, the layer increment will be ignored"
-                              << std::endl;
-                int num_print_layers = input_data["Printing"]["Interlayer"]["Layers"].size();
-                for (int n = 0; n < num_print_layers; n++) {
-                    int print_layer_val = input_data["Printing"]["Interlayer"]["Layers"][n];
-                    if (print_layer_val >= domain.number_of_layers) {
-                        if (id == 0)
-                            std::cout << "Note: adjusting layer value of " << print_layer_val << " to "
-                                      << domain.number_of_layers - 1
-                                      << " as the simulation only contains layers 0 through " << domain.number_of_layers
-                                      << std::endl;
-                        print_layer_val = domain.number_of_layers - 1;
-                    }
-                    print.print_layer_number.push_back(print_layer_val);
-                }
-                // Make sure files print after last layer, even if it wasn't listed
-                if (print.print_layer_number[num_print_layers - 1] != domain.number_of_layers - 1)
-                    print.print_layer_number.push_back(domain.number_of_layers - 1);
-            }
-            else if (input_data["Printing"]["Interlayer"].contains("Increment")) {
-                // Print layer numbers starting at 0 and at interlayer_increment, always including the last layer
-                int interlayer_increment = input_data["Printing"]["Interlayer"]["Increment"];
-                for (int n = 0; n < domain.number_of_layers - 1; n += interlayer_increment)
-                    print.print_layer_number.push_back(n);
-                print.print_layer_number.push_back(domain.number_of_layers - 1);
-            }
-            else
-                print.print_layer_number.push_back(domain.number_of_layers - 1);
-
             // Which fields should be printed during the layers?
-            std::vector<bool> print_fields_interlayer =
-                getPrintFieldValues(input_data, "Interlayer", print.fieldnames_key);
-            if (print_fields_interlayer[0])
-                print.interlayer_grain_id = true;
-            if (print_fields_interlayer[1])
-                print.interlayer_layer_id = true;
-            if (print_fields_interlayer[2])
-                print.interlayer_grain_misorientation = true;
-            if (print_fields_interlayer[3])
-                print.interlayer_undercooling_current = true;
-            if (print_fields_interlayer[4])
-                print.interlayer_undercooling_solidification_start = true;
-            if (print_fields_interlayer[5])
-                print.interlayer_melt_time_step = true;
-            if (print_fields_interlayer[6])
-                print.interlayer_crit_time_step = true;
-            if (print_fields_interlayer[7])
-                print.interlayer_undercooling_change = true;
-            if (print_fields_interlayer[8])
-                print.interlayer_cell_type = true;
-            if (print_fields_interlayer[9])
-                print.interlayer_diagonal_length = true;
-            if (print_fields_interlayer[10])
-                print.interlayer_solidification_event_counter = true;
-            if (print_fields_interlayer[11])
-                print.interlayer_number_of_solidification_events = true;
-            if ((print.interlayer_grain_id) || (print.interlayer_layer_id) || (print.interlayer_undercooling_current) ||
-                (print.interlayer_undercooling_solidification_start))
-                print.interlayer_full = true;
-            // First 5 inputs are full domain inputs - check if any of the others were toggled
-            int num_interlayer_current_inputs = print_fields_interlayer.size();
-            for (int n = 5; n < num_interlayer_current_inputs; n++) {
-                if (print_fields_interlayer[n])
-                    print.interlayer_current = true;
+            std::vector<bool> print_fields_intralayer =
+                getPrintFieldValues(id, input_data, "Intralayer", print.fieldnames_key);
+            if (print_fields_intralayer[0])
+                print.intralayer_grain_id = true;
+            if (print_fields_intralayer[1])
+                print.intralayer_layer_id = true;
+            if (print_fields_intralayer[2])
+                print.intralayer_grain_misorientation = true;
+            if (print_fields_intralayer[3])
+                print.intralayer_undercooling_current = true;
+            if (print_fields_intralayer[4])
+                print.intralayer_undercooling_solidification_start = true;
+            if (print_fields_intralayer[5])
+                print.intralayer_melt_time_step = true;
+            if (print_fields_intralayer[6])
+                print.intralayer_crit_time_step = true;
+            if (print_fields_intralayer[7])
+                print.intralayer_undercooling_change = true;
+            if (print_fields_intralayer[8])
+                print.intralayer_cell_type = true;
+            if (print_fields_intralayer[9])
+                print.intralayer_diagonal_length = true;
+            if (print_fields_intralayer[10])
+                print.intralayer_solidification_event_counter = true;
+            if (print_fields_intralayer[11])
+                print.intralayer_number_of_solidification_events = true;
+            // True if any fields are printed
+            int num_print_intralayer_inputs = print_fields_intralayer.size();
+            for (int n = 0; n < num_print_intralayer_inputs; n++) {
+                if (print_fields_intralayer[n])
+                    print.intralayer = true;
             }
-            // Should starting undercooling for solidification be stored?
-            if ((print.intralayer_undercooling_solidification_start) ||
-                (print.interlayer_undercooling_solidification_start) || (print.print_front_undercooling))
-                print.store_solidification_start = true;
         }
+        // List of layers following which interlayer data should be printed (will always print after last layer by
+        // default)
+        if (input_data["Printing"]["Interlayer"].contains("Layers")) {
+            if ((id == 0) && (input_data["Printing"]["Interlayer"].contains("Increment")))
+                std::cout << "Warning: A list of layers to print and a layer increment were both present in the "
+                             "input file print options, the layer increment will be ignored"
+                          << std::endl;
+            int num_print_layers = input_data["Printing"]["Interlayer"]["Layers"].size();
+            for (int n = 0; n < num_print_layers; n++) {
+                int print_layer_val = input_data["Printing"]["Interlayer"]["Layers"][n];
+                if (print_layer_val >= domain.number_of_layers) {
+                    if (id == 0)
+                        std::cout << "Note: adjusting layer value of " << print_layer_val << " to "
+                                  << domain.number_of_layers - 1 << " as the simulation only contains layers 0 through "
+                                  << domain.number_of_layers << std::endl;
+                    print_layer_val = domain.number_of_layers - 1;
+                }
+                print.print_layer_number.push_back(print_layer_val);
+            }
+            // Make sure files print after last layer, even if it wasn't listed
+            if (print.print_layer_number[num_print_layers - 1] != domain.number_of_layers - 1)
+                print.print_layer_number.push_back(domain.number_of_layers - 1);
+        }
+        else if (input_data["Printing"]["Interlayer"].contains("Increment")) {
+            // Print layer numbers starting at 0 and at interlayer_increment, always including the last layer
+            int interlayer_increment = input_data["Printing"]["Interlayer"]["Increment"];
+            for (int n = 0; n < domain.number_of_layers - 1; n += interlayer_increment)
+                print.print_layer_number.push_back(n);
+            print.print_layer_number.push_back(domain.number_of_layers - 1);
+        }
+        else
+            print.print_layer_number.push_back(domain.number_of_layers - 1);
+
+        // Which fields should be printed during the layers?
+        std::vector<bool> print_fields_interlayer =
+            getPrintFieldValues(id, input_data, "Interlayer", print.fieldnames_key);
+        if (print_fields_interlayer[0])
+            print.interlayer_grain_id = true;
+        if (print_fields_interlayer[1])
+            print.interlayer_layer_id = true;
+        if (print_fields_interlayer[2])
+            print.interlayer_grain_misorientation = true;
+        if (print_fields_interlayer[3])
+            print.interlayer_undercooling_current = true;
+        if (print_fields_interlayer[4])
+            print.interlayer_undercooling_solidification_start = true;
+        if (print_fields_interlayer[5])
+            print.interlayer_melt_time_step = true;
+        if (print_fields_interlayer[6])
+            print.interlayer_crit_time_step = true;
+        if (print_fields_interlayer[7])
+            print.interlayer_undercooling_change = true;
+        if (print_fields_interlayer[8])
+            print.interlayer_cell_type = true;
+        if (print_fields_interlayer[9])
+            print.interlayer_diagonal_length = true;
+        if (print_fields_interlayer[10])
+            print.interlayer_solidification_event_counter = true;
+        if (print_fields_interlayer[11])
+            print.interlayer_number_of_solidification_events = true;
+        if ((print.interlayer_grain_id) || (print.interlayer_layer_id) || (print.interlayer_undercooling_current) ||
+            (print.interlayer_undercooling_solidification_start))
+            print.interlayer_full = true;
+        // First 5 inputs are full domain inputs - check if any of the others were toggled
+        int num_interlayer_current_inputs = print_fields_interlayer.size();
+        for (int n = 5; n < num_interlayer_current_inputs; n++) {
+            if (print_fields_interlayer[n])
+                print.interlayer_current = true;
+        }
+        // Should starting undercooling for solidification be stored?
+        if ((print.intralayer_undercooling_solidification_start) ||
+            (print.interlayer_undercooling_solidification_start) || (print.print_front_undercooling))
+            print.store_solidification_start = true;
+
+        // If no ExaConstit data is to be printed, no intralayer nor interlayer fields are to be printed, and no front
+        // undercooling data is to be printed, throw an error (likely an input file typo, ExaCA should at the very least
+        // output some feature about the simulated data)
         if (id == 0)
             std::cout << "Successfully parsed data printing options from input file" << std::endl;
     }
