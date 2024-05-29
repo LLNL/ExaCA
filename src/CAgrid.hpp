@@ -60,7 +60,7 @@ struct Grid {
     };
 
     // Creates grid struct from Finch grid - currently only single layer simulation is supported
-    Grid(const int id, const int np, DomainInputs inputs, const double finch_cell_size,
+    Grid(const int id, const int np, DomainInputs inputs, TemperatureInputs t_inputs, const double finch_cell_size,
          std::array<double, 3> global_low_corner, std::array<double, 3> global_high_corner,
          const double cell_size_tolerance = 1 * Kokkos::pow(10, -8))
         : z_min_layer(
@@ -69,18 +69,20 @@ struct Grid {
               view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_max_layer"), inputs.number_of_layers))
         , number_of_layers(inputs.number_of_layers)
         , layer_height(inputs.layer_height)
-        , _inputs(inputs) {
+        , _inputs(inputs)
+        , _t_inputs(t_inputs) {
 
         // Ensure Finch and ExaCA cell sizes match
         deltax = _inputs.deltax;
         if (Kokkos::abs(finch_cell_size - deltax) > cell_size_tolerance)
             throw std::runtime_error("Error: ExaCA cell size must match cell size from Finch simulation");
-        // Set ExaCA domain bounds using Finch domain bounds
+        // Set ExaCA domain bounds using Finch domain bounds - extended in X or Y if considering additional translation
+        // of Finch data
         x_min = global_low_corner[0];
         y_min = global_low_corner[1];
         z_min = global_low_corner[2];
-        x_max = global_high_corner[0];
-        y_max = global_high_corner[1];
+        x_max = global_high_corner[0] + (_t_inputs.number_of_copies - 1) * _t_inputs.x_offset;
+        y_max = global_high_corner[1] + (_t_inputs.number_of_copies - 1) * _t_inputs.y_offset;
         z_max = global_high_corner[2] + inputs.layer_height * (inputs.number_of_layers - 1) * deltax;
         nx = Kokkos::round((x_max - x_min) / deltax) + 1;
         ny = Kokkos::round((y_max - y_min) / deltax) + 1;

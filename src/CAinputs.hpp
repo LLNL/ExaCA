@@ -157,6 +157,38 @@ struct Inputs {
                 // defaults to false
                 if (input_data["TemperatureData"].contains("TrimUnmeltedRegion"))
                     temperature.trim_unmelted_region = input_data["TemperatureData"]["TrimUnmeltedRegion"];
+                temperature.number_of_copies = input_data["TemperatureData"]["TranslationCount"];
+                // Include the original in the total number of copies (number of translations + 1)
+                temperature.number_of_copies++;
+                std::string offset_direction = input_data["TemperatureData"]["OffsetDirection"];
+                // Offsets are given in cells (for consistency with layer height) and microseconds (for consistency with
+                // time step) but stored in meters and seconds for consistency with how cell size and time step are
+                // treated
+                if (offset_direction == "X") {
+                    // X offset from input file, Y defaults to 0
+                    temperature.x_offset = input_data["TemperatureData"]["SpatialOffset"];
+                }
+                else if (offset_direction == "Y") {
+                    // Y offset from input file, X defaults to 0
+                    temperature.y_offset = input_data["TemperatureData"]["SpatialOffset"];
+                }
+                else
+                    throw std::runtime_error("Error: OffsetDirection must be either X or Y");
+                temperature.temporal_offset = input_data["TemperatureData"]["TemporalOffset"];
+                temperature.x_offset = temperature.x_offset * pow(10, -6);
+                temperature.y_offset = temperature.y_offset * pow(10, -6);
+                temperature.temporal_offset = temperature.temporal_offset * pow(10, -6);
+
+                // For the direction not used to offset copies of the temperature data, should the data be mirrored on
+                // every other pass (i.e., bidirectional scanning of a laser)?
+                bool alternating_direction = input_data["TemperatureData"]["AlternatingDirection"];
+                if (alternating_direction) {
+                    // False (default) for offset direction, true for other direction
+                    if (offset_direction == "X")
+                        temperature.mirror_y = true;
+                    else
+                        temperature.mirror_x = true;
+                }
             }
         }
         else {
