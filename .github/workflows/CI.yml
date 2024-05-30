@@ -116,8 +116,8 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: ORNL-MDF/Finch
-          # This is post-release 0.1
-          ref: 765a7cef4bded27fd5b2a475454aa045bced85c1
+          # This is after the ability to extract data bounds was added
+          ref: ca46415b3cc1edc7cd6959e744e47d785c1d0e2a
           path: finch
       - name: Build Finch
         if: ${{ matrix.heat_transfer == 'Finch' }}
