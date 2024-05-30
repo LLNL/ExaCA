@@ -46,8 +46,18 @@ void runCoupled(int id, int np, Finch::Inputs finch_inputs, Inputs exaca_inputs)
     timers.startInit();
 
     // Setup local and global grids, decomposing domain (needed to construct temperature)
-    Grid exaca_grid(id, np, exaca_inputs.domain, finch_inputs.space.cell_size, finch_inputs.space.global_low_corner,
-                    finch_inputs.space.global_high_corner);
+    // ExaCA either uses the same bounds as Finch, or a bounding box that only includes the regions that underwent
+    // melting and solidification
+    std::array<double, 3> exaca_low_corner, exaca_high_corner;
+    if (exaca_inputs.temperature.trim_unmelted_region) {
+        exaca_low_corner = app.getLowerSolidificationDataBounds();
+        exaca_high_corner = app.getUpperSolidificationDataBounds();
+    }
+    else {
+        exaca_low_corner = finch_inputs.space.global_low_corner;
+        exaca_high_corner = finch_inputs.space.global_high_corner;
+    }
+    Grid exaca_grid(id, np, exaca_inputs.domain, finch_inputs.space.cell_size, exaca_low_corner, exaca_high_corner);
     // Temperature fields characterized by data in this structure
     Temperature<memory_space> temperature(id, np, exaca_grid, exaca_inputs.temperature, app.getSolidificationData(),
                                           exaca_inputs.print.store_solidification_start);
