@@ -44,9 +44,6 @@ struct Nucleation {
     // point in the simulation of a layer. Starts at 0 each layer.
     int nuclei_whole_domain, possible_nuclei, nucleation_counter, successful_nucleation_counter;
 
-    // The probability that a given liquid site will be a potential nucleus location
-    double bulk_prob;
-
     // The time steps at which nucleation events will occur in the given layer, on the host
     view_type_int_host nucleation_times_host;
     // The locations and grain IDs of the potential nuclei in the layer
@@ -57,7 +54,7 @@ struct Nucleation {
     // Constructor - initialize CA views using input for initial guess at number of possible events
     // Default is that no nucleation has occurred to this point, optional input argument to start with the counter at a
     // specific value
-    Nucleation(const int estimated_nuclei_this_rank_this_layer, const double deltax, const NucleationInputs inputs,
+    Nucleation(const int estimated_nuclei_this_rank_this_layer, const NucleationInputs inputs,
                const int num_prior_nuclei = 0)
         : nucleation_times_host(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("NucleationTimes_Host"),
                                                    estimated_nuclei_this_rank_this_layer))
@@ -68,7 +65,6 @@ struct Nucleation {
         , _inputs(inputs) {
 
         nuclei_whole_domain = num_prior_nuclei;
-        bulk_prob = _inputs.n_max * deltax * deltax * deltax;
         resetNucleiCounters(); // start counters at 0
     }
 
@@ -99,21 +95,22 @@ struct Nucleation {
 
         // Use new RNG seed for each layer
         std::mt19937_64 generator(rng_seed + static_cast<unsigned long>(layernumber));
-        // Uniform distribution for nuclei location assignment
-        std::uniform_real_distribution<double> x_dist(-0.49999, grid.nx - 0.5);
-        std::uniform_real_distribution<double> y_dist(-0.49999, grid.ny - 0.5);
-        std::uniform_real_distribution<double> z_dist(-0.49999, grid.nz_layer - 0.5);
+        // Uniform distributions for nuclei location assignment - associate each nucleation event with an XYZ coordinate
+        // in meters
+        std::uniform_real_distribution<double> nucleation_site_dist_x(grid.x_min, grid.x_max);
+        std::uniform_real_distribution<double> nucleation_site_dist_y(grid.y_min, grid.y_max);
+        std::uniform_real_distribution<double> nucleation_site_dist_z(grid.z_min, grid.z_max);
         // Gaussian distribution of nucleation undercooling
-        std::normal_distribution<double> g_distribution(_inputs.dtn, _inputs.dtsigma);
+        std::normal_distribution<double> nucleation_undercooling_dist(_inputs.dtn, _inputs.dtsigma);
 
         // Max number of nucleated grains in this layer
         // Use long int in intermediate steps calculating the number of nucleated grains, though the number should be
         // small enough to be stored as an int
-        long int cells_this_layer_long =
-            static_cast<long int>(grid.nx) * static_cast<long int>(grid.ny) * static_cast<long int>(grid.nz_layer);
-        long int nuclei_this_layer_single_long =
-            std::lround(bulk_prob * cells_this_layer_long); // equivalent to Nuclei_ThisLayer if no remelting
-        // Multiplier for the number of nucleation events per layer, based on the number of solidification events
+        const double domain_volume = (grid.x_max - grid.x_min) * (grid.y_max - grid.y_min) *
+                                     (grid.z_max_layer(layernumber) - grid.z_min_layer(layernumber));
+        // If each cell underwent solidification 1x, the number of potential nuclei in the layer
+        const long int nuclei_this_layer_single_long = std::lround(_inputs.n_max * domain_volume);
+        // Multiplier for the number of nucleation events per layer, based on the max number of solidification events
         long int nuclei_multiplier_long = static_cast<long int>(max_solidification_events_host(layernumber));
         long int nuclei_this_layer_long = nuclei_this_layer_single_long * nuclei_multiplier_long;
         // Vector and view sizes should be type int for indexing and grain ID assignment purposes -
@@ -138,17 +135,17 @@ struct Nucleation {
             for (int n = 0; n < nuclei_this_layer_single; n++) {
                 int n_event = meltevent * nuclei_this_layer_single + n;
                 // Generate possible nuclei locations
-                double nuclei_x_unrounded = x_dist(generator);
-                double nuclei_y_unrounded = y_dist(generator);
-                double nuclei_z_unrounded = z_dist(generator);
-                // Round these coordinates so they're associated with a specific cell on the grid
-                nuclei_x(n_event) = Kokkos::round(nuclei_x_unrounded);
-                nuclei_y(n_event) = Kokkos::round(nuclei_y_unrounded);
-                nuclei_z(n_event) = Kokkos::round(nuclei_z_unrounded);
+                double nuclei_x_unrounded = nucleation_site_dist_x(generator);
+                double nuclei_y_unrounded = nucleation_site_dist_y(generator);
+                double nuclei_z_unrounded = nucleation_site_dist_z(generator);
+                // Associate these locations with a specific cell on the grid
+                nuclei_x(n_event) = Kokkos::round((nuclei_x_unrounded - grid.x_min) / grid.deltax);
+                nuclei_y(n_event) = Kokkos::round((nuclei_y_unrounded - grid.y_min) / grid.deltax);
+                nuclei_z(n_event) = Kokkos::round((nuclei_z_unrounded - grid.z_min_layer[layernumber]) / grid.deltax);
                 // Assign each nuclei a Grain ID (negative values used for nucleated grains) and an undercooling
                 nuclei_grain_id_whole_domain_v[n_event] =
                     -(nuclei_whole_domain + n_event + 1); // avoid using grain ID 0
-                nuclei_undercooling_whole_domain_v[n_event] = g_distribution(generator);
+                nuclei_undercooling_whole_domain_v[n_event] = nucleation_undercooling_dist(generator);
             }
         }
 
@@ -167,8 +164,9 @@ struct Nucleation {
         // nucleation event is associated with a CA cell on that MPI rank's subdomain, the cell is liquid type, and the
         // cell is associated with the current layer of the multilayer problem) Don't put nuclei in "ghost" cells -
         // those nucleation events occur on other ranks and the existing halo exchange functionality will handle this
-        std::vector<int> nuclei_grain_id_myrank_v(nuclei_this_layer), nuclei_location_myrank_v(nuclei_this_layer),
-            nucleation_times_myrank_v(nuclei_this_layer);
+        std::vector<int> nuclei_grain_id_myrank_v(nuclei_this_layer), nuclei_location_myrank_v(nuclei_this_layer);
+        // Store nucleation times as doubles to correctly order events in times, then convert to time steps later
+        std::vector<double> nucleation_times_myrank_v(nuclei_this_layer);
         for (int meltevent = 0; meltevent < nuclei_multiplier; meltevent++) {
             for (int n = 0; n < nuclei_this_layer_single; n++) {
                 int n_event = meltevent * nuclei_this_layer_single + n;
@@ -194,7 +192,7 @@ struct Nucleation {
                             liq_time_this_event + nuclei_undercooling_whole_domain_v[n_event] / cooling_rate_this_event;
                         if (liq_time_this_event > time_to_nuc_und)
                             time_to_nuc_und = liq_time_this_event;
-                        nucleation_times_myrank_v[possible_nuclei] = Kokkos::round(time_to_nuc_und);
+                        nucleation_times_myrank_v[possible_nuclei] = time_to_nuc_und;
                         // Assign this cell the potential nucleated grain ID
                         nuclei_grain_id_myrank_v[possible_nuclei] = nuclei_grain_id_whole_domain_v[n_event];
                         // Increment counter on this MPI rank
@@ -219,7 +217,7 @@ struct Nucleation {
 
         // Sort the list of time steps at which nucleation occurs, keeping the time steps paired with the corresponding
         // locations for nucleation events and grain IDs
-        std::vector<std::tuple<int, int, int>> nucleation_time_loc_id;
+        std::vector<std::tuple<double, int, int>> nucleation_time_loc_id;
         nucleation_time_loc_id.reserve(possible_nuclei);
         for (int n = 0; n < possible_nuclei; n++) {
             nucleation_time_loc_id.push_back(std::make_tuple(nucleation_times_myrank_v[n], nuclei_location_myrank_v[n],
@@ -242,7 +240,9 @@ struct Nucleation {
         view_type_int_host nuclei_grain_id_host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
                                                 possible_nuclei);
         for (int n = 0; n < possible_nuclei; n++) {
-            nucleation_times_host(n) = std::get<0>(nucleation_time_loc_id[n]);
+            double nucleation_time = std::get<0>(nucleation_time_loc_id[n]);
+            // Convert nucleation time to a time step
+            nucleation_times_host(n) = Kokkos::round(nucleation_time);
             nuclei_locations_host(n) = std::get<1>(nucleation_time_loc_id[n]);
             nuclei_grain_id_host(n) = std::get<2>(nucleation_time_loc_id[n]);
         }

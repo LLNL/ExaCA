@@ -52,6 +52,13 @@ void testNucleiInit() {
     grid.y_offset = 2 * id;
     grid.nz = 6;
     grid.deltax = 1;
+    // Global grid XYZ bounds for the layer of interest (layer 1)
+    grid.x_min = 0.0;
+    grid.x_max = grid.nx * grid.deltax;
+    grid.y_min = 0.0;
+    grid.y_max = grid.ny * grid.deltax;
+    grid.z_min_layer[1] = grid.z_layer_bottom * grid.deltax;
+    grid.z_max_layer[1] = (grid.z_layer_bottom + grid.nz_layer) * grid.deltax;
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
     grid.bottom_of_current_layer = grid.getBottomOfCurrentLayer();
@@ -138,7 +145,7 @@ void testNucleiInit() {
     // NucleiInit when the number of nuclei per rank is known
     int estimated_nuclei_this_rank_this_layer = inputs.nucleation.n_max * pow(grid.deltax, 3) * grid.domain_size;
     Nucleation<memory_space> nucleation(
-        estimated_nuclei_this_rank_this_layer, grid.deltax, inputs.nucleation,
+        estimated_nuclei_this_rank_this_layer, inputs.nucleation,
         100); // nuclei_grain_id should start at -101 - supply optional input arg to constructor
     // Ensure nucleation inputs in nucleation struct were correctly initialized
     EXPECT_DOUBLE_EQ(inputs.nucleation.n_max, nucleation._inputs.n_max);
@@ -222,7 +229,7 @@ void testNucleateGrain() {
 
     // Create test nucleation data - 10 possible events
     int possible_nuclei = 10;
-    Nucleation<memory_space> nucleation(possible_nuclei, grid.deltax, inputs.nucleation);
+    Nucleation<memory_space> nucleation(possible_nuclei, inputs.nucleation);
     nucleation.possible_nuclei = 10;
     view_int_host nuclei_locations_host(Kokkos::ViewAllocateWithoutInitializing("nuclei_locations_host"),
                                         possible_nuclei);
