@@ -150,7 +150,16 @@ struct Inputs {
                     temperature.temp_paths.push_back(input_data["TemperatureData"]["TemperatureFiles"][filename]);
             }
         }
-        else if (simulation_type != "FromFinch") {
+        else if (simulation_type == "FromFinch") {
+            // See if temperature data translation instructions are given
+            if (input_data.contains("TemperatureData")) {
+                // Option to trim bounds of Finch data around the region that underwent solidification. If not given,
+                // defaults to false
+                if (input_data["TemperatureData"].contains("TrimUnmeltedRegion"))
+                    temperature.trim_unmelted_region = input_data["TemperatureData"]["TrimUnmeltedRegion"];
+            }
+        }
+        else {
             // Temperature data uses fixed thermal gradient (K/m) and cooling rate (K/s)
             temperature.G = input_data["TemperatureData"]["G"];
             temperature.R = input_data["TemperatureData"]["R"];

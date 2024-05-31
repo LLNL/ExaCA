@@ -66,6 +66,8 @@ struct TemperatureInputs {
     // solidification front
     double G = 0, R = 0;
     double init_undercooling = 0.0;
+    // Used for FromFinch problem type
+    bool trim_unmelted_region = false;
 };
 
 struct SubstrateInputs {
