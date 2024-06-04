@@ -487,6 +487,11 @@ struct Inputs {
                 if (print_fields_intralayer[n])
                     print.intralayer = true;
             }
+            // Will fields other than grain misorientations be printed?
+            for (int n = 0; n < num_print_intralayer_inputs; n++) {
+                if ((n != 2) && (print_fields_intralayer[n]))
+                    print.intralayer_non_misorientation_fields = true;
+            }
         }
         // List of layers following which interlayer data should be printed (will always print after last layer by
         // default)

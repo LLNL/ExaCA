@@ -123,6 +123,7 @@ struct PrintInputs {
     bool intralayer = false;
     int intralayer_increment = 1;
     bool intralayer_idle_frames = false;
+    bool intralayer_non_misorientation_fields = false;
     bool intralayer_grain_id = false;
     bool intralayer_layer_id = false;
     bool intralayer_grain_misorientation = false;
