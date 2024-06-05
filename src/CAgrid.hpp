@@ -279,7 +279,10 @@ struct Grid {
                 }
             }
         }
-
+        if (xyz_point_counter == 0) {
+            std::string error_message = "Error: File " + tempfile_thislayer + " contained no data";
+            throw std::runtime_error(error_message);
+        }
         x_coordinates.resize(xyz_point_counter);
         y_coordinates.resize(xyz_point_counter);
         z_coordinates.resize(xyz_point_counter);
