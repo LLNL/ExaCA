@@ -138,6 +138,10 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
             }
 
         } while (x_switch == 0);
+
+        // Reset intralayer print counter and print time series file for previous layer's intralayer data (if needed)
+        print.resetIntralayer(id, layernumber);
+
         if (layernumber != grid.number_of_layers - 1) {
             MPI_Barrier(MPI_COMM_WORLD);
 
