@@ -131,63 +131,80 @@ struct Inputs {
         parseIRF(id);
 
         // Temperature inputs:
-        if (simulation_type == "FromFile") {
-            if ((input_data["TemperatureData"].contains("HeatTransferCellSize")) && (id == 0))
-                std::cout << "Note: Heat transport data cell size is no longer an input used in ExaCA, temperature "
-                             "data must be at the same resolution as the CA cell size"
-                          << std::endl;
-            // Read all temperature files at once (default), or one at a time?
-            if (input_data["TemperatureData"].contains("LayerwiseTempRead")) {
-                temperature.layerwise_temp_read = input_data["TemperatureData"]["LayerwiseTempRead"];
+        if ((simulation_type == "FromFile") || (simulation_type == "FromFinch")) {
+            if (simulation_type == "FromFile") {
+                if ((input_data["TemperatureData"].contains("HeatTransferCellSize")) && (id == 0))
+                    std::cout << "Note: Heat transport data cell size is no longer an input used in ExaCA, temperature "
+                                 "data must be at the same resolution as the CA cell size"
+                              << std::endl;
+                // Read all temperature files at once (default), or one at a time?
+                if (input_data["TemperatureData"].contains("LayerwiseTempRead")) {
+                    temperature.layerwise_temp_read = input_data["TemperatureData"]["LayerwiseTempRead"];
+                }
+                // Get the paths/number of/names of the temperature data files used
+                temperature.temp_files_in_series = input_data["TemperatureData"]["TemperatureFiles"].size();
+                if (temperature.temp_files_in_series == 0)
+                    throw std::runtime_error(
+                        "Error: At least one temperature filename must be given for simulation type FromFile");
+                else {
+                    for (int filename = 0; filename < temperature.temp_files_in_series; filename++)
+                        temperature.temp_paths.push_back(input_data["TemperatureData"]["TemperatureFiles"][filename]);
+                }
             }
-            // Get the paths/number of/names of the temperature data files used
-            temperature.temp_files_in_series = input_data["TemperatureData"]["TemperatureFiles"].size();
-            if (temperature.temp_files_in_series == 0)
-                throw std::runtime_error(
-                    "Error: At least one temperature filename must be given for simulation type FromFile");
-            else {
-                for (int filename = 0; filename < temperature.temp_files_in_series; filename++)
-                    temperature.temp_paths.push_back(input_data["TemperatureData"]["TemperatureFiles"][filename]);
-            }
-        }
-        else if (simulation_type == "FromFinch") {
             // See if temperature data translation instructions are given
             if (input_data.contains("TemperatureData")) {
                 // Option to trim bounds of Finch data around the region that underwent solidification. If not given,
                 // defaults to false
-                if (input_data["TemperatureData"].contains("TrimUnmeltedRegion"))
+                // As an alternative to the TrimUnmeltedRegion option, fixed X or Y bounds can be given to trim the
+                // input data
+                if ((input_data["TemperatureData"].contains("TrimUnmeltedRegion")) && (simulation_type == "FromFinch"))
                     temperature.trim_unmelted_region = input_data["TemperatureData"]["TrimUnmeltedRegion"];
-                temperature.number_of_copies = input_data["TemperatureData"]["TranslationCount"];
-                // Include the original in the total number of copies (number of translations + 1)
-                temperature.number_of_copies++;
-                std::string offset_direction = input_data["TemperatureData"]["OffsetDirection"];
-                // Offsets are given in cells (for consistency with layer height) and microseconds (for consistency with
-                // time step) but stored in meters and seconds for consistency with how cell size and time step are
-                // treated
-                if (offset_direction == "X") {
-                    // X offset from input file, Y defaults to 0
-                    temperature.x_offset = input_data["TemperatureData"]["SpatialOffset"];
+                else {
+                    if (input_data["TemperatureData"].contains("XRegion")) {
+                        temperature.temperature_x_bounds[0] = input_data["TemperatureData"]["XRegion"][0];
+                        temperature.temperature_x_bounds[1] = input_data["TemperatureData"]["XRegion"][1];
+                        temperature.use_fixed_x_bounds = true;
+                    }
+                    if (input_data["TemperatureData"].contains("YRegion")) {
+                        temperature.temperature_y_bounds[0] = input_data["TemperatureData"]["YRegion"][0];
+                        temperature.temperature_y_bounds[1] = input_data["TemperatureData"]["YRegion"][1];
+                        temperature.use_fixed_y_bounds = true;
+                    }
                 }
-                else if (offset_direction == "Y") {
-                    // Y offset from input file, X defaults to 0
-                    temperature.y_offset = input_data["TemperatureData"]["SpatialOffset"];
-                }
-                else
-                    throw std::runtime_error("Error: OffsetDirection must be either X or Y");
-                temperature.temporal_offset = input_data["TemperatureData"]["TemporalOffset"];
-                temperature.x_offset = temperature.x_offset * pow(10, -6);
-                temperature.y_offset = temperature.y_offset * pow(10, -6);
-                temperature.temporal_offset = temperature.temporal_offset * pow(10, -6);
-
-                // For the direction not used to offset copies of the temperature data, should the data be mirrored on
-                // every other pass (i.e., bidirectional scanning of a laser)?
-                bool alternating_direction = input_data["TemperatureData"]["AlternatingDirection"];
-                if (alternating_direction) {
-                    // False (default) for offset direction, true for other direction
-                    if (offset_direction == "X")
-                        temperature.mirror_y = true;
+                // Optional translation/mirroring of input temperature data
+                if (input_data["TemperatureData"].contains("TranslationCount")) {
+                    temperature.number_of_copies = input_data["TemperatureData"]["TranslationCount"];
+                    // Include the original in the total number of copies (number of translations + 1)
+                    temperature.number_of_copies++;
+                    std::string offset_direction = input_data["TemperatureData"]["OffsetDirection"];
+                    // Offsets are given in cells (for consistency with layer height) and microseconds (for consistency
+                    // with time step) but stored in meters and seconds for consistency with how cell size and time step
+                    // are treated
+                    if (offset_direction == "X") {
+                        // X offset from input file, Y defaults to 0
+                        temperature.x_offset = input_data["TemperatureData"]["SpatialOffset"];
+                    }
+                    else if (offset_direction == "Y") {
+                        // Y offset from input file, X defaults to 0
+                        temperature.y_offset = input_data["TemperatureData"]["SpatialOffset"];
+                    }
                     else
-                        temperature.mirror_x = true;
+                        throw std::runtime_error("Error: OffsetDirection must be either X or Y");
+                    temperature.x_offset = temperature.x_offset * domain.deltax;
+                    temperature.y_offset = temperature.y_offset * domain.deltax;
+                    temperature.temporal_offset = input_data["TemperatureData"]["TemporalOffset"];
+                    temperature.temporal_offset = temperature.temporal_offset * pow(10, -6);
+
+                    // For the direction not used to offset copies of the temperature data, should the data be mirrored
+                    // on every other pass (i.e., bidirectional scanning of a laser)?
+                    bool alternating_direction = input_data["TemperatureData"]["AlternatingDirection"];
+                    if (alternating_direction) {
+                        // False (default) for offset direction, true for other direction
+                        if (offset_direction == "X")
+                            temperature.mirror_y = true;
+                        else
+                            temperature.mirror_x = true;
+                    }
                 }
             }
         }

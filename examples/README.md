@@ -89,11 +89,13 @@ The .json files in the examples subdirectory are provided on the command line to
 |TemperatureFiles | FromFile             | List of files corresponding to each layer's temperature data, in the form ["filename1.csv","filename2.csv",...]. If the number of entries is less than NumberOfLayers, the list is repeated. Note that if the Z coordinate of the top surface for each data set has the layer offset applied, LayerOffset in the "Domain" section of the input file should be set to 0, to avoid offsetting the layers twice.
 |InitUndercooling | Directional, SingleGrain       | For SingleGrain, this is the undercooling at the location of the seeded grain. For problem type Directional, this is an optional argument (defaulting to zero) for the initial undercooling at the domain's bottom surface
 |TrimUnmeltedRegion     | FromFinch             | Should ExaCA use only the bounds of the region in the Finch data that underwent solidification? ("true" or "false"). Selecting "false" will give ExaCA the same simulation bounds as Finch, which will allocate a larger domain and may be slower to simulate; however, this may be desirable in the case of a series of simulations that should all use the same fixed XYZ bounds
-|TranslationCount       | FromFinch             | Number of translations of the Finch temperature data in the direction specified by `OffsetDirection`. Defaults to 0 (does not copy or translate data)
-|OffsetDirection        | FromFinch             | Direction ("X" or "Y") to translate the Finch temperature data in space
-|SpatialOffset          | FromFinch             | Distance (in number of cells) to offset the translations of the temperature data in the offset direction
-|TemporalOffset         | FromFinch             | Amount of time (in microseconds) between the liquidus time values for a given point between translations 
-|AlternatingDirection   | FromFinch             | Whether or not (true or false) to mirror the data from every other translation about the direction transverse to the offset direction (i.e., to create a bidirectional scan profile from a single line)
+|TranslationCount       | FromFile, FromFinch             | Number of translations of the Finch temperature data in the direction specified by `OffsetDirection`. Defaults to 0 (does not copy or translate data)
+|XRegion                | FromFile, FromFinch             | Optional: Explicit bounds in X (given in the form [xlow,xhigh], in units of meters) for the simulation domain
+|YRegion                | FromFile, FromFinch             | Optional: Explicit bounds in Y (given in the form [ylow,yhigh], in units of meters) for the simulation domain
+|OffsetDirection        | FromFile, FromFinch             | Direction ("X" or "Y") to translate the temperature data in space
+|SpatialOffset          | FromFile, FromFinch             | Distance (in number of cells) to offset the translations of the temperature data in the offset direction
+|TemporalOffset         | FromFile, FromFinch             | Amount of time (in microseconds) between the liquidus time values for a given point between translations 
+|AlternatingDirection   | FromFile, FromFinch             | Whether or not (true or false) to mirror the data from every other translation about the direction transverse to the offset direction (i.e., to create a bidirectional scan profile from a single line)
 
 ## Substrate inputs
 | Input              | Relevant problem type(s))| Details |

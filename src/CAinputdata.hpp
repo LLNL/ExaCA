@@ -66,9 +66,13 @@ struct TemperatureInputs {
     // solidification front
     double G = 0, R = 0;
     double init_undercooling = 0.0;
-    // Used for FromFinch problem type
-    bool trim_unmelted_region = false;
     // Used for problems with translated temperature data (currently only supported by FromFinch type)
+    bool trim_unmelted_region = false;
+    bool use_fixed_x_bounds = false, use_fixed_y_bounds = false;
+    std::vector<double> temperature_x_bounds = {std::numeric_limits<double>::lowest(),
+                                                std::numeric_limits<double>::max()};
+    std::vector<double> temperature_y_bounds = {std::numeric_limits<double>::lowest(),
+                                                std::numeric_limits<double>::max()};
     int number_of_copies = 1;
     double x_offset = 0.0, y_offset = 0.0;
     double temporal_offset = 0.0;

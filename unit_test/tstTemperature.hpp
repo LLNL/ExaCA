@@ -42,9 +42,12 @@ void testReadTemperatureData(int number_of_layers, bool layerwise_temp_read, boo
     grid.y_offset = 3 * id; // each col is separated from the others by 3 cells
     grid.y_min = 0.0;
     grid.deltax = 1 * pow(10, -6);
+    grid.y_max = (3 * id - 1) * grid.deltax;
 
     // Domain size is a 3 by 12 by 3 region
+    grid.x_min = 0.0;
     grid.nx = 3;
+    grid.x_max = (grid.nx - 1) * grid.deltax;
     grid.ny = 12;
     grid.nz = 3;
     grid.domain_size = grid.nx * grid.ny * grid.nz;

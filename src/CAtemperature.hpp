@@ -128,6 +128,29 @@ struct Temperature {
         getCurrentLayerUndercooling(grid.layer_range);
     }
 
+    // If using a problem type that involves translating or mirroring temperature data, output a new X or Y value based
+    // on value from the file/from finch
+    double getTranslatedXY(const double input_xy_value, const double xy_min, const double xy_max,
+                           const double xy_offset, const int line_number, const bool mirror) {
+        double xy_translated = input_xy_value + line_number * xy_offset;
+        if ((mirror) && (line_number % 2 == 1))
+            xy_translated = xy_max - xy_translated + xy_min;
+        return xy_translated;
+    }
+
+    // Based on the X coordinate compared to the global domain bounds and the Y coordinate compared to the MPI rank Y
+    // bounds (integers), return whether or not this translated coordinate is in bounds on this rank
+    bool translatedXYInBounds(const double x_translated, const double y_translated, const Grid grid) {
+        const int coord_y_global = Kokkos::round((y_translated - grid.y_min) / grid.deltax);
+        bool xy_in_bounds;
+        if ((grid.x_min <= x_translated) && (grid.x_max >= x_translated) && (coord_y_global >= grid.y_offset) &&
+            (coord_y_global < grid.y_offset + grid.ny_local))
+            xy_in_bounds = true;
+        else
+            xy_in_bounds = false;
+        return xy_in_bounds;
+    }
+
     // Copy data from external source onto the appropriate MPI ranks
     void copyTemperatureData(const int id, const int np, const Grid &grid, view_type_coupled input_temperature_data,
                              const int resize_padding = 100) {
@@ -206,14 +229,15 @@ struct Temperature {
             for (int l = 0; l < _inputs.number_of_copies; l++) {
                 // Consider each translated point in either X or Y, optionally mirroring the point in the non-translated
                 // direction
-                double y_translated = temp_src(n, 1) + l * _inputs.y_offset;
-                if ((_inputs.mirror_y) && (l % 2 == 1))
-                    y_translated = grid.y_max - y_translated + grid.y_min;
-                int coord_y_global = Kokkos::round((y_translated - grid.y_min) / grid.deltax);
-                if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
-                    double x_translated = temp_src(n, 0) + l * _inputs.x_offset;
-                    if ((_inputs.mirror_x) && (l % 2 == 1))
-                        x_translated = grid.x_max - x_translated + grid.x_min;
+                // If using a problem type that involves translating or mirroring temperature data, output a new X value
+                // based on value from the file/from finch
+                const double x_translated =
+                    getTranslatedXY(temp_src(n, 0), grid.x_min, grid.x_max, _inputs.x_offset, l, _inputs.mirror_x);
+                const double y_translated =
+                    getTranslatedXY(temp_src(n, 1), grid.y_min, grid.y_max, _inputs.y_offset, l, _inputs.mirror_y);
+                const bool xy_in_bounds = translatedXYInBounds(x_translated, y_translated, grid);
+                // Only store if the point is in-bounds in X and Y
+                if (xy_in_bounds) {
                     temp_dst(temp_count, 0) = x_translated;
                     temp_dst(temp_count, 1) = y_translated;
                     temp_dst(temp_count, 2) = temp_src(n, 2);
@@ -233,45 +257,54 @@ struct Temperature {
     // line - or a binary string of double precision values), storing the x, y, z, tm, tl, cr values in the RawData
     // vector. Each rank only contains the points corresponding to cells within the associated Y bounds.
     // number_of_temperature_data_points is incremented on each rank as data is added to RawData
-    void parseTemperatureData(const std::string tempfile_thislayer, const double y_min, const double deltax,
-                              const int lower_y_bound, const int upper_y_bound, int &number_of_temperature_data_points,
-                              const bool binary_input_data, const int temperature_buffer_increment = 100000) {
+    void parseTemperatureData(const std::string tempfile_thislayer, const Grid grid,
+                              int &number_of_temperature_data_points, const bool binary_input_data,
+                              const int temperature_buffer_increment = 100000) {
 
         std::ifstream temperature_filestream;
         temperature_filestream.open(tempfile_thislayer);
         if (binary_input_data) {
             while (!temperature_filestream.eof()) {
-                double x_temperature_point = readBinaryData<double>(temperature_filestream);
-                double y_temperature_point = readBinaryData<double>(temperature_filestream);
+                std::vector<double> parsed_data(num_temperature_components);
+                // Get x, y, z, tm, tl, cr - additional temperature components (Gx, Gy, Gz) have so far have been unused
+                // in ExaCA - read and ignore these
+                for (int component = 0; component < num_temperature_components; component++)
+                    parsed_data[component] = readBinaryData<double>(temperature_filestream);
                 // If no data was extracted from the stream, the end of the file was reached
                 if (!(temperature_filestream))
                     break;
-                // Check the y value from parsed_line, to check if this point is stored on this rank
-                // Check the CA grid positions of the data point to see which rank(s) should store it
-                int y_int = Kokkos::round((y_temperature_point - y_min) / deltax);
-                if ((y_int >= lower_y_bound) && (y_int <= upper_y_bound)) {
-                    // This data point is inside the bounds of interest for this MPI rank
-                    // Store the x and y values in RawData
-                    raw_temperature_data(number_of_temperature_data_points, 0) = x_temperature_point;
-                    raw_temperature_data(number_of_temperature_data_points, 1) = y_temperature_point;
-                    // Parse the remaining 4 components (z, tm, tl, cr) from the line and store in RawData
-                    for (int component = 2; component < num_temperature_components; component++) {
-                        raw_temperature_data(number_of_temperature_data_points, component) =
-                            readBinaryData<double>(temperature_filestream);
+                // If translating/rotating line scan data, do this in a loop
+                for (int l = 0; l < _inputs.number_of_copies; l++) {
+                    // Consider each translated point in either X or Y, optionally mirroring the point in the
+                    // non-translated direction If using a problem type that involves translating or mirroring
+                    // temperature data, output a new X value based on value from the file/from finch
+                    const double x_translated =
+                        getTranslatedXY(parsed_data[0], grid.x_min, grid.x_max, _inputs.x_offset, l, _inputs.mirror_x);
+                    const double y_translated =
+                        getTranslatedXY(parsed_data[1], grid.y_min, grid.y_max, _inputs.y_offset, l, _inputs.mirror_y);
+                    const bool xy_in_bounds = translatedXYInBounds(x_translated, y_translated, grid);
+                    if (xy_in_bounds) {
+                        // This data point is inside the bounds of interest for this MPI rank
+                        // Store the x and y values in RawData
+                        raw_temperature_data(number_of_temperature_data_points, 0) = x_translated;
+                        raw_temperature_data(number_of_temperature_data_points, 1) = y_translated;
+                        // z coordinate is stored as-is
+                        raw_temperature_data(number_of_temperature_data_points, 2) = parsed_data[2];
+                        // tm and tl may require an offset in time if l > 0
+                        const double time_offset = l * _inputs.temporal_offset;
+                        raw_temperature_data(number_of_temperature_data_points, 3) = parsed_data[3] + time_offset;
+                        raw_temperature_data(number_of_temperature_data_points, 4) = parsed_data[4] + time_offset;
+                        // cr is stored as-is
+                        raw_temperature_data(number_of_temperature_data_points, 5) = parsed_data[5];
+                        // Increment number of temperature data points stored
+                        number_of_temperature_data_points++;
+                        int raw_temperature_data_extent = raw_temperature_data.extent(0);
+                        // Adjust size of RawData if it is near full
+                        if (number_of_temperature_data_points >= raw_temperature_data_extent)
+                            Kokkos::resize(raw_temperature_data,
+                                           raw_temperature_data_extent + temperature_buffer_increment,
+                                           num_temperature_components);
                     }
-                    number_of_temperature_data_points++;
-                    int raw_temperature_data_extent = raw_temperature_data.extent(0);
-                    // Adjust size of RawData if it is near full
-                    if (number_of_temperature_data_points >= raw_temperature_data_extent) {
-                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + temperature_buffer_increment,
-                                       num_temperature_components);
-                    }
-                }
-                else {
-                    // This data point is inside the bounds of interest for this MPI rank
-                    // ignore the z, tm, tl, cr values associated with it
-                    unsigned char temp[4 * sizeof(double)];
-                    temperature_filestream.read(reinterpret_cast<char *>(temp), 4 * sizeof(double));
                 }
             }
         }
@@ -288,24 +321,40 @@ struct Temperature {
                     break;
                 // Only parse the first 6 columns of the temperature data
                 splitString(read_line, parsed_line, vals_per_line);
-                // Check the y value from parsed_line, to check if this point is stored on this rank
-                double y_temperature_point = getInputDouble(parsed_line[1]);
-                // Check the CA grid positions of the data point to see which rank(s) should store it
-                int y_int = Kokkos::round((y_temperature_point - y_min) / deltax);
-                if ((y_int >= lower_y_bound) && (y_int <= upper_y_bound)) {
-                    // This data point is inside the bounds of interest for this MPI rank: Store the x, z, tm, tl, and
-                    // cr vals inside of RawData, incrementing with each value added
-                    for (int component = 0; component < num_temperature_components; component++) {
-                        raw_temperature_data(number_of_temperature_data_points, component) =
-                            getInputDouble(parsed_line[component]);
-                    }
-                    number_of_temperature_data_points++;
-                    // Adjust size of RawData if it is near full
-                    int raw_temperature_data_extent = raw_temperature_data.extent(0);
-                    // Adjust size of RawData if it is near full
-                    if (number_of_temperature_data_points >= raw_temperature_data_extent) {
-                        Kokkos::resize(raw_temperature_data, raw_temperature_data_extent + temperature_buffer_increment,
-                                       num_temperature_components);
+                // If translating/rotating line scan data, do this in a loop
+                for (int l = 0; l < _inputs.number_of_copies; l++) {
+                    // Consider each translated point in either X or Y, optionally mirroring the point in the
+                    // non-translated direction If using a problem type that involves translating or mirroring
+                    // temperature data, output a new X value based on value from the file/from finch
+                    const double x_temperature_point = getInputDouble(parsed_line[0]);
+                    const double y_temperature_point = getInputDouble(parsed_line[1]);
+                    const double x_translated = getTranslatedXY(x_temperature_point, grid.x_min, grid.x_max,
+                                                                _inputs.x_offset, l, _inputs.mirror_x);
+                    const double y_translated = getTranslatedXY(y_temperature_point, grid.y_min, grid.y_max,
+                                                                _inputs.y_offset, l, _inputs.mirror_y);
+                    const bool xy_in_bounds = translatedXYInBounds(x_translated, y_translated, grid);
+                    // Only store if the point is in-bounds in X and Y
+                    if (xy_in_bounds) {
+                        // Store the translated/mirrored x, y, and offset tm and tl values in raw_temperature_data along
+                        // with z and cr value (unchanged during any translation/mirroring of data)
+                        raw_temperature_data(number_of_temperature_data_points, 0) = x_translated;
+                        raw_temperature_data(number_of_temperature_data_points, 1) = y_translated;
+                        raw_temperature_data(number_of_temperature_data_points, 2) = getInputDouble(parsed_line[2]);
+                        const double time_offset = l * _inputs.temporal_offset;
+                        raw_temperature_data(number_of_temperature_data_points, 3) =
+                            getInputDouble(parsed_line[3]) + time_offset;
+                        raw_temperature_data(number_of_temperature_data_points, 4) =
+                            getInputDouble(parsed_line[4]) + time_offset;
+                        raw_temperature_data(number_of_temperature_data_points, 5) = getInputDouble(parsed_line[5]);
+                        number_of_temperature_data_points++;
+                        // Adjust size of raw_temperature_data if it is near full
+                        int raw_temperature_data_extent = raw_temperature_data.extent(0);
+                        // Adjust size of raw_temperature_data if it is near full
+                        if (number_of_temperature_data_points >= raw_temperature_data_extent) {
+                            Kokkos::resize(raw_temperature_data,
+                                           raw_temperature_data_extent + temperature_buffer_increment,
+                                           num_temperature_components);
+                        }
                     }
                 }
             }
@@ -353,8 +402,7 @@ struct Temperature {
             // Read and parse temperature file for either binary or ASCII, storing the appropriate values on each MPI
             // rank within RawData and incrementing number_of_temperature_data_points appropriately
             bool binary_input_data = checkTemperatureFileFormat(tempfile_thislayer);
-            parseTemperatureData(tempfile_thislayer, grid.y_min, grid.deltax, lower_y_bound, upper_y_bound,
-                                 number_of_temperature_data_points, binary_input_data);
+            parseTemperatureData(tempfile_thislayer, grid, number_of_temperature_data_points, binary_input_data);
             last_value(layer_read_count) = number_of_temperature_data_points;
         } // End loop over all files read for all layers
         Kokkos::resize(raw_temperature_data, number_of_temperature_data_points, num_temperature_components);
