@@ -1,0 +1,36 @@
+{
+   "SimulationType": "FromFinch",
+   "MaterialFileName": "Inconel625.json",
+   "GrainOrientationFile": "GrainOrientationVectors.csv",
+   "RandomSeed": 0,
+   "Domain": {
+       "CellSize": 3,
+       "TimeStep": 0.08,
+       "NumberOfLayers": 1,
+       "LayerOffset": 8
+   },
+   "Nucleation": {
+      "Density": 100,
+      "MeanUndercooling": 5,
+      "StDev": 0.5
+   },
+   "Substrate": {
+      "MeanSize": 50
+   },
+   "TemperatureData": {
+       "TranslationCount": 2,
+       "OffsetDirection": "Y",
+       "SpatialOffset": 80,
+       "TemporalOffset": 1600,
+       "AlternatingDirection": true
+   },
+   "Printing": {
+      "PathToOutput": "./",
+      "OutputFile": "TestProblemFinchTranslate",
+      "PrintBinary": true,
+      "PrintExaConstitSize": 0,
+      "Interlayer": {
+          "Fields": ["CritTimeStep", "LayerID", "GrainMisorientation"]
+      }
+   }
+}

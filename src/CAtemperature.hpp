@@ -111,7 +111,8 @@ struct Temperature {
         , solidification_event_counter(view_type_int("solidification_event_counter", grid.domain_size))
         , undercooling_current_all_layers(view_type_float("undercooling_current", grid.domain_size_all_layers))
         , raw_temperature_data(view_type_double_2d_host(Kokkos::ViewAllocateWithoutInitializing("raw_temperature_data"),
-                                                        input_temperature_data.extent(0), num_temperature_components))
+                                                        input_temperature_data.extent(0) * (inputs.number_of_copies),
+                                                        num_temperature_components))
         , first_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("first_value"), grid.number_of_layers))
         , last_value(view_type_int_host(Kokkos::ViewAllocateWithoutInitializing("last_value"), grid.number_of_layers))
         , _store_solidification_start(store_solidification_start)
@@ -173,8 +174,9 @@ struct Temperature {
             MPI_Irecv(finch_data_recv.data(), recv_data_size * finch_temp_components, MPI_DOUBLE, left, 1,
                       MPI_COMM_WORLD, &recv_request_data);
             int current_size = raw_temperature_data.extent(0);
-            if (temperature_point_counter + recv_data_size >= current_size)
-                Kokkos::resize(raw_temperature_data, temperature_point_counter + recv_data_size + resize_padding,
+            if (temperature_point_counter + _inputs.number_of_copies * recv_data_size >= current_size)
+                Kokkos::resize(raw_temperature_data,
+                               temperature_point_counter + _inputs.number_of_copies * recv_data_size + resize_padding,
                                num_temperature_components);
             MPI_Wait(&send_request_data, MPI_STATUS_IGNORE);
             MPI_Wait(&recv_request_data, MPI_STATUS_IGNORE);
@@ -201,12 +203,28 @@ struct Temperature {
     void extractTemperatureData(const SrcViewType &temp_src, DstViewType &temp_dst, int &temp_count, const Grid grid) {
         int data_size = temp_src.extent(0);
         for (int n = 0; n < data_size; n++) {
-            int coord_y_global = Kokkos::round((temp_src(n, 1) - grid.y_min) / grid.deltax);
-            if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
-                for (int comp = 0; comp < num_temperature_components; comp++)
-                    temp_dst(temp_count, comp) = temp_src(n, comp);
-                // Increment counter for each point stored on this rank
-                temp_count++;
+            for (int l = 0; l < _inputs.number_of_copies; l++) {
+                // Consider each translated point in either X or Y, optionally mirroring the point in the non-translated
+                // direction
+                double y_translated = temp_src(n, 1) + l * _inputs.y_offset;
+                if ((_inputs.mirror_y) && (l % 2 == 1))
+                    y_translated = grid.y_max - y_translated + grid.y_min;
+                int coord_y_global = Kokkos::round((y_translated - grid.y_min) / grid.deltax);
+                if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
+                    double x_translated = temp_src(n, 0) + l * _inputs.x_offset;
+                    if ((_inputs.mirror_x) && (l % 2 == 1))
+                        x_translated = grid.x_max - x_translated + grid.x_min;
+                    temp_dst(temp_count, 0) = x_translated;
+                    temp_dst(temp_count, 1) = y_translated;
+                    temp_dst(temp_count, 2) = temp_src(n, 2);
+                    // Offset for melting and liquidus times
+                    double time_offset = l * _inputs.temporal_offset;
+                    temp_dst(temp_count, 3) = temp_src(n, 3) + time_offset;
+                    temp_dst(temp_count, 4) = temp_src(n, 4) + time_offset;
+                    temp_dst(temp_count, 5) = temp_src(n, 5);
+                    // Increment counter for each point stored on this rank
+                    temp_count++;
+                }
             }
         }
     }
