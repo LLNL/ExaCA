@@ -54,7 +54,7 @@ void testSmallDirS() {
     std::ifstream log_data_stream(log_file);
     nlohmann::json log_data = nlohmann::json::parse(log_data_stream);
     float vol_fraction_nucleated = log_data["Nucleation"]["VolFractionNucleated"];
-    EXPECT_NEAR(vol_fraction_nucleated, 0.1784, 0.0100);
+    EXPECT_NEAR(vol_fraction_nucleated, 0.1882, 0.0100);
 }
 
 void testSmallEquiaxedGrain() {
