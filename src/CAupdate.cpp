@@ -8,6 +8,7 @@
 #include "mpi.h"
 
 #include <cmath>
+#include <iostream>
 
 // Using for compatibility with device math functions.
 using std::max;
@@ -228,14 +229,14 @@ void CellCapture(int np, int cycle, int DecompositionStrategy, int LocalActiveDo
                 UndercoolingCurrent(GlobalD3D1ConvPosition) +=
                     UndercoolingChange(GlobalD3D1ConvPosition) * (cell_Liquid + cell_Active);
                 if (cell_Active) {
-                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(), 1)) = D3D1ConvPosition;
+                    SteeringVector(Kokkos::atomic_fetch_add(&numSteer_G(0), 1)) = D3D1ConvPosition;
                 }
             }
         });
     Kokkos::deep_copy(numSteer_H, numSteer_G);
 
     Kokkos::parallel_for(
-        "CellCapture", numSteer_H(), KOKKOS_LAMBDA(const int &num) {
+        "CellCapture", numSteer_H(0), KOKKOS_LAMBDA(const int &num) {
             numSteer_G(0) = 0;
             int D3D1ConvPosition = SteeringVector(num);
             // Cells of interest for the CA

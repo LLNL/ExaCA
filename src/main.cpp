@@ -11,6 +11,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <iostream>
 
 int main(int argc, char *argv[]) {
     // Initialize MPI
@@ -26,7 +27,7 @@ int main(int argc, char *argv[]) {
         MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
         if (id == 0)
-            Kokkos::DefaultExecutionSpace::print_configuration(std::cout);
+  	    Kokkos::DefaultExecutionSpace{}.print_configuration(std::cout);
         if (id == 0)
             std::cout << "Number of MPI ranks = " << np << std::endl;
 

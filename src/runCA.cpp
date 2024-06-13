@@ -15,6 +15,7 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
 
 void RunProgram_Reduced(int id, int np, std::string InputFile) {
     double NuclTime = 0.0, CaptureTime = 0.0, GhostTime = 0.0;
