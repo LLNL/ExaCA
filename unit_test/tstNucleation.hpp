@@ -58,7 +58,7 @@ void testNucleiInit() {
     grid.y_min = 0.0;
     grid.y_max = grid.ny * grid.deltax;
     grid.z_min_layer[1] = grid.z_layer_bottom * grid.deltax;
-    grid.z_max_layer[1] = (grid.z_layer_bottom + grid.nz_layer) * grid.deltax;
+    grid.z_max_layer[1] = (grid.z_layer_bottom + grid.nz_layer - 1) * grid.deltax;
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
     grid.bottom_of_current_layer = grid.getBottomOfCurrentLayer();
@@ -77,7 +77,6 @@ void testNucleiInit() {
     // There are 40 * np total cells in this domain (nx * ny * nz)
     // Each rank has 40 cells - the top 32 cells are part of the active layer and are candidates for nucleation
     // assignment
-    int max_potential_nuclei_per_pass = 4 * np;
     // A cell can solidify 1-3 times
     int max_solidification_events_count = 3;
     // Manually set nucleation parameters
@@ -143,6 +142,8 @@ void testNucleiInit() {
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
     // possible_nuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
     // NucleiInit when the number of nuclei per rank is known
+    const double domain_volume = (grid.x_max - grid.x_min) * (grid.y_max - grid.y_min) *
+                                 (grid.z_max_layer(1) - grid.z_min_layer(1)) * pow(grid.deltax, 3);
     int estimated_nuclei_this_rank_this_layer = inputs.nucleation.n_max * pow(grid.deltax, 3) * grid.domain_size;
     Nucleation<memory_space> nucleation(
         estimated_nuclei_this_rank_this_layer, inputs.nucleation,
@@ -166,7 +167,8 @@ void testNucleiInit() {
 
     // Is the total number of nuclei in the system correct, based on the number of remelting events? Equal probability
     // of creating a nucleus each time a cell resolidifies
-    int expected_nuclei_per_rank = 100 + max_solidification_events_count * max_potential_nuclei_per_pass;
+    const int expected_nuclei_per_rank =
+        100 + max_solidification_events_count * inputs.nucleation.n_max * domain_volume;
     EXPECT_EQ(nucleation.nuclei_whole_domain, expected_nuclei_per_rank);
     for (int n = 0; n < nucleation.possible_nuclei; n++) {
         // Are the nuclei grain IDs negative numbers in the expected range based on the inputs?
