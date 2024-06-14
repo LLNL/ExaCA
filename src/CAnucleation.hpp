@@ -99,7 +99,8 @@ struct Nucleation {
         // in meters
         std::uniform_real_distribution<double> nucleation_site_dist_x(grid.x_min, grid.x_max);
         std::uniform_real_distribution<double> nucleation_site_dist_y(grid.y_min, grid.y_max);
-        std::uniform_real_distribution<double> nucleation_site_dist_z(grid.z_min, grid.z_max);
+        std::uniform_real_distribution<double> nucleation_site_dist_z(grid.z_min_layer(layernumber),
+                                                                      grid.z_max_layer(layernumber));
         // Gaussian distribution of nucleation undercooling
         std::normal_distribution<double> nucleation_undercooling_dist(_inputs.dtn, _inputs.dtsigma);
 
