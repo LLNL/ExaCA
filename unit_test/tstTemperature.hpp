@@ -301,6 +301,63 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
     }
 }
 
+// Check temperature initialization for translated/mirrored FromFile or FromFinch data
+template <typename MemorySpace>
+void checkTemperatureResults(Inputs &inputs, Grid &grid, Temperature<MemorySpace> &temperature,
+                             const int number_of_copies, const int id, const int np, const bool mirror_x) {
+    const int expected_num_data_points = grid.nx * number_of_copies * np;
+    std::vector<bool> expected_data_point_found(expected_num_data_points, false);
+    for (int n = 0; n < expected_num_data_points; n++) {
+        // X,Y,Z the cell would be placed at
+        const int coord_x = temperature.getTempCoordX(n, grid.x_min, grid.deltax);
+        const int coord_y = temperature.getTempCoordY(n, grid.y_min, grid.deltax, grid.y_offset);
+        const int coord_z = temperature.getTempCoordZ(n, grid.deltax, grid.layer_height, 0, grid.z_min_layer);
+        const int index = grid.get1DIndex(coord_x, coord_y, coord_z);
+        if (!expected_data_point_found[index])
+            expected_data_point_found[index] = true;
+        else {
+            std::string error = "Error: Rank " + std::to_string(id) + " has more than one data point at location (" +
+                                std::to_string(coord_x) + "," + std::to_string(coord_y) + "," + std::to_string(coord_z);
+            throw std::runtime_error(error);
+        }
+        // Make sure the cell is associated with the correct temperature data from "input_temperature_data"
+        // TM for even numbered translations (or when mirror_x is false) is equal to the X coordinate plus any applied
+        // temporal offset in Y related to its Y coordinate. If mirrored, odd numbered translations will use (nx -
+        // coord_x) in place of coord_x in these calculations. TL should be one larger than TM, and the cooling rate is
+        // proportional to 100 times the MPI rank the point was initalized on (in turn equal to its Z coordinate)
+        const bool x_coord_mirrored = ((mirror_x) && (coord_y % 2 == 1));
+        double loc_along_scan;
+        if (x_coord_mirrored)
+            loc_along_scan = static_cast<double>(grid.nx - coord_x);
+        else
+            loc_along_scan = static_cast<double>(coord_x);
+        const double expected_tm = loc_along_scan + static_cast<double>(coord_y) * inputs.temperature.temporal_offset;
+        const double expected_tl = expected_tm + 1.0;
+        const double expected_cr = 100.0 * static_cast<double>(coord_z + 1);
+        EXPECT_DOUBLE_EQ(expected_tm, temperature.raw_temperature_data(n, 3));
+        EXPECT_DOUBLE_EQ(expected_tl, temperature.raw_temperature_data(n, 4));
+        EXPECT_DOUBLE_EQ(expected_cr, temperature.raw_temperature_data(n, 5));
+    }
+
+    // Make sure one data point was present in each expected cell
+    for (int n = 0; n < expected_num_data_points; n++) {
+        const int coord_x = temperature.getTempCoordX(n, grid.x_min, grid.deltax);
+        const int coord_y = temperature.getTempCoordY(n, grid.y_min, grid.deltax, grid.y_offset);
+        const int coord_z = temperature.getTempCoordZ(n, grid.deltax, grid.layer_height, 0, grid.z_min_layer);
+        const int index = grid.get1DIndex(coord_x, coord_y, coord_z);
+        if (!expected_data_point_found[index]) {
+            if (!expected_data_point_found[index])
+                expected_data_point_found[index] = true;
+            else {
+                std::string error = "Error: Rank " + std::to_string(id) +
+                                    " has more than one data point at location (" + std::to_string(coord_x) + "," +
+                                    std::to_string(coord_y) + "," + std::to_string(coord_z);
+                throw std::runtime_error(error);
+            }
+        }
+    }
+}
+
 // Test storing temperature data from Finch on the correct ExaCA ranks, optionally mirroring and translating the data
 void testInitTemperatureFromFinch(const bool mirror_x, const int number_of_copies) {
 
@@ -362,57 +419,76 @@ void testInitTemperatureFromFinch(const bool mirror_x, const int number_of_copie
     Temperature<memory_space> temperature(id, np, grid, inputs.temperature, input_temperature_data);
 
     // Check that the right ranks have the right temperature data
-    const int expected_num_data_points = grid.nx * number_of_copies * np;
-    std::vector<bool> expected_data_point_found(expected_num_data_points, false);
-    for (int n = 0; n < expected_num_data_points; n++) {
-        // X,Y,Z the cell would be placed at
-        const int coord_x = temperature.getTempCoordX(n, grid.x_min, grid.deltax);
-        const int coord_y = temperature.getTempCoordY(n, grid.y_min, grid.deltax, grid.y_offset);
-        const int coord_z = temperature.getTempCoordZ(n, grid.deltax, grid.layer_height, 0, grid.z_min_layer);
-        const int index = grid.get1DIndex(coord_x, coord_y, coord_z);
-        if (!expected_data_point_found[index])
-            expected_data_point_found[index] = true;
-        else {
-            std::string error = "Error: Rank " + std::to_string(id) + " has more than one data point at location (" +
-                                std::to_string(coord_x) + "," + std::to_string(coord_y) + "," + std::to_string(coord_z);
-            throw std::runtime_error(error);
-        }
-        // Make sure the cell is associated with the correct temperature data from "input_temperature_data"
-        // TM for even numbered translations (or when mirror_x is false) is equal to the X coordinate plus any applied
-        // temporal offset in Y related to its Y coordinate. If mirrored, odd numbered translations will use (nx -
-        // coord_x) in place of coord_x in these calculations. TL should be one larger than TM, and the cooling rate is
-        // proportional to 100 times the MPI rank the point was initalized on (in turn equal to its Z coordinate)
-        const bool x_coord_mirrored = ((mirror_x) && (coord_y % 2 == 1));
-        double loc_along_scan;
-        if (x_coord_mirrored)
-            loc_along_scan = static_cast<double>(grid.nx - coord_x);
-        else
-            loc_along_scan = static_cast<double>(coord_x);
-        const double expected_tm = loc_along_scan + static_cast<double>(coord_y) * inputs.temperature.temporal_offset;
-        const double expected_tl = expected_tm + 1.0;
-        const double expected_cr = 100.0 * static_cast<double>(coord_z + 1);
-        EXPECT_DOUBLE_EQ(expected_tm, temperature.raw_temperature_data(n, 3));
-        EXPECT_DOUBLE_EQ(expected_tl, temperature.raw_temperature_data(n, 4));
-        EXPECT_DOUBLE_EQ(expected_cr, temperature.raw_temperature_data(n, 5));
-    }
+    checkTemperatureResults(inputs, grid, temperature, number_of_copies, id, np, mirror_x);
+}
 
-    // Make sure one data point was present in each expected cell
-    for (int n = 0; n < expected_num_data_points; n++) {
-        const int coord_x = temperature.getTempCoordX(n, grid.x_min, grid.deltax);
-        const int coord_y = temperature.getTempCoordY(n, grid.y_min, grid.deltax, grid.y_offset);
-        const int coord_z = temperature.getTempCoordZ(n, grid.deltax, grid.layer_height, 0, grid.z_min_layer);
-        const int index = grid.get1DIndex(coord_x, coord_y, coord_z);
-        if (!expected_data_point_found[index]) {
-            if (!expected_data_point_found[index])
-                expected_data_point_found[index] = true;
-            else {
-                std::string error = "Error: Rank " + std::to_string(id) +
-                                    " has more than one data point at location (" + std::to_string(coord_x) + "," +
-                                    std::to_string(coord_y) + "," + std::to_string(coord_z);
-                throw std::runtime_error(error);
+// Test storing temperature data from a file on the correct ExaCA ranks, using the same process at the FromFinch test
+void testInitTemperatureFromFile(const bool mirror_x, const int number_of_copies) {
+
+    using memory_space = TEST_MEMSPACE;
+
+    int id, np;
+    // Get number of processes
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    // Get individual process ID
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+    // Default inputs struct - manually set temperature values for test
+    Inputs inputs;
+    inputs.temperature.x_offset = 0.0;
+    inputs.temperature.y_offset = 1.0 * pow(10, -6);
+    inputs.temperature.mirror_x = mirror_x;
+    inputs.temperature.mirror_y = false;
+    inputs.temperature.temporal_offset = 100.0;
+    inputs.temperature.number_of_copies = number_of_copies;
+
+    // Default grid struct - manually set up domain for test
+    Grid grid;
+    grid.deltax = 1.0 * pow(10, -6);
+    grid.x_min = -2.0 * pow(10, -6);
+    grid.nx = 2;
+    grid.y_min = 0.0;
+    grid.ny_local = 3;
+    grid.y_offset = id * grid.ny_local;
+    grid.z_min = 0.0;
+    grid.z_min_layer[0] = grid.z_min;
+    grid.nz = np;
+    grid.domain_size = grid.nx * grid.ny_local * grid.nz;
+    grid.domain_size_all_layers = grid.domain_size;
+    grid.number_of_layers = 1;
+    grid.layer_height = 0;
+    grid.layer_range = std::make_pair(0, grid.domain_size);
+
+    // Create dummy file temperature data on rank 0, including data to be mapped to other ExaCA ranks
+    if (id == 0) {
+        std::ofstream test_data_file;
+        test_data_file.open("TestFromFile.csv");
+        test_data_file << "x, y, z, tm, tl, cr" << std::endl;
+        for (int coord_z = 0; coord_z < np; coord_z++) {
+            for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
+                for (int coord_y = 0; coord_y < np; coord_y++) {
+                    test_data_file << grid.x_min + grid.deltax * coord_x << ","
+                                   << grid.y_min + 3.0 * coord_y * grid.deltax << ","
+                                   << grid.z_min + coord_z * grid.deltax << "," << static_cast<double>(coord_x) << ","
+                                   << static_cast<double>(coord_x) + 1.0 << ","
+                                   << 100.0 * static_cast<double>(coord_z + 1) << std::endl;
+                }
             }
         }
+        test_data_file.close();
     }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // Construct temperature views and read data back from files
+    inputs.temperature.temp_paths.push_back("TestFromFile.csv");
+    inputs.temperature.temp_files_in_series = 1;
+    inputs.temperature.layerwise_temp_read = false;
+
+    Temperature<memory_space> temperature(grid, inputs.temperature);
+    temperature.readTemperatureData(id, grid, 0);
+
+    // Check that the right ranks have the right temperature data
+    checkTemperatureResults(inputs, grid, temperature, number_of_copies, id, np, mirror_x);
 }
 
 //---------------------------------------------------------------------------//
@@ -438,5 +514,8 @@ TEST(TEST_CATEGORY, temperature) {
     testInitTemperatureFromFinch(false, 1);
     testInitTemperatureFromFinch(false, 3);
     testInitTemperatureFromFinch(true, 3);
+    testInitTemperatureFromFile(false, 1);
+    testInitTemperatureFromFile(false, 3);
+    testInitTemperatureFromFile(true, 3);
 }
 } // end namespace Test
