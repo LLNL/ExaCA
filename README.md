@@ -176,6 +176,7 @@ ExaCA runs using an input file, passed on the command line. Example problems are
 
 Example problems only possible with [external data](https://github.com/LLNL/ExaCA-Data):
  * `Inp_SingleLine.json`: simulates melting and solidification of a single line of melt pool data
+ * `Inp_SingleLineTranslate.json`: using the same single line data as in `Inp_SingleLine.json`, create 3 overlapping line melt pools using specified bounds in the Y direction
  * `Inp_TwoLineTwoLayer.json`: simulates two layers consisting of segments of two overlapping melt pools
 
 Run by calling the created executable with an ExaCA input file:

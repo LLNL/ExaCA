@@ -84,6 +84,8 @@ struct Grid {
         x_max = global_high_corner[0] + (_t_inputs.number_of_copies - 1) * _t_inputs.x_offset;
         y_max = global_high_corner[1] + (_t_inputs.number_of_copies - 1) * _t_inputs.y_offset;
         z_max = global_high_corner[2] + inputs.layer_height * (inputs.number_of_layers - 1) * deltax;
+        // If X or Y bounds were specified, override the X and Y bounds from the data in the files
+        checkOverrideXYBounds(id, _t_inputs);
         nx = Kokkos::round((x_max - x_min) / deltax) + 1;
         ny = Kokkos::round((y_max - y_min) / deltax) + 1;
         nz = Kokkos::round((z_max - z_min) / deltax) + 1;
@@ -95,6 +97,25 @@ struct Grid {
         decomposeDomain(id, np, "FromFinch");
     };
 
+    // If X or Y bounds were specified, override the X and Y bounds from the data in the files
+    void checkOverrideXYBounds(const int id, TemperatureInputs _t_inputs) {
+        if (_t_inputs.use_fixed_x_bounds) {
+            if (id == 0)
+                std::cout << "Overriding the X bounds given by the temperature data (" << x_min << ", " << x_max
+                          << ") with those given in the input file (" << _t_inputs.temperature_x_bounds[0] << ", "
+                          << _t_inputs.temperature_x_bounds[1] << ")" << std::endl;
+            x_min = _t_inputs.temperature_x_bounds[0];
+            x_max = _t_inputs.temperature_x_bounds[1];
+        }
+        if (_t_inputs.use_fixed_y_bounds) {
+            if (id == 0)
+                std::cout << "Overriding the Y bounds given by the temperature data (" << y_min << ", " << y_max
+                          << ") with those given in the input file (" << _t_inputs.temperature_y_bounds[0] << ", "
+                          << _t_inputs.temperature_y_bounds[1] << ")" << std::endl;
+            y_min = _t_inputs.temperature_y_bounds[0];
+            y_max = _t_inputs.temperature_y_bounds[1];
+        }
+    }
     // Constructor for grid used in ExaCA
     Grid(const std::string simulation_type, const int id, const int np, const int number_of_layers_temp,
          DomainInputs inputs, TemperatureInputs t_inputs)
@@ -120,7 +141,7 @@ struct Grid {
         if (simulation_type == "FromFile") {
             // For simulations using input temperature data with remelting: even if only LayerwiseTempRead is true, all
             // files need to be read to determine the domain bounds
-            findXYZBounds(id);
+            findXYZBounds(id, t_inputs);
         }
         else {
             // Copy inputs from inputs struct into grid struct
@@ -302,7 +323,7 @@ struct Grid {
 
     // For simulation type R, obtain the physical XYZ bounds of the domain by reading temperature data files and parsing
     // the coordinates. Previously in CAinitialize.cpp
-    void findXYZBounds(const int id) {
+    void findXYZBounds(const int id, TemperatureInputs _t_inputs) {
 
         // Two passes through reading temperature data files- the first pass only reads the headers to
         // determine units and X/Y/Z bounds of the simulaton domain. Using the X/Y/Z bounds of the simulation domain,
@@ -388,6 +409,14 @@ struct Grid {
                 }
             }
         }
+
+        // If translating temperature data, or if explicit x and y bounds were given, modify the bounds from the
+        // temperature data accordingly
+        x_max = x_max + (_t_inputs.number_of_copies - 1) * _t_inputs.x_offset;
+        y_max = y_max + (_t_inputs.number_of_copies - 1) * _t_inputs.y_offset;
+        // If X or Y bounds were specified, override the X and Y bounds from the data (x_min, x_max, y_min, y_max) in
+        // the files with the user specified values
+        checkOverrideXYBounds(id, _t_inputs);
 
         // Now at the conclusion of "Loop 0", the decomposition can be performed as the domain bounds are known
         // (all header lines from all files have been read)

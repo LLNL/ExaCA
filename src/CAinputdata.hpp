@@ -58,17 +58,21 @@ struct InterfacialResponseInputs {
 };
 
 struct TemperatureInputs {
-    // Used for problem type R (by default, all temperature files read during init)
+    // Used for problem type FromFile (by default, all temperature files read during init)
     bool layerwise_temp_read = false;
     int temp_files_in_series = 0;
     std::vector<std::string> temp_paths;
-    // Use for problem types other than R (no temperature files to read) - default to no initial undercooling at
-    // solidification front
+    // Use for problem types other than FromFinch and FromFile (no temperature files to read) - default to no initial
+    // undercooling at solidification front
     double G = 0, R = 0;
     double init_undercooling = 0.0;
-    // Used for FromFinch problem type
+    // Used for FromFinch and FromFile problem types with translated temperature data
     bool trim_unmelted_region = false;
-    // Used for problems with translated temperature data (currently only supported by FromFinch type)
+    bool use_fixed_x_bounds = false, use_fixed_y_bounds = false;
+    std::vector<double> temperature_x_bounds = {std::numeric_limits<double>::lowest(),
+                                                std::numeric_limits<double>::max()};
+    std::vector<double> temperature_y_bounds = {std::numeric_limits<double>::lowest(),
+                                                std::numeric_limits<double>::max()};
     int number_of_copies = 1;
     double x_offset = 0.0, y_offset = 0.0;
     double temporal_offset = 0.0;
