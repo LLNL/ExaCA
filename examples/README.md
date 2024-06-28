@@ -127,9 +127,9 @@ The .json files in the examples subdirectory are provided on the command line to
 | PrintExaConstitSize    | FromFile          | Length of the cubic representative volume element (RVE) data for ExaConstit, taken from the domain center in X and Y, and at the domain top in Z excluding the final layer's grain structure. If not given (or given a value of 0), the RVE will not be printed 
 | Intralayer   | All | Optional section for printing the state of the simulation during a given layer of a multilayer problem/during a single layer problem
 | Intralayer: Increment | All | Increment, in time steps, at which intermediate output should be printed. If 0, will only print the state of the system at the start of each layer
-| Intralayer: Fields | All | Fields to print during intralayer increments (see list of fields and descriptions in top-level README)
+| Intralayer: Fields | All | Fields to print during intralayer increments (see list of fields and descriptions in top-level [README](README.md))
 | Intralayer: PrintIdleFrames | All | Whether or not ExaCA should print intermediate output regardless of whether the simulation has changed from the last frame. Defaults to false
 | Interlayer   | All | List of options for printing the state of the system following a given layer, or at the end of the run
 | Interlayer: Layers | All | List of layers (starting at 0 and through "NumberOfLayers-1") following which the state of the simulation should be printed. If not given (or for non-multilayer problems), defaults to printing only after the full simulation has completed
 | Interlayer: Increment | All | If "Interlayer: Layers" is not given, this option enables printing of interlayer output starting at layer 0 and repeating at the specified increment. The full simulation results following the final layer will always be printed as long as the "Interlayer" section is present in the input file".
-| Interlayer: Fields | All | Fields to print following layers (see list of fields and descriptions in top-level README)
+| Interlayer: Fields | All | Fields to print following layers (see list of fields and descriptions in top-level [README](README.md))

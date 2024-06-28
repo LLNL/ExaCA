@@ -4,7 +4,7 @@
 Running the `grain_analysis` executable after generation of an ExaCA data set (i.e., the associated .vtk file that results from setting `Print Paraview vtk file: Y` in the ExaCA input file, and the associated .json file of log info) allows additional insights into the microstructure generated. When running the analysis script, the path to and name of an associated analysis inputs file, as well as the path to and base name of the microstructure to be analyzed, should be given on the command line. For example:
 
 ```
-./build/install/bin/grain_analysis analysis/examples/AnalyzeDirS.txt TestProblemDirS
+./build/install/bin/ExaCA-GrainAnalysis analysis/examples/AnalyzeDirS.txt TestProblemDirS
 ```
 
 The analysis files, such as `examples/AnalyzeDirS.json`, allow analysis of multiple regions of the microstructure. Under the top level header `Regions`, the user-specified names of the regions for analysis are given (in the case of `examples/AnalyzeDirS.json`, these are `RepresentativeVolume`, `XYCross`, and `YZCross`). At the third level, analysis options for each individual region are given.
