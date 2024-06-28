@@ -311,6 +311,28 @@ struct CellData {
         return baseplate_size_z;
     }
 
+    // Check that the substrate bounds span the simulation domain in the requested dimension, within some tolerance
+    void checkSubstrateBound(const double substrate_bound_low, const int substrate_num_points,
+                             const double substrate_cell_spacing, const double simulation_bound_low,
+                             const double simulation_bound_high, std::string dim, const double tolerance) {
+        if (simulation_bound_low < substrate_bound_low - tolerance) {
+            std::string error = "Error: lower bound of simulation in " + dim + " ( " +
+                                std::to_string(simulation_bound_low) +
+                                ") extends beyond the lower bound of the substrate grain structure from the file (" +
+                                std::to_string(substrate_bound_low) + ")";
+            throw std::runtime_error(error);
+        }
+        const double substrate_bound_high =
+            substrate_bound_low + static_cast<double>(substrate_num_points - 1) * substrate_cell_spacing;
+        if (simulation_bound_high > substrate_bound_high + tolerance) {
+            std::string error = "Error: upper bound of simulation in " + dim + " ( " +
+                                std::to_string(simulation_bound_high) +
+                                ") extends beyond the upper bound of the substrate grain structure from the file (" +
+                                std::to_string(substrate_bound_high) + ")";
+            throw std::runtime_error(error);
+        }
+    }
+
     // Initializes Grain ID values where the substrate comes from a file
     void initBaseplateGrainID(const int id, const Grid &grid, const int baseplate_size_z) {
 
@@ -350,14 +372,9 @@ struct CellData {
         if (id == 0)
             std::cout << "Substrate dimensions from file are " << nx_s << " by " << ny_s << " by " << nz_s
                       << ", voxel spacing is " << deltax_s << std::endl;
-        const double x_max_s = x_min_s + (nx_s - 1) * deltax_s;
-        const double y_max_s = y_min_s + (ny_s - 1) * deltax_s;
-        const double z_max_s = z_min_s + (nz_s - 1) * deltax_s;
-        const double z_max_baseplate = grid.z_min + (baseplate_size_z - 1) * grid.deltax;
-        if ((x_min_s > grid.x_min) || (x_max_s < grid.x_max) || (y_min_s > grid.y_min) || (y_max_s < grid.y_max) ||
-            (z_min_s > grid.z_min) || (z_max_s < z_max_baseplate))
-            throw std::runtime_error(
-                "Error: Substrate from file is not large enough to span the ExaCA simulation domain");
+        checkSubstrateBound(x_min_s, nx_s, deltax_s, grid.x_min, grid.x_max, "X", grid.deltax);
+        checkSubstrateBound(y_min_s, ny_s, deltax_s, grid.y_min, grid.y_max, "Y", grid.deltax);
+        checkSubstrateBound(z_min_s, nz_s, deltax_s, grid.z_min, _inputs.baseplate_top_z, "Z", grid.deltax);
 
         // Ignore line
         skipLines(substrate, 1);
