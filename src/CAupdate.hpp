@@ -790,8 +790,6 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
                                 Temperature<MemorySpace> &temperature, std::string simulation_type,
                                 const int layernumber, Orientation<MemorySpace> &orientation, Print print,
                                 const double deltat, Interface<MemorySpace> &interface) {
-    // Check for valid simulation type.
-    validSimulationType(simulation_type);
 
     auto grain_id = celldata.getGrainIDSubview(grid);
     int local_superheated_cells, local_undercooled_cells, local_active_cells, local_temp_solid_cells,
