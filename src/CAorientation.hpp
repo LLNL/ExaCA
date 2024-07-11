@@ -134,7 +134,7 @@ struct Orientation {
         grain_rgb_ipfz_host = getOrientationsFromFile(rgb_filename, 3, true);
     }
 
-    // Create a view of size "NumberOfOrientations" of the misorientation of each possible grain orientation with the X,
+    // Create a view of size "n_grain_orientations" of the misorientation of each possible grain orientation with the X,
     // Y, or Z directions (dir = 0, 1, or 2, respectively)
     view_type_float_host misorientationCalc(const int dir) {
 

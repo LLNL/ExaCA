@@ -61,13 +61,13 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
 
     // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event
     // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
-    // PossibleNuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
-    // NucleiInit when the number of nuclei per rank is known
+    // estimated_nuclei_this_rank_this_layer yet, initialize nucleation data structures to estimated sizes, resize
+    // inside of placeNuclei when the number of nuclei per rank is known
     int estimated_nuclei_this_rank_this_layer = inputs.nucleation.n_max * pow(grid.deltax, 3) * grid.domain_size;
     Nucleation<memory_space> nucleation(estimated_nuclei_this_rank_this_layer, inputs.nucleation);
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 0 - they will be initialized for each
-    // successive layer when layer 0 in complete
+    // successive layer when layer 0 is complete
     nucleation.placeNuclei(temperature, inputs.rng_seed, 0, grid, id);
 
     // Initialize printing struct from inputs
@@ -84,7 +84,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
         int x_switch = 0;
         timers.startLayer();
 
-        // Loop continues until all liquid cells claimed by solid grains
+        // Loop continues until all liquid cells claimed by solid grains, and no solid cells undergo remelting
         do {
 
             // Start of time step - optional print current state of ExaCA simulation (up to and including the current
@@ -93,20 +93,15 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
                                   interface, orientation);
             cycle++;
 
-            // Update cells on GPU - undercooling and diagonal length updates, nucleation
             // Cells with a successful nucleation event are marked and added to a steering vector, later dealt with in
-            // CellCapture
+            // cellCapture
             timers.startNucleation();
             nucleation.nucleateGrain(cycle, grid, celldata, interface);
             timers.stopNucleation();
 
-            // Update cells on GPU - new active cells, solidification of old active cells
-            // Cell capture performed in two steps - first, adding cells of interest to a steering vector (different
-            // subroutine called with versus without remelting), and second, iterating over the steering vector to
-            // perform active cell creation and capture operations
-            // Constrained/directional solidification problem cells only undergo 1 solidificaton event and are
-            // initialized as liquid - the steering vector operation for this problem can be constructed using
-            // FillSteeringVector_NoRemelt (a simplified version of FillSteeringVector_Remelt
+            // Cells that have a successful nucleation event, and other cells that are at the solid-liquid interface are
+            // added to a steering vector. Logic in fillSteeringVector_NoRemelt is a simpified version of
+            // fillSteeringVector_Remelt
             timers.startSV();
             if ((simulation_type == "Directional") || (simulation_type == "SingleGrain"))
                 fillSteeringVector_NoRemelt(cycle, grid, celldata, temperature, interface);
@@ -114,9 +109,11 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
                 fillSteeringVector_Remelt(cycle, grid, celldata, temperature, interface);
             timers.stopSV();
 
+            // Iterate over the steering vector to perform active cell creation and capture operations, and if needed,
+            // melting of cells that have gone above the liquidus. Also places halo cell data into send buffers, later
+            // checking the MPI buffers to ensure that all appropriate interface updates in the halo regions were
+            // recorded
             timers.startCapture();
-            // Cell capture and checking of the MPI buffers to ensure that all appropriate interface updates in the halo
-            // regions were recorded
             cellCapture(cycle, np, grid, irf, celldata, temperature, interface, orientation);
             checkBuffers(id, cycle, grid, celldata, interface, orientation.n_grain_orientations);
             timers.stopCapture();
@@ -128,6 +125,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
                 timers.stopComm();
             }
 
+            // Check on progress of solidification simulation of the current layer, setting x_switch = 1 if complete
             if ((cycle % 1000 == 0) && (simulation_type != "SingleGrain")) {
                 intermediateOutputAndCheck(id, np, cycle, grid, nucleation.successful_nucleation_counter, x_switch,
                                            celldata, temperature, inputs.simulation_type, layernumber, orientation,

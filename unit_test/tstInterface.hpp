@@ -111,7 +111,7 @@ void testHaloUpdate() {
 
     // Testing of loading of ghost nodes data, sending/receiving, unpacking, and calculations on ghost node data:
     // X = 2, Z = 1 is chosen for active cell placement on all ranks
-    // Active cells will be located at Y = 1 and Y = MyYSlices-2 on each rank... these are located in the halo regions
+    // Active cells will be located at Y = 1 and Y = ny_local-2 on each rank... these are located in the halo regions
     // and should be loaded into the send buffers
     int halo_locations_active_region[2];
     halo_locations_active_region[0] = 1 * grid.nx * grid.ny_local + 2 * grid.ny_local + 1;
@@ -182,7 +182,7 @@ void testHaloUpdate() {
 
     haloUpdate(0, 0, grid, celldata, interface, orientation);
 
-    // Copy CellType, GrainID, DiagonalLength, DOCenter, CritDiagonalLength views to host to check values
+    // Copy views to host to check values
     grain_id = celldata.getGrainIDSubview(grid);
     grain_id_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), grain_id);
     cell_type_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), celldata.cell_type);
@@ -528,7 +528,7 @@ void testFillSteeringVector_Remelt() {
             }
             else {
                 // Cells "melt" at a time step corresponding to their Y location in the overall domain (depends on
-                // MyYOffset of the rank)
+                // y_offset of the rank)
                 temperature.liquidus_time(index, 0, 0) = coord_y + grid.y_offset + 1;
                 // Cells reach liquidus during cooling 2 time steps after melting
                 temperature.liquidus_time(index, 0, 1) = temperature.liquidus_time(index, 0, 0) + 2;
@@ -548,8 +548,7 @@ void testFillSteeringVector_Remelt() {
         fillSteeringVector_Remelt(cycle, grid, celldata, temperature, interface);
     }
 
-    // Copy CellType, SteeringVector, numSteer, UndercoolingCurrent, Buffers back to host to check steering vector
-    // construction results
+    // Copy data back to host to check steering vector construction results
     auto cell_type_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), celldata.cell_type);
     auto steering_vector_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.steering_vector);
     auto num_steer_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.num_steer);
@@ -557,7 +556,7 @@ void testFillSteeringVector_Remelt() {
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.undercooling_current);
     auto liquidus_time_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.liquidus_time);
 
-    // Check the modified CellType and UndercoolingCurrent values on the host:
+    // Check the modified cell_type and undercooling_current values on the host:
     // Check that the cells corresponding to outside of the "active" portion of the domain have unchanged values
     // Check that the cells corresponding to the "active" portion of the domain have potentially changed values
     // Z = 3: Rank 0, with all cells having GrainID = 0, should have Liquid cells everywhere, with undercooling

@@ -23,7 +23,7 @@ void writeTestData(std::string input_filename, int print_version) {
     test_data_file.open(input_filename);
     // Write required inputs to all files
     test_data_file << "{" << std::endl;
-    test_data_file << "   \"SimulationType\": \"R\"," << std::endl;
+    test_data_file << "   \"SimulationType\": \"FromFile\"," << std::endl;
     test_data_file << "   \"MaterialFileName\": \"Inconel625.json\"," << std::endl;
     test_data_file << "   \"GrainOrientationFile\": \"GrainOrientationVectors.csv\"," << std::endl;
     test_data_file << "   \"RandomSeed\": 2," << std::endl;
@@ -86,8 +86,7 @@ void testInputs(int print_version) {
     // Get individual process ID
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
-    // Three input files - one of each type
-    // Inp_DirSolidification.txt and Inp_SpotMelt.txt were installed from the examples directory
+    // DirSolidification, SpotMelt, TwoGrainDirSolidification were installed from the examples directory
     // Since no temperature files exist in the repo, and there is no ability to write temperature files to a different
     // directory ( would need examples/Temperatures) using the C++11 standard, dummy input files are written and parsed
     // to test an example problem that uses temperature data from a file.
@@ -128,7 +127,7 @@ void testInputs(int print_version) {
 
         // Check the results
         // The existence of the specified orientation, substrate, and temperature filenames was already checked within
-        // InputReadFromFile
+        // inputs constructor
         // These should be the same for all test problems (except the 4th one, which has 0 nucleation density)
         EXPECT_DOUBLE_EQ(inputs.domain.deltax, 1.0 * pow(10, -6));
         if (filename == input_filenames[3])

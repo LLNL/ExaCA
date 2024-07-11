@@ -186,9 +186,9 @@ mpiexec -n 1 ./build/install/bin/ExaCA examples/Inp_DirSolidification.json
 Alternatively, the `Finch-ExaCA` executable can be used for coupled Finch-ExaCA simulations. Compilation with `ExaCA_ENABLE_FINCH=ON` is required for these examples with [Finch in-memory coupling](https://github.com/ORNL-MDF/Finch):
  * `Inp_SmallFinch.json`: simulates melting and solidification of a small melt pool segment at a coarse resolution
  * `Inp_Finch.json`: simulates melting and solidification of a small melt pool segment at a fine resolution, repeated for 3 layers
- * `Inp_FinchTranslate.json`: simulates melting and solidification of the small melt pool segment translated in space to form 3 overlapping segments
+ * `Inp_FinchTranslate.json`: simulates melting and solidification of the small melt pool segment at the fine resolution translated in space to form 3 overlapping segments
 
-For coupled Finch-ExaCA runs, caution should be taken such that the cell size given in the CA input file matches that given in the Finch input file. Additionally, `scan_path_file` in the Finch input file (for `Inp_Finch.json`, this is `examples/single_line/inputs_small_refined.json` in the Finch repository and for `Inp_SmallFinch.json`, this is `examples/single_line/inputs_small.json` in the Finch repository) should be modified to represent a global path name. Run by calling the created executable with a Finch input file and an ExaCA input file on the command line, with the Finch input file listed first:
+For coupled Finch-ExaCA runs, caution should be taken such that the cell size given in the CA input file matches that given in the Finch input file. Additionally, `scan_path_file` in the Finch input file (for `Inp_Finch.json` and `Inp_FinchTranslate.json`, this is `examples/single_line/inputs_small_refined.json` in the Finch repository and for `Inp_SmallFinch.json`, this is `examples/single_line/inputs_small.json` in the Finch repository) should be modified to represent a global path name. Run by calling the created executable with a Finch input file and an ExaCA input file on the command line, with the Finch input file listed first:
 
 mpiexec -n 1 ./build/install/bin/Finch-ExaCA $PATH_TO_FINCH/examples/single_line/inputs_small.json examples/Inp_SmallFinch.json
 

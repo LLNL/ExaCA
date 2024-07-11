@@ -46,7 +46,7 @@ void fillSteeringVector_NoRemelt(const int cycle, const Grid &grid, CellData<Mem
 }
 
 // For the case where cells may melt and solidify multiple times, determine which cells are associated with the
-// "steering vector" of cells that are either active, or becoming active this time step - version with remelting
+// "steering vector" of cells that are either active, or becoming active this time step, or undergoing melting
 template <typename MemorySpace>
 void fillSteeringVector_Remelt(const int cycle, const Grid &grid, CellData<MemorySpace> &celldata,
                                Temperature<MemorySpace> &temperature, Interface<MemorySpace> &interface) {
@@ -128,8 +128,7 @@ void fillSteeringVector_Remelt(const int cycle, const Grid &grid, CellData<Memor
                                 // Cell activation to be performed as part of steering vector
                                 l = 26;
                                 interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) = index;
-                                celldata.cell_type(index) =
-                                    FutureActive; // this cell cannot be captured - is being activated
+                                celldata.cell_type(index) = FutureActive;
                             }
                         }
                     }
@@ -524,7 +523,8 @@ void checkBuffers(const int id, const int cycle, const Grid &grid, CellData<Memo
                   Interface<MemorySpace> &interface, const int n_grain_orientations) {
     // Count the number of cells' in halo regions where the data did not fit into the send buffers
     // Reduce across all ranks, as the same buf_size should be maintained across all ranks
-    // If any rank overflowed its buffer size, resize all buffers to the new size plus 10% padding
+    // If any rank overflowed its buffer size, resize all buffers to the new size plus a padding (default val of 25
+    // cells)
     bool resize_performed = interface.resizeBuffers(id, cycle);
     if (resize_performed)
         refillBuffers(grid, celldata, interface, n_grain_orientations);
@@ -607,7 +607,7 @@ void refillBuffers(const Grid &grid, CellData<MemorySpace> &celldata, Interface<
     Kokkos::fence();
 }
 
-// 1D domain decomposition: update ghost nodes with new cell data from Nucleation and CellCapture routines
+// 1D domain decomposition: update ghost nodes with new cell data from nucleation.nucleateGrain and cellCapture routines
 template <typename MemorySpace>
 void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &celldata,
                 Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
@@ -731,18 +731,17 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
     Kokkos::fence();
 }
 //*****************************************************************************/
-// Jump to the next time step with work to be done, if nothing left to do in the near future
-// The cells of interest are active cells, and the view checked for future work is
-// melt_time_step Print intermediate output during this jump if PrintIdleMovieFrames = true
+// Jump to the next time step with work to be done, if no melting or solidification events occur in the next 5000 time
+// steps
 template <typename MemorySpace>
-void jumpTimeStep(int &cycle, int remaining_cells_of_interest, const int local_temp_solid_cells,
+void jumpTimeStep(int &cycle, int remaining_liquid_cells, const int local_temp_solid_cells,
                   Temperature<MemorySpace> &temperature, const Grid &grid, CellData<MemorySpace> &celldata,
                   const int id, const int layernumber, const int np, Orientation<MemorySpace> &orientation, Print print,
                   const double deltat, Interface<MemorySpace> &interface) {
 
-    MPI_Bcast(&remaining_cells_of_interest, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    if (remaining_cells_of_interest == 0) {
-        // If this rank still has cells that will later undergo transformation (LocalIncompleteCells > 0), check when
+    MPI_Bcast(&remaining_liquid_cells, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (remaining_liquid_cells == 0) {
+        // If this rank still has cells that will later undergo transformation (TempSolid), check when
         // the next solid cells go above the liquidus (remelting) Otherwise, assign the largest possible time step as
         // the next time work needs to be done on the rank
         int next_melt_time_step;
@@ -750,7 +749,6 @@ void jumpTimeStep(int &cycle, int remaining_cells_of_interest, const int local_t
             Kokkos::parallel_reduce(
                 "CheckNextTSForWork", grid.domain_size,
                 KOKKOS_LAMBDA(const int &index, int &tempv) {
-                    // criteria for a cell to be associated with future work (checking this layer's cells only)
                     if (celldata.cell_type(index) == TempSolid) {
                         int solidification_counter_this_cell = temperature.solidification_event_counter(index);
                         int next_melt_time_step_this_cell =
@@ -767,13 +765,13 @@ void jumpTimeStep(int &cycle, int remaining_cells_of_interest, const int local_t
         int global_next_melt_time_step;
         MPI_Allreduce(&next_melt_time_step, &global_next_melt_time_step, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         if ((global_next_melt_time_step - cycle) > 5000) {
-            // Print current grain misorientations (up to and including the current layer's data) for any of the time
+            // Print current state of the system for desired output fields for any of the time
             // steps between now and when melting/solidification occurs again, if the print option for idle frame
             // printing was toggled
 
             print.printIdleIntralayer(id, np, layernumber, deltat, cycle, grid, celldata, temperature, interface,
                                       orientation, global_next_melt_time_step);
-            // Jump to next time step when solidification starts again
+            // Jump to next time step when melting occurs
             cycle = global_next_melt_time_step - 1;
             if (id == 0)
                 std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
@@ -782,8 +780,7 @@ void jumpTimeStep(int &cycle, int remaining_cells_of_interest, const int local_t
 }
 
 //*****************************************************************************/
-// Prints intermediate code output to stdout (intermediate output collected and printed is different than without
-// remelting) and checks to see if solidification is complete in the case where cells can solidify multiple times
+// Prints intermediate code output to stdout and checks to see if solidification is complete
 template <typename MemorySpace>
 void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Grid &grid,
                                 int successful_nuc_events_this_rank, int &x_switch, CellData<MemorySpace> &celldata,

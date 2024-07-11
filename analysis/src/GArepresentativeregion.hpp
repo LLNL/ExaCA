@@ -41,8 +41,7 @@ struct RepresentativeRegion {
     int region_size_cells;
     std::vector<float> grain_extent_x, grain_extent_y, grain_extent_z;
 
-    // Analysis options for printing stats to the screen (_Stats), to the file of grainwise statistics (_PerGrainStats),
-    // or to files of layerwise statistics (_LayerwiseStats)
+    // Analysis options for mean quantities
     std::vector<std::string> analysis_options_stats_key = {
         "GrainTypeFractions",    // all regions
         "Misorientation",        // all regions
@@ -54,6 +53,7 @@ struct RepresentativeRegion {
     };
     bool print_stats_yn = false;
     std::vector<bool> analysis_options_stats_yn = std::vector<bool>(7, false);
+    // Analysis options for per-grain stats
     std::vector<std::string> analysis_options_per_grain_stats_key = {
         "Misorientation",        // all regions
         "Size",                  // all regions - volume, area, or length
@@ -64,6 +64,7 @@ struct RepresentativeRegion {
         "IPFZ-RGB"               // all regions
     };
     std::vector<bool> analysis_options_per_grain_stats_yn = std::vector<bool>(7, false);
+    // Analysis options for layerwise stats
     std::vector<std::string> analysis_options_layerwise_stats_key = {
         "MeanGrainArea",        // volume only
         "MeanWeightedGrainArea" // volume only

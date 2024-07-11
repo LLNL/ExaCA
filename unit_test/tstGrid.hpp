@@ -39,7 +39,7 @@ void testCalcZLayerBottom() {
     // Call function for each layernumber with simulation type and "FromFile"
     EXPECT_EQ(z_layer_bottom, 0);
     for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
-        // Set ZMinLayer for each layer to be offset by LayerHeight cells from the previous one (lets solution for
+        // Set z_min_layer for each layer to be offset by layer_height cells from the previous one (lets solution for
         // both problem types by the same)
         grid.z_min_layer(layernumber) = grid.z_min + layernumber * grid.layer_height * grid.deltax;
         int z_layer_bottom = grid.calcZLayerBottom("FromFile", layernumber);
@@ -49,7 +49,6 @@ void testCalcZLayerBottom() {
 
 void testCalcZLayerTop() {
 
-    // A separate function is now used for ZBound_High calculation
     // Default initialized inputs and grid structs with manually set values for tests
     Inputs inputs;
     inputs.domain.layer_height = 10;
@@ -62,12 +61,12 @@ void testCalcZLayerTop() {
     }
     grid.nz = 111;
     for (int layernumber = 0; layernumber < grid.number_of_layers; layernumber++) {
-        // Set ZMaxLayer for each layer to be offset by LayerHeight cells from the previous one, with layer 0 having a
-        // ZMax value of ZMin + SpotRadius (lets solution for both problem types be the same)
+        // Set ZMaxLayer for each layer to be offset by layer_height cells from the previous one, with layer 0 having a
+        // z_max_layer value of z_min + spot_radius (lets solution for both problem types be the same)
         // Call function for each layernumber for simulation types "FromFile"
         int z_layer_top_R = grid.calcZLayerTop("FromFile", layernumber);
         EXPECT_EQ(z_layer_top_R, (grid.z_max_layer(layernumber) - grid.z_min) / grid.deltax);
-        // For simulation type C, should be independent of layernumber
+        // For simulation type Directional, should be independent of layernumber
         int z_layer_top_C = grid.calcZLayerTop("Directional", layernumber);
         EXPECT_EQ(z_layer_top_C, grid.nz - 1);
         int z_layer_top_S = grid.calcZLayerTop("Spot", layernumber);
@@ -167,10 +166,10 @@ void testFindXYZBounds(bool test_binary_input_read) {
     EXPECT_DOUBLE_EQ(grid.z_min, 0.0);
     EXPECT_DOUBLE_EQ(grid.x_max, (nx - 1) * deltax);
     EXPECT_DOUBLE_EQ(grid.y_max, (ny - 1) * deltax);
-    // ZMax is equal to the largest Z coordinate in the file, offset by LayerHeight cells in the build direction due
+    // z_max is equal to the largest Z coordinate in the file, offset by layer_height cells in the build direction due
     // to the second layer
     EXPECT_DOUBLE_EQ(grid.z_max, 4 * grid.deltax);
-    // Bounds for each individual layer - 2nd layer offset by LayerHeight cells from the first
+    // Bounds for each individual layer - 2nd layer offset by layer_height cells from the first
     EXPECT_DOUBLE_EQ(grid.z_min_layer(0), 0.0);
     EXPECT_DOUBLE_EQ(grid.z_max_layer(0), (nz - 1) * deltax);
     EXPECT_DOUBLE_EQ(grid.z_min_layer(1), (nz - 1) * deltax);

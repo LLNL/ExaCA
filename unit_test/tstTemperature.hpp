@@ -136,7 +136,7 @@ void testReadTemperatureData(int number_of_layers, bool layerwise_temp_read, boo
     EXPECT_TRUE(temperature._inputs.temp_paths[0] == inputs.temperature.temp_paths[0]);
     EXPECT_TRUE(temperature._inputs.temp_paths[1] == inputs.temperature.temp_paths[1]);
 
-    // Read in data to "RawTemperatureData"
+    // Read in data to "raw_temperature_data"
     temperature.readTemperatureData(id, grid, 0);
     // Check the results.
     // Does each rank have the right number of temperature data points? Each rank should have one for each of the 9
@@ -266,7 +266,7 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
             for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
                 int index = grid.get1DIndex(coord_x, coord_y, coord_z);
                 // Each cell solidifies once, and counter should start at 0, associated with the zeroth layer
-                // MeltTimeStep should be -1 for all cells
+                // melt time step should be -1 for all cells
                 // Cells cool at 1 K per time step
                 EXPECT_FLOAT_EQ(liquidus_time_host(index, 0, 0), -1.0);
                 EXPECT_FLOAT_EQ(cooling_rate_host(index, 0), R_norm);
