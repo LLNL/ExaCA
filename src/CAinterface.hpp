@@ -121,7 +121,7 @@ struct Interface {
         neighbor_z = {0, 0, 1, 0, 0, -1, 0, 1, 1, 0, -1, -1, 0, 1, 1, 0, -1, -1, 1, 1, 1, -1, 1, -1, -1, -1};
     }
 
-    // buffers if necessary, returning the new buffer size. Return true if the buffers were resized
+    // Increase size of buffers if necessary, returning the new buffer size. Return true if the buffers were resized
     int resizeBuffers(const int id, const int cycle, const int num_cells_buffer_padding = 25) {
 
         bool resize_performed = false;
@@ -133,7 +133,7 @@ struct Interface {
         MPI_Allreduce(&max_count_local, &max_count_global, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
         if (max_count_global > old_buf_size) {
             // Increase buffer size to fit all data
-            // Add numcells_buffer_padding (defaults to 25) cells as additional padding
+            // Add num_cells_buffer_padding (defaults to 25) cells as additional padding
             int new_buf_size = max_count_global + num_cells_buffer_padding;
             Kokkos::resize(buffer_north_send, new_buf_size, buf_components);
             Kokkos::resize(buffer_south_send, new_buf_size, buf_components);
@@ -168,18 +168,19 @@ struct Interface {
         return resize_performed;
     }
 
-    // Resize and reinitialize structs governing the active cells before the next layer of a multilayer problem
+    // Resize and reinitialize structs governing the active cells before the next layer of a multilayer problem. Realloc
+    // is used as the old values from the structs are not needed
     void initNextLayer(const int domain_size) {
 
-        // Realloc steering vector as LocalActivedomain_size may have changed (old values aren't needed)
+        // Realloc steering vector as domain_size for the next layer may be different
         Kokkos::realloc(steering_vector, domain_size);
 
-        // Realloc active cell data structure and halo regions on device (old values not needed)
+        // Realloc active cell data structure and halo regions
         Kokkos::realloc(diagonal_length, domain_size);
         Kokkos::realloc(octahedron_center, 3 * domain_size);
         Kokkos::realloc(crit_diagonal_length, 26 * domain_size);
 
-        // Reset active cell data structures on device
+        // Reset active cell data structures to zeros
         Kokkos::deep_copy(diagonal_length, 0);
         Kokkos::deep_copy(octahedron_center, 0);
         Kokkos::deep_copy(crit_diagonal_length, 0);
@@ -196,7 +197,7 @@ struct Interface {
         octahedron_center(3 * index + 2) = coord_z + 0.5;
     }
 
-    // For the newly active cell located at 1D array position D3D1ConvPosition (3D center coordinate of xp, yp, zp),
+    // For the newly active cell located at 1D array position index (3D center coordinate of xp, yp, zp),
     // update crit_diagonal_length values for cell capture of neighboring cells. The octahedron has a center located at
     // (cx, cy, cz) Note that yp and cy are relative to the domain origin to keep the coordinate system continuous
     // across ranks
@@ -253,10 +254,10 @@ struct Interface {
         }
     }
 
-    // Load data (GrainID, octahedron_center, diagonal_length) into ghost nodes if the given RankY is associated with a
-    // 1D halo region Uses check to ensure that the buffer position does not reach the buffer size - if it does, return
-    // false (otherwise return true) but keep incrementing the send size counters for use resizing the buffers in the
-    // future
+    // Load data (grain_id, octahedron_center, diagonal_length) into ghost nodes if the given coord_y is associated with
+    // a 1D halo region Uses check to ensure that the buffer position does not reach the buffer size - if it does,
+    // return false (otherwise return true) but keep incrementing the send size counters for use resizing the buffers in
+    // the future
     KOKKOS_INLINE_FUNCTION
     bool loadGhostNodes(const int ghost_grain_id, const float ghost_octahedron_center_x,
                         const float ghost_octahedron_center_y, const float ghost_octahedron_center_z,

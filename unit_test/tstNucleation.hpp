@@ -139,9 +139,8 @@ void testNucleiInit() {
         Kokkos::create_mirror_view_and_copy(memory_space(), max_solidification_events_host);
 
     // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event
-    // counters - initialized with an estimate on the number of nuclei in the layer Without knowing
-    // possible_nuclei_ThisRankThisLayer yet, initialize nucleation data structures to estimated sizes, resize inside of
-    // NucleiInit when the number of nuclei per rank is known
+    // counters - initialized with an estimate on the number of nuclei in the layer
+    // (estimated_nuclei_this_rank_this_layer)
     const double domain_volume = (grid.x_max - grid.x_min) * (grid.y_max - grid.y_min) *
                                  (grid.z_max_layer(1) - grid.z_min_layer(1)) * pow(grid.deltax, 3);
     int estimated_nuclei_this_rank_this_layer = inputs.nucleation.n_max * pow(grid.deltax, 3) * grid.domain_size;
@@ -238,9 +237,9 @@ void testNucleateGrain() {
     view_int_host nuclei_grain_id_host(Kokkos::ViewAllocateWithoutInitializing("nuclei_grain_id_host"),
                                        possible_nuclei);
     for (int n = 0; n < possible_nuclei; n++) {
-        // NucleationTimes values should be in the order in which the events occur - start with setting them between 0
-        // and 9 nuclei_locations are in order starting with 0, through 9 (locations relative to the bottom of the
-        // layer)
+        // nucleation_times_host values should be in the order in which the events occur - start with setting them
+        // between 0 and 9 nuclei_locations are in order starting with 0, through 9 (locations relative to the bottom of
+        // the layer)
         nucleation.nucleation_times_host(n) = n;
         nuclei_locations_host(n) = n;
         // Give these nucleation events grain IDs based on their order, starting with -1 and counting down
@@ -282,7 +281,7 @@ void testNucleateGrain() {
         nucleation.nucleateGrain(cycle, grid, celldata, interface);
     }
 
-    // Copy CellType, SteeringVector, numSteer, grain_id back to host to check nucleation results
+    // Copy views back to host to check nucleation results
     cell_type_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), celldata.cell_type);
     auto steering_vector_host_local =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.steering_vector);

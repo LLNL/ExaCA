@@ -15,7 +15,6 @@
       "StDev": 0.5
    },
    "TemperatureData": {
-       "HeatTransferCellSize": 2.5,
        "LayerwiseTempRead": false,
        "TemperatureFiles": ["examples/Temperatures/TwoLine.txt"]
    },

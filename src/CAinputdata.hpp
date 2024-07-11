@@ -28,7 +28,7 @@ inline void validSimulationType(std::string simulation_type) {
 // Structs to organize data within inputs struct
 struct DomainInputs {
     double deltax = 0.0, deltat = 0.0;
-    // number of CA cells in each direction only initialized here for problem types C, Spot, and SingleGrain
+    // number of CA cells in each direction only initialized here for problem types Directional, Spot, and SingleGrain
     int nx = 0, ny = 0, nz = 0;
     // multilayer problems only
     int number_of_layers = 1, layer_height = 0;
@@ -80,7 +80,7 @@ struct TemperatureInputs {
 };
 
 struct SubstrateInputs {
-    // problem type C only
+    // problem type Directional only
     std::string surface_init_mode = "";
     // Only used for mode (i)
     double fract_surface_sites_active = 0.0;
@@ -91,7 +91,7 @@ struct SubstrateInputs {
     bool fill_bottom_surface = false;
     // problem type SingleGrain only
     int single_grain_orientation = 0;
-    // problem types Spot and R only
+    // problem types Spot and FromFile only
     bool use_substrate_file = false;
     bool baseplate_through_powder = false;
     std::string substrate_filename = "";

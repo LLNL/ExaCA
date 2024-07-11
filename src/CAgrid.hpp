@@ -59,7 +59,9 @@ struct Grid {
         number_of_layers = number_of_layers_temp;
     };
 
-    // Creates grid struct from Finch grid - currently only single layer simulation is supported
+    // Creates grid struct from Finch grid - currently only supports simulations where one set of temperature data is
+    // used (either for single layer simulations or multilayer simulations repeating the same data with an layer height
+    // offset in the Z direction)
     Grid(const int id, const int np, DomainInputs inputs, TemperatureInputs t_inputs, const double finch_cell_size,
          std::array<double, 3> global_low_corner, std::array<double, 3> global_high_corner,
          const double cell_size_tolerance = 1 * Kokkos::pow(10, -8))
@@ -95,6 +97,10 @@ struct Grid {
         }
         // Domain decomposition
         decomposeDomain(id, np, "FromFinch");
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (id == 0)
+            std::cout << "Mesh initialized: initial domain size is " << nz_layer << " out of " << nz
+                      << " total cells in the Z direction" << std::endl;
     };
 
     // If X or Y bounds were specified, override the X and Y bounds from the data in the files
@@ -116,7 +122,8 @@ struct Grid {
             y_max = _t_inputs.temperature_y_bounds[1];
         }
     }
-    // Constructor for grid used in ExaCA
+
+    // Constructor for grid used in ExaCA for problem types other than FromFinch
     Grid(const std::string simulation_type, const int id, const int np, const int number_of_layers_temp,
          DomainInputs inputs, TemperatureInputs t_inputs)
         : z_min_layer(
@@ -133,13 +140,10 @@ struct Grid {
         number_of_layers = number_of_layers_temp;
 
         // Obtain global domain bounds
-        // For problem type R (reading data from file), need to parse temperature data files to obtain domain bounds for
+        // For problem type FromFile, need to parse all temperature data files to obtain domain bounds for
         // each layer and for the multilayer domain
-        if (simulation_type == "FromFile") {
-            // For simulations using input temperature data with remelting: even if only LayerwiseTempRead is true, all
-            // files need to be read to determine the domain bounds
+        if (simulation_type == "FromFile")
             findXYZBounds(id, t_inputs);
-        }
         else {
             // Copy inputs from inputs struct into grid struct
             nx = _inputs.nx;
@@ -318,16 +322,10 @@ struct Grid {
         return xyz_min_max;
     }
 
-    // For simulation type R, obtain the physical XYZ bounds of the domain by reading temperature data files and parsing
-    // the coordinates. Previously in CAinitialize.cpp
+    // For simulation type FromFile, obtain the physical XYZ bounds of the domain by reading temperature data files and
+    // parsing the coordinates (does not store temperature data points). Previously in CAinitialize.cpp
     void findXYZBounds(const int id, TemperatureInputs _t_inputs) {
 
-        // Two passes through reading temperature data files- the first pass only reads the headers to
-        // determine units and X/Y/Z bounds of the simulaton domain. Using the X/Y/Z bounds of the simulation domain,
-        // nx, ny, and nz can be calculated and the domain decomposed among MPI processes. The maximum number of
-        // remelting events in the simulation can also be calculated. The second pass reads the actual X/Y/Z/liquidus
-        // time/cooling rate data and each rank stores the data relevant to itself in "RawData" - this is done in the
-        // subroutine "ReadTemperatureData"
         x_min = std::numeric_limits<double>::max();
         y_min = std::numeric_limits<double>::max();
         z_min = std::numeric_limits<double>::max();
@@ -342,13 +340,11 @@ struct Grid {
         // Header line
         getline(first_temperature_file, first_line_first_file);
 
-        // Read all data files to determine the domain bounds, max number of remelting events
-        // for simulations with remelting
+        // Read all data files to determine the domain bounds
         int layers_to_read = std::min(number_of_layers, _t_inputs.temp_files_in_series); // was given in input file
         for (int layer_read_count = 1; layer_read_count <= layers_to_read; layer_read_count++) {
 
             std::string tempfile_thislayer = _t_inputs.temp_paths[layer_read_count - 1];
-            // Get min and max x coordinates in this file, which can be a binary or ASCII input file
             // binary file type uses extension .catemp, all other file types assumed to be comma-separated ASCII input
             bool binary_input_data = checkTemperatureFileFormat(tempfile_thislayer);
             // { x_min, x_max, y_min, y_max, z_min, z_max }
@@ -415,10 +411,7 @@ struct Grid {
         // the files with the user specified values
         checkOverrideXYBounds(id, _t_inputs);
 
-        // Now at the conclusion of "Loop 0", the decomposition can be performed as the domain bounds are known
-        // (all header lines from all files have been read)
-        // CA cells in each direction span from the lower to the higher bound of the temperature data - without wall
-        // cells or padding around the simulation edges
+        // Number of cells in X, Y, and Z of the global simulation domain as calculated from the bounds
         nx = Kokkos::round((x_max - x_min) / deltax) + 1;
         ny = Kokkos::round((y_max - y_min) / deltax) + 1;
         nz = Kokkos::round((z_max - z_min) / deltax) + 1;

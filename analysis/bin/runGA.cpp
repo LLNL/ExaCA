@@ -18,8 +18,7 @@
 #include <string>
 #include <vector>
 
-// The path to/name of the ExaCA analysis input file and the path to/ name of the base filename for the ExaCA
-// microstructure data (without extension) are given on the command line
+// Given on the command line: Name of analysis input file, name (without file extension) of the ExaCA data
 int main(int argc, char *argv[]) {
 
     // Initialize Kokkos
@@ -43,6 +42,7 @@ int main(int argc, char *argv[]) {
         int nx, ny, nz, number_of_layers;
         std::vector<double> xyz_bounds(6);
         parseLogFile(log_file, nx, ny, nz, deltax, number_of_layers, xyz_bounds, grain_unit_vector_file, false);
+        std::cout << "Parsed log file" << std::endl;
 
         // Allocate memory blocks for grain_id and layer_id data
         Kokkos::View<int ***, Kokkos::HostSpace> grain_id(Kokkos::ViewAllocateWithoutInitializing("grain_id"), nz, nx,
@@ -52,10 +52,12 @@ int main(int argc, char *argv[]) {
 
         // Fill arrays with data from paraview file
         initializeData(microstructure_file, nx, ny, nz, grain_id, layer_id);
+        std::cout << "Parsed ExaCA grain structure" << std::endl;
 
         // Grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
         // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
         Orientation<memory_space> orientation(0, grain_unit_vector_file, true);
+        std::cout << "Parsed orientation files" << std::endl;
 
         // Representative region creation
         std::ifstream analysis_data_stream(analysis_file);
@@ -99,13 +101,7 @@ int main(int argc, char *argv[]) {
             if (representativeregion.analysis_options_stats_yn[2])
                 representativeregion.printMeanSize(qois);
 
-            // If XExtent, YExtent, ZExtent, or build_trans_aspect_ratio/Extent are toggled for general stats printing
-            // or per grain printing, calculate grain extents for the necessary direction(s) (otherwise don't, since
-            // it can be slow for large volumes) Extents are calculated in microns
-            // If options StatsYN[3] or PerGrainStatsYN[5] is toggled, grain extents are needed
-            // If StatsYN[4] or PerGrainStatsYN[2] is toggled, X extents are needed
-            // If StatsYN[5] or PerGrainStatsYN[3] is toggled, Y extents are needed
-            // If StatsYN[6] or PerGrainStatsYN[4] is toggled, Z extents are needed
+            // Obtain extents of grains in X, Y, Z if necessary for requested analysis
             representativeregion.calcNecessaryGrainExtents(grain_id, deltax);
             std::vector<float> build_trans_aspect_ratio(representativeregion.number_of_grains);
             if ((representativeregion.analysis_options_stats_yn[3]) ||

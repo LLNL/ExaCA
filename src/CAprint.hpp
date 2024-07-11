@@ -175,7 +175,7 @@ struct Print {
     // For intralayer print (current_layer_only = true):
     // Creates a file "Basefilename_layer[layernumber]_[time].vtk" containing the portions of data structures
     // corresponding to the current layer of a multilayer simulation The exception to this is for print
-    // GrainMisorientation, where data for all layer up to the current layer are printed to a separate file
+    // GrainMisorientation, where data for all layers up to the current layer are printed to a separate file
     // "Basefilename_layer[layernumber]_[time]_Misorientations.vtk"
     template <typename MemorySpace>
     void printIntralayer(const int id, const int np, const int layernumber, const double deltat, const int cycle,

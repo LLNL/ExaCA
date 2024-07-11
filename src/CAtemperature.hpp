@@ -68,9 +68,9 @@ struct Temperature {
     // Temperature field inputs from file
     TemperatureInputs _inputs;
 
-    // Constructor creates views with size based on the grid inputs - each cell assumed to solidify once by default,
-    // layer_time_temp_history modified to account for multiple events if needed undercooling_current and
-    // solidification_event_counter are default initialized to zeros
+    // Constructor creates views with size based on the grid inputs - liquidus_time and cooling_rate are later modified
+    // to account for multiple events if needed, undercooling_current and solidification_event_counter are default
+    // initialized to zeros
     Temperature(const Grid &grid, TemperatureInputs inputs, const bool store_solidification_start = false,
                 const int est_num_temperature_data_points = 100000)
         : max_solidification_events(
@@ -98,7 +98,7 @@ struct Temperature {
         getCurrentLayerUndercooling(grid.layer_range);
     }
 
-    // Constructor using in-memory temperature data from external source.
+    // Constructor using in-memory temperature data from external source (input_temperature_data)
     Temperature(const int id, const int np, const Grid &grid, TemperatureInputs inputs,
                 view_type_coupled input_temperature_data, const bool store_solidification_start = false)
         : max_solidification_events(
@@ -254,9 +254,9 @@ struct Temperature {
     }
 
     // Read and parse the temperature file (double precision values in a comma-separated, ASCII format with a header
-    // line - or a binary string of double precision values), storing the x, y, z, tm, tl, cr values in the RawData
-    // vector. Each rank only contains the points corresponding to cells within the associated Y bounds.
-    // number_of_temperature_data_points is incremented on each rank as data is added to RawData
+    // line - or a binary string of double precision values), storing the x, y, z, tm, tl, cr values in the
+    // raw_temperature_data view. Each rank only contains the points corresponding to cells within the associated Y
+    // bounds. number_of_temperature_data_points is incremented on each rank as data is added to raw_temperature_data
     void parseTemperatureData(const std::string tempfile_thislayer, const Grid grid,
                               int &number_of_temperature_data_points, const bool binary_input_data,
                               const int temperature_buffer_increment = 100000) {
@@ -299,7 +299,7 @@ struct Temperature {
                         // Increment number of temperature data points stored
                         number_of_temperature_data_points++;
                         int raw_temperature_data_extent = raw_temperature_data.extent(0);
-                        // Adjust size of RawData if it is near full
+                        // Adjust size of raw_temperature_data if it is near full
                         if (number_of_temperature_data_points >= raw_temperature_data_extent)
                             Kokkos::resize(raw_temperature_data,
                                            raw_temperature_data_extent + temperature_buffer_increment,
@@ -361,8 +361,8 @@ struct Temperature {
         }
     }
 
-    // Read in temperature data from files, stored in the host view "RawData", with the appropriate MPI ranks storing
-    // the appropriate data
+    // Read in temperature data from files, stored in the host view raw_temperature_data, with the appropriate MPI ranks
+    // storing the appropriate data
     void readTemperatureData(int id, const Grid &grid, int layernumber) {
 
         // Y coordinates of this rank's data, inclusive and including ghost nodes
@@ -371,13 +371,7 @@ struct Temperature {
 
         std::cout << "On MPI rank " << id << ", the Y bounds (in cells) are [" << lower_y_bound << "," << upper_y_bound
                   << "]" << std::endl;
-        // Store raw data relevant to each rank in the vector structure RawData
-        // Two passes through reading temperature data files- this is the second pass, reading the actual X/Y/Z/liquidus
-        // time/cooling rate data and each rank stores the data relevant to itself in "RawData". With remelting
-        // (simulation_type == "RM"), this is the same except that some X/Y/Z coordinates may be repeated in a file, and
-        // a "melting time" value is stored in addition to liquidus time and cooling rate
         int number_of_temperature_data_points = 0;
-        // Second pass through the files - ignore header line
         int first_layer_to_read, last_layer_to_read;
         if (_inputs.layerwise_temp_read) {
             first_layer_to_read = layernumber;
@@ -400,20 +394,19 @@ struct Temperature {
 
             first_value(layer_read_count) = number_of_temperature_data_points;
             // Read and parse temperature file for either binary or ASCII, storing the appropriate values on each MPI
-            // rank within RawData and incrementing number_of_temperature_data_points appropriately
+            // rank within raw_temperature_data and incrementing number_of_temperature_data_points appropriately
             bool binary_input_data = checkTemperatureFileFormat(tempfile_thislayer);
             parseTemperatureData(tempfile_thislayer, grid, number_of_temperature_data_points, binary_input_data);
             last_value(layer_read_count) = number_of_temperature_data_points;
         } // End loop over all files read for all layers
         Kokkos::resize(raw_temperature_data, number_of_temperature_data_points, num_temperature_components);
-        // Determine start values for each layer's data within "RawData", if all layers were read
+        // Determine start values for each layer's data within raw_temperature_data, if all layers were read
         if (!(_inputs.layerwise_temp_read)) {
             if (grid.number_of_layers > _inputs.temp_files_in_series) {
                 for (int layer_read_count = _inputs.temp_files_in_series; layer_read_count < grid.number_of_layers;
                      layer_read_count++) {
                     if (_inputs.temp_files_in_series == 1) {
-                        // Since all layers have the same temperature data, each layer's "ZMinLayer" is just
-                        // translated from that of the first layer
+                        // All layers have the same temperature data
                         first_value(layer_read_count) = first_value(layer_read_count - 1);
                         last_value(layer_read_count) = last_value(layer_read_count - 1);
                     }
@@ -428,7 +421,7 @@ struct Temperature {
         }
     }
 
-    // Initialize temperature data with a fixed thermal gradient in Z (can also be zero) for constrained/single grain
+    // Initialize temperature data with a fixed thermal gradient in Z (can also be zero) for Directional/SingleGrain
     // problem types
     void initialize(const int id, const std::string simulation_type, const Grid &grid, const double deltat) {
 
@@ -488,6 +481,7 @@ struct Temperature {
                 max_solidification_events_local(0) = 1;
                 number_solidification_events_local(index) = 1;
             });
+        MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0) {
             std::cout << "Temperature field initialized for unidirectional solidification with G = " << G_local
                       << " K/m, initial undercooling at Z = " << location_init_undercooling << " of "
@@ -515,7 +509,7 @@ struct Temperature {
             std::cout << "Initializing temperature field for the hemispherical spot, which will take approximately "
                       << spot_time_est << " time steps to fully solidify" << std::endl;
 
-        // Initialize layer_time_temp_history data values for this spot
+        // Initialize liquidus_time and cooling_rate values for this spot
         auto liquidus_time_local = liquidus_time;
         auto cooling_rate_local = cooling_rate;
         auto number_of_solidification_events_local = number_of_solidification_events;
@@ -589,7 +583,7 @@ struct Temperature {
             }
         }
         else {
-            // Need to calculate max_solidification_events(layernumber) from the values in RawData
+            // Need to calculate max_solidification_events(layernumber)
             // Init to 0
             view_type_int_host temp_melt_count("temp_melt_count", grid.domain_size);
 
@@ -613,6 +607,7 @@ struct Temperature {
             MPI_Allreduce(&max_count, &max_count_global, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
             max_solidification_events_host(layernumber) = max_count_global;
         }
+        MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "The maximum number of melting/solidification events during layer " << layernumber << " is "
                       << max_solidification_events_host(layernumber) << std::endl;
@@ -639,13 +634,13 @@ struct Temperature {
     }
     // Read data from storage, obtain melting time
     double getTempCoordTM(const int i) {
-        double TMelting = raw_temperature_data(i, 3);
-        return TMelting;
+        double t_melting = raw_temperature_data(i, 3);
+        return t_melting;
     }
     // Read data from storage, obtain liquidus time
     double getTempCoordTL(const int i) {
-        double TLiquidus = raw_temperature_data(i, 4);
-        return TLiquidus;
+        double t_liquidus = raw_temperature_data(i, 4);
+        return t_liquidus;
     }
     // Read data from storage, obtain cooling rate
     double getTempCoordCR(const int i) {
@@ -724,8 +719,9 @@ struct Temperature {
         if (id == 0)
             std::cout << "Layer " << layernumber << " temperatures read" << std::endl;
 
-        // Reorder solidification events in layer_time_temp_history(location,event number,component) so that they are in
-        // order based on the melting time values (component = 0)
+        // Reorder solidification events in liquidus_time_host(location,event number,component) and
+        // cooling_rate_host(location,event number) so that they are in order based on the melting time values
+        // (component = 0 in liquidus_time_host)
         for (int index = 0; index < grid.domain_size; index++) {
             int n_solidification_events_cell = number_of_solidification_events_host(index);
             if (n_solidification_events_cell > 0) {
@@ -783,7 +779,7 @@ struct Temperature {
         cooling_rate = Kokkos::create_mirror_view_and_copy(memory_space(), cooling_rate_host);
         number_of_solidification_events =
             Kokkos::create_mirror_view_and_copy(memory_space(), number_of_solidification_events_host);
-
+        MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0) {
             std::cout << "Layer " << layernumber << " temperature field is from Z = " << grid.z_layer_bottom
                       << " through " << grid.nz_layer + grid.z_layer_bottom - 1 << " of the global domain" << std::endl;
@@ -951,9 +947,9 @@ struct Temperature {
     }
 
     // Extract either the last time step that all points undergo melting in the layer or the last time they cools below
-    // the liquidus from layer_time_temp_history (corresponds to solidification event number `NumSolidificationEvents-1`
-    // for the cell) (can't just use subview here since NumSolidificationEvents is different for each cell) If the cell
-    // does not undergo solidification, either print -1 or the specified default value
+    // the liquidus from liquidus_time (corresponds to solidification event number_of_solidification_events-1
+    // for the cell) (can't just use subview here since number_of_solidification_events is different for each cell) If
+    // the cell does not undergo solidification, either print -1 or the specified default value
     template <typename extracted_view_data_type>
     extracted_view_data_type extractTmTlData(const int extracted_val, const int domain_size,
                                              const int default_val = -1) {
@@ -977,9 +973,9 @@ struct Temperature {
         return extracted_data;
     }
 
-    // Extract the cooling rate corresponding to solidification event number `NumSolidificationEvents-1` for the cell
-    // (can't just use subview here since NumSolidificationEvents is different for each cell) If the cell does not
-    // undergo solidification, either print -1 or the specified default value
+    // Extract the cooling rate corresponding to solidification event number `number_of_solidification_events-1` for the
+    // cell (can't just use subview here since number_of_solidification_events is different for each cell) If the cell
+    // does not undergo solidification, either print -1 or the specified default value
     template <typename extracted_view_data_type>
     extracted_view_data_type extractCrData(const int domain_size, const int default_val = -1) {
         extracted_view_data_type extracted_data(Kokkos::ViewAllocateWithoutInitializing("extracted_data"), domain_size);

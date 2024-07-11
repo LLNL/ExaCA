@@ -88,11 +88,12 @@ struct CellData {
                       << " initialized at X = " << grain_location_x << ", Y = " << grain_location_y
                       << ", Z = " << grain_location_z << std::endl;
 
+        MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Grain struct initialized" << std::endl;
     }
 
-    // Get the X, Y coordinates and grain ID values for grains at the bottom surface for problem type C
+    // Get the X, Y coordinates and grain ID values for grains at the bottom surface for problem type Directional
     view_type_int_2d_host getSurfaceActiveCellData(int &substrate_act_cells, const Grid &grid,
                                                    const unsigned long rng_seed) {
 
@@ -244,12 +245,15 @@ struct CellData {
                     }
                 });
         }
+        MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0) {
             std::cout << "Number of substrate active cells across all ranks: " << substrate_act_cells << std::endl;
             std::cout << "Grain struct initialized" << std::endl;
         }
     }
 
+    // Initializes substrate grain structure using either a Voronoi assignment of grain ID values to cells or reading
+    // the data from a file
     void initSubstrate(const int id, const Grid &grid, const unsigned long rng_seed,
                        view_type_int number_of_solidification_events) {
 
@@ -277,6 +281,7 @@ struct CellData {
         // Initialize cell types and layer IDs based on whether cells will solidify in layer 0 or not
         initCellTypeLayerID(0, id, grid, number_of_solidification_events);
 
+        MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0) {
             std::cout << "Grain struct initialized" << std::endl;
         }
@@ -573,6 +578,12 @@ struct CellData {
         int powder_layer_cells = grid.nx * grid.ny * powder_layer_height;
         int powder_layer_assigned_cells =
             Kokkos::round(static_cast<double>(powder_layer_cells) * _inputs.powder_active_fraction);
+        // Associate powder grain IDs with CA cells in the powder layer
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (id == 0)
+            std::cout << "Initializing powder layer for Z = " << powder_bottom_z << " through " << powder_top_z - 1
+                      << " (" << grid.nx * grid.ny * powder_layer_height << " cells): powder layer has "
+                      << powder_layer_assigned_cells << " cells assigned new grain ID values" << std::endl;
         std::vector<int> powder_grain_ids(powder_layer_cells, 0);
         for (int n = 0; n < powder_layer_assigned_cells; n++) {
             powder_grain_ids[n] = n + next_layer_first_epitaxial_grain_id; // assigned a nonzero GrainID
@@ -581,16 +592,10 @@ struct CellData {
         // Wrap powder layer GrainIDs into an unmanaged view, then copy to the device
         view_type_int_unmanaged powder_grain_ids_host(powder_grain_ids.data(), powder_layer_cells);
         auto powder_grain_ids_device = Kokkos::create_mirror_view_and_copy(memory_space(), powder_grain_ids_host);
-        // Associate powder grain IDs with CA cells in the powder layer
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
-            std::cout << "Initializing powder layer for Z = " << powder_bottom_z << " through " << powder_top_z - 1
-                      << " (" << grid.nx * grid.ny * powder_layer_height << " cells)" << std::endl;
 
         int powder_start = grid.nx * grid.ny * powder_bottom_z;
         if (id == 0)
-            std::cout << "Powder layer has " << powder_layer_assigned_cells
-                      << " cells assigned new grain ID values, ranging from " << next_layer_first_epitaxial_grain_id
+            std::cout << "Powder layer grain ID values range from " << next_layer_first_epitaxial_grain_id
                       << " through " << next_layer_first_epitaxial_grain_id + powder_layer_assigned_cells - 1
                       << std::endl;
 
@@ -603,8 +608,8 @@ struct CellData {
         Kokkos::parallel_for(
             "PowderGrainInit", powder_policy,
             KOKKOS_LAMBDA(const int coord_z_all_layers, const int coord_x, const int coord_y_global) {
-                // Is this powder coordinate in X and Y in bounds for this rank? Is the grain id of this site unassigned
-                // (wasn't captured during solidification of the previous layer)?
+                // Is this powder coordinate in X and Y in bounds for this rank? Is the grain id of this site
+                // unassigned (wasn't captured during solidification of the previous layer)?
                 if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
                     int coord_y = coord_y_global - grid.y_offset;
                     int index_all_layers = grid.get1DIndex(coord_x, coord_y, coord_z_all_layers);
@@ -626,7 +631,6 @@ struct CellData {
     }
 
     // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
-    //*****************************************************************************/
     void initNextLayer(const int nextlayernumber, const int id, const Grid &grid, const unsigned long rng_seed,
                        view_type_int number_of_solidification_events) {
 
@@ -643,7 +647,6 @@ struct CellData {
         initCellTypeLayerID(nextlayernumber, id, grid, number_of_solidification_events);
     }
 
-    //*****************************************************************************/
     // Initializes cells for the current layer as either solid (don't resolidify) or tempsolid (will melt and
     // resolidify)
     void initCellTypeLayerID(const int layernumber, const int id, const Grid &grid,

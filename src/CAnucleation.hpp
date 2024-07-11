@@ -35,7 +35,7 @@ struct Nucleation {
     // Four counters tracked here:
     // 1. nuclei_whole_domain - tracks all nuclei (regardless of whether an event would be possible based on the layer
     // ID and cell type), used for Grain ID assignment to ensure that no Grain ID get reused - same on all MPI ranks
-    // 2. x - the subset of Nuclei_ThisLayer that are located within the bounds of a
+    // 2. possible_nuclei - the subset of Nuclei_ThisLayer that are located within the bounds of a
     // given MPI rank that may possibly occur (nuclei locations are associated with a liquid cell with a layer ID that
     // matches this layer number). Starts at 0 each layer
     // 3. nucleation_counter - the number of nucleation events that have actually either failed or succeeded on a given
@@ -227,15 +227,14 @@ struct Nucleation {
         // Sorting from low to high
         std::sort(nucleation_time_loc_id.begin(), nucleation_time_loc_id.end());
 
-        // With possible_nuclei_ThisRankThisLayer now known, resize views appropriately
-        // Resize nucleation views now that possible_nuclei_ThisRank is known for all MPI ranks
+        // With possible_nuclei for this rank and this layer now known, resize views appropriately
         Kokkos::resize(nucleation_times_host, possible_nuclei);
         Kokkos::resize(nuclei_locations, possible_nuclei);
         Kokkos::resize(nuclei_grain_id, possible_nuclei);
 
         // Create temporary view to store nucleation locations, grain ID data initialized on the host
-        // NucleationTimes_H are stored using a host view that is passed to Nucleation subroutine and later used - don't
-        // need a temporary host view
+        // nucleation_times_host are stored using a host view that is passed to the nucleateGrain subroutine and later
+        // used
         view_type_int_host nuclei_locations_host(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations_Host"),
                                                  possible_nuclei);
         view_type_int_host nuclei_grain_id_host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
@@ -250,10 +249,13 @@ struct Nucleation {
         // Copy nucleation data to the device
         nuclei_locations = Kokkos::create_mirror_view_and_copy(memory_space(), nuclei_locations_host);
         nuclei_grain_id = Kokkos::create_mirror_view_and_copy(memory_space(), nuclei_grain_id_host);
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (id == 0)
+            std::cout << "Nuclei initialized" << std::endl;
     }
 
-    // Compute velocity from local undercooling.
-    // functional form is assumed to be cubic if not explicitly given in input file
+    // Check for nucleation events on this time step, updating the corresponding cell appropriately for any successful
+    // nucleation event
     void nucleateGrain(const int cycle, const Grid &grid, CellData<memory_space> &celldata,
                        Interface<memory_space> interface) {
 
@@ -276,8 +278,8 @@ struct Nucleation {
                         nucleation_check = false;
                 }
                 int last_event = nucleation_counter;
-                // parallel_reduce checks each potential nucleation event this time step (FirstEvent, up to but not
-                // including LastEvent)
+                // parallel_reduce checks each potential nucleation event this time step (first_event, up to but not
+                // including last_event)
                 int nucleation_this_dt = 0; // return number of successful event from parallel_reduce
                 auto nuclei_locations_local = nuclei_locations;
                 auto nuclei_grain_id_local = nuclei_grain_id;
@@ -289,7 +291,7 @@ struct Nucleation {
                     KOKKOS_LAMBDA(const int nucleation_counter_device, int &update) {
                         int nucleation_event_location = nuclei_locations_local(nucleation_counter_device);
                         int update_val =
-                            FutureActive; // added to steering vector to become a new active cell as part of cellcapture
+                            FutureActive; // added to steering vector to become a new active cell as part of cellCapture
                         int old_val = Liquid;
                         int old_cell_type_value = Kokkos::atomic_compare_exchange(
                             &celldata.cell_type(nucleation_event_location), old_val, update_val);
@@ -300,14 +302,12 @@ struct Nucleation {
                             grain_id(nucleation_event_location) = nuclei_grain_id_local(nucleation_counter_device);
                             interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) =
                                 nucleation_event_location;
-                            // This undercooled liquid cell is now a nuclei (no nuclei are in the ghost nodes - halo
-                            // exchange routine GhostNodes1D or GhostNodes2D is used to fill these)
                             update++;
                         }
                     },
                     nucleation_this_dt);
                 // Update the number of successful nuclei counter with the number of successful nucleation events from
-                // this time step (NucleationThisDT)
+                // this time step (nucleation_this_dt)
                 successful_nucleation_counter += nucleation_this_dt;
             }
         }

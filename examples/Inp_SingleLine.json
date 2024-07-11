@@ -15,14 +15,13 @@
       "StDev": 0.5
    },
    "TemperatureData": {
-       "HeatTransferCellSize": 2.5,
        "LayerwiseTempRead": false,
        "TemperatureFiles": ["examples/Temperatures/Line.txt"]
    },
    "Substrate": {
       "MeanSize": 25,
       "PowderDensity": 64000,
-      "PowderFirstLayer": true
+      "BaseplateTopZ": -0.000020
    },
    "Printing": {
       "PathToOutput": "./",
