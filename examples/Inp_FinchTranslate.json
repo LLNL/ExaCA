@@ -20,7 +20,7 @@
    "TemperatureData": {
        "TranslationCount": 2,
        "OffsetDirection": "Y",
-       "SpatialOffset": 80,
+       "SpatialOffset": 40,
        "TemporalOffset": 1600,
        "AlternatingDirection": true
    },
