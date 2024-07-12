@@ -578,53 +578,57 @@ struct CellData {
         int powder_layer_cells = grid.nx * grid.ny * powder_layer_height;
         int powder_layer_assigned_cells =
             Kokkos::round(static_cast<double>(powder_layer_cells) * _inputs.powder_active_fraction);
-        // Associate powder grain IDs with CA cells in the powder layer
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Initializing powder layer for Z = " << powder_bottom_z << " through " << powder_top_z - 1
                       << " (" << grid.nx * grid.ny * powder_layer_height << " cells): powder layer has "
                       << powder_layer_assigned_cells << " cells assigned new grain ID values" << std::endl;
-        std::vector<int> powder_grain_ids(powder_layer_cells, 0);
-        for (int n = 0; n < powder_layer_assigned_cells; n++) {
-            powder_grain_ids[n] = n + next_layer_first_epitaxial_grain_id; // assigned a nonzero GrainID
-        }
-        std::shuffle(powder_grain_ids.begin(), powder_grain_ids.end(), gen);
-        // Wrap powder layer GrainIDs into an unmanaged view, then copy to the device
-        view_type_int_unmanaged powder_grain_ids_host(powder_grain_ids.data(), powder_layer_cells);
-        auto powder_grain_ids_device = Kokkos::create_mirror_view_and_copy(memory_space(), powder_grain_ids_host);
 
-        int powder_start = grid.nx * grid.ny * powder_bottom_z;
-        if (id == 0)
-            std::cout << "Powder layer grain ID values range from " << next_layer_first_epitaxial_grain_id
-                      << " through " << next_layer_first_epitaxial_grain_id + powder_layer_assigned_cells - 1
-                      << std::endl;
+        // Associate powder grain IDs with CA cells in the powder layer, if nonzero number of powder cells
+        if (powder_layer_assigned_cells > 0) {
 
-        // Iterate over all cells in the powder layer, on each rank loading the powder grain ID data for local cell
-        // locations
-        auto grain_id_all_layers_local = grain_id_all_layers;
-        auto powder_policy =
-            Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-                {powder_bottom_z, 0, 0}, {powder_top_z, grid.nx, grid.ny});
-        Kokkos::parallel_for(
-            "PowderGrainInit", powder_policy,
-            KOKKOS_LAMBDA(const int coord_z_all_layers, const int coord_x, const int coord_y_global) {
-                // Is this powder coordinate in X and Y in bounds for this rank? Is the grain id of this site
-                // unassigned (wasn't captured during solidification of the previous layer)?
-                if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
-                    int coord_y = coord_y_global - grid.y_offset;
-                    int index_all_layers = grid.get1DIndex(coord_x, coord_y, coord_z_all_layers);
-                    if (grain_id_all_layers_local(index_all_layers) == 0) {
-                        int index_all_ranks_all_layers =
-                            coord_z_all_layers * grid.nx * grid.ny + coord_x * grid.ny + coord_y_global;
-                        grain_id_all_layers_local(index_all_layers) =
-                            powder_grain_ids_device(index_all_ranks_all_layers - powder_start);
+            std::vector<int> powder_grain_ids(powder_layer_cells, 0);
+            for (int n = 0; n < powder_layer_assigned_cells; n++) {
+                powder_grain_ids[n] = n + next_layer_first_epitaxial_grain_id; // assigned a nonzero GrainID
+            }
+            std::shuffle(powder_grain_ids.begin(), powder_grain_ids.end(), gen);
+            // Wrap powder layer GrainIDs into an unmanaged view, then copy to the device
+            view_type_int_unmanaged powder_grain_ids_host(powder_grain_ids.data(), powder_layer_cells);
+            auto powder_grain_ids_device = Kokkos::create_mirror_view_and_copy(memory_space(), powder_grain_ids_host);
+
+            int powder_start = grid.nx * grid.ny * powder_bottom_z;
+            if (id == 0)
+                std::cout << "Powder layer grain ID values range from " << next_layer_first_epitaxial_grain_id
+                          << " through " << next_layer_first_epitaxial_grain_id + powder_layer_assigned_cells - 1
+                          << std::endl;
+
+            // Iterate over all cells in the powder layer, on each rank loading the powder grain ID data for local cell
+            // locations
+            auto grain_id_all_layers_local = grain_id_all_layers;
+            auto powder_policy =
+                Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
+                    {powder_bottom_z, 0, 0}, {powder_top_z, grid.nx, grid.ny});
+            Kokkos::parallel_for(
+                "PowderGrainInit", powder_policy,
+                KOKKOS_LAMBDA(const int coord_z_all_layers, const int coord_x, const int coord_y_global) {
+                    // Is this powder coordinate in X and Y in bounds for this rank? Is the grain id of this site
+                    // unassigned (wasn't captured during solidification of the previous layer)?
+                    if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
+                        int coord_y = coord_y_global - grid.y_offset;
+                        int index_all_layers = grid.get1DIndex(coord_x, coord_y, coord_z_all_layers);
+                        if (grain_id_all_layers_local(index_all_layers) == 0) {
+                            int index_all_ranks_all_layers =
+                                coord_z_all_layers * grid.nx * grid.ny + coord_x * grid.ny + coord_y_global;
+                            grain_id_all_layers_local(index_all_layers) =
+                                powder_grain_ids_device(index_all_ranks_all_layers - powder_start);
+                        }
                     }
-                }
-            });
-        Kokkos::fence();
+                });
+            Kokkos::fence();
 
-        // Update next_layer_first_epitaxial_grain_id for next layer
-        next_layer_first_epitaxial_grain_id += powder_layer_assigned_cells;
+            // Update next_layer_first_epitaxial_grain_id for next layer
+            next_layer_first_epitaxial_grain_id += powder_layer_assigned_cells;
+        }
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Initialized powder grain structure for layer " << layernumber << std::endl;
