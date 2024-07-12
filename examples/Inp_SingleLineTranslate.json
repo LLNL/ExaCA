@@ -20,7 +20,7 @@
        "TranslationCount": 2,
        "YRegion": [0, 0.000225],
        "OffsetDirection": "Y",
-       "SpatialOffset": 45,
+       "SpatialOffset": 35,
        "TemporalOffset": 10000,
        "AlternatingDirection": true
    },
