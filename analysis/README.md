@@ -11,10 +11,10 @@ The analysis files, such as `examples/AnalyzeDirS.json`, allow analysis of multi
 
 1D, 2D, and 3D regions can be analyzed depending on the bounds provided. The `units` input for each region should be either Meters or Cells, depending on the values used as the bounds. For example, if `xBounds`, `yBounds`, and `zBounds` are all provided (in the form `[lower, upper]`), and the lower and upper bounds for each direction do not match, the region is analyzed as a volume. If one direction has equivalent lower and upper bounds, the region is analyzed as an area, and if two directions have equivalent lower and upper bounds, the region is analyzed as a line. If no bounds are given for a direction, the analysis will default to including the entire domain extent in said direction.
 
-Once the bounds of each region are identified, the analysis options can be specified within JSON arrays under `printAvgStats`, `printPerGrainStats`, and `printPerLayerStats`. 
+Once the bounds of each region are identified, the analysis options can be specified within JSON arrays under `printAvgStats`, `printPerGrainStats`, and `printPerZCoordinateStats`. 
 * Values specified in `printStats` will print average quantities to the console as well as to a file names `[MicrostructureBaseFilename]_[RegionName]_QoIs.txt`
 * Values specified in `printPerGrainStats` will print data for each individual grain ID to a csv file of per-grain data named `[MicrostructureBaseFilename]_[RegionName]_grains.csv`
-* Values specified in `printLayerwiseData` will be printed in additional separate files.
+* Values specified in `printPerZCoordinateStats` will be printed in additional separate files.
 
 | Output                | Compatible options            | Details
 |=======================|===============================|====================
@@ -26,8 +26,8 @@ Once the bounds of each region are identified, the analysis options can be speci
 | YExtent               | printAvgStats/printPerGrainStats | Prints the extent of the grain (in microns) in the Y direction
 | ZExtent               | printAvgStats/printPerGrainStats | Prints the extent of the grain (in microns) in the Z direction
 | IPFZ-RGB              | printPerGrainStats            | Prints the R,G,B values (each between 0 and 1) corresponding to the inverse pole figure mapping of the grain orientation, relative to the build (Z) direction
-| MeanGrainArea         | printPerLayerStats            | Prints the mean grain cross-sectional (XY) area for each Z coordinate in the simulation to a file `[MicrostructureBaseFilename]_GrainAreas.csv`
-| MeanWeightedGrainArea | printPerLayerStats            | Prints the mean grain cross-sectional (XY) area, weighted by the grain area itself, for each 5th Z coordinate in the simulation to a file `[MicrostructureBaseFilename]_WeightedGrainAreas.csv` (Note: this option will be removed in a future release)
+| MeanGrainArea         | printPerZCoordinateStats            | Prints the mean grain cross-sectional (XY) area for each Z coordinate in the simulation to a file `[MicrostructureBaseFilename]_GrainAreas.csv`
+| MeanWeightedGrainArea | printPerZCoordinateStats            | Prints the mean grain cross-sectional (XY) area, weighted by the grain area itself, for each 5th Z coordinate in the simulation to a file `[MicrostructureBaseFilename]_WeightedGrainAreas.csv` (Note: this option will be removed in a future release)
 
 Additional analysis options for certain region types can be specified by setting them to `true` in the analysis input file (if the option does not appear in the input file, it is turned off by default)
 
