@@ -28,17 +28,35 @@ int main(int argc, char *argv[]) {
         // Read command line input to obtain name of analysis file
         std::string analysis_file;
         if (argc < 3) {
-            throw std::runtime_error(
-                "Error: Full path to analysis file and path to log file must be given on the command line");
+            throw std::runtime_error("Error: Full path to analysis file and path to ExaCA log/microstructure file "
+                                     "(without file endings) must be given on "
+                                     "the command line. Alternatively, paths to log (with .json) and microstructure "
+                                     "output (with .vtk) can be given.\n\nUsage:\n  "
+                                     "./ExaCA-Analysis analysis/examples/analysis.json output\n\nOR\n\n  "
+                                     "./ExaCA-Analysis analysis/examples/analysis.json output.json output.vtk\n");
         }
         analysis_file = argv[1];
         std::string base_filename = argv[2];
-        // Allow either base name or json file ending
-        base_filename = base_filename.substr(0, base_filename.find(".json"));
+        std::string log_file;
         std::string microstructure_file;
-        std::string log_file = base_filename + ".json";
-        microstructure_file = base_filename + ".vtk";
 
+        // JSON file (and VTK) were passed
+        if (base_filename.find(".json") != std::string::npos) {
+            log_file = base_filename;
+            base_filename = base_filename.substr(0, base_filename.find(".json"));
+            if (argc < 4) {
+                throw std::runtime_error(
+                    "Error: Full path to ExaCA log file was given: path to microstructure file required."
+                    "\n\nUsage:\n  "
+                    "./ExaCA-Analysis analysis/examples/analysis.json out.json out.vtk\n");
+            }
+            microstructure_file = argv[3];
+        }
+        // Base file was passed
+        else {
+            log_file = base_filename + ".json";
+            microstructure_file = base_filename + ".vtk";
+        }
         std::cout << "Performing analysis of " << microstructure_file << " , using the log file " << log_file
                   << " and the options specified in " << analysis_file << std::endl;
 
