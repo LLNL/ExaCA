@@ -27,13 +27,18 @@ int main(int argc, char *argv[]) {
         using memory_space = typename Kokkos::DefaultExecutionSpace::memory_space;
         // Read command line input to obtain name of analysis file
         std::string analysis_file;
-        if (argc < 2) {
-            throw std::runtime_error("Error: Full path to and name of analysis file must be given on the command line");
+        if (argc < 3) {
+            throw std::runtime_error(
+                "Error: Full path to analysis file and path to log file must be given on the command line");
         }
         analysis_file = argv[1];
         std::string base_filename = argv[2];
+        // Allow either base name or json file ending
+        base_filename = base_filename.substr(0, base_filename.find(".json"));
+        std::string microstructure_file;
         std::string log_file = base_filename + ".json";
-        std::string microstructure_file = base_filename + ".vtk";
+        microstructure_file = base_filename + ".vtk";
+
         std::cout << "Performing analysis of " << microstructure_file << " , using the log file " << log_file
                   << " and the options specified in " << analysis_file << std::endl;
 
