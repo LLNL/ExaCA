@@ -149,8 +149,8 @@ int main(int argc, char *argv[]) {
             // toggled, writing to files
             // "[base_filename_this_region]_WeightedGrainAreas.csv" and "[base_filename_this_region]_GrainAreas.csv",
             // respectively
-            if ((representativeregion.analysis_options_layerwise_stats_yn[0]) ||
-                (representativeregion.analysis_options_layerwise_stats_yn[1]))
+            if ((representativeregion.analysis_options_per_z_stats_yn[0]) ||
+                (representativeregion.analysis_options_per_z_stats_yn[1]))
                 representativeregion.writeAreaSeries(base_filename_this_region, deltax, grain_id);
             if (representativeregion.print_stats_yn)
                 qois.close();
