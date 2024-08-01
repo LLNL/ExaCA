@@ -302,6 +302,9 @@ struct Nucleation {
                             grain_id(nucleation_event_location) = nuclei_grain_id_local(nucleation_counter_device);
                             interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) =
                                 nucleation_event_location;
+                            // This cell was not at the edge of the temperature field - set indicator to false if this
+                            // is being tracked
+                            celldata.setMeltEdge(nucleation_event_location, false);
                             update++;
                         }
                     },

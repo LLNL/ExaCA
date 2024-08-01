@@ -86,7 +86,7 @@ void testHaloUpdate() {
     Orientation<memory_space> orientation(id, grain_orientation_file, false);
 
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate);
 
     // Subviews are the portion of the domain of interest for the test (i.e., the current layer of the problem, cells
     // located at the top 5 Z coordinates)
@@ -271,7 +271,7 @@ void testResizeRefillBuffers() {
 
     // Allocate device views: entire domain on each rank
     // Default to wall cells (CellType(index) = 0) with GrainID of 0
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate);
     Kokkos::deep_copy(celldata.cell_type, Liquid);
     auto grain_id = celldata.getGrainIDSubview(grid);
 
@@ -507,7 +507,7 @@ void testFillSteeringVector_Remelt() {
     Inputs inputs;
 
     // Initialize cell/temperature structures
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate);
     auto grain_id = celldata.getGrainIDSubview(grid);
     Temperature<memory_space> temperature(grid, inputs.temperature);
 

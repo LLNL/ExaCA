@@ -121,6 +121,7 @@ struct PrintInputs {
                                                "GrainMisorientation",
                                                "UndercoolingCurrent",
                                                "UndercoolingSolidificationStart",
+                                               "MeltPoolEdge",
                                                "MeltTimeStep",
                                                "CritTimeStep",
                                                "UndercoolingChange",
@@ -145,6 +146,7 @@ struct PrintInputs {
     bool intralayer_diagonal_length = false;
     bool intralayer_solidification_event_counter = false;
     bool intralayer_number_of_solidification_events = false;
+    bool intralayer_melt_pool_edge = false;
     // Fields to be printed at end of a layer
     bool interlayer_full = false;
     bool interlayer_current = false;
@@ -160,9 +162,12 @@ struct PrintInputs {
     bool interlayer_diagonal_length = false;
     bool interlayer_solidification_event_counter = false;
     bool interlayer_number_of_solidification_events = false;
+    bool interlayer_melt_pool_edge = false;
     // True if intralayer_undercooling_solidification_start or interlayer_undercooling_solidification_start is true
     bool store_solidification_start = false;
     bool print_front_undercooling = false;
+    // True if intralayer_melt_pool_edge or interlayer_melt_pool_edge is true
+    bool store_melt_pool_edge = false;
     // List of layers following which the interlayer fields should be printed (will always include final layer of
     // simulation)
     std::vector<int> print_layer_number;

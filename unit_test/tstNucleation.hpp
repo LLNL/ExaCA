@@ -222,7 +222,7 @@ void testNucleateGrain() {
 
     // All cells have grain_id of 0, CellType of Liquid - with the exception of the locations where the nucleation
     // events are unable to occur
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate);
     Kokkos::deep_copy(celldata.cell_type, Liquid);
     auto cell_type_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), celldata.cell_type);
     auto grain_id = celldata.getGrainIDSubview(grid);

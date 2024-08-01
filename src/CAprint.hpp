@@ -260,6 +260,13 @@ struct Print {
                 printViewData(id, intralayer_ofstream, grid, true, "int", "NumberOfSolidificationEvents",
                               number_of_solidification_events_whole_domain);
             }
+            if (_inputs.intralayer_melt_pool_edge) {
+                auto melt_pool_edge_whole_domain =
+                    collectViewData(id, np, grid, true, MPI_CXX_BOOL, celldata.melt_edge_indicator);
+                // Need to cast values to short for recognition by Paraview
+                printViewData(id, intralayer_ofstream, grid, true, "short", "MeltPoolEdge",
+                              melt_pool_edge_whole_domain);
+            }
             if (id == 0)
                 intralayer_ofstream.close();
 
@@ -346,6 +353,13 @@ struct Print {
                         id, np, grid, false, MPI_FLOAT, temperature.undercooling_solidification_start_all_layers);
                     printViewData(id, interlayer_all_layers_ofstream, grid, false, "float", "UndercoolingStart",
                                   undercooling_start_all_layers_whole_domain);
+                }
+                if (_inputs.interlayer_melt_pool_edge) {
+                    auto melt_pool_edge_whole_domain =
+                        collectViewData(id, np, grid, false, MPI_CXX_BOOL, celldata.melt_edge_indicator_all_layers);
+                    // Need to cast values to short for recognition by Paraview
+                    printViewData(id, interlayer_all_layers_ofstream, grid, false, "short", "MeltPoolEdge",
+                                  melt_pool_edge_whole_domain);
                 }
                 interlayer_all_layers_ofstream.close();
             }
