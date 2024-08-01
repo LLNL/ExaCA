@@ -131,7 +131,7 @@ struct RepresentativeRegion {
             }
         }
         if ((layerwise_label == "printLayerwiseData") || (layerwise_label == "printPerLayerStats"))
-            std::cout << "Note: " << layerwise_label
+            std::cout << "Warning: " << layerwise_label
                       << " option has been deprecated and replaced with printPerZCoordinateStats; compatibility will "
                          "be removed in a future release"
                       << std::endl;

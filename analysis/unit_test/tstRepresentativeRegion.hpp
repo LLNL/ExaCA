@@ -193,8 +193,8 @@ void testConstructRepresentativeRegion_Area() {
         else
             EXPECT_FALSE(representativeregion.analysis_options_per_grain_stats_yn[i]);
     }
-    int num_analysis_options_layerwise_stats = representativeregion.analysis_options_per_z_stats_yn.size();
-    for (int i = 0; i < num_analysis_options_layerwise_stats; i++)
+    int num_analysis_options_per_z_stats = representativeregion.analysis_options_per_z_stats_yn.size();
+    for (int i = 0; i < num_analysis_options_per_z_stats; i++)
         EXPECT_FALSE(representativeregion.analysis_options_per_z_stats_yn[i]);
     EXPECT_TRUE(representativeregion.print_per_grain_stats_yn);
     EXPECT_TRUE(representativeregion.print_pole_figure_yn);
