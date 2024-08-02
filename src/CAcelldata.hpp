@@ -42,7 +42,7 @@ struct CellData {
     int next_layer_first_epitaxial_grain_id;
     view_type_int grain_id_all_layers, cell_type;
     view_type_short layer_id_all_layers;
-    view_type_bool melt_edge_indicator, melt_edge_indicator_all_layers;
+    view_type_bool melt_edge, melt_edge_all_layers;
     // Substrate inputs from file
     SubstrateInputs _inputs;
     // Storing of whether or not a cell is at an edge of a melt pool (FromFile and FromFinch problem types only)
@@ -60,15 +60,15 @@ struct CellData {
         , _store_melt_pool_edge(store_melt_pool_edge) {
         if (_store_melt_pool_edge) {
             // Default init to zero
-            melt_edge_indicator_all_layers = view_type_bool("melt_edge_indicator", grid.domain_size_all_layers);
+            melt_edge_all_layers = view_type_bool("melt_edge", grid.domain_size_all_layers);
             // Current layer
-            getCurrentLayerMeltEdgeIndicator(grid.layer_range);
+            getCurrentLayerMeltEdge(grid.layer_range);
         }
     }
 
     // Get the subview associated with the edge indicator of cells in the current layer
-    void getCurrentLayerMeltEdgeIndicator(std::pair<int, int> layer_range) {
-        melt_edge_indicator = Kokkos::subview(melt_edge_indicator_all_layers, layer_range);
+    void getCurrentLayerMeltEdge(std::pair<int, int> layer_range) {
+        melt_edge = Kokkos::subview(melt_edge_all_layers, layer_range);
     }
 
     // Initializes the single active cell and associated active cell data structures for the single grain at the domain
@@ -668,7 +668,7 @@ struct CellData {
         initCellTypeLayerID(nextlayernumber, id, grid, number_of_solidification_events);
         // Current layer melt pool edge indicator, if needed
         if (_store_melt_pool_edge)
-            getCurrentLayerMeltEdgeIndicator(grid.layer_range);
+            getCurrentLayerMeltEdge(grid.layer_range);
     }
 
     // Initializes cells for the current layer as either solid (don't resolidify) or tempsolid (will melt and
@@ -750,7 +750,7 @@ struct CellData {
     KOKKOS_INLINE_FUNCTION
     void setMeltEdge(const int index, const bool updated_state) const {
         if (_store_melt_pool_edge)
-            melt_edge_indicator(index) = updated_state;
+            melt_edge(index) = updated_state;
     }
 
     // Take a view consisting of data for all layers, and return a subview of the same type consisting of just the cells

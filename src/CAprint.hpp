@@ -262,7 +262,7 @@ struct Print {
             }
             if (_inputs.intralayer_melt_pool_edge) {
                 auto melt_pool_edge_whole_domain =
-                    collectViewData(id, np, grid, true, MPI_CXX_BOOL, celldata.melt_edge_indicator);
+                    collectViewData(id, np, grid, true, MPI_CXX_BOOL, celldata.melt_edge);
                 // Need to cast values to short for recognition by Paraview
                 printViewData(id, intralayer_ofstream, grid, true, "short", "MeltPoolEdge",
                               melt_pool_edge_whole_domain);
@@ -356,7 +356,7 @@ struct Print {
                 }
                 if (_inputs.interlayer_melt_pool_edge) {
                     auto melt_pool_edge_whole_domain =
-                        collectViewData(id, np, grid, false, MPI_CXX_BOOL, celldata.melt_edge_indicator_all_layers);
+                        collectViewData(id, np, grid, false, MPI_CXX_BOOL, celldata.melt_edge_all_layers);
                     // Need to cast values to short for recognition by Paraview
                     printViewData(id, interlayer_all_layers_ofstream, grid, false, "short", "MeltPoolEdge",
                                   melt_pool_edge_whole_domain);
