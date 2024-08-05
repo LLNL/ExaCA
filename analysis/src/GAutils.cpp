@@ -52,10 +52,10 @@ void parseLogFile(std::string log_file, int &nx, int &ny, int &nz, double &delta
     input_data_stream.close();
 }
 
-// Reads and ignored ASCII field data
-void readIgnoreASCIIField(std::ifstream &input_data_stream, int nx, int ny, int nz) {
+// Reads and ignored ASCII field data - each line contains data for a specific z coordinate
+void readIgnoreASCIIField(std::ifstream &input_data_stream, int nz) {
     std::string line;
-    for (int i = 0; i < nx * ny * nz; i++)
+    for (int i = 0; i < nz; i++)
         getline(input_data_stream, line);
 }
 

@@ -100,7 +100,7 @@ read_view_type_3d_host readBinaryField(std::ifstream &input_data_stream, int nx,
     return field_of_interest;
 }
 
-void readIgnoreASCIIField(std::ifstream &input_data_stream, int nx, int ny, int nz);
+void readIgnoreASCIIField(std::ifstream &input_data_stream, int nz);
 
 // Reads and discards binary string of type read_datatype from a paraview file
 template <typename read_datatype>
