@@ -49,7 +49,7 @@ void testCellDataInit_SingleGrain() {
     Grid grid("SingleGrain", id, np, 1, inputs.domain, inputs.temperature);
 
     // Cell data struct
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate);
 
     // Check that default substrate single grain orientation was set
     EXPECT_EQ(inputs.substrate.single_grain_orientation, celldata._inputs.single_grain_orientation);
@@ -118,7 +118,7 @@ void testCellDataInit_Constrained_Automatic(std::string input_surface_init_mode)
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
 
     // Construct celldata struct
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate);
     // Check appropriate initialization of celldata input
     EXPECT_DOUBLE_EQ(inputs.substrate.fract_surface_sites_active, celldata._inputs.fract_surface_sites_active);
     // Initialize substrate grains
@@ -172,7 +172,7 @@ void testCellDataInit_Constrained_Custom() {
     Grid grid("Directional", id, np, 1, inputs.domain, inputs.temperature);
 
     // Construct celldata struct
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate);
 
     // Place substrate grains
     celldata.initSubstrate(id, grid, 0.0);
@@ -292,7 +292,7 @@ void testCellDataInit(bool powder_first_layer) {
     Kokkos::fence();
 
     // Call constructor
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate);
     // Check that substrate inputs were copied from inputs struct correctly
     EXPECT_DOUBLE_EQ(inputs.substrate.baseplate_top_z, celldata._inputs.baseplate_top_z);
     EXPECT_DOUBLE_EQ(inputs.substrate.substrate_grain_spacing, celldata._inputs.substrate_grain_spacing);
@@ -419,7 +419,7 @@ void testCalcVolFractionNucleated() {
     grid.domain_size_all_layers = grid.domain_size;
     // Let all cells except those at Z = 0 have undergone solidification
     // Let the cells at Z = 1 consist of positive grain IDs, and those at Z = 2 of negative grain IDs
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate);
     Kokkos::View<int *, memory_space> grain_id_host(Kokkos::ViewAllocateWithoutInitializing("GrainID"),
                                                     grid.domain_size_all_layers);
     Kokkos::View<short *, memory_space> layer_id_host(Kokkos::ViewAllocateWithoutInitializing("LayerID"),

@@ -519,19 +519,22 @@ struct Inputs {
             if (print_fields_intralayer[4])
                 print.intralayer_undercooling_solidification_start = true;
             if (print_fields_intralayer[5])
-                print.intralayer_melt_time_step = true;
+                print.intralayer_melt_pool_edge = true;
             if (print_fields_intralayer[6])
-                print.intralayer_crit_time_step = true;
+                print.intralayer_melt_time_step = true;
             if (print_fields_intralayer[7])
-                print.intralayer_undercooling_change = true;
+                print.intralayer_crit_time_step = true;
             if (print_fields_intralayer[8])
-                print.intralayer_cell_type = true;
+                print.intralayer_undercooling_change = true;
             if (print_fields_intralayer[9])
-                print.intralayer_diagonal_length = true;
+                print.intralayer_cell_type = true;
             if (print_fields_intralayer[10])
-                print.intralayer_solidification_event_counter = true;
+                print.intralayer_diagonal_length = true;
             if (print_fields_intralayer[11])
+                print.intralayer_solidification_event_counter = true;
+            if (print_fields_intralayer[12])
                 print.intralayer_number_of_solidification_events = true;
+
             // True if any fields are printed
             int num_print_intralayer_inputs = print_fields_intralayer.size();
             for (int n = 0; n < num_print_intralayer_inputs; n++) {
@@ -591,25 +594,27 @@ struct Inputs {
         if (print_fields_interlayer[4])
             print.interlayer_undercooling_solidification_start = true;
         if (print_fields_interlayer[5])
-            print.interlayer_melt_time_step = true;
+            print.interlayer_melt_pool_edge = true;
         if (print_fields_interlayer[6])
-            print.interlayer_crit_time_step = true;
+            print.interlayer_melt_time_step = true;
         if (print_fields_interlayer[7])
-            print.interlayer_undercooling_change = true;
+            print.interlayer_crit_time_step = true;
         if (print_fields_interlayer[8])
-            print.interlayer_cell_type = true;
+            print.interlayer_undercooling_change = true;
         if (print_fields_interlayer[9])
-            print.interlayer_diagonal_length = true;
+            print.interlayer_cell_type = true;
         if (print_fields_interlayer[10])
-            print.interlayer_solidification_event_counter = true;
+            print.interlayer_diagonal_length = true;
         if (print_fields_interlayer[11])
+            print.interlayer_solidification_event_counter = true;
+        if (print_fields_interlayer[12])
             print.interlayer_number_of_solidification_events = true;
         if ((print.interlayer_grain_id) || (print.interlayer_layer_id) || (print.interlayer_undercooling_current) ||
             (print.interlayer_undercooling_solidification_start))
             print.interlayer_full = true;
-        // First 5 inputs are full domain inputs - check if any of the others were toggled
+        // First 6 inputs are full domain inputs - check if any of the others were toggled
         int num_interlayer_current_inputs = print_fields_interlayer.size();
-        for (int n = 5; n < num_interlayer_current_inputs; n++) {
+        for (int n = 6; n < num_interlayer_current_inputs; n++) {
             if (print_fields_interlayer[n])
                 print.interlayer_current = true;
         }
@@ -617,6 +622,9 @@ struct Inputs {
         if ((print.intralayer_undercooling_solidification_start) ||
             (print.interlayer_undercooling_solidification_start) || (print.print_front_undercooling))
             print.store_solidification_start = true;
+        // Should the indicator of whether a cell is at a melt pool edge be stored?
+        if ((print.intralayer_melt_pool_edge) || (print.interlayer_melt_pool_edge))
+            print.store_melt_pool_edge = true;
 
         // If no ExaConstit data is to be printed, no intralayer nor interlayer fields are to be printed, and no front
         // undercooling data is to be printed, throw an error (likely an input file typo, ExaCA should at the very least

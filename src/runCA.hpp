@@ -45,7 +45,7 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Initialize cell types, grain IDs, and layer IDs
-    CellData<memory_space> celldata(grid.domain_size, grid.domain_size_all_layers, inputs.substrate);
+    CellData<memory_space> celldata(grid, inputs.substrate, inputs.print.store_melt_pool_edge);
     if (simulation_type == "Directional")
         celldata.initSubstrate(id, grid, inputs.rng_seed);
     else if (simulation_type == "SingleGrain")

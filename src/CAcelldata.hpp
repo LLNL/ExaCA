@@ -32,6 +32,7 @@ struct CellData {
     using device_layout = typename view_type_int::array_layout;
     using view_type_int_2d_host = Kokkos::View<int **, device_layout, Kokkos::HostSpace>;
     using view_type_int_unmanaged = Kokkos::View<int *, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+    using view_type_bool = Kokkos::View<bool *, memory_space>;
     using view_type_short = Kokkos::View<short *, memory_space>;
     using view_type_float = Kokkos::View<float *, memory_space>;
 
@@ -41,18 +42,34 @@ struct CellData {
     int next_layer_first_epitaxial_grain_id;
     view_type_int grain_id_all_layers, cell_type;
     view_type_short layer_id_all_layers;
+    view_type_bool melt_edge, melt_edge_all_layers;
     // Substrate inputs from file
     SubstrateInputs _inputs;
+    // Storing of whether or not a cell is at an edge of a melt pool (FromFile and FromFinch problem types only)
+    bool _store_melt_pool_edge;
 
     // Constructor for views and view bounds for current layer
     // GrainID is initialized to zeros, while others are not initialized
     // cell_type only exists for the current layer of a multilayer problem
-    CellData(const int domain_size, const int domain_size_all_layers, SubstrateInputs inputs)
-        : grain_id_all_layers(view_type_int("GrainID", domain_size_all_layers))
-        , cell_type(view_type_int(Kokkos::ViewAllocateWithoutInitializing("cell_type"), domain_size))
+    CellData(const Grid &grid, SubstrateInputs inputs, const bool store_melt_pool_edge = false)
+        : grain_id_all_layers(view_type_int("GrainID", grid.domain_size_all_layers))
+        , cell_type(view_type_int(Kokkos::ViewAllocateWithoutInitializing("cell_type"), grid.domain_size))
         , layer_id_all_layers(
-              view_type_short(Kokkos::ViewAllocateWithoutInitializing("LayerID"), domain_size_all_layers))
-        , _inputs(inputs) {}
+              view_type_short(Kokkos::ViewAllocateWithoutInitializing("LayerID"), grid.domain_size_all_layers))
+        , _inputs(inputs)
+        , _store_melt_pool_edge(store_melt_pool_edge) {
+        if (_store_melt_pool_edge) {
+            // Default init to zero
+            melt_edge_all_layers = view_type_bool("melt_edge", grid.domain_size_all_layers);
+            // Current layer
+            getCurrentLayerMeltEdge(grid.layer_range);
+        }
+    }
+
+    // Get the subview associated with the edge indicator of cells in the current layer
+    void getCurrentLayerMeltEdge(std::pair<int, int> layer_range) {
+        melt_edge = Kokkos::subview(melt_edge_all_layers, layer_range);
+    }
 
     // Initializes the single active cell and associated active cell data structures for the single grain at the domain
     // center
@@ -649,6 +666,9 @@ struct CellData {
 
         // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
         initCellTypeLayerID(nextlayernumber, id, grid, number_of_solidification_events);
+        // Current layer melt pool edge indicator, if needed
+        if (_store_melt_pool_edge)
+            getCurrentLayerMeltEdge(grid.layer_range);
     }
 
     // Initializes cells for the current layer as either solid (don't resolidify) or tempsolid (will melt and
@@ -724,6 +744,13 @@ struct CellData {
             std::cout << "The fraction of the solidified material consisting of nucleated grains is "
                       << vol_fraction_nucleated << std::endl;
         return vol_fraction_nucleated;
+    }
+
+    // If storing whether or not a cell is at a melt pool edge, update the value
+    KOKKOS_INLINE_FUNCTION
+    void setMeltEdge(const int index, const bool updated_state) const {
+        if (_store_melt_pool_edge)
+            melt_edge(index) = updated_state;
     }
 
     // Take a view consisting of data for all layers, and return a subview of the same type consisting of just the cells

@@ -129,6 +129,9 @@ void fillSteeringVector_Remelt(const int cycle, const Grid &grid, CellData<Memor
                                 l = 26;
                                 interface.steering_vector(Kokkos::atomic_fetch_add(&interface.num_steer(0), 1)) = index;
                                 celldata.cell_type(index) = FutureActive;
+                                // This cell was at the edge of the temperature field - set indicator to true if this is
+                                // being tracked
+                                celldata.setMeltEdge(index, true);
                             }
                         }
                     }
@@ -204,6 +207,10 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                 const int my_grain_id = grain_id(index);
                                 const int my_orientation =
                                     getGrainOrientation(my_grain_id, orientation.n_grain_orientations);
+
+                                // This cell was not at the edge of the temperature field - set indicator to false if
+                                // this is being tracked
+                                celldata.setMeltEdge(neighbor_index, false);
 
                                 // The new cell is captured by this cell's growing octahedron
                                 grain_id(neighbor_index) = my_grain_id;
