@@ -1,7 +1,7 @@
 # ExaCA grain analysis post-processing
 
 ## Running the grain_analysis executable
-Running the `grain_analysis` executable after generation of an ExaCA data set (i.e., a .vtk file that at minimum contains the field `GrainID`, and the associated .json file of log info) allows additional insights into the microstructure generated. When running the analysis script, the path to and name of an associated analysis inputs file, as well as the path to and base name of the microstructure to be analyzed, should be given on the command line. For example:
+Running the `ExaCA-GrainAnalysis` executable after generation of an ExaCA data set (i.e., a .vtk file that at minimum contains the field `GrainID`, and the associated .json file of log info) allows additional insights into the microstructure generated. When running the analysis script, the path to and name of an associated analysis inputs file, as well as the path to and base name of the microstructure to be analyzed, should be given on the command line. For example:
 
 ```
 ./build/install/bin/ExaCA-GrainAnalysis analysis/examples/AnalyzeDirS.txt TestProblemDirS
