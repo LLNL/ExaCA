@@ -31,57 +31,9 @@ ReturnType divideCast(FirstType int1, SecondType int2) {
     return static_cast<ReturnType>(int1) / static_cast<ReturnType>(int2);
 }
 
-// Search a specified region of layer_id in x and y for either the smallest Z that doesn't contain any layer "L",
-// or the largest Z that doesn't contain any layer "L"
-template <typename ViewTypeShort3dHost>
-int findTopOrBottom(ViewTypeShort3dHost layer_id, int x_low, int x_high, int y_low, int y_high, int nz, int l,
-                    std::string high_low) {
-
-    int top_bottom_z = -1;
-    bool searching_for_top = true;
-    int i = x_low;
-    int j = y_low;
-    int k = nz - 2;
-    if (high_low == "Low")
-        k = 3;
-    while (searching_for_top) {
-        if (layer_id(k, i, j) != l) {
-            j++;
-            if (j > y_high) {
-                if (i > x_high) {
-                    // All X and Y coordinates at this Z have been checked, and this Z coordinate is not part of the
-                    // last depositied layer
-                    top_bottom_z = k;
-                    searching_for_top = false;
-                }
-                else {
-                    i++;
-                    j = y_low;
-                }
-            }
-        }
-        else {
-            // Search next Z coordinate
-            if (high_low == "High")
-                k--;
-            else if (high_low == "Low")
-                k++;
-            i = x_low;
-            j = y_low;
-            if ((k == 0) || (k == nz - 1))
-                searching_for_top = false;
-        }
-    }
-    if ((high_low == "High") && (k == 0))
-        top_bottom_z = nz - 2;
-    else if ((high_low == "Low") && (k == nz - 1))
-        top_bottom_z = 1;
-    return top_bottom_z;
-}
-
 template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
 void initializeData(std::string microstructure_file, int nx, int ny, int nz, ViewTypeInt3dHost &grain_id,
-                    ViewTypeShort3dHost &layer_id) {
+                    ViewTypeShort3dHost &layer_id, bool &found_layer_id) {
 
     std::ifstream input_data_stream;
     input_data_stream.open(microstructure_file);
@@ -97,13 +49,15 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
             if (line.find("BINARY") != std::string::npos)
                 binary_vtk = true;
     }
-    for (int field = 0; field < 3; field++) {
+    bool reading_vtk = true;
+    bool found_grain_id = false;
+    while (reading_vtk) {
         // This line says which variable appears next in the file, along with its type
         // A blank line ends the file read
         std::string read_datatype_string, read_fieldname;
         getline(input_data_stream, line);
         if (line.empty())
-            break;
+            reading_vtk = false;
         else {
             // Thus far, every ExaCA field printed to VTK files has been one of these three types - ensure that this
             // field is one of them
@@ -116,8 +70,7 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
             if (read_datatype_string.empty())
                 throw std::runtime_error("Error: Unknown data type for a field in the vtk file");
 
-            // grain_id and layer_id are the only fields currently used by the analysis, other fields will be
-            // skipped/ignored
+            // grain_id is only fields currently used by the analysis, other fields will be skipped/ignored
             std::vector<std::string> possible_fieldnames = {"GrainID", "LayerID"};
             int num_possible_fieldnames = possible_fieldnames.size();
             for (auto n = 0; n < num_possible_fieldnames; n++) {
@@ -125,7 +78,9 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
                     read_fieldname = possible_fieldnames[n];
             }
             if (read_fieldname.empty()) {
-                std::cout << "Reading and ignoring field described by" << line << std::endl;
+                std::cout << "Reading and ignoring field described by " << line << std::endl;
+                // 1 more unused line
+                getline(input_data_stream, line);
                 if (binary_vtk) {
                     if (read_datatype_string == "short")
                         readIgnoreBinaryField<short>(input_data_stream, nx, ny, nz);
@@ -135,14 +90,14 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
                         readIgnoreBinaryField<float>(input_data_stream, nx, ny, nz);
                 }
                 else
-                    readIgnoreASCIIField(input_data_stream, nx, ny, nz);
+                    readIgnoreASCIIField(input_data_stream, nz);
             }
             else {
                 // Valid fieldname to be read
                 // 1 more unused line
                 getline(input_data_stream, line);
-                // Place appropriate data
-                if (read_fieldname == "GrainID") {
+                // Place grain_id data and (optionally) layer_id data
+                if (read_fieldname == possible_fieldnames[0]) {
                     // grain_id data should be type int
                     if (read_datatype_string != "int")
                         throw std::runtime_error("Error: Field GrainID should be data of type int");
@@ -152,8 +107,9 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
                     else
                         grain_id = readASCIIField<Kokkos::View<int ***, Kokkos::HostSpace>>(input_data_stream, nx, ny,
                                                                                             nz, "GrainID");
+                    found_grain_id = true;
                 }
-                else if (read_fieldname == "LayerID") {
+                else if (read_fieldname == possible_fieldnames[1]) {
                     // layer_id may be int or short, but is stored as type short
                     if ((read_datatype_string != "int") && (read_datatype_string != "short"))
                         throw std::runtime_error("Error: Field LayerID should be data of type int or short");
@@ -168,12 +124,21 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
                             layer_id = readBinaryField<Kokkos::View<short ***, Kokkos::HostSpace>, short>(
                                 input_data_stream, nx, ny, nz, "LayerID");
                     }
+                    found_layer_id = true;
                 }
                 std::cout << "Data field " << read_fieldname << " read" << std::endl;
             }
         }
     }
     input_data_stream.close();
+    if (!found_grain_id)
+        throw std::runtime_error("Error: analysis requires the GrainID field to be present in the vtk file");
+    if (!found_layer_id) {
+        std::cout << "Note: LayerID not present in vtk data, analysis will not differentiate between cells that did "
+                     "and did not undergo melting"
+                  << std::endl;
+        Kokkos::deep_copy(layer_id, 0);
+    }
 }
 
 #endif

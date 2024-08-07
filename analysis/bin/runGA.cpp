@@ -72,9 +72,11 @@ int main(int argc, char *argv[]) {
                                                           ny);
         Kokkos::View<short ***, Kokkos::HostSpace> layer_id(Kokkos::ViewAllocateWithoutInitializing("layer_id"), nz, nx,
                                                             ny);
+        // Whether layer_id was given in the microstructure file
+        bool found_layer_id = false;
 
         // Fill arrays with data from paraview file
-        initializeData(microstructure_file, nx, ny, nz, grain_id, layer_id);
+        initializeData(microstructure_file, nx, ny, nz, grain_id, layer_id, found_layer_id);
         std::cout << "Parsed ExaCA grain structure" << std::endl;
 
         // Grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
@@ -107,7 +109,7 @@ int main(int argc, char *argv[]) {
 
             // Fraction of region consisting of nucleated grains, unmelted material
             if (representativeregion.analysis_options_stats_yn[0])
-                representativeregion.printGrainTypeFractions(qois, grain_id, layer_id);
+                representativeregion.printGrainTypeFractions(qois, grain_id, layer_id, found_layer_id);
 
             // Calculate and if specified, print misorientation data
             std::vector<float> grain_misorientation_x_vector =
@@ -169,8 +171,8 @@ int main(int argc, char *argv[]) {
 
             // Pole figure print a file named "[base_filename_this_region]_PoleFigureData.txt"
             if (representativeregion.print_pole_figure_yn) {
-                auto go_histogram =
-                    representativeregion.getOrientationHistogram(orientation.n_grain_orientations, grain_id, layer_id);
+                auto go_histogram = representativeregion.getOrientationHistogram(orientation.n_grain_orientations,
+                                                                                 grain_id, layer_id, found_layer_id);
                 representativeregion.writePoleFigure(base_filename_this_region, orientation, go_histogram);
             }
 

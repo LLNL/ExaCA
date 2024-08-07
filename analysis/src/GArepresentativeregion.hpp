@@ -492,17 +492,23 @@ struct RepresentativeRegion {
     }
 
     // Create a histogram of orientations for texture determination, using the grain_id values in the volume bounded by
-    // [XMin,XMax], [YMin,YMax], [ZMin,ZMax] and excluding and cells that did not undergo melting (grain_id = -1)
+    // [XMin,XMax], [YMin,YMax], [ZMin,ZMax] and excluding and cells that did not undergo melting (layer_id = -1)
     template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
-    auto getOrientationHistogram(int n_grain_orientations, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id) {
+    auto getOrientationHistogram(int n_grain_orientations, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id,
+                                 bool found_layer_id) {
 
         // Init histogram values to zero
+        if (!found_layer_id)
+            std::cout
+                << "Note: as LayerID was not given, the grain histogram data may include regions that did not undergo "
+                   "melting and solidification as they cannot be differentiated from the regions that were simulated"
+                << std::endl;
         using int_type = typename ViewTypeInt3dHost::value_type;
         Kokkos::View<int_type *, Kokkos::HostSpace> go_histogram("go_histogram", n_grain_orientations);
         for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
             for (int j = y_bounds_cells[0]; j <= y_bounds_cells[1]; j++) {
                 for (int i = x_bounds_cells[0]; i <= x_bounds_cells[1]; i++) {
-                    if (layer_id(k, i, j) != -1) {
+                    if ((grain_id(k, i, j) != 0) && (layer_id(k, i, j) != -1)) {
                         int go_val = getGrainOrientation(grain_id(k, i, j), n_grain_orientations);
                         go_histogram(go_val)++;
                     }
@@ -566,7 +572,8 @@ struct RepresentativeRegion {
     // Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
     // grains to the console/qois file
     template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
-    void printGrainTypeFractions(std::ofstream &qois, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id) {
+    void printGrainTypeFractions(std::ofstream &qois, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id,
+                                 bool found_layer_id) {
 
         int number_of_unmelted_cells = 0;
         int number_of_nucleated_grain_cells = 0;
@@ -582,8 +589,12 @@ struct RepresentativeRegion {
         }
         std::string temp;
         temp = "-- The representative region consists of " + std::to_string(region_size_cells) + " cells\n";
-        temp += "-- The number of cells in the region that did not undergo melting is " +
-                std::to_string(number_of_unmelted_cells) + "\n";
+        if (found_layer_id)
+            temp += "-- The number of cells in the region that did not undergo melting is " +
+                    std::to_string(number_of_unmelted_cells) + "\n";
+        else
+            temp += "-- LayerID was not given in this microstructure dataset, the number of cells in the region that "
+                    "did not undergo melting cannot be extracted\n";
         float vol_fract_nuc_grains = divideCast<float>(number_of_nucleated_grain_cells, region_size_cells);
         temp +=
             "-- The volume fraction consisting of nucleated grains is " + std::to_string(vol_fract_nuc_grains) + "\n";
