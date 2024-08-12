@@ -56,6 +56,7 @@ jobs:
             json: External
             heat_transfer: 'Finch'
     runs-on: ubuntu-20.04
+    timeout-minutes: 30
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     continue-on-error: ${{ matrix.distro == 'ubuntu:intel' }}
     steps:
