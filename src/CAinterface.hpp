@@ -255,9 +255,8 @@ struct Interface {
     }
 
     // Load data (grain_id, octahedron_center, diagonal_length) into ghost nodes if the given coord_y is associated with
-    // a 1D halo region Uses check to ensure that the buffer position does not reach the buffer size - if it does,
-    // return false (otherwise return true) but keep incrementing the send size counters for use resizing the buffers in
-    // the future
+    // a 1D halo region Uses check to ensure that the buffer position does not reach the buffer size - if it does, keep
+    // incrementing the send size counters for use resizing the buffers in the future
     KOKKOS_INLINE_FUNCTION
     bool loadGhostNodes(const int ghost_grain_id, const float ghost_octahedron_center_x,
                         const float ghost_octahedron_center_y, const float ghost_octahedron_center_z,
@@ -299,7 +298,18 @@ struct Interface {
                 buffer_north_send(ghost_position_north, 7) = ghost_diagonal_length;
             }
         }
+        checkBufferSize(data_fits_in_buffer);
         return data_fits_in_buffer;
+    }
+
+    // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
+    KOKKOS_INLINE_FUNCTION
+    void checkBufferSize([[maybe_unused]] const bool data_fits_in_buffer) const {
+#if KOKKOS_VERSION >= 40200
+        if (!data_fits_in_buffer)
+            Kokkos::printf("Error: Send/recv buffer resize failed to include all necessary data, predicted "
+                           "results at MPI processor boundaries may be inaccurate\n");
+#endif
     }
 };
 
