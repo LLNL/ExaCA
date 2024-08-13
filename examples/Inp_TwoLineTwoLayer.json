@@ -19,8 +19,8 @@
        "TemperatureFiles": ["examples/Temperatures/TwoLine.txt"]
    },
    "Substrate": {
-      "MeanSize": 25,
-      "PowderDensity": 64000
+      "MeanBaseplateGrainSize": 25,
+      "MeanPowderGrainSize": 2.5
    },
    "Printing": {
       "PathToOutput": "./",

@@ -95,9 +95,8 @@ struct SubstrateInputs {
     bool use_substrate_file = false;
     bool baseplate_through_powder = false;
     std::string substrate_filename = "";
-    double substrate_grain_spacing = 0.0;
-    // defaults to all sites in powder layer initialized with a new grain
-    double powder_active_fraction = 1.0;
+    double baseplate_grain_spacing = 0.0;
+    double powder_grain_spacing = 1.0;
     // Top of baseplate assumed at Z = 0 if not otherwise given
     double baseplate_top_z = 0.0;
     // Initial size of octahedra during initialization of an active cell

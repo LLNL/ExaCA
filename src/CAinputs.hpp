@@ -311,7 +311,8 @@ struct Inputs {
         else {
             // Substrate data - should data come from an initial size or a file?
             if ((input_data["Substrate"].contains("SubstrateFilename")) &&
-                (input_data["Substrate"].contains("MeanSize")))
+                ((input_data["Substrate"].contains("MeanSize")) ||
+                 (input_data["Substrate"].contains("MeanBaseplateGrainSize"))))
                 throw std::runtime_error(
                     "Error: only one of substrate grain size and substrate structure filename should "
                     "be provided in the input file");
@@ -322,8 +323,17 @@ struct Inputs {
                 substrate.use_substrate_file = true;
             }
             else if (input_data["Substrate"].contains("MeanSize")) {
-                substrate.substrate_grain_spacing = input_data["Substrate"]["MeanSize"];
+                substrate.baseplate_grain_spacing = input_data["Substrate"]["MeanSize"];
                 substrate.use_substrate_file = false;
+            }
+            else if (input_data["Substrate"].contains("MeanBaseplateGrainSize")) {
+                substrate.baseplate_grain_spacing = input_data["Substrate"]["MeanBaseplateGrainSize"];
+                substrate.use_substrate_file = false;
+                // Warning for case where both the deprecated and new input were given
+                if ((input_data["Substrate"].contains("MeanSize")) && (id == 0))
+                    std::cout << "Warning: redundant inputs MeanSize and MeanBaseplateGrainSize were given - "
+                                 "deprecated input MeanSize will be ignored"
+                              << std::endl;
             }
             if (simulation_type == "Spot") {
                 // No powder for this problem type, baseplate top at Z = 0
@@ -337,14 +347,45 @@ struct Inputs {
                 // defaults to a unique grain at each site in the powder layers if not given
                 if (input_data["Substrate"].contains("PowderDensity")) {
                     // powder density is given as a density per unit volume, normalized by 10^12 m^-3 --> convert this
-                    // into a density of sites active on the CA grid (0 to 1)
-                    substrate.powder_active_fraction = input_data["Substrate"]["PowderDensity"];
-                    substrate.powder_active_fraction =
-                        substrate.powder_active_fraction * pow(10, 12) * pow(domain.deltax, 3);
-                    if ((substrate.powder_active_fraction < 0.0) || (substrate.powder_active_fraction > 1.0))
+                    // into a powder grain spacing
+                    if (id == 0)
+                        std::cout << "Warning: PowderDensity input has been deprecated and will be removed in a future "
+                                     "release, please specify MeanPowderGrainSpacing in microns"
+                                  << std::endl;
+                    // Warning for a case where the old input PowderDensity and new input MeanPowderGrainSize are both
+                    // given
+                    if (input_data["Substrate"].contains("MeanPowderGrainSize")) {
+                        if (id == 0)
+                            std::cout << "Warning: Redundant inputs PowderDensity and MeanPowderGrainSize were given - "
+                                         "deprecated input PowderDensity will be ignored"
+                                      << std::endl;
+                    }
+                    else {
+                        double powder_density_input = input_data["Substrate"]["PowderDensity"];
+                        double powder_active_fraction = powder_density_input * pow(10, 12) * pow(domain.deltax, 3);
+                        if ((powder_active_fraction < 0.0) || (powder_active_fraction > 1.0))
+                            throw std::runtime_error(
+                                "Error: Density of powder surface sites active must be larger than 0 and less "
+                                "than 1/(CA cell volume)");
+                        // convert powder density into a powder grain spacing, in microns
+                        substrate.powder_grain_spacing =
+                            pow((1.0 / (powder_density_input * pow(10, 12))), 1.0 / 3.0) * pow(10, 6);
+                        if (id == 0)
+                            std::cout << "Calculated powder layer grain spacing using PowderDensity is "
+                                      << substrate.powder_grain_spacing << " microns" << std::endl;
+                    }
+                }
+                if (input_data["Substrate"].contains("MeanPowderGrainSize")) {
+                    substrate.powder_grain_spacing = input_data["Substrate"]["MeanPowderGrainSize"];
+                    if ((id == 0) && (substrate.powder_grain_spacing < domain.deltax))
                         throw std::runtime_error(
-                            "Error: Density of powder surface sites active must be larger than 0 and less "
-                            "than 1/(CA cell volume)");
+                            "Error: Input MeanPowderGrainSize must be no smaller than the CA cell size");
+                }
+                else if ((!input_data["Substrate"].contains("PowderDensity")) &&
+                         (!input_data["Substrate"].contains("MeanPowderGrainSize"))) {
+                    // Case where neither PowderDensity nor MeanPowderGrainSize inputs are given - defaults to powder
+                    // active fraction of 1, mean powder grain size equal to the cell size
+                    substrate.powder_grain_spacing = domain.deltax;
                 }
                 if ((input_data["Substrate"].contains("PowderFirstLayer")) && (id == 0))
                     std::cout
@@ -355,10 +396,11 @@ struct Inputs {
                 // file)
                 if (input_data["Substrate"].contains("BaseplateTopZ"))
                     substrate.baseplate_top_z = input_data["Substrate"]["BaseplateTopZ"];
-                if ((substrate.baseplate_through_powder) && (input_data["Substrate"].contains("PowderDensity")))
+                if ((substrate.baseplate_through_powder) && ((input_data["Substrate"].contains("PowderDensity")) ||
+                                                             (input_data["Substrate"].contains("MeanPowderGrainSize"))))
                     throw std::runtime_error(
                         "Error: if the option to extend the baseplate through the powder layers is "
-                        "toggled, a powder layer density cannot be given");
+                        "toggled, a powder layer density or powder grain size cannot be given");
             }
             // Optional input for initial size of octhedra when a cell begins solidification (in units of CA cells)
             if (input_data["Substrate"].contains("InitOctahedronSize")) {
@@ -633,25 +675,6 @@ struct Inputs {
             std::cout << "Successfully parsed data printing options from input file" << std::endl;
     }
 
-    // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
-    // TODO: Expand check that inputs are valid for the problem type
-    void checkPowderOverflow(const int nx, const int ny, const int layer_height, const int number_of_layers) {
-        // Check to make sure powder grain density is compatible with the number of powder sites
-        // If this problem type includes a powder layer of some grain density, ensure that integer overflow won't occur
-        // when assigning powder layer GrainIDs
-        if (!(substrate.baseplate_through_powder)) {
-            long int num_cells_powder_layers = static_cast<long int>(nx) * static_cast<long int>(ny) *
-                                               static_cast<long int>(layer_height) *
-                                               static_cast<long int>(number_of_layers - 1);
-            long int num_assigned_cells_powder_layers = std::lround(
-                Kokkos::round(static_cast<double>(num_cells_powder_layers) * substrate.powder_active_fraction));
-            if (num_assigned_cells_powder_layers > INT_MAX)
-                throw std::runtime_error(
-                    "Error: A smaller value for powder density is required to avoid potential integer "
-                    "overflow when assigning powder layer GrainID");
-        }
-    }
-
     // Print a log file for this ExaCA run in json file format, containing information about the run parameters used
     // from the input file as well as the decomposition scheme
     void printExaCALog(const int id, const int np, const int cycle, const Grid grid, Timers timers,
@@ -724,7 +747,7 @@ struct Inputs {
                     exaca_log << "       \"SubstrateFilename\": "
                               << "\"" << substrate.substrate_filename << "\"" << std::endl;
                 else
-                    exaca_log << "       \"MeanSize\": " << substrate.substrate_grain_spacing << std::endl;
+                    exaca_log << "       \"MeanSize\": " << substrate.baseplate_grain_spacing << std::endl;
             }
             exaca_log << "   }," << std::endl;
             exaca_log << "   \"InterfacialResponse\": {" << std::endl;

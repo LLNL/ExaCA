@@ -155,9 +155,9 @@ struct Nucleation {
         std::shuffle(nuclei_grain_id_whole_domain_v.begin(), nuclei_grain_id_whole_domain_v.end(), generator);
         std::shuffle(nuclei_undercooling_whole_domain_v.begin(), nuclei_undercooling_whole_domain_v.end(), generator);
         if ((id == 0) && (nuclei_this_layer > 0))
-            std::cout << "Range of Grain IDs from which layer " << layernumber
-                      << " nucleation events were selected: " << nuclei_whole_domain + 1 << " through "
-                      << nuclei_whole_domain + nuclei_this_layer << std::endl;
+            std::cout << "Range of Grain IDs from which layer " << layernumber << " nucleation events were selected: -"
+                      << nuclei_whole_domain + 1 << " through -" << nuclei_whole_domain + nuclei_this_layer
+                      << std::endl;
         // Update number of nuclei counter for whole domain based on the number of nuclei in this layer
         nuclei_whole_domain += nuclei_this_layer;
 

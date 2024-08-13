@@ -15,7 +15,7 @@
       "StDev": 0.5
    },
    "Substrate": {
-      "MeanSize": 75
+      "MeanBaseplateGrainSize": 75
    },
    "Printing": {
       "PathToOutput": "./",

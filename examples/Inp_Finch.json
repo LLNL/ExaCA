@@ -18,7 +18,7 @@
       "TrimUnmeltedRegion": true
    },
    "Substrate": {
-      "MeanSize": 50
+      "MeanBaseplateGrainSize": 50
    },
    "Printing": {
       "PathToOutput": "./",

@@ -24,10 +24,6 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     // Material response function
     InterfacialResponseFunction irf(inputs.domain.deltat, grid.deltax, inputs.irf);
 
-    // Ensure that input powder layer init options are compatible with this domain size, if needed for this problem type
-    if (simulation_type == "FromFile")
-        inputs.checkPowderOverflow(grid.nx, grid.ny, grid.layer_height, grid.number_of_layers);
-
     // Read temperature data if necessary
     if (simulation_type == "FromFile")
         temperature.readTemperatureData(id, grid, 0);
