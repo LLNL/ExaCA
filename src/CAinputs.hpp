@@ -314,7 +314,7 @@ struct Inputs {
                 ((input_data["Substrate"].contains("MeanSize")) ||
                  (input_data["Substrate"].contains("MeanBaseplateGrainSize"))))
                 throw std::runtime_error(
-                    "Error: only one of substrate grain size and substrate structure filename should "
+                    "Error: only one of baseplate grain size and substrate structure filename should "
                     "be provided in the input file");
             else if (input_data["Substrate"].contains("SubstrateFilename")) {
                 substrate.substrate_filename = input_data["Substrate"]["SubstrateFilename"];
@@ -322,18 +322,32 @@ struct Inputs {
                     throw std::runtime_error("Error: Substrate filename must be a vtk file");
                 substrate.use_substrate_file = true;
             }
-            else if (input_data["Substrate"].contains("MeanSize")) {
-                substrate.baseplate_grain_spacing = input_data["Substrate"]["MeanSize"];
-                substrate.use_substrate_file = false;
-            }
-            else if (input_data["Substrate"].contains("MeanBaseplateGrainSize")) {
-                substrate.baseplate_grain_spacing = input_data["Substrate"]["MeanBaseplateGrainSize"];
-                substrate.use_substrate_file = false;
-                // Warning for case where both the deprecated and new input were given
-                if ((input_data["Substrate"].contains("MeanSize")) && (id == 0))
-                    std::cout << "Warning: redundant inputs MeanSize and MeanBaseplateGrainSize were given - "
-                                 "deprecated input MeanSize will be ignored"
-                              << std::endl;
+            else if (input_data["Substrate"].contains("MeanSize") ||
+                     (input_data["Substrate"].contains("MeanBaseplateGrainSize"))) {
+                // Case where only the deprecated input MeanSize was given
+                if (!input_data["Substrate"].contains("MeanBaseplateGrainSize")) {
+                    substrate.baseplate_grain_spacing = input_data["Substrate"]["MeanSize"];
+                    substrate.use_substrate_file = false;
+                    if (id == 0)
+                        std::cout
+                            << "Warning: deprecated input MeanSize has been replaced with MeanBaseplateGrainSize, "
+                               "compatibility with MeanSize input will be removed in a future release"
+                            << std::endl;
+                }
+                else {
+                    // Case were the new input MeanBaseplateGrainSize was given
+                    substrate.baseplate_grain_spacing = input_data["Substrate"]["MeanBaseplateGrainSize"];
+                    substrate.use_substrate_file = false;
+                    // Warning for case where both the deprecated and new input were given
+                    if ((input_data["Substrate"].contains("MeanSize")) && (id == 0))
+                        std::cout << "Warning: redundant inputs MeanSize and MeanBaseplateGrainSize were given - "
+                                     "deprecated input MeanSize will be ignored"
+                                  << std::endl;
+                }
+                // Check that baseplate_grain_spacing is valid
+                if ((id == 0) && (substrate.baseplate_grain_spacing < domain.deltax))
+                    throw std::runtime_error(
+                        "Error: Input MeanBaseplateGrainSize must be no smaller than the CA cell size");
             }
             if (simulation_type == "Spot") {
                 // No powder for this problem type, baseplate top at Z = 0
@@ -746,8 +760,12 @@ struct Inputs {
                 if (substrate.use_substrate_file)
                     exaca_log << "       \"SubstrateFilename\": "
                               << "\"" << substrate.substrate_filename << "\"" << std::endl;
-                else
-                    exaca_log << "       \"MeanSize\": " << substrate.baseplate_grain_spacing << std::endl;
+                else {
+                    exaca_log << "       \"MeanSize\": " << substrate.baseplate_grain_spacing << "," << std::endl;
+                    exaca_log << "       \"MeanBaseplateGrainSize\": " << substrate.baseplate_grain_spacing << ","
+                              << std::endl;
+                    exaca_log << "       \"MeanPowderGrainSize\": " << substrate.powder_grain_spacing << std::endl;
+                }
             }
             exaca_log << "   }," << std::endl;
             exaca_log << "   \"InterfacialResponse\": {" << std::endl;

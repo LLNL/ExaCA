@@ -43,7 +43,8 @@ void writeTestData(std::string input_filename, int print_version) {
                    << std::endl;
     test_data_file << "   }," << std::endl;
     test_data_file << "   \"Substrate\": {" << std::endl;
-    // Note: old input used here to check that the expected mean powder grain spacing ends up correct
+    // FIXME: old input PowderDensity used here to check that the expected mean powder grain spacing ends up correct,
+    // change this to MeanPowderGrainSize when deprecated input compatibility is removed
     test_data_file << "      \"SubstrateFilename\": \"DummySubstrate.vtk\"," << std::endl;
     test_data_file << "      \"PowderDensity\": 1000," << std::endl;
     test_data_file << "      \"BaseplateTopZ\": -0.00625" << std::endl;
