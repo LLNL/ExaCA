@@ -43,6 +43,8 @@ void writeTestData(std::string input_filename, int print_version) {
                    << std::endl;
     test_data_file << "   }," << std::endl;
     test_data_file << "   \"Substrate\": {" << std::endl;
+    // FIXME: old input PowderDensity used here to check that the expected mean powder grain spacing ends up correct,
+    // change this to MeanPowderGrainSize when deprecated input compatibility is removed
     test_data_file << "      \"SubstrateFilename\": \"DummySubstrate.vtk\"," << std::endl;
     test_data_file << "      \"PowderDensity\": 1000," << std::endl;
     test_data_file << "      \"BaseplateTopZ\": -0.00625" << std::endl;
@@ -209,7 +211,7 @@ void testInputs(int print_version) {
             EXPECT_EQ(inputs.domain.spot_radius, 75);
             EXPECT_FALSE(inputs.substrate.use_substrate_file);
             EXPECT_FALSE(inputs.substrate.baseplate_through_powder);
-            EXPECT_FLOAT_EQ(inputs.substrate.substrate_grain_spacing, 25.0);
+            EXPECT_FLOAT_EQ(inputs.substrate.baseplate_grain_spacing, 25.0);
             EXPECT_TRUE(inputs.print.base_filename == "TestProblemSpot");
             EXPECT_TRUE(inputs.print.intralayer);
             EXPECT_EQ(inputs.print.intralayer_increment, 2000);
@@ -249,7 +251,7 @@ void testInputs(int print_version) {
             EXPECT_EQ(inputs.domain.layer_height, 1);
             EXPECT_TRUE(inputs.substrate.use_substrate_file);
             EXPECT_FALSE(inputs.temperature.layerwise_temp_read);
-            EXPECT_DOUBLE_EQ(inputs.substrate.powder_active_fraction, 0.001);
+            EXPECT_DOUBLE_EQ(inputs.substrate.powder_grain_spacing, 10.0);
             // -0.00625 was input
             EXPECT_DOUBLE_EQ(inputs.substrate.baseplate_top_z, -0.00625);
             EXPECT_TRUE(inputs.print.base_filename == "Test");

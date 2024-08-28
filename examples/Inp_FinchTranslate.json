@@ -15,7 +15,7 @@
       "StDev": 0.5
    },
    "Substrate": {
-      "MeanSize": 50
+      "MeanBaseplateGrainSize": 50
    },
    "TemperatureData": {
        "TranslationCount": 2,

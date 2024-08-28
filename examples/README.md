@@ -106,9 +106,9 @@ The .json files in the examples subdirectory are provided on the command line to
 |GrainLocationsY     | Directional      | List of grain locations in Y on the bottom surface of the domain (see note (b-iii))
 |GrainIDs            | Directional      | GrainID values for each grain in (X,Y) (see note (b3))
 |FillBottomSurface   | Directional      | Optionally assign all cells on the bottom surface the grain ID of the closest grain (defaults to false)
-|MeanSize            | Spot, FromFile, FromFinch       | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
+|MeanBaseplateGrainSize | Spot, FromFile, FromFinch       | Mean spacing between grain centers in the baseplate/substrate (in microns) (see note (a))
 |SubstrateFilename   |  Spot, FromFile, FromFinch  | Path to and filename for substrate data in vtk format (see note (a))
-|PowderDensity       | Spot, FromFile, FromFinch       | Density of sites in the powder layer to be assigned as the home of a unique grain, normalized by 1 x 10^12 m^-3 (default value is 1/(CA cell size ^3) (see note (a))
+|MeanPowderGrainSize | Spot, FromFile, FromFinch    | Mean spacing between grain centers in the powder layer (in microns). Defaults to one grain per cell
 |ExtendSubstrateThroughPowder| FromFile, FromFinch  | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
 | BaseplateTopZ      | FromFile, FromFinch          | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
 |GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 

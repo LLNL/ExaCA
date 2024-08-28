@@ -270,9 +270,9 @@ void testCellDataInit(bool powder_first_layer) {
     // baseplate. This grain spacing ensures that there will be 1 grain per number of MPI ranks present (larger when
     // powder layer is present as the baseplate will only have a third as many cells)
     if (powder_first_layer)
-        inputs.substrate.substrate_grain_spacing = 2.62;
+        inputs.substrate.baseplate_grain_spacing = 2.62;
     else
-        inputs.substrate.substrate_grain_spacing = 3.0;
+        inputs.substrate.baseplate_grain_spacing = 3.0;
     inputs.rng_seed = 0.0;
 
     // Create dummy temperature data
@@ -295,10 +295,10 @@ void testCellDataInit(bool powder_first_layer) {
     CellData<memory_space> celldata(grid, inputs.substrate);
     // Check that substrate inputs were copied from inputs struct correctly
     EXPECT_DOUBLE_EQ(inputs.substrate.baseplate_top_z, celldata._inputs.baseplate_top_z);
-    EXPECT_DOUBLE_EQ(inputs.substrate.substrate_grain_spacing, celldata._inputs.substrate_grain_spacing);
+    EXPECT_DOUBLE_EQ(inputs.substrate.baseplate_grain_spacing, celldata._inputs.baseplate_grain_spacing);
     EXPECT_FALSE(celldata._inputs.use_substrate_file);
     EXPECT_FALSE(celldata._inputs.baseplate_through_powder);
-    EXPECT_DOUBLE_EQ(celldata._inputs.powder_active_fraction, 1.0);
+    EXPECT_DOUBLE_EQ(celldata._inputs.powder_grain_spacing, grid.deltax * pow(10, 6));
     // Initialize baseplate grain structure
     celldata.initSubstrate(id, grid, inputs.rng_seed, number_of_solidification_events);
 

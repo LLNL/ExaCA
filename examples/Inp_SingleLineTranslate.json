@@ -25,8 +25,8 @@
        "AlternatingDirection": true
    },
    "Substrate": {
-      "MeanSize": 25,
-      "PowderDensity": 64000,
+      "MeanBaseplateGrainSize": 25,
+      "MeanPowderGrainSize": 2.5,
       "BaseplateTopZ": -0.000020
    },
    "Printing": {

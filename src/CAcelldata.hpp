@@ -39,7 +39,7 @@ struct CellData {
     // Using the default exec space for this memory space.
     using execution_space = typename memory_space::execution_space;
 
-    int next_layer_first_epitaxial_grain_id;
+    int next_layer_first_epitaxial_grain_id = 1;
     view_type_int grain_id_all_layers, cell_type;
     view_type_short layer_id_all_layers;
     view_type_bool melt_edge, melt_edge_all_layers;
@@ -281,7 +281,7 @@ struct CellData {
         if (_inputs.use_substrate_file)
             initBaseplateGrainID(id, grid, baseplate_size_z);
         else
-            initBaseplateGrainID(id, grid, rng_seed, baseplate_size_z);
+            initVoronoiGrainID(id, grid, 0, baseplate_size_z, _inputs.baseplate_grain_spacing, rng_seed, "baseplate");
 
         // Powder layer extends from Z = powder_bottom_z up to but not including Z = powder_top_z
         // Bottom of layer is the next coordinate up from the baseplate
@@ -289,8 +289,21 @@ struct CellData {
         int powder_top_z = Kokkos::round((grid.z_max_layer[0] - grid.z_min) / grid.deltax) + 1;
         // Generate powder grain structure grain IDs for top of layer 0 if needed (i.e, if the powder layer height is
         // more than zero cells)
-        if (powder_top_z > powder_bottom_z)
-            initPowderGrainID(0, id, rng_seed, grid, powder_bottom_z, powder_top_z);
+        if (powder_top_z > powder_bottom_z) {
+            int size_z = powder_top_z - powder_bottom_z;
+            initVoronoiGrainID(id, grid, powder_bottom_z, size_z, _inputs.powder_grain_spacing, rng_seed,
+                               "powder layer 0");
+        }
+        // Check to make sure enough grain ID values exist to avoid integer overflow in initialization of future powder
+        // layers
+        const int size_z_all_powder_layers = Kokkos::round((grid.z_max - _inputs.baseplate_top_z) / grid.deltax) + 1;
+        const int grain_structure_volume = grid.nx * grid.ny * size_z_all_powder_layers;
+        const std::string powder_layers_label = std::to_string(grid._inputs.number_of_layers) + " powder layers";
+        const int number_total_powder_grains =
+            getNumberOfGrains(grid, grain_structure_volume, _inputs.powder_grain_spacing, powder_layers_label);
+        if (id == 0)
+            std::cout << "Expected number of grains in the powder layers of this simulation: "
+                      << number_total_powder_grains << std::endl;
 
         // LayerID starts at -1 for all cells
         Kokkos::deep_copy(layer_id_all_layers, -1);
@@ -455,64 +468,88 @@ struct CellData {
         max_grain_id_local++;
         MPI_Allreduce(&max_grain_id_local, &next_layer_first_epitaxial_grain_id, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
         if (id == 0)
-            std::cout << "Substrate file read complete" << std::endl;
+            std::cout << "Substrate file read complete: number of grain id values reserved: "
+                      << next_layer_first_epitaxial_grain_id - 1 << std::endl;
     }
 
-    // Initializes Grain ID values where the baseplate is generated using an input grain spacing and a Voronoi
-    // Tessellation
-    void initBaseplateGrainID(const int id, const Grid &grid, const unsigned long rng_seed,
-                              const int baseplate_size_z) {
+    // Given a size in the Z direction (could be a baseplate or layer height) and a grain spacing (could be for the
+    // baseplate or for a powder layer), determine the number of grains expected to be initialized in the region. Throw
+    // an error if the number of grains exceeds the maximum integer
+    int getNumberOfGrains(const Grid &grid, const int grain_structure_volume, const double mean_grain_spacing,
+                          std::string region_type) {
+        const double grain_structure_volume_microns =
+            grain_structure_volume * Kokkos::pow(grid.deltax, 3) * Kokkos::pow(10, 18);
+        const double mean_grain_volume_microns = Kokkos::pow(mean_grain_spacing, 3);
+        // Kokkos::lround not provided, using std function here instead
+        long int number_of_grains_long = std::lround(grain_structure_volume_microns / mean_grain_volume_microns);
+        if (number_of_grains_long > INT_MAX) {
+            std::string error = "Error: Input mean grain size used for " + region_type +
+                                " will lead to potential integer overflow, to avoid this, a smaller mean baseplate "
+                                "and/or powder grain size should be used";
+            throw std::runtime_error(error);
+        }
+        // Need at least 1 baseplate/powder grain, cannot have more baseplate/powder grains than cells
+        int number_of_grains = static_cast<int>(number_of_grains_long);
+        number_of_grains = std::max(number_of_grains, 1);
+        number_of_grains = std::min(number_of_grains, grain_structure_volume);
+        return number_of_grains;
+    }
+
+    // Initializes Grain ID values using a grain spacing and a Voronoi Tessellation (size_z = baseplate_size_z for
+    // initialization of initial substrate, or layer_height for initialization of powder layer (grain mean_grain_spacing
+    // = _inputs.substrate_grain_spacing for initialization of initial substrate or _inputs.powder_grain_spacing for
+    // initialization of powder layer)
+    void initVoronoiGrainID(const int id, const Grid &grid, const int region_bottom, const int size_z,
+                            const double mean_grain_spacing, const unsigned long rng_seed, std::string region_type) {
 
         std::mt19937_64 gen(rng_seed);
 
-        // Based on the baseplate volume (convert to cubic microns to match units) and the substrate grain spacing,
-        // determine the number of baseplate grains
-        int baseplate_volume = grid.nx * grid.ny * baseplate_size_z;
-        double baseplate_volume_microns = baseplate_volume * Kokkos::pow(grid.deltax, 3) * Kokkos::pow(10, 18);
-        double substrate_mean_grain_volume_microns = Kokkos::pow(_inputs.substrate_grain_spacing, 3);
-        int number_of_baseplate_grains = Kokkos::round(baseplate_volume_microns / substrate_mean_grain_volume_microns);
-        // Need at least 1 baseplate grain, cannot have more baseplate grains than cells in the baseplate
-        number_of_baseplate_grains = std::max(number_of_baseplate_grains, 1);
-        number_of_baseplate_grains = std::min(number_of_baseplate_grains, grid.nx * grid.ny * baseplate_size_z);
-        // TODO: Use device RNG to generate baseplate grain locations, instead of host with copy
-        // List of potential grain IDs (starting at 1) - index corresponds to the associated CA cell location
-        // Assign positive values for indices 0 through number_of_baseplate_grains-1, assign zeros to the remaining
-        // indices
-        std::vector<int> baseplate_grain_locations(baseplate_volume);
-        std::vector<int> baseplate_grain_ids(baseplate_volume);
-        for (int i = 0; i < baseplate_volume; i++) {
-            baseplate_grain_locations[i] = i;
-            if (i < number_of_baseplate_grains)
-                baseplate_grain_ids[i] = i + 1;
+        // Based on the desired volume (convert to cubic microns to match units) and the substrate grain spacing,
+        // determine the number of grains
+        const int grain_structure_volume = grid.nx * grid.ny * size_z;
+        const int number_of_grains = getNumberOfGrains(grid, grain_structure_volume, mean_grain_spacing, region_type);
+        // TODO: Use device RNG to generate grain locations, instead of host with copy
+        // List of potential grain IDs (starting at next_layer_first_epitaxial_grain_id) - index corresponds to the
+        // associated CA cell location Assign positive values for indices 0 through number_of_grains-1, temporarily
+        // assign zeros to the remaining indices
+        std::vector<int> new_grain_locations(grain_structure_volume);
+        std::vector<int> new_grain_ids(grain_structure_volume);
+        for (int i = 0; i < grain_structure_volume; i++) {
+            new_grain_locations[i] = i;
+            if (i < number_of_grains)
+                new_grain_ids[i] = next_layer_first_epitaxial_grain_id + i;
             else
-                baseplate_grain_ids[i] = 0;
+                new_grain_ids[i] = 0;
         }
-        // Shuffle list of grain IDs
-        std::shuffle(baseplate_grain_ids.begin(), baseplate_grain_ids.end(), gen);
+        // Shuffle list of new grain IDs
+        std::shuffle(new_grain_ids.begin(), new_grain_ids.end(), gen);
 
-        // Create views of baseplate grain IDs and locations - copying baseplate_grain_ids and baseplate_grain_locations
-        // values only for indices where baseplate_grain_ids(i) != 0 (cells with baseplate_grain_ids(i) = 0 were not
+        // Create views of new grain IDs and locations - copying new_grain_ids and new_grain_locations
+        // values only for indices where new_grain_ids(i) != 0 (cells with new_grain_ids(i) = 0 were not
         // assigned baseplate center locations)
-        view_type_int_host baseplate_grain_locations_host(
-            Kokkos::ViewAllocateWithoutInitializing("baseplate_grain_locations_Host"), number_of_baseplate_grains);
-        view_type_int_host baseplate_grain_ids_host(Kokkos::ViewAllocateWithoutInitializing("baseplate_grain_ids_Host"),
-                                                    number_of_baseplate_grains);
+        view_type_int_host new_grain_locations_host(Kokkos::ViewAllocateWithoutInitializing("new_grain_locations_Host"),
+                                                    number_of_grains);
+        view_type_int_host new_grain_ids_host(Kokkos::ViewAllocateWithoutInitializing("new_grain_ids_Host"),
+                                              number_of_grains);
         int count = 0;
-        for (int i = 0; i < baseplate_volume; i++) {
-            if (baseplate_grain_ids[i] != 0) {
-                baseplate_grain_locations_host(count) = baseplate_grain_locations[i];
-                baseplate_grain_ids_host(count) = baseplate_grain_ids[i];
+        for (int i = 0; i < grain_structure_volume; i++) {
+            if (new_grain_ids[i] != 0) {
+                new_grain_locations_host(count) = new_grain_locations[i];
+                new_grain_ids_host(count) = new_grain_ids[i];
                 count++;
             }
         }
 
-        // Copy baseplate views to the device
-        auto baseplate_grain_ids_device = Kokkos::create_mirror_view_and_copy(memory_space(), baseplate_grain_ids_host);
-        auto baseplate_grain_locations_device =
-            Kokkos::create_mirror_view_and_copy(memory_space(), baseplate_grain_locations_host);
+        // Copy new grain views to the device
+        auto new_grain_ids_device = Kokkos::create_mirror_view_and_copy(memory_space(), new_grain_ids_host);
+        auto new_grain_locations_device = Kokkos::create_mirror_view_and_copy(memory_space(), new_grain_locations_host);
+        const int region_top = region_bottom + size_z;
         if (id == 0) {
-            std::cout << "Baseplate spanning domain coordinates Z = 0 through " << baseplate_size_z - 1 << std::endl;
-            std::cout << "Number of baseplate grains: " << number_of_baseplate_grains << std::endl;
+            std::cout << region_type << " spanning domain coordinates Z = " << region_bottom << " through "
+                      << region_top - 1 << std::endl;
+            std::cout << "Number of grains: " << number_of_grains << ", spanning GrainID "
+                      << next_layer_first_epitaxial_grain_id << " through "
+                      << next_layer_first_epitaxial_grain_id + number_of_grains - 1 << std::endl;
         }
 
         // Local copies for lambda capture.
@@ -520,42 +557,42 @@ struct CellData {
 
         // First, assign cells that are associated with grain centers the appropriate non-zero GrainID values (assumes
         // GrainID values were initialized to zeros)
-        auto policy = Kokkos::RangePolicy<execution_space>(0, number_of_baseplate_grains);
+        auto policy = Kokkos::RangePolicy<execution_space>(0, number_of_grains);
         Kokkos::parallel_for(
-            "BaseplateInit", policy, KOKKOS_LAMBDA(const int &n) {
-                int baseplate_grain_loc = baseplate_grain_locations_device(n);
-                // x, y, z associated with baseplate grain "n", at 1D coordinate "BaseplateGrainLoc"
-                int coord_z_all_layers = grid.getCoordZGlobal(baseplate_grain_loc);
-                int coord_y_global = grid.getCoordYGlobal(baseplate_grain_loc);
-                int coord_x = grid.getCoordXGlobal(baseplate_grain_loc);
+            "GrainCenterInit", policy, KOKKOS_LAMBDA(const int &n) {
+                int new_grain_loc = grid.nx * grid.ny * region_bottom + new_grain_locations_device(n);
+                // x, y, z associated with baseplate grain "n", at 1D coordinate "new_grain_loc"
+                int coord_z_all_layers = grid.getCoordZGlobal(new_grain_loc);
+                int coord_y_global = grid.getCoordYGlobal(new_grain_loc);
+                int coord_x = grid.getCoordXGlobal(new_grain_loc);
                 if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
                     // This grain is associated with a cell on this MPI rank
                     int coord_y = coord_y_global - grid.y_offset;
                     int index_all_layers = grid.get1DIndex(coord_x, coord_y, coord_z_all_layers);
-                    grain_id_all_layers_local(index_all_layers) = baseplate_grain_ids_device(n);
+                    grain_id_all_layers_local(index_all_layers) = new_grain_ids_device(n);
                 }
             });
         Kokkos::fence();
 
         auto md_policy =
             Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-                {0, 0, 0}, {baseplate_size_z, grid.nx, grid.ny_local});
-
+                {region_bottom, 0, 0}, {region_top, grid.nx, grid.ny_local});
         // For cells that are not associated with grain centers, assign them the GrainID of the nearest grain center
         Kokkos::parallel_for(
-            "BaseplateGen", md_policy,
+            "VoronoiGrainAssignment", md_policy,
             KOKKOS_LAMBDA(const int coord_z_all_layers, const int coord_x, const int coord_y) {
                 int index_all_layers = grid.get1DIndex(coord_x, coord_y, coord_z_all_layers);
                 if (grain_id_all_layers_local(index_all_layers) == 0) {
                     // This cell needs to be assigned a GrainID value
                     // Check each possible baseplate grain center to find the closest one
-                    float min_distance_to_this_grain = grid.nx * grid.ny * baseplate_size_z;
+                    float min_distance_to_this_grain = static_cast<float>(grain_structure_volume);
                     int min_distance_to_this_grain_grain_id = 0;
-                    for (int n = 0; n < number_of_baseplate_grains; n++) {
+                    for (int n = 0; n < number_of_grains; n++) {
                         // Baseplate grain center at x_n, y_n, z_n - how far is the cell at i, j+y_offset, k?
-                        int coord_z_grain_all_layers = grid.getCoordZGlobal(baseplate_grain_locations_device(n));
-                        int coord_y_grain_global = grid.getCoordYGlobal(baseplate_grain_locations_device(n));
-                        int coord_x_grain = grid.getCoordXGlobal(baseplate_grain_locations_device(n));
+                        int coord_z_grain_all_layers =
+                            region_bottom + grid.getCoordZGlobal(new_grain_locations_device(n));
+                        int coord_y_grain_global = grid.getCoordYGlobal(new_grain_locations_device(n));
+                        int coord_x_grain = grid.getCoordXGlobal(new_grain_locations_device(n));
                         int coord_y_global = coord_y + grid.y_offset;
                         float distance_to_this_grain_x = coord_x - coord_x_grain;
                         float distance_to_this_grain_y = coord_y_global - coord_y_grain_global;
@@ -565,7 +602,7 @@ struct CellData {
                         if (distance_to_this_grain < min_distance_to_this_grain) {
                             // This is the closest grain center to cell at "CAGridLocation" - update values
                             min_distance_to_this_grain = distance_to_this_grain;
-                            min_distance_to_this_grain_grain_id = baseplate_grain_ids_device(n);
+                            min_distance_to_this_grain_grain_id = new_grain_ids_device(n);
                         }
                     }
                     // GrainID associated with the closest baseplate grain center
@@ -573,82 +610,11 @@ struct CellData {
                 }
             });
 
-        next_layer_first_epitaxial_grain_id =
-            number_of_baseplate_grains + 1; // avoid reusing GrainID in next layer's powder grain structure
+        // Set grain ID for next layer to avoid reusing any previously assigned values
+        next_layer_first_epitaxial_grain_id += number_of_grains;
         if (id == 0)
-            std::cout << "Baseplate grain structure initialized" << std::endl;
-    }
-
-    // Each layer's top Z coordinates are seeded with CA-cell sized substrate grains (emulating bulk nucleation
-    // alongside the edges of partially melted powder particles). These Z coordinates span powder_bottom_z up to but not
-    // including powder_top_z
-    void initPowderGrainID(const int layernumber, const int id, const unsigned long rng_seed, const Grid &grid,
-                           const int powder_bottom_z, const int powder_top_z) {
-
-        // On all ranks, generate list of powder grain IDs (starting with next_layer_first_epitaxial_grain_id, and
-        // shuffle them so that their locations aren't sequential and depend on the rng_seed (different for each layer)
-        std::mt19937_64 gen(rng_seed + static_cast<unsigned long>(layernumber));
-        std::uniform_real_distribution<double> dis(0.0, 1.0);
-
-        // TODO: This should be performed on the device, rather than the host
-        int powder_layer_height = powder_top_z - powder_bottom_z;
-        int powder_layer_cells = grid.nx * grid.ny * powder_layer_height;
-        int powder_layer_assigned_cells =
-            Kokkos::round(static_cast<double>(powder_layer_cells) * _inputs.powder_active_fraction);
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
-            std::cout << "Initializing powder layer for Z = " << powder_bottom_z << " through " << powder_top_z - 1
-                      << " (" << grid.nx * grid.ny * powder_layer_height << " cells): powder layer has "
-                      << powder_layer_assigned_cells << " cells assigned new grain ID values" << std::endl;
-
-        // Associate powder grain IDs with CA cells in the powder layer, if nonzero number of powder cells
-        if (powder_layer_assigned_cells > 0) {
-
-            std::vector<int> powder_grain_ids(powder_layer_cells, 0);
-            for (int n = 0; n < powder_layer_assigned_cells; n++) {
-                powder_grain_ids[n] = n + next_layer_first_epitaxial_grain_id; // assigned a nonzero GrainID
-            }
-            std::shuffle(powder_grain_ids.begin(), powder_grain_ids.end(), gen);
-            // Wrap powder layer GrainIDs into an unmanaged view, then copy to the device
-            view_type_int_unmanaged powder_grain_ids_host(powder_grain_ids.data(), powder_layer_cells);
-            auto powder_grain_ids_device = Kokkos::create_mirror_view_and_copy(memory_space(), powder_grain_ids_host);
-
-            int powder_start = grid.nx * grid.ny * powder_bottom_z;
-            if (id == 0)
-                std::cout << "Powder layer grain ID values range from " << next_layer_first_epitaxial_grain_id
-                          << " through " << next_layer_first_epitaxial_grain_id + powder_layer_assigned_cells - 1
-                          << std::endl;
-
-            // Iterate over all cells in the powder layer, on each rank loading the powder grain ID data for local cell
-            // locations
-            auto grain_id_all_layers_local = grain_id_all_layers;
-            auto powder_policy =
-                Kokkos::MDRangePolicy<execution_space, Kokkos::Rank<3, Kokkos::Iterate::Right, Kokkos::Iterate::Right>>(
-                    {powder_bottom_z, 0, 0}, {powder_top_z, grid.nx, grid.ny});
-            Kokkos::parallel_for(
-                "PowderGrainInit", powder_policy,
-                KOKKOS_LAMBDA(const int coord_z_all_layers, const int coord_x, const int coord_y_global) {
-                    // Is this powder coordinate in X and Y in bounds for this rank? Is the grain id of this site
-                    // unassigned (wasn't captured during solidification of the previous layer)?
-                    if ((coord_y_global >= grid.y_offset) && (coord_y_global < grid.y_offset + grid.ny_local)) {
-                        int coord_y = coord_y_global - grid.y_offset;
-                        int index_all_layers = grid.get1DIndex(coord_x, coord_y, coord_z_all_layers);
-                        if (grain_id_all_layers_local(index_all_layers) == 0) {
-                            int index_all_ranks_all_layers =
-                                coord_z_all_layers * grid.nx * grid.ny + coord_x * grid.ny + coord_y_global;
-                            grain_id_all_layers_local(index_all_layers) =
-                                powder_grain_ids_device(index_all_ranks_all_layers - powder_start);
-                        }
-                    }
-                });
-            Kokkos::fence();
-
-            // Update next_layer_first_epitaxial_grain_id for next layer
-            next_layer_first_epitaxial_grain_id += powder_layer_assigned_cells;
-        }
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (id == 0)
-            std::cout << "Initialized powder grain structure for layer " << layernumber << std::endl;
+            std::cout << region_type << " grain structure initialized, number of total grain ID values reserved: "
+                      << next_layer_first_epitaxial_grain_id - 1 << std::endl;
     }
 
     // Sets up views, powder layer (if necessary), and cell types for the next layer of a multilayer problem
@@ -661,8 +627,13 @@ struct CellData {
         // including Z = powder_top_z
         int powder_bottom_z = Kokkos::round((grid.z_max_layer[nextlayernumber - 1] - grid.z_min) / grid.deltax) + 1;
         int powder_top_z = Kokkos::round((grid.z_max_layer[nextlayernumber] - grid.z_min) / grid.deltax) + 1;
-        if (!(_inputs.baseplate_through_powder))
-            initPowderGrainID(nextlayernumber, id, rng_seed, grid, powder_bottom_z, powder_top_z);
+        if (!(_inputs.baseplate_through_powder)) {
+            // Unique RNG seed for each powder layer to avoid placing powder grains in same locations
+            std::string powder_layer_label = "powder layer " + std::to_string(nextlayernumber);
+            const unsigned long powder_rng_seed = rng_seed + static_cast<unsigned long>(nextlayernumber);
+            initVoronoiGrainID(id, grid, powder_bottom_z, powder_top_z - powder_bottom_z, _inputs.powder_grain_spacing,
+                               powder_rng_seed, powder_layer_label);
+        }
 
         // Initialize active cell data structures and nuclei locations for the next layer "layernumber + 1"
         initCellTypeLayerID(nextlayernumber, id, grid, number_of_solidification_events);

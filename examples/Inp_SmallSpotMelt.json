@@ -18,8 +18,8 @@
       "R": 300000
    },
    "Substrate": {
-      "MeanSize": 25,
-      "PowderDensity": 1000000
+      "MeanBaseplateGrainSize": 25,
+      "MeanPowderGrainSize": 1000000
    },
    "Printing": {
        "PathToOutput": "./",
