@@ -110,7 +110,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |SubstrateFilename   |  Spot, FromFile, FromFinch  | Path to and filename for substrate data in vtk format (see note (a))
 |MeanPowderGrainSize | Spot, FromFile, FromFinch    | Mean spacing between grain centers in the powder layer (in microns). Defaults to one grain per cell
 |ExtendSubstrateThroughPowder| FromFile, FromFinch  | true/false value: Whether to use the baseplate microstructure as the boundary condition for the entire height of the simulation (defaults to false) (see note (a))
-| BaseplateTopZ      | FromFile, FromFinch          | The Z coordinate that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 microns will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
+| BaseplateTopZ      | FromFile, FromFinch          | The Z coordinate (in meters) that marks the top of the baseplate/boundary of the baseplate with the powder. If not given, Z = 0 meters will be assumed to be the baseplate top if ExtendSubstrateThroughPowder = false (If ExtendSubstrateThroughPowder = true, the entire domain will be initialized with the baseplate grain structure)
 |GrainOrientation | SingleGrain           | Which orientation from the orientation's file is assigned to the grain (starts at 0). Default is 0 
 |InitOctahedronSize | All           | Initial size of the octahedra that represent the solid-liquid interface when solidifiation first begins locally. Given as a fraction of a cell size, must be at least 0 and smaller than 1. Default is 0.01
 
