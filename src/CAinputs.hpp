@@ -397,9 +397,9 @@ struct Inputs {
                 }
                 else if ((!input_data["Substrate"].contains("PowderDensity")) &&
                          (!input_data["Substrate"].contains("MeanPowderGrainSize"))) {
-                    // Case where neither PowderDensity nor MeanPowderGrainSize inputs are given - defaults to powder
-                    // active fraction of 1, mean powder grain size equal to the cell size
-                    substrate.powder_grain_spacing = domain.deltax;
+                    // Case where neither PowderDensity nor MeanPowderGrainSize inputs are given - defaults to a mean
+                    // powder grain size equal to the cell size (in microns)
+                    substrate.powder_grain_spacing = domain.deltax * pow(10, 6);
                 }
                 if ((input_data["Substrate"].contains("PowderFirstLayer")) && (id == 0))
                     std::cout
