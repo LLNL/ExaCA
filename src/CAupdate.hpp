@@ -557,18 +557,23 @@ void refillBuffers(const Grid &grid, CellData<MemorySpace> &celldata, Interface<
                     float ghost_diagonal_length = interface.diagonal_length(index_south_buffer);
                     // Collect data for the ghost nodes, if necessary
                     // Data loaded into the ghost nodes is for the cell that was just captured
-                    interface.loadGhostNodes(ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y,
-                                             ghost_octahedron_center_z, ghost_diagonal_length, grid.ny_local, coord_x,
-                                             1, coord_z, grid.at_north_boundary, grid.at_south_boundary,
-                                             n_grain_orientations);
+                    bool data_fits_in_buffer = interface.loadGhostNodes(
+                        ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y, ghost_octahedron_center_z,
+                        ghost_diagonal_length, grid.ny_local, coord_x, 1, coord_z, grid.at_north_boundary,
+                        grid.at_south_boundary, n_grain_orientations);
                     celldata.cell_type(index_south_buffer) = Active;
+                    // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
+                    interface.checkBufferSize(data_fits_in_buffer);
                 }
                 else if (celldata.cell_type(index_south_buffer) == LiquidFailedBufferLoad) {
                     // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for
                     // diagonal length
-                    interface.loadGhostNodes(-1, -1.0, -1.0, -1.0, 0.0, grid.ny_local, coord_x, 1, coord_z,
-                                             grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
+                    bool data_fits_in_buffer =
+                        interface.loadGhostNodes(-1, -1.0, -1.0, -1.0, 0.0, grid.ny_local, coord_x, 1, coord_z,
+                                                 grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
                     celldata.cell_type(index_south_buffer) = Liquid;
+                    // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
+                    interface.checkBufferSize(data_fits_in_buffer);
                 }
                 if (celldata.cell_type(index_north_buffer) == ActiveFailedBufferLoad) {
                     int ghost_grain_id = grain_id(index_north_buffer);
@@ -578,19 +583,23 @@ void refillBuffers(const Grid &grid, CellData<MemorySpace> &celldata, Interface<
                     float ghost_diagonal_length = interface.diagonal_length(index_north_buffer);
                     // Collect data for the ghost nodes, if necessary
                     // Data loaded into the ghost nodes is for the cell that was just captured
-                    interface.loadGhostNodes(ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y,
-                                             ghost_octahedron_center_z, ghost_diagonal_length, grid.ny_local, coord_x,
-                                             grid.ny_local - 2, coord_z, grid.at_north_boundary, grid.at_south_boundary,
-                                             n_grain_orientations);
+                    bool data_fits_in_buffer = interface.loadGhostNodes(
+                        ghost_grain_id, ghost_octahedron_center_x, ghost_octahedron_center_y, ghost_octahedron_center_z,
+                        ghost_diagonal_length, grid.ny_local, coord_x, grid.ny_local - 2, coord_z,
+                        grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
                     celldata.cell_type(index_north_buffer) = Active;
+                    // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
+                    interface.checkBufferSize(data_fits_in_buffer);
                 }
                 else if (celldata.cell_type(index_north_buffer) == LiquidFailedBufferLoad) {
                     // Dummy values for first 4 arguments (Grain ID and octahedron center coordinates), 0 for
                     // diagonal length
-                    interface.loadGhostNodes(-1, -1.0, -1.0, -1.0, 0.0, grid.ny_local, coord_x, grid.ny_local - 2,
-                                             coord_z, grid.at_north_boundary, grid.at_south_boundary,
-                                             n_grain_orientations);
+                    bool data_fits_in_buffer = interface.loadGhostNodes(
+                        -1, -1.0, -1.0, -1.0, 0.0, grid.ny_local, coord_x, grid.ny_local - 2, coord_z,
+                        grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
                     celldata.cell_type(index_north_buffer) = Liquid;
+                    // If data doesn't fit in the buffer after the resize, warn that buffer data may have been lost
+                    interface.checkBufferSize(data_fits_in_buffer);
                 }
             }
         });
