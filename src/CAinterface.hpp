@@ -298,7 +298,6 @@ struct Interface {
                 buffer_north_send(ghost_position_north, 7) = ghost_diagonal_length;
             }
         }
-        checkBufferSize(data_fits_in_buffer);
         return data_fits_in_buffer;
     }
 
