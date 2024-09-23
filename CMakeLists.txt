@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
 project(ExaCA LANGUAGES CXX)
-set(PROJECT_VERSION "1.4.0-dev")
+set(PROJECT_VERSION "2.1.0-dev")
 
 include(GNUInstallDirs)
 
