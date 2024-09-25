@@ -140,7 +140,8 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
             MPI_Barrier(MPI_COMM_WORLD);
 
             // Optional print current state of ExaCA
-            print.printInterlayer(id, np, layernumber, grid, celldata, temperature, interface, orientation);
+            print.printInterlayer(id, np, layernumber, inputs.domain.deltat, cycle, grid, celldata, temperature,
+                                  interface, orientation);
 
             // Determine new active cell domain size and offset from bottom of global domain
             grid.initNextLayer(id, simulation_type, layernumber + 1);
@@ -189,7 +190,8 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     timers.startOutput();
 
     // Collect and print specified final fields to output files
-    print.printInterlayer(id, np, grid.number_of_layers - 1, grid, celldata, temperature, interface, orientation);
+    print.printInterlayer(id, np, grid.number_of_layers - 1, inputs.domain.deltat, cycle, grid, celldata, temperature,
+                          interface, orientation);
 
     // Calculate volume fraction of solidified domain consisting of nucleated grains
     float vol_fraction_nucleated = celldata.calcVolFractionNucleated(id, grid);
