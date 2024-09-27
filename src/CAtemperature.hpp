@@ -141,9 +141,10 @@ struct Temperature {
     // Based on the X coordinate compared to the global domain bounds and the Y coordinate compared to the MPI rank Y
     // bounds (integers), return whether or not this translated coordinate is in bounds on this rank
     bool translatedXYInBounds(const double x_translated, const double y_translated, const Grid grid) {
+        const int coord_x = Kokkos::round((x_translated - grid.x_min) / grid.deltax);
         const int coord_y_global = Kokkos::round((y_translated - grid.y_min) / grid.deltax);
         bool xy_in_bounds;
-        if ((grid.x_min <= x_translated) && (grid.x_max >= x_translated) && (coord_y_global >= grid.y_offset) &&
+        if ((coord_x >= 0) && (coord_x < grid.nx) && (coord_y_global >= grid.y_offset) &&
             (coord_y_global < grid.y_offset + grid.ny_local))
             xy_in_bounds = true;
         else
