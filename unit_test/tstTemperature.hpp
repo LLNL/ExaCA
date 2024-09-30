@@ -328,7 +328,7 @@ void checkTemperatureResults(Inputs &inputs, Grid &grid, Temperature<MemorySpace
         const bool x_coord_mirrored = ((mirror_x) && (coord_y % 2 == 1));
         double loc_along_scan;
         if (x_coord_mirrored)
-            loc_along_scan = static_cast<double>(grid.nx - coord_x);
+            loc_along_scan = static_cast<double>((grid.nx - 1) - coord_x);
         else
             loc_along_scan = static_cast<double>(coord_x);
         const double expected_tm = loc_along_scan + static_cast<double>(coord_y) * inputs.temperature.temporal_offset;
@@ -358,6 +358,37 @@ void checkTemperatureResults(Inputs &inputs, Grid &grid, Temperature<MemorySpace
     }
 }
 
+// Initialize test input values for InitTemperatureFromFinch and InitTemperatureFromFile
+void initTestInputs(const bool mirror_x, const int number_of_copies, Inputs &inputs) {
+    inputs.temperature.x_offset = 0.0;
+    inputs.temperature.y_offset = 1.0 * pow(10, -6);
+    inputs.temperature.mirror_x = mirror_x;
+    inputs.temperature.mirror_y = false;
+    inputs.temperature.temporal_offset = 100.0;
+    inputs.temperature.number_of_copies = number_of_copies;
+}
+
+// Initialize test grid for InitTemperatureFromFinch and InitTemperatureFromFile
+void initTestGrid(const int id, const int np, Grid &grid) {
+    grid.deltax = 1.0 * pow(10, -6);
+    grid.x_min = -2.0 * pow(10, -6);
+    grid.nx = 2;
+    grid.x_max = grid.x_min + grid.deltax * (grid.nx - 1);
+    grid.y_min = 0.0;
+    grid.ny_local = 3;
+    grid.ny = grid.ny_local * np;
+    grid.y_offset = id * grid.ny_local;
+    grid.y_max = grid.y_min + grid.deltax * (grid.ny - 1);
+    grid.z_min = 0.0;
+    grid.z_min_layer[0] = grid.z_min;
+    grid.nz = np;
+    grid.domain_size = grid.nx * grid.ny_local * grid.nz;
+    grid.domain_size_all_layers = grid.domain_size;
+    grid.number_of_layers = 1;
+    grid.layer_height = 0;
+    grid.layer_range = std::make_pair(0, grid.domain_size);
+}
+
 // Test storing temperature data from Finch on the correct ExaCA ranks, optionally mirroring and translating the data
 void testInitTemperatureFromFinch(const bool mirror_x, const int number_of_copies) {
 
@@ -372,29 +403,10 @@ void testInitTemperatureFromFinch(const bool mirror_x, const int number_of_copie
 
     // Default inputs struct - manually set temperature values for test
     Inputs inputs;
-    inputs.temperature.x_offset = 0.0;
-    inputs.temperature.y_offset = 1.0 * pow(10, -6);
-    inputs.temperature.mirror_x = mirror_x;
-    inputs.temperature.mirror_y = false;
-    inputs.temperature.temporal_offset = 100.0;
-    inputs.temperature.number_of_copies = number_of_copies;
-
     // Default grid struct - manually set up domain for test
     Grid grid;
-    grid.deltax = 1.0 * pow(10, -6);
-    grid.x_min = -2.0 * pow(10, -6);
-    grid.nx = 2;
-    grid.y_min = 0.0;
-    grid.ny_local = 3;
-    grid.y_offset = id * grid.ny_local;
-    grid.z_min = 0.0;
-    grid.z_min_layer[0] = grid.z_min;
-    grid.nz = np;
-    grid.domain_size = grid.nx * grid.ny_local * grid.nz;
-    grid.domain_size_all_layers = grid.domain_size;
-    grid.number_of_layers = 1;
-    grid.layer_height = 0;
-    grid.layer_range = std::make_pair(0, grid.domain_size);
+    initTestInputs(mirror_x, number_of_copies, inputs);
+    initTestGrid(id, np, grid);
 
     // Create dummy Finch temperature data stored on various ranks, to be mapped to ExaCA ranks
     view_type_coupled input_temperature_data(Kokkos::ViewAllocateWithoutInitializing("FinchData"), grid.nx * np, 6);
@@ -435,29 +447,10 @@ void testInitTemperatureFromFile(const bool mirror_x, const int number_of_copies
 
     // Default inputs struct - manually set temperature values for test
     Inputs inputs;
-    inputs.temperature.x_offset = 0.0;
-    inputs.temperature.y_offset = 1.0 * pow(10, -6);
-    inputs.temperature.mirror_x = mirror_x;
-    inputs.temperature.mirror_y = false;
-    inputs.temperature.temporal_offset = 100.0;
-    inputs.temperature.number_of_copies = number_of_copies;
-
     // Default grid struct - manually set up domain for test
     Grid grid;
-    grid.deltax = 1.0 * pow(10, -6);
-    grid.x_min = -2.0 * pow(10, -6);
-    grid.nx = 2;
-    grid.y_min = 0.0;
-    grid.ny_local = 3;
-    grid.y_offset = id * grid.ny_local;
-    grid.z_min = 0.0;
-    grid.z_min_layer[0] = grid.z_min;
-    grid.nz = np;
-    grid.domain_size = grid.nx * grid.ny_local * grid.nz;
-    grid.domain_size_all_layers = grid.domain_size;
-    grid.number_of_layers = 1;
-    grid.layer_height = 0;
-    grid.layer_range = std::make_pair(0, grid.domain_size);
+    initTestInputs(mirror_x, number_of_copies, inputs);
+    initTestGrid(id, np, grid);
 
     // Create dummy file temperature data on rank 0, including data to be mapped to other ExaCA ranks
     if (id == 0) {
