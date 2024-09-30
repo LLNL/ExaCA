@@ -93,23 +93,23 @@ struct Print {
         return path_base_filename + "_layer" + std::to_string(layernumber) + extension + ".vtk.series";
     }
     // Get name of the intralayer file for a specific input file number file_num
-    std::string getIntralayerFilename(const int layernumber, const int file_num, std::string extension = "") {
-        return path_base_filename + "_layer" + std::to_string(layernumber) + extension + "_" +
+    std::string getIntralayerFilename(const int layernumber, const int file_num, std::string aux_filename = "") {
+        return path_base_filename + "_layer" + std::to_string(layernumber) + aux_filename + "_" +
                std::to_string(file_num) + ".vtk";
     }
     // Get name of the intralayer file using the current counter value (stored within print struct)
-    std::string getIntralayerFilename(const int layernumber, std::string extension = "") {
-        return path_base_filename + "_layer" + std::to_string(layernumber) + extension + "_" +
+    std::string getIntralayerFilename(const int layernumber, std::string aux_filename = "") {
+        return path_base_filename + "_layer" + std::to_string(layernumber) + aux_filename + "_" +
                std::to_string(intralayer_file_count) + ".vtk";
     }
     // Get name of the interlayer file - either for the last layer's data, or all layer data to this point
     std::string getInterlayerFilename(const int layernumber, const int number_of_layers, const bool last_layer_only,
-                                      std::string extension = "") {
+                                      std::string aux_filename = "") {
         std::string vtk_filename;
         if (layernumber != number_of_layers - 1)
-            vtk_filename = path_base_filename + "_layer" + std::to_string(layernumber) + extension;
+            vtk_filename = path_base_filename + "_layer" + std::to_string(layernumber) + aux_filename;
         else
-            vtk_filename = path_base_filename + extension;
+            vtk_filename = path_base_filename + aux_filename;
         if (last_layer_only)
             vtk_filename += "_layeronly.vtk";
         else
@@ -741,20 +741,21 @@ struct Print {
             // Either the _Misorientations.vtk files were printed, the ".vtk" files (containing other data structures)
             // were printed, or both were printed
             if (id == 0) {
-                std::vector<std::string> series_extensions;
+                std::vector<std::string> series_aux_filenames;
                 if (_inputs.intralayer_grain_misorientation)
-                    series_extensions.push_back("_Misorientations");
+                    series_aux_filenames.push_back("_Misorientations");
                 if (_inputs.intralayer_non_misorientation_fields)
-                    series_extensions.push_back("");
-                for (auto extension : series_extensions) {
+                    series_aux_filenames.push_back("");
+                for (auto series_aux_filename : series_aux_filenames) {
                     std::ofstream time_series_file;
-                    std::string time_series_filename = getIntralayerSeriesFilename(layernumber, extension);
+                    std::string time_series_filename = getIntralayerSeriesFilename(layernumber, series_aux_filename);
                     time_series_file.open(time_series_filename);
                     time_series_file << "{" << std::endl;
                     time_series_file << "   \"file-series-version\" : \"1.0\"," << std::endl;
                     time_series_file << "   \"files\" : [" << std::endl;
                     for (int filenum = 0; filenum < intralayer_file_count; filenum++) {
-                        std::string intermediate_filename = getIntralayerFilename(layernumber, filenum, extension);
+                        std::string intermediate_filename =
+                            getIntralayerFilename(layernumber, filenum, series_aux_filename);
                         time_series_file << "      { \"name\" : \"" << intermediate_filename
                                          << "\", \"time\" : " << intralayer_times[filenum] << "}";
                         if (filenum != intralayer_file_count - 1)
