@@ -728,8 +728,8 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
 template <typename MemorySpace>
 void jumpTimeStep(int &cycle, int remaining_liquid_cells, const int local_temp_solid_cells,
                   Temperature<MemorySpace> &temperature, const Grid &grid, CellData<MemorySpace> &celldata,
-                  const int id, const int layernumber, const int np, Orientation<MemorySpace> &orientation, Print print,
-                  const double deltat, Interface<MemorySpace> &interface) {
+                  const int id, const int layernumber, const int np, Orientation<MemorySpace> &orientation,
+                  Print &print, const double deltat, Interface<MemorySpace> &interface) {
 
     MPI_Bcast(&remaining_liquid_cells, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (remaining_liquid_cells == 0) {
@@ -777,7 +777,7 @@ template <typename MemorySpace>
 void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Grid &grid,
                                 int successful_nuc_events_this_rank, int &x_switch, CellData<MemorySpace> &celldata,
                                 Temperature<MemorySpace> &temperature, std::string simulation_type,
-                                const int layernumber, Orientation<MemorySpace> &orientation, Print print,
+                                const int layernumber, Orientation<MemorySpace> &orientation, Print &print,
                                 const double deltat, Interface<MemorySpace> &interface) {
 
     auto grain_id = celldata.getGrainIDSubview(grid);

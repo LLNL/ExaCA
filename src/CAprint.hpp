@@ -44,7 +44,7 @@ struct Print {
     // If printing data during each layer, the counter for the number of intermediate files that have been printed and a
     // vector of the associated values of simulation time
     int intralayer_file_count = 0;
-    std::vector<int> intralayer_times;
+    std::vector<double> intralayer_times;
     // If printing data at the end of layers, the counter for the number of intermediate files that have been printed
     int interlayer_file_count = 0;
 
@@ -92,10 +92,34 @@ struct Print {
     std::string getIntralayerSeriesFilename(const int layernumber, std::string extension = "") {
         return path_base_filename + "_layer" + std::to_string(layernumber) + extension + ".vtk.series";
     }
-    std::string getIntralayerFilename(const int layernumber, const int intralayer_file_count,
-                                      std::string extension = "") {
-        return path_base_filename + "_layer" + std::to_string(layernumber) + extension + "_" +
+    // Get name of the intralayer file for a specific input file number file_num
+    std::string getIntralayerFilename(const int layernumber, const int file_num, std::string aux_filename = "") {
+        return path_base_filename + "_layer" + std::to_string(layernumber) + aux_filename + "_" +
+               std::to_string(file_num) + ".vtk";
+    }
+    // Get name of the intralayer file using the current counter value (stored within print struct)
+    std::string getIntralayerFilename(const int layernumber, std::string aux_filename = "") {
+        return path_base_filename + "_layer" + std::to_string(layernumber) + aux_filename + "_" +
                std::to_string(intralayer_file_count) + ".vtk";
+    }
+    // Get name of the interlayer file - either for the last layer's data, or all layer data to this point
+    std::string getInterlayerFilename(const int layernumber, const int number_of_layers, const bool last_layer_only,
+                                      std::string aux_filename = "") {
+        std::string vtk_filename;
+        if (layernumber != number_of_layers - 1)
+            vtk_filename = path_base_filename + "_layer" + std::to_string(layernumber) + aux_filename;
+        else
+            vtk_filename = path_base_filename + aux_filename;
+        if (last_layer_only)
+            vtk_filename += "_layeronly.vtk";
+        else
+            vtk_filename += ".vtk";
+        return vtk_filename;
+    }
+
+    // Get current simulation time in microseconds
+    double getCurrentTime(const int cycle, const double deltat) {
+        return static_cast<double>(cycle) * deltat * Kokkos::pow(10, 6);
     }
 
     // Called on rank 0 to collect view data from other ranks, or on other ranks to send data to rank 0
@@ -186,9 +210,8 @@ struct Print {
         using view_type_int = Kokkos::View<int *, MemorySpace>;
         if ((_inputs.intralayer) && (cycle % _inputs.intralayer_increment == 0)) {
             // Current time in microseconds
-            double current_time = static_cast<double>(cycle) * deltat * Kokkos::pow(10, 6);
-            intralayer_times.push_back(current_time);
-            std::string vtk_filename_current_layer = getIntralayerFilename(layernumber, intralayer_file_count);
+            intralayer_times.push_back(getCurrentTime(cycle, deltat));
+            std::string vtk_filename_current_layer = getIntralayerFilename(layernumber);
             std::ofstream intralayer_ofstream;
             if (id == 0) {
                 std::cout << "Printing data structures for current layer of the simulation to file "
@@ -272,8 +295,7 @@ struct Print {
                 auto cell_type_whole_domain = collectViewData(id, np, grid, true, MPI_INT, celldata.cell_type);
                 if (id == 0) {
                     // Print GrainMisorientation for all layers up to the current layer
-                    std::string misorientations_filename =
-                        getIntralayerFilename(layernumber, intralayer_file_count, "_Misorientations");
+                    std::string misorientations_filename = getIntralayerFilename(layernumber, "_Misorientations");
                     std::cout << "Printing file of grain misorientations " << misorientations_filename << std::endl;
                     printGrainMisorientations(misorientations_filename, grid, grain_id_all_layers_whole_domain,
                                               cell_type_whole_domain, orientation);
@@ -294,8 +316,8 @@ struct Print {
     // grain misorientations, if desired, will print to an additional file "Basefilename_Misorientations.vtk" for the
     // full simulation domain
     template <typename MemorySpace>
-    void printInterlayer(const int id, const int np, const int layernumber, const Grid &grid,
-                         CellData<MemorySpace> &celldata, Temperature<MemorySpace> &temperature,
+    void printInterlayer(const int id, const int np, const int layernumber, const double deltat, const int cycle,
+                         const Grid &grid, CellData<MemorySpace> &celldata, Temperature<MemorySpace> &temperature,
                          Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
         if (id == 0)
             std::cout << "Layer " << layernumber << " finished solidification" << std::endl;
@@ -303,11 +325,11 @@ struct Print {
         using view_type_float = Kokkos::View<float *, MemorySpace>;
         using view_type_int = Kokkos::View<int *, MemorySpace>;
         if ((!_inputs.skip_all_printing) && (layernumber == _inputs.print_layer_number[interlayer_file_count])) {
-            std::string vtk_filename_base;
-            if (layernumber != grid.number_of_layers - 1)
-                vtk_filename_base = path_base_filename + "_layer" + std::to_string(layernumber);
-            else
-                vtk_filename_base = path_base_filename;
+            // If printing a time series, include this file and time as the final one
+            if (_inputs.intralayer) {
+                intralayer_times.push_back(getCurrentTime(cycle, deltat));
+                intralayer_file_count++;
+            }
 
             // Collect GrainID data for whole domain (nearly always needed for vtk file print of final output of a
             // layer)
@@ -317,7 +339,7 @@ struct Print {
             // Views where data should be printed for all layers up to and including the current one: GrainID, LayerID,
             // UndercoolingCurrent (and GrainMisorientation, but that is printed to a separate file
             if (_inputs.interlayer_full) {
-                std::string vtk_filename_all_layers = vtk_filename_base + ".vtk";
+                std::string vtk_filename_all_layers = getInterlayerFilename(layernumber, grid.number_of_layers, false);
                 std::ofstream interlayer_all_layers_ofstream;
                 if (id == 0) {
                     std::cout << "Printing data structures for all layers of the simulation to file "
@@ -357,7 +379,8 @@ struct Print {
             }
             // Views where data should be printed only for the layer of the problem that just finished
             if (_inputs.interlayer_current) {
-                std::string vtk_filename_current_layer = vtk_filename_base + "_layeronly.vtk";
+                std::string vtk_filename_current_layer =
+                    getInterlayerFilename(layernumber, grid.number_of_layers, true);
                 std::ofstream currentlayer_ofstream;
                 if (id == 0) {
                     std::cout << "Printing data structures for current layer of the simulation to file "
@@ -416,7 +439,8 @@ struct Print {
                 auto cell_type_whole_domain = collectViewData(id, np, grid, true, MPI_INT, celldata.cell_type);
                 if (id == 0) {
                     // Print GrainMisorientation for all layers up to the current layer
-                    std::string misorientations_filename = vtk_filename_base + "_Misorientations.vtk";
+                    std::string misorientations_filename =
+                        getInterlayerFilename(layernumber, grid.number_of_layers, false, "_Misorientations");
                     std::cout << "Printing file of grain misorientations " << misorientations_filename << std::endl;
                     printGrainMisorientations(misorientations_filename, grid, grain_id_all_layers_whole_domain,
                                               cell_type_whole_domain, orientation);
@@ -441,7 +465,7 @@ struct Print {
     // melting or solidification occurs). If it should be printed on the time step, call
     // printIntermediateGrainMisorientation
     template <typename MemorySpace>
-    void printIdleIntralayer(const int id, const int np, const int layernumber, const int deltat, const int cycle,
+    void printIdleIntralayer(const int id, const int np, const int layernumber, const double deltat, const int cycle,
                              const Grid &grid, CellData<MemorySpace> &celldata, Temperature<MemorySpace> &temperature,
                              Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation,
                              const int global_next_melt_time_step) {
@@ -703,20 +727,21 @@ struct Print {
             // Either the _Misorientations.vtk files were printed, the ".vtk" files (containing other data structures)
             // were printed, or both were printed
             if (id == 0) {
-                std::vector<std::string> series_extensions;
+                std::vector<std::string> series_aux_filenames;
                 if (_inputs.intralayer_grain_misorientation)
-                    series_extensions.push_back("_Misorientations");
+                    series_aux_filenames.push_back("_Misorientations");
                 if (_inputs.intralayer_non_misorientation_fields)
-                    series_extensions.push_back("");
-                for (auto extension : series_extensions) {
+                    series_aux_filenames.push_back("");
+                for (auto series_aux_filename : series_aux_filenames) {
                     std::ofstream time_series_file;
-                    std::string time_series_filename = getIntralayerSeriesFilename(layernumber, extension);
+                    std::string time_series_filename = getIntralayerSeriesFilename(layernumber, series_aux_filename);
                     time_series_file.open(time_series_filename);
                     time_series_file << "{" << std::endl;
                     time_series_file << "   \"file-series-version\" : \"1.0\"," << std::endl;
                     time_series_file << "   \"files\" : [" << std::endl;
                     for (int filenum = 0; filenum < intralayer_file_count; filenum++) {
-                        std::string intermediate_filename = getIntralayerFilename(layernumber, filenum, extension);
+                        std::string intermediate_filename =
+                            getIntralayerFilename(layernumber, filenum, series_aux_filename);
                         time_series_file << "      { \"name\" : \"" << intermediate_filename
                                          << "\", \"time\" : " << intralayer_times[filenum] << "}";
                         if (filenum != intralayer_file_count - 1)
