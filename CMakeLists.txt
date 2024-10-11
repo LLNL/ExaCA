@@ -11,16 +11,17 @@ find_package(Finch QUIET)
 if(ExaCA_REQUIRE_FINCH OR Finch_FOUND)
   set(ExaCA_ENABLE_FINCH ON)
   find_package(Finch REQUIRED COMPONENTS Finch::Core Finch::ScanPaths)
-  message( STATUS "Finch heat transfer enabled." )
+  message(STATUS "Finch heat transfer enabled.")
 endif()
 
 find_package(Kokkos 4.0 REQUIRED)
 find_package(MPI REQUIRED)
 
-if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
   cmake_policy(SET CMP0135 NEW)
 endif()
-option(ExaCA_REQUIRE_EXTERNAL_JSON "Build without automatic JSON dependency download" OFF)
+option(ExaCA_REQUIRE_EXTERNAL_JSON
+       "Build without automatic JSON dependency download" OFF)
 if(ExaCA_REQUIRE_EXTERNAL_JSON)
   find_package(nlohmann_json 3.10.0 REQUIRED)
 else()
@@ -28,10 +29,14 @@ else()
   if(NOT NLOHMANN_JSON_FOUND)
     include(FetchContent)
     # Using most recent release here
-    FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
+    FetchContent_Declare(
+      json
+      URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz
+    )
     FetchContent_MakeAvailable(json)
     # Needs to be installed only in this case.
-    install(TARGETS nlohmann_json
+    install(
+      TARGETS nlohmann_json
       EXPORT ExaCA_Targets
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
@@ -40,34 +45,32 @@ endif()
 
 find_package(Git)
 if(GIT_FOUND AND IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/.git)
-  EXECUTE_PROCESS(
-    COMMAND           ${GIT_EXECUTABLE} log --pretty=format:%H -n 1
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} log --pretty=format:%H -n 1
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    OUTPUT_VARIABLE   ExaCA_GIT_COMMIT_HASH
-    )
+    OUTPUT_VARIABLE ExaCA_GIT_COMMIT_HASH)
 else()
   set(ExaCA_GIT_COMMIT_HASH "Not a git repository")
 endif()
 message(STATUS "ExaCA commit: ${ExaCA_GIT_COMMIT_HASH}")
 
-# NOTE: this order is specifically used in the unit tests.
-# FIXME: remove PTHREAD
+# NOTE: this order is specifically used in the unit tests. FIXME: remove PTHREAD
 set(EXACA_SUPPORTED_DEVICES SERIAL PTHREAD THREADS OPENMP CUDA HIP)
 
 add_subdirectory(src)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ExaCAconfig.cmakein
-  ${CMAKE_CURRENT_BINARY_DIR}/ExaCAconfig.cmake @ONLY)
+               ${CMAKE_CURRENT_BINARY_DIR}/ExaCAconfig.cmake @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ExaCAconfig.cmake"
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ExaCA)
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ExaCA)
 
 # Install data files
 file(GLOB MATERIALS examples/Materials/*)
 file(GLOB SUBSTRATE examples/Substrate/GrainOrientation*.csv)
 install(FILES ${MATERIALS}
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/ExaCA)
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/ExaCA)
 install(FILES ${SUBSTRATE}
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/ExaCA)
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/ExaCA)
 
 option(ExaCA_ENABLE_TESTING "Build unit tests" OFF)
 
@@ -100,10 +103,11 @@ add_subdirectory(analysis)
 
 # clang-format
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-find_package( CLANG_FORMAT 10)
+find_package(CLANG_FORMAT 10)
 if(CLANG_FORMAT_FOUND)
   file(GLOB_RECURSE FORMAT_SOURCES *.[c,h]pp)
-  add_custom_target(format
+  add_custom_target(
+    format
     COMMAND ${CLANG_FORMAT_EXECUTABLE} -i -style=file ${FORMAT_SOURCES}
     DEPENDS ${FORMAT_SOURCES})
 endif()
