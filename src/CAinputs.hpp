@@ -377,7 +377,7 @@ struct Inputs {
                     else {
                         double powder_density_input = input_data["Substrate"]["PowderDensity"];
                         double powder_active_fraction = powder_density_input * pow(10, 12) * pow(domain.deltax, 3);
-                        if ((powder_active_fraction < 0.0) || (powder_active_fraction > 1.0))
+                        if ((powder_active_fraction <= 0.0) || (powder_active_fraction > 1.0))
                             throw std::runtime_error(
                                 "Error: Density of powder surface sites active must be larger than 0 and less "
                                 "than 1/(CA cell volume)");
