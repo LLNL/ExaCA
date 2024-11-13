@@ -23,10 +23,11 @@ void testOrientationInit_Vectors() {
 
     using memory_space = TEST_MEMSPACE;
 
-    std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", 0);
+    std::string grain_orientation_file_s = checkFileInstalled("GrainOrientationVectors.csv", 0);
 
     // Initialize grain orientations - unit vector form only
     int id = 0;
+    std::vector<std::string> grain_orientation_file = {grain_orientation_file_s};
     Orientation<memory_space> orientation(id, grain_orientation_file, false);
 
     // Check results for first 2 orientations (first 18 values in the file)
@@ -38,7 +39,7 @@ void testOrientationInit_Vectors() {
     auto grain_unit_vector_host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), orientation.grain_unit_vector);
     for (int n = 0; n < 18; n++) {
-        EXPECT_FLOAT_EQ(grain_unit_vector_host(n), expected_grain_unit_vector[n]);
+        EXPECT_FLOAT_EQ(grain_unit_vector_host(n, 0), expected_grain_unit_vector[n]);
     }
 }
 
@@ -46,7 +47,8 @@ void testOrientationInit_Angles() {
 
     using memory_space = TEST_MEMSPACE;
 
-    std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", 0);
+    std::string grain_orientation_file_s = checkFileInstalled("GrainOrientationVectors.csv", 0);
+    std::vector<std::string> grain_orientation_file = {grain_orientation_file_s};
 
     // Initialize grain orientations - unit vector form and data from GrainOrientationEulerAnglesBungeZXZ.csv should be
     // read
@@ -59,7 +61,7 @@ void testOrientationInit_Angles() {
     // Check first two orientations (first 6 values in the file)
     std::vector<float> expected_euler_angles = {9.99854, 29.62172, 22.91854, 311.08350, 47.68814, 72.02547};
     for (int n = 0; n < 6; n++) {
-        EXPECT_FLOAT_EQ(orientation.grain_bunge_euler_host(n), expected_euler_angles[n]);
+        EXPECT_FLOAT_EQ(orientation.grain_bunge_euler_host(n, 0), expected_euler_angles[n]);
     }
 }
 

@@ -14,8 +14,8 @@
 
 // Parse log file using json format
 void parseLogFile(std::string log_file, int &nx, int &ny, int &nz, double &deltax, int &number_of_layers,
-                  std::vector<double> &xyz_bounds, std::string &grain_unit_vector_file,
-                  bool orientation_files_in_input) {
+                  std::vector<double> &xyz_bounds, std::vector<std::string> &grain_unit_vector_file,
+                  std::vector<std::string> &phase_names, int &num_phases, bool orientation_files_in_input) {
 
     std::ifstream input_data_stream;
     input_data_stream.open(log_file);
@@ -48,7 +48,32 @@ void parseLogFile(std::string log_file, int &nx, int &ny, int &nz, double &delta
         std::cout << "Note: orientation filename specified in log file will be used, overriding value from analysis "
                      "input file"
                   << std::endl;
-    grain_unit_vector_file = logdata["GrainOrientationFile"];
+    if (logdata["PhaseName"].size() == 2) {
+        phase_names.push_back(logdata["PhaseName"][0]);
+        phase_names.push_back(logdata["PhaseName"][1]);
+        // List of grain unit vector files should be size 2 and consist of two separate files (for an orientation
+        // transformation on solidification) or the same file twice. As of now, the second orientation file is not used
+        // as materials without a transformation on solidification should only have one orientation file, and materials
+        // with a transformation on solidification will have all final grain orientations map to a value from the first
+        // file
+        if (logdata["GrainOrientationFile"].size() == 2) {
+            grain_unit_vector_file.push_back(logdata["GrainOrientationFile"][0]);
+            grain_unit_vector_file.push_back(logdata["GrainOrientationFile"][1]);
+        }
+        else {
+            grain_unit_vector_file.push_back(logdata["GrainOrientationFile"]);
+            grain_unit_vector_file.push_back(logdata["GrainOrientationFile"]);
+        }
+        num_phases = 2;
+    }
+    else {
+        if (logdata.contains("PhaseName"))
+            phase_names.push_back(logdata["PhaseName"]);
+        else
+            phase_names.push_back("default");
+        num_phases = 1;
+        grain_unit_vector_file.push_back(logdata["GrainOrientationFile"]);
+    }
     input_data_stream.close();
 }
 

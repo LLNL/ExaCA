@@ -40,7 +40,9 @@ struct CellData {
     using execution_space = typename memory_space::execution_space;
 
     int next_layer_first_epitaxial_grain_id = 1;
-    view_type_int grain_id_all_layers, cell_type;
+    view_type_int grain_id_all_layers;
+    view_type_short phase_id_all_layers;
+    view_type_int cell_type;
     view_type_short layer_id_all_layers;
     view_type_bool melt_edge, melt_edge_all_layers;
     // Substrate inputs from file
@@ -49,10 +51,11 @@ struct CellData {
     bool _store_melt_pool_edge;
 
     // Constructor for views and view bounds for current layer
-    // GrainID is initialized to zeros, while others are not initialized
+    // GrainID/PhaseID are initialized to zeros, while others are not initialized
     // cell_type only exists for the current layer of a multilayer problem
     CellData(const Grid &grid, SubstrateInputs inputs, const bool store_melt_pool_edge = false)
         : grain_id_all_layers(view_type_int("GrainID", grid.domain_size_all_layers))
+        , phase_id_all_layers(view_type_short("PhaseID", grid.domain_size_all_layers))
         , cell_type(view_type_int(Kokkos::ViewAllocateWithoutInitializing("cell_type"), grid.domain_size))
         , layer_id_all_layers(
               view_type_short(Kokkos::ViewAllocateWithoutInitializing("LayerID"), grid.domain_size_all_layers))
@@ -727,6 +730,7 @@ struct CellData {
     // Take a view consisting of data for all layers, and return a subview of the same type consisting of just the cells
     // corresponding to the current layer of a multilayer problem
     auto getGrainIDSubview(const Grid &grid) const { return Kokkos::subview(grain_id_all_layers, grid.layer_range); }
+    auto getPhaseIDSubview(const Grid &grid) const { return Kokkos::subview(phase_id_all_layers, grid.layer_range); }
     auto getLayerIDSubview(const Grid &grid) const { return Kokkos::subview(layer_id_all_layers, grid.layer_range); }
 };
 

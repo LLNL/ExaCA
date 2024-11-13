@@ -74,6 +74,16 @@ void testNucleiInit() {
     else
         grid.at_north_boundary = false;
 
+    // Simple IRF - single phase
+    inputs.domain.deltat = 1 * pow(10, -6);
+    inputs.irf.num_phases = 1;
+    inputs.irf.A[0] = 0.0;
+    inputs.irf.B[0] = 0.0;
+    inputs.irf.C[0] = 0.0;
+    inputs.irf.D[0] = 0.01;
+    inputs.irf.function[0] = inputs.irf.cubic;
+    InterfacialResponseFunction irf(inputs.domain.deltat, grid.deltax, inputs.irf);
+
     // There are 40 * np total cells in this domain (nx * ny * nz)
     // Each rank has 40 cells - the top 32 cells are part of the active layer and are candidates for nucleation
     // assignment
@@ -155,7 +165,7 @@ void testNucleiInit() {
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 1 - they will be initialized for each
     // successive layer when layer 1 in complete
-    nucleation.placeNuclei(temperature, inputs.rng_seed, 1, grid, id);
+    nucleation.placeNuclei(temperature, irf, inputs.rng_seed, 1, grid, id);
 
     // Copy results back to host to check
     auto nuclei_location_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.nuclei_locations);

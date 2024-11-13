@@ -84,7 +84,8 @@ void testHaloUpdate() {
                                       grid.nx * grid.ny_local * grid.z_layer_bottom + grid.domain_size);
 
     // Initialize grain orientations
-    std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", id);
+    std::string grain_orientation_file_s = checkFileInstalled("GrainOrientationVectors.csv", id);
+    std::vector<std::string> grain_orientation_file = {grain_orientation_file_s};
     Orientation<memory_space> orientation(id, grain_orientation_file, false);
 
     // Initialize host views - set initial GrainID values to 0, all CellType values to liquid
@@ -155,7 +156,7 @@ void testHaloUpdate() {
         octahedron_center_host(3 * halo_locations_alt_active_region[n] + 1) = oct_centers_y_alt[n];
         octahedron_center_host(3 * halo_locations_alt_active_region[n] + 2) = 2.5;
     }
-
+    std::cout << "A" << std::endl;
     // Copy view data to the device
     celldata.cell_type = Kokkos::create_mirror_view_and_copy(memory_space(), cell_type_host);
     grain_id = Kokkos::create_mirror_view_and_copy(memory_space(), grain_id_host);
@@ -176,12 +177,13 @@ void testHaloUpdate() {
                 float ghost_docy = interface.octahedron_center(3 * index + 1);
                 float ghost_docz = interface.octahedron_center(3 * index + 2);
                 float ghost_dl = interface.diagonal_length(index);
-                interface.loadGhostNodes(ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, grid.ny_local,
-                                         coord_x, coord_y, coord_z, grid.at_north_boundary, grid.at_south_boundary,
-                                         orientation.n_grain_orientations);
+                float ghost_pid = 0.0;
+                interface.loadGhostNodes(ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, ghost_pid,
+                                         grid.ny_local, coord_x, coord_y, coord_z, grid.at_north_boundary,
+                                         grid.at_south_boundary, orientation.n_grain_orientations);
             }
         });
-
+    std::cout << "B" << std::endl;
     haloUpdate(0, 0, grid, celldata, interface, orientation);
 
     // Copy views to host to check values
@@ -281,7 +283,8 @@ void testResizeRefillBuffers() {
 
     // Orientation struct
     // Initialize grain orientations
-    std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", id);
+    std::string grain_orientation_file_s = checkFileInstalled("GrainOrientationVectors.csv", id);
+    std::vector<std::string> grain_orientation_file = {grain_orientation_file_s};
     Orientation<memory_space> orientation(id, grain_orientation_file, false);
 
     // Interface struct - set buffer size to 1
@@ -307,9 +310,10 @@ void testResizeRefillBuffers() {
             float ghost_docz = coord_z + 0.5;
             interface.diagonal_length(index) = static_cast<float>(coord_y);
             float ghost_dl = static_cast<float>(coord_y);
+            float ghost_pid = 0.0;
             // Load into appropriate buffers
-            interface.loadGhostNodes(ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, grid.ny_local, coord_x,
-                                     coord_y, coord_z, grid.at_north_boundary, grid.at_south_boundary,
+            interface.loadGhostNodes(ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, ghost_pid, grid.ny_local,
+                                     coord_x, coord_y, coord_z, grid.at_north_boundary, grid.at_south_boundary,
                                      n_grain_orientations);
         });
     Kokkos::parallel_for(
@@ -329,9 +333,10 @@ void testResizeRefillBuffers() {
             float ghost_docz = coord_z + 0.5;
             interface.diagonal_length(index) = static_cast<float>(coord_y);
             float ghost_dl = static_cast<float>(coord_y);
+            float ghost_pid = 0.0;
             // Load into appropriate buffers
-            interface.loadGhostNodes(ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, grid.ny_local, coord_x,
-                                     coord_y, coord_z, grid.at_north_boundary, grid.at_south_boundary,
+            interface.loadGhostNodes(ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, ghost_pid, grid.ny_local,
+                                     coord_x, coord_y, coord_z, grid.at_north_boundary, grid.at_south_boundary,
                                      n_grain_orientations);
         });
 
@@ -356,10 +361,11 @@ void testResizeRefillBuffers() {
             float ghost_docz = coord_z + 0.5;
             interface.diagonal_length(index) = static_cast<float>(coord_y);
             float ghost_dl = static_cast<float>(coord_y);
+            float ghost_pid = 0.0;
             // Attempt to load into appropriate buffers
             bool data_fits_in_buffer = interface.loadGhostNodes(
-                ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, grid.ny_local, coord_x, coord_y, coord_z,
-                grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
+                ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, ghost_pid, grid.ny_local, coord_x, coord_y,
+                coord_z, grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
             if (!(data_fits_in_buffer)) {
                 // This cell's data did not fit in the buffer with current size buf_size - mark with temporary type
                 celldata.cell_type(index) = ActiveFailedBufferLoad;
@@ -382,10 +388,11 @@ void testResizeRefillBuffers() {
             float ghost_docz = coord_z + 0.5;
             interface.diagonal_length(index) = static_cast<float>(coord_y);
             float ghost_dl = static_cast<float>(coord_y);
+            float ghost_pid = 0.0;
             // Attempt to load into appropriate buffers
             bool data_fits_in_buffer = interface.loadGhostNodes(
-                ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, grid.ny_local, coord_x, coord_y, coord_z,
-                grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
+                ghost_gid, ghost_docx, ghost_docy, ghost_docz, ghost_dl, ghost_pid, grid.ny_local, coord_x, coord_y,
+                coord_z, grid.at_north_boundary, grid.at_south_boundary, n_grain_orientations);
             if (!(data_fits_in_buffer)) {
                 // This cell's data did not fit in the buffer with current size buf_size - mark with temporary type
                 celldata.cell_type(index) = ActiveFailedBufferLoad;
@@ -420,6 +427,7 @@ void testResizeRefillBuffers() {
         EXPECT_FLOAT_EQ(buffer_south_send_host(0, 5), 1.5); // oct center Y
         EXPECT_FLOAT_EQ(buffer_south_send_host(0, 6), 0.5); // oct center Z
         EXPECT_FLOAT_EQ(buffer_south_send_host(0, 7), 1.0); // diagonal length
+        EXPECT_FLOAT_EQ(buffer_south_send_host(0, 8), 0.0); // phase ID
         // Data that should've been added to expanded buffer
         EXPECT_FLOAT_EQ(buffer_south_send_host(1, 0), 2.0); // RankX
         EXPECT_FLOAT_EQ(buffer_south_send_host(1, 1), 0.0); // RankZ
@@ -429,6 +437,7 @@ void testResizeRefillBuffers() {
         EXPECT_FLOAT_EQ(buffer_south_send_host(1, 5), 1.5); // oct center Y
         EXPECT_FLOAT_EQ(buffer_south_send_host(1, 6), 0.5); // oct center Z
         EXPECT_FLOAT_EQ(buffer_south_send_host(1, 7), 1.0); // diagonal length
+        EXPECT_FLOAT_EQ(buffer_south_send_host(1, 8), 0.0); // phase ID
     }
     if (!(grid.at_north_boundary)) {
         // Data previously stored in buffer
@@ -440,6 +449,7 @@ void testResizeRefillBuffers() {
         EXPECT_FLOAT_EQ(buffer_north_send_host(0, 5), static_cast<float>(grid.ny_local - 1.5)); // oct center Y
         EXPECT_FLOAT_EQ(buffer_north_send_host(0, 6), 0.5);                                     // oct center Z
         EXPECT_FLOAT_EQ(buffer_north_send_host(0, 7), static_cast<float>(grid.ny_local - 2));   // diagonal length
+        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 8), 0.0);                                     // phase ID
     }
 }
 
@@ -512,6 +522,16 @@ void testFillSteeringVector_Remelt() {
     // default inputs struct
     Inputs inputs;
 
+    // Simple IRF - single phase
+    inputs.domain.deltat = 1 * pow(10, -6);
+    inputs.irf.num_phases = 1;
+    inputs.irf.A[0] = 0.0;
+    inputs.irf.B[0] = 0.0;
+    inputs.irf.C[0] = 0.0;
+    inputs.irf.D[0] = 0.01;
+    inputs.irf.function[0] = inputs.irf.cubic;
+    InterfacialResponseFunction irf(inputs.domain.deltat, grid.deltax, inputs.irf);
+
     // Initialize cell/temperature structures
     CellData<memory_space> celldata(grid, inputs.substrate);
     auto grain_id = celldata.getGrainIDSubview(grid);
@@ -551,7 +571,7 @@ void testFillSteeringVector_Remelt() {
     int numcycles = 15;
     for (int cycle = 1; cycle <= numcycles; cycle++) {
         // Update cell types, local undercooling each time step, and fill the steering vector
-        fillSteeringVector_Remelt(cycle, grid, celldata, temperature, interface);
+        fillSteeringVector_Remelt(cycle, grid, irf, celldata, temperature, interface);
     }
 
     // Copy data back to host to check steering vector construction results
@@ -611,6 +631,7 @@ void testFillSteeringVector_Remelt() {
 void testCalcCritDiagonalLength() {
     using memory_space = TEST_MEMSPACE;
     using view_type = Kokkos::View<float *, memory_space>;
+    using view_type_2d = Kokkos::View<float **, memory_space>;
 
     // 2 "cells" in the domain
     int domain_size = 2;
@@ -620,10 +641,10 @@ void testCalcCritDiagonalLength() {
                                            0.626272, 0.133778, 0.768041,  0.736425,  -0.530983, 0.419208,
                                            0.664512, 0.683971, -0.301012, -0.126894, 0.500241,  0.856538};
     // Load unit vectors into view
-    view_type grain_unit_vector(Kokkos::ViewAllocateWithoutInitializing("grain_unit_vector"), 9 * domain_size);
+    view_type_2d grain_unit_vector(Kokkos::ViewAllocateWithoutInitializing("grain_unit_vector"), 9 * domain_size, 1);
     auto grain_unit_vector_host = Kokkos::create_mirror_view(Kokkos::HostSpace(), grain_unit_vector);
     for (int i = 0; i < 9 * domain_size; i++) {
-        grain_unit_vector_host(i) = grain_unit_vector_v[i];
+        grain_unit_vector_host(i, 0) = grain_unit_vector_v[i];
     }
     // Copy octahedron center and grain unit vector data to the device
     grain_unit_vector = Kokkos::create_mirror_view_and_copy(memory_space(), grain_unit_vector_host);
