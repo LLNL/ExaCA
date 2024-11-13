@@ -54,7 +54,7 @@ struct Interface {
     // Constructor for views and view bounds for current layer
     // Use default initialization to 0 for num_steer_host and num_steer and buffer counts
     Interface(const int id, const int domain_size, const float init_oct_size, const int buf_size_initial_estimate = 25,
-              const int buf_components_temp = 8)
+              const int buf_components_temp = 9)
         : diagonal_length(view_type_float(Kokkos::ViewAllocateWithoutInitializing("diagonal_length"), domain_size))
         , octahedron_center(
               view_type_float(Kokkos::ViewAllocateWithoutInitializing("octahedron_center"), 3 * domain_size))
@@ -204,8 +204,8 @@ struct Interface {
     template <typename ViewType>
     KOKKOS_INLINE_FUNCTION void calcCritDiagonalLength(const int index, const float xp, const float yp, const float zp,
                                                        const float cx, const float cy, const float cz,
-                                                       const int my_orientation,
-                                                       const ViewType grain_unit_vector) const {
+                                                       const int my_orientation, const ViewType grain_unit_vector,
+                                                       const int my_phase_id = 0) const {
         // Calculate critical octahedron diagonal length to activate nearest neighbor.
         // First, calculate the unique planes (4) associated with all octahedron faces (8)
         // Then just look at distance between face and the point of interest (cell center of
@@ -214,32 +214,44 @@ struct Interface {
         // ... meaning it must be in the octahedron)
         float fx[4], fy[4], fz[4];
 
-        fx[0] = grain_unit_vector(9 * my_orientation) + grain_unit_vector(9 * my_orientation + 3) +
-                grain_unit_vector(9 * my_orientation + 6);
-        fx[1] = grain_unit_vector(9 * my_orientation) - grain_unit_vector(9 * my_orientation + 3) +
-                grain_unit_vector(9 * my_orientation + 6);
-        fx[2] = grain_unit_vector(9 * my_orientation) + grain_unit_vector(9 * my_orientation + 3) -
-                grain_unit_vector(9 * my_orientation + 6);
-        fx[3] = grain_unit_vector(9 * my_orientation) - grain_unit_vector(9 * my_orientation + 3) -
-                grain_unit_vector(9 * my_orientation + 6);
+        fx[0] = grain_unit_vector(9 * my_orientation, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 3, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 6, my_phase_id);
+        fx[1] = grain_unit_vector(9 * my_orientation, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 3, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 6, my_phase_id);
+        fx[2] = grain_unit_vector(9 * my_orientation, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 3, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 6, my_phase_id);
+        fx[3] = grain_unit_vector(9 * my_orientation, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 3, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 6, my_phase_id);
 
-        fy[0] = grain_unit_vector(9 * my_orientation + 1) + grain_unit_vector(9 * my_orientation + 4) +
-                grain_unit_vector(9 * my_orientation + 7);
-        fy[1] = grain_unit_vector(9 * my_orientation + 1) - grain_unit_vector(9 * my_orientation + 4) +
-                grain_unit_vector(9 * my_orientation + 7);
-        fy[2] = grain_unit_vector(9 * my_orientation + 1) + grain_unit_vector(9 * my_orientation + 4) -
-                grain_unit_vector(9 * my_orientation + 7);
-        fy[3] = grain_unit_vector(9 * my_orientation + 1) - grain_unit_vector(9 * my_orientation + 4) -
-                grain_unit_vector(9 * my_orientation + 7);
+        fy[0] = grain_unit_vector(9 * my_orientation + 1, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 4, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 7, my_phase_id);
+        fy[1] = grain_unit_vector(9 * my_orientation + 1, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 4, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 7, my_phase_id);
+        fy[2] = grain_unit_vector(9 * my_orientation + 1, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 4, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 7, my_phase_id);
+        fy[3] = grain_unit_vector(9 * my_orientation + 1, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 4, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 7, my_phase_id);
 
-        fz[0] = grain_unit_vector(9 * my_orientation + 2) + grain_unit_vector(9 * my_orientation + 5) +
-                grain_unit_vector(9 * my_orientation + 8);
-        fz[1] = grain_unit_vector(9 * my_orientation + 2) - grain_unit_vector(9 * my_orientation + 5) +
-                grain_unit_vector(9 * my_orientation + 8);
-        fz[2] = grain_unit_vector(9 * my_orientation + 2) + grain_unit_vector(9 * my_orientation + 5) -
-                grain_unit_vector(9 * my_orientation + 8);
-        fz[3] = grain_unit_vector(9 * my_orientation + 2) - grain_unit_vector(9 * my_orientation + 5) -
-                grain_unit_vector(9 * my_orientation + 8);
+        fz[0] = grain_unit_vector(9 * my_orientation + 2, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 5, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 8, my_phase_id);
+        fz[1] = grain_unit_vector(9 * my_orientation + 2, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 5, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 8, my_phase_id);
+        fz[2] = grain_unit_vector(9 * my_orientation + 2, my_phase_id) +
+                grain_unit_vector(9 * my_orientation + 5, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 8, my_phase_id);
+        fz[3] = grain_unit_vector(9 * my_orientation + 2, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 5, my_phase_id) -
+                grain_unit_vector(9 * my_orientation + 8, my_phase_id);
 
         for (int n = 0; n < 26; n++) {
             float x0 = xp + neighbor_x[n] - cx;
@@ -260,9 +272,9 @@ struct Interface {
     KOKKOS_INLINE_FUNCTION
     bool loadGhostNodes(const int ghost_grain_id, const float ghost_octahedron_center_x,
                         const float ghost_octahedron_center_y, const float ghost_octahedron_center_z,
-                        const float ghost_diagonal_length, const int ny_local, const int coord_x, const int coord_y,
-                        const int coord_z, const bool at_north_boundary, const bool at_south_boundary,
-                        const int n_grain_orientations) const {
+                        const float ghost_diagonal_length, const int ghost_phase_id, const int ny_local,
+                        const int coord_x, const int coord_y, const int coord_z, const bool at_north_boundary,
+                        const bool at_south_boundary, const int n_grain_orientations) const {
         bool data_fits_in_buffer = true;
         if ((coord_y == 1) && (!(at_south_boundary))) {
             int ghost_position_south = Kokkos::atomic_fetch_add(&send_size_south(0), 1);
@@ -279,6 +291,7 @@ struct Interface {
                 buffer_south_send(ghost_position_south, 5) = ghost_octahedron_center_y;
                 buffer_south_send(ghost_position_south, 6) = ghost_octahedron_center_z;
                 buffer_south_send(ghost_position_south, 7) = ghost_diagonal_length;
+                buffer_south_send(ghost_position_south, 8) = ghost_phase_id;
             }
         }
         else if ((coord_y == ny_local - 2) && (!(at_north_boundary))) {
@@ -296,6 +309,7 @@ struct Interface {
                 buffer_north_send(ghost_position_north, 5) = ghost_octahedron_center_y;
                 buffer_north_send(ghost_position_north, 6) = ghost_octahedron_center_z;
                 buffer_north_send(ghost_position_north, 7) = ghost_diagonal_length;
+                buffer_north_send(ghost_position_north, 8) = ghost_phase_id;
             }
         }
         return data_fits_in_buffer;

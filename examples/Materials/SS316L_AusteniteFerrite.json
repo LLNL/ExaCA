@@ -1,0 +1,24 @@
+{
+    "phases": ["austenite", "ferrite"],
+    "austenite": {
+        "function": "power",
+        "coefficients": {
+           "A": 3.1718E-18,
+           "B": 12.024,
+           "C": 0
+         },
+         "freezing_range": 24.9,
+         "velocity_cap": true
+    },
+    "ferrite": {
+        "function": "exponential",
+        "coefficients": {
+           "A": 5.6442E-5,
+           "B": 0.37259,
+           "C": 0
+         },
+         "freezing_range": 23.9,
+         "transformation": "solidification",
+         "velocity_cap": true
+    }
+}

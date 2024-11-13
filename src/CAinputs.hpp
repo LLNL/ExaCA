@@ -24,7 +24,8 @@
 
 struct Inputs {
 
-    std::string simulation_type = "", material_filename = "", grain_orientation_file = "";
+    std::string simulation_type = "", material_filename = "";
+    std::vector<std::string> grain_orientation_file = {};
     unsigned long rng_seed = 0.0;
     DomainInputs domain;
     NucleationInputs nucleation;
@@ -53,13 +54,48 @@ struct Inputs {
 
         // Input files that should be present for all problem types
         std::string material_filename_read = input_data["MaterialFileName"];
-        std::string grain_orientation_file_read = input_data["GrainOrientationFile"];
         // Path to file of materials constants based on install/source location
         material_filename = checkFileInstalled(material_filename_read, id);
         checkFileNotEmpty(material_filename);
+        // Get interfacial response function coefficients and freezing range from the material input file
+        parseIRF(id);
         // Path to file of grain orientations based on install/source location
-        grain_orientation_file = checkFileInstalled(grain_orientation_file_read, id);
-        checkFileNotEmpty(grain_orientation_file);
+        std::vector<std::string> grain_orientation_file_read;
+        // For two phase problems, each grain is associated with a crystallographic orientation and a phase
+        // One orientation file, no transformation: one orientation per grain, no change during solidification (same as
+        // single phase) One orientation file, solidification transformation: randomly selected grain orientation from
+        // the file (based on the input RNG seed) corresponds to each grain ID during second phase solidification,
+        // transforms into a different one during transformation into primary phase on solidification. Two orientation
+        // files, no transformation: unique grain orientation based on the appropriate file for each phase, no change
+        // during solidification Two orientation files, solidification transformation: unique grain orientation based on
+        // the appropriate file for each phase, second phase grain orientations transform into the primary phase
+        // orientations on solidification If one orientation file is given, this is used for any phases in the material.
+        // If two are given, this must be a two phase problem and the solidification transformation rule must be
+        // selected
+        if (input_data["GrainOrientationFile"].size() == 1) {
+            grain_orientation_file_read.push_back(input_data["GrainOrientationFile"]);
+            if (irf.num_phases == 2)
+                grain_orientation_file_read.push_back(input_data["GrainOrientationFile"]);
+        }
+        else if (input_data["GrainOrientationFile"].size() == 2) {
+            if ((irf.num_phases == 1) && (id == 0))
+                throw std::runtime_error("Error: Only one grain orientation file should be specified for a material "
+                                         "with one interfacial response function");
+            if ((irf.transformation == irf.none) && (id == 0))
+                throw std::runtime_error("Error: Only one grain orientation file should be specified for a material "
+                                         "without a phase transformation rule");
+            grain_orientation_file_read.push_back(input_data["GrainOrientationFile"][0]);
+            grain_orientation_file_read.push_back(input_data["GrainOrientationFile"][1]);
+        }
+        else {
+            if (id == 0)
+                throw std::runtime_error("Error: No more than two grain orientation files should be given");
+        }
+        for (int phase_num = 0; phase_num < irf.num_phases; phase_num++) {
+            std::string grain_orientation_file_tmp = checkFileInstalled(grain_orientation_file_read[phase_num], id);
+            checkFileNotEmpty(grain_orientation_file_tmp);
+            grain_orientation_file.push_back(grain_orientation_file_tmp);
+        }
         // Seed for random number generator (defaults to 0 if not given)
         if (input_data.contains("RandomSeed"))
             rng_seed = input_data["RandomSeed"];
@@ -105,9 +141,6 @@ struct Inputs {
             nucleation.dtn = input_data["Nucleation"]["MeanUndercooling"];
             nucleation.dtsigma = input_data["Nucleation"]["StDev"];
         }
-
-        // Get interfacial response function coefficients and freezing range from the material input file
-        parseIRF(id);
 
         // Temperature inputs:
         if ((simulation_type == "FromFile") || (simulation_type == "FromFinch")) {
@@ -550,26 +583,28 @@ struct Inputs {
             if (print_fields_intralayer[1])
                 print.intralayer_layer_id = true;
             if (print_fields_intralayer[2])
-                print.intralayer_grain_misorientation = true;
+                print.intralayer_phase_id = true;
             if (print_fields_intralayer[3])
-                print.intralayer_undercooling_current = true;
+                print.intralayer_grain_misorientation = true;
             if (print_fields_intralayer[4])
-                print.intralayer_undercooling_solidification_start = true;
+                print.intralayer_undercooling_current = true;
             if (print_fields_intralayer[5])
-                print.intralayer_melt_pool_edge = true;
+                print.intralayer_undercooling_solidification_start = true;
             if (print_fields_intralayer[6])
-                print.intralayer_melt_time_step = true;
+                print.intralayer_melt_pool_edge = true;
             if (print_fields_intralayer[7])
-                print.intralayer_crit_time_step = true;
+                print.intralayer_melt_time_step = true;
             if (print_fields_intralayer[8])
-                print.intralayer_undercooling_change = true;
+                print.intralayer_crit_time_step = true;
             if (print_fields_intralayer[9])
-                print.intralayer_cell_type = true;
+                print.intralayer_undercooling_change = true;
             if (print_fields_intralayer[10])
-                print.intralayer_diagonal_length = true;
+                print.intralayer_cell_type = true;
             if (print_fields_intralayer[11])
-                print.intralayer_solidification_event_counter = true;
+                print.intralayer_diagonal_length = true;
             if (print_fields_intralayer[12])
+                print.intralayer_solidification_event_counter = true;
+            if (print_fields_intralayer[13])
                 print.intralayer_number_of_solidification_events = true;
 
             // True if any fields are printed
@@ -580,7 +615,7 @@ struct Inputs {
             }
             // Will fields other than grain misorientations be printed?
             for (int n = 0; n < num_print_intralayer_inputs; n++) {
-                if ((n != 2) && (print_fields_intralayer[n]))
+                if ((n != 3) && (print_fields_intralayer[n]))
                     print.intralayer_non_misorientation_fields = true;
             }
         }
@@ -625,33 +660,35 @@ struct Inputs {
         if (print_fields_interlayer[1])
             print.interlayer_layer_id = true;
         if (print_fields_interlayer[2])
-            print.interlayer_grain_misorientation = true;
+            print.interlayer_phase_id = true;
         if (print_fields_interlayer[3])
-            print.interlayer_undercooling_current = true;
+            print.interlayer_grain_misorientation = true;
         if (print_fields_interlayer[4])
-            print.interlayer_undercooling_solidification_start = true;
+            print.interlayer_undercooling_current = true;
         if (print_fields_interlayer[5])
-            print.interlayer_melt_pool_edge = true;
+            print.interlayer_undercooling_solidification_start = true;
         if (print_fields_interlayer[6])
-            print.interlayer_melt_time_step = true;
+            print.interlayer_melt_pool_edge = true;
         if (print_fields_interlayer[7])
-            print.interlayer_crit_time_step = true;
+            print.interlayer_melt_time_step = true;
         if (print_fields_interlayer[8])
-            print.interlayer_undercooling_change = true;
+            print.interlayer_crit_time_step = true;
         if (print_fields_interlayer[9])
-            print.interlayer_cell_type = true;
+            print.interlayer_undercooling_change = true;
         if (print_fields_interlayer[10])
-            print.interlayer_diagonal_length = true;
+            print.interlayer_cell_type = true;
         if (print_fields_interlayer[11])
-            print.interlayer_solidification_event_counter = true;
+            print.interlayer_diagonal_length = true;
         if (print_fields_interlayer[12])
+            print.interlayer_solidification_event_counter = true;
+        if (print_fields_interlayer[13])
             print.interlayer_number_of_solidification_events = true;
-        if ((print.interlayer_grain_id) || (print.interlayer_layer_id) || (print.interlayer_undercooling_current) ||
+        if ((print.interlayer_grain_id) || (print.interlayer_phase_id) || (print.interlayer_undercooling_current) ||
             (print.interlayer_undercooling_solidification_start))
             print.interlayer_full = true;
-        // First 6 inputs are full domain inputs - check if any of the others were toggled
+        // First 7 inputs are full domain inputs - check if any of the others were toggled
         int num_interlayer_current_inputs = print_fields_interlayer.size();
-        for (int n = 6; n < num_interlayer_current_inputs; n++) {
+        for (int n = 7; n < num_interlayer_current_inputs; n++) {
             if (print_fields_interlayer[n])
                 print.interlayer_current = true;
         }
@@ -692,7 +729,20 @@ struct Inputs {
             exaca_log << "   \"InputFile\": \"" << file_name << "\", " << std::endl;
             exaca_log << "   \"TimeStepOfOutput\": " << cycle << "," << std::endl;
             exaca_log << "   \"SimulationType\": \"" << simulation_type << "\"," << std::endl;
-            exaca_log << "   \"GrainOrientationFile\": \"" << grain_orientation_file << "\"," << std::endl;
+            exaca_log << "   \"MaterialFileName\": \"" << material_filename << "\"," << std::endl;
+            if (irf.num_phases == 1) {
+                exaca_log << "   \"PhaseName\": \"" << irf.phase_names[0] << "\"," << std::endl;
+                exaca_log << "   \"GrainOrientationFile\": \"" << grain_orientation_file[0] << "\"," << std::endl;
+            }
+            else if (irf.num_phases == 2) {
+                exaca_log << "   \"PhaseName\": [\"" << irf.phase_names[0] << "\", \"" << irf.phase_names[1] << "\"],"
+                          << std::endl;
+                if (irf.transformation == irf.solidification)
+                    exaca_log << "   \"GrainOrientationFile\": [\"" << grain_orientation_file[0] << "\", \""
+                              << grain_orientation_file[1] << "\"]," << std::endl;
+                else
+                    exaca_log << "   \"GrainOrientationFile\": \"" << grain_orientation_file[0] << "\"," << std::endl;
+            }
             exaca_log << "   \"Domain\": {" << std::endl;
             exaca_log << "      \"Nx\": " << grid.nx << "," << std::endl;
             exaca_log << "      \"Ny\": " << grid.ny << "," << std::endl;
@@ -749,16 +799,6 @@ struct Inputs {
                 }
             }
             exaca_log << "   }," << std::endl;
-            exaca_log << "   \"InterfacialResponse\": {" << std::endl;
-            exaca_log << "       \"Function\": "
-                      << "\"" << irf.function << "\"," << std::endl;
-            exaca_log << "       \"A\": " << (irf.A) << "," << std::endl;
-            exaca_log << "       \"B\": " << (irf.B) << "," << std::endl;
-            exaca_log << "       \"C\": " << (irf.C) << "," << std::endl;
-            if (irf.function == irf.cubic)
-                exaca_log << "       \"D\": " << (irf.D) << "," << std::endl;
-            exaca_log << "       \"FreezingRange\": " << (irf.freezing_range) << std::endl;
-            exaca_log << "   }," << std::endl;
             exaca_log << "   \"NumberMPIRanks\": " << np << "," << std::endl;
             exaca_log << "   \"Decomposition\": {" << std::endl;
             exaca_log << "       \"SubdomainYSize\": [";
@@ -776,35 +816,85 @@ struct Inputs {
         }
     }
 
-    // Get interfacial response function coefficients and freezing range from the material input file
+    // Helper function to phase coefficients, functional form, and freezing range for a specified phase
+    void parseIRF_function_form(nlohmann::json irf_phase_data, const int phase_num = 0) {
+        irf.A[phase_num] = irf_phase_data["coefficients"]["A"];
+        irf.B[phase_num] = irf_phase_data["coefficients"]["B"];
+        irf.C[phase_num] = irf_phase_data["coefficients"]["C"];
+        std::string functionform = irf_phase_data["function"];
+        if (functionform == "cubic") {
+            irf.D[phase_num] = irf_phase_data["coefficients"]["D"];
+            irf.function[phase_num] = irf.cubic;
+        }
+        else if ((functionform == "quadratic") || (functionform == "power") || (functionform == "exponential")) {
+            // D should not have been given, this functional form only takes 3 input fitting parameters
+            if (irf_phase_data["coefficients"]["D"] != nullptr) {
+                std::string error = "Error: functional form of this type takes only A, B, and C as inputs";
+                throw std::runtime_error(error);
+            }
+            if (functionform == "quadratic")
+                irf.function[phase_num] = irf.quadratic;
+            else if (functionform == "power")
+                irf.function[phase_num] = irf.power;
+            else if (functionform == "exponential")
+                irf.function[phase_num] = irf.exponential;
+        }
+        else
+            throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
+                                     "supported options are quadratic, cubic, power, and exponential");
+        irf.freezing_range[phase_num] = irf_phase_data["freezing_range"];
+
+        if (irf_phase_data.contains("velocity_cap"))
+            irf.velocity_cap[phase_num] = irf_phase_data["velocity_cap"];
+    }
+
+    // Get interfacial response function coefficients and freezing range from the material input file and all listed
+    // phases
     void parseIRF(const int id) {
         if (id == 0)
             std::cout << "Parsing material file using json input format" << std::endl;
         std::ifstream material_data(material_filename);
         nlohmann::json data = nlohmann::json::parse(material_data);
-        irf.A = data["coefficients"]["A"];
-        irf.B = data["coefficients"]["B"];
-        irf.C = data["coefficients"]["C"];
-        std::string functionform = data["function"];
-        if (functionform == "cubic") {
-            irf.D = data["coefficients"]["D"];
-            irf.function = irf.cubic;
-        }
-        else if ((functionform == "quadratic") || (functionform == "power")) {
-            // D should not have been given, this functional form only takes 3 input fitting parameters
-            if (data["coefficients"]["D"] != nullptr) {
-                std::string error = "Error: functional form of this type takes only A, B, and C as inputs";
-                throw std::runtime_error(error);
+
+        // Determine if this material has 1 or 2 phases
+        if (data.contains("phases")) {
+            irf.num_phases = 2;
+            // Get phase labels
+            const int num_phases_file = data["phases"].size();
+            if (num_phases_file != 2)
+                if (id == 0)
+                    throw std::runtime_error(
+                        "Error: Material file containing 'phases' list must requires two phase names");
+            irf.phase_names.push_back(data["phases"][0]);
+            irf.phase_names.push_back(data["phases"][1]);
+            // For both phases, obtain coefficients, freezing range, functional form
+            for (int phase_num = 0; phase_num < irf.num_phases; phase_num++) {
+                // IRF data for this phase
+                nlohmann::json irf_phase_data = data[irf.phase_names[phase_num]];
+                parseIRF_function_form(irf_phase_data, phase_num);
             }
-            if (functionform == "quadratic")
-                irf.function = irf.quadratic;
-            else if (functionform == "power")
-                irf.function = irf.power;
+            // Transformation rule for secondary phase -> primary phase
+            std::string transformation_read = data[irf.phase_names[1]]["transformation"];
+            if (transformation_read == "none")
+                irf.transformation = irf.none;
+            else if (transformation_read == "solidification")
+                irf.transformation = irf.solidification;
+            else if (id == 0)
+                throw std::runtime_error(
+                    "Error: transformation input for second phase must have the value 'none' or 'solidification'");
         }
-        else
-            throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
-                                     "supported options are quadratic, cubic, and exponential");
-        irf.freezing_range = data["freezing_range"];
+        else {
+            // Only using a single phase, no label
+            irf.phase_names.push_back("default");
+            // IRF data for the default phase
+            parseIRF_function_form(data);
+            // Unused second phase values
+            irf.A[1] = 0.0;
+            irf.B[1] = 0.0;
+            irf.C[1] = 0.0;
+            irf.freezing_range[1] = 0.0;
+        }
+
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Successfully parsed material input file" << std::endl;

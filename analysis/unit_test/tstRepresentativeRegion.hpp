@@ -84,10 +84,12 @@ void testConstructRepresentativeRegion_Volume() {
     std::vector<double> xyz_bounds = {x_min, y_min, z_min, x_max, y_max, z_max};
     // View for storing grain ID data
     Kokkos::View<int ***, Kokkos::HostSpace> grain_id(Kokkos::ViewAllocateWithoutInitializing("grain_id"), nz, nx, ny);
+    Kokkos::View<short ***, Kokkos::HostSpace> phase_id(Kokkos::ViewAllocateWithoutInitializing("phase_id"), nz, nx,
+                                                        ny);
 
     // Construct region
     RepresentativeRegion representativeregion(AnalysisData, "RepresentativeVolume", nx, ny, nz, deltax, xyz_bounds,
-                                              grain_id);
+                                              grain_id, phase_id);
 
     // Check results
     EXPECT_TRUE(representativeregion.region_type == "volume");
@@ -156,10 +158,12 @@ void testConstructRepresentativeRegion_Area() {
     std::vector<double> xyz_bounds = {x_min, y_min, z_min, x_max, y_max, z_max};
     // View for storing grain ID data
     Kokkos::View<int ***, Kokkos::HostSpace> grain_id(Kokkos::ViewAllocateWithoutInitializing("grain_id"), nz, nx, ny);
+    Kokkos::View<short ***, Kokkos::HostSpace> phase_id(Kokkos::ViewAllocateWithoutInitializing("phase_id"), nz, nx,
+                                                        ny);
 
     // Construct region
     RepresentativeRegion representativeregion(analysis_data, "RepresentativeArea", nx, ny, nz, deltax, xyz_bounds,
-                                              grain_id);
+                                              grain_id, phase_id);
 
     // Check results
     EXPECT_TRUE(representativeregion.region_type == "area");
@@ -217,6 +221,9 @@ void testCollectGrainStats() {
 
     // View for storing grain ID data
     Kokkos::View<int ***, Kokkos::HostSpace> grain_id(Kokkos::ViewAllocateWithoutInitializing("grain_id"), nz, nx, ny);
+    Kokkos::View<short ***, Kokkos::HostSpace> phase_id(Kokkos::ViewAllocateWithoutInitializing("phase_id"), nz, nx,
+                                                        ny);
+
     // Assign grain ID using the Z coordinate
     for (int k = 0; k < nz; k++) {
         for (int i = 0; i < nx; i++) {
@@ -230,7 +237,7 @@ void testCollectGrainStats() {
     std::ifstream analysis_data_stream("TestVolume.json");
     nlohmann::json analysis_data = nlohmann::json::parse(analysis_data_stream);
     RepresentativeRegion representativeregion(analysis_data, "RepresentativeVolume", nx, ny, nz, deltax, xyz_bounds,
-                                              grain_id);
+                                              grain_id, phase_id);
 
     // Check results of grain ID vector (50 of each grain ID should exist)
     EXPECT_EQ(representativeregion.region_size_cells, nx * (ny - 1) * (nz - 2));

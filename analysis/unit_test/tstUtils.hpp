@@ -74,6 +74,8 @@ void testInitializeData(const bool write_binary_vtk, const bool read_write_layer
                                                              nx, ny);
     Kokkos::View<int ***, Kokkos::HostSpace> grain_id_read(Kokkos::ViewAllocateWithoutInitializing("grain_id_r"), nz,
                                                            nx, ny);
+    Kokkos::View<short ***, Kokkos::HostSpace> phase_id_read(Kokkos::ViewAllocateWithoutInitializing("phase_id_r"), nz,
+                                                             nx, ny);
 
     // Write microstructure header data to test file
     std::string microstructure_file = "TestMicrostructure.vtk";
@@ -106,7 +108,7 @@ void testInitializeData(const bool write_binary_vtk, const bool read_write_layer
 
     // Check that fields can be initialized correctly
     bool found_layer_id = false;
-    initializeData(microstructure_file, nx, ny, nz, grain_id_read, layer_id_read, found_layer_id);
+    initializeData(microstructure_file, nx, ny, nz, grain_id_read, layer_id_read, phase_id_read, found_layer_id);
     if (read_write_layer_id)
         EXPECT_TRUE(found_layer_id);
     else
@@ -118,6 +120,8 @@ void testInitializeData(const bool write_binary_vtk, const bool read_write_layer
                 if (read_write_layer_id) {
                     EXPECT_EQ(layer_id_read(coord_z, coord_x, coord_y), layer_id_write(coord_z, coord_x, coord_y));
                 }
+                // For single phase w/o phase id data printed, should be initialized to zeros
+                EXPECT_EQ(phase_id_read(coord_z, coord_x, coord_y), 0.0);
             }
         }
     }
