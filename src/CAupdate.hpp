@@ -237,77 +237,58 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                 const float z0 = zp - czold;
 
                                 // Calculate unit vectors for the octahedron that intersect the new cell center
-                                const int angle_1_neg =
+                                const int angle_1_pos =
                                     ((orientation.grain_unit_vector(9 * my_orientation) * x0 +
                                       orientation.grain_unit_vector(9 * my_orientation + 1) * y0 +
-                                      orientation.grain_unit_vector(9 * my_orientation + 2) * z0) < 0);
-                                const int angle_2_neg =
+                                      orientation.grain_unit_vector(9 * my_orientation + 2) * z0) > 0);
+                                const int angle_2_pos =
                                     ((orientation.grain_unit_vector(9 * my_orientation + 3) * x0 +
                                       orientation.grain_unit_vector(9 * my_orientation + 4) * y0 +
-                                      orientation.grain_unit_vector(9 * my_orientation + 5) * z0) < 0);
-                                const int angle_3_neg =
+                                      orientation.grain_unit_vector(9 * my_orientation + 5) * z0) > 0);
+                                const int angle_3_pos =
                                     ((orientation.grain_unit_vector(9 * my_orientation + 6) * x0 +
                                       orientation.grain_unit_vector(9 * my_orientation + 7) * y0 +
-                                      orientation.grain_unit_vector(9 * my_orientation + 8) * z0) < 0);
+                                      orientation.grain_unit_vector(9 * my_orientation + 8) * z0) > 0);
                                 const float diag_1x =
-                                    orientation.grain_unit_vector(9 * my_orientation) * (2 * angle_1_neg - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation) * (2 * angle_1_pos - 1);
                                 const float diag_1y =
-                                    orientation.grain_unit_vector(9 * my_orientation + 1) * (2 * angle_1_neg - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 1) * (2 * angle_1_pos - 1);
                                 const float diag_1z =
-                                    orientation.grain_unit_vector(9 * my_orientation + 2) * (2 * angle_1_neg - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 2) * (2 * angle_1_pos - 1);
 
                                 const float diag_2x =
-                                    orientation.grain_unit_vector(9 * my_orientation + 3) * (2 * angle_2_neg - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 3) * (2 * angle_2_pos - 1);
                                 const float diag_2y =
-                                    orientation.grain_unit_vector(9 * my_orientation + 4) * (2 * angle_2_neg - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 4) * (2 * angle_2_pos - 1);
                                 const float diag_2z =
-                                    orientation.grain_unit_vector(9 * my_orientation + 5) * (2 * angle_2_neg - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 5) * (2 * angle_2_pos - 1);
 
                                 const float diag_3x =
-                                    orientation.grain_unit_vector(9 * my_orientation + 6) * (2 * angle_3_neg - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 6) * (2 * angle_3_pos - 1);
                                 const float diag_3y =
-                                    orientation.grain_unit_vector(9 * my_orientation + 7) * (2 * angle_3_neg - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 7) * (2 * angle_3_pos - 1);
                                 const float diag_3z =
-                                    orientation.grain_unit_vector(9 * my_orientation + 8) * (2 * angle_3_neg - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 8) * (2 * angle_3_pos - 1);
 
-                                // Get the normal vector to the plane normal to the capturing face of the octahedron by
-                                // taking the cross-product
-                                const float in_plane_1_x = diag_2x - diag_1x;
-                                const float in_plane_1_y = diag_2y - diag_1y;
-                                const float in_plane_1_z = diag_2z - diag_1z;
-                                const float in_plane_2_x = diag_3x - diag_1x;
-                                const float in_plane_2_y = diag_3y - diag_1y;
-                                const float in_plane_2_z = diag_3z - diag_1z;
-                                const float normal_plane_x = in_plane_1_y * in_plane_2_z - in_plane_1_z * in_plane_2_y;
-                                const float normal_plane_y = in_plane_1_z * in_plane_2_x - in_plane_1_x * in_plane_2_z;
-                                const float normal_plane_z = in_plane_1_x * in_plane_2_y - in_plane_1_y * in_plane_2_x;
-                                const float normal_vec_mag =
-                                    Kokkos::hypot(normal_plane_x, normal_plane_y, normal_plane_z);
-                                const float normalized_vec_x = normal_plane_x / normal_vec_mag;
-                                const float normalized_vec_y = normal_plane_y / normal_vec_mag;
-                                const float normalized_vec_z = normal_plane_z / normal_vec_mag;
                                 // The capturing face of the octahedron is a triangle, with 3 (x,y,z) coordinates
-                                // representing the vertices. These vertices are located a distance "triangle_dist" from
-                                // the old octahedron center along the unit vector directions (normalized by
-                                // norm_vec_mag)
-                                const float triangle_dist =
-                                    (normalized_vec_x * x0 + normalized_vec_y * y0 + normalized_vec_z * z0) /
-                                    (normalized_vec_x * diag_1x + normalized_vec_y * diag_1y +
-                                     normalized_vec_z * diag_1z);
+                                // representing the vertices. These vertices are located a distance equivalent to the
+                                // critical diagonal length for cell capture from the old octahedron center along the
+                                // unit vector directions
                                 float triangle_x[3], triangle_y[3], triangle_z[3];
+                                const float crit_diagonal_length_capture =
+                                    interface.crit_diagonal_length(26 * index + l);
 
-                                triangle_x[0] = cxold + triangle_dist * diag_1x;
-                                triangle_y[0] = cyold + triangle_dist * diag_1y;
-                                triangle_z[0] = czold + triangle_dist * diag_1z;
+                                triangle_x[0] = cxold + crit_diagonal_length_capture * diag_1x;
+                                triangle_y[0] = cyold + crit_diagonal_length_capture * diag_1y;
+                                triangle_z[0] = czold + crit_diagonal_length_capture * diag_1z;
 
-                                triangle_x[1] = cxold + triangle_dist * diag_2x;
-                                triangle_y[1] = cyold + triangle_dist * diag_2y;
-                                triangle_z[1] = czold + triangle_dist * diag_2z;
+                                triangle_x[1] = cxold + crit_diagonal_length_capture * diag_2x;
+                                triangle_y[1] = cyold + crit_diagonal_length_capture * diag_2y;
+                                triangle_z[1] = czold + crit_diagonal_length_capture * diag_2z;
 
-                                triangle_x[2] = cxold + triangle_dist * diag_3x;
-                                triangle_y[2] = cyold + triangle_dist * diag_3y;
-                                triangle_z[2] = czold + triangle_dist * diag_3z;
-
+                                triangle_x[2] = cxold + crit_diagonal_length_capture * diag_3x;
+                                triangle_y[2] = cyold + crit_diagonal_length_capture * diag_3y;
+                                triangle_z[2] = czold + crit_diagonal_length_capture * diag_3z;
                                 // Determine which of the 3 corners of the capturing face is closest to the captured
                                 // cell center
                                 float dist_to_corner[3];
