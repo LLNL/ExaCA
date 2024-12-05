@@ -80,6 +80,8 @@ void testHaloUpdate() {
         grid.y_offset = 3 * (id - 1) + 2;
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
+    grid.layer_range = std::make_pair(grid.nx * grid.ny_local * grid.z_layer_bottom,
+                                      grid.nx * grid.ny_local * grid.z_layer_bottom + grid.domain_size);
 
     // Initialize grain orientations
     std::string grain_orientation_file = checkFileInstalled("GrainOrientationVectors.csv", id);
@@ -267,6 +269,8 @@ void testResizeRefillBuffers() {
     grid.nz_layer = 10;
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
+    grid.layer_range = std::make_pair(grid.nx * grid.ny_local * grid.z_layer_bottom,
+                                      grid.nx * grid.ny_local * grid.z_layer_bottom + grid.domain_size);
     int n_grain_orientations = 10000;
 
     // Allocate device views: entire domain on each rank
@@ -502,6 +506,8 @@ void testFillSteeringVector_Remelt() {
     grid.nz_layer = 3;
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
+    grid.layer_range = std::make_pair(grid.nx * grid.ny_local * grid.z_layer_bottom,
+                                      grid.nx * grid.ny_local * grid.z_layer_bottom + grid.domain_size);
 
     // default inputs struct
     Inputs inputs;
