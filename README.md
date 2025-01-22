@@ -1,7 +1,27 @@
 # ExaCA
-## An exascale-capable cellular automaton for nucleation and grain growth
+An exascale-capable cellular automaton for nucleation and grain growth
 ExaCA is a cellular automata (CA) code for grain growth under additive
 manufacturing conditions, created by ExaAM within the Exascale Computing Project.
+
+## License
+
+ExaCA is distributed under an [MIT license](LICENSE).
+
+## Citing ExaCA
+
+If you use ExaCA in your work, please cite the following [paper](CITATION.bib).
+In addition, cite the current release or version used from
+[Zenodo](https://doi.org/10.5281/zenodo.6908176).
+
+### Publications using ExaCA
+
+In addition to the primary ExaCA [citation](CITATION.bib),
+[this list of articles](PUBLICATIONS.bib) use ExaCA in their work.
+
+## Contributing
+
+We encourage you to contribute to ExaCA. Please check the
+[contribution guidelines](CONTRIBUTING.md).
 
 ## Build
 ExaCA uses Kokkos and MPI for parallelism and JSON for input files.
@@ -168,7 +188,7 @@ After building, tests can be run with `cmake --build build --target test` from t
 
 ## Running ExaCA
 
-ExaCA runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - a separate `examples/README.md` file goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
+ExaCA runs using an input file, passed on the command line. Example problems are provided in the `examples/` directory - a separate [examples/README.md](examples/README.md) file goes into more detail on the problem types, the optional and required arguments needed for each problem type, and additional files used by ExaCA. The example input files present in this repository are:
  * `Inp_DirSolidification.json`: simulates grain growth from a surface with a fixed thermal gradient and cooling rate
  * `Inp_SmallDirSolidification.json`: a smaller and simpler version of the previous
  * `Inp_SpotMelt.json`: simulates overlapping spot melts with fixed a fixed thermal gradient and cooling rate
@@ -188,20 +208,13 @@ Alternatively, the `Finch-ExaCA` executable can be used for coupled Finch-ExaCA 
  * `Inp_Finch.json`: simulates melting and solidification of a small melt pool segment at a fine resolution, repeated for 3 layers
  * `Inp_FinchTranslate.json`: simulates melting and solidification of the small melt pool segment at the fine resolution translated in space to form 3 overlapping segments
 
-For coupled Finch-ExaCA runs, caution should be taken such that the cell size given in the CA input file matches that given in the Finch input file. Additionally, `scan_path_file` in the Finch input file (for `Inp_Finch.json` and `Inp_FinchTranslate.json`, this is `examples/single_line/inputs_small_refined.json` in the Finch repository and for `Inp_SmallFinch.json`, this is `examples/single_line/inputs_small.json` in the Finch repository) should be modified to represent a global path name. Run by calling the created executable with a Finch input file and an ExaCA input file on the command line, with the Finch input file listed first:
+For coupled Finch-ExaCA runs, caution should be taken such that the cell size given in the CA input file matches that given in the Finch input file. Additionally, `scan_path_file` in the Finch input file (e.g. for `Inp_Finch.json` this is `examples/single_line/inputs_small_refined.json` in the Finch repository) should be modified to represent a global path name. Run by calling the created executable with a Finch input file and an ExaCA input file on the command line, with the Finch input file listed first:
 
 mpiexec -n 1 ./build/install/bin/Finch-ExaCA $PATH_TO_FINCH/examples/single_line/inputs_small.json examples/Inp_SmallFinch.json
 
-## Automated input file generation using Tasmanian (https://tasmanian.ornl.gov/)
-Within the `utilities` directory, an example python script for the generation of an ensemble of input files is available. By running the example script `TasmanianTest.py`, 69 ExaCA input files are generated with a range of heterogeneous nucleation density, mean nucleation undercooling, and mean substrate grain size values, based on the ranges in python code (N0Min-N0Max, dTNMin-dTNMax, and S0Min-S0Max), respectively. Running the python script from the ExaCA source directory, via the command
-```
-python utilities/TasmanianTest.py PathToTemperatureFile1 PathToTemperatureFile2 ...
-```
-the script will generate an ensemble of input files in the `examples` directory, for a series of simulations that will use the thermal history or histories described in `PathToTemperatureFile1(s)` being repeated for a certain number of layers (56 in this example). If a simulation repeating multiple thermal histories is desired (for example, and even layer and an odd layer scan pattern), both paths to/file names of the thermal history data should be given on the command line. Running this code will generate N = 1 to 69 input files named `examples/Inp_TasmanianTest_[N].json`. Other CA inputs, such as the time step or cell size, must be adjusted manually inside of the python script. Separate instances of ExaCA can be run with each ensemble member to probe microstructure dependency on nucleation and substrate.
-
 ## Output and post-processing analysis
 
-As detailed further in `examples/README.md`, ExaCA can print output fields from the simulation at either a specified increment during a simulation (or during a given layer of a multilayer problem), or at the end of the simulation (or after specified layers of a multilayer problem). A list of output options is given below, along with descriptions and whether each field is stored for all layers of a multilayer problem or only the current simulated layer.
+As detailed further in [examples/README.md](examples/README.md), ExaCA can print output fields from the simulation at either a specified increment during a simulation (or during a given layer of a multilayer problem), or at the end of the simulation (or after specified layers of a multilayer problem). A list of output options is given below, along with descriptions and whether each field is stored for all layers of a multilayer problem or only the current simulated layer.
 
 | Output field | Stored for | Details |
 |--------------| -----------|---------|
@@ -224,29 +237,17 @@ Analysis of ExaCA vtk data from the final state of a problem can be performed if
 ```
 ./build/install/bin/ExaCA-GrainAnalysis analysis/examples/AnalyzeDirS.json TestProblemDirS
 ```
-Within the `analysis/examples` directory, there are example analysis input files. Note that the microstructure data files `TestProblemDirS.vtk` and `TestProblemDirS.json` must both be in the location given on the command line. 
+Within the [analysis/examples/](analysis/examples/) directory, there are example analysis input files. Note that the microstructure data files `TestProblemDirS.vtk` and `TestProblemDirS.json` must both be in the location given on the command line.
 
-The analysis executable, in addition to outputting grain statistics, can also output files that can be further post-processing in Matlab using the MTEX toolbox to generate pole figures, inverse pole figures, and inverse pole figure-colored cross-sections. More details on this are provided in `analysis/README.md`
+The analysis executable, in addition to outputting grain statistics, can also output files that can be further post-processing in Matlab using the MTEX toolbox to generate pole figures, inverse pole figures, and inverse pole figure-colored cross-sections. More details on this are provided in [analysis/README.md](analysis/README.md)
 
-## Citing ExaCA
+## Automated input file generation using Tasmanian (https://tasmanian.ornl.gov/)
 
-If you use ExaCA in your work, please cite the following [paper](CITATION.bib).
-In addition, cite the current release or version used from
-[Zenodo](https://doi.org/10.5281/zenodo.6908176).
-
-### Publications using ExaCA
-
-In addition to the primary ExaCA [citation](CITATION.bib),
-[this list of articles](PUBLICATIONS.bib) use ExaCA in their work.
-
-## Contributing
-
-We encourage you to contribute to ExaCA. Please check the
-[contribution guidelines](CONTRIBUTING.md).
-
-## License
-
-ExaCA is distributed under an [MIT license](LICENSE).
+Within the [utilities/](utilities/) directory, an example python script for the generation of an ensemble of input files is available. By running the example script `TasmanianTest.py`, 69 ExaCA input files are generated with a range of heterogeneous nucleation density, mean nucleation undercooling, and mean substrate grain size values, based on the ranges in python code (N0Min-N0Max, dTNMin-dTNMax, and S0Min-S0Max), respectively. Running the python script from the ExaCA source directory, via the command
+```
+python utilities/TasmanianTest.py PathToTemperatureFile1 PathToTemperatureFile2 ...
+```
+the script will generate an ensemble of input files in the `examples` directory, for a series of simulations that will use the thermal history or histories described in `PathToTemperatureFile1(s)` being repeated for a certain number of layers (56 in this example). If a simulation repeating multiple thermal histories is desired (for example, and even layer and an odd layer scan pattern), both paths to/file names of the thermal history data should be given on the command line. Running this code will generate N = 1 to 69 input files named `examples/Inp_TasmanianTest_[N].json`. Other CA inputs, such as the time step or cell size, must be adjusted manually inside of the python script. Separate instances of ExaCA can be run with each ensemble member to probe microstructure dependency on nucleation and substrate.
 
 ## Release
 
