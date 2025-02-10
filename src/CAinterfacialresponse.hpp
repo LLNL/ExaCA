@@ -53,6 +53,7 @@ struct InterfacialResponseFunction {
     KOKKOS_INLINE_FUNCTION
     float compute(const float loc_u, const int phase_num = 0) const {
         float V;
+        assert(phase_num < _inputs.num_phases);
         if (_inputs.function[phase_num] == _inputs.quadratic)
             V = _inputs.A[phase_num] * Kokkos::pow(loc_u, 2.0) + _inputs.B[phase_num] * loc_u + _inputs.C[phase_num];
         else if (_inputs.function[phase_num] == _inputs.power)
