@@ -76,15 +76,20 @@ struct InterfacialResponseFunction {
         return "none";
     }
 
-    // Get the solid phase based on the faster growing phase at the input undercooling loc_u
+    // Get the solid phase based on the faster growing phase at the input undercooling loc_u. If this is a single phase
+    // problem, return 0 for the default phase
     KOKKOS_INLINE_FUNCTION
     int getPreferredPhase_Nucleation(const float loc_u) const {
-        const double V_p0 = compute(loc_u, 0);
-        const double V_p1 = compute(loc_u, 1);
-        if (V_p0 > V_p1)
+        if (_inputs.num_phases == 1)
             return 0;
-        else
-            return 1;
+        else {
+            const double V_p0 = compute(loc_u, 0);
+            const double V_p1 = compute(loc_u, 1);
+            if (V_p0 > V_p1)
+                return 0;
+            else
+                return 1;
+        }
     }
 
     // Get the solid phase based on the number of phases in the material and the input transformation rule
