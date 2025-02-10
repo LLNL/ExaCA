@@ -258,26 +258,34 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                     ((orientation.grain_unit_vector(9 * my_orientation + 6, my_phase_id) * x0 +
                                       orientation.grain_unit_vector(9 * my_orientation + 7, my_phase_id) * y0 +
                                       orientation.grain_unit_vector(9 * my_orientation + 8, my_phase_id) * z0) > 0);
-                                const float diag_1x =
-                                    orientation.grain_unit_vector(9 * my_orientation, my_phase_id) * (2 * angle_1_pos - 1);
+                                const float diag_1x = orientation.grain_unit_vector(9 * my_orientation, my_phase_id) *
+                                                      (2 * angle_1_pos - 1);
                                 const float diag_1y =
-                                    orientation.grain_unit_vector(9 * my_orientation + 1, my_phase_id) * (2 * angle_1_pos - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 1, my_phase_id) *
+                                    (2 * angle_1_pos - 1);
                                 const float diag_1z =
-                                    orientation.grain_unit_vector(9 * my_orientation + 2, my_phase_id) * (2 * angle_1_pos - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 2, my_phase_id) *
+                                    (2 * angle_1_pos - 1);
 
                                 const float diag_2x =
-                                    orientation.grain_unit_vector(9 * my_orientation + 3, my_phase_id) * (2 * angle_2_pos - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 3, my_phase_id) *
+                                    (2 * angle_2_pos - 1);
                                 const float diag_2y =
-                                    orientation.grain_unit_vector(9 * my_orientation + 4, my_phase_id) * (2 * angle_2_pos - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 4, my_phase_id) *
+                                    (2 * angle_2_pos - 1);
                                 const float diag_2z =
-                                    orientation.grain_unit_vector(9 * my_orientation + 5, my_phase_id) * (2 * angle_2_pos - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 5, my_phase_id) *
+                                    (2 * angle_2_pos - 1);
 
                                 const float diag_3x =
-                                    orientation.grain_unit_vector(9 * my_orientation + 6, my_phase_id) * (2 * angle_3_pos - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 6, my_phase_id) *
+                                    (2 * angle_3_pos - 1);
                                 const float diag_3y =
-                                    orientation.grain_unit_vector(9 * my_orientation + 7, my_phase_id) * (2 * angle_3_pos - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 7, my_phase_id) *
+                                    (2 * angle_3_pos - 1);
                                 const float diag_3z =
-                                    orientation.grain_unit_vector(9 * my_orientation + 8, my_phase_id) * (2 * angle_3_pos - 1);
+                                    orientation.grain_unit_vector(9 * my_orientation + 8, my_phase_id) *
+                                    (2 * angle_3_pos - 1);
 
                                 // The capturing face of the octahedron is a triangle, with 3 (x,y,z) coordinates
                                 // representing the vertices. These vertices are located a distance equivalent to the
