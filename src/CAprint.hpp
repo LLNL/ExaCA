@@ -227,7 +227,7 @@ struct Print {
             }
             if (_inputs.intralayer_layer_id) {
                 auto layer_id_current_layer = celldata.getLayerIDSubview(grid);
-                auto layer_id_whole_domain = collectViewData(id, np, grid, true, MPI_INT, layer_id_current_layer);
+                auto layer_id_whole_domain = collectViewData(id, np, grid, true, MPI_SHORT, layer_id_current_layer);
                 printViewData(id, intralayer_ofstream, grid, true, "short", "LayerID", layer_id_whole_domain);
             }
             if (_inputs.intralayer_phase_id) {
@@ -365,7 +365,7 @@ struct Print {
                                   grain_id_all_layers_whole_domain);
                 if (_inputs.interlayer_layer_id) {
                     auto layer_id_all_layers_whole_domain =
-                        collectViewData(id, np, grid, false, MPI_INT, celldata.layer_id_all_layers);
+                        collectViewData(id, np, grid, false, MPI_SHORT, celldata.layer_id_all_layers);
                     printViewData(id, interlayer_all_layers_ofstream, grid, false, "short", "LayerID",
                                   layer_id_all_layers_whole_domain);
                 }
