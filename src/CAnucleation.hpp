@@ -10,6 +10,7 @@
 #include "CAgrid.hpp"
 #include "CAinputs.hpp"
 #include "CAinterface.hpp"
+#include "CAinterfacialresponse.hpp"
 #include "CAtemperature.hpp"
 
 #include "mpi.h"
@@ -47,7 +48,7 @@ struct Nucleation {
     // The time steps at which nucleation events will occur in the given layer, on the host
     view_type_int_host nucleation_times_host;
     // The locations and grain IDs of the potential nuclei in the layer
-    view_type_int nuclei_locations, nuclei_grain_id;
+    view_type_int nuclei_locations, nuclei_grain_id, nuclei_phase_id;
     // Nucleation inputs from file
     NucleationInputs _inputs;
 
@@ -61,6 +62,8 @@ struct Nucleation {
         , nuclei_locations(view_type_int(Kokkos::ViewAllocateWithoutInitializing("NucleiLocations"),
                                          estimated_nuclei_this_rank_this_layer))
         , nuclei_grain_id(view_type_int(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID"),
+                                        estimated_nuclei_this_rank_this_layer))
+        , nuclei_phase_id(view_type_int(Kokkos::ViewAllocateWithoutInitializing("NucleiPhaseID"),
                                         estimated_nuclei_this_rank_this_layer))
         , _inputs(inputs) {
 
@@ -80,8 +83,8 @@ struct Nucleation {
     // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur,
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
     template <class... Params>
-    void placeNuclei(const Temperature<memory_space> &temperature, const unsigned long rng_seed, const int layernumber,
-                     const Grid &grid, const int id) {
+    void placeNuclei(const Temperature<memory_space> &temperature, const InterfacialResponseFunction &irf,
+                     const unsigned long rng_seed, const int layernumber, const Grid &grid, const int id) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
@@ -165,7 +168,8 @@ struct Nucleation {
         // nucleation event is associated with a CA cell on that MPI rank's subdomain, the cell is liquid type, and the
         // cell is associated with the current layer of the multilayer problem) Don't put nuclei in "ghost" cells -
         // those nucleation events occur on other ranks and the existing halo exchange functionality will handle this
-        std::vector<int> nuclei_grain_id_myrank_v(nuclei_this_layer), nuclei_location_myrank_v(nuclei_this_layer);
+        std::vector<int> nuclei_grain_id_myrank_v(nuclei_this_layer), nuclei_location_myrank_v(nuclei_this_layer),
+            nuclei_phase_id_myrank_v(nuclei_this_layer);
         // Store nucleation times as doubles to correctly order events in times, then convert to time steps later
         std::vector<double> nucleation_times_myrank_v(nuclei_this_layer);
         for (int meltevent = 0; meltevent < nuclei_multiplier; meltevent++) {
@@ -194,6 +198,9 @@ struct Nucleation {
                         if (liq_time_this_event > time_to_nuc_und)
                             time_to_nuc_und = liq_time_this_event;
                         nucleation_times_myrank_v[possible_nuclei] = time_to_nuc_und;
+                        // Based on the nucleation undercooling, assign a solidification phase for the grain
+                        nuclei_phase_id_myrank_v[possible_nuclei] =
+                            irf.getPreferredPhase_Nucleation(nuclei_undercooling_whole_domain_v[n_event]);
                         // Assign this cell the potential nucleated grain ID
                         nuclei_grain_id_myrank_v[possible_nuclei] = nuclei_grain_id_whole_domain_v[n_event];
                         // Increment counter on this MPI rank
@@ -215,14 +222,15 @@ struct Nucleation {
         nuclei_location_myrank_v.resize(possible_nuclei);
         nuclei_grain_id_myrank_v.resize(possible_nuclei);
         nucleation_times_myrank_v.resize(possible_nuclei);
+        nuclei_phase_id_myrank_v.resize(possible_nuclei);
 
         // Sort the list of time steps at which nucleation occurs, keeping the time steps paired with the corresponding
         // locations for nucleation events and grain IDs
-        std::vector<std::tuple<double, int, int>> nucleation_time_loc_id;
+        std::vector<std::tuple<double, int, int, int>> nucleation_time_loc_id;
         nucleation_time_loc_id.reserve(possible_nuclei);
         for (int n = 0; n < possible_nuclei; n++) {
             nucleation_time_loc_id.push_back(std::make_tuple(nucleation_times_myrank_v[n], nuclei_location_myrank_v[n],
-                                                             nuclei_grain_id_myrank_v[n]));
+                                                             nuclei_grain_id_myrank_v[n], nuclei_phase_id_myrank_v[n]));
         }
         // Sorting from low to high
         std::sort(nucleation_time_loc_id.begin(), nucleation_time_loc_id.end());
@@ -231,6 +239,7 @@ struct Nucleation {
         Kokkos::resize(nucleation_times_host, possible_nuclei);
         Kokkos::resize(nuclei_locations, possible_nuclei);
         Kokkos::resize(nuclei_grain_id, possible_nuclei);
+        Kokkos::resize(nuclei_phase_id, possible_nuclei);
 
         // Create temporary view to store nucleation locations, grain ID data initialized on the host
         // nucleation_times_host are stored using a host view that is passed to the nucleateGrain subroutine and later
@@ -239,16 +248,20 @@ struct Nucleation {
                                                  possible_nuclei);
         view_type_int_host nuclei_grain_id_host(Kokkos::ViewAllocateWithoutInitializing("NucleiGrainID_Host"),
                                                 possible_nuclei);
+        view_type_int_host nuclei_phase_id_host(Kokkos::ViewAllocateWithoutInitializing("NucleiPhaseID_Host"),
+                                                possible_nuclei);
         for (int n = 0; n < possible_nuclei; n++) {
             double nucleation_time = std::get<0>(nucleation_time_loc_id[n]);
             // Convert nucleation time to a time step
             nucleation_times_host(n) = Kokkos::round(nucleation_time);
             nuclei_locations_host(n) = std::get<1>(nucleation_time_loc_id[n]);
             nuclei_grain_id_host(n) = std::get<2>(nucleation_time_loc_id[n]);
+            nuclei_phase_id_host(n) = std::get<3>(nucleation_time_loc_id[n]);
         }
         // Copy nucleation data to the device
         nuclei_locations = Kokkos::create_mirror_view_and_copy(memory_space(), nuclei_locations_host);
         nuclei_grain_id = Kokkos::create_mirror_view_and_copy(memory_space(), nuclei_grain_id_host);
+        nuclei_phase_id = Kokkos::create_mirror_view_and_copy(memory_space(), nuclei_phase_id_host);
         MPI_Barrier(MPI_COMM_WORLD);
         if (id == 0)
             std::cout << "Nuclei initialized" << std::endl;
@@ -260,6 +273,7 @@ struct Nucleation {
                        Interface<memory_space> interface) {
 
         auto grain_id = celldata.getGrainIDSubview(grid);
+        auto phase_id = celldata.getPhaseIDSubview(grid);
 
         // Is there nucleation left in this layer to check?
         if (nucleation_counter < possible_nuclei) {
@@ -283,6 +297,7 @@ struct Nucleation {
                 int nucleation_this_dt = 0; // return number of successful event from parallel_reduce
                 auto nuclei_locations_local = nuclei_locations;
                 auto nuclei_grain_id_local = nuclei_grain_id;
+                auto nuclei_phase_id_local = nuclei_phase_id;
 
                 // Launch kokkos kernel - check if the corresponding CA cell location is liquid
                 auto policy = Kokkos::RangePolicy<execution_space>(first_event, last_event);
@@ -305,6 +320,7 @@ struct Nucleation {
                             // This cell was not at the edge of the temperature field - set indicator to false if this
                             // is being tracked
                             celldata.setMeltEdge(nucleation_event_location, false);
+                            phase_id(nucleation_event_location) = nuclei_phase_id_local(nucleation_counter_device);
                             update++;
                         }
                     },
