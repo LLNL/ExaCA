@@ -13,7 +13,7 @@ jobs:
       matrix:
         backend: ["OPENMP", "SERIAL"]
         kokkos_ver: ["develop"]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     container: ghcr.io/ecp-copa/ci-containers/ubuntu:latest
     steps:
