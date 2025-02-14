@@ -55,7 +55,7 @@ jobs:
             kokkos_ver: '4.0.01'
             json: External
             heat_transfer: 'Finch'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     container: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     continue-on-error: ${{ matrix.distro == 'ubuntu:intel' }}
@@ -181,7 +181,7 @@ jobs:
         cmake_build_type: ['Release']
         # Using >4.0 because of kokkos build error without available device
         kokkos_ver: ['4.2.00']
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     container: ghcr.io/ecp-copa/ci-containers/rocm:latest
     steps:
       - name: Checkout json
@@ -241,7 +241,7 @@ jobs:
         cxx: ['nvcc']
         cmake_build_type: ['Release']
         kokkos_ver: ['4.0.01']
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     container: ghcr.io/ecp-copa/ci-containers/cuda:12.2.0
     steps:
       - name: Checkout json
