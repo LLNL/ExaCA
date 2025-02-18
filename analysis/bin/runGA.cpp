@@ -60,11 +60,12 @@ int main(int argc, char *argv[]) {
         std::cout << "Performing analysis of " << microstructure_file << " , using the log file " << log_file
                   << " and the options specified in " << analysis_file << std::endl;
 
-        std::string grain_unit_vector_file;
+        std::vector<std::string> grain_unit_vector_file, phase_names;
         double deltax;
-        int nx, ny, nz, number_of_layers;
+        int nx, ny, nz, number_of_layers, num_phases;
         std::vector<double> xyz_bounds(6);
-        parseLogFile(log_file, nx, ny, nz, deltax, number_of_layers, xyz_bounds, grain_unit_vector_file, false);
+        parseLogFile(log_file, nx, ny, nz, deltax, number_of_layers, xyz_bounds, grain_unit_vector_file, phase_names,
+                     num_phases, false);
         std::cout << "Parsed log file" << std::endl;
 
         // Allocate memory blocks for grain_id and layer_id data
@@ -72,16 +73,19 @@ int main(int argc, char *argv[]) {
                                                           ny);
         Kokkos::View<short ***, Kokkos::HostSpace> layer_id(Kokkos::ViewAllocateWithoutInitializing("layer_id"), nz, nx,
                                                             ny);
+        Kokkos::View<short ***, Kokkos::HostSpace> phase_id(Kokkos::ViewAllocateWithoutInitializing("phase_id"), nz, nx,
+                                                            ny);
+
         // Whether layer_id was given in the microstructure file
         bool found_layer_id = false;
 
         // Fill arrays with data from paraview file
-        initializeData(microstructure_file, nx, ny, nz, grain_id, layer_id, found_layer_id);
+        initializeData(microstructure_file, nx, ny, nz, grain_id, layer_id, phase_id, found_layer_id);
         std::cout << "Parsed ExaCA grain structure" << std::endl;
 
         // Grain unit vectors, grain euler angles, RGB colors for IPF-Z coloring
         // (9*NumberOfOrientations,  3*NumberOfOrientations, and 3*NumberOfOrientations in size, respectively)
-        Orientation<memory_space> orientation(0, grain_unit_vector_file, true);
+        Orientation<memory_space> orientation(0, grain_unit_vector_file, true, num_phases);
         std::cout << "Parsed orientation files" << std::endl;
 
         // Representative region creation
@@ -94,7 +98,7 @@ int main(int argc, char *argv[]) {
             // Create region
             std::string region_name = it.key();
             RepresentativeRegion representativeregion(analysis_data, region_name, nx, ny, nz, deltax, xyz_bounds,
-                                                      grain_id);
+                                                      grain_id, phase_id);
             std::string base_filename_this_region = base_filename + "_" + region_name;
 
             // Output file stream for quantities of interest
@@ -171,15 +175,15 @@ int main(int argc, char *argv[]) {
 
             // Pole figure print a file named "[base_filename_this_region]_PoleFigureData.txt"
             if (representativeregion.print_pole_figure_yn) {
-                auto go_histogram = representativeregion.getOrientationHistogram(orientation.n_grain_orientations,
-                                                                                 grain_id, layer_id, found_layer_id);
+                auto go_histogram = representativeregion.getOrientationHistogram(
+                    orientation.n_grain_orientations, grain_id, layer_id, phase_id, num_phases, found_layer_id);
                 representativeregion.writePoleFigure(base_filename_this_region, orientation, go_histogram);
             }
 
             // IPF map for area print a file named "[base_filename_this_region]_IPFCrossSectionData.txt"
             if (representativeregion.print_inverse_pole_figure_map_yn) {
-                representativeregion.writeIPFColoredCrossSection(base_filename_this_region, grain_id, orientation,
-                                                                 deltax);
+                representativeregion.writeIPFColoredCrossSection(base_filename_this_region, grain_id, phase_id,
+                                                                 orientation, deltax);
             }
             std::cout << "Finished analysis for region " << region_name << std::endl;
         } // end loop over all representative regions in analysis file
