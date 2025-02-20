@@ -47,6 +47,8 @@ struct Grid {
 
     // Domain inputs from file
     DomainInputs _inputs;
+    // Substrate inputs from file
+    SubstrateInputs _s_inputs;
     // Temperature inputs from file
     TemperatureInputs _t_inputs;
 
@@ -62,9 +64,9 @@ struct Grid {
     // Creates grid struct from Finch grid - currently only supports simulations where one set of temperature data is
     // used (either for single layer simulations or multilayer simulations repeating the same data with an layer height
     // offset in the Z direction)
-    Grid(const int id, const int np, DomainInputs inputs, TemperatureInputs t_inputs, const double finch_cell_size,
-         std::array<double, 3> global_low_corner, std::array<double, 3> global_high_corner,
-         const double cell_size_tolerance = 1 * Kokkos::pow(10, -8))
+    Grid(const int id, const int np, DomainInputs inputs, SubstrateInputs s_inputs, TemperatureInputs t_inputs,
+         const double finch_cell_size, std::array<double, 3> global_low_corner,
+         std::array<double, 3> global_high_corner, const double cell_size_tolerance = 1 * Kokkos::pow(10, -8))
         : z_min_layer(
               view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), inputs.number_of_layers))
         , z_max_layer(
@@ -72,6 +74,7 @@ struct Grid {
         , number_of_layers(inputs.number_of_layers)
         , layer_height(inputs.layer_height)
         , _inputs(inputs)
+        , _s_inputs(s_inputs)
         , _t_inputs(t_inputs) {
 
         // Ensure Finch and ExaCA cell sizes match
@@ -86,8 +89,8 @@ struct Grid {
         x_max = global_high_corner[0] + (_t_inputs.number_of_copies - 1) * _t_inputs.x_offset;
         y_max = global_high_corner[1] + (_t_inputs.number_of_copies - 1) * _t_inputs.y_offset;
         z_max = global_high_corner[2] + inputs.layer_height * (inputs.number_of_layers - 1) * deltax;
-        // If X or Y bounds were specified, override the X and Y bounds from the data in the files
-        checkOverrideXYBounds(id, _t_inputs);
+        // If domain bounds were specified, override domain bounds from the data in the files
+        checkOverrideXYZBounds(id, _s_inputs, _t_inputs);
         nx = Kokkos::round((x_max - x_min) / deltax) + 1;
         ny = Kokkos::round((y_max - y_min) / deltax) + 1;
         nz = Kokkos::round((z_max - z_min) / deltax) + 1;
@@ -103,8 +106,8 @@ struct Grid {
                       << " total cells in the Z direction" << std::endl;
     };
 
-    // If X or Y bounds were specified, override the X and Y bounds from the data in the files
-    void checkOverrideXYBounds(const int id, TemperatureInputs _t_inputs) {
+    // If domain bounds were specified, override domain bounds from the data in the files
+    void checkOverrideXYZBounds(const int id, SubstrateInputs _s_inputs, TemperatureInputs _t_inputs) {
         if (_t_inputs.use_fixed_x_bounds) {
             if (id == 0)
                 std::cout << "Overriding the X bounds given by the temperature data (" << x_min << ", " << x_max
@@ -121,16 +124,28 @@ struct Grid {
             y_min = _t_inputs.temperature_y_bounds[0];
             y_max = _t_inputs.temperature_y_bounds[1];
         }
+        if (_s_inputs.use_fixed_z_bounds) {
+            // Check to ensure that the specified lower Z bound is smaller than the smallest Z with temperature data
+            // (otherwise throw an error)
+            if (z_min < _s_inputs.baseplate_bottom_z)
+                throw std::runtime_error("Error: temperature data extends below the input value for BaseplateBottomZ");
+            if (id == 0)
+                std::cout << "Overriding the lower Z bound given by the temperature data (" << z_min
+                          << ") with that given in the input file (" << _s_inputs.baseplate_bottom_z << ")"
+                          << std::endl;
+            z_min = _s_inputs.baseplate_bottom_z;
+        }
     }
 
     // Constructor for grid used in ExaCA for problem types other than FromFinch
     Grid(const std::string simulation_type, const int id, const int np, const int number_of_layers_temp,
-         DomainInputs inputs, TemperatureInputs t_inputs)
+         DomainInputs inputs, SubstrateInputs s_inputs, TemperatureInputs t_inputs)
         : z_min_layer(
               view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_min_layer"), number_of_layers_temp))
         , z_max_layer(
               view_type_double_host(Kokkos::ViewAllocateWithoutInitializing("z_max_layer"), number_of_layers_temp))
         , _inputs(inputs)
+        , _s_inputs(s_inputs)
         , _t_inputs(t_inputs) {
 
         // Copy from inputs structs
@@ -143,7 +158,7 @@ struct Grid {
         // For problem type FromFile, need to parse all temperature data files to obtain domain bounds for
         // each layer and for the multilayer domain
         if (simulation_type == "FromFile")
-            findXYZBounds(id, t_inputs);
+            findXYZBounds(id, s_inputs, t_inputs);
         else {
             // Copy inputs from inputs struct into grid struct
             nx = _inputs.nx;
@@ -324,7 +339,7 @@ struct Grid {
 
     // For simulation type FromFile, obtain the physical XYZ bounds of the domain by reading temperature data files and
     // parsing the coordinates (does not store temperature data points). Previously in CAinitialize.cpp
-    void findXYZBounds(const int id, TemperatureInputs _t_inputs) {
+    void findXYZBounds(const int id, SubstrateInputs _s_inputs, TemperatureInputs _t_inputs) {
 
         x_min = std::numeric_limits<double>::max();
         y_min = std::numeric_limits<double>::max();
@@ -407,9 +422,9 @@ struct Grid {
         // temperature data accordingly
         x_max = x_max + (_t_inputs.number_of_copies - 1) * _t_inputs.x_offset;
         y_max = y_max + (_t_inputs.number_of_copies - 1) * _t_inputs.y_offset;
-        // If X or Y bounds were specified, override the X and Y bounds from the data (x_min, x_max, y_min, y_max) in
+        // If domain bounds were specified, override domain bounds from the data (x_min, x_max, y_min, y_max) in
         // the files with the user specified values
-        checkOverrideXYBounds(id, _t_inputs);
+        checkOverrideXYZBounds(id, _s_inputs, _t_inputs);
 
         // Number of cells in X, Y, and Z of the global simulation domain as calculated from the bounds
         nx = Kokkos::round((x_max - x_min) / deltax) + 1;

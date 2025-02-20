@@ -422,6 +422,10 @@ struct Inputs {
                 if ((substrate.init_oct_size < 0.0) || (substrate.init_oct_size >= 1.0))
                     throw std::runtime_error("Error: InitOctahedronSize should be at least 0, and less than 1");
             }
+            if (input_data["Substrate"].contains("BaseplateBottomZ")) {
+                substrate.baseplate_bottom_z = input_data["Substrate"]["BaseplateBottomZ"];
+                substrate.use_fixed_z_bounds = true;
+            }
         }
 
         // Printing inputs - leave as defaults (all false) if not given in the input file

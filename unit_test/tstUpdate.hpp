@@ -40,7 +40,8 @@ void testSmallDirS() {
     Timers timers(id);
 
     // Setup local and global grids, decomposing domain (needed to construct temperature)
-    Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
+    Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.substrate,
+              inputs.temperature);
     // Temperature fields characterized by data in this structure
     Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print.store_solidification_start);
 
@@ -71,7 +72,8 @@ void testSmallEquiaxedGrain() {
     Timers timers(id);
 
     // Setup local and global grids, decomposing domain (needed to construct temperature)
-    Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
+    Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.substrate,
+              inputs.temperature);
     // Temperature fields characterized by data in this structure
     Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print.store_solidification_start);
 
