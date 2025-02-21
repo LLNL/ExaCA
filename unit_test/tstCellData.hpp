@@ -46,7 +46,7 @@ void testCellDataInit_SingleGrain() {
     int expected_grain_z = Kokkos::floorf(static_cast<float>(inputs.domain.nz) / 2.0);
 
     // Set up grid and decompose domain
-    Grid grid("SingleGrain", id, np, 1, inputs.domain, inputs.temperature);
+    Grid grid("SingleGrain", id, np, 1, inputs.domain, inputs.substrate, inputs.temperature);
 
     // Cell data struct
     CellData<memory_space> celldata(grid, inputs.substrate);
@@ -169,7 +169,7 @@ void testCellDataInit_Constrained_Custom() {
 
     // Domain size in Y depends on the number of ranks - each rank has 4 cells in Y
     // Each rank is assigned a different portion of the domain in Y
-    Grid grid("Directional", id, np, 1, inputs.domain, inputs.temperature);
+    Grid grid("Directional", id, np, 1, inputs.domain, inputs.substrate, inputs.temperature);
 
     // Construct celldata struct
     CellData<memory_space> celldata(grid, inputs.substrate);
