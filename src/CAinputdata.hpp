@@ -99,6 +99,9 @@ struct SubstrateInputs {
     double powder_grain_spacing = 1.0;
     // Top of baseplate assumed at Z = 0 if not otherwise given
     double baseplate_top_z = 0.0;
+    // Bottom of baseplate assumed to be the smallest Z with associated temperature data if not otherwise given
+    bool use_fixed_z_bounds = false;
+    double baseplate_bottom_z = std::numeric_limits<double>::max();
     // Initial size of octahedra during initialization of an active cell
     float init_oct_size = 0.01;
 };

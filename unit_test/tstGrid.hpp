@@ -101,7 +101,7 @@ void testCalcDomainSize() {
 //---------------------------------------------------------------------------//
 // bounds_init_test
 //---------------------------------------------------------------------------//
-void testFindXYZBounds(bool test_binary_input_read) {
+void testFindXYZBounds(bool test_binary_input_read, bool use_fixed_z) {
 
     int id, np;
     // Get number of processes
@@ -157,13 +157,21 @@ void testFindXYZBounds(bool test_binary_input_read) {
     inputs.domain.deltax = deltax;
     inputs.domain.layer_height = 2;
     inputs.domain.number_of_layers = 2;
+    inputs.substrate.use_fixed_z_bounds = use_fixed_z;
+    if (use_fixed_z) {
+        // Should drop the z min value of the domain by one cell spacing, and increase the nz value by 1
+        inputs.substrate.baseplate_bottom_z = -deltax;
+    }
 
     // Fill grid struct
-    Grid grid("FromFile", id, np, inputs.domain.number_of_layers, inputs.domain, inputs.temperature);
+    Grid grid("FromFile", id, np, inputs.domain.number_of_layers, inputs.domain, inputs.substrate, inputs.temperature);
 
     EXPECT_DOUBLE_EQ(grid.x_min, 0.0);
     EXPECT_DOUBLE_EQ(grid.y_min, 0.0);
-    EXPECT_DOUBLE_EQ(grid.z_min, 0.0);
+    if (use_fixed_z)
+        EXPECT_DOUBLE_EQ(grid.z_min, -1.0 * pow(10, -6));
+    else
+        EXPECT_DOUBLE_EQ(grid.z_min, 0.0);
     EXPECT_DOUBLE_EQ(grid.x_max, (nx - 1) * deltax);
     EXPECT_DOUBLE_EQ(grid.y_max, (ny - 1) * deltax);
     // z_max is equal to the largest Z coordinate in the file, offset by layer_height cells in the build direction due
@@ -177,7 +185,10 @@ void testFindXYZBounds(bool test_binary_input_read) {
     // Size of overall domain
     EXPECT_EQ(grid.nx, nx);
     EXPECT_EQ(grid.ny, ny);
-    EXPECT_EQ(grid.nz, nz + inputs.domain.layer_height);
+    if (use_fixed_z)
+        EXPECT_EQ(grid.nz, nz + inputs.domain.layer_height + 1);
+    else
+        EXPECT_EQ(grid.nz, nz + inputs.domain.layer_height);
 }
 
 //---------------------------------------------------------------------------//
@@ -190,8 +201,10 @@ TEST(TEST_CATEGORY, activedomainsizecalc) {
     testCalcDomainSize();
 }
 TEST(TEST_CATEGORY, bounds_init_test) {
-    // reading temperature files to obtain xyz bounds, using binary/non-binary format
-    testFindXYZBounds(false);
-    testFindXYZBounds(true);
+    // reading temperature files to obtain xyz bounds, using binary/non-binary format and with/without the bottom Z of
+    // the domain fixed via the BaseplateBottomZ input
+    testFindXYZBounds(false, false);
+    testFindXYZBounds(true, false);
+    testFindXYZBounds(false, true);
 }
 } // end namespace Test

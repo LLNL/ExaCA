@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
             Inputs inputs(id, input_file);
 
             // Setup local and global grids, decomposing domain (needed to construct temperature)
-            Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain,
+            Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.substrate,
                       inputs.temperature);
             // Temperature fields characterized by data in this structure
             Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print.store_solidification_start);

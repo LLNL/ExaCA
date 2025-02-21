@@ -57,8 +57,8 @@ void runCoupled(int id, int np, Finch::Inputs finch_inputs, Inputs exaca_inputs)
         exaca_low_corner = finch_inputs.space.global_low_corner;
         exaca_high_corner = finch_inputs.space.global_high_corner;
     }
-    Grid exaca_grid(id, np, exaca_inputs.domain, exaca_inputs.temperature, finch_inputs.space.cell_size,
-                    exaca_low_corner, exaca_high_corner);
+    Grid exaca_grid(id, np, exaca_inputs.domain, exaca_inputs.substrate, exaca_inputs.temperature,
+                    finch_inputs.space.cell_size, exaca_low_corner, exaca_high_corner);
     // Temperature fields characterized by data in this structure
     Temperature<memory_space> temperature(id, np, exaca_grid, exaca_inputs.temperature, app.getSolidificationData(),
                                           exaca_inputs.print.store_solidification_start);
