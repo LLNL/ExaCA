@@ -688,7 +688,7 @@ struct CellData {
         auto grain_id_all_layers_local = grain_id_all_layers;
         auto layer_id_all_layers_local = layer_id_all_layers;
         Kokkos::parallel_reduce(
-            "NumSolidifiedCells", grid.domain_size,
+            "NumSolidifiedCells", grid.domain_size_all_layers,
             KOKKOS_LAMBDA(const int index, int &update_meltcount, int &update_nucleatecount) {
                 int coord_y = grid.getCoordY(index);
                 // Is this Y coordinate in the halo region? If so, do not increment counter
