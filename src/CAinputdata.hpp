@@ -44,17 +44,21 @@ struct NucleationInputs {
 };
 
 struct InterfacialResponseInputs {
-    float freezing_range;
-    float A;
-    float B;
-    float C;
-    float D = 0.0;
+    int num_phases = 1;
+    std::vector<std::string> phase_names;
+    float freezing_range[2];
+    float A[2];
+    float B[2];
+    float C[2];
+    float D[2] = {0.0, 0.0};
     enum IRFtypes {
         cubic = 0,
         quadratic = 1,
         power = 2,
     };
-    int function = cubic;
+    enum Transformationtypes { none = 0, solidification = 1 };
+    int function[2] = {cubic, cubic};
+    int transformation = none;
 };
 
 struct TemperatureInputs {
@@ -120,6 +124,7 @@ struct PrintInputs {
     // Names of output fields that can be printed to files during or at the end of a simulation
     std::vector<std::string> fieldnames_key = {"GrainID",
                                                "LayerID",
+                                               "PhaseID",
                                                "GrainMisorientation",
                                                "UndercoolingCurrent",
                                                "UndercoolingSolidificationStart",
@@ -138,6 +143,7 @@ struct PrintInputs {
     bool intralayer_non_misorientation_fields = false;
     bool intralayer_grain_id = false;
     bool intralayer_layer_id = false;
+    bool intralayer_phase_id = false;
     bool intralayer_grain_misorientation = false;
     bool intralayer_undercooling_current = false;
     bool intralayer_undercooling_solidification_start = false;
@@ -153,6 +159,7 @@ struct PrintInputs {
     bool interlayer_full = false;
     bool interlayer_current = false;
     bool interlayer_grain_id = false;
+    bool interlayer_phase_id = false;
     bool interlayer_layer_id = false;
     bool interlayer_grain_misorientation = false;
     bool interlayer_undercooling_solidification_start = false;

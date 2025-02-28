@@ -9,6 +9,7 @@
 #include "CAgrid.hpp"
 #include "CAinputdata.hpp"
 #include "CAparsefiles.hpp"
+#include "CAtypes.hpp"
 #include "mpi.h"
 
 #include <Kokkos_Core.hpp>

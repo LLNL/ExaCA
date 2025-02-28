@@ -22,7 +22,8 @@
 
 // These are used in reading/parsing ExaCA microstructure data
 void parseLogFile(std::string logfile, int &nx, int &ny, int &nz, double &deltax, int &number_of_layers,
-                  std::vector<double> &xyz_bounds, std::string &rotation_filename, bool orientation_files_in_input);
+                  std::vector<double> &xyz_bounds, std::vector<std::string> &grain_unit_vector_file,
+                  std::vector<std::string> &phase_names, int &num_phases, bool orientation_files_in_input);
 double convertToMicrons(double deltax, std::string region_type);
 double convertToCells(double deltax, std::string region_type);
 void dualPrint(std::string temp, std::ostream &stream1, std::ostream &stream2);
@@ -33,7 +34,7 @@ ReturnType divideCast(FirstType int1, SecondType int2) {
 
 template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
 void initializeData(std::string microstructure_file, int nx, int ny, int nz, ViewTypeInt3dHost &grain_id,
-                    ViewTypeShort3dHost &layer_id, bool &found_layer_id) {
+                    ViewTypeShort3dHost &layer_id, ViewTypeShort3dHost &phase_id, bool &found_layer_id) {
 
     std::ifstream input_data_stream;
     input_data_stream.open(microstructure_file);
@@ -51,6 +52,7 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
     }
     bool reading_vtk = true;
     bool found_grain_id = false;
+    bool found_phase_id = false;
     while (reading_vtk) {
         // This line says which variable appears next in the file, along with its type
         // A blank line ends the file read
@@ -71,7 +73,7 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
                 throw std::runtime_error("Error: Unknown data type for a field in the vtk file");
 
             // grain_id is only fields currently used by the analysis, other fields will be skipped/ignored
-            std::vector<std::string> possible_fieldnames = {"GrainID", "LayerID"};
+            std::vector<std::string> possible_fieldnames = {"GrainID", "LayerID", "PhaseID"};
             int num_possible_fieldnames = possible_fieldnames.size();
             for (auto n = 0; n < num_possible_fieldnames; n++) {
                 if (line.find(possible_fieldnames[n]) != std::string::npos)
@@ -126,6 +128,16 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
                     }
                     found_layer_id = true;
                 }
+                else if (read_fieldname == possible_fieldnames[2]) {
+                    if (!binary_vtk)
+                        phase_id = readASCIIField<Kokkos::View<short ***, Kokkos::HostSpace>>(input_data_stream, nx, ny,
+                                                                                              nz, "PhaseID");
+                    else {
+                        phase_id = readBinaryField<Kokkos::View<short ***, Kokkos::HostSpace>, short>(
+                            input_data_stream, nx, ny, nz, "PhaseID");
+                    }
+                    found_phase_id = true;
+                }
                 std::cout << "Data field " << read_fieldname << " read" << std::endl;
             }
         }
@@ -139,6 +151,9 @@ void initializeData(std::string microstructure_file, int nx, int ny, int nz, Vie
                   << std::endl;
         Kokkos::deep_copy(layer_id, 0);
     }
+    // PhaseID defaults to zeros if not present in the file (assumed single as-solidified phase)
+    if (!found_phase_id)
+        Kokkos::deep_copy(phase_id, 0);
 }
 
 #endif
