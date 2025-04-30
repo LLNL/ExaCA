@@ -17,6 +17,6 @@
            "C": 0
          },
          "freezing_range": 26.5,
-         "transformation": "none"
+         "transformation": "solidification"
     }
 }
