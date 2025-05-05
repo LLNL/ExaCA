@@ -35,7 +35,7 @@ struct Inputs {
     std::string file_name;
 
     // Creates input struct with uninitialized/default values, used in unit tests
-    Inputs(){};
+    Inputs() {};
 
     Inputs(const int id, const std::string input_file)
         : file_name(input_file) {
