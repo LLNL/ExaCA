@@ -101,7 +101,8 @@ struct RepresentativeRegion {
         setUnitDimension();
 
         // Check which overall stats and per grain stats should be printed for this region
-        readAnalysisOptionsFromList(region_data, "printStats", analysis_options_stats_key, analysis_options_stats_yn);
+        readAnalysisOptionsFromList(region_data, "printAvgStats", analysis_options_stats_key,
+                                    analysis_options_stats_yn);
         // print_stats_yn = true if any one of the options are toggled
         int num_analysis_options_stats = analysis_options_stats_yn.size();
         for (int n = 0; n < num_analysis_options_stats; n++) {
