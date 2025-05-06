@@ -77,8 +77,6 @@ struct RepresentativeRegion {
 
     // List of grain ID values in the representative region
     std::vector<int> grain_id_vector;
-    // List of phase ID values in the representative region
-    std::vector<short> phase_id_vector;
     // List of unique grain IDs associated with the region and the number of grains
     int number_of_grains;
     std::vector<int> unique_grain_id_vector;
@@ -146,8 +144,6 @@ struct RepresentativeRegion {
 
         // List of grain ID values in the representative region
         grain_id_vector = getGrainIDVector(grain_id);
-        // List of phase ID values in the representative region
-        phase_id_vector = getPhaseIDVector(phase_id);
         // List of unique grain IDs associated with the region, also initialize the number of grains
         unique_grain_id_vector = getUniqueGrains();
         // Size (in units of length, area, or volume, depending on region_type) associated with each grain
@@ -374,24 +370,6 @@ struct RepresentativeRegion {
         return grain_id_vector;
     }
 
-    // Get the list of Phase IDs associated with the representative region (same as getGrainIDVector except for return
-    // type)
-    template <typename ViewTypeShort3dHost>
-    std::vector<short> getPhaseIDVector(ViewTypeShort3dHost phase_id) {
-
-        std::vector<short> phase_id_vector(region_size_cells);
-        int count = 0;
-        for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
-            for (int i = x_bounds_cells[0]; i <= x_bounds_cells[1]; i++) {
-                for (int j = y_bounds_cells[0]; j <= y_bounds_cells[1]; j++) {
-                    phase_id_vector[count] = phase_id(k, i, j);
-                    count++;
-                }
-            }
-        }
-        return phase_id_vector;
-    }
-
     // Given an input vector of integer Grain ID values, return an output vector consisting of the unique Grain ID
     // values, sorted from lowest to highest. Store the number of grains
     std::vector<int> getUniqueGrains() {
@@ -600,11 +578,12 @@ struct RepresentativeRegion {
     // Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
     // grains to the console/qois file
     template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
-    void printGrainTypeFractions(std::ofstream &qois, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id,
+    void printGrainTypeFractions(std::ofstream &qois, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id, ViewTypeShort3dHost phase_id, const int num_phases,
                                  bool found_layer_id) {
 
         int number_of_unmelted_cells = 0;
         int number_of_nucleated_grain_cells = 0;
+        int number_of_primary_phase_cells = 0;
         for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
             for (int i = x_bounds_cells[0]; i <= x_bounds_cells[1]; i++) {
                 for (int j = y_bounds_cells[0]; j <= y_bounds_cells[1]; j++) {
@@ -612,6 +591,8 @@ struct RepresentativeRegion {
                         number_of_unmelted_cells++;
                     if (grain_id(k, i, j) < 0)
                         number_of_nucleated_grain_cells++;
+                    if (phase_id(k, i, j) == 0)
+                        number_of_primary_phase_cells++;
                 }
             }
         }
@@ -622,10 +603,13 @@ struct RepresentativeRegion {
                     std::to_string(number_of_unmelted_cells) + "\n";
         else
             temp += "-- LayerID was not given in this microstructure dataset, the number of cells in the region that "
-                    "did not undergo melting cannot be extracted\n";
+                    "did not undergo melting cannot be extracted. The following stats are for the entire simulation domain, including regions that may not have undergone melting and resolidification\n";
         float vol_fract_nuc_grains = divideCast<float>(number_of_nucleated_grain_cells, region_size_cells);
         temp +=
             "-- The volume fraction consisting of nucleated grains is " + std::to_string(vol_fract_nuc_grains) + "\n";
+        float vol_fract_primary_phase = divideCast<float>(number_of_primary_phase_cells, region_size_cells);
+        if (num_phases > 1)
+            temp += "-- The volume fraction soldified as the primary phase is " + std::to_string(vol_fract_primary_phase) + "\n";
         dualPrint(temp, std::cout, qois);
     }
 
