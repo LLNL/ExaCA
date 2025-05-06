@@ -31,7 +31,7 @@ void writeTestArea() {
     test_data << "          \"zBounds\": [0.000005,0.000005]," << std::endl;
     test_data << "          \"printPoleFigureData\": true," << std::endl;
     test_data << "          \"printInversePoleFigureData\": true," << std::endl;
-    test_data << "          \"printStats\": [\"GrainTypeFractions\"]," << std::endl;
+    test_data << "          \"printAvgStats\": [\"GrainTypeFractions\"]," << std::endl;
     test_data << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]" << std::endl;
     test_data << "      }" << std::endl;
     test_data << "   }" << std::endl;
@@ -52,7 +52,7 @@ void writeTestVolume() {
     test_data << "          \"zBounds\": [0, 9]," << std::endl;
     test_data << "          \"printExaConstit\": false," << std::endl;
     test_data << "          \"printPoleFigureData\": true," << std::endl;
-    test_data << "          \"printStats\": [\"GrainTypeFractions\", \"Misorientation\", \"Size\", "
+    test_data << "          \"printAvgStats\": [\"GrainTypeFractions\", \"Misorientation\", \"Size\", "
                  "\"BuildTransAspectRatio\", \"XExtent\", \"YExtent\", \"ZExtent\"],"
               << std::endl;
     test_data << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]," << std::endl;
