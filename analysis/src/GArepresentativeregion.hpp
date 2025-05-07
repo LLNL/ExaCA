@@ -84,9 +84,9 @@ struct RepresentativeRegion {
     std::vector<float> grain_size_vector_microns;
 
     // Constructor
-    template <typename ViewTypeInt3dHost>
+    template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
     RepresentativeRegion(nlohmann::json analysis_data, std::string region_name, int nx, int ny, int nz, double deltax,
-                         std::vector<double> xyz_bounds, ViewTypeInt3dHost grain_id) {
+                         std::vector<double> xyz_bounds, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost phase_id) {
 
         // Data for the specific region of interest
         std::cout << "Parsing data for region " << region_name << std::endl;
@@ -486,7 +486,9 @@ struct RepresentativeRegion {
         auto grain_misorientation = orientation.misorientationCalc(direction_int);
         for (int n = 0; n < number_of_grains; n++) {
             int my_orientation = getGrainOrientation(unique_grain_id_vector[n], orientation.n_grain_orientations);
-            float my_misorientation = grain_misorientation(my_orientation);
+            // Grain misorientation always corresponds to phase 0, even if original crystallographic orientation during
+            // initial solidification as phase 1 was different
+            float my_misorientation = grain_misorientation(my_orientation, 0);
             grain_misorientation_vector[n] = my_misorientation;
         }
         return grain_misorientation_vector;
@@ -496,7 +498,7 @@ struct RepresentativeRegion {
     // [XMin,XMax], [YMin,YMax], [ZMin,ZMax] and excluding and cells that did not undergo melting (layer_id = -1)
     template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
     auto getOrientationHistogram(int n_grain_orientations, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id,
-                                 bool found_layer_id) {
+                                 ViewTypeShort3dHost phase_id, const int num_phases, bool found_layer_id) {
 
         // Init histogram values to zero
         if (!found_layer_id)
@@ -505,13 +507,16 @@ struct RepresentativeRegion {
                    "melting and solidification as they cannot be differentiated from the regions that were simulated"
                 << std::endl;
         using int_type = typename ViewTypeInt3dHost::value_type;
-        Kokkos::View<int_type *, Kokkos::HostSpace> go_histogram("go_histogram", n_grain_orientations);
-        for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
-            for (int j = y_bounds_cells[0]; j <= y_bounds_cells[1]; j++) {
-                for (int i = x_bounds_cells[0]; i <= x_bounds_cells[1]; i++) {
-                    if ((grain_id(k, i, j) != 0) && (layer_id(k, i, j) != -1)) {
-                        int go_val = getGrainOrientation(grain_id(k, i, j), n_grain_orientations);
-                        go_histogram(go_val)++;
+        Kokkos::View<int_type **, Kokkos::HostSpace> go_histogram("go_histogram", n_grain_orientations, num_phases);
+        for (int phase_num = 0; phase_num < num_phases; phase_num++) {
+            for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
+                for (int j = y_bounds_cells[0]; j <= y_bounds_cells[1]; j++) {
+                    for (int i = x_bounds_cells[0]; i <= x_bounds_cells[1]; i++) {
+                        if ((grain_id(k, i, j) != 0) && (layer_id(k, i, j) != -1)) {
+                            short my_phase = phase_id(k, i, j);
+                            int go_val = getGrainOrientation(grain_id(k, i, j), n_grain_orientations);
+                            go_histogram(go_val, my_phase)++;
+                        }
                     }
                 }
             }
@@ -573,11 +578,12 @@ struct RepresentativeRegion {
     // Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
     // grains to the console/qois file
     template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
-    void printGrainTypeFractions(std::ofstream &qois, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id,
+    void printGrainTypeFractions(std::ofstream &qois, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id, ViewTypeShort3dHost phase_id, const int num_phases,
                                  bool found_layer_id) {
 
         int number_of_unmelted_cells = 0;
         int number_of_nucleated_grain_cells = 0;
+        int number_of_primary_phase_cells = 0;
         for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
             for (int i = x_bounds_cells[0]; i <= x_bounds_cells[1]; i++) {
                 for (int j = y_bounds_cells[0]; j <= y_bounds_cells[1]; j++) {
@@ -585,6 +591,8 @@ struct RepresentativeRegion {
                         number_of_unmelted_cells++;
                     if (grain_id(k, i, j) < 0)
                         number_of_nucleated_grain_cells++;
+                    if (phase_id(k, i, j) == 0)
+                        number_of_primary_phase_cells++;
                 }
             }
         }
@@ -595,10 +603,13 @@ struct RepresentativeRegion {
                     std::to_string(number_of_unmelted_cells) + "\n";
         else
             temp += "-- LayerID was not given in this microstructure dataset, the number of cells in the region that "
-                    "did not undergo melting cannot be extracted\n";
+                    "did not undergo melting cannot be extracted. The following stats are for the entire simulation domain, including regions that may not have undergone melting and resolidification\n";
         float vol_fract_nuc_grains = divideCast<float>(number_of_nucleated_grain_cells, region_size_cells);
         temp +=
             "-- The volume fraction consisting of nucleated grains is " + std::to_string(vol_fract_nuc_grains) + "\n";
+        float vol_fract_primary_phase = divideCast<float>(number_of_primary_phase_cells, region_size_cells);
+        if (num_phases > 1)
+            temp += "-- The volume fraction soldified as the primary phase is " + std::to_string(vol_fract_primary_phase) + "\n";
         dualPrint(temp, std::cout, qois);
     }
 
@@ -763,10 +774,12 @@ struct RepresentativeRegion {
             grainplot2.close();
     }
 
-    // Write pole figure data for this region to a file to be read by MTEX
-    template <typename MemorySpace, typename ViewTypeIntHost>
+    // Write pole figure data for this region to a file to be read by MTEX. As the final phase is always 0, the
+    // orientations always come from phase 0 regardless of whether the original phase that formed had a different
+    // crystallographic orientation
+    template <typename MemorySpace, typename ViewTypeInt2DHost>
     void writePoleFigure(std::string base_filename_this_region, Orientation<MemorySpace> &orientation,
-                         ViewTypeIntHost go_histogram) {
+                         ViewTypeInt2DHost go_histogram) {
 
         // Using new format, write pole figure data to "Filename"
         std::string filename = base_filename_this_region + "_PoleFigureData.txt";
@@ -778,10 +791,10 @@ struct RepresentativeRegion {
         grainplot_pf << "% phi1    Phi     phi2    value" << std::endl;
         grainplot_pf << std::fixed << std::setprecision(6);
         for (int i = 0; i < orientation.n_grain_orientations; i++) {
-            grainplot_pf << orientation.grain_bunge_euler_host(3 * i) << " "
-                         << orientation.grain_bunge_euler_host(3 * i + 1) << " "
-                         << orientation.grain_bunge_euler_host(3 * i + 2) << " " << static_cast<float>(go_histogram(i))
-                         << std::endl;
+            grainplot_pf << orientation.grain_bunge_euler_host(3 * i, 0) << " "
+                         << orientation.grain_bunge_euler_host(3 * i + 1, 0) << " "
+                         << orientation.grain_bunge_euler_host(3 * i + 2, 0) << " "
+                         << static_cast<float>(go_histogram(i, 0)) << std::endl;
         }
         grainplot_pf.close();
     }
@@ -804,15 +817,16 @@ struct RepresentativeRegion {
         std::vector<float> ipfz_color(number_of_grains);
         for (int n = 0; n < number_of_grains; n++) {
             int my_orientation = getGrainOrientation(unique_grain_id_vector[n], orientation.n_grain_orientations);
-            ipfz_color[n] = orientation.grain_rgb_ipfz_host(3 * my_orientation + color);
+            ipfz_color[n] = orientation.grain_rgb_ipfz_host(3 * my_orientation + color, 0);
         }
         return ipfz_color;
     }
 
     // Print data to be read by MTEX to plot the cross-section using the inverse pole figure colormap
-    template <typename ViewTypeInt3dHost, typename MemorySpace>
+    template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost, typename MemorySpace>
     void writeIPFColoredCrossSection(std::string base_filename_this_region, ViewTypeInt3dHost grain_id,
-                                     Orientation<MemorySpace> &orientation, double deltax) {
+                                     ViewTypeShort3dHost phase_id, Orientation<MemorySpace> &orientation,
+                                     double deltax) {
 
         // What portion of the area is to be printed?
         int index_1_low, index_1_high, index_2_low, index_2_high, cross_section_out_of_plane_location;
@@ -869,17 +883,23 @@ struct RepresentativeRegion {
                                              "should be XY, YZ, or XZ");
                 // What orientation does this grain id correspond to? Should be between 0 and NumberOfOrientations-1
                 int go_val = (Kokkos::abs(grain_id(z_loc, x_loc, y_loc)) - 1) % orientation.n_grain_orientations;
-                // The grain structure is phase "1" - any unindexed points with GOVal = -1 (which are possible from
-                // regions that didn't undergo melting) are assigned phase "0"
+                // Unlike the vtk data which was zero-indexed (the two solid phase ids were 0 and 1), the grain
+                // structure used by MTEX is phase "1" or "2" - any unindexed points with GOVal = -1 (which are possible
+                // from regions that didn't undergo melting) are assigned phase "0"
                 if (go_val == -1)
                     grainplot_ipf << "0 0 0 0 " << index_1 * deltax * Kokkos::pow(10, 6) << " "
                                   << index_2 * deltax * Kokkos::pow(10, 6) << std::endl;
-                else
-                    grainplot_ipf << orientation.grain_bunge_euler_host(3 * go_val) << " "
-                                  << orientation.grain_bunge_euler_host(3 * go_val + 1) << " "
-                                  << orientation.grain_bunge_euler_host(3 * go_val + 2) << " 1 "
-                                  << index_1 * deltax * Kokkos::pow(10, 6) << " "
+                else {
+                    // Note that as the second phase orientations were completely transformed to the corresponding first
+                    // phase orientation (or the two phases shared a set of orientations), the second phase orientation
+                    // data goes unused here.
+                    short phase_id_val = phase_id(z_loc, x_loc, y_loc);
+                    grainplot_ipf << orientation.grain_bunge_euler_host(3 * go_val, 0) << " "
+                                  << orientation.grain_bunge_euler_host(3 * go_val + 1, 0) << " "
+                                  << orientation.grain_bunge_euler_host(3 * go_val + 2, 0) << " " << phase_id_val + 1
+                                  << " " << index_1 * deltax * Kokkos::pow(10, 6) << " "
                                   << index_2 * deltax * Kokkos::pow(10, 6) << std::endl;
+                }
             }
         }
         grainplot_ipf.close();
