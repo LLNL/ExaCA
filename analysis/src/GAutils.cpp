@@ -38,17 +38,9 @@ void parseLogFile(std::string log_file, int &nx, int &ny, int &nz, double &delta
     // Directional, Spot, SingleGrain problem types are single layer
     if (simulation_type == "FromFinch" || simulation_type == "FromFile")
         number_of_layers = logdata["Domain"]["NumberOfLayers"];
-    else {
+    else
         number_of_layers = 1;
-        if (simulation_type == "C")
-            std::cout << "Warning: Problem type \"C\" is now \"Directional\". Previous name will be removed in a "
-                         "future release."
-                      << std::endl;
-        else if (simulation_type == "S")
-            std::cout << "Warning: Problem type \"S\" is now \"Spot\". Previous name will be removed in a "
-                         "future release."
-                      << std::endl;
-    }
+
     if (orientation_files_in_input)
         std::cout << "Note: orientation filename specified in log file will be used, overriding value from analysis "
                      "input file"

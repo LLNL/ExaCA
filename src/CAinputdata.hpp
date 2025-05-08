@@ -19,6 +19,10 @@
 #include <vector>
 
 // Error if this is not a valid simulation type.
+// "Directional": directional solidification
+// "Spot": hemispherical spot with fixed thermal gradient and cooling rate
+// "FromFile": time-temperature history comes from external files
+// "FromFinch": from Finch heat transport run
 inline void validSimulationType(std::string simulation_type) {
     if (simulation_type != "Directional" && simulation_type != "Spot" && simulation_type != "SingleGrain" &&
         simulation_type != "FromFile" && simulation_type != "FromFinch")

@@ -46,29 +46,6 @@ struct Inputs {
 
         // General inputs
         simulation_type = input_data["SimulationType"];
-        // "Directional": directional solidification
-        // "Spot": hemispherical spot with fixed thermal gradient and cooling rate
-        // "FromFile": time-temperature history comes from external files
-        if (simulation_type == "C") {
-            simulation_type = "Directional";
-            if (id == 0)
-                std::cout << "Warning: Problem type \"C\" is now \"Directional\". Previous name will be removed in a "
-                             "future release."
-                          << std::endl;
-        }
-        else if (simulation_type == "RM" || simulation_type == "R") {
-            simulation_type = "FromFile";
-            if (id == 0)
-                std::cout << "Warning: Problem type \"R\" is now \"FromFile\". Previous name will be removed in a "
-                             "future release."
-                          << std::endl;
-        }
-        else if ((simulation_type == "S") || (simulation_type == "SM")) {
-            throw std::runtime_error("Error: The spot melt array simulation type (Problem type S or SM) was removed "
-                                     "after version 1.3; simulation of a single hemispherical spot can be performed "
-                                     "using problem type Spot. See README for details");
-        }
-
         // Check for valid simulation type.
         if (simulation_type == "FromFunch")
             simulation_type = "FromFinch";
