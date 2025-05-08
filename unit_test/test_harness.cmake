@@ -36,10 +36,7 @@ macro(ExaCA_add_tests)
                             ${gtest_target})
 
       foreach(_np ${EXACA_UNIT_TEST_MPIEXEC_NUMPROCS})
-        # FIXME: remove PTHREAD
-        if(_device STREQUAL PTHREAD
-           OR _device STREQUAL THREADS
-           OR _device STREQUAL OPENMP)
+        if(_device STREQUAL THREADS OR _device STREQUAL OPENMP)
           foreach(_thread ${EXACA_UNIT_TEST_NUMTHREADS})
             add_test(
               NAME ${_target}_np_${_np}_nt_${_thread}
