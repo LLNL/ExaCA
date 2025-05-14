@@ -50,6 +50,13 @@ jobs:
             heat_transfer: 'None'
           - distro: 'ubuntu:latest'
             cxx: 'g++'
+            backend: 'THREADS'
+            cmake_build_type: 'Debug'
+            kokkos_ver: '4.0.01'
+            json: External
+            heat_transfer: 'None'
+          - distro: 'ubuntu:latest'
+            cxx: 'g++'
             backend: 'SERIAL'
             cmake_build_type: 'Release'
             kokkos_ver: '4.0.01'
