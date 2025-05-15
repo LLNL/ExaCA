@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
             // Create region
             std::string region_name = it.key();
             RepresentativeRegion representativeregion(analysis_data, region_name, nx, ny, nz, deltax, xyz_bounds,
-                                                      grain_id, phase_id);
+                                                      grain_id);
             std::string base_filename_this_region = base_filename + "_" + region_name;
 
             // Output file stream for quantities of interest
