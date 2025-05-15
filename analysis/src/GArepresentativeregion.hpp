@@ -578,8 +578,8 @@ struct RepresentativeRegion {
     // Print number of cells in the representative region that did not undergo melting, fraction consisting of nucleated
     // grains to the console/qois file
     template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
-    void printGrainTypeFractions(std::ofstream &qois, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id, ViewTypeShort3dHost phase_id, const int num_phases,
-                                 bool found_layer_id) {
+    void printGrainTypeFractions(std::ofstream &qois, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id,
+                                 ViewTypeShort3dHost phase_id, const int num_phases, bool found_layer_id) {
 
         int number_of_unmelted_cells = 0;
         int number_of_nucleated_grain_cells = 0;
@@ -603,13 +603,15 @@ struct RepresentativeRegion {
                     std::to_string(number_of_unmelted_cells) + "\n";
         else
             temp += "-- LayerID was not given in this microstructure dataset, the number of cells in the region that "
-                    "did not undergo melting cannot be extracted. The following stats are for the entire simulation domain, including regions that may not have undergone melting and resolidification\n";
+                    "did not undergo melting cannot be extracted. The following stats are for the entire simulation "
+                    "domain, including regions that may not have undergone melting and resolidification\n";
         float vol_fract_nuc_grains = divideCast<float>(number_of_nucleated_grain_cells, region_size_cells);
         temp +=
             "-- The volume fraction consisting of nucleated grains is " + std::to_string(vol_fract_nuc_grains) + "\n";
         float vol_fract_primary_phase = divideCast<float>(number_of_primary_phase_cells, region_size_cells);
         if (num_phases > 1)
-            temp += "-- The volume fraction soldified as the primary phase is " + std::to_string(vol_fract_primary_phase) + "\n";
+            temp += "-- The volume fraction soldified as the primary phase is " +
+                    std::to_string(vol_fract_primary_phase) + "\n";
         dualPrint(temp, std::cout, qois);
     }
 

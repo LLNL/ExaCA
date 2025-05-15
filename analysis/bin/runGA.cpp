@@ -113,7 +113,8 @@ int main(int argc, char *argv[]) {
 
             // Fraction of region consisting of nucleated grains, unmelted material
             if (representativeregion.analysis_options_stats_yn[0])
-                representativeregion.printGrainTypeFractions(qois, grain_id, layer_id, phase_id, num_phases, found_layer_id);
+                representativeregion.printGrainTypeFractions(qois, grain_id, layer_id, phase_id, num_phases,
+                                                             found_layer_id);
 
             // Calculate and if specified, print misorientation data
             std::vector<float> grain_misorientation_x_vector =
@@ -187,7 +188,7 @@ int main(int argc, char *argv[]) {
             }
             std::cout << "Finished analysis for region " << region_name << std::endl;
         } // end loop over all representative regions in analysis file
-    } // end scope for kokkos
+    }     // end scope for kokkos
     // Finalize kokkos and end program
     Kokkos::finalize();
     return 0;
