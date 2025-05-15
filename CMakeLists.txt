@@ -28,7 +28,10 @@ else()
   if(NOT NLOHMANN_JSON_FOUND)
     include(FetchContent)
     # Using most recent release here
-    FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
+    FetchContent_Declare(
+      json
+      URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+    )
     FetchContent_MakeAvailable(json)
     # Needs to be installed only in this case.
     install(TARGETS nlohmann_json
