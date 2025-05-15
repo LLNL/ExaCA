@@ -84,9 +84,9 @@ struct RepresentativeRegion {
     std::vector<float> grain_size_vector_microns;
 
     // Constructor
-    template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
+    template <typename ViewTypeInt3dHost>
     RepresentativeRegion(nlohmann::json analysis_data, std::string region_name, int nx, int ny, int nz, double deltax,
-                         std::vector<double> xyz_bounds, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost phase_id) {
+                         std::vector<double> xyz_bounds, ViewTypeInt3dHost grain_id) {
 
         // Data for the specific region of interest
         std::cout << "Parsing data for region " << region_name << std::endl;
