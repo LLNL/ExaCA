@@ -59,6 +59,7 @@ struct InterfacialResponseInputs {
         cubic = 0,
         quadratic = 1,
         power = 2,
+        exponential = 3,
     };
     enum Transformationtypes { none = 0, solidification = 1 };
     int function[2] = {cubic, cubic};

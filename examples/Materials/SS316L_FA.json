@@ -3,17 +3,17 @@
     "austenite": {
         "function": "power",
         "coefficients": {
-           "A": 1.90855E-19,
-           "B": 12.9626,
+           "A": 3.1718E-18,
+           "B": 12.024,
            "C": 0
          },
          "freezing_range": 26.5
     },
     "ferrite": {
-        "function": "power",
+        "function": "exponential",
         "coefficients": {
-           "A": 2.46913E-6,
-           "B": 3.64106,
+           "A": 5.6442E-5,
+           "B": 0.37259,
            "C": 0
          },
          "freezing_range": 26.5,

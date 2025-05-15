@@ -46,6 +46,11 @@ struct InterfacialResponseFunction {
             _inputs.A[phase_num] *= static_cast<float>(deltat / deltax);
             _inputs.C[phase_num] *= static_cast<float>(deltat / deltax);
         }
+        else if (_inputs.function[phase_num] == _inputs.exponential) {
+            // Normalize only the leading and last coefficient: V = A*e^(Bx) + C
+            _inputs.A[phase_num] *= static_cast<float>(deltat / deltax);
+            _inputs.C[phase_num] *= static_cast<float>(deltat / deltax);
+        }
     }
 
     // Compute velocity from local undercooling.
@@ -58,9 +63,11 @@ struct InterfacialResponseFunction {
             V = _inputs.A[phase_num] * Kokkos::pow(loc_u, 2.0) + _inputs.B[phase_num] * loc_u + _inputs.C[phase_num];
         else if (_inputs.function[phase_num] == _inputs.power)
             V = _inputs.A[phase_num] * Kokkos::pow(loc_u, _inputs.B[phase_num]) + _inputs.C[phase_num];
-        else
+        else if (_inputs.function[phase_num] == _inputs.cubic)
             V = _inputs.A[phase_num] * Kokkos::pow(loc_u, 3.0) + _inputs.B[phase_num] * Kokkos::pow(loc_u, 2.0) +
                 _inputs.C[phase_num] * loc_u + _inputs.D[phase_num];
+        else
+            V = _inputs.A[phase_num] * Kokkos::exp(loc_u * _inputs.B[phase_num]) + _inputs.C[phase_num];
         return Kokkos::fmax(0.0, V);
     }
 
