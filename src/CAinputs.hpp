@@ -36,7 +36,7 @@ struct Inputs {
     std::string file_name;
 
     // Creates input struct with uninitialized/default values, used in unit tests
-    Inputs() {};
+    Inputs(){};
 
     Inputs(const int id, const std::string input_file)
         : file_name(input_file) {
@@ -826,7 +826,7 @@ struct Inputs {
             irf.D[phase_num] = irf_phase_data["coefficients"]["D"];
             irf.function[phase_num] = irf.cubic;
         }
-        else if ((functionform == "quadratic") || (functionform == "power")) {
+        else if ((functionform == "quadratic") || (functionform == "power") || (functionform == "exponential")) {
             // D should not have been given, this functional form only takes 3 input fitting parameters
             if (irf_phase_data["coefficients"]["D"] != nullptr) {
                 std::string error = "Error: functional form of this type takes only A, B, and C as inputs";
@@ -836,10 +836,12 @@ struct Inputs {
                 irf.function[phase_num] = irf.quadratic;
             else if (functionform == "power")
                 irf.function[phase_num] = irf.power;
+            else if (functionform == "exponential")
+                irf.function[phase_num] = irf.exponential;
         }
         else
             throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
-                                     "supported options are quadratic, cubic, and exponential");
+                                     "supported options are quadratic, cubic, power, and exponential");
         irf.freezing_range[phase_num] = irf_phase_data["freezing_range"];
     }
 
