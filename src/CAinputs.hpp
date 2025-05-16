@@ -61,8 +61,17 @@ struct Inputs {
         parseIRF(id);
         // Path to file of grain orientations based on install/source location
         std::vector<std::string> grain_orientation_file_read;
-        // If one orientation file is given, this is used for any phases in the material. If two are given, this must be
-        // a two phase problem and the solidification transformation rule must be selected
+        // For two phase problems, each grain is associated with a crystallographic orientation and a phase
+        // One orientation file, no transformation: one orientation per grain, no change during solidification (same as
+        // single phase) One orientation file, solidification transformation: randomly selected grain orientation from
+        // the file (based on the input RNG seed) corresponds to each grain ID during second phase solidification,
+        // transforms into a different one during transformation into primary phase on solidification. Two orientation
+        // files, no transformation: unique grain orientation based on the appropriate file for each phase, no change
+        // during solidification Two orientation files, solidification transformation: unique grain orientation based on
+        // the appropriate file for each phase, second phase grain orientations transform into the primary phase
+        // orientations on solidification If one orientation file is given, this is used for any phases in the material.
+        // If two are given, this must be a two phase problem and the solidification transformation rule must be
+        // selected
         if (input_data["GrainOrientationFile"].size() == 1) {
             grain_orientation_file_read.push_back(input_data["GrainOrientationFile"]);
             if (irf.num_phases == 2)

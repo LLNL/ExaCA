@@ -37,7 +37,8 @@ void runExaCA(int id, int np, Inputs inputs, Timers timers, Grid grid, Temperatu
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Initialize grain orientations
-    Orientation<memory_space> orientation(id, inputs.grain_orientation_file, false, inputs.irf.num_phases);
+    Orientation<memory_space> orientation(id, inputs.grain_orientation_file, false, inputs.rng_seed,
+                                          inputs.irf.num_phases, irf.solidificationTransformation());
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Initialize cell types, grain IDs, and layer IDs
