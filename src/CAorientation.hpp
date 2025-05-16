@@ -15,12 +15,15 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <random>
 
 // Data representing the crystallographic orientations corresponding to GrainID values
 template <typename MemorySpace>
 struct Orientation {
 
     using memory_space = MemorySpace;
+    using view_type_int = Kokkos::View<int *, memory_space>;
+    using view_type_int_host = typename view_type_int::HostMirror;
     using view_type_float_2d = Kokkos::View<float **, memory_space>;
     using view_type_float_2d_host = typename view_type_float_2d::HostMirror;
 
@@ -37,19 +40,23 @@ struct Orientation {
     view_type_float_2d grain_unit_vector;
     view_type_float_2d_host grain_bunge_euler_host, grain_rgb_ipfz_host;
     int _num_phases;
+    bool _solidification_transformation_yn;
 
     Orientation(const int id, const std::vector<std::string> grain_unit_vector_file, const bool init_euler_rgb_vals,
-                const int num_phases = 1)
+                unsigned long rng_seed = 0.0, const int num_phases = 1,
+                const bool solidification_transformation_yn = false)
         : grain_unit_vector(
               view_type_float_2d(Kokkos::ViewAllocateWithoutInitializing("grain_unit_vector"), 1, num_phases))
         , grain_bunge_euler_host(
               view_type_float_2d_host(Kokkos::ViewAllocateWithoutInitializing("grain_bunge_euler_host"), 1, num_phases))
         , grain_rgb_ipfz_host(
               view_type_float_2d_host(Kokkos::ViewAllocateWithoutInitializing("grain_rgb_ipfz_host"), 1, num_phases))
-        , _num_phases(num_phases) {
+        , _num_phases(num_phases)
+        , _solidification_transformation_yn(solidification_transformation_yn) {
 
         // Get unit vectors from the grain orientations file (9 vals per line) and store in temporary host view
-        view_type_float_2d_host grain_unit_vector_host_ = getOrientationsFromFile(grain_unit_vector_file, 9, false);
+        view_type_float_2d_host grain_unit_vector_host_ =
+            getOrientationsFromFile(grain_unit_vector_file, 9, false, rng_seed);
         // Copy unit vector data from temporary host view
         grain_unit_vector = Kokkos::create_mirror_view_and_copy(memory_space(), grain_unit_vector_host_);
 
@@ -59,7 +66,7 @@ struct Orientation {
             // GrainOrientationRGB_IPF-Z, but be proceeded with a unique string (such as _1e6.csv) that matches the
             // corresponding file of grain unit vectors. In the case of using the default file
             // GrainOrientationVectors.csv, this will be an empty string
-            getEulerIPFZFilenames(grain_unit_vector_file);
+            getEulerIPFZFilenames(grain_unit_vector_file, rng_seed);
         }
         if (id == 0)
             std::cout << "Done with orientation initialization " << std::endl;
@@ -68,7 +75,8 @@ struct Orientation {
     // Get grain orientations from the specified file and the number of grain orientations and return a host view
     // containing the data
     view_type_float_2d_host getOrientationsFromFile(const std::vector<std::string> orientation_file,
-                                                    const int vals_per_line, const bool check_n_orientations) {
+                                                    const int vals_per_line, const bool check_n_orientations,
+                                                    unsigned long rng_seed) {
 
         // Resize view for storing grain orientations read from file based on a guess for n_grain_orientations (10000
         // used here)
@@ -111,11 +119,30 @@ struct Orientation {
             }
             orientation_input_stream.close();
         }
+
+        // If there is an orientation transformation on solidification and only a single grain orientation file was
+        // given, create a shuffled version of the primary phase orientations (using the random seed) to use as the
+        // secondary phase orientations
+        if (_num_phases == 2) {
+            if (orientation_file[0] == orientation_file[1]) {
+                std::vector<int> orientation_permutation_vector(n_grain_orientations);
+                std::mt19937_64 orientation_generator(rng_seed);
+                for (int i = 0; i < n_grain_orientations; i++)
+                    orientation_permutation_vector[i] = i;
+                std::shuffle(orientation_permutation_vector.begin(), orientation_permutation_vector.end(),
+                             orientation_generator);
+                for (int i = 0; i < n_grain_orientations; i++) {
+                    for (int comp = 0; comp < vals_per_line; comp++)
+                        orientation_data_host(vals_per_line * i + comp, 1) =
+                            orientation_data_host(vals_per_line * orientation_permutation_vector[i] + comp, 1);
+                }
+            }
+        }
         return orientation_data_host;
     }
 
     // Get names of and read other orientation files
-    void getEulerIPFZFilenames(const std::vector<std::string> grain_unit_vector_file) {
+    void getEulerIPFZFilenames(const std::vector<std::string> grain_unit_vector_file, unsigned long rng_seed) {
 
         std::vector<std::string> euler_angles_filename, rgb_filename;
         for (int phase_num = 0; phase_num < _num_phases; phase_num++) {
@@ -152,8 +179,8 @@ struct Orientation {
         std::cout << "Reading " << euler_angles_filename[0] << " and " << rgb_filename[0] << std::endl;
 
         // Read and store additional orientation data in the appropriate views
-        grain_bunge_euler_host = getOrientationsFromFile(euler_angles_filename, 3, true);
-        grain_rgb_ipfz_host = getOrientationsFromFile(rgb_filename, 3, true);
+        grain_bunge_euler_host = getOrientationsFromFile(euler_angles_filename, 3, true, rng_seed);
+        grain_rgb_ipfz_host = getOrientationsFromFile(rgb_filename, 3, true, rng_seed);
     }
 
     // Create a view of size "n_grain_orientations" of the misorientation of each possible grain orientation with the X,

@@ -115,6 +115,7 @@ struct InterfacialResponseFunction {
     auto D(const int phase_num = 0) { return _inputs.D[phase_num]; }
     auto freezingRange(const int phase_num = 0) { return _inputs.freezing_range[phase_num]; }
     auto num_phases() { return _inputs.num_phases; }
+    bool solidificationTransformation() { return _inputs.transformation == _inputs.solidification; }
 };
 
 #endif
