@@ -581,14 +581,52 @@ struct RepresentativeRegion {
     void printGrainTypeFractions(std::ofstream &qois, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost layer_id,
                                  ViewTypeShort3dHost phase_id, const int num_phases, bool found_layer_id) {
 
-        int number_of_unmelted_cells = 0;
+        std::string temp;
+        temp = "-- The representative region consists of " + std::to_string(region_size_cells) + " cells\n";
+        if (found_layer_id) {
+            // Stats for only the cells that underwent melting
+            int number_of_unmelted_cells = 0;
+            int number_of_nucleated_grain_cells_melted = 0;
+            int number_of_primary_phase_cells_melted = 0;
+            for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
+                for (int i = x_bounds_cells[0]; i <= x_bounds_cells[1]; i++) {
+                    for (int j = y_bounds_cells[0]; j <= y_bounds_cells[1]; j++) {
+                        if (layer_id(k, i, j) == -1)
+                            number_of_unmelted_cells++;
+                        else {
+                            if (grain_id(k, i, j) < 0)
+                                number_of_nucleated_grain_cells_melted++;
+                            if (phase_id(k, i, j) == 0)
+                                number_of_primary_phase_cells_melted++;
+                        }
+                    }
+                }
+            }
+            temp += "-- The number of cells in the region that did not undergo melting is " +
+                    std::to_string(number_of_unmelted_cells) + "\n";
+            // Stats for only the portion of the region to undergo melting and solidification
+            float vol_fract_nuc_grains_melted =
+                divideCast<float>(number_of_nucleated_grain_cells_melted, region_size_cells - number_of_unmelted_cells);
+            temp += "-- Considering only the portion of the region to undergo melting/solidification, the volume "
+                    "fraction of the region consisting of nucleated grains is " +
+                    std::to_string(vol_fract_nuc_grains_melted) + "\n";
+            float vol_fract_primary_phase_melted =
+                divideCast<float>(number_of_primary_phase_cells_melted, region_size_cells - number_of_unmelted_cells);
+            if (num_phases > 1)
+                temp += "-- Considering only the portion of the region to undergo melting/solidification, the volume "
+                        "fraction of the region that solidified as the primary phase is " +
+                        std::to_string(vol_fract_primary_phase_melted) + "\n";
+        }
+        else
+            temp += "-- LayerID was not given in this microstructure dataset, the number of cells in the region that "
+                    "did not undergo melting cannot be extracted. Grain volume fractions for the portion of the region "
+                    "to undergo melting and resolidification will not be printed\n";
+        // Stats for the entire region, regardless of whether the cell melted and solidified during one of the layers
         int number_of_nucleated_grain_cells = 0;
         int number_of_primary_phase_cells = 0;
         for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
             for (int i = x_bounds_cells[0]; i <= x_bounds_cells[1]; i++) {
                 for (int j = y_bounds_cells[0]; j <= y_bounds_cells[1]; j++) {
-                    if (layer_id(k, i, j) == -1)
-                        number_of_unmelted_cells++;
                     if (grain_id(k, i, j) < 0)
                         number_of_nucleated_grain_cells++;
                     if (phase_id(k, i, j) == 0)
@@ -596,21 +634,12 @@ struct RepresentativeRegion {
                 }
             }
         }
-        std::string temp;
-        temp = "-- The representative region consists of " + std::to_string(region_size_cells) + " cells\n";
-        if (found_layer_id)
-            temp += "-- The number of cells in the region that did not undergo melting is " +
-                    std::to_string(number_of_unmelted_cells) + "\n";
-        else
-            temp += "-- LayerID was not given in this microstructure dataset, the number of cells in the region that "
-                    "did not undergo melting cannot be extracted. The following stats are for the entire simulation "
-                    "domain, including regions that may not have undergone melting and resolidification\n";
         float vol_fract_nuc_grains = divideCast<float>(number_of_nucleated_grain_cells, region_size_cells);
-        temp +=
-            "-- The volume fraction consisting of nucleated grains is " + std::to_string(vol_fract_nuc_grains) + "\n";
+        temp += "-- The volume fraction of the region consisting of nucleated grains is " +
+                std::to_string(vol_fract_nuc_grains) + "\n";
         float vol_fract_primary_phase = divideCast<float>(number_of_primary_phase_cells, region_size_cells);
         if (num_phases > 1)
-            temp += "-- The volume fraction soldified as the primary phase is " +
+            temp += "-- The volume fraction of the region consisting of the primary phase is " +
                     std::to_string(vol_fract_primary_phase) + "\n";
         dualPrint(temp, std::cout, qois);
     }
