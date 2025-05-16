@@ -64,17 +64,17 @@ void testInterfacialResponse() {
         }
         else if (file_name == "SS316L_FA.json") {
             // Austenite inputs
-            a_test[0] = 1.90855e-19;
-            b_test[0] = 12.9626;
+            a_test[0] = 3.1718E-18;
+            b_test[0] = 12.024;
             c_test[0] = 0;
             freezing_range_test[0] = 26.5;
             expected_v[0] = (deltat / deltax) * (a_test[0] * pow(loc_u, b_test[0]) + c_test[0]);
             // Ferrite inputs
-            a_test[1] = 2.46913e-6;
-            b_test[1] = 3.64106;
+            a_test[1] = 5.6442E-5;
+            b_test[1] = 0.37259;
             c_test[1] = 0;
             freezing_range_test[1] = 26.5;
-            expected_v[1] = (deltat / deltax) * (a_test[1] * pow(loc_u, b_test[1]) + c_test[1]);
+            expected_v[1] = (deltat / deltax) * (a_test[1] * exp(loc_u * b_test[1]) + c_test[1]);
         }
         else {
             throw std::runtime_error("File not set up for testing.");
@@ -94,7 +94,8 @@ void testInterfacialResponse() {
             EXPECT_EQ(irf.num_phases(), 1);
         for (int phase = 0; phase < irf.num_phases(); phase++) {
             EXPECT_FLOAT_EQ(irf.A(phase), a_test[phase] * 2);
-            if (irf._inputs.function[phase] == irf._inputs.power)
+            if ((irf._inputs.function[phase] == irf._inputs.power) ||
+                (irf._inputs.function[phase] == irf._inputs.exponential))
                 EXPECT_FLOAT_EQ(irf.B(phase), b_test[phase]);
             else
                 EXPECT_FLOAT_EQ(irf.B(phase), b_test[phase] * 2);
