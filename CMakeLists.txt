@@ -31,7 +31,7 @@ else()
     # Using most recent release here
     FetchContent_Declare(
       json
-      URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz
+      URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
     )
     FetchContent_MakeAvailable(json)
     # Needs to be installed only in this case.
