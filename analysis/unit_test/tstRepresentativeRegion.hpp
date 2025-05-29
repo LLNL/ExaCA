@@ -217,6 +217,7 @@ void testCollectGrainStats() {
 
     // View for storing grain ID data
     Kokkos::View<int ***, Kokkos::HostSpace> grain_id(Kokkos::ViewAllocateWithoutInitializing("grain_id"), nz, nx, ny);
+
     // Assign grain ID using the Z coordinate
     for (int k = 0; k < nz; k++) {
         for (int i = 0; i < nx; i++) {
