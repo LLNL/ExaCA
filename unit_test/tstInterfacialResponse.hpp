@@ -67,13 +67,13 @@ void testInterfacialResponse() {
             a_test[0] = 3.1718E-18;
             b_test[0] = 12.024;
             c_test[0] = 0;
-            freezing_range_test[0] = 26.5;
+            freezing_range_test[0] = 23.9;
             expected_v[0] = (deltat / deltax) * (a_test[0] * pow(loc_u, b_test[0]) + c_test[0]);
             // Ferrite inputs
             a_test[1] = 5.6442E-5;
             b_test[1] = 0.37259;
             c_test[1] = 0;
-            freezing_range_test[1] = 26.5;
+            freezing_range_test[1] = 22.5;
             expected_v[1] = (deltat / deltax) * (a_test[1] * exp(loc_u * b_test[1]) + c_test[1]);
         }
         else {
