@@ -64,6 +64,7 @@ struct InterfacialResponseInputs {
     enum Transformationtypes { none = 0, solidification = 1 };
     int function[2] = {cubic, cubic};
     int transformation = none;
+    bool velocity_cap[2] = {false, false};
 };
 
 struct TemperatureInputs {

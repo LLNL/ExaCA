@@ -56,8 +56,14 @@ struct InterfacialResponseFunction {
     // Compute velocity from local undercooling.
     // functional form is assumed to be cubic if not explicitly given in input file
     KOKKOS_INLINE_FUNCTION
-    float compute(const float loc_u, const int phase_num = 0) const {
+    float compute(const float loc_u_uncapped, const int phase_num = 0) const {
         float V;
+        float loc_u;
+        // Should the maximum velocity be capped at the freezing range value?
+        if (_inputs.velocity_cap[phase_num])
+            loc_u = Kokkos::min(loc_u_uncapped, _inputs.freezing_range[phase_num]);
+        else
+            loc_u = loc_u_uncapped;
         assert(phase_num < _inputs.num_phases);
         if (_inputs.function[phase_num] == _inputs.quadratic)
             V = _inputs.A[phase_num] * Kokkos::pow(loc_u, 2.0) + _inputs.B[phase_num] * loc_u + _inputs.C[phase_num];

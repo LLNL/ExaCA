@@ -852,6 +852,9 @@ struct Inputs {
             throw std::runtime_error("Error: Unrecognized functional form for interfacial response function, currently "
                                      "supported options are quadratic, cubic, power, and exponential");
         irf.freezing_range[phase_num] = irf_phase_data["freezing_range"];
+
+        if (irf_phase_data.contains("velocity_cap"))
+            irf.velocity_cap[phase_num] = irf_phase_data["velocity_cap"];
     }
 
     // Get interfacial response function coefficients and freezing range from the material input file and all listed

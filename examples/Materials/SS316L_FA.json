@@ -7,7 +7,8 @@
            "B": 12.024,
            "C": 0
          },
-         "freezing_range": 26.5
+         "freezing_range": 23.9,
+         "velocity_cap": true
     },
     "ferrite": {
         "function": "exponential",
@@ -16,7 +17,8 @@
            "B": 0.37259,
            "C": 0
          },
-         "freezing_range": 26.5,
-         "transformation": "solidification"
+         "freezing_range": 22.5,
+         "transformation": "solidification",
+         "velocity_cap": true
     }
 }
