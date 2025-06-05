@@ -94,8 +94,7 @@ void testSmallDirS() {
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Print ExaCA end-of-run data
-    finalizeExaCA(id, np, cycle, inputs, timers, grid, temperature, irf, orientation, celldata, interface, nucleation,
-                  print, "Directional");
+    finalizeExaCA(id, np, cycle, inputs, timers, grid, temperature, orientation, celldata, interface, print);
     // MPI barrier to ensure that log file has been written
     MPI_Barrier(MPI_COMM_WORLD);
     std::string log_file = "TestProblemSmallDirS.json";
@@ -171,8 +170,7 @@ void testSmallEquiaxedGrain() {
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Print ExaCA end-of-run data
-    finalizeExaCA(id, np, cycle, inputs, timers, grid, temperature, irf, orientation, celldata, interface, nucleation,
-                  print, "SingleGrain");
+    finalizeExaCA(id, np, cycle, inputs, timers, grid, temperature, orientation, celldata, interface, print);
 
     // MPI barrier to ensure that log file has been written
     MPI_Barrier(MPI_COMM_WORLD);

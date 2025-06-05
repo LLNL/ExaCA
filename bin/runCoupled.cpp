@@ -18,7 +18,7 @@
 // of layers where the return view stores time-temperature histories for layers l=0,1,2... where first_value[l] is the
 // index of the first event and last_value[l]-1 is the index of the last event associated with layer l
 Kokkos::View<double **, Kokkos::LayoutLeft, Kokkos::HostSpace>
-getFinchData(const int id, const int np, const int first_finch_simulation, const int num_finch_simulations,
+getFinchData(const int, const int, const int first_finch_simulation, const int num_finch_simulations,
              const int number_of_layers, Inputs exaca_inputs, std::array<double, 3> &exaca_low_corner,
              std::array<double, 3> &exaca_high_corner, std::vector<int> &first_value_finch,
              std::vector<int> &last_value_finch) {
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
         std::array<double, 3> exaca_low_corner, exaca_high_corner;
         // Should Finch simulations for all layers be performed and time-temperature history data stored prior to
         // running ExaCA, or should each Finch simulation be run one at a time between ExaCA-simulated layers?
-        int num_finch_simulations, first_finch_simulation;
+        int num_finch_simulations;
         if (inputs.temperature.layerwise_temp_read)
             num_finch_simulations = 1;
         else
@@ -253,8 +253,7 @@ int main(int argc, char *argv[]) {
                 temperature.resetLayerEventsUndercooling(grid);
 
                 // Initialize next layer of the simulation
-                initExaCALayer(id, np, layernumber, cycle, inputs, grid, temperature, orientation, celldata, interface,
-                               nucleation, print, "FromFinch");
+                initExaCALayer(id, layernumber, cycle, inputs, grid, temperature, celldata, interface, nucleation);
                 timers.stopLayer(layernumber);
             }
             else {
@@ -266,8 +265,7 @@ int main(int argc, char *argv[]) {
         MPI_Barrier(MPI_COMM_WORLD);
 
         // Print ExaCA end-of-run data
-        finalizeExaCA(id, np, cycle, inputs, timers, grid, temperature, irf, orientation, celldata, interface,
-                      nucleation, print, "FromFinch");
+        finalizeExaCA(id, np, cycle, inputs, timers, grid, temperature, orientation, celldata, interface, print);
     }
 
     // Finalize Kokkos & MPI

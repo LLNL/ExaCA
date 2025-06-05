@@ -21,9 +21,6 @@ void runExaCALayer(int id, int np, int layernumber, int &cycle, Inputs inputs, T
                    Interface<MemorySpace> &interface, Nucleation<MemorySpace> &nucleation, Print &print,
                    std::string simulation_type) {
 
-    // Run on the default space.
-    using memory_space = MemorySpace;
-
     int x_switch = 0;
 
     // Loop continues until all liquid cells claimed by solid grains, and no solid cells undergo remelting
@@ -96,10 +93,9 @@ void runExaCALayer(int id, int np, int layernumber, int &cycle, Inputs inputs, T
 
 // Initialize structs for the next layer of a multilayer ExaCA simulation
 template <typename MemorySpace>
-void initExaCALayer(int id, int np, int layernumber, int &cycle, Inputs inputs, Grid &grid,
-                    Temperature<MemorySpace> temperature, Orientation<MemorySpace> &orientation,
-                    CellData<MemorySpace> &celldata, Interface<MemorySpace> &interface,
-                    Nucleation<MemorySpace> &nucleation, Print &print, std::string simulation_type) {
+void initExaCALayer(int id, int layernumber, int &cycle, Inputs inputs, Grid &grid,
+                    Temperature<MemorySpace> temperature, CellData<MemorySpace> &celldata,
+                    Interface<MemorySpace> &interface, Nucleation<MemorySpace> &nucleation) {
 
     if (layernumber != grid.number_of_layers - 1) {
         // Resize and zero all view data relating to the active region from the last layer, in preparation for the
@@ -126,10 +122,8 @@ void initExaCALayer(int id, int np, int layernumber, int &cycle, Inputs inputs, 
 // Finalize timer values, print end-of-run output to the console/files, and print the log file
 template <typename MemorySpace>
 void finalizeExaCA(int id, int np, int cycle, Inputs inputs, Timers timers, Grid &grid,
-                   Temperature<MemorySpace> temperature, InterfacialResponseFunction irf,
-                   Orientation<MemorySpace> &orientation, CellData<MemorySpace> &celldata,
-                   Interface<MemorySpace> &interface, Nucleation<MemorySpace> &nucleation, Print &print,
-                   std::string simulation_type) {
+                   Temperature<MemorySpace> temperature, Orientation<MemorySpace> &orientation,
+                   CellData<MemorySpace> &celldata, Interface<MemorySpace> &interface, Print &print) {
 
     timers.startOutput();
 

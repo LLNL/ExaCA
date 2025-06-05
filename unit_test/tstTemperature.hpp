@@ -304,8 +304,8 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
 // Check temperature initialization for translated/mirrored FromFile or FromFinch data
 template <typename MemorySpace>
 void checkTemperatureResults(Inputs &inputs, Grid &grid, Temperature<MemorySpace> &temperature,
-                             const int number_of_copies, const int id, const int np, const bool mirror_x,
-                             const int number_of_layers, const int num_layers_with_points) {
+                             const int number_of_copies, const int, const int np, const bool mirror_x,
+                             const int num_layers_with_points) {
 
     // Should have equal numbers of points associated with each layer - if initializing only 1 layer at a time, the data
     // from the other layers should not have been stored
@@ -347,7 +347,6 @@ void checkTemperatureResults(Inputs &inputs, Grid &grid, Temperature<MemorySpace
     // Make sure one data point was present in each expected cell per each layer of data stored. With number_of_copies =
     // 1, data will only be present at Y = 0 locally, and each copy is translated 1 cell in Y
     for (int index = 0; index < grid.domain_size; index++) {
-        const int coord_x = grid.getCoordX(index);
         const int coord_y = grid.getCoordY(index);
         const int coord_z = grid.getCoordZ(index);
         if ((coord_y < number_of_copies) && (coord_z < np)) {
@@ -447,8 +446,7 @@ void testInitTemperatureFromFinch(const bool mirror_x, const int number_of_copie
                                           last_value);
 
     // Check that the right ranks have the right temperature data
-    checkTemperatureResults(inputs, grid, temperature, number_of_copies, id, np, mirror_x, number_of_layers,
-                            num_layers_with_points);
+    checkTemperatureResults(inputs, grid, temperature, number_of_copies, id, np, mirror_x, num_layers_with_points);
 }
 
 // Test storing temperature data from a file on the correct ExaCA ranks, using the same process at the FromFinch test
@@ -498,8 +496,7 @@ void testInitTemperatureFromFile(const bool mirror_x, const int number_of_copies
     temperature.readTemperatureData(id, grid, 0);
 
     // Check that the right ranks have the right temperature data
-    checkTemperatureResults(inputs, grid, temperature, number_of_copies, id, np, mirror_x, grid.number_of_layers,
-                            grid.number_of_layers);
+    checkTemperatureResults(inputs, grid, temperature, number_of_copies, id, np, mirror_x, grid.number_of_layers);
 }
 
 //---------------------------------------------------------------------------//

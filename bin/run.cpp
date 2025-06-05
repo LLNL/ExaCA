@@ -130,8 +130,7 @@ int main(int argc, char *argv[]) {
                     temperature.resetLayerEventsUndercooling(grid);
 
                     // Initialize next layer of the simulation
-                    initExaCALayer(id, np, layernumber, cycle, inputs, grid, temperature, orientation, celldata,
-                                   interface, nucleation, print, simulation_type);
+                    initExaCALayer(id, layernumber, cycle, inputs, grid, temperature, celldata, interface, nucleation);
                     timers.stopLayer(layernumber);
                 }
                 else {
@@ -143,8 +142,7 @@ int main(int argc, char *argv[]) {
             MPI_Barrier(MPI_COMM_WORLD);
 
             // Print ExaCA end-of-run data
-            finalizeExaCA(id, np, cycle, inputs, timers, grid, temperature, irf, orientation, celldata, interface,
-                          nucleation, print, simulation_type);
+            finalizeExaCA(id, np, cycle, inputs, timers, grid, temperature, orientation, celldata, interface, print);
         }
     }
     // Finalize Kokkos
