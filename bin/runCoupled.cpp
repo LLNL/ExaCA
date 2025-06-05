@@ -57,8 +57,8 @@ getFinchData(const int, const int, const int first_finch_simulation, const int n
         // options were specified
         std::array<double, 3> exaca_low_corner_layer = finch_inputs.space.global_low_corner;
         std::array<double, 3> exaca_high_corner_layer = finch_inputs.space.global_high_corner;
-        std::array<double, 3> finch_low_corner_layer = app.getLowerSolidificationDataBounds(MPI_COMM_WORLD);
-        std::array<double, 3> finch_high_corner_layer = app.getUpperSolidificationDataBounds(MPI_COMM_WORLD);
+        std::array<double, 3> finch_low_corner_layer = app.getLowerSolidificationDataBounds();
+        std::array<double, 3> finch_high_corner_layer = app.getUpperSolidificationDataBounds();
         if (exaca_inputs.temperature.trim_unmelted_region_xy) {
             exaca_low_corner_layer[0] = finch_low_corner_layer[0];
             exaca_high_corner_layer[0] = finch_high_corner_layer[0];
