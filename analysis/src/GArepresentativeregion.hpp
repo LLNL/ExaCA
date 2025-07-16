@@ -77,6 +77,8 @@ struct RepresentativeRegion {
 
     // List of grain ID values in the representative region
     std::vector<int> grain_id_vector;
+    // List of phase ID values in the representative region
+    std::vector<short> phase_id_vector;
     // List of unique grain IDs associated with the region and the number of grains
     int number_of_grains;
     std::vector<int> unique_grain_id_vector;
@@ -84,9 +86,9 @@ struct RepresentativeRegion {
     std::vector<float> grain_size_vector_microns;
 
     // Constructor
-    template <typename ViewTypeInt3dHost>
+    template <typename ViewTypeInt3dHost, typename ViewTypeShort3dHost>
     RepresentativeRegion(nlohmann::json analysis_data, std::string region_name, int nx, int ny, int nz, double deltax,
-                         std::vector<double> xyz_bounds, ViewTypeInt3dHost grain_id) {
+                         std::vector<double> xyz_bounds, ViewTypeInt3dHost grain_id, ViewTypeShort3dHost phase_id) {
 
         // Data for the specific region of interest
         std::cout << "Parsing data for region " << region_name << std::endl;
@@ -142,10 +144,13 @@ struct RepresentativeRegion {
         // Check other Y/N options (false by default or if not an allowed option for the region type)
         readSeparateFileAnalysisOptions(region_data);
 
-        // List of grain ID values in the representative region
-        grain_id_vector = getGrainIDVector(grain_id);
+        // Lists of grain ID and phase ID values in the representative region
+        grain_id_vector = getIDVector<ViewTypeInt3dHost, int>(grain_id);
+        phase_id_vector = getIDVector<ViewTypeShort3dHost, short>(phase_id);
+
         // List of unique grain IDs associated with the region, also initialize the number of grains
-        unique_grain_id_vector = getUniqueGrains();
+        unique_grain_id_vector = getUniqueGrains(grain_id_vector);
+        number_of_grains = unique_grain_id_vector.size();
         // Size (in units of length, area, or volume, depending on region_type) associated with each grain
         grain_size_vector_microns = getGrainSizeVector(deltax);
         std::cout << "Loaded analysis options for region " << region_name << std::endl;
@@ -353,33 +358,32 @@ struct RepresentativeRegion {
     // Subroutines starting with "get" return the data specified
     // Subroutines starting with "calc" calculate the quantity specified but do not return it
 
-    // Get the list of Grain IDs associated with the representative region
-    template <typename ViewTypeInt3dHost>
-    std::vector<int> getGrainIDVector(ViewTypeInt3dHost grain_id) {
+    // Get the list of Grain/Phase IDs associated with the representative region
+    template <typename ViewType3dHost, typename value_type>
+    std::vector<value_type> getIDVector(ViewType3dHost id_field) {
 
-        std::vector<int> grain_id_vector(region_size_cells);
+        std::vector<value_type> id_vector(region_size_cells);
         int count = 0;
         for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
             for (int i = x_bounds_cells[0]; i <= x_bounds_cells[1]; i++) {
                 for (int j = y_bounds_cells[0]; j <= y_bounds_cells[1]; j++) {
-                    grain_id_vector[count] = grain_id(k, i, j);
+                    id_vector[count] = id_field(k, i, j);
                     count++;
                 }
             }
         }
-        return grain_id_vector;
+        return id_vector;
     }
 
     // Given an input vector of integer Grain ID values, return an output vector consisting of the unique Grain ID
     // values, sorted from lowest to highest. Store the number of grains
-    std::vector<int> getUniqueGrains() {
-        std::vector<int> unique_grain_id_vector = grain_id_vector;
-        std::sort(unique_grain_id_vector.begin(), unique_grain_id_vector.end());
+    std::vector<int> getUniqueGrains(std::vector<int> _grain_id_vector) {
+        std::vector<int> _unique_grain_id_vector = _grain_id_vector;
+        std::sort(_unique_grain_id_vector.begin(), _unique_grain_id_vector.end());
         std::vector<int>::iterator it;
-        it = std::unique(unique_grain_id_vector.begin(), unique_grain_id_vector.end());
-        unique_grain_id_vector.resize(std::distance(unique_grain_id_vector.begin(), it));
-        number_of_grains = unique_grain_id_vector.size();
-        return unique_grain_id_vector;
+        it = std::unique(_unique_grain_id_vector.begin(), _unique_grain_id_vector.end());
+        _unique_grain_id_vector.resize(std::distance(_unique_grain_id_vector.begin(), it));
+        return _unique_grain_id_vector;
     }
 
     // Given an input vector of integer Grain ID values "grain_id_vector", and an input vector of the
@@ -674,12 +678,45 @@ struct RepresentativeRegion {
     }
 
     // Print the average grain size and the number of grains in the region
-    void printMeanSize(std::ofstream &qois) {
+    void printMeanSize(std::ofstream &qois, const double deltax, const int num_phases = 1) {
 
         float avg_size_per_grain = divideCast<float>(region_size_microns, number_of_grains);
         std::string temp = "-- There are " + std::to_string(number_of_grains) + " grains in this " + region_type +
                            " , and the mean grain " + region_type + " is " + std::to_string(avg_size_per_grain) + " " +
                            units_dimension + "\n";
+        // Also get average size per grain for regions that exclusively solidified as the second phase
+        if (num_phases > 1) {
+            int second_phase_cells = 0;
+            std::vector<int> grain_id_second_phase(region_size_cells);
+            for (int n = 0; n < region_size_cells; n++) {
+                if (phase_id_vector[n] == 1) {
+                    grain_id_second_phase[second_phase_cells] = grain_id_vector[n];
+                    second_phase_cells++;
+                }
+            }
+            grain_id_second_phase.resize(second_phase_cells);
+            std::vector<int> unique_grain_id_vector_second_phase = getUniqueGrains(grain_id_second_phase);
+            const int num_second_phase_grains = unique_grain_id_vector_second_phase.size();
+            // Filter out small grains
+            int num_second_phase_grains_above_thresh = 0;
+            float tot_size_second_phase_grains = 0.0;
+            double conv = convertToMicrons(deltax, region_type);
+            for (int n = 0; n < number_of_grains; n++) {
+                int grain_size_cells = std::count(grain_id_second_phase.begin(), grain_id_second_phase.end(),
+                                                  unique_grain_id_vector_second_phase[n]);
+                if (grain_size_cells > 6) {
+                    // convert to either microns, square microns, or cubic microns
+                    tot_size_second_phase_grains += static_cast<float>(conv) * static_cast<float>(grain_size_cells);
+                    num_second_phase_grains_above_thresh++;
+                }
+            }
+            float avg_size_per_second_phase_grain =
+                divideCast<float>(tot_size_second_phase_grains, num_second_phase_grains_above_thresh);
+            temp += "-- For the region that solidified as the second phase, there are " +
+                    std::to_string(num_second_phase_grains) + " grains in this " + region_type +
+                    " , and the mean grain " + region_type + " is " + std::to_string(avg_size_per_second_phase_grain) +
+                    " " + units_dimension + "\n";
+        }
         dualPrint(temp, std::cout, qois);
     }
 

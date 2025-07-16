@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
             // Create region
             std::string region_name = it.key();
             RepresentativeRegion representativeregion(analysis_data, region_name, nx, ny, nz, deltax, xyz_bounds,
-                                                      grain_id);
+                                                      grain_id, phase_id);
             std::string base_filename_this_region = base_filename + "_" + region_name;
 
             // Output file stream for quantities of interest
@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
 
             // Print mean size data if specified
             if (representativeregion.analysis_options_stats_yn[2])
-                representativeregion.printMeanSize(qois);
+                representativeregion.printMeanSize(qois, deltax, num_phases);
 
             // Obtain extents of grains in X, Y, Z if necessary for requested analysis
             representativeregion.calcNecessaryGrainExtents(grain_id, deltax);
