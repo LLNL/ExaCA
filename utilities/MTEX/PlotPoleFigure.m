@@ -71,7 +71,7 @@ function [] = PlotPoleFigure(MTEXFile, ijk_vals, xyz_vals, ColormapFile, Colorma
         clim(gca,[0, ColormapUpperLimit]);
         mtexColorbar;
         hold off;
-        OutputFileName2 = strcat(BaseFileName,'_IPFDensity.png');
+        OutputFileName2 = strcat(BaseFileName,'_IPFDensity_',xyz_vals(i),'.png');
         export_fig(OutputFileName2,'-r150');
     end
 end
