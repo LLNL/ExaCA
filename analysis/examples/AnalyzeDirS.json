@@ -9,7 +9,7 @@
             "printPoleFigureData": true,
             "printAvgStats": ["GrainTypeFractions","Misorientation","Size", "BuildTransAspectRatio","Extent"],
             "printPerGrainStats": ["Misorientation","Size","ZExtent"],
-            "printPerZCoordinateStats": ["MeanGrainArea","MeanWeightedGrainArea"]
+            "printPerZCoordinateStats": ["MeanGrainArea"]
         },
         "XYCross": {
             "units": "cells",
