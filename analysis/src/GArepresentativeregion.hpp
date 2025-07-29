@@ -66,11 +66,10 @@ struct RepresentativeRegion {
     std::vector<bool> analysis_options_per_grain_stats_yn = std::vector<bool>(7, false);
     // Analysis options for per Z coordinate stats
     std::vector<std::string> analysis_options_per_z_stats_key = {
-        "MeanGrainArea",        // volume only
-        "MeanWeightedGrainArea" // volume only
+        "MeanGrainArea" // volume only
     };
     bool print_per_grain_stats_yn = false;
-    std::vector<bool> analysis_options_per_z_stats_yn = std::vector<bool>(2, false);
+    std::vector<bool> analysis_options_per_z_stats_yn = std::vector<bool>(1, false);
 
     // Analysis options that print separate files
     bool print_exaconstit_yn, print_pole_figure_yn, print_inverse_pole_figure_map_yn;
@@ -119,25 +118,9 @@ struct RepresentativeRegion {
         }
         std::cout << "Read analysis options" << std::endl;
 
-        // Layerwise stats are for volumes only
-        std::string layerwise_label = "";
-        std::vector<std::string> possible_layerwise_labels = {"printLayerwiseData", "printPerLayerStats",
-                                                              "printPerZCoordinateStats"};
-        for (int n = 0; n < 3; n++) {
-            std::string label_n = possible_layerwise_labels[n];
-            if (region_data.contains(label_n)) {
-                if (!layerwise_label.empty())
-                    std::cout << "Redundant input " << layerwise_label << " replaced with " << label_n << std::endl;
-                layerwise_label = label_n;
-            }
-        }
-        if ((layerwise_label == "printLayerwiseData") || (layerwise_label == "printPerLayerStats"))
-            std::cout << "Warning: " << layerwise_label
-                      << " option has been deprecated and replaced with printPerZCoordinateStats; compatibility will "
-                         "be removed in a future release"
-                      << std::endl;
+        // printPerZCoordinateStats stats are for volumes only - currently, MeanGrainArea is the only option
         if (region_type == "volume")
-            readAnalysisOptionsFromList(region_data, layerwise_label, analysis_options_per_z_stats_key,
+            readAnalysisOptionsFromList(region_data, "printPerZCoordinateStats", analysis_options_per_z_stats_key,
                                         analysis_options_per_z_stats_yn);
         // Check other Y/N options (false by default or if not an allowed option for the region type)
         readSeparateFileAnalysisOptions(region_data);
@@ -682,30 +665,20 @@ struct RepresentativeRegion {
         dualPrint(temp, std::cout, qois);
     }
 
-    // Write unweighted and/or weighted grain areas as a function of build height to file(s)
-    // TODO: Remove weighted grain area calculations from the next release
+    // Write mean grain areas as a function of build height to file(s)
     template <typename ViewTypeInt3dHost>
     void writeAreaSeries(std::string base_filename, double deltax, ViewTypeInt3dHost grain_id) {
 
-        bool print_unweighted_areas = analysis_options_per_z_stats_yn[0];
-        bool print_weighted_areas = analysis_options_per_z_stats_yn[1];
-        std::string fname1 = base_filename + "_GrainAreas.csv";
-        std::string fname2 = base_filename + "_WeightedGrainAreas.csv";
-        std::ofstream grainplot1, grainplot2;
-        if (print_unweighted_areas) {
-            std::cout << "Printing file " << fname1 << " of grain area values (in square microns) for all Z coordinates"
-                      << std::endl;
-            grainplot1.open(fname1);
-            grainplot1 << "Zcoordinate(µm),MeanArea(µm2)" << std::endl;
-        }
-        if (print_weighted_areas) {
-            std::cout << "Printing file " << fname2
-                      << " of weighted grain area values (in square microns) for every 5th Z coordinate" << std::endl;
-            std::cout << "Note: Option to print weighted grain area data will be removed in a future release"
-                      << std::endl;
-            grainplot2.open(fname2);
-            grainplot2 << "Zcoordinate(µm),WeightedMeanArea(µm2)" << std::endl;
-        }
+        bool print_mean_areas = analysis_options_per_z_stats_yn[0];
+        if (!print_mean_areas)
+            return;
+
+        std::string fname = base_filename + "_GrainAreas.csv";
+        std::ofstream grainplot;
+        std::cout << "Printing file " << fname << " of grain area values (in square microns) for all Z coordinates"
+                  << std::endl;
+        grainplot.open(fname);
+        grainplot << "Zcoordinate(µm),MeanArea(µm2)" << std::endl;
 
         int layer_area = (x_bounds_cells[1] - x_bounds_cells[0] + 1) * (y_bounds_cells[1] - y_bounds_cells[0] + 1);
         for (int k = z_bounds_cells[0]; k <= z_bounds_cells[1]; k++) {
@@ -729,38 +702,11 @@ struct RepresentativeRegion {
             unique_grain_id_vector_area.resize(std::distance(unique_grain_id_vector_area.begin(), it));
             int number_of_grains_area = unique_grain_id_vector_area.size();
             float mean_grain_area_this_layer = divideCast<float>(layer_area, number_of_grains_area);
-            if (print_unweighted_areas)
-                grainplot1 << z_coordinate_microns << ","
-                           << mean_grain_area_this_layer * convertToMicrons(deltax, "area") << std::endl;
-            if ((print_weighted_areas) && (k % 5 == 0)) {
-                std::vector<float> grain_size_vector_microns_area(number_of_grains_area);
-                double conv = convertToMicrons(deltax, "area");
-                for (int n = 0; n < number_of_grains_area; n++) {
-                    int grain_size_cells = std::count(grain_id_vector_area.begin(), grain_id_vector_area.end(),
-                                                      unique_grain_id_vector_area[n]);
-                    grain_size_vector_microns_area[n] = static_cast<float>(conv) * grain_size_cells;
-                }
-                float area_x_area = 0.0;
-                for (int n = 0; n < number_of_grains_area; n++)
-                    area_x_area += grain_size_vector_microns_area[n] * grain_size_vector_microns_area[n];
-                float weighted_area = divideCast<float>(area_x_area, layer_area);
-                grainplot2 << z_coordinate_microns << "," << weighted_area << std::endl;
-                if (k == z_bounds_cells[1])
-                    std::cout
-                        << "[Note: this will no longer be printed in a future release] The mean weighted grain area "
-                           "at the representative region top (Z coordinate = "
-                        << z_bounds_cells[1] << ") is " << weighted_area << " square microns" << std::endl;
-            }
-            if (k == z_bounds_cells[1])
-                std::cout << "[Note: this will no longer be printed in a future release] The mean grain area at the "
-                             "representative region top (Z coordinate = "
-                          << z_bounds_cells[1] << ") is " << mean_grain_area_this_layer << " square microns"
-                          << std::endl;
+            if (print_mean_areas)
+                grainplot << z_coordinate_microns << ","
+                          << mean_grain_area_this_layer * convertToMicrons(deltax, "area") << std::endl;
         }
-        if (print_unweighted_areas)
-            grainplot1.close();
-        if (print_weighted_areas)
-            grainplot2.close();
+        grainplot.close();
     }
 
     // Write pole figure data for this region to a file to be read by MTEX

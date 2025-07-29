@@ -56,7 +56,7 @@ void writeTestVolume() {
                  "\"BuildTransAspectRatio\", \"XExtent\", \"YExtent\", \"ZExtent\"],"
               << std::endl;
     test_data << "          \"printPerGrainStats\": [\"IPFZ-RGB\", \"Size\"]," << std::endl;
-    test_data << "          \"printPerZCoordinateStats\": [\"MeanGrainArea\", \"MeanWeightedGrainArea\"]" << std::endl;
+    test_data << "          \"printPerZCoordinateStats\": [\"MeanGrainArea\"]" << std::endl;
     test_data << "      }" << std::endl;
     test_data << "   }" << std::endl;
     test_data << "}" << std::endl;
