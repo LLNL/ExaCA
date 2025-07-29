@@ -618,9 +618,9 @@ struct RepresentativeRegion {
             grain_misorientation_sum_y += grain_misorientation_y_vector[n] * grain_size_vector_microns[n];
             grain_misorientation_sum_z += grain_misorientation_z_vector[n] * grain_size_vector_microns[n];
         }
-        float avg_misorientation_x = divideCast<float>(grain_misorientation_sum_x, region_size_meters);
-        float avg_misorientation_y = divideCast<float>(grain_misorientation_sum_y, region_size_meters);
-        float avg_misorientation_z = divideCast<float>(grain_misorientation_sum_z, region_size_meters);
+        float avg_misorientation_x = divideCast<float>(grain_misorientation_sum_x, region_size_microns);
+        float avg_misorientation_y = divideCast<float>(grain_misorientation_sum_y, region_size_microns);
+        float avg_misorientation_z = divideCast<float>(grain_misorientation_sum_z, region_size_microns);
         std::string temp;
         temp = "-- Average misorientation (weighted by size) for grains relative to the X direction (in degrees): " +
                std::to_string(avg_misorientation_x) + "\n";
