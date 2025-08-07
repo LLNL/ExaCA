@@ -16,8 +16,8 @@ Once the bounds of each region are identified, the analysis options can be speci
 * Values specified in `printPerGrainStats` will print data for each individual grain ID to a csv file of per-grain data named `[MicrostructureBaseFilename]_[RegionName]_grains.csv`
 * Values specified in `printPerZCoordinateStats` will be printed in additional separate files.
 
-| Output                | Compatible options            | Details
-|=======================|===============================|====================
+| Output                | Compatible options               | Details             |
+| --------------------- | -------------------------------- | ------------------- |
 | GrainTypeFractions    | printAvgStats                    | Prints the fraction of the region consisting of nucleated grains, and the fraction that did not undergo melting
 | Misorientation        | printAvgStats/printPerGrainStats | Prints the misorientation of the grain's <001> directions with the cardinal directions
 | Size                  | printAvgStats/printPerGrainStats | Prints the grain size (length in microns, area in square microns, or volume in cubic microns, depending on the dimensionality of the region)
@@ -31,8 +31,8 @@ Once the bounds of each region are identified, the analysis options can be speci
 
 Additional analysis options for certain region types can be specified by setting them to `true` in the analysis input file (if the option does not appear in the input file, it is turned off by default)
 
-| Output                | Compatible options            | Details
-|=======================|===============================|====================
+| Output                      | Compatible options    | Details             |
+| --------------------------- | --------------------- | ------------------- |
 | PrintExaConstitYN           | volume                | Prints the grain ID data into an RVE usable by ExaConstit for constitutive properties simulation
 | PrintPoleFigureYN           | area/volume           | Prints the grain orientation frequency data to a file which can be further analyzed in Matlab to generate pole figure and inverse pole figure data using the MTEX library
 | PrintInversePoleFigureMapYN | area                  | Prints the grain euler angle data as a function of location in the cross-section to a file which can be further analyzed in Matlab to map the orientations to inverse pole figure-colored values (EBSD-like) using the MTEX library
