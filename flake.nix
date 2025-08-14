@@ -17,11 +17,10 @@
       };
     };
 
-    exaca = with config; pkgs.stdenv.mkDerivation rec {
+    exaca = { src, version}: with config; pkgs.stdenv.mkDerivation {
       pname = "exaca";
-      version = "latest";
-
-      src = self;
+      inherit version;
+      inherit src;
 
       CMAKE_TLS_VERIFY=0;
       
@@ -37,11 +36,24 @@
       propagatedBuildInputs = [
         pkgs.openmpi
       ];
-
     };
+
+    packages = with config; rec {
+      default = exaca {
+        src = self;
+        version = self.shortRev or self.dirtyShortRev;
+      };
+
+      stable = exaca (rec {
+        src = pkgs.fetchFromGitHub {
+          owner = "LLNL";
+          repo  = "ExaCA";
+          rev   = "${version}";
+          hash  = "sha256-X21yP+sqxR/iM/4N/qKucB2hMmBLf00bVtlCS0QGVQw=";
+        };
+        version = "2.0.2";
+      });
       
-    packages = rec {
-      default = exaca;
     };
 
     devShells = with config; rec {
