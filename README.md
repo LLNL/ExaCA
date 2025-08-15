@@ -26,6 +26,12 @@ We encourage you to contribute to ExaCA. Please check the
 ## Build
 ExaCA uses Kokkos and MPI for parallelism and JSON for input files.
 
+### Package managers
+ExaCA is integrated with the following package managers. Detailed build instructions are available below as well.
+ - spack: see the [spack documentation](https://spack.io/) for installation and use
+    - `spack install exaca` will install with the default options
+    - all ExaCA options and hardware details are available through spack, e.g. `spack install exaca +finch +cuda cuda_arch=90`
+
 ### Dependencies
 
 |Dependency | Version | Required | Details|
