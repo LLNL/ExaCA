@@ -24,7 +24,7 @@ We encourage you to contribute to ExaCA. Please check the
 [contribution guidelines](CONTRIBUTING.md).
 
 ## Build
-ExaCA uses Kokkos and MPI for parallelism and JSON for input files.
+ExaCA uses Kokkos and MPI for parallelism, JSON for input files, and CMake to build.
 
 ### Package managers
 ExaCA is integrated with the following package managers. Detailed build instructions are available below as well.
@@ -38,7 +38,7 @@ ExaCA is integrated with the following package managers. Detailed build instruct
 |---------- | ------- |--------  |------- |
 |[CMake](https://cmake.org/download/)       | 3.11+    | Yes      | Build system
 |[Kokkos](https://github.com/kokkos/kokkos) | 4.0+    | Yes      | Portable on-node parallelism
-|MPI        | GPU Aware if CUDA/HIP Enabled | Yes     | Multi-node parallelism
+|MPI        | GPU Aware if enabled | Yes     | Multi-node parallelism
 |[json](https://github.com/nlohmann/json) | 3.10+| Yes       | Input parsing
 |[GoogleTest](https://github.com/google/googletest) | 1.10+   | No       | Unit test framework
 |CUDA       | 9+      | No       | Programming model for NVIDIA GPUs
@@ -59,7 +59,7 @@ git clone https://github.com/LLNL/ExaCA.git
 
 ### Backend options
 Note that ExaCA runs with the default enabled Kokkos backend
- (see https://github.com/kokkos/kokkos/wiki/Initialization).
+ (see https://kokkos.org/kokkos-core-wiki/get-started/configuration-guide.html#backend-selection).
 
 ExaCA has been tested with the Serial, OpenMP, Threads, CUDA, and HIP backends.
 
@@ -85,7 +85,7 @@ cmake --build build
 cmake --install build
 cd ../
 ```
-Note that there are other host backends available. Kokkos architecture flags can also be set to improve performance and must match the hardware you run on (e.g. -DKokkos_ARCH_POWER9=ON); see [Kokkos architecture flag details](https://kokkos.github.io/kokkos-core-wiki/keywords.html#architecture-keywords).
+Note that there are other host backends available. Kokkos architecture flags can also be set to improve performance and must match the hardware you run on (e.g. -DKokkos_ARCH_POWER9=ON); see [Kokkos architecture flag details](https://kokkos.org/kokkos-core-wiki/get-started/configuration-guide.html#keywords-arch).
 
 #### CUDA build
 
@@ -102,7 +102,6 @@ cmake \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR \
   -D Kokkos_ENABLE_CUDA=ON \
-  -D Kokkos_ENABLE_CUDA_LAMBDA=ON \
   -D Kokkos_ARCH_VOLTA70=ON
 # Build Kokkos
 cmake --build build
@@ -115,13 +114,15 @@ Note the two flags needed for the `Kokkos::Cuda` backend. The Kokkos architectur
 #### HIP Build
 To build Kokkos for HIP the `hipcc` compiler must be explicitly passed, along with architecture and backend flags analogous to the previous examples:
 ```
+# Change this path to desired Kokkos installation location
+export KOKKOS_INSTALL_DIR=`pwd`/install/kokkos
 cd ./kokkos
 # Configure Kokkos
 cmake \
   -B build \
   -D CMAKE_BUILD_TYPE="Release" \
   -D CMAKE_CXX_COMPILER=hipcc \
-  -D CMAKE_INSTALL_PREFIX=install \
+  -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR$ \
   -D Kokkos_ENABLE_HIP=ON \
   -D Kokkos_ARCH_VEGA908=ON
 # Build Kokkos
@@ -215,8 +216,9 @@ Alternatively, the `Finch-ExaCA` executable can be used for coupled Finch-ExaCA 
  * `Inp_FinchTranslate.json`: simulates melting and solidification of the small melt pool segment at the fine resolution translated in space to form 3 overlapping segments
 
 For coupled Finch-ExaCA runs, caution should be taken such that the cell size given in the CA input file matches that given in the Finch input file. Additionally, `scan_path_file` in the Finch input file (e.g. for `Inp_Finch.json` this is `examples/single_line/inputs_small_refined.json` in the Finch repository) should be modified to represent a global path name. Run by calling the created executable with a Finch input file and an ExaCA input file on the command line, with the Finch input file listed first:
-
+```
 mpiexec -n 1 ./build/install/bin/Finch-ExaCA $PATH_TO_FINCH/examples/single_line/inputs_small.json examples/Inp_SmallFinch.json
+```
 
 ## Output and post-processing analysis
 
