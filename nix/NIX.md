@@ -13,10 +13,10 @@ To get a shell with ExaCA temporarily installed, run:
 To install this permanently, run:
 
     $ nix profile install github:LLNL/ExaCA
-	
-To get the latest stable release, use:
 
-    $ nix shell github:LLNL/ExaCA#stable
+To get a specific release, use:
+
+    $ nix shell github:LLNL/ExaCA/<tag>
 
 To build from a working copy use `nix develop` and run CMake manually:
 
