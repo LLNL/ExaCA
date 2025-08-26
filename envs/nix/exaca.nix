@@ -2,9 +2,10 @@
   cmake,
   kokkos,
   openmpi,
+  nlohmann_json,
   stdenv,
   version,
-  src
+  src,
 }:
 stdenv.mkDerivation {
 
@@ -12,8 +13,8 @@ stdenv.mkDerivation {
   inherit version;
   inherit src;
 
-  CMAKE_TLS_VERIFY=0;
-      
+  CMAKE_TLS_VERIFY = 0;
+
   nativeBuildInputs = [
     cmake
   ];
@@ -21,10 +22,11 @@ stdenv.mkDerivation {
   buildInputs = [
     kokkos
     openmpi
+    nlohmann_json
   ];
 
   propagatedBuildInputs = [
     openmpi
   ];
-  
+
 }
