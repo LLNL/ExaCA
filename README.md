@@ -180,6 +180,10 @@ Then add this install path to the ExaCA configuration (example above) together w
 ### Building with Finch
 ExaCA can be compiled with Finch, a finite difference-based heat transport solver, for coupled heat transport and solidification simulation without the need to read time-temperature history data from file(s). The Finch source code and build instructions are available at https://github.com/ORNL-MDF/Finch. To compile ExaCA with Finch, include the path to the Finch install in the `CMAKE_INSTALL_PREFIX`. To require that ExaCA is compiled with Finch, add `ExaCA_REQUIRE_FINCH=ON`.
 
+### Build using Nix
+
+A Nix build is available for ExaCA, see [NIX.md](./envs/nix/NIX.md).
+
 ## Testing ExaCA
 
 Unit tests can be run if the `ExaCA_ENABLE_TESTING` CMake option is enabled in the build and if the GoogleTest framework is available on the system or built locally with the install path passed to ExaCA (see the previous section describing the JSON build and pointing ExaCA to the installation).
