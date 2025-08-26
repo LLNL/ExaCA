@@ -29,4 +29,18 @@ stdenv.mkDerivation {
     openmpi
   ];
 
+  doCheck = true;
+
+  checkPhase = ''
+    mkdir -p test
+    cd test
+    cp $src/examples/Inp_SmallDirSolidification.json ./
+    substituteInPlace Inp_SmallDirSolidification.json --replace-fail "Inconel625.json" "$src/examples/Materials/Inconel625.json"
+    substituteInPlace Inp_SmallDirSolidification.json --replace-fail "GrainOrientationVectors.csv" "$src/examples/Substrate/GrainOrientationVectors.csv"
+    ../bin/ExaCA Inp_SmallDirSolidification.json
+    test -e TestProblemSmallDirS.json
+    test -e TestProblemSmallDirS_Misorientations.vtk
+    test -e TestProblemSmallDirS.vtk
+  '';
+  
 }
