@@ -47,7 +47,8 @@
     };
     
     packages = with config; rec {
-      default = exaca.stable;
+      default = exaca.devel;
+      stable = exaca.stable;
 
       inherit (derivations) exaca;
     };
