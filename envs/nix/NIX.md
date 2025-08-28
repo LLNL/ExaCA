@@ -14,9 +14,9 @@ To install this permanently, run:
 
     $ nix profile install github:LLNL/ExaCA?dir=envs/nix
 	
-To get the latest stable release, use:
+To get a specific release, use:
 
-    $ nix shell github:LLNL/ExaCA?dir=envs/nix#stable
+    $ nix shell github:LLNL/ExaCA/<tag>
 
 To build from a working copy use `nix develop` and run CMake manually:
 

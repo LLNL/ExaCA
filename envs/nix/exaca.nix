@@ -1,19 +1,16 @@
 {
+  src, version,
+
+  lib, stdenv,
+
   cmake,
-  kokkos,
-  openmpi,
-  nlohmann_json,
-  stdenv,
-  version,
-  src,
+
+  kokkos, openmpi, nlohmann_json, gtest
 }:
+
 stdenv.mkDerivation {
-
   pname = "exaca";
-  inherit version;
-  inherit src;
-
-  CMAKE_TLS_VERIFY = 0;
+  inherit version src;
 
   nativeBuildInputs = [
     cmake
@@ -21,12 +18,18 @@ stdenv.mkDerivation {
 
   buildInputs = [
     kokkos
-    openmpi
     nlohmann_json
+    gtest
   ];
 
   propagatedBuildInputs = [
     openmpi
+  ];
+
+  cmakeFlags = [
+    (lib.cmakeBool "BUILD_SHARED_LIBS" true)
+    (lib.cmakeBool "ExaCA_REQUIRE_EXTERNAL_JSON" true)
+    (lib.cmakeBool "ExaCA_ENABLE_TESTING" false)
   ];
 
   doCheck = true;
@@ -42,5 +45,5 @@ stdenv.mkDerivation {
     test -e TestProblemSmallDirS_Misorientations.vtk
     test -e TestProblemSmallDirS.vtk
   '';
-  
+
 }
