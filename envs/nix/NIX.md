@@ -16,7 +16,7 @@ To install this permanently, run:
 	
 To get a specific release, use:
 
-    $ nix shell github:LLNL/ExaCA/<tag>
+    $ nix shell github:LLNL/ExaCA/<tag>?dir=envs/nix
 
 To build from a working copy use `nix develop` and run CMake manually:
 
