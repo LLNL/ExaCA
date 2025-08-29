@@ -699,7 +699,6 @@ struct RepresentativeRegion {
             const int num_second_phase_grains = unique_grain_id_vector_second_phase.size();
             // Filter out small grains
             int num_second_phase_grains_above_thresh = 0;
-            float tot_size_second_phase_grains = 0.0;
             double conv = convertToMicrons(deltax, region_type);
             for (int n = 0; n < num_second_phase_grains; n++) {
                 int grain_size_cells = std::count(grain_id_second_phase.begin(), grain_id_second_phase.end(),
@@ -707,7 +706,6 @@ struct RepresentativeRegion {
                 if (grain_size_cells > grain_size_thresh) {
                     // convert to either microns, square microns, or cubic microns (default threshold of 6 to match MTEX
                     // analysis scripts)
-                    tot_size_second_phase_grains += static_cast<float>(conv) * static_cast<float>(grain_size_cells);
                     num_second_phase_grains_above_thresh++;
                 }
             }
