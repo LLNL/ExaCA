@@ -418,9 +418,9 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                     celldata.cell_type(neighbor_index) = Active;
                                 }
                             } // End if statement within locked capture loop
-                        } // End if statement for outer capture loop
-                    } // End if statement over neighbors on the active grid
-                } // End loop over all neighbors of this active cell
+                        }     // End if statement for outer capture loop
+                    }         // End if statement over neighbors on the active grid
+                }             // End loop over all neighbors of this active cell
                 if (deactivate_cell) {
                     // This active cell has no more neighboring cells to be captured
                     // Update the counter for the number of times this cell went from liquid to active to solid
@@ -715,9 +715,10 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
 // steps
 template <typename MemorySpace>
 void jumpTimeStep(int &cycle, int remaining_liquid_cells, const int local_temp_solid_cells,
-                  Temperature<MemorySpace> &temperature, const Grid &grid, CellData<MemorySpace> &celldata,
-                  const int id, const int layernumber, const int np, Orientation<MemorySpace> &orientation,
-                  Print &print, const double deltat, Interface<MemorySpace> &interface) {
+                  Nucleation<MemorySpace> &nucleation, Temperature<MemorySpace> &temperature, const Grid &grid,
+                  CellData<MemorySpace> &celldata, const int id, const int layernumber, const int np,
+                  Orientation<MemorySpace> &orientation, Print &print, const double deltat,
+                  Interface<MemorySpace> &interface) {
 
     MPI_Bcast(&remaining_liquid_cells, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (remaining_liquid_cells == 0) {
@@ -753,6 +754,9 @@ void jumpTimeStep(int &cycle, int remaining_liquid_cells, const int local_temp_s
                                       orientation, global_next_melt_time_step);
             // Jump to next time step when melting occurs
             cycle = global_next_melt_time_step - 1;
+            // If nucleation events were possible in any of the skipped time steps, update the counter accordingly as
+            // these nucleation events could not have occured without any available liquid cells
+            nucleation.advanceCounterSkippedTimeSteps(cycle);
             if (id == 0)
                 std::cout << "Jumping to cycle " << cycle + 1 << std::endl;
         }
@@ -763,10 +767,11 @@ void jumpTimeStep(int &cycle, int remaining_liquid_cells, const int local_temp_s
 // Prints intermediate code output to stdout and checks to see if solidification is complete
 template <typename MemorySpace>
 void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Grid &grid,
-                                int successful_nuc_events_this_rank, int &x_switch, CellData<MemorySpace> &celldata,
-                                Temperature<MemorySpace> &temperature, std::string simulation_type,
-                                const int layernumber, Orientation<MemorySpace> &orientation, Print &print,
-                                const double deltat, Interface<MemorySpace> &interface) {
+                                int successful_nuc_events_this_rank, int &x_switch, Nucleation<MemorySpace> &nucleation,
+                                CellData<MemorySpace> &celldata, Temperature<MemorySpace> &temperature,
+                                std::string simulation_type, const int layernumber,
+                                Orientation<MemorySpace> &orientation, Print &print, const double deltat,
+                                Interface<MemorySpace> &interface) {
 
     auto grain_id = celldata.getGrainIDSubview(grid);
     int local_superheated_cells, local_undercooled_cells, local_active_cells, local_temp_solid_cells,
@@ -823,8 +828,8 @@ void intermediateOutputAndCheck(const int id, const int np, int &cycle, const Gr
     // Cells of interest are those currently undergoing a melting-solidification cycle
     int remaining_cells_of_interest = global_active_cells + global_superheated_cells + global_undercooled_cells;
     if ((x_switch == 0) && ((simulation_type != "Directional")))
-        jumpTimeStep(cycle, remaining_cells_of_interest, local_temp_solid_cells, temperature, grid, celldata, id,
-                     layernumber, np, orientation, print, deltat, interface);
+        jumpTimeStep(cycle, remaining_cells_of_interest, local_temp_solid_cells, nucleation, temperature, grid,
+                     celldata, id, layernumber, np, orientation, print, deltat, interface);
 }
 
 //*****************************************************************************/
