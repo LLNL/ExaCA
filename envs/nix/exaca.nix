@@ -44,6 +44,8 @@ stdenv.mkDerivation {
     test -e TestProblemSmallDirS.json
     test -e TestProblemSmallDirS_Misorientations.vtk
     test -e TestProblemSmallDirS.vtk
+    cd ..
+    \rm -rf test
   '';
 
 }

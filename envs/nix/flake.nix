@@ -17,9 +17,9 @@
 
       perSystem = { pkgs, ... }: {
         packages = rec {
-          default = devel;
-          
-          devel = pkgs.callPackage ./exaca.nix {
+          default = exaca;
+
+          exaca = pkgs.callPackage ./exaca.nix {
             src = ../..;
             version = "master";
           };
