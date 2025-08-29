@@ -198,10 +198,11 @@ struct Nucleation {
                         if (liq_time_this_event > time_to_nuc_und)
                             time_to_nuc_und = liq_time_this_event;
                         nucleation_times_myrank_v[possible_nuclei] = time_to_nuc_und;
-                        // Based on the nucleation undercooling, assign a solidification phase for the grain
-                        nuclei_phase_id_myrank_v[possible_nuclei] =
-                            irf.getPreferredPhase_Nucleation(nuclei_undercooling_whole_domain_v[n_event]);
-                        // Assign this cell the potential nucleated grain ID
+                        // Based on the nucleation undercooling, assign a solidification phase for the grain -
+                        // nucleation undercooling must be >= 0
+                        irf.getPreferredPhase_Nucleation(
+                            std::min(0.0, nuclei_undercooling_whole_domain_v[n_event])); // Assign this cell the
+                                                                                         // potential nucleated grain ID
                         nuclei_grain_id_myrank_v[possible_nuclei] = nuclei_grain_id_whole_domain_v[n_event];
                         // Increment counter on this MPI rank
                         possible_nuclei++;
