@@ -315,6 +315,17 @@ struct Nucleation {
             }
         }
     }
+
+    // If the time step jumped from an older value to a newer value of "cycle", update nucleation_counter accordingly as
+    // no nucleation events were possible over time steps without liquid cells
+    void advanceCounterSkippedTimeSteps(const int cycle) {
+
+        if (cycle > nucleation_times_host(nucleation_counter)) {
+            while (cycle > nucleation_times_host(nucleation_counter)) {
+                nucleation_counter++;
+            }
+        }
+    }
 };
 
 #endif
