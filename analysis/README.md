@@ -16,8 +16,8 @@ Once the bounds of each region are identified, the analysis options can be speci
 * Values specified in `printPerGrainStats` will print data for each individual grain ID to a csv file of per-grain data named `[MicrostructureBaseFilename]_[RegionName]_grains.csv`
 * Values specified in `printPerZCoordinateStats` will be printed in additional separate files.
 
-| Output                | Compatible options            | Details
-|=======================|===============================|====================
+| Output                | Compatible options               | Details             |
+| --------------------- | -------------------------------- | ------------------- |
 | GrainTypeFractions    | printAvgStats                    | Prints the fraction of the region consisting of nucleated grains, and the fraction that did not undergo melting
 | Misorientation        | printAvgStats/printPerGrainStats | Prints the misorientation of the grain's <001> directions with the cardinal directions
 | Size                  | printAvgStats/printPerGrainStats | Prints the grain size (length in microns, area in square microns, or volume in cubic microns, depending on the dimensionality of the region)
@@ -31,8 +31,8 @@ Once the bounds of each region are identified, the analysis options can be speci
 
 Additional analysis options for certain region types can be specified by setting them to `true` in the analysis input file (if the option does not appear in the input file, it is turned off by default)
 
-| Output                | Compatible options            | Details
-|=======================|===============================|====================
+| Output                      | Compatible options    | Details             |
+| --------------------------- | --------------------- | ------------------- |
 | PrintExaConstitYN           | volume                | Prints the grain ID data into an RVE usable by ExaConstit for constitutive properties simulation
 | PrintPoleFigureYN           | area/volume           | Prints the grain orientation frequency data to a file which can be further analyzed in Matlab to generate pole figure and inverse pole figure data using the MTEX library
 | PrintInversePoleFigureMapYN | area                  | Prints the grain euler angle data as a function of location in the cross-section to a file which can be further analyzed in Matlab to map the orientations to inverse pole figure-colored values (EBSD-like) using the MTEX library
@@ -40,7 +40,12 @@ Additional analysis options for certain region types can be specified by setting
 ## MATLAB post-processing
 The pole figure data and inverse pole figure coloring data generated from Section 2 cross-sections or the volume in Section 3 can be plotted using Matlab and the MTEX toolbox (https://mtex-toolbox.github.io/) using the scripts and colormaps located in the `utilities/MTEX` folder. Those files are as follows:
 
-* `PlotPoleFigure.m` takes an appropriate input file from the analysis post-processing script, a colormap file, and an appropriate upper limit for the colorman (in multiples of uniform distribution) and plots the 100, 110, and 111 pole figures as well as the X, Y, and Z inverse pole figures
+* `PlotPoleFigure.m` takes an appropriate input file from the analysis post-processing script and outputs pole figures for user-specified crystal planes and inverse pole figures for user-specified cartesian directions. The inputs are:
+   * MTEXFile: The name of the output file from ExaCA's analysis routine (should end in 'PoleFigureData.txt') containing data from which pole figures and inverse pole figures will be constructed
+   * ijk_vals: A cell array of (i,j,k) values for the crystal planes that correspond to the desired pole figures. For example, an input of '{[0 0 1],[1 1 0]}' will create figures for the (001) and (110) pole figures, an input of {[0 0 1]} will create a plot just for the (001) pole figure, and an empty cell array {} will skip pole figure generation.
+   * xyz_vals: An array of directions for which inverse pole figures will be plotted. For example, an input of ['x','y','z'] will create inverse pole figures for the x, y, and z directions, an input of ['z'] will create a pole figure just for the z direction, and an empty array [] will skip inverse pole figure generation.
+   * ColormapFile: The file mapping colors to multiples of uniform distribution for the figures
+   * ColormapUpperLimit: The upper limit of the colormap (lower limit is always 0)
 * `PlotIPFColoredSection.m` takes an appropriate input file from the analysis post-processing script (note that the format is not the same as the input files for plotting pole figures), smooths the grain structure data, and plots the microstructure colored using the inverse pole figure X, Y, and Z maps (cubic crystal geometry)
 * `ColorMap4.m` and `ColorMap8.m` are example colormap files to be used as an input for `PlotPoleFigure.m` (note that the appropriate corresponding upper limits of 4 and 8, respectively, should be used as inputs to `PlotPoleFigure.m` as well)
 
