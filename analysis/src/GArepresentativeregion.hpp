@@ -678,7 +678,8 @@ struct RepresentativeRegion {
     }
 
     // Print the average grain size and the number of grains in the region
-    void printMeanSize(std::ofstream &qois, const double deltax, const int num_phases = 1) {
+    void printMeanSize(std::ofstream &qois, const double deltax, const int num_phases = 1,
+                       const int grain_size_thresh = 6) {
 
         float avg_size_per_grain = divideCast<float>(region_size_microns, number_of_grains);
         std::string temp = "-- There are " + std::to_string(number_of_grains) + " grains in this " + region_type +
@@ -694,26 +695,28 @@ struct RepresentativeRegion {
                     second_phase_cells++;
                 }
             }
-            grain_id_second_phase.resize(second_phase_cells);
             std::vector<int> unique_grain_id_vector_second_phase = getUniqueGrains(grain_id_second_phase);
             const int num_second_phase_grains = unique_grain_id_vector_second_phase.size();
             // Filter out small grains
             int num_second_phase_grains_above_thresh = 0;
             float tot_size_second_phase_grains = 0.0;
             double conv = convertToMicrons(deltax, region_type);
-            for (int n = 0; n < number_of_grains; n++) {
+            for (int n = 0; n < num_second_phase_grains; n++) {
                 int grain_size_cells = std::count(grain_id_second_phase.begin(), grain_id_second_phase.end(),
                                                   unique_grain_id_vector_second_phase[n]);
-                if (grain_size_cells > 6) {
-                    // convert to either microns, square microns, or cubic microns
+                if (grain_size_cells > grain_size_thresh) {
+                    // convert to either microns, square microns, or cubic microns (default threshold of 6 to match MTEX
+                    // analysis scripts)
                     tot_size_second_phase_grains += static_cast<float>(conv) * static_cast<float>(grain_size_cells);
                     num_second_phase_grains_above_thresh++;
                 }
             }
+            float second_phase_area = static_cast<float>(conv) * static_cast<float>(second_phase_cells);
+            // Add area of removed grains into the remaining grains
             float avg_size_per_second_phase_grain =
-                divideCast<float>(tot_size_second_phase_grains, num_second_phase_grains_above_thresh);
+                divideCast<float>(second_phase_area, num_second_phase_grains_above_thresh);
             temp += "-- For the region that solidified as the second phase, there are " +
-                    std::to_string(num_second_phase_grains) + " grains in this " + region_type +
+                    std::to_string(num_second_phase_grains_above_thresh) + " grains in this " + region_type +
                     " , and the mean grain " + region_type + " is " + std::to_string(avg_size_per_second_phase_grain) +
                     " " + units_dimension + "\n";
         }
