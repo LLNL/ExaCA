@@ -27,10 +27,13 @@ We encourage you to contribute to ExaCA. Please check the
 ExaCA uses Kokkos and MPI for parallelism, JSON for input files, and CMake to build.
 
 ### Package managers
+
 ExaCA is integrated with the following package managers. Detailed build instructions are available below as well.
  - spack: see the [spack documentation](https://spack.io/) for installation and use
     - `spack install exaca` will install with the default options
     - all ExaCA options and hardware details are available through spack, e.g. `spack install exaca +finch +cuda cuda_arch=90`
+ - nix: see [NIX.md](./envs/nix/NIX.md) for building ExaCA using Nix
+    - the Nix installation currently does not support building with Finch or Cuda support
 
 ### Dependencies
 
@@ -186,10 +189,6 @@ Then add this install path to the ExaCA configuration (example above) together w
 
 ### Building with Finch
 ExaCA can be compiled with Finch, a finite difference-based heat transport solver, for coupled heat transport and solidification simulation without the need to read time-temperature history data from file(s). The Finch source code and build instructions are available at https://github.com/ORNL-MDF/Finch. To compile ExaCA with Finch, include the path to the Finch install in the `CMAKE_INSTALL_PREFIX`. To require that ExaCA is compiled with Finch, add `ExaCA_REQUIRE_FINCH=ON`.
-
-### Build using Nix
-
-A Nix build is available for ExaCA, see [NIX.md](./envs/nix/NIX.md).
 
 ## Testing ExaCA
 

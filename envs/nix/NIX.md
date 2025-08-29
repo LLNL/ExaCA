@@ -24,6 +24,10 @@ To build from a working copy use `nix develop` and run CMake manually:
     $ cmake -B build
     $ cmake --build build
 
+See the main [README](../../README.md#Build-ExaCA) for more details on
+building ExaCA.
+
+
 [NIX]: https://nixos.org/download.html
 [Flakes]: https://nixos.wiki/wiki/Flakes
 [nix.dev]: https://nix.dev
