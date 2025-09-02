@@ -33,7 +33,7 @@ ExaCA is integrated with the following package managers. Detailed build instruct
     - `spack install exaca` will install with the default options
     - all ExaCA options and hardware details are available through spack, e.g. `spack install exaca +finch +cuda cuda_arch=90`
  - nix: see [NIX.md](./envs/nix/NIX.md) for building ExaCA using Nix
-    - the Nix installation currently does not support building with Finch or Cuda support
+    - the Nix installation currently only supports the Serial Kokkos backend and does not support Finch
 
 ### Dependencies
 
