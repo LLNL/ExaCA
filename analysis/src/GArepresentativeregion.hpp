@@ -43,25 +43,25 @@ struct RepresentativeRegion {
 
     // Analysis options for mean quantities
     std::vector<std::string> analysis_options_stats_key = {
-        "GrainTypeFractions",    // all regions
-        "Misorientation",        // all regions
-        "Size",                  // all regions
+        "GrainTypeFractions", // all regions
+        "Misorientation", // all regions
+        "Size", // all regions
         "BuildTransAspectRatio", // volumes only
-        "XExtent",               // all regions
-        "YExtent",               // all regions
-        "ZExtent",               // all regions
+        "XExtent", // all regions
+        "YExtent", // all regions
+        "ZExtent", // all regions
     };
     bool print_stats_yn = false;
     std::vector<bool> analysis_options_stats_yn = std::vector<bool>(7, false);
     // Analysis options for per-grain stats
     std::vector<std::string> analysis_options_per_grain_stats_key = {
-        "Misorientation",        // all regions
-        "Size",                  // all regions - volume, area, or length
-        "XExtent",               // all regions
-        "YExtent",               // all regions
-        "ZExtent",               // all regions
+        "Misorientation", // all regions
+        "Size", // all regions - volume, area, or length
+        "XExtent", // all regions
+        "YExtent", // all regions
+        "ZExtent", // all regions
         "BuildTransAspectRatio", // volumes only
-        "IPFZ-RGB"               // all regions
+        "IPFZ-RGB" // all regions
     };
     std::vector<bool> analysis_options_per_grain_stats_yn = std::vector<bool>(7, false);
     // Analysis options for per Z coordinate stats
