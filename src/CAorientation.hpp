@@ -22,7 +22,7 @@ struct Orientation {
 
     using memory_space = MemorySpace;
     using view_type_float = Kokkos::View<float *, memory_space>;
-    using view_type_float_host = typename view_type_float::HostMirror;
+    using view_type_float_host = typename view_type_float::host_mirror_type;
 
     // Using the default exec space for this memory space.
     using execution_space = typename memory_space::execution_space;
