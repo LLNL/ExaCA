@@ -432,14 +432,14 @@ void testResizeRefillBuffers() {
     }
     if (!(grid.at_north_boundary)) {
         // Data previously stored in buffer
-        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 0), 1.0);                                     // RankX
-        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 1), 0.0);                                     // RankZ
-        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 2), 1.0);                                     // grain orientation
-        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 3), 1.0);                                     // grain number
-        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 4), 1.5);                                     // oct center X
+        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 0), 1.0); // RankX
+        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 1), 0.0); // RankZ
+        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 2), 1.0); // grain orientation
+        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 3), 1.0); // grain number
+        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 4), 1.5); // oct center X
         EXPECT_FLOAT_EQ(buffer_north_send_host(0, 5), static_cast<float>(grid.ny_local - 1.5)); // oct center Y
-        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 6), 0.5);                                     // oct center Z
-        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 7), static_cast<float>(grid.ny_local - 2));   // diagonal length
+        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 6), 0.5); // oct center Z
+        EXPECT_FLOAT_EQ(buffer_north_send_host(0, 7), static_cast<float>(grid.ny_local - 2)); // diagonal length
     }
 }
 

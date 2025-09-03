@@ -438,7 +438,7 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                 // Successful nucleation event - this cell is becoming a new active cell
                 celldata.cell_type(index) = TemporaryUpdate; // avoid operating on the new active cell before its
                                                              // associated octahedron data is initialized
-                const int my_grain_id = grain_id(index);     // grain_id was assigned as part of Nucleation
+                const int my_grain_id = grain_id(index); // grain_id was assigned as part of Nucleation
 
                 // Initialize new octahedron
                 interface.createNewOctahedron(index, coord_x, coord_y, grid.y_offset, coord_z);

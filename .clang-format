@@ -22,3 +22,4 @@ BraceWrapping:
   BeforeElse:      true
   IndentBraces:    false
 BreakBeforeBraces: Custom
+AlignTrailingComments: false

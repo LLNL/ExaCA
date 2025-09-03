@@ -209,7 +209,7 @@ void testCollectGrainStats() {
     // Write out example data
     writeTestVolume();
 
-    const int nx = 5;  // Representative region spans 0-4 (entire domain in X)
+    const int nx = 5; // Representative region spans 0-4 (entire domain in X)
     const int ny = 11; // Representative region spans 1-10 (one less than domain size in Y)
     const int nz = 12; // Representative region spans 0-9 (two less than domain size in Z)
     const double deltax = 1.25 * Kokkos::pow(10, -6);
