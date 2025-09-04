@@ -30,7 +30,7 @@ struct Interface {
     using view_type_buffer = Kokkos::View<float **, memory_space>;
     using view_type_float = Kokkos::View<float *, memory_space>;
     using view_type_int = Kokkos::View<int *, memory_space>;
-    using view_type_int_host = typename view_type_int::HostMirror;
+    using view_type_int_host = typename view_type_int::host_mirror_type;
     using neighbor_list_type = Kokkos::Array<int, 26>;
 
     // Using the default exec space for this memory space.

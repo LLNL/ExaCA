@@ -29,12 +29,12 @@ struct Temperature {
     using view_type_double_2d = Kokkos::View<double **, memory_space>;
     using view_type_float = Kokkos::View<float *, memory_space>;
     using view_type_float_2d = Kokkos::View<float **, memory_space>;
-    using view_type_int_host = typename view_type_int::HostMirror;
-    using view_type_int_3d_host = typename view_type_int_3d::HostMirror;
-    using view_type_double_host = typename view_type_double::HostMirror;
-    using view_type_double_2d_host = typename view_type_double_2d::HostMirror;
-    using view_type_float_host = typename view_type_float::HostMirror;
-    using view_type_float_2d_host = typename view_type_float_2d::HostMirror;
+    using view_type_int_host = typename view_type_int::host_mirror_type;
+    using view_type_int_3d_host = typename view_type_int_3d::host_mirror_type;
+    using view_type_double_host = typename view_type_double::host_mirror_type;
+    using view_type_double_2d_host = typename view_type_double_2d::host_mirror_type;
+    using view_type_float_host = typename view_type_float::host_mirror_type;
+    using view_type_float_2d_host = typename view_type_float_2d::host_mirror_type;
     using view_type_coupled = Kokkos::View<double **, Kokkos::LayoutLeft, Kokkos::HostSpace>;
 
     // Using the default exec space for this memory space.

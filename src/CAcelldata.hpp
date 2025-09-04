@@ -28,7 +28,7 @@ struct CellData {
 
     using memory_space = MemorySpace;
     using view_type_int = Kokkos::View<int *, memory_space>;
-    using view_type_int_host = typename view_type_int::HostMirror;
+    using view_type_int_host = typename view_type_int::host_mirror_type;
     using device_layout = typename view_type_int::array_layout;
     using view_type_int_2d_host = Kokkos::View<int **, device_layout, Kokkos::HostSpace>;
     using view_type_int_unmanaged = Kokkos::View<int *, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;

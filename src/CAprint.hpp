@@ -141,7 +141,7 @@ struct Print {
             Kokkos::ViewAllocateWithoutInitializing(view_data_this_rank_device.label() + "_WholeDomain"), 0, 0, 0);
 
         // Get the host view type
-        using host_view_type = typename Collect1DViewTypeDevice::HostMirror;
+        using host_view_type = typename Collect1DViewTypeDevice::host_mirror_type;
 
         // Copy view data of interest host
         auto view_data_this_rank = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), view_data_this_rank_device);
