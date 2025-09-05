@@ -198,7 +198,7 @@ void testNucleateGrain() {
 
     using memory_space = TEST_MEMSPACE;
     using view_int = Kokkos::View<int *, TEST_MEMSPACE>;
-    using view_int_host = typename view_int::HostMirror;
+    using view_int_host = typename view_int::host_mirror_type;
 
     int id;
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
