@@ -418,9 +418,9 @@ void cellCapture(const int, const int np, const Grid &grid, const InterfacialRes
                                     celldata.cell_type(neighbor_index) = Active;
                                 }
                             } // End if statement within locked capture loop
-                        }     // End if statement for outer capture loop
-                    }         // End if statement over neighbors on the active grid
-                }             // End loop over all neighbors of this active cell
+                        } // End if statement for outer capture loop
+                    } // End if statement over neighbors on the active grid
+                } // End loop over all neighbors of this active cell
                 if (deactivate_cell) {
                     // This active cell has no more neighboring cells to be captured
                     // Update the counter for the number of times this cell went from liquid to active to solid
