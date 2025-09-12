@@ -53,13 +53,13 @@ struct Interface {
 
     // Constructor for views and view bounds for current layer
     // Use default initialization to 0 for num_steer_host and num_steer and buffer counts
-    Interface(const int id, const int domain_size, const float init_oct_size, const int buf_size_initial_estimate = 25,
+    Interface(const int id, const Grid &grid, const float init_oct_size, const int buf_size_initial_estimate = 25,
               const int buf_components_temp = 9)
-        : diagonal_length(view_type_float(Kokkos::ViewAllocateWithoutInitializing("diagonal_length"), domain_size))
+        : diagonal_length(view_type_float(Kokkos::ViewAllocateWithoutInitializing("diagonal_length"), grid.domain_size))
         , octahedron_center(
-              view_type_float(Kokkos::ViewAllocateWithoutInitializing("octahedron_center"), 3 * domain_size))
+              view_type_float(Kokkos::ViewAllocateWithoutInitializing("octahedron_center"), 3 * grid.domain_size))
         , crit_diagonal_length(
-              view_type_float(Kokkos::ViewAllocateWithoutInitializing("crit_diagonal_length"), 26 * domain_size))
+              view_type_float(Kokkos::ViewAllocateWithoutInitializing("crit_diagonal_length"), 26 * grid.domain_size))
         , buffer_south_send(view_type_buffer(Kokkos::ViewAllocateWithoutInitializing("buffer_south_send"),
                                              buf_size_initial_estimate, buf_components_temp))
         , buffer_north_send(view_type_buffer(Kokkos::ViewAllocateWithoutInitializing("buffer_north_send"),
@@ -70,7 +70,7 @@ struct Interface {
                                              buf_size_initial_estimate, buf_components_temp))
         , send_size_south(view_type_int("send_size_south", 1))
         , send_size_north(view_type_int("send_size_north", 1))
-        , steering_vector(view_type_int(Kokkos::ViewAllocateWithoutInitializing("steering_vector"), domain_size))
+        , steering_vector(view_type_int(Kokkos::ViewAllocateWithoutInitializing("steering_vector"), grid.domain_size))
         , num_steer(view_type_int("steering_vector_size", 1))
         , send_size_south_host(view_type_int_host("send_size_south_host", 1))
         , send_size_north_host(view_type_int_host("send_size_north_host", 1))
