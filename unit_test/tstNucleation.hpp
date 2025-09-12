@@ -38,8 +38,11 @@ void testNucleiInit() {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     // default inputs struct
     Inputs inputs;
+    inputs.domain.deltat = 1.0;
     // manually set grid for test of 2 layer problem
     int number_of_layers_temp = 2;
+    // Initializing layer 1
+    int layernumber = 1;
     Grid grid(number_of_layers_temp);
     // Create test data
     // Only Z = 1 through 4 is part of this layer
@@ -59,6 +62,7 @@ void testNucleiInit() {
     grid.y_max = grid.ny * grid.deltax;
     grid.z_min_layer[1] = grid.z_layer_bottom * grid.deltax;
     grid.z_max_layer[1] = (grid.z_layer_bottom + grid.nz_layer - 1) * grid.deltax;
+    grid.layer_height = 1;
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
     grid.bottom_of_current_layer = grid.getBottomOfCurrentLayer();
@@ -75,7 +79,6 @@ void testNucleiInit() {
         grid.at_north_boundary = false;
 
     // Simple IRF - single phase
-    inputs.domain.deltat = 1 * pow(10, -6);
     inputs.irf.num_phases = 1;
     inputs.irf.A[0] = 0.0;
     inputs.irf.B[0] = 0.0;
@@ -97,62 +100,56 @@ void testNucleiInit() {
     inputs.nucleation.n_max = 0.125;
 
     // Allocate temperature data structures
-    Temperature<memory_space> temperature(grid, inputs.temperature);
-    // Resize liquidus_time and cooling_rate with the known max number of solidification events
-    Kokkos::resize(temperature.liquidus_time, grid.domain_size, max_solidification_events_count, 2);
-    Kokkos::resize(temperature.cooling_rate, grid.domain_size, max_solidification_events_count);
-    // Initialize max_solidification_events to 3 for each layer. liquidus_time and
-    // number_of_solidification_events are initialized for each cell on the host and copied to the device
-    Kokkos::View<int *, Kokkos::HostSpace> max_solidification_events_host(
-        Kokkos::ViewAllocateWithoutInitializing("max_solidification_events_host"), grid.number_of_layers);
-    max_solidification_events_host(0) = max_solidification_events_count;
-    max_solidification_events_host(1) = max_solidification_events_count;
-    // Cells solidify 1, 2, or 3 times, depending on their X coordinate
-    Kokkos::parallel_for(
-        "NumSolidificationEventsInit", grid.nz_layer, KOKKOS_LAMBDA(const int &coord_z) {
-            for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
-                for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
-                    int index = grid.get1DIndex(coord_x, coord_y, coord_z);
-                    if (coord_x < grid.nx / 2 - 1)
-                        temperature.number_of_solidification_events(index) = 3;
-                    else if (coord_x < grid.nx / 2)
-                        temperature.number_of_solidification_events(index) = 2;
-                    else
-                        temperature.number_of_solidification_events(index) = 1;
-                }
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print);
+    // Init first_value, last_value, and raw_temperature_data
+    // Assume 10 events already happened in layer 0
+    temperature.first_value(0) = 0;
+    temperature.last_value(0) = 10;
+    int num_temperature_data_pts = 10;
+    for (int n = 0; n < 3; n++) {
+        for (int index = 0; index < grid.domain_size; index++) {
+            // Cell coordinates on this rank in X, Y, and Z (GlobalZ = relative to domain bottom)
+            int coord_z = grid.getCoordZ(index);
+            int coord_z_all_layers = coord_z + grid.z_layer_bottom;
+            int coord_y = grid.getCoordY(index);
+            int coord_y_global = coord_y + grid.y_offset;
+            int coord_x = grid.getCoordX(index);
+            int num_solidification_events;
+            if (coord_x < grid.nx / 2 - 1)
+                num_solidification_events = 3;
+            else if (coord_x < grid.nx / 2)
+                num_solidification_events = 2;
+            else
+                num_solidification_events = 1;
+            if (n < num_solidification_events) {
+                temperature.raw_temperature_data(num_temperature_data_pts, 0) = coord_x * grid.deltax;
+                temperature.raw_temperature_data(num_temperature_data_pts, 1) = coord_y_global * grid.deltax;
+                temperature.raw_temperature_data(num_temperature_data_pts, 2) = coord_z * grid.deltax;
+                // melting time step depends on solidification event number
+                int melt_time = coord_z_all_layers + coord_y + grid.y_offset + (grid.domain_size * n);
+                temperature.raw_temperature_data(num_temperature_data_pts, 3) = melt_time * inputs.domain.deltat;
+                // liquidus time stemp depends on solidification event number
+                temperature.raw_temperature_data(num_temperature_data_pts, 4) = (melt_time + 1) * inputs.domain.deltat;
+                // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep value
+                temperature.raw_temperature_data(num_temperature_data_pts, 5) = 1.2;
+                num_temperature_data_pts++;
             }
-        });
-    Kokkos::fence();
-    Kokkos::parallel_for(
-        "layer_time_temp_historyInit", max_solidification_events_count, KOKKOS_LAMBDA(const int &n) {
-            for (int coord_z = 0; coord_z < grid.nz_layer; coord_z++) {
-                for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
-                    for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
-                        int index = grid.get1DIndex(coord_x, coord_y, coord_z);
-                        int coord_z_all_layers = coord_z + grid.z_layer_bottom;
-                        if (n < temperature.number_of_solidification_events(index)) {
-                            // melting time step depends on solidification event number
-                            temperature.liquidus_time(index, n, 0) =
-                                coord_z_all_layers + coord_y + grid.y_offset + (grid.domain_size * n);
-                            // liquidus time stemp depends on solidification event number
-                            temperature.liquidus_time(index, n, 1) =
-                                coord_z_all_layers + coord_y + grid.y_offset + 1 + (grid.domain_size * n);
-                            // ensures that a cell's nucleation time will be 1 time step after its CritTimeStep value
-                            temperature.cooling_rate(index, n) = 1.2;
-                        }
-                    }
-                }
-            }
-        });
-    Kokkos::fence();
-    temperature.max_solidification_events =
-        Kokkos::create_mirror_view_and_copy(memory_space(), max_solidification_events_host);
+        }
+    }
+    // Resize with size now known
+    Kokkos::resize(temperature.raw_temperature_data, num_temperature_data_pts, 6);
+    temperature.first_value(layernumber) = 10;
+    temperature.last_value(layernumber) = num_temperature_data_pts;
+
+    // Init temperature data structures (freezing_range value not used in any calculations
+    double freezing_range = 20.0;
+    temperature.initialize(layernumber, id, grid, freezing_range, inputs.domain.deltat);
 
     // Nucleation data structure, containing views of nuclei locations, time steps, and ids, and nucleation event
     // counters - initialized with an estimate on the number of nuclei in the layer
     // (estimated_nuclei_this_rank_this_layer)
     const double domain_volume = (grid.x_max - grid.x_min) * (grid.y_max - grid.y_min) *
-                                 (grid.z_max_layer(1) - grid.z_min_layer(1)) * pow(grid.deltax, 3);
+                                 (grid.z_max_layer(layernumber) - grid.z_min_layer(layernumber)) * pow(grid.deltax, 3);
     int estimated_nuclei_this_rank_this_layer = inputs.nucleation.n_max * pow(grid.deltax, 3) * grid.domain_size;
     Nucleation<memory_space> nucleation(
         estimated_nuclei_this_rank_this_layer, inputs.nucleation,
@@ -165,7 +162,7 @@ void testNucleiInit() {
     // Fill in nucleation data structures, and assign nucleation undercooling values to potential nucleation events
     // Potential nucleation grains are only associated with liquid cells in layer 1 - they will be initialized for each
     // successive layer when layer 1 in complete
-    nucleation.placeNuclei(temperature, irf, inputs.rng_seed, 1, grid, id);
+    nucleation.placeNuclei("FromFile", temperature, irf, inputs.rng_seed, 1, grid, id, inputs.domain.deltat);
 
     // Copy results back to host to check
     auto nuclei_location_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nucleation.nuclei_locations);
@@ -190,10 +187,14 @@ void testNucleiInit() {
         int coord_y = grid.getCoordY(index);
         int coord_z_all_layers = coord_z + grid.z_layer_bottom;
         // Expected nucleation time with remelting can be one of 3 possibilities, depending on the associated
-        // solidification event
-        int expected_nucleation_time_no_rm = coord_z_all_layers + coord_y + grid.y_offset + 2;
+        // solidification event. Should be 1 time step after the liquidus time which in turn is 1 time step after the
+        // melting time
+        int melt_time = coord_z_all_layers + coord_y + grid.y_offset;
+        int expected_nucleation_time_no_rm = melt_time + 2;
         int associated_s_event = nucleation.nucleation_times_host(n) / grid.domain_size;
-        int expected_nucleation_time_rm = expected_nucleation_time_no_rm + associated_s_event * grid.domain_size;
+        // Account for the fact that the melting/liquidus data from the input are increased by 1 time step to avoid
+        // nucleation prior to the first time step
+        int expected_nucleation_time_rm = expected_nucleation_time_no_rm + associated_s_event * grid.domain_size + 1;
         EXPECT_EQ(nucleation.nucleation_times_host(n), expected_nucleation_time_rm);
 
         // Are the nucleation events in order of the time steps at which they may occur?

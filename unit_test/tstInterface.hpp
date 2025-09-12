@@ -459,11 +459,13 @@ void testResizeBuffers() {
     int id;
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
+    Grid grid;
     // Interface struct
     int domain_size = 50;
+    grid.domain_size = domain_size;
     int buf_size_initial_estimate = 50;
     // Init buffers to large size
-    Interface<memory_space> interface(id, domain_size, 0.01, 50);
+    Interface<memory_space> interface(id, grid.domain_size, 0.01, 50);
 
     // Fill buffers with test data
     Kokkos::parallel_for(
@@ -500,18 +502,21 @@ void testResizeBuffers() {
 //---------------------------------------------------------------------------//
 // Steering vector and decentered octahedron tests
 //---------------------------------------------------------------------------//
-void testFillSteeringVector_Remelt() {
+void testRemeltActivateCells() {
 
     using memory_space = TEST_MEMSPACE;
 
+    int id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
     // Grid struct with manually set values
-    // Create views - each rank has 125 cells, 75 of which are part of the active region of the domain
+    // Create views - each rank has 125 cells
     Grid grid;
     grid.nx = 5;
     grid.ny_local = 5;
     grid.y_offset = 5;
-    grid.nz = 5;
-    grid.z_layer_bottom = 2;
+    grid.nz = 3;
+    grid.z_layer_bottom = 0;
     grid.nz_layer = 3;
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
@@ -531,99 +536,125 @@ void testFillSteeringVector_Remelt() {
     inputs.irf.function[0] = inputs.irf.cubic;
     InterfacialResponseFunction irf(inputs.domain.deltat, grid.deltax, inputs.irf);
 
-    // Initialize cell/temperature structures
+    // Initialize cell/temperature/orientation structures
     CellData<memory_space> celldata(grid, inputs.substrate);
     auto grain_id = celldata.getGrainIDSubview(grid);
-    Temperature<memory_space> temperature(grid, inputs.temperature);
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print);
+    std::string grain_orientation_file_tmp = checkFileInstalled("GrainOrientationVectors.csv", id);
+    std::vector<std::string> grain_orientation_file;
+    grain_orientation_file.push_back(grain_orientation_file_tmp);
+    Orientation<memory_space> orientation(id, grain_orientation_file, false, inputs.rng_seed, inputs.irf.num_phases,
+                                          irf.solidificationTransformation());
 
-    // Fill temperature structure
-    Kokkos::parallel_for(
-        "TempDataInit", grid.domain_size, KOKKOS_LAMBDA(const int &index) {
-            grain_id(index) = 1;
-            celldata.cell_type(index) = TempSolid;
-            // Cell coordinates on this rank in X, Y, and Z (GlobalZ = relative to domain bottom)
-            int coord_z = grid.getCoordZ(index);
-            int coord_y = grid.getCoordY(index);
-            // Cells at Z = 0 through Z = 2 are Solid, Z = 3 and 4 are TempSolid
-            if (coord_z <= 2) {
-                // Solid cells should have -1 assigned as their melt/crit time steps
-                temperature.liquidus_time(index, 0, 0) = -1;
-                temperature.liquidus_time(index, 0, 1) = -1;
-                temperature.cooling_rate(index, 0) = 0;
-            }
-            else {
-                // Cells "melt" at a time step corresponding to their Y location in the overall domain (depends on
-                // y_offset of the rank)
-                temperature.liquidus_time(index, 0, 0) = coord_y + grid.y_offset + 1;
-                // Cells reach liquidus during cooling 2 time steps after melting
-                temperature.liquidus_time(index, 0, 1) = temperature.liquidus_time(index, 0, 0) + 2;
-            }
-            temperature.cooling_rate(index, 0) = 0.2;
-            temperature.number_of_solidification_events(index) = 1;
-        });
+    // Cells at Z = 0 are Solid and do not change type. Cells at Z = 1 and 2 melt at a time step corresponding to their
+    // Y location in the overall domain (depends on y_offset of the rank) and cool below the liquidus 2 time steps after
+    // melting.
+    temperature.num_liquidus_times_this_layer = 2 * grid.nx * grid.ny_local * (grid.nz_layer - 1);
+    std::vector<int> liquidus_time_step_read(temperature.num_liquidus_times_this_layer),
+        cell_read(temperature.num_liquidus_times_this_layer);
+    std::vector<float> cooling_rate_read(temperature.num_liquidus_times_this_layer);
+    int liq_event_count = 0;
+    for (int index = 0; index < grid.domain_size; index++) {
+        grain_id(index) = 1;
+        celldata.cell_type(index) = Solid;
+        // Cell coordinates on this rank in X, Y, and Z (GlobalZ = relative to domain bottom)
+        int coord_z = grid.getCoordZ(index);
+        int coord_y = grid.getCoordY(index);
+        // Cells at Z = 0 are Solid, Z = 1 and 2 are Solid but have tm,tl,cr data
+        if (coord_z > 0) {
+            // Cells "melt" at a time step corresponding to their Y location in the overall domain (depends on
+            // y_offset of the rank)
+            liquidus_time_step_read[liq_event_count] = coord_y + grid.y_offset + 1;
+            cell_read[liq_event_count] = index;
+            cooling_rate_read[liq_event_count] = -1.0;
+            liq_event_count++;
+            // Cells reach liquidus during cooling 2 time steps after melting
+            liquidus_time_step_read[liq_event_count] = liquidus_time_step_read[liq_event_count - 1] + 2;
+            cell_read[liq_event_count] = index;
+            cooling_rate_read[liq_event_count] = 0.2;
+            liq_event_count++;
+        }
+    }
+    // Sort event lists and copy to temperature struct
+    temperature.num_liquidus_times_this_layer = liq_event_count;
+    temperature.initOrderedTimeTempHistory(liquidus_time_step_read, cell_read, cooling_rate_read, liq_event_count);
 
     // Interface struct
-    int id;
-    MPI_Comm_rank(MPI_COMM_WORLD, &id);
     Interface<memory_space> interface(id, grid.domain_size, 0.01);
 
     int numcycles = 15;
     for (int cycle = 1; cycle <= numcycles; cycle++) {
-        // Update cell types, local undercooling each time step, and fill the steering vector
-        fillSteeringVector_Remelt(cycle, grid, irf, celldata, temperature, interface);
+        // Update cell types and fill the steering vector for melting and activation cell type transformations
+        remeltActivateCells(cycle, grid, irf, celldata, temperature, interface);
     }
 
     // Copy data back to host to check steering vector construction results
     auto cell_type_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), celldata.cell_type);
+    Kokkos::deep_copy(interface.num_steer_host, interface.num_steer);
     auto steering_vector_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.steering_vector);
     auto num_steer_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), interface.num_steer);
     auto undercooling_current_host =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.undercooling_current);
-    auto liquidus_time_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.liquidus_time);
+    auto last_time_below_liquidus_host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.last_time_below_liquidus);
+    auto current_cooling_rate_host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.current_cooling_rate);
 
-    // Check the modified cell_type and undercooling_current values on the host:
-    // Check that the cells corresponding to outside of the "active" portion of the domain have unchanged values
-    // Check that the cells corresponding to the "active" portion of the domain have potentially changed values
-    // Z = 3: Rank 0, with all cells having GrainID = 0, should have Liquid cells everywhere, with undercooling
-    // depending on the Y position Z = 3, Rank > 0, with GrainID > 0, should have TempSolid cells (if not enough time
-    // steps to melt), Liquid cells (if enough time steps to melt but not reach the liquidus again), or FutureActive
-    // cells (if below liquidus time step). If the cell is FutureActive type, it should also have a local undercooling
-    // based on the Rank ID and the time step that it reached the liquidus relative to numcycles Z = 4, all ranks:
-    // should have TempSolid cells (if not enough time steps to melt) or Liquid (if enough time steps to melt). Local
-    // undercooling should be based on the Rank ID and the time step that it reached the liquidus relative to numcycles
-    int future_active_cells = 0;
+    // Cells at Z = 0 should still be Solid. Z = 1 and 2 cells should be Liquid if numcycles >= the time step the cell
+    // went above the liquidus, i.e. global_y_cell_position+1, unless the cell is at Z = 2 and if numcycles >= the time
+    // step the cell cooled below the liquidus, i.e. global_y_cell_position+3, in which case it should be FutureActive
+    // FutureActive cells should have values for last_time_below_liquidus and current_cooling_rate set accordingly,
+    // while FutureLiquid cells should have last_time_below_liquidus values of std::numeric_limits<int>::max()
     for (int index = 0; index < grid.domain_size; index++) {
         int coord_z = grid.getCoordZ(index);
-        if (coord_z <= 2)
-            EXPECT_FLOAT_EQ(undercooling_current_host(index), 0.0);
-        else {
-            if (numcycles < liquidus_time_host(index, 0, 0)) {
-                EXPECT_EQ(cell_type_host(index), TempSolid);
-                EXPECT_FLOAT_EQ(undercooling_current_host(index), 0.0);
-            }
-            else if ((numcycles >= liquidus_time_host(index, 0, 0)) && (numcycles <= liquidus_time_host(index, 0, 1))) {
-                EXPECT_EQ(cell_type_host(index), Liquid);
-                EXPECT_FLOAT_EQ(undercooling_current_host(index), 0.0);
-            }
+        int coord_y = grid.getCoordY(index);
+        int expected_liq_time_step_melt = coord_y + grid.y_offset + 1;
+        int expected_liq_time_step_sol = expected_liq_time_step_melt + 2;
+        if (coord_z == 0)
+            EXPECT_EQ(cell_type_host(index), Solid);
+        else if (coord_z == 1) {
+            if (numcycles < expected_liq_time_step_melt)
+                EXPECT_EQ(cell_type_host(index), Solid);
             else {
-                EXPECT_FLOAT_EQ(undercooling_current_host(index), (numcycles - liquidus_time_host(index, 0, 1)) * 0.2);
-                if (coord_z == 4)
-                    EXPECT_EQ(cell_type_host(index), Liquid);
-                else {
+                if (numcycles >= expected_liq_time_step_sol)
                     EXPECT_EQ(cell_type_host(index), FutureActive);
-                    future_active_cells++;
-                }
+                else
+                    EXPECT_EQ(cell_type_host(index), Liquid);
             }
         }
+        else if (coord_z == 2) {
+            if (numcycles >= expected_liq_time_step_melt) {
+                EXPECT_EQ(cell_type_host(index), Liquid);
+            }
+            else
+                EXPECT_EQ(cell_type_host(index), Solid);
+        }
+        if (cell_type_host(index) == Liquid) {
+            if (numcycles >= expected_liq_time_step_sol)
+                EXPECT_EQ(last_time_below_liquidus_host(index), expected_liq_time_step_sol);
+            else
+                EXPECT_EQ(last_time_below_liquidus_host(index), std::numeric_limits<int>::max());
+        }
+        else if (cell_type_host(index) == FutureActive) {
+            int coord_y = grid.getCoordY(index);
+            EXPECT_EQ(last_time_below_liquidus_host(index), coord_y + grid.y_offset + 3);
+            EXPECT_FLOAT_EQ(current_cooling_rate_host(index), 0.2);
+        }
     }
-    // Check the steering vector values on the host
-    EXPECT_EQ(future_active_cells, num_steer_host(0));
-    for (int i = 0; i < future_active_cells; i++) {
-        // This cell should correspond to a cell at GlobalZ = 3 (RankZ = 1), and some X and Y
-        int lower_bound_cell_location = grid.nx * grid.ny_local - 1;
-        int upper_bound_cell_location = 2 * grid.nx * grid.ny_local;
-        EXPECT_GT(steering_vector_host(i), lower_bound_cell_location);
-        EXPECT_LT(steering_vector_host(i), upper_bound_cell_location);
+    // Check that each cell appears on the steering vector the correct number of times: Solid cells = 0 times,
+    // FutureActive cells = 1 time
+    std::vector<int> steering_vector_appearences_count(grid.domain_size);
+    for (int i = 0; i < interface.num_steer_host(0); i++) {
+        const int index = steering_vector_host(i);
+        steering_vector_appearences_count[index]++;
+    }
+    for (int index = 0; index < grid.domain_size; index++) {
+        if (cell_type_host(index) == Solid) {
+            EXPECT_EQ(steering_vector_appearences_count[index], 0);
+        }
+        else if (cell_type_host(index) == FutureActive) {
+            EXPECT_EQ(steering_vector_appearences_count[index], 1);
+        }
     }
 }
 
@@ -649,9 +680,11 @@ void testCalcCritDiagonalLength() {
     grain_unit_vector = Kokkos::create_mirror_view_and_copy(memory_space(), grain_unit_vector_host);
 
     // Initialize interface struct
+    Grid grid;
+    grid.domain_size = domain_size;
     int id;
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
-    Interface<memory_space> interface(id, domain_size, 0.01);
+    Interface<memory_space> interface(id, grid.domain_size, 0.01);
 
     // Load octahedron centers into test view
     view_type octahedron_center_test(Kokkos::ViewAllocateWithoutInitializing("DOCenter"), 3 * domain_size);
@@ -742,7 +775,7 @@ TEST(TEST_CATEGORY, communication) {
     testResizeBuffers();
 }
 TEST(TEST_CATEGORY, cell_update_tests) {
-    testFillSteeringVector_Remelt();
+    testRemeltActivateCells();
     testCalcCritDiagonalLength();
     testCreateNewOctahedron();
 }
