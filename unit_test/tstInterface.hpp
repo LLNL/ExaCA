@@ -648,10 +648,12 @@ void testRemeltActivateCells() {
         steering_vector_appearences_count[index]++;
     }
     for (int index = 0; index < grid.domain_size; index++) {
-        if (cell_type_host(index) == Solid)
+        if (cell_type_host(index) == Solid) {
             EXPECT_EQ(steering_vector_appearences_count[index], 0);
-        else if (cell_type_host(index) == FutureActive)
+        }
+        else if (cell_type_host(index) == FutureActive) {
             EXPECT_EQ(steering_vector_appearences_count[index], 1);
+        }
     }
 }
 
