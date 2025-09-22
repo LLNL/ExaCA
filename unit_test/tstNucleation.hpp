@@ -62,6 +62,7 @@ void testNucleiInit() {
     grid.y_max = grid.ny * grid.deltax;
     grid.z_min_layer[1] = grid.z_layer_bottom * grid.deltax;
     grid.z_max_layer[1] = (grid.z_layer_bottom + grid.nz_layer - 1) * grid.deltax;
+    grid.layer_height = 1;
     grid.domain_size = grid.nx * grid.ny_local * grid.nz_layer;
     grid.domain_size_all_layers = grid.nx * grid.ny_local * grid.nz;
     grid.bottom_of_current_layer = grid.getBottomOfCurrentLayer();
@@ -123,7 +124,7 @@ void testNucleiInit() {
             if (n < num_solidification_events) {
                 temperature.raw_temperature_data(num_temperature_data_pts, 0) = coord_x * grid.deltax;
                 temperature.raw_temperature_data(num_temperature_data_pts, 1) = coord_y_global * grid.deltax;
-                temperature.raw_temperature_data(num_temperature_data_pts, 2) = coord_z_all_layers * grid.deltax;
+                temperature.raw_temperature_data(num_temperature_data_pts, 2) = coord_z * grid.deltax;
                 // melting time step depends on solidification event number
                 int melt_time = coord_z_all_layers + coord_y + grid.y_offset + (grid.domain_size * n);
                 temperature.raw_temperature_data(num_temperature_data_pts, 3) = melt_time * inputs.domain.deltat;
@@ -187,12 +188,13 @@ void testNucleiInit() {
         int coord_z_all_layers = coord_z + grid.z_layer_bottom;
         // Expected nucleation time with remelting can be one of 3 possibilities, depending on the associated
         // solidification event. Should be 1 time step after the liquidus time which in turn is 1 time step after the
-        // melting time, accounting for the fact that the melting/liquidus times are increased by 1 time step to avoid
-        // nucleation prior to the first time step
+        // melting time
         int melt_time = coord_z_all_layers + coord_y + grid.y_offset;
-        int expected_nucleation_time_no_rm = melt_time + 3;
+        int expected_nucleation_time_no_rm = melt_time + 2;
         int associated_s_event = nucleation.nucleation_times_host(n) / grid.domain_size;
-        int expected_nucleation_time_rm = expected_nucleation_time_no_rm + associated_s_event * grid.domain_size;
+        // Account for the fact that the melting/liquidus data from the input are increased by 1 time step to avoid
+        // nucleation prior to the first time step
+        int expected_nucleation_time_rm = expected_nucleation_time_no_rm + associated_s_event * grid.domain_size + 1;
         EXPECT_EQ(nucleation.nucleation_times_host(n), expected_nucleation_time_rm);
 
         // Are the nucleation events in order of the time steps at which they may occur?
