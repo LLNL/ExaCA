@@ -638,7 +638,8 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
                         // Two possibilities: buffer data with non-zero diagonal length was loaded, and a liquid
                         // cell may have to be updated to active - or zero diagonal length data was loaded, and an
                         // active cell may have to be updated to liquid
-                        if (celldata.cell_type(index) == Liquid) {
+                        if ((celldata.cell_type(index) == Liquid) &&
+                            (interface.buffer_south_recv(buf_position, 7) > 0.0)) {
                             place = true;
                             int my_grain_orientation = static_cast<int>(interface.buffer_south_recv(buf_position, 2));
                             int my_grain_number = static_cast<int>(interface.buffer_south_recv(buf_position, 3));
@@ -664,7 +665,8 @@ void haloUpdate(const int, const int, const Grid &grid, CellData<MemorySpace> &c
                         // Two possibilities: buffer data with non-zero diagonal length was loaded, and a liquid
                         // cell may have to be updated to active - or zero diagonal length data was loaded, and an
                         // active cell may have to be updated to liquid
-                        if (celldata.cell_type(index) == Liquid) {
+                        if ((celldata.cell_type(index) == Liquid) &&
+                            (interface.buffer_north_recv(buf_position, 7) > 0.0)) {
                             place = true;
                             int my_grain_orientation = static_cast<int>(interface.buffer_north_recv(buf_position, 2));
                             int my_grain_number = static_cast<int>(interface.buffer_north_recv(buf_position, 3));
