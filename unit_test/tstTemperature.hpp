@@ -127,7 +127,7 @@ void testReadTemperatureData(int number_of_layers, bool layerwise_temp_read, boo
     inputs.temperature.layerwise_temp_read = layerwise_temp_read;
 
     // Ensure that constructor correctly initialized the local values of inputs
-    Temperature<memory_space> temperature(grid, inputs.temperature);
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print);
     if (layerwise_temp_read)
         EXPECT_TRUE(temperature._inputs.layerwise_temp_read);
     else
@@ -222,7 +222,7 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
     double R_norm = inputs.temperature.R * deltat;
 
     // Temperature struct
-    Temperature<memory_space> temperature(grid, inputs.temperature);
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print);
     // Test constructor initialization of _inputs
     // These should've been initialized with default values
     EXPECT_FALSE(temperature._inputs.layerwise_temp_read);
@@ -234,16 +234,14 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
     temperature.initialize(id, simulation_type, grid, deltat);
 
     // Copy temperature views back to host
-    auto number_of_solidification_events_host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.number_of_solidification_events);
-    auto solidification_event_counter_host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.solidification_event_counter);
-    auto liquidus_time_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.liquidus_time);
-    auto max_solidification_events_host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.max_solidification_events);
-    auto undercooling_current_host =
-        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.undercooling_current);
-    auto cooling_rate_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.cooling_rate);
+    auto liquidus_cell_list_host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.liquidus_cell_list);
+    auto cooling_rate_list_host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.cooling_rate_list);
+    auto last_time_below_liquidus_host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.last_time_below_liquidus);
+    auto current_cooling_rate_host =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.current_cooling_rate);
 
     // Check results
     int location_init_undercooling, location_liquidus_isotherm;
@@ -260,42 +258,38 @@ void testInit_UnidirectionalGradient(const std::string simulation_type, const do
         location_liquidus_isotherm =
             location_init_undercooling + Kokkos::round(inputs.temperature.init_undercooling / (G * grid.deltax));
 
-    EXPECT_EQ(max_solidification_events_host(0), 1);
+    // Each cell melts/solidifies once
+    EXPECT_EQ(temperature.num_liquidus_times_this_layer, 2 * grid.domain_size);
+    // The counter is at num_liquidus_times_this_layer since melting/resolidification aren't considered for this problem
+    // type
+    EXPECT_EQ(temperature.num_liquidus_times_this_layer, temperature.liquidus_time_counter);
+    std::vector<int> found_liq_events_per_cell(grid.domain_size, 0);
+    for (int n = 0; n < temperature.num_liquidus_times_this_layer; n++) {
+        // Each cell should appear on this list twice, once for melting (time step 0, cooling rate -1) and once for
+        // cooling below the liquidus (cooling rate = 1, liquidus time either 0 if G = 0 or a Z dependent value
+        const int index = liquidus_cell_list_host(n);
+        found_liq_events_per_cell[index]++;
+        if (cooling_rate_list_host[n] == -1.0) {
+            EXPECT_EQ(temperature.liquidus_time_list_host[n], 0);
+        }
+        else {
+            EXPECT_FLOAT_EQ(cooling_rate_list_host[n], 1.0);
+            const int coord_z = grid.getCoordZ(index);
+            const int expected_liq_time = Kokkos::round((coord_z - location_liquidus_isotherm) * G_norm / R_norm);
+            EXPECT_EQ(temperature.liquidus_time_list_host(n), expected_liq_time);
+        }
+    }
+    // Check correct initialization of current cooling rate and last time below liquidus, which are the views used for
+    // this problem type to update the temperature field
     for (int coord_z = 0; coord_z < grid.nz; coord_z++) {
         for (int coord_x = 0; coord_x < grid.nx; coord_x++) {
             for (int coord_y = 0; coord_y < grid.ny_local; coord_y++) {
                 int index = grid.get1DIndex(coord_x, coord_y, coord_z);
-                // Each cell solidifies once, and counter should start at 0, associated with the zeroth layer
-                // melt time step should be -1 for all cells
-                // Cells cool at 1 K per time step
-                EXPECT_FLOAT_EQ(liquidus_time_host(index, 0, 0), -1.0);
-                EXPECT_FLOAT_EQ(cooling_rate_host(index, 0), R_norm);
-                EXPECT_EQ(number_of_solidification_events_host(index), 1);
-                EXPECT_EQ(solidification_event_counter_host(index), 0);
-                // undercooling_current should be zero for cells if a positive G is given, or init_undercooling if being
-                // initialized with a uniform undercooling field (all cells initially below liquidus)
-                if (G == 0) {
-                    EXPECT_FLOAT_EQ(undercooling_current_host(index), inputs.temperature.init_undercooling);
-                    EXPECT_FLOAT_EQ(liquidus_time_host(index, 0, 1), -1);
-                }
-                else {
-                    int dist_from_liquidus = coord_z - location_liquidus_isotherm;
-                    if (dist_from_liquidus < 0) {
-                        // Undercooled cell (liquidus time step already passed, set to -1)
-                        // The undercooling at Z = locationOfLiquidus should have been set to init_undercooling
-                        EXPECT_FLOAT_EQ(liquidus_time_host(index, 0, 1), -1);
-                        int dist_from_init_undercooling = coord_z - location_init_undercooling;
-                        EXPECT_FLOAT_EQ(undercooling_current_host(index),
-                                        inputs.temperature.init_undercooling -
-                                            dist_from_init_undercooling * G * grid.deltax);
-                    }
-                    else {
-                        // Cell has not yet reached the nonzero liquidus time yet (or reaches it at time = 0), either
-                        // does not have an assigned undercooling or the assigned undercooling is zero
-                        EXPECT_FLOAT_EQ(liquidus_time_host(index, 0, 1), dist_from_liquidus * G_norm / R_norm);
-                        EXPECT_FLOAT_EQ(undercooling_current_host(index), 0.0);
-                    }
-                }
+                const int expected_liq_time = Kokkos::round((coord_z - location_liquidus_isotherm) * G_norm / R_norm);
+                EXPECT_EQ(last_time_below_liquidus_host(index), expected_liq_time);
+                EXPECT_FLOAT_EQ(current_cooling_rate_host(index), R_norm);
+                EXPECT_EQ(temperature.number_of_solidification_events(index), 1);
+                EXPECT_EQ(found_liq_events_per_cell[index], 2);
             }
         }
     }
@@ -428,7 +422,7 @@ void testInitTemperatureFromFinch(const bool mirror_x, const int number_of_copie
     }
 
     // Construct temperature views
-    Temperature<memory_space> temperature(id, np, grid, inputs.temperature, input_temperature_data);
+    Temperature<memory_space> temperature(id, np, grid, inputs.temperature, inputs.print, input_temperature_data);
 
     // Check that the right ranks have the right temperature data
     checkTemperatureResults(inputs, grid, temperature, number_of_copies, id, np, mirror_x);
@@ -477,7 +471,7 @@ void testInitTemperatureFromFile(const bool mirror_x, const int number_of_copies
     inputs.temperature.temp_files_in_series = 1;
     inputs.temperature.layerwise_temp_read = false;
 
-    Temperature<memory_space> temperature(grid, inputs.temperature);
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print);
     temperature.readTemperatureData(id, grid, 0);
 
     // Check that the right ranks have the right temperature data
