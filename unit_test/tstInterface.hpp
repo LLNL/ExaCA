@@ -183,7 +183,6 @@ void testHaloUpdate() {
                                          grid.at_south_boundary, orientation.n_grain_orientations);
             }
         });
-    std::cout << "B" << std::endl;
     haloUpdate(0, 0, grid, celldata, interface, orientation);
 
     // Copy views to host to check values

@@ -26,7 +26,7 @@ The .json files in the examples subdirectory are provided on the command line to
 |                        | `SingleGrain` for solidification of a single grain at the domain center, continuing until it reaches a domain edge
 |                        | `FromFinch` for solidification driven by time-temperature history data from a Finch heat transport simulation
 | MaterialFileName       | Name of material file in examples/Materials used ([see section](#material-file))
-| GrainOrientationFile   | File listing rotation matrix components used in assigning orientations to grains ([see below](#grain-orientation-file(s))
+| GrainOrientationFile   | File listing rotation matrix components used in assigning orientations to grains ([see below](#grain-orientation-files)
 | RandomSeed             | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
 | Domain                 | Section for parameters that describe the simulation domain for the given problem type ([see below](#domain-inputs))
 | Nucleation             | Section for parameters that describe nucleation ([see below](#nucleation-inputs))
@@ -121,7 +121,7 @@ The .json files in the examples subdirectory are provided on the command line to
 
 This file describes the interfacial response function, i.e., the solidification velocity V as a function of undercooling dT in the liquid. Allowed functional forms are "cubic" (V = A(dT)^3 + B(dT)^2 + C(dT) + D), "quadratic" (V = A(dT)^2 + B(dT) + C), "power" (V = A(dT)^b), and "exponential" (V = A exp^(B(dT))). If the "velocity_cap" input is set to true, the solidification velocity will be capped at the value V = V(freezing_range). The material file can consist of an interfacial response for a single solid phase (for example,`examples/Materials/Inconel625.json`) or two solid phases (for example,`examples/Materials/SS316L_AusteniteFerrite.json`). In the case of two phase solidification, the names of the two phases must be given and separate functions must be specified for each phase. For the second phase listed in the file, if the "transformation" option is set to "solidification", solidification that occurs from cells that solidified as the second phase will proceed as the primary phase (however, the fact that solidification initially occured as the second phase will be tracked by the "PhaseID" variable). This phase transformation will be associated either with a random change in crystallographic orientation (if a single grain orientation file was given in the top level input file) or map to a specific new orientation (if two grain orientation files were given in the top level input file). The material file examples are installed with the executable, making it possible to simplify use the file name in the input file. Custom files must either be added to the ExaCA CMake build, use an absolute file path, or a path relative to the ExaCA source. 
 
-## Grain orientation file(s)
+## Grain orientation files
 
 This file describes the mapping of "GrainID" values to crystallographic orientations. An example is
 `examples/Substrate/GrainOrientationVectors.csv`: the first line is the
