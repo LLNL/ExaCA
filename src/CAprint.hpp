@@ -230,6 +230,11 @@ struct Print {
                 auto layer_id_whole_domain = collectViewData(id, np, grid, true, MPI_SHORT, layer_id_current_layer);
                 printViewData(id, intralayer_ofstream, grid, true, "short", "LayerID", layer_id_whole_domain);
             }
+            if (_inputs.intralayer_phase_id) {
+                auto phase_id_current_layer = celldata.getPhaseIDSubview(grid);
+                auto phase_id_whole_domain = collectViewData(id, np, grid, true, MPI_SHORT, phase_id_current_layer);
+                printViewData(id, intralayer_ofstream, grid, true, "short", "PhaseID", phase_id_whole_domain);
+            }
             if (_inputs.intralayer_undercooling_current) {
                 // TODO: remove this, the subview undercooling_current_layer is already stored in the temperature struct
                 auto undercooling_current_layer =
@@ -363,6 +368,12 @@ struct Print {
                         collectViewData(id, np, grid, false, MPI_SHORT, celldata.layer_id_all_layers);
                     printViewData(id, interlayer_all_layers_ofstream, grid, false, "short", "LayerID",
                                   layer_id_all_layers_whole_domain);
+                }
+                if (_inputs.interlayer_phase_id) {
+                    auto phase_id_all_layers_whole_domain =
+                        collectViewData(id, np, grid, false, MPI_SHORT, celldata.phase_id_all_layers);
+                    printViewData(id, interlayer_all_layers_ofstream, grid, false, "short", "PhaseID",
+                                  phase_id_all_layers_whole_domain);
                 }
                 if (_inputs.interlayer_undercooling_current) {
                     auto undercooling_all_layers_whole_domain =
@@ -618,12 +629,18 @@ struct Print {
                     if (grain_id_whole_domain(k, i, j) == 0)
                         int_print_val = 200;
                     else {
+                        // As of now, either both phases share a grain orientation file - or the second phase
+                        // transformed into the first phase after initial solidification. While the grain misorientation
+                        // view contains values for both phases, the printed values correspond to the "final" grain
+                        // orientation after any solid-solid phase transformation and should correspond to an
+                        // orientation for the primary phase ("phase 0")
                         int my_orientation =
                             getGrainOrientation(grain_id_whole_domain(k, i, j), orientation.n_grain_orientations);
                         if (grain_id_whole_domain(k, i, j) < 0)
-                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation)) + 100);
+                            int_print_val =
+                                static_cast<short>(std::round(grain_misorientation(my_orientation, 0)) + 100);
                         else
-                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation)));
+                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation, 0)));
                     }
                     writeData(misorientations_ofstream, int_print_val, _inputs.print_binary, true);
                 }
@@ -643,9 +660,10 @@ struct Print {
                         int my_orientation =
                             getGrainOrientation(grain_id_whole_domain(k, i, j), orientation.n_grain_orientations);
                         if (grain_id_whole_domain(k, i, j) < 0)
-                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation)) + 100);
+                            int_print_val =
+                                static_cast<short>(std::round(grain_misorientation(my_orientation, 0)) + 100);
                         else
-                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation)));
+                            int_print_val = static_cast<short>(std::round(grain_misorientation(my_orientation, 0)));
                     }
                     // Offset in Z as cell type values only exist for current layer
                     if (cell_type_whole_domain(k - grid.z_layer_bottom, i, j) == Liquid)

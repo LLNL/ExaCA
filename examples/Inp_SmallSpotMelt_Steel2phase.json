@@ -1,0 +1,32 @@
+{
+   "SimulationType": "Spot",
+   "MaterialFileName": "SS316L_AusteniteFerrite.json",
+   "GrainOrientationFile": "GrainOrientationVectors.csv",
+   "RandomSeed": 0,
+   "Domain": {
+       "CellSize": 1,
+       "TimeStep": 0.0666667,
+       "SpotRadius": 25
+   },
+   "Nucleation": {
+       "Density": 100,
+       "MeanUndercooling": 2,
+       "StDev": 0.5
+   },
+   "TemperatureData": {
+      "G": 150000,
+      "R": 75000
+   },
+   "Substrate": {
+      "MeanBaseplateGrainSize": 25
+   },
+   "Printing": {
+       "PathToOutput": "./",
+       "OutputFile": "TestProblemSmallSpot_Steel2Phase",
+       "PrintBinary": false,
+       "PrintExaConstitSize": 0,
+       "Interlayer": {
+           "Fields": ["GrainID", "PhaseID", "GrainMisorientation"]
+       }
+   }
+}

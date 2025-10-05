@@ -13,34 +13,7 @@ ExaCA currently can model five types of problems:
     * The M is no longer required in the problem type, as problem type R is now the same as RM (it now includes multiple melting and solidification events per cell)
 * Problem type `FromFinch` uses time-temperature history data generated from Finch, and requires Finch (and as a result, Cabana) as a dependency and two input files: a Finch input file and an ExaCA input file (in that order). Running using this problem type requires use of the `Finch-ExaCA` executable - currently, multilayer simulations are supported, but only using data from a single finch run (i.e., time-temperature history data for every layer of the ExaCA simulation is the same)
 
-All problem types rely on two files in addition to the main input file. First,
-a file containing the interfacial response function data governing
-solidification rate as a function of undercooling is required. An example is
-`examples/Materials/Inconel625`; if a different interfacial response function
-of the same form is desired, a new Materials file can be created using the
-Inconel625 file as a template and passed to the main input file. Second, a file
-of grain orientations is required. An example is
-`examples/Substrate/GrainOrientationVectors.csv`: the first line is the
-number of orientations (10000), and each additional line is a list of unit
-vectors corresponding to a cubic grain's <001> directions in the form 'x1, y1,
-z1, x2, y2, z2, x3, y3, z3', where the coordinate system used is taken as the
-ExaCA reference frame. The distribution of orientations is approximately even.
-Like the material file, the orientation file could be swapped out with one
-consisting of more (or fewer) orientations, following
-`GrainOrientationVectors.csv` as a template. Both of these material and
-orientation file examples are installed with the executable, making it possible
-to simplify use the file name in the input file. Custom files must either be
-added to the ExaCA CMake build, use an absolute file path, or a path relative
-to the ExaCA source. It should also be noted that if using a custom file of 
-grain orientation vectors in an ExaCA simulations, corresponding files that 
-list the orientations in bunge Euler angle form (analogous to 
-`examples/Substrate/GrainOrientationEulerAnglesBungeZXZ.csv`) and as RGB values 
-corresponding to the orientations' inverse pole figure-mapped RGB values 
-(analogous to `examples/Substrate/GrainOrientationRGB_IPF-Z.csv`) will be 
-necessary to run the analysis executable; see `analysis/README.md` for more 
-details.
-
-# ExaCA input files
+# ExaCA top level input files
 The .json files in the examples subdirectory are provided on the command line to let ExaCA know which problem is being simulated. The json files contain different input sections, with certain inputs only used for certain problem types. For optional inputs, the default value used is noted.
 
 ## Top level inputs
@@ -52,8 +25,8 @@ The .json files in the examples subdirectory are provided on the command line to
 |                        | `FromFile` for use of temperature data provided in the appropriate format ([see below](#temperature-inputs))
 |                        | `SingleGrain` for solidification of a single grain at the domain center, continuing until it reaches a domain edge
 |                        | `FromFinch` for solidification driven by time-temperature history data from a Finch heat transport simulation
-| MaterialFileName       | Name of material file in examples/Materials used
-| GrainOrientationFile   | File listing rotation matrix components used in assigning orientations to grains ([see below](#substrate-inputs))
+| MaterialFileName       | Name of material file in examples/Materials used ([see section](#material-file))
+| GrainOrientationFile   | File listing rotation matrix components used in assigning orientations to grains ([see below](#grain-orientation-files)
 | RandomSeed             | Value of type double used as the seed to generate baseplate, powder, and nuclei details (default value is 0.0 if not provided)
 | Domain                 | Section for parameters that describe the simulation domain for the given problem type ([see below](#domain-inputs))
 | Nucleation             | Section for parameters that describe nucleation ([see below](#nucleation-inputs))
@@ -134,3 +107,45 @@ The .json files in the examples subdirectory are provided on the command line to
 | Interlayer: Layers | All | List of layers (starting at 0 and through "NumberOfLayers-1") following which the state of the simulation should be printed. If not given (or for non-multilayer problems), defaults to printing only after the full simulation has completed
 | Interlayer: Increment | All | If "Interlayer: Layers" is not given, this option enables printing of interlayer output starting at layer 0 and repeating at the specified increment. The full simulation results following the final layer will always be printed as long as the "Interlayer" section is present in the input file".
 | Interlayer: Fields | All | Fields to print following layers (see list of fields and descriptions in top-level [README](README.md))
+
+# ExaCA additional input files
+
+|Input                      | Required?      |
+|---------------------------|----------------|
+| Material file             | Yes            |
+| Grain orientations file(s)| Yes            |
+| Temperature file(s)       | For problem type `FromFile` only |
+| Substrate file            | No             |
+
+## Material file
+
+This file describes the interfacial response function, i.e., the solidification velocity V as a function of undercooling dT in the liquid. Allowed functional forms are "cubic" (V = A(dT)^3 + B(dT)^2 + C(dT) + D), "quadratic" (V = A(dT)^2 + B(dT) + C), "power" (V = A(dT)^b), and "exponential" (V = A exp^(B(dT))). If the "velocity_cap" input is set to true, the solidification velocity will be capped at the value V = V(freezing_range). The material file can consist of an interfacial response for a single solid phase (for example,`examples/Materials/Inconel625.json`) or two solid phases (for example,`examples/Materials/SS316L_AusteniteFerrite.json`). In the case of two phase solidification, the names of the two phases must be given and separate functions must be specified for each phase. For the second phase listed in the file, if the "transformation" option is set to "solidification", solidification that occurs from cells that solidified as the second phase will proceed as the primary phase (however, the fact that solidification initially occured as the second phase will be tracked by the "PhaseID" variable). This phase transformation will be associated either with a random change in crystallographic orientation (if a single grain orientation file was given in the top level input file) or map to a specific new orientation (if two grain orientation files were given in the top level input file). The material file examples are installed with the executable, making it possible to simplify use the file name in the input file. Custom files must either be added to the ExaCA CMake build, use an absolute file path, or a path relative to the ExaCA source. 
+
+## Grain orientation files
+
+This file describes the mapping of "GrainID" values to crystallographic orientations. An example is
+`examples/Substrate/GrainOrientationVectors.csv`: the first line is the
+number of orientations (10000), and each additional line is a list of unit
+vectors corresponding to a cubic grain's <001> directions in the form 'x1, y1,
+z1, x2, y2, z2, x3, y3, z3', where the coordinate system used is taken as the
+ExaCA reference frame. The distribution of orientations is approximately even.
+Like the material file, the orientation file could be swapped out with one
+consisting of more (or fewer) orientations, following `GrainOrientationVectors.csv` as a template. 
+For two phase solidification (multiple phase names specified in the Material file), two grain 
+orientation filenames can be given. In this case, if the "transformation" option from the Material file 
+was set to "none", the first orientation file maps "GrainID" values for the primary phase and the 
+second orientation file maps "GrainID" values for the second phase. Alternatively, if the 
+"transformation" option from the Material file was set to "solidification", the crystallographic
+ orientation from second phase solidification (assigned from the second orientation file) will 
+ transform into the corresponding crystallographic orientation from the first orientation file upon 
+ solidification. Orientation file examples are installed with the executable, making it possible
+to simplify use the file name in the input file. Custom files must either be
+added to the ExaCA CMake build, use an absolute file path, or a path relative
+to the ExaCA source. It should also be noted that if using a custom file of 
+grain orientation vectors in an ExaCA simulations, corresponding files that 
+list the orientations in bunge Euler angle form (analogous to 
+`examples/Substrate/GrainOrientationEulerAnglesBungeZXZ.csv`) and as RGB values 
+corresponding to the orientations' inverse pole figure-mapped RGB values 
+(analogous to `examples/Substrate/GrainOrientationRGB_IPF-Z.csv`) will be 
+necessary to run the analysis executable; see `analysis/README.md` for more 
+details.
