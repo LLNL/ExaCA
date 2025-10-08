@@ -25,7 +25,7 @@ struct Orientation {
     using view_type_float = Kokkos::View<float *, memory_space>;
     using view_type_float_host = typename view_type_float::host_mirror_type;
     using view_type_int = Kokkos::View<int *, memory_space>;
-    using view_type_int_host = typename view_type_int::HostMirror;
+    using view_type_int_host = typename view_type_int::host_mirror_type;
     using view_type_float_2d = Kokkos::View<float **, memory_space>;
     using view_type_float_2d_host = typename view_type_float_2d::host_mirror_type;
 
