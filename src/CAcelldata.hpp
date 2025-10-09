@@ -445,6 +445,7 @@ struct CellData {
         const int baseplate_top_coord_1D = grid.nx * grid.ny_local * baseplate_size_z;
         // View to store reduction result
         Kokkos::MinMax<int>::value_type bounds_grain_id_local;
+        Kokkos::MinMax<int> bounds_grain_id_reducer(bounds_grain_id_local);
         // Local copy for lambda capture
         auto grain_id_all_layers_local = grain_id_all_layers;
         auto policy = Kokkos::RangePolicy<execution_space>(0, baseplate_top_coord_1D);
@@ -463,10 +464,9 @@ struct CellData {
                 const int coord_y_s = Kokkos::round((y_location - y_min_s) / deltax_s);
                 const int coord_z_s = Kokkos::round((z_location - z_min_s) / deltax_s);
                 grain_id_all_layers_local(index_all_layers) = grain_id_s(coord_z_s, coord_x_s, coord_y_s);
-                if (grain_id_all_layers_local(index_all_layers) < update.min_val)
-                    update.min_val = grain_id_all_layers_local(index_all_layers);
-                if (grain_id_all_layers_local(index_all_layers) > update.max_val)
-                    update.max_val = grain_id_all_layers_local(index_all_layers);
+                Kokkos::MinMaxScalar<int> current{grain_id_all_layers_local(index_all_layers),
+                                                  grain_id_all_layers_local(index_all_layers)};
+                bounds_grain_id_reducer.join(update, current);
             },
             Kokkos::MinMax<int>(bounds_grain_id_local));
         Kokkos::fence();
