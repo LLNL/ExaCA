@@ -443,7 +443,7 @@ struct CellData {
 
         // Assign each CA cell the GrainID of the nearest voxel in the substrate, returning the min and max GrainID
         const int baseplate_top_coord_1D = grid.nx * grid.ny_local * baseplate_size_z;
-        // View to store reduction result
+        // Struct to store reduction result
         Kokkos::MinMax<int>::value_type bounds_grain_id_local;
         Kokkos::MinMax<int> bounds_grain_id_reducer(bounds_grain_id_local);
         // Local copy for lambda capture
@@ -468,7 +468,7 @@ struct CellData {
                                                   grain_id_all_layers_local(index_all_layers)};
                 bounds_grain_id_reducer.join(update, current);
             },
-            Kokkos::MinMax<int>(bounds_grain_id_local));
+            bounds_grain_id_reducer);
         Kokkos::fence();
         // Avoid reusing grain IDs that were already in the baseplate grain structure in future powder layers (positive
         // values) or future nucleation events (negative values)
