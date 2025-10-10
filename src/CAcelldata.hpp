@@ -40,6 +40,7 @@ struct CellData {
     using execution_space = typename memory_space::execution_space;
 
     int next_layer_first_epitaxial_grain_id = 1;
+    int num_prior_nuclei = 0;
     view_type_int grain_id_all_layers;
     view_type_short phase_id_all_layers;
     view_type_int cell_type;
@@ -440,14 +441,17 @@ struct CellData {
         // Copy host view data to device
         auto grain_id_s = Kokkos::create_mirror_view_and_copy(memory_space(), grain_id_s_host);
 
-        // Assign each CA cell the GrainID of the nearest voxel in the substrate, returning the max GrainID
+        // Assign each CA cell the GrainID of the nearest voxel in the substrate, returning the min and max GrainID
         const int baseplate_top_coord_1D = grid.nx * grid.ny_local * baseplate_size_z;
-        int max_grain_id_local = 0;
+        // Struct to store reduction result
+        Kokkos::MinMax<int>::value_type bounds_grain_id_local;
+        Kokkos::MinMax<int> bounds_grain_id_reducer(bounds_grain_id_local);
+        // Local copy for lambda capture
         auto grain_id_all_layers_local = grain_id_all_layers;
         auto policy = Kokkos::RangePolicy<execution_space>(0, baseplate_top_coord_1D);
         Kokkos::parallel_reduce(
             "BaseplateInit", policy,
-            KOKKOS_LAMBDA(const int &index_all_layers, int &update) {
+            KOKKOS_LAMBDA(const int &index_all_layers, Kokkos::MinMax<int>::value_type &update) {
                 // x, y, z associated with this 1D cell location, with respect to the global simulation bounds
                 const int coord_x_global = grid.getCoordX(index_all_layers);
                 const int coord_y_global = grid.getCoordY(index_all_layers) + grid.y_offset;
@@ -460,19 +464,27 @@ struct CellData {
                 const int coord_y_s = Kokkos::round((y_location - y_min_s) / deltax_s);
                 const int coord_z_s = Kokkos::round((z_location - z_min_s) / deltax_s);
                 grain_id_all_layers_local(index_all_layers) = grain_id_s(coord_z_s, coord_x_s, coord_y_s);
-                if (grain_id_all_layers_local(index_all_layers) > update)
-                    update = grain_id_all_layers_local(index_all_layers);
+                Kokkos::MinMaxScalar<int> current{grain_id_all_layers_local(index_all_layers),
+                                                  grain_id_all_layers_local(index_all_layers)};
+                bounds_grain_id_reducer.join(update, current);
             },
-            Kokkos::Max<int>(max_grain_id_local));
+            bounds_grain_id_reducer);
         Kokkos::fence();
-        // Avoid reusing GrainID in next layer's powder grain structure
-        // TODO: Also account for negative grain ids in the baseplate, in the case where this comes from previous ExaCA
-        // data during future restart file reads
-        max_grain_id_local++;
+        // Avoid reusing grain IDs that were already in the baseplate grain structure in future powder layers (positive
+        // values) or future nucleation events (negative values)
+        const int min_grain_id_local = bounds_grain_id_local.min_val;
+        const int max_grain_id_local = bounds_grain_id_local.max_val;
+        MPI_Allreduce(&min_grain_id_local, &num_prior_nuclei, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         MPI_Allreduce(&max_grain_id_local, &next_layer_first_epitaxial_grain_id, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+        // First grain ID used in future layers should be 1 beyond the largest used in the substrate, increment by 1
+        next_layer_first_epitaxial_grain_id++;
+        // The number of negative grain IDs to be reserved is equivalent to the absolute value of the smallest substrate
+        // grain ID (this will then be passed to the nucleation constructor to avoid assigning these IDs to new
+        // nucleation events)
+        num_prior_nuclei = Kokkos::abs(num_prior_nuclei);
         if (id == 0)
-            std::cout << "Substrate file read complete: number of grain id values reserved: "
-                      << next_layer_first_epitaxial_grain_id - 1 << std::endl;
+            std::cout << "Substrate file read complete: grain id values in baseplate: " << -num_prior_nuclei
+                      << " through " << next_layer_first_epitaxial_grain_id - 1 << std::endl;
     }
 
     // Given a size in the Z direction (could be a baseplate or layer height) and a grain spacing (could be for the
