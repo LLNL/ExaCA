@@ -50,8 +50,8 @@ void runCoupled(int id, int np, Finch::Inputs finch_inputs, Inputs exaca_inputs)
     // melting and solidification
     std::array<double, 3> exaca_low_corner, exaca_high_corner;
     if (exaca_inputs.temperature.trim_unmelted_region) {
-        exaca_low_corner = app.getLowerSolidificationDataBounds();
-        exaca_high_corner = app.getUpperSolidificationDataBounds();
+        exaca_low_corner = app.getLowerSolidificationDataBounds(MPI_COMM_WORLD);
+        exaca_high_corner = app.getUpperSolidificationDataBounds(MPI_COMM_WORLD);
     }
     else {
         exaca_low_corner = finch_inputs.space.global_low_corner;
