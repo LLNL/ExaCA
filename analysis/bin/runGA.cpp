@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
             }
             std::cout << "Finished analysis for region " << region_name << std::endl;
         } // end loop over all representative regions in analysis file
-    }     // end scope for kokkos
+    } // end scope for kokkos
     // Finalize kokkos and end program
     Kokkos::finalize();
     return 0;
