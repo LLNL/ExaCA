@@ -160,15 +160,15 @@ jobs:
       - name: Test ExaCA
         working-directory: examples
         run: |
-          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.json
-          $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.json
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallDirSolidification.json
-          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA-Kokkos Inp_SmallSpotMelt.json
+          $HOME/exaca/bin/ExaCA Inp_SmallDirSolidification.json
+          $HOME/exaca/bin/ExaCA Inp_SmallSpotMelt.json
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA Inp_SmallDirSolidification.json
+          mpirun -n 2 --oversubscribe $HOME/exaca/bin/ExaCA Inp_SmallSpotMelt.json
       - name: Test GA
         working-directory: analysis/examples
         run: |
-           $HOME/exaca/bin/ExaCA-Kokkos ../../examples/Inp_SmallDirSolidification.json
-           $HOME/exaca/bin/grain_analysis AnalyzeSmallDirS.json TestProblemSmallDirS
+           $HOME/exaca/bin/ExaCA ../../examples/Inp_SmallDirSolidification.json
+           $HOME/exaca/bin/ExaCA-GrainAnalysis AnalyzeSmallDirS.json TestProblemSmallDirS
       - name: Test Finch-ExaCA
         if: ${{ matrix.heat_transfer == 'Finch' }}
         working-directory: utilities/Finch
