@@ -206,8 +206,8 @@ struct Print {
                          const Grid &grid, CellData<MemorySpace> &celldata, Temperature<MemorySpace> &temperature,
                          Interface<MemorySpace> &interface, Orientation<MemorySpace> &orientation) {
 
-        using view_type_float = Kokkos::View<float *, MemorySpace>;
-        using view_type_int = Kokkos::View<int *, MemorySpace>;
+        using view_type_float_host = Kokkos::View<float *, Kokkos::HostSpace>;
+        using view_type_int_host = Kokkos::View<int *, Kokkos::HostSpace>;
         if ((_inputs.intralayer) && (cycle % _inputs.intralayer_increment == 0)) {
             // Current time in microseconds
             intralayer_times.push_back(getCurrentTime(cycle, deltat));
@@ -226,8 +226,7 @@ struct Print {
                 printViewData(id, intralayer_ofstream, grid, true, "int", "GrainID", grain_id_whole_domain);
             }
             if (_inputs.intralayer_layer_id) {
-                auto layer_id_current_layer = celldata.getLayerIDSubview(grid);
-                auto layer_id_whole_domain = collectViewData(id, np, grid, true, MPI_SHORT, layer_id_current_layer);
+                auto layer_id_whole_domain = collectViewData(id, np, grid, true, MPI_SHORT, temperature.layer_id);
                 printViewData(id, intralayer_ofstream, grid, true, "short", "LayerID", layer_id_whole_domain);
             }
             if (_inputs.intralayer_phase_id) {
@@ -236,32 +235,33 @@ struct Print {
                 printViewData(id, intralayer_ofstream, grid, true, "short", "PhaseID", phase_id_whole_domain);
             }
             if (_inputs.intralayer_undercooling_current) {
-                // TODO: remove this, the subview undercooling_current_layer is already stored in the temperature struct
-                auto undercooling_current_layer =
-                    Kokkos::subview(temperature.undercooling_current_all_layers, grid.layer_range);
+                // Get undercooling data, accounting for cell types
+                celldata.calcUndercoolingCurrent(grid.domain_size, temperature, cycle);
                 auto undercooling_whole_domain =
-                    collectViewData(id, np, grid, true, MPI_FLOAT, undercooling_current_layer);
+                    collectViewData(id, np, grid, true, MPI_FLOAT, temperature.undercooling_current);
                 printViewData(id, intralayer_ofstream, grid, true, "float", "UndercoolingCurrent",
                               undercooling_whole_domain);
             }
             if (_inputs.intralayer_undercooling_solidification_start) {
+                // Get undercooling data, accounting for cell types
+                celldata.calcUndercoolingStart(grid.domain_size, temperature);
                 auto undercooling_start_whole_domain =
                     collectViewData(id, np, grid, true, MPI_FLOAT, temperature.undercooling_solidification_start);
                 printViewData(id, intralayer_ofstream, grid, true, "float", "UndercoolingStart",
                               undercooling_start_whole_domain);
             }
             if (_inputs.intralayer_melt_time_step) {
-                auto melt_time_step = temperature.template extractTmTlData<view_type_int>(0, grid.domain_size);
+                auto melt_time_step = temperature.template extractTmData<view_type_int_host>(grid.domain_size);
                 auto melt_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, melt_time_step);
                 printViewData(id, intralayer_ofstream, grid, true, "int", "MeltTimeStep", melt_time_step_whole_domain);
             }
             if (_inputs.intralayer_crit_time_step) {
-                auto crit_time_step = temperature.template extractTmTlData<view_type_int>(1, grid.domain_size);
+                auto crit_time_step = temperature.template extractTlData<view_type_int_host>(grid.domain_size);
                 auto crit_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, crit_time_step);
                 printViewData(id, intralayer_ofstream, grid, true, "int", "CritTimeStep", crit_time_step_whole_domain);
             }
             if (_inputs.intralayer_undercooling_change) {
-                auto cooling_rate = temperature.template extractCrData<view_type_float>(grid.domain_size);
+                auto cooling_rate = temperature.template extractCrData<view_type_float_host>(grid.domain_size);
                 auto undercooling_change_whole_domain = collectViewData(id, np, grid, true, MPI_FLOAT, cooling_rate);
                 printViewData(id, intralayer_ofstream, grid, true, "float", "UndercoolingChange",
                               undercooling_change_whole_domain);
@@ -334,8 +334,8 @@ struct Print {
         if (id == 0)
             std::cout << "Layer " << layernumber << " finished solidification" << std::endl;
 
-        using view_type_float = Kokkos::View<float *, MemorySpace>;
-        using view_type_int = Kokkos::View<int *, MemorySpace>;
+        using view_type_float_host = Kokkos::View<float *, Kokkos::HostSpace>;
+        using view_type_int_host = Kokkos::View<int *, Kokkos::HostSpace>;
         if ((!_inputs.skip_all_printing) && (layernumber == _inputs.print_layer_number[interlayer_file_count])) {
             // If printing a time series, include this file and time as the final one
             if (_inputs.intralayer) {
@@ -365,7 +365,7 @@ struct Print {
                                   grain_id_all_layers_whole_domain);
                 if (_inputs.interlayer_layer_id) {
                     auto layer_id_all_layers_whole_domain =
-                        collectViewData(id, np, grid, false, MPI_SHORT, celldata.layer_id_all_layers);
+                        collectViewData(id, np, grid, false, MPI_SHORT, temperature.layer_id_all_layers);
                     printViewData(id, interlayer_all_layers_ofstream, grid, false, "short", "LayerID",
                                   layer_id_all_layers_whole_domain);
                 }
@@ -376,12 +376,16 @@ struct Print {
                                   phase_id_all_layers_whole_domain);
                 }
                 if (_inputs.interlayer_undercooling_current) {
+                    // Final state of undercooling field in all cells
+                    celldata.calcUndercoolingCurrent(grid.domain_size, temperature);
                     auto undercooling_all_layers_whole_domain =
                         collectViewData(id, np, grid, false, MPI_FLOAT, temperature.undercooling_current_all_layers);
                     printViewData(id, interlayer_all_layers_ofstream, grid, false, "float", "UndercoolingCurrent",
                                   undercooling_all_layers_whole_domain);
                 }
                 if (_inputs.interlayer_undercooling_solidification_start) {
+                    // Undercooling for the last time each cell underwent solidification
+                    celldata.calcUndercoolingStart(grid.domain_size, temperature);
                     auto undercooling_start_all_layers_whole_domain = collectViewData(
                         id, np, grid, false, MPI_FLOAT, temperature.undercooling_solidification_start_all_layers);
                     printViewData(id, interlayer_all_layers_ofstream, grid, false, "float", "UndercoolingStart",
@@ -414,19 +418,19 @@ struct Print {
                     writeHeader(currentlayer_ofstream, vtk_filename_current_layer, grid, true);
                 }
                 if (_inputs.interlayer_melt_time_step) {
-                    auto melt_time_step = temperature.template extractTmTlData<view_type_int>(0, grid.domain_size);
+                    auto melt_time_step = temperature.template extractTmData<view_type_int_host>(grid.domain_size);
                     auto melt_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, melt_time_step);
                     printViewData(id, currentlayer_ofstream, grid, true, "int", "MeltTimeStep",
                                   melt_time_step_whole_domain);
                 }
                 if (_inputs.interlayer_crit_time_step) {
-                    auto crit_time_step = temperature.template extractTmTlData<view_type_int>(1, grid.domain_size);
+                    auto crit_time_step = temperature.template extractTlData<view_type_int_host>(grid.domain_size);
                     auto crit_time_step_whole_domain = collectViewData(id, np, grid, true, MPI_INT, crit_time_step);
                     printViewData(id, currentlayer_ofstream, grid, true, "int", "CritTimeStep",
                                   crit_time_step_whole_domain);
                 }
                 if (_inputs.interlayer_undercooling_change) {
-                    auto cooling_rate = temperature.template extractCrData<view_type_float>(grid.domain_size);
+                    auto cooling_rate = temperature.template extractCrData<view_type_float_host>(grid.domain_size);
                     auto undercooling_change_whole_domain =
                         collectViewData(id, np, grid, true, MPI_FLOAT, cooling_rate);
                     printViewData(id, currentlayer_ofstream, grid, true, "float", "UndercoolingChange",
@@ -475,7 +479,7 @@ struct Print {
             // If necessary, print RVE data for ExaConstit input
             if (_inputs.print_default_rve) {
                 auto layer_id_all_layers_whole_domain =
-                    collectViewData(id, np, grid, false, MPI_SHORT, celldata.layer_id_all_layers);
+                    collectViewData(id, np, grid, false, MPI_SHORT, temperature.layer_id_all_layers);
                 if (id == 0)
                     printExaConstitDefaultRVE(grid, layer_id_all_layers_whole_domain, grain_id_all_layers_whole_domain);
             }

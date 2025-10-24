@@ -29,6 +29,8 @@ struct Nucleation {
     using memory_space = MemorySpace;
     using view_type_int = Kokkos::View<int *, memory_space>;
     using view_type_int_host = typename view_type_int::host_mirror_type;
+    using view_type_double_3d = Kokkos::View<double ***, memory_space>;
+    using view_type_double_3d_host = typename view_type_double_3d::host_mirror_type;
 
     // Using the default exec space for this memory space.
     using execution_space = typename memory_space::execution_space;
@@ -80,21 +82,103 @@ struct Nucleation {
         successful_nucleation_counter = 0;
     }
 
+    // Get time-temperature history in the form needed for nucleation initialization from the structs stored in
+    // temperature
+    view_type_double_3d_host getTimeTempHistory(std::string simulation_type, const int layernumber, const double deltat,
+                                                const Grid &grid, const Temperature<memory_space> &temperature) {
+        view_type_double_3d_host time_temp_history_host("time_temp_history", grid.domain_size,
+                                                        temperature.max_num_solidification_events, 3);
+        if ((simulation_type == "SingleGrain") || (simulation_type == "Directional")) {
+            // Simple time-temperature history, only 0-1 solidification event per cell TODO: Does not work for spot
+            // problem
+            auto time_temp_history = Kokkos::create_mirror_view(memory_space(), time_temp_history_host);
+            Kokkos::parallel_for(
+                "FillTimeTempHistory", grid.domain_size, KOKKOS_LAMBDA(const int &index) {
+                    if (temperature.current_cooling_rate(index) > 0) {
+                        time_temp_history(index, 0, 0) = -1.0;
+                        time_temp_history(index, 0, 1) = temperature.last_time_below_liquidus(index);
+                        time_temp_history(index, 0, 2) = temperature.current_cooling_rate(index);
+                    }
+                });
+            Kokkos::fence();
+            time_temp_history_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), time_temp_history);
+        }
+        else {
+            // Temporary view to count events stored per cell
+            view_type_int_host number_of_solidification_events_host("num_solidification_events", grid.domain_size);
+            // First, get number of solidification events per cell and the max number of times a cell solidifies
+            // Data was already read into the "raw_temperature_data" data structure
+            // Determine which section of "raw_temperature_data" is relevant for this layer of the overall domain
+            int start_range = temperature.first_value[layernumber];
+            int end_range = temperature.last_value[layernumber];
+            for (int i = start_range; i < end_range; i++) {
+                // Get the integer X, Y, Z coordinates associated with this data point, along with the associated TM,
+                // TL, CR values coord_y is relative to this MPI rank's grid, while coord_y_global is relative to the
+                // overall simulation domain
+                int coord_x = temperature.getTempCoordX(i, grid.x_min, grid.deltax);
+                int coord_y = temperature.getTempCoordY(i, grid.y_min, grid.deltax, grid.y_offset);
+                int coord_z =
+                    temperature.getTempCoordZ(i, grid.deltax, grid.layer_height, layernumber, grid.z_min_layer);
+                double t_melting = temperature.getTempCoordTM(i);
+                double t_liquidus = temperature.getTempCoordTL(i);
+                double cooling_rate_cell = temperature.getTempCoordCR(i);
+
+                // 1D cell coordinate on this MPI rank's domain
+                int index = grid.get1DIndex(coord_x, coord_y, coord_z);
+                // Store TM, TL, CR values for this solidification event in time_temp_history_host as double values
+                const int n_solidification_events_cell = number_of_solidification_events_host(index);
+                time_temp_history_host(index, n_solidification_events_cell, 0) =
+                    static_cast<double>(Kokkos::round(t_melting / deltat) + 1);
+                time_temp_history_host(index, n_solidification_events_cell, 1) =
+                    static_cast<double>(Kokkos::round(t_liquidus / deltat) + 1);
+                // Cannot go above/below liquidus on same time step - must offset by at least 1
+                if (time_temp_history_host(index, n_solidification_events_cell, 0) ==
+                    time_temp_history_host(index, n_solidification_events_cell, 1))
+                    time_temp_history_host(index, n_solidification_events_cell, 1)++;
+                time_temp_history_host(index, n_solidification_events_cell, 2) = std::abs(cooling_rate_cell) * deltat;
+                // Increment number of solidification events for this cell
+                number_of_solidification_events_host(index)++;
+            }
+
+            // Reorder solidification events in time_temp_history_host(location,event number,component) so that they are
+            // in order based on the melting time values (component = 0 in time_temp_history_host)
+            for (int index = 0; index < grid.domain_size; index++) {
+                int n_solidification_events_cell = number_of_solidification_events_host(index);
+                if (n_solidification_events_cell > 0) {
+                    for (int i = 0; i < n_solidification_events_cell - 1; i++) {
+                        for (int j = (i + 1); j < n_solidification_events_cell; j++) {
+                            if (time_temp_history_host(index, i, 0) > time_temp_history_host(index, j, 0)) {
+                                // Swap these two points - melting event "j" happens before event "i"
+                                float old_melt_val = time_temp_history_host(index, i, 0);
+                                float old_liq_val = time_temp_history_host(index, i, 1);
+                                float old_cr_val = time_temp_history_host(index, i, 2);
+                                time_temp_history_host(index, i, 0) = time_temp_history_host(index, j, 0);
+                                time_temp_history_host(index, i, 1) = time_temp_history_host(index, j, 1);
+                                time_temp_history_host(index, i, 2) = time_temp_history_host(index, j, 2);
+                                time_temp_history_host(index, j, 0) = old_melt_val;
+                                time_temp_history_host(index, j, 1) = old_liq_val;
+                                time_temp_history_host(index, j, 2) = old_cr_val;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return time_temp_history_host;
+    }
+
     // Initialize nucleation site locations, GrainID values, and time at which nucleation events will potentially occur,
     // accounting for multiple possible nucleation events in cells that melt and solidify multiple times
     template <class... Params>
-    void placeNuclei(const Temperature<memory_space> &temperature, const InterfacialResponseFunction &irf,
-                     const unsigned long rng_seed, const int layernumber, const Grid &grid, const int id) {
+    void placeNuclei(std::string simulation_type, const Temperature<memory_space> &temperature, const InterfacialResponseFunction &irf, const unsigned long rng_seed, const int layernumber, const Grid &grid, const int id, const double deltat) {
 
         // TODO: convert this subroutine into kokkos kernels, rather than copying data back to the host, and nucleation
         // data back to the device again. This is currently performed on the device due to heavy usage of standard
         // library algorithm functions Copy temperature data into temporary host views for this subroutine
-        auto max_solidification_events_host =
-            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.max_solidification_events);
-        auto number_of_solidification_events_host =
-            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.number_of_solidification_events);
-        auto liquidus_time_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.liquidus_time);
-        auto cooling_rate_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), temperature.cooling_rate);
+
+        // Organize solidification data by event to assign nucleation to specific times that cells go below the liquidus
+        view_type_double_3d_host time_temp_history_host =
+            getTimeTempHistory(simulation_type, layernumber, deltat, grid, temperature);
 
         // Use new RNG seed for each layer
         std::mt19937_64 generator(rng_seed + static_cast<unsigned long>(layernumber));
@@ -115,7 +199,7 @@ struct Nucleation {
         // If each cell underwent solidification 1x, the number of potential nuclei in the layer
         const long int nuclei_this_layer_single_long = std::lround(_inputs.n_max * domain_volume);
         // Multiplier for the number of nucleation events per layer, based on the max number of solidification events
-        long int nuclei_multiplier_long = static_cast<long int>(max_solidification_events_host(layernumber));
+        long int nuclei_multiplier_long = static_cast<long int>(temperature.max_num_solidification_events);
         long int nuclei_this_layer_long = nuclei_this_layer_single_long * nuclei_multiplier_long;
         // Vector and view sizes should be type int for indexing and grain ID assignment purposes -
         // Nuclei_ThisLayer_long should be less than INT_MAX
@@ -183,16 +267,16 @@ struct Nucleation {
                         grid.get1DIndex(nuclei_x(n_event), nuclei_y(n_event) - grid.y_offset, nuclei_z(n_event));
                     // Criteria for placing a nucleus - whether or not this nuclei is associated with a solidification
                     // event
-                    if (meltevent < number_of_solidification_events_host(nuclei_location_this_layer)) {
+                    if (meltevent < temperature.number_of_solidification_events(nuclei_location_this_layer)) {
                         // Nucleation event is possible - cell undergoes solidification at least once, this nucleation
                         // event is associated with one of the time periods during which the associated cell undergoes
                         // solidification
                         nuclei_location_myrank_v[possible_nuclei] = nuclei_location_this_layer;
 
                         double liq_time_this_event =
-                            static_cast<double>(liquidus_time_host(nuclei_location_this_layer, meltevent, 1));
+                            static_cast<double>(time_temp_history_host(nuclei_location_this_layer, meltevent, 1));
                         double cooling_rate_this_event =
-                            static_cast<double>(cooling_rate_host(nuclei_location_this_layer, meltevent));
+                            static_cast<double>(time_temp_history_host(nuclei_location_this_layer, meltevent, 2));
                         double time_to_nuc_und =
                             liq_time_this_event + nuclei_undercooling_whole_domain_v[n_event] / cooling_rate_this_event;
                         if (liq_time_this_event > time_to_nuc_und)
