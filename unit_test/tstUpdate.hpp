@@ -43,7 +43,7 @@ void testSmallDirS() {
     Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.substrate,
               inputs.temperature);
     // Temperature fields characterized by data in this structure
-    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print.store_solidification_start);
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print);
 
     // Run SmallDirS problem and check volume fraction of nucleated grains with 1% tolerance of expected value (to
     // account for the non-deterministic nature of the cell capture)
@@ -75,7 +75,7 @@ void testSmallEquiaxedGrain() {
     Grid grid(inputs.simulation_type, id, np, inputs.domain.number_of_layers, inputs.domain, inputs.substrate,
               inputs.temperature);
     // Temperature fields characterized by data in this structure
-    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print.store_solidification_start);
+    Temperature<memory_space> temperature(grid, inputs.temperature, inputs.print);
 
     // Run Small equiaxed grain problem and check time step at which the grain reaches the domain edge
     runExaCA(id, np, inputs, timers, grid, temperature);
@@ -86,7 +86,8 @@ void testSmallEquiaxedGrain() {
     std::ifstream log_data_stream(log_file);
     nlohmann::json log_data = nlohmann::json::parse(log_data_stream);
     int time_step_of_output = log_data["TimeStepOfOutput"];
-    // FIXME: Output time step is usually 4820, but may be 4821 - need to investigate this possible race condition
+    // FIXME: Output time step is usually 4820, but may be 1 time step larger - need to investigate this possible race
+    // condition. Finishes 1 time step earlier now after update to active cell init for no remelting case
     EXPECT_NEAR(time_step_of_output, 4820, 1);
 }
 //---------------------------------------------------------------------------//
