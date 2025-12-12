@@ -24,7 +24,7 @@ jobs:
         backend: ['SERIAL', 'OPENMP']
         cmake_build_type: ['Debug', 'Release']
         kokkos_ver: ['4.0.01']
-        json: ['Internal']
+        json: ['External']
         heat_transfer: ['None']
         include:
           - distro: 'ubuntu:intel'
@@ -46,7 +46,7 @@ jobs:
             backend: 'SERIAL'
             cmake_build_type: 'Debug'
             kokkos_ver: '4.0.01'
-            json: External
+            json: Internal
             heat_transfer: 'None'
           - distro: 'ubuntu:latest'
             cxx: 'g++'
