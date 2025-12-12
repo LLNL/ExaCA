@@ -51,7 +51,7 @@ struct Timers {
 
     int id;
     Timer init, run, output;
-    Timer nucl, create_sv, capture, ghost;
+    Timer nucl, melt_act, create_sv, capture, ghost;
     Timer layer;
     Timer heat_transfer;
 
@@ -61,6 +61,7 @@ struct Timers {
         , run()
         , output()
         , nucl()
+        , melt_act()
         , create_sv()
         , capture()
         , ghost()
@@ -84,6 +85,9 @@ struct Timers {
 
     void startNucleation() { nucl.start(); }
     void stopNucleation() { nucl.stop(); }
+
+    void startMeltAct() { melt_act.start(); }
+    void stopMeltAct() { melt_act.stop(); }
 
     void startSV() { create_sv.start(); }
     void stopSV() { create_sv.stop(); }
@@ -122,6 +126,8 @@ struct Timers {
             << "]," << std::endl;
         log << "       \"MaxMinInitTime\": [" << init.maxTime() << "," << init.minTime() << "]," << std::endl;
         log << "       \"MaxMinNucleationTime\": [" << nucl.maxTime() << "," << nucl.minTime() << "]," << std::endl;
+        log << "       \"MaxMinMeltingActivationTime\": [" << melt_act.maxTime() << "," << melt_act.minTime() << "],"
+            << std::endl;
         log << "       \"MaxMinSteeringVectorCreationTime\": [" << create_sv.maxTime() << "," << create_sv.minTime()
             << "]," << std::endl;
         log << "       \"MaxMinCellCaptureTime\": [" << capture.maxTime() << "," << capture.minTime() << "],"
@@ -137,6 +143,7 @@ struct Timers {
         // Reduce all times across MPI ranks
         init.reduceMPI();
         nucl.reduceMPI();
+        melt_act.reduceMPI();
         create_sv.reduceMPI();
         capture.reduceMPI();
         ghost.reduceMPI();
@@ -160,14 +167,13 @@ struct Timers {
         std::cout << init.print("initializing data");
         std::cout << run.print("performing CA calculations");
         std::cout << output.print("collecting and printing output data");
-
         std::cout << init.printMinMax("initializing data");
         std::cout << nucl.printMinMax("in CA nucleation");
+        std::cout << melt_act.printMinMax("in CA melting and reactivation of cells");
         std::cout << create_sv.printMinMax("in CA steering vector creation");
         std::cout << capture.printMinMax("in CA cell capture");
         std::cout << ghost.printMinMax("in CA cell communication");
         std::cout << output.printMinMax("exporting data");
-
         std::cout << "===================================================================================" << std::endl;
     }
 };
